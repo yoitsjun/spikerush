@@ -1,3 +1,5 @@
 # Toolchain pinning (https://github.com/LPGhatguy/aftman). Run `aftman install` once.
+# Rojo 7.7 speaks sync protocol 5, the same as the current Rojo plugin for Studio. An older
+# server (7.4.x, protocol 4) is refused by that plugin with "different protocol version".
 [tools]
-rojo = "rojo-rbx/rojo@7.4.4"
+rojo = "rojo-rbx/rojo@7.7.0"

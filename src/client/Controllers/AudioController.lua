@@ -17,6 +17,7 @@ local group
 local holder
 local loops = {}
 local lastPlayed = {}
+local freeAttachments = {} -- positional sounds reuse their emitter attachments
 
 local function resolve(key)
 	local tb = Assets.toolbox("Sounds." .. key)
@@ -48,7 +49,7 @@ function AudioController.play(key, opts)
 	lastPlayed[key] = now
 	local sound
 	if info.template then
-		sound = info.template:Clone()
+		sound = Assets.sanitize(info.template:Clone())
 	else
 		sound = Instance.new("Sound")
 		sound.SoundId = info.id
@@ -64,20 +65,26 @@ function AudioController.play(key, opts)
 	sound.PlaybackSpeed = sound.PlaybackSpeed * (opts.speed or 1)
 	sound.SoundGroup = group
 	if opts.pos then
-		local att = Instance.new("Attachment")
-		att.Parent = holder
+		local att = table.remove(freeAttachments)
+		if not att then
+			att = Instance.new("Attachment")
+			att.Parent = holder
+		end
 		att.WorldPosition = opts.pos
 		sound.RollOffMinDistance = 20
 		sound.RollOffMaxDistance = 260
 		sound.Parent = att
-		sound.Ended:Connect(function()
-			att:Destroy()
-		end)
-		task.delay(6, function()
-			if att.Parent then
-				att:Destroy()
+		local done = false
+		local function finish()
+			if done then
+				return
 			end
-		end)
+			done = true
+			sound:Destroy()
+			table.insert(freeAttachments, att)
+		end
+		sound.Ended:Connect(finish)
+		task.delay(6, finish)
 	else
 		sound.Parent = SoundService
 		sound.Ended:Connect(function()
@@ -103,7 +110,7 @@ local function loop(key, volume)
 	end
 	local s
 	if info.template then
-		s = info.template:Clone()
+		s = Assets.sanitize(info.template:Clone())
 	else
 		s = Instance.new("Sound")
 		s.SoundId = info.id

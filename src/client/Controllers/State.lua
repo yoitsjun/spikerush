@@ -119,9 +119,19 @@ function State.isServer()
 	return State.match.serverId == State.myId
 end
 
--- My character's derived stats, exactly as the server computes them.
+-- My character's derived stats, exactly as the server computes them. This sits on the hottest
+-- client paths (every zone test, every frame), so the derived table is cached until the server
+-- rewrites any of the build attributes. derive() is pure, so the cache can't change a result.
+local statsCache = nil
+player.AttributeChanged:Connect(function()
+	statsCache = nil
+end)
+
 function State.myStats()
-	return Characters.fromAttributes(player) or Characters.stats(Config.DefaultTier)
+	if not statsCache then
+		statsCache = Characters.fromAttributes(player) or Characters.stats(Config.DefaultTier)
+	end
+	return statsCache
 end
 
 function State.myAbility()

@@ -1,0 +1,4 @@
+# Toolchain pinning for Rokit (https://github.com/rojo-rbx/rokit), Aftman's successor.
+# Run `rokit install` once. Keep this in step with aftman.toml.
+[tools]
+rojo = "rojo-rbx/rojo@7.7.0"

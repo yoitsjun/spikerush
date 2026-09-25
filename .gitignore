@@ -4,3 +4,7 @@
 *.rbxlx.lock
 sourcemap.json
 __pycache__/
+# The Spike screenshots are SUNCYAN's: keep them local, never in this public repo
+reference/*
+!reference/README.md
+*.zip

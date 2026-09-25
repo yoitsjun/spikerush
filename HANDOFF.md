@@ -29,6 +29,8 @@ The latest request was: "the jumps should not all be standardized. the tier of y
 
 **Assets.** The owner originally wanted The Spike's own sounds and visuals copied in. That was declined, and the project builds original equivalents instead: procedural effects and 26 synthesized sounds. Keep it that way.
 
+In the second session the owner asked to use the Roblox Toolbox heavily for VFX, animations, the ball model, sounds and UI. Toolbox (Creator Store) assets are fine; anything ripped from The Spike is not. Gameplay code from the Toolbox (ball physics, hitboxes, movement kits) is deliberately not used, because it would break the deterministic client prediction; TOOLBOX.md explains this to the owner.
+
 **Screenshots.** The owner shared 11 screenshots of The Spike during the first session, and they are not in this zip. The pieces built from them are:
 
 - the top bar with team names, VS and stamina bars;
@@ -61,14 +63,15 @@ Roles: 3v3 uses WS, MB and SE (humans claim WS first, then MB, then SE); 2v2 use
 
 The server boots in this order from `src/server/Main.server.lua`, passing each service a shared registry `reg`:
 
-1. CharacterService
-2. ArenaBuilder
-3. BallService
-4. TeamService
-5. ProfileService
-6. BotService
-7. HitService
-8. MatchService
+1. ToolboxService
+2. CharacterService
+3. ArenaBuilder
+4. BallService
+5. TeamService
+6. ProfileService
+7. BotService
+8. HitService
+9. MatchService
 
 The client boots from `src/client/Main.client.lua`, passing each controller the table `mods`:
 
@@ -111,6 +114,8 @@ Bots call `HitService.botAction` and go through the same pipeline.
 
 The active build is written as attributes (Tier, Height, Attack, Defense, Speed, Jump, Ability) onto the Player and the character. The client derives its prediction stats from those; the server uses `entity.charStats`, snapshotted when the match assigns teams. Picks and upgrades for your active character are rejected while your match runs, which keeps both sides identical.
 
+**Toolbox assets** (`ToolboxService`, `Assets.lua`): every visual and audio slot resolves in this order: an instance in `ReplicatedStorage.ToolboxAssets.<Category>.<Slot>`, then an id in `Assets`, then the procedural or built-in fallback. `ToolboxService` fills empty `Models`/`VFX` slots from `Assets.Toolbox` at server start (InsertService: owner's or Roblox's assets only), and `ToolboxService.install()` bakes them from the command bar with `game:GetObjects`. `Assets.sanitize` deletes every script in an inserted asset and makes its parts inert; clients sanitize their clones too. BallRenderer rebuilds the ball's look when `Models.Volleyball` arrives late.
+
 **Remotes** (`Net.lua`):
 
 | Remote | Payload |
@@ -140,26 +145,40 @@ python3 tools/check_api.py      # every Module.fn / reg.Service.fn / mods.Contro
 texlua tools/sim_test.lua       # 39 scenarios run against the real shared modules
 ```
 
+On Debian or Ubuntu, `apt-get install texlive-binaries` provides `texlua` and `texluac`.
+
 Nested config aliases such as `local AZURE = Config.Abilities.Azure` are not covered by `check_config.py`, so check those by hand. When you change a mechanic, add or update a scenario in `sim_test.lua` that proves the numbers.
 
 ## Status
 
-All the code for the 2.5D game is written and every check passes, including all 39 simulations. The sound effects are generated in `assets/sfx` but not yet uploaded. The game has never been run inside Roblox Studio.
+All the code for the 2.5D game is written and every check passes, including all 39 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The game has never been run inside Roblox Studio.
+
+### Second session (continuation)
+
+- **Rojo pinned to 7.7.0** in `aftman.toml` and a new `rokit.toml`. The previous pin (7.4.4) speaks sync protocol 4; the current Studio plugin speaks 5 and refuses it. Added `serve.bat` and `serve.sh`.
+- **Toolbox pipeline**: `ToolboxService`, `Assets.Toolbox`, `Assets.sanitize`, new VFX slots (`NetImpact`, `JumpBoom`, `GuardBreak`, the held `AzureAura`), ability icon slots, and TOOLBOX.md.
+- **Fixes found by review**: the `Slide` animation slot never played (the pose is called `Dive`); stance animations (`Charge`, `Block`, `Stance`) now play from their slots; Toolbox VFX Models now fire at the contact point instead of where the model was built; Toolbox emitters that loop are switched to bursts; the profile could load twice when a match started during the DataStore read; a player who left mid-load was cached forever.
+- **Bots** now play Roblox's default R15 idle/run/jump/fall on each client (`Assets.BotAnimations`), with the procedural run cycle as the fallback, and uploaded action animations play on bots too.
+- **Optimizations**: `State.myStats()` is cached until the build attributes change; the root CFrame (players and bots) is only rewritten when facing is actually off, which also removes a source of ground stutter; hang forces are only written when they change; VFX parts use a free list, and rings and starbursts reuse pooled BillboardGuis; set-arc dots skip their loop when none are alive; the calm crowd updates at 6 Hz instead of 20; the HUD top bar is event-driven and slow panels refresh at 20 Hz; positional sounds reuse their attachments.
+- The network policy of that session blocked Roblox, Steam, the App Store and Google, so no Toolbox asset ids were checked and no reference screenshots were downloaded. `reference/README.md` lists the sources; screenshots in `reference/` are gitignored because the repository is public.
 
 These are the spots most likely to need attention on the first playtest:
 
 | Area | What to check |
 |---|---|
+| Rojo | The plugin must be 7.7.x (`rojo plugin install`); a protocol error on Connect means a version mismatch |
 | Input | W and S double as Block and Receive while the default control script also reads them as forward/back. MovementController overrides `Humanoid:Move` every frame at RenderPriority Input+1; confirm there's no depth drift and no double actions |
 | Lane lock | The HumanoidRootPart CFrame and X velocity are corrected every physics step, for players and bots; watch for jitter during slides and jumps |
-| Animation | AutoRotate is off and facing is set by CFrame. Procedural poses are layered over the default Animate script through Motor6D.Transform in Stepped; check they blend and read in profile |
+| Animation | AutoRotate is off and facing is set by CFrame (only when it's more than about 2.5 degrees off). Procedural poses are layered over the Animator through Motor6D.Transform in Stepped; check they blend and read in profile |
+| Bot animation | Each client creates a local Animator on the server-owned bots and plays Roblox's default R15 tracks; if they don't load within 8 s the procedural cycle takes over. Check bots run, jump and idle, and that Output has no "Failed to load animation" |
 | Impact frame | Clones the attacker's character into a ViewportFrame (Archivable toggled briefly); check it lines up with the real camera and works for other players' characters |
 | Bots | Jump timing uses a simulated jump that includes the hang force. Check spikes connect, Azure bots arrive with a full bar, blocks are on time, and the lane lock doesn't fight their movement |
 | Saving | Needs "Enable Studio Access to API Services"; verify save and load, the session-only fallback, and that a failed load never gets written back |
+| Toolbox | Runtime loading needs the asset in the owner's inventory; otherwise Output shows a `[SpikeRush] Toolbox ... did not load` line. A Toolbox ball is rescaled and centred; check it spins around its centre |
 | Mobile | Movement reads the thumbstick X through the control module's `GetMoveVector`; the default jump button is hidden |
 | UI | The "▼" player marker and "⚙" settings glyphs rely on Roblox font fallback |
 | Camera | Long lens (FOV 34, 64 studs back); high sets must stay in frame at 16:9 and on phones |
-| Performance | Contact rings and starbursts are BillboardGuis created per hit |
+| Performance | Rings and starbursts are pooled BillboardGuis; popups are still created per receive grade |
 
 ## Next steps
 
@@ -170,7 +189,7 @@ Work in this order:
    - in `Config.Player`: the run-up gather, dash and boost, air control, and hang;
    - in `CameraController`: the camera distances;
    - `Config.Bots` for bot skill and `Config.Stamina` for drain.
-3. Upload the `assets/sfx` files and paste their ids into `Assets.Sounds`.
+3. Fill the Toolbox slots (TOOLBOX.md) and upload the `assets/sfx` files into `Assets.Sounds`.
 4. Lower `Config.Progression.StartingPoints` (300, for testing) before launch.
-5. Optional additions: uploaded animations in `Assets.Animations`, substitution and pause buttons, and ability icons.
-6. Ask the owner about the height re-roll.
+5. Optional additions: uploaded action animations in `Assets.Animations`, substitution and pause buttons.
+6. Ask the owner about the height re-roll (still open).

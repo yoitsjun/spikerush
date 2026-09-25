@@ -6,7 +6,7 @@
 --  * screen: white flash, horizontal speed lines, and the impact frame: the screen goes white,
 --    the attacker becomes a black silhouette over a coloured radial burst for a split second
 --  * text: receive grades ("PERFECT 96" with a badge), callouts ("Free ball!", "Stuff!")
--- Parts are pooled; GUI effects are short-lived.
+-- Parts, rings and starbursts are pooled; popups and the impact frame are short-lived.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -61,6 +61,8 @@ end
 -- pooled parts
 ------------------------------------------------------------------------------------------
 
+local PARKED = CFrame.new(0, -500, 0)
+
 local function newPart(shape)
 	local p = Instance.new("Part")
 	p.Shape = shape
@@ -73,32 +75,29 @@ local function newPart(shape)
 	p.TopSurface = Enum.SurfaceType.Smooth
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	p.Transparency = 1
+	p.CFrame = PARKED
 	p.Parent = fxFolder
 	return p
 end
 
+-- Idle parts wait on a free list per shape (no attribute scans, no allocation once warm).
 local function take(shape)
 	local list = pool[shape]
-	if not list then
-		list = {}
-		pool[shape] = list
+	if list and #list > 0 then
+		return table.remove(list)
 	end
-	for _, p in ipairs(list) do
-		if not p:GetAttribute("Busy") then
-			p:SetAttribute("Busy", true)
-			return p
-		end
-	end
-	local p = newPart(shape)
-	p:SetAttribute("Busy", true)
-	table.insert(list, p)
-	return p
+	return newPart(shape)
 end
 
 local function release(p)
 	p.Transparency = 1
-	p.CFrame = CFrame.new(0, -500, 0)
-	p:SetAttribute("Busy", false)
+	p.CFrame = PARKED
+	local list = pool[p.Shape]
+	if not list then
+		list = {}
+		pool[p.Shape] = list
+	end
+	table.insert(list, p)
 end
 
 local function animate(p, duration, fromSize, toSize, fromT, toT, cf)
@@ -180,9 +179,32 @@ local function bolt(from, dir, length, color)
 end
 
 ------------------------------------------------------------------------------------------
--- GUI shapes in world space (always face the camera)
+-- GUI shapes in world space (always face the camera). Rings and starbursts are pooled: each
+-- entry owns its anchor part and BillboardGui and is only re-coloured and re-tweened on reuse.
 ------------------------------------------------------------------------------------------
 
+local ringPool, burstPool = {}, {}
+local MAX_RAYS = 16
+
+local function newBillboard()
+	local anchor = newPart(Enum.PartType.Block)
+	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+	local gui = Instance.new("BillboardGui")
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0
+	gui.Adornee = anchor
+	gui.Enabled = false
+	gui.Parent = anchor
+	return gui, anchor
+end
+
+local function park(entry, list)
+	entry.gui.Enabled = false
+	entry.anchor.CFrame = PARKED
+	table.insert(list, entry)
+end
+
+-- One-off billboard (popups): the gui is destroyed afterwards, the anchor goes back to the pool.
 local function billboard(pos, size)
 	local anchor = take(Enum.PartType.Block)
 	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
@@ -198,65 +220,88 @@ local function billboard(pos, size)
 end
 
 local function ringFx(pos, color, fromSize, toSize, duration, thickness)
-	local gui, anchor = billboard(pos, fromSize)
-	local f = Instance.new("Frame")
-	f.AnchorPoint = Vector2.new(0.5, 0.5)
-	f.Position = UDim2.fromScale(0.5, 0.5)
-	f.Size = UDim2.fromScale(1, 1)
-	f.BackgroundTransparency = 1
-	f.Parent = gui
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = f
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = color
-	stroke.Thickness = thickness or 6
-	stroke.Parent = f
-	TweenService:Create(gui, TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(toSize, 0, toSize, 0) }):Play()
-	TweenService:Create(stroke, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1, Thickness = 1 }):Play()
+	local e = table.remove(ringPool)
+	if not e then
+		local gui, anchor = newBillboard()
+		local f = Instance.new("Frame")
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale(0.5, 0.5)
+		f.Size = UDim2.fromScale(1, 1)
+		f.BackgroundTransparency = 1
+		f.Parent = gui
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = f
+		local stroke = Instance.new("UIStroke")
+		stroke.Parent = f
+		e = { gui = gui, anchor = anchor, stroke = stroke }
+	end
+	e.anchor.CFrame = CFrame.new(pos)
+	e.gui.Size = UDim2.new(fromSize, 0, fromSize, 0)
+	e.stroke.Color = color
+	e.stroke.Thickness = thickness or 6
+	e.stroke.Transparency = 0
+	e.gui.Enabled = true
+	TweenService:Create(e.gui, TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(toSize, 0, toSize, 0) }):Play()
+	TweenService:Create(e.stroke, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1, Thickness = 1 }):Play()
 	task.delay(duration + 0.05, function()
-		gui:Destroy()
-		release(anchor)
+		park(e, ringPool)
 	end)
 end
 
 local function starburst(pos, color, size, rays, duration)
-	local gui, anchor = billboard(pos, size)
-	local scale = Instance.new("UIScale")
-	scale.Scale = 0.35
-	scale.Parent = gui
-	local frames = {}
-	for i = 1, rays do
-		local r = Instance.new("Frame")
-		r.AnchorPoint = Vector2.new(0, 0.5)
-		r.Position = UDim2.fromScale(0.5, 0.5)
-		local len = 0.28 + math.random() * 0.22
-		r.Size = UDim2.new(len, 0, 0, math.random(4, 9))
-		r.Rotation = (i / rays) * 360 + math.random() * 12
-		r.BackgroundColor3 = color
-		r.BorderSizePixel = 0
-		r.Parent = gui
-		table.insert(frames, r)
-	end
-	local core = Instance.new("Frame")
-	core.AnchorPoint = Vector2.new(0.5, 0.5)
-	core.Position = UDim2.fromScale(0.5, 0.5)
-	core.Size = UDim2.fromScale(0.26, 0.26)
-	core.BackgroundColor3 = WHITE
-	core.Parent = gui
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = core
-	TweenService:Create(scale, TweenInfo.new(duration * 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	task.delay(duration * 0.35, function()
-		for _, r in ipairs(frames) do
-			TweenService:Create(r, TweenInfo.new(duration * 0.65), { BackgroundTransparency = 1 }):Play()
+	local e = table.remove(burstPool)
+	if not e then
+		local gui, anchor = newBillboard()
+		local scale = Instance.new("UIScale")
+		scale.Parent = gui
+		local list = {}
+		for i = 1, MAX_RAYS do
+			local r = Instance.new("Frame")
+			r.AnchorPoint = Vector2.new(0, 0.5)
+			r.Position = UDim2.fromScale(0.5, 0.5)
+			r.BorderSizePixel = 0
+			r.Parent = gui
+			list[i] = r
 		end
-		TweenService:Create(core, TweenInfo.new(duration * 0.65), { BackgroundTransparency = 1 }):Play()
+		local core = Instance.new("Frame")
+		core.AnchorPoint = Vector2.new(0.5, 0.5)
+		core.Position = UDim2.fromScale(0.5, 0.5)
+		core.Size = UDim2.fromScale(0.26, 0.26)
+		core.BackgroundColor3 = WHITE
+		core.Parent = gui
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = core
+		e = { gui = gui, anchor = anchor, scale = scale, rays = list, core = core }
+	end
+	rays = math.min(rays, MAX_RAYS)
+	e.anchor.CFrame = CFrame.new(pos)
+	e.gui.Size = UDim2.new(size, 0, size, 0)
+	e.scale.Scale = 0.35
+	for i, r in ipairs(e.rays) do
+		if i <= rays then
+			r.Visible = true
+			r.Size = UDim2.new(0.28 + math.random() * 0.22, 0, 0, math.random(4, 9))
+			r.Rotation = (i / rays) * 360 + math.random() * 12
+			r.BackgroundColor3 = color
+			r.BackgroundTransparency = 0
+		else
+			r.Visible = false
+		end
+	end
+	e.core.BackgroundTransparency = 0
+	e.gui.Enabled = true
+	TweenService:Create(e.scale, TweenInfo.new(duration * 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	task.delay(duration * 0.35, function()
+		local fade = TweenInfo.new(duration * 0.65)
+		for i = 1, rays do
+			TweenService:Create(e.rays[i], fade, { BackgroundTransparency = 1 }):Play()
+		end
+		TweenService:Create(e.core, fade, { BackgroundTransparency = 1 }):Play()
 	end)
 	task.delay(duration + 0.05, function()
-		gui:Destroy()
-		release(anchor)
+		park(e, burstPool)
 	end)
 end
 
@@ -284,38 +329,51 @@ local function emit(emitter, pos, count, color)
 	emitter:Emit(count)
 end
 
+-- A Toolbox effect from ReplicatedStorage.ToolboxAssets.VFX.<name>, fired once at `pos`.
+-- Templates can be an Attachment, a Part or a Model holding ParticleEmitters. Each emitter
+-- bursts :Emit(EmitCount) after EmitDelay seconds (both optional attributes).
 local function toolboxFx(name, pos)
 	local template = Assets.toolbox("VFX." .. name)
 	if not template then
 		return false
 	end
-	local holder = Instance.new("Part")
-	holder.Anchored = true
-	holder.CanCollide = false
-	holder.CanQuery = false
-	holder.CanTouch = false
-	holder.Transparency = 1
+	local holder = take(Enum.PartType.Block)
 	holder.Size = Vector3.new(0.2, 0.2, 0.2)
+	holder.Transparency = 1
 	holder.CFrame = CFrame.new(pos)
-	holder.Parent = fxFolder
-	local clone = template:Clone()
+	local clone = Assets.sanitize(template:Clone())
 	if clone:IsA("BasePart") then
-		clone.Anchored = true
-		clone.CanCollide = false
-		clone.CanQuery = false
-		clone.Transparency = 1
+		if not clone:GetAttribute("Visible") then
+			clone.Transparency = 1
+		end
 		clone.CFrame = holder.CFrame
+	elseif clone:IsA("Model") then
+		clone:PivotTo(holder.CFrame)
 	end
 	clone.Parent = holder
 	local longest = 0.5
-	for _, d in ipairs(holder:GetDescendants()) do
+	local list = clone:GetDescendants()
+	table.insert(list, clone)
+	for _, d in ipairs(list) do
 		if d:IsA("ParticleEmitter") then
-			d:Emit(d:GetAttribute("EmitCount") or 20)
-			longest = math.max(longest, d.Lifetime.Max)
+			d.Enabled = false
+			local delay = d:GetAttribute("EmitDelay") or 0
+			local count = d:GetAttribute("EmitCount") or 20
+			if delay > 0 then
+				task.delay(delay, function()
+					if d.Parent then
+						d:Emit(count)
+					end
+				end)
+			else
+				d:Emit(count)
+			end
+			longest = math.max(longest, delay + d.Lifetime.Max)
 		end
 	end
 	task.delay(longest + 0.3, function()
-		holder:Destroy()
+		clone:Destroy()
+		release(holder)
 	end)
 	return true
 end
@@ -602,6 +660,12 @@ function VFXController.boom(entityId, kind)
 	end
 	local p = hrp.Position
 	local big = kind == "Spike" or kind == "Serve"
+	if entityId == State.myId and mods then
+		mods.AudioController.play("Boom", { volume = big and 0.8 or 0.45, minGap = 0.05 })
+	end
+	if big and toolboxFx("JumpBoom", Vector3.new(p.X, 0.3, p.Z)) then
+		return -- the Toolbox boom replaces the procedural ring and streaks
+	end
 	floorRing(Vector3.new(p.X, 0.2, p.Z), WHITE, big and 6 or 3.5, big and 0.32 or 0.25)
 	emit(dustEmitter, Vector3.new(p.X, 0.4, p.Z), big and 16 or 8)
 	if big then
@@ -613,9 +677,45 @@ function VFXController.boom(entityId, kind)
 			animate(s, 0.22, Vector3.new(0.1, 3.2, 0.14), Vector3.new(0.04, 0.4, 0.06), 0.2, 1, CFrame.new(base))
 		end
 	end
-	if entityId == State.myId and mods then
-		mods.AudioController.play("Boom", { volume = big and 0.8 or 0.45, minGap = 0.05 })
+end
+
+-- Emitters for the Azure aura: the Toolbox AzureAura template's emitters if there is one,
+-- otherwise a procedural blue flame. Returns a list of { emitter, baseRate }.
+local function auraEmitters(att)
+	local out = {}
+	local template = Assets.toolbox("VFX.AzureAura")
+	if template then
+		local clone = Assets.sanitize(template:Clone())
+		local list = clone:GetDescendants()
+		table.insert(list, clone)
+		for _, d in ipairs(list) do
+			if d:IsA("ParticleEmitter") then
+				local pe = d:Clone()
+				pe.Enabled = true
+				pe.Parent = att
+				table.insert(out, { pe, pe.Rate > 0 and pe.Rate or 40 })
+			end
+		end
+		clone:Destroy()
+		if #out > 0 then
+			return out
+		end
 	end
+	local pe = Instance.new("ParticleEmitter")
+	pe.Texture = Assets.Images.Fire
+	pe.Color = ColorSequence.new(Color3.fromRGB(150, 245, 255), Color3.fromRGB(30, 100, 255))
+	pe.LightEmission = 1
+	pe.LightInfluence = 0
+	pe.Rate = 40
+	pe.Lifetime = NumberRange.new(0.3, 0.55)
+	pe.Speed = NumberRange.new(2, 5)
+	pe.RotSpeed = NumberRange.new(-200, 200)
+	pe.SpreadAngle = Vector2.new(180, 180)
+	pe.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 0) })
+	pe.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1) })
+	pe.Parent = att
+	table.insert(out, { pe, 40 })
+	return out
 end
 
 local function setAura(model, on, energy)
@@ -636,19 +736,6 @@ local function setAura(model, on, energy)
 		local att = Instance.new("Attachment")
 		att.Name = "AzureAura"
 		att.Parent = hrp
-		local pe = Instance.new("ParticleEmitter")
-		pe.Texture = Assets.Images.Fire
-		pe.Color = ColorSequence.new(Color3.fromRGB(150, 245, 255), Color3.fromRGB(30, 100, 255))
-		pe.LightEmission = 1
-		pe.LightInfluence = 0
-		pe.Rate = 40
-		pe.Lifetime = NumberRange.new(0.3, 0.55)
-		pe.Speed = NumberRange.new(2, 5)
-		pe.RotSpeed = NumberRange.new(-200, 200)
-		pe.SpreadAngle = Vector2.new(180, 180)
-		pe.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 0) })
-		pe.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1) })
-		pe.Parent = att
 		local hl = Instance.new("Highlight")
 		hl.FillColor = AZURE
 		hl.FillTransparency = 0.8
@@ -656,11 +743,15 @@ local function setAura(model, on, energy)
 		hl.OutlineTransparency = 0.2
 		hl.DepthMode = Enum.HighlightDepthMode.Occluded
 		hl.Parent = model
-		fx = { att = att, pe = pe, hl = hl }
+		fx = { att = att, emitters = auraEmitters(att), hl = hl }
 		auras[model] = fx
 	end
 	local e = math.clamp(energy or 0.6, 0, 1.3)
-	fx.pe.Rate = 30 + 110 * e
+	-- 30 + 110 * e particles/s for the procedural flame (base 40): about 0.75x to 4.3x
+	local k = (30 + 110 * e) / 40
+	for _, item in ipairs(fx.emitters) do
+		item[1].Rate = item[2] * k
+	end
 	fx.hl.FillTransparency = 0.85 - 0.35 * math.min(e, 1)
 	if e > 1 then
 		fx.hl.FillColor = HOT
@@ -834,7 +925,10 @@ local function onBallEvent(kind, ev, meta)
 			mods.CameraController.shake(0.35)
 		end
 	elseif kind == "Net" then
-		ringFx(Vector3.new(0, ev.pos.Y, 0), WHITE, 1, 4, 0.3, 4)
+		local pos = Vector3.new(0, ev.pos.Y, 0)
+		if not toolboxFx("NetImpact", pos) then
+			ringFx(pos, WHITE, 1, 4, 0.3, 4)
+		end
 		VFXController.rippleNet()
 	end
 end
@@ -865,8 +959,10 @@ local function onBreak(a)
 	local model = a.id and Util.modelOf(a.id)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
 	local pos = hrp and hrp.Position + Vector3.new(0, 2, 0) or Vector3.new(0, 3, 0)
-	shards(pos, Color3.fromRGB(210, 235, 255), 16, 50)
-	ringFx(pos, HOT, 2, 12, 0.4, 8)
+	if not toolboxFx("GuardBreak", pos) then
+		shards(pos, Color3.fromRGB(210, 235, 255), 16, 50)
+		ringFx(pos, HOT, 2, 12, 0.4, 8)
+	end
 	VFXController.popup(pos, "Guard break!", HOT, 1.2)
 	if a.team == State.myTeam then
 		VFXController.flash(0.35, 0.3)

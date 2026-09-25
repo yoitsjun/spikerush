@@ -32,6 +32,7 @@ local charging = false
 local padAxis = 0
 local facing = 1
 local jumpKind = nil
+local lastForce = nil
 
 local function getControls()
 	if controls then
@@ -77,6 +78,7 @@ local function onCharacter(c)
 	hangForce.ApplyAtCenterOfMass = true
 	hangForce.Force = Vector3.zero
 	hangForce.Parent = hrp
+	lastForce = 0
 
 	hum.StateChanged:Connect(function(_, new)
 		if new == Enum.HumanoidStateType.Jumping then
@@ -134,11 +136,16 @@ function MovementController.axis()
 	return math.clamp(axis, -1, 1)
 end
 
+-- Rewriting the root CFrame every frame fights the humanoid's physics (ground stutter), so the
+-- root is only turned when it isn't already squared up along the court.
 local function face(dirZ)
 	if not hrp or math.abs(dirZ) < 1e-3 then
 		return
 	end
 	facing = dirZ > 0 and 1 or -1
+	if hrp.CFrame.LookVector.Z * facing > 0.999 then
+		return
+	end
 	local pos = hrp.Position
 	hrp.CFrame = CFrame.lookAt(pos, pos + Vector3.new(0, 0, facing))
 end
@@ -250,7 +257,11 @@ local function physicsStep()
 			cancel = P.HangGravityCancel
 		end
 	end
-	hangForce.Force = Vector3.new(0, hrp.AssemblyMass * workspace.Gravity * cancel, 0)
+	local force = hrp.AssemblyMass * workspace.Gravity * cancel
+	if force ~= lastForce then
+		lastForce = force
+		hangForce.Force = Vector3.new(0, force, 0)
+	end
 end
 
 -- Render step (after the default control script): movement along the court only.

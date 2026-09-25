@@ -37,6 +37,7 @@ local a0, a1, c0, c1
 local dots = {}
 local dotIndex = 0
 local lastDotAt = 0
+local dotsAliveUntil = 0
 local DOT_COUNT = 48
 
 ------------------------------------------------------------------------------------------
@@ -69,46 +70,88 @@ local function weldTo(root, part)
 	w.Parent = part
 end
 
-local function buildVisuals()
-	folder = Instance.new("Folder")
-	folder.Name = "SpikeRushBall"
-	folder.Parent = workspace
+-- The ball's look, rebuilt whenever a Toolbox ball arrives. In order of preference:
+-- ReplicatedStorage.ToolboxAssets.Models.Volleyball, the uploaded mesh in Assets.Mesh, then the
+-- procedural three-colour ball.
+local function toolboxBallModel()
+	local template = Assets.toolbox("Models.Volleyball")
+	if not template then
+		return nil
+	end
+	local clone = Assets.sanitize(template:Clone())
+	if clone:IsA("Model") or clone:IsA("BasePart") then
+		return clone
+	end
+	-- a Tool, Accessory or Folder: keep its parts in a Model
+	local model = Instance.new("Model")
+	for _, d in ipairs(clone:GetDescendants()) do
+		if d:IsA("BasePart") and not d.Parent:IsA("BasePart") then
+			d.Parent = model
+		end
+	end
+	clone:Destroy()
+	if not model:FindFirstChildWhichIsA("BasePart", true) then
+		model:Destroy()
+		return nil
+	end
+	return model
+end
 
-	ballRoot = basicPart("Ball", Enum.PartType.Ball, Vector3.new(R * 2, R * 2, R * 2), Color3.fromRGB(250, 250, 244))
-	ballRoot.Parent = folder
-
-	local toolboxBall = Assets.toolbox("Models.Volleyball")
-	local meshId = Assets.id(Assets.Mesh.BallMesh)
-	if toolboxBall then
-		local clone = toolboxBall:Clone()
-		local size = clone:IsA("Model") and clone:GetExtentsSize() or clone.Size
+-- Scale a Toolbox ball to the gameplay ball, centre its bounding box on the (origin-parked)
+-- ball root and weld every part to it.
+local function fitToolboxBall(clone)
+	local parts = {}
+	if clone:IsA("Model") then
+		local _, size = clone:GetBoundingBox()
 		local scale = (R * 2) / math.max(size.X, size.Y, size.Z, 0.01)
-		if clone:IsA("Model") then
-			clone:ScaleTo(clone:GetScale() * scale)
-			clone:PivotTo(ballRoot.CFrame)
-		else
-			clone.Size = clone.Size * scale
-			clone.CFrame = ballRoot.CFrame
-		end
-		clone.Parent = ballRoot
-		local parts = {}
-		if clone:IsA("BasePart") then
-			table.insert(parts, clone)
-		end
+		clone:ScaleTo(clone:GetScale() * scale)
+		local box = clone:GetBoundingBox()
+		clone:PivotTo(box:Inverse() * clone:GetPivot())
+	else
+		local size = clone.Size
+		local scale = (R * 2) / math.max(size.X, size.Y, size.Z, 0.01)
+		clone.Size = size * scale
 		for _, d in ipairs(clone:GetDescendants()) do
-			if d:IsA("BasePart") then
-				table.insert(parts, d)
-			elseif d:IsA("LuaSourceContainer") then
-				d:Destroy()
+			if d:IsA("SpecialMesh") then
+				d.Scale = d.Scale * scale
 			end
 		end
-		for _, p in ipairs(parts) do
-			p.CanCollide = false
-			p.CanQuery = false
-			p.CanTouch = false
-			p.CastShadow = false
-			weldTo(ballRoot, p)
+		clone.CFrame = CFrame.new()
+		table.insert(parts, clone)
+	end
+	for _, d in ipairs(clone:GetDescendants()) do
+		if d:IsA("BasePart") then
+			table.insert(parts, d)
 		end
+	end
+	clone:SetAttribute("BallLook", true)
+	clone.Parent = ballRoot
+	for _, p in ipairs(parts) do
+		weldTo(ballRoot, p)
+	end
+end
+
+local function applyBallLook()
+	for _, c in ipairs(ballRoot:GetChildren()) do
+		if c:GetAttribute("BallLook") then
+			c:Destroy()
+		end
+	end
+	ballRoot.Transparency = 0
+	local home = ballRoot.CFrame
+	ballRoot.CFrame = CFrame.new()
+
+	local clone = toolboxBallModel()
+	local meshId = Assets.id(Assets.Mesh.BallMesh)
+	if clone then
+		local ok, err = pcall(fitToolboxBall, clone)
+		if not ok then
+			warn("[SpikeRush] Toolbox volleyball could not be used: " .. tostring(err))
+			clone:Destroy()
+			clone = nil
+		end
+	end
+	if clone then
 		ballRoot.Transparency = 1
 	elseif meshId then
 		local mesh = Instance.new("SpecialMesh")
@@ -117,19 +160,54 @@ local function buildVisuals()
 		mesh.TextureId = Assets.id(Assets.Mesh.BallTexture) or ""
 		local s = R / (Assets.Mesh.BallMeshUnitRadius or 1)
 		mesh.Scale = Vector3.new(s, s, s)
+		mesh:SetAttribute("BallLook", true)
 		mesh.Parent = ballRoot
 	else
 		-- Procedural three-colour ball: two slightly larger discs read as panel stripes and
 		-- make spin clearly visible.
 		local yellow = basicPart("BandA", Enum.PartType.Cylinder, Vector3.new(R * 0.62, R * 2.04, R * 2.04), Color3.fromRGB(255, 205, 40))
 		yellow.CFrame = ballRoot.CFrame
+		yellow:SetAttribute("BallLook", true)
 		yellow.Parent = ballRoot
 		weldTo(ballRoot, yellow)
 		local blue = basicPart("BandB", Enum.PartType.Cylinder, Vector3.new(R * 0.62, R * 2.04, R * 2.04), Color3.fromRGB(34, 86, 196))
 		blue.CFrame = ballRoot.CFrame * CFrame.Angles(0, math.rad(90), 0)
+		blue:SetAttribute("BallLook", true)
 		blue.Parent = ballRoot
 		weldTo(ballRoot, blue)
 	end
+	ballRoot.CFrame = home
+end
+
+-- A Toolbox ball can land in ReplicatedStorage after the client started (ToolboxService loads
+-- ids at runtime), so watch for it.
+local function watchToolboxBall()
+	task.spawn(function()
+		local root = ReplicatedStorage:WaitForChild("ToolboxAssets", 30)
+		local models = root and root:WaitForChild("Models", 10)
+		if not models then
+			return
+		end
+		models.ChildAdded:Connect(function(c)
+			if c.Name == "Volleyball" then
+				task.defer(applyBallLook)
+			end
+		end)
+		if models:FindFirstChild("Volleyball") and ballRoot.Transparency < 1 then
+			applyBallLook()
+		end
+	end)
+end
+
+local function buildVisuals()
+	folder = Instance.new("Folder")
+	folder.Name = "SpikeRushBall"
+	folder.Parent = workspace
+
+	ballRoot = basicPart("Ball", Enum.PartType.Ball, Vector3.new(R * 2, R * 2, R * 2), Color3.fromRGB(250, 250, 244))
+	ballRoot.Parent = folder
+
+	applyBallLook()
 
 	trailPart = basicPart("TrailAnchor", Enum.PartType.Block, Vector3.new(0.2, 0.2, 0.2), Color3.new(1, 1, 1))
 	trailPart.Transparency = 1
@@ -509,16 +587,19 @@ local function update(dt)
 		local d = dots[dotIndex]
 		d.born = clock
 		d.part.CFrame = CFrame.new(pos)
+		dotsAliveUntil = clock + 1.4
 	end
-	for _, d in ipairs(dots) do
-		local age = clock - d.born
-		if age < 1.3 then
-			local k = age / 1.3
-			local s = 0.42 * (1 - k * 0.6)
-			d.part.Size = Vector3.new(s, s, s)
-			d.part.Transparency = 0.05 + 0.95 * k * k
-		elseif d.part.Transparency < 1 then
-			d.part.Transparency = 1
+	if clock < dotsAliveUntil then
+		for _, d in ipairs(dots) do
+			local age = clock - d.born
+			if age < 1.3 then
+				local k = age / 1.3
+				local s = 0.42 * (1 - k * 0.6)
+				d.part.Size = Vector3.new(s, s, s)
+				d.part.Transparency = 0.05 + 0.95 * k * k
+			elseif d.part.Transparency < 1 then
+				d.part.Transparency = 1
+			end
 		end
 	end
 
@@ -612,6 +693,7 @@ end
 
 function BallRenderer.init()
 	buildVisuals()
+	watchToolboxBall()
 	applyStyle(nil)
 	Net.get("BallState").OnClientEvent:Connect(onState)
 	Net.get("HitReject").OnClientEvent:Connect(onReject)

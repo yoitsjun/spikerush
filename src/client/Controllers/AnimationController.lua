@@ -1,15 +1,19 @@
 -- Procedural R15 animation. Every character (players and bots) gets volleyball poses layered
--- over whatever the default Animator is doing, by blending Motor6D.Transform in Stepped
--- (which runs after the Animator has posed the rig for the frame).
+-- over whatever the Animator is doing, by blending Motor6D.Transform in Stepped (which runs
+-- after the Animator has posed the rig for the frame).
 --
 -- Layers, highest first: action (one-shot: bump, set, swing, tip, toss, gather, knockback,
 -- celebrate) > stance (held: receive stance, slide, block, crouch, charge, toss ready) >
 -- automatic (airborne windup, ready stance, serve hold). Everyone faces along the court, so
 -- every pose reads in profile from the side camera.
--- Bots have no Animate script, so they also get a procedural run cycle.
 --
--- To use uploaded animations instead, fill Assets.Animations; the local player's actions then
--- play those tracks (they replicate) and skip the procedural pose.
+-- Bots have no Animate script. Each client plays Roblox's default R15 idle, run, jump and fall
+-- animations on them (Assets.BotAnimations) and falls back to a procedural run cycle until
+-- those load, or if the slots are cleared.
+--
+-- Uploaded action animations (Assets.Animations) replace the procedural pose for that action:
+-- your own character plays them (they replicate to everyone), every client plays them on bots,
+-- and other players' tracks arrive by replication, so no client doubles them up.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -289,6 +293,26 @@ for name, def in pairs(POSE_DEFS) do
 	POSES[name] = joints
 end
 
+-- pose -> Assets.Animations slot
+local SLOT = {
+	Bump = "Bump",
+	Set = "Set",
+	Swing = "Swing",
+	Tip = "Tip",
+	Block = "Block",
+	Dive = "Slide",
+	Charge = "Charge",
+	Toss = "Toss",
+	Stance = "Stance",
+	Knockback = "Knockback",
+	Celebrate = "Celebrate",
+}
+
+local function slotId(pose)
+	local slot = SLOT[pose]
+	return slot and Assets.id(Assets.Animations[slot]) or nil
+end
+
 ------------------------------------------------------------------------------------------
 -- character registry
 ------------------------------------------------------------------------------------------
@@ -318,6 +342,7 @@ local function register(model)
 		prevPose = nil,
 		switchT = 0,
 		phase = 0,
+		joints = {},
 	}
 	scanMotors(st)
 	chars[model] = st
@@ -333,20 +358,25 @@ local function stateFor(entityId)
 end
 
 ------------------------------------------------------------------------------------------
--- optional uploaded animation tracks (local player only; they replicate)
+-- animation tracks (uploaded actions, bot locomotion)
 ------------------------------------------------------------------------------------------
 
-local function playTrack(pose)
-	local id = Assets.id(Assets.Animations[pose])
-	if not id then
-		return false
+local function animatorOf(model, create)
+	local hum = model and model:FindFirstChildOfClass("Humanoid")
+	if not hum then
+		return nil
 	end
-	local c = player.Character
-	local hum = c and c:FindFirstChildOfClass("Humanoid")
-	local animator = hum and hum:FindFirstChildOfClass("Animator")
-	if not animator then
-		return false
+	local animator = hum:FindFirstChildOfClass("Animator")
+	if not animator and create then
+		-- bots are server-owned: a client-side Animator plays locally and never replicates
+		animator = Instance.new("Animator")
+		animator.Parent = hum
 	end
+	return animator
+end
+
+-- Cached per Animator and key; a failed load is remembered so it isn't retried every frame.
+local function loadTrack(animator, key, id, priority)
 	local set = tracks[animator]
 	if not set then
 		set = {}
@@ -357,22 +387,50 @@ local function playTrack(pose)
 			end
 		end)
 	end
-	local track = set[pose]
-	if not track then
+	local track = set[key]
+	if track == nil then
 		local anim = Instance.new("Animation")
 		anim.AnimationId = id
 		local ok, t = pcall(function()
 			return animator:LoadAnimation(anim)
 		end)
-		if not ok then
-			return false
+		track = ok and t or false
+		if track then
+			track.Priority = priority
 		end
-		track = t
-		track.Priority = Enum.AnimationPriority.Action2
-		set[pose] = track
+		set[key] = track
 	end
-	track:Play(0.05)
-	return true
+	return track or nil
+end
+
+-- The uploaded track for a pose on this character, if this client is the one that plays it
+-- (your own character, or any bot).
+local function uploadedTrack(st, pose, key)
+	local id = slotId(pose)
+	if not id or not st then
+		return nil
+	end
+	local mine = st.model == player.Character
+	if not mine and not st.isBot then
+		return nil
+	end
+	local animator = animatorOf(st.model, st.isBot)
+	if not animator then
+		return nil
+	end
+	return loadTrack(animator, key .. pose, id, Enum.AnimationPriority.Action2)
+end
+
+-- Another player's uploaded action arrives by replication; don't pose over it.
+local function replicatedElsewhere(st, pose)
+	return st ~= nil and not st.isBot and st.model ~= player.Character and slotId(pose) ~= nil
+end
+
+local function stopStanceTrack(st)
+	if st and st.stanceTrack then
+		st.stanceTrack:Stop(0.12)
+		st.stanceTrack = nil
+	end
 end
 
 ------------------------------------------------------------------------------------------
@@ -383,13 +441,21 @@ function AnimationController.playAction(entityId, pose)
 	if not POSES[pose] then
 		return
 	end
-	if entityId == State.myId and playTrack(pose) then
+	local st = stateFor(entityId)
+	if not st then
 		return
 	end
-	local st = stateFor(entityId)
-	if st then
-		st.action = { pose = pose, t0 = os.clock(), dur = DURATION[pose] or 0.3 }
+	local track = uploadedTrack(st, pose, "A_")
+	if track then
+		stopStanceTrack(st)
+		track.Looped = false
+		track:Play(0.05)
+		return
 	end
+	if replicatedElsewhere(st, pose) then
+		return
+	end
+	st.action = { pose = pose, t0 = os.clock(), dur = DURATION[pose] or 0.3 }
 end
 
 function AnimationController.setStance(entityId, pose, duration)
@@ -397,14 +463,26 @@ function AnimationController.setStance(entityId, pose, duration)
 	if not st then
 		return
 	end
+	stopStanceTrack(st)
 	if pose == nil then
 		st.stance = nil
 		return
 	end
-	if entityId == State.myId and pose == "Dive" and playTrack("Dive") then
+	local untilT = os.clock() + (duration or 1)
+	local track = uploadedTrack(st, pose, "S_")
+	if track then
+		st.stance = nil
+		track.Looped = true
+		track:Play(0.08)
+		st.stanceTrack = track
+		st.stanceTrackUntil = untilT
 		return
 	end
-	st.stance = { pose = pose, untilT = os.clock() + (duration or 1) }
+	if replicatedElsewhere(st, pose) then
+		st.stance = nil
+		return
+	end
+	st.stance = { pose = pose, untilT = untilT }
 end
 
 local STANCES = { Stance = true, Slide = true, Crouch = true, Block = true, Charge = true, TossReady = true, Dive = true }
@@ -461,7 +539,80 @@ local function pick(st, hum, hrp)
 	return nil, 0
 end
 
--- Procedural run cycle for bots (players use the default Animate script).
+-- Bot locomotion from Roblox's default animations. Returns true while the tracks drive the rig.
+local LOCO = { "Idle", "Run", "Jump", "Fall" }
+
+local function botLocomotion(st, hum, hrp)
+	if st.loco == nil then
+		st.loco = false
+		local animator = animatorOf(st.model, true)
+		local set, any = {}, false
+		if animator then
+			for _, key in ipairs(LOCO) do
+				local id = Assets.id(Assets.BotAnimations and Assets.BotAnimations[key])
+				if id then
+					local priority = key == "Idle" and Enum.AnimationPriority.Idle or Enum.AnimationPriority.Movement
+					local track = loadTrack(animator, "L_" .. key, id, priority)
+					if track then
+						track.Looped = key ~= "Jump"
+						set[key] = track
+						any = true
+					end
+				end
+			end
+		end
+		if any then
+			st.loco = { tracks = set, current = nil, since = os.clock() }
+		end
+	end
+	local loco = st.loco
+	if not loco then
+		return false
+	end
+	if not loco.ready then
+		for _, track in pairs(loco.tracks) do
+			if track.Length > 0 then
+				loco.ready = true
+			end
+		end
+		if not loco.ready then
+			if os.clock() - loco.since > 8 then
+				-- never loaded (moderated or wrong id): keep the procedural cycle for good
+				st.loco = false
+			end
+			return false
+		end
+	end
+	local v = hrp.AssemblyLinearVelocity
+	local speed = Vector3.new(v.X, 0, v.Z).Magnitude
+	local groundY = hum.HipHeight + hrp.Size.Y / 2
+	local want = "Idle"
+	if hrp.Position.Y > groundY + 0.6 then
+		want = v.Y > 2 and "Jump" or "Fall"
+	elseif speed > 1.5 then
+		want = "Run"
+	end
+	if not loco.tracks[want] then
+		want = loco.tracks.Idle and "Idle" or nil
+	end
+	if want ~= loco.current then
+		local old = loco.current and loco.tracks[loco.current]
+		if old then
+			old:Stop(0.15)
+		end
+		local new = want and loco.tracks[want]
+		if new then
+			new:Play(0.15)
+		end
+		loco.current = want
+	end
+	if want == "Run" then
+		loco.tracks.Run:AdjustSpeed(math.clamp(speed / 16, 0.6, 1.6))
+	end
+	return true
+end
+
+-- Procedural run cycle for bots whose locomotion tracks aren't available.
 local function locomotion(st, hrp, dt, joint)
 	local v = hrp.AssemblyLinearVelocity
 	local speed = Vector3.new(v.X, 0, v.Z).Magnitude
@@ -494,6 +645,84 @@ end
 
 local BOT_JOINTS = { "LeftHip", "RightHip", "LeftKnee", "RightKnee", "LeftShoulder", "RightShoulder", "LeftElbow", "RightElbow", "Waist", "Root" }
 
+local function stepCharacter(st, hum, hrp, now, dt)
+	if st.motorCount < 12 and now - st.lastScan > 1 then
+		scanMotors(st)
+	end
+	if st.stanceTrack and now > st.stanceTrackUntil then
+		stopStanceTrack(st)
+	end
+	local pose, weight = pick(st, hum, hrp)
+	if pose ~= st.pose then
+		if pose then
+			st.prevPose = st.pose
+			st.switchT = now
+			st.pose = pose
+		end
+	end
+	st.w = Util.damp(st.w, weight, 16, dt)
+	if pose == nil and st.w < 0.02 then
+		st.pose = nil
+		st.prevPose = nil
+	end
+
+	-- bots: real locomotion tracks when they're loaded, the procedural cycle otherwise
+	local procedural = false
+	if st.isBot then
+		procedural = not botLocomotion(st, hum, hrp)
+		if procedural then
+			local v = hrp.AssemblyLinearVelocity
+			st.phase = st.phase + dt * Vector3.new(v.X, 0, v.Z).Magnitude * 0.55
+		end
+	end
+	if not st.pose and not procedural then
+		return
+	end
+
+	-- the joints to write this frame (a reused set, so no table per character per frame)
+	local joints = st.joints
+	for name in pairs(joints) do
+		joints[name] = nil
+	end
+	if st.pose then
+		for name in pairs(POSES[st.pose]) do
+			joints[name] = true
+		end
+	end
+	if st.prevPose and now - st.switchT < 0.1 then
+		for name in pairs(POSES[st.prevPose]) do
+			joints[name] = true
+		end
+	end
+	if procedural then
+		for _, name in ipairs(BOT_JOINTS) do
+			joints[name] = true
+		end
+	end
+
+	local a = Util.smoothstep((now - st.switchT) / 0.09)
+	for name in pairs(joints) do
+		local motor = st.motors[name]
+		if motor then
+			local base
+			if procedural then
+				base = locomotion(st, hrp, dt, name)
+			else
+				base = motor.Transform
+			end
+			local target = base
+			if st.pose then
+				target = POSES[st.pose][name] or base
+				if st.prevPose and a < 1 then
+					local from = POSES[st.prevPose][name] or base
+					target = from:Lerp(target, a)
+				end
+			end
+			motor.Transform = base:Lerp(target, st.w)
+		end
+	end
+end
+
 local function step(dt)
 	local now = os.clock()
 	for model, st in pairs(chars) do
@@ -503,66 +732,7 @@ local function step(dt)
 			local hum = model:FindFirstChildOfClass("Humanoid")
 			local hrp = model:FindFirstChild("HumanoidRootPart")
 			if hum and hrp then
-				if st.motorCount < 12 and now - st.lastScan > 1 then
-					scanMotors(st)
-				end
-				local pose, weight = pick(st, hum, hrp)
-				if pose ~= st.pose then
-					if pose then
-						st.prevPose = st.pose
-						st.switchT = now
-						st.pose = pose
-					end
-				end
-				st.w = Util.damp(st.w, weight, 16, dt)
-				if pose == nil and st.w < 0.02 then
-					st.pose = nil
-					st.prevPose = nil
-				end
-
-				if st.isBot then
-					local v = hrp.AssemblyLinearVelocity
-					st.phase = st.phase + dt * Vector3.new(v.X, 0, v.Z).Magnitude * 0.55
-				end
-
-				local joints = {}
-				if st.pose then
-					for name in pairs(POSES[st.pose]) do
-						joints[name] = true
-					end
-				end
-				if st.prevPose and now - st.switchT < 0.1 then
-					for name in pairs(POSES[st.prevPose]) do
-						joints[name] = true
-					end
-				end
-				if st.isBot then
-					for _, name in ipairs(BOT_JOINTS) do
-						joints[name] = true
-					end
-				end
-
-				local a = Util.smoothstep((now - st.switchT) / 0.09)
-				for name in pairs(joints) do
-					local motor = st.motors[name]
-					if motor then
-						local base
-						if st.isBot then
-							base = locomotion(st, hrp, dt, name)
-						else
-							base = motor.Transform
-						end
-						local target = base
-						if st.pose then
-							target = POSES[st.pose][name] or base
-							if st.prevPose and a < 1 then
-								local from = POSES[st.prevPose][name] or base
-								target = from:Lerp(target, a)
-							end
-						end
-						motor.Transform = base:Lerp(target, st.w)
-					end
-				end
+				stepCharacter(st, hum, hrp, now, dt)
 			end
 		end
 	end
@@ -628,6 +798,7 @@ function AnimationController.init(m)
 			local st = stateFor(meta.id)
 			if st then
 				st.stance = nil
+				stopStanceTrack(st)
 			end
 			AnimationController.playAction(meta.id, pose)
 		end

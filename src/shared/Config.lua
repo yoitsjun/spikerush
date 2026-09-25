@@ -365,6 +365,7 @@ Config.Graphics = {
 	CrowdDensityDesktop = 0.85,
 	CrowdDensityMobile = 0.35,
 	CrowdUpdateHz = 20,
+	CrowdCalmHz = 6, -- update rate while neither crowd is cheering
 }
 
 -- HUD palette: stadium "ink" navy; team colours, the stamina bar and the ability colours carry

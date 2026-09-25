@@ -6,7 +6,9 @@ The whole game is a Rojo project. The server is authoritative, and the shared ga
 
 ## Getting started
 
-Install the toolchain once with `aftman install` (it pins Rojo 7.4.4), then run `rojo serve` in this folder and connect from the Rojo plugin in Roblox Studio. You can also build a place file directly with `rojo build -o SpikeRush.rbxlx` and open that. Press Play: the server builds the arena at startup, bots fill every empty slot, and a match starts after the lobby countdown, so the game is fully playable solo.
+Install the toolchain once with `rokit install` or `aftman install` (both pin Rojo 7.7.0). Then start the live sync with `serve.bat` (Windows) or `./serve.sh` (macOS, Linux), or run `rojo serve` in this folder yourself, and press Connect in the Rojo plugin in Roblox Studio. The plugin has to be Rojo 7.7.x: older servers speak sync protocol 4, and the current plugin refuses them. `rojo plugin install` installs the matching plugin.
+
+To start from a place file instead, open `SpikeRush.rbxlx` (built with `rojo build -o SpikeRush.rbxlx`) and connect Rojo from there. Press Play: the server builds the arena at startup, bots fill every empty slot, and a match starts after the lobby countdown, so the game is fully playable solo.
 
 Player progress (upgrade points and every character's build) is saved with DataStoreService. In Studio this only works after enabling Game Settings > Security > "Enable Studio Access to API Services" on a published place. Without it the game still runs, profiles just last for the session, and the lobby says so.
 
@@ -67,7 +69,9 @@ Modes are 1v1, 2v2 and 3v3 by lobby vote, with bots filling the courts and a sep
 
 The camera is a long-lens side view from the open near side, which keeps perspective flat like a 2D game. It rises and pulls back for high sets, closes in on your serve and swings to a low angle after a point. Spikes leave thick ribbon trails, yellow for Thunder, cyan for Azure and red for anything over 120 km/h. Every attack shows a starburst and ring at the contact, and jumps boom off the floor. The biggest hits flash a manga impact frame: the screen goes white and the attacker becomes a black silhouette over a coloured burst. The HUD shows the km/h and hitting height of the last attack under the score, "Team (Player) scored" with the reason after each point, receive grades like "PERFECT 96", and your tier badge, height and a marker over the player you control. Impact frames, speed lines, shake, the landing marker, the closer camera and receive assist can all be toggled in settings.
 
-All 26 sound effects are synthesized by `tools/generate_sfx.py` into `assets/sfx/<Key>.ogg`, and they are already generated. Until you upload them the game uses Roblox's built-in client sounds as stand-ins. To use them, upload the files in Creator Hub > Development Items > Audio and paste each id into the matching key of `Assets.Sounds` in `src/shared/Assets.lua`. You can also drop Toolbox assets into `ReplicatedStorage.ToolboxAssets`: a `Sounds.<Key>` Sound overrides that sound, `Models.Volleyball` replaces the procedural ball, and `VFX.<Name>` (SpikeImpact, PerfectImpact, ThunderImpact, AzureImpact, BlockImpact, FloorImpact or ReceiveImpact) replaces that effect with your particle emitters.
+All 26 sound effects are synthesized by `tools/generate_sfx.py` into `assets/sfx/<Key>.ogg`, and they are already generated. Until you upload them the game uses Roblox's built-in client sounds as stand-ins. To use them, upload the files in Creator Hub > Development Items > Audio and paste each id into the matching key of `Assets.Sounds` in `src/shared/Assets.lua`.
+
+Every visual and audio slot also takes a Toolbox (Creator Store) asset, with no code changes: the ball model, eleven particle effects (impacts, the jump boom, the guard break and the Azure aura), sounds, action animations and ability icons. Drag an asset into `ReplicatedStorage.ToolboxAssets.<Category>.<Slot>`, or paste ids into `Assets.Toolbox` and bake them with `ToolboxService.install()` from the command bar, or let `ToolboxService` load them when the server starts. Scripts inside inserted assets are always deleted. [TOOLBOX.md](TOOLBOX.md) lists every slot with what to search for. Bots play Roblox's own default R15 idle, run, jump and fall animations.
 
 ## Tuning
 
@@ -83,20 +87,25 @@ require(game.ServerScriptService.Server.Services.ArenaBuilder).build({ bake = tr
 
 ```
 default.project.json   Rojo tree (remotes, gravity, StarterPlayer settings)
+serve.bat, serve.sh    start `rojo serve` for live sync
+aftman.toml, rokit.toml  toolchain pins (Rojo 7.7.0)
 src/shared/            deterministic code used by both server and clients
   Config.lua           every tuning number
   Characters.lua       tiers, builds, heights, stat curves, jump heights
   HitLogic.lua         every touch: zones, power, direction, stamina, sets, serves, blocks
   BallPhysics.lua      analytic ball paths, net and floor events
   Court.lua            court geometry, role lanes, formations, stands
-  Net.lua, Util.lua, Assets.lua
-src/server/Services/   CharacterService, ArenaBuilder, BallService, TeamService,
-                       ProfileService (saves), BotService, HitService (validation),
-                       MatchService (flow, scoring, timeouts, rewards)
+  Assets.lua           asset slots, Toolbox ids and the sanitizer
+  Net.lua, Util.lua
+src/server/Services/   ToolboxService (Toolbox assets by id), CharacterService, ArenaBuilder,
+                       BallService, TeamService, ProfileService (saves), BotService,
+                       HitService (validation), MatchService (flow, scoring, timeouts, rewards)
 src/client/Controllers/ State, Input, Movement, Action (touches and prediction),
                        BallRenderer, Camera, VFX, Animation, Audio, UI, MobileControls, Crowd
 tools/                 checkers, the simulation suite and the SFX generator
 assets/                volleyball mesh and the generated sound effects
+TOOLBOX.md             every Toolbox slot and how to fill it
+reference/             local-only screenshots of The Spike (not synced, not committed)
 ```
 
 ## Development
@@ -114,4 +123,4 @@ The simulation suite checks the headline numbers (spike speeds, Thunder and Azur
 
 ## Status
 
-Every check above passes, but the game has not been run in Roblox Studio yet, so expect a round of runtime fixes and feel tuning (camera framing, jump and hang feel, run-up distance, bot difficulty, stamina numbers) on the first playtest.
+Every check above passes and the project builds and serves with Rojo 7.7.0, but the game has not been run in Roblox Studio yet, so expect a round of runtime fixes and feel tuning (camera framing, jump and hang feel, run-up distance, bot difficulty, stamina numbers) on the first playtest.

@@ -269,6 +269,8 @@ function CrowdController.init()
 	end)
 	local acc = 0
 	local interval = 1 / Config.Graphics.CrowdUpdateHz
+	-- a calm crowd barely moves (about a pixel from the camera), so it updates far less often
+	local calmInterval = 1 / Config.Graphics.CrowdCalmHz
 	RunService.Heartbeat:Connect(function(dt)
 		acc = acc + dt
 		ledOffset = (ledOffset + dt * 0.035) % 0.5
@@ -277,7 +279,11 @@ function CrowdController.init()
 		end
 		hype.Home = math.max(0, hype.Home - dt * 0.35)
 		hype.Away = math.max(0, hype.Away - dt * 0.35)
-		if acc >= interval and #parts > 0 then
+		local every = interval
+		if hype.Home + hype.Away < 0.05 then
+			every = calmInterval
+		end
+		if acc >= every and #parts > 0 then
 			acc = 0
 			updateCrowd(os.clock())
 		end

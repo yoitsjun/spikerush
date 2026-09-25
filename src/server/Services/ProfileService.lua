@@ -24,6 +24,7 @@ local reg
 local P = Config.Progression
 local profiles = {}
 local dirty = {}
+local loading = {}
 local store = nil
 local warned = false
 
@@ -71,7 +72,10 @@ local function load(plr)
 	local profile = data and sanitizeProfile(data) or newProfile()
 	-- only a profile that loaded (or was confirmed new) may ever be written back
 	profile.canSave = ok
-	profiles[plr] = profile
+	-- a player who left while the DataStore answered must not be cached (nothing would clear it)
+	if plr.Parent then
+		profiles[plr] = profile
+	end
 	return profile
 end
 
@@ -91,8 +95,34 @@ local function save(plr)
 	end
 end
 
+-- One DataStore read per player: a second caller (say the match assigning teams while the join
+-- load is still waiting on the DataStore) waits for the first instead of loading again and
+-- replacing the profile the first caller already handed out.
 function ProfileService.get(plr)
-	return profiles[plr] or load(plr)
+	if profiles[plr] then
+		return profiles[plr]
+	end
+	if loading[plr] then
+		local waited = 0
+		while loading[plr] and waited < 30 do
+			waited = waited + task.wait()
+		end
+		if profiles[plr] then
+			return profiles[plr]
+		end
+	end
+	loading[plr] = true
+	local ok, profile = pcall(load, plr)
+	loading[plr] = nil
+	if not ok then
+		warn("[SpikeRush] profile load error: " .. tostring(profile))
+		profile = newProfile()
+		profile.canSave = false
+		if plr.Parent then
+			profiles[plr] = profile
+		end
+	end
+	return profile
 end
 
 -- The saved character for `tier`, created (with a rolled height) the first time it's used.
@@ -232,6 +262,7 @@ function ProfileService.init(r)
 		save(plr)
 		profiles[plr] = nil
 		dirty[plr] = nil
+		loading[plr] = nil
 	end)
 	game:BindToClose(function()
 		for _, plr in ipairs(Players:GetPlayers()) do

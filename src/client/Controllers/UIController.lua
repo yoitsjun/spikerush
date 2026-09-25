@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Assets = require(Shared.Assets)
 local Characters = require(Shared.Characters)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
@@ -694,7 +695,15 @@ local function buildAbility()
 	corner(gauge, 5)
 	local energy = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = AZURE, BorderSizePixel = 0 }, bar)
 	corner(energy, 5)
-	ui.ability = { frame = f, name = name, line = line, bar = bar, gauge = gauge, energy = energy, e = 0, g = 1, st = "idle" }
+	-- optional Toolbox icon (Assets.Images.Ability<Name>) to the left of the text
+	local icon = make("ImageLabel", {
+		Size = UDim2.fromOffset(36, 36),
+		Position = UDim2.fromOffset(8, 6),
+		BackgroundTransparency = 1,
+		ScaleType = Enum.ScaleType.Fit,
+		Visible = false,
+	}, f)
+	ui.ability = { frame = f, name = name, line = line, bar = bar, gauge = gauge, energy = energy, icon = icon, e = 0, g = 1, st = "idle" }
 
 	-- overhead bar for toss height, block charge and Azure energy
 	-- a BillboardGui only renders straight under PlayerGui (or in the world), never inside a ScreenGui
@@ -736,6 +745,16 @@ local function updateAbility()
 	local stats = State.myStats()
 	a.name.Text = def.Name
 	a.name.TextColor3 = def.Color
+	local iconId = Assets.id(Assets.Images["Ability" .. ability])
+	a.icon.Visible = iconId ~= nil
+	if iconId then
+		a.icon.Image = iconId
+	end
+	local textX = iconId and 52 or 10
+	a.name.Position = UDim2.fromOffset(textX, 6)
+	a.name.Size = UDim2.new(1, -textX - 10, 0, 20)
+	a.line.Position = UDim2.fromOffset(textX, 26)
+	a.line.Size = UDim2.new(1, -textX - 10, 0, 16)
 	if ability == "Thunder" then
 		a.bar.Visible = false
 		a.frame.Size = UDim2.fromOffset(250, 48)
@@ -988,6 +1007,16 @@ local function buildLobby()
 			Size = UDim2.new(1, -16, 0, 64),
 			Position = UDim2.fromOffset(8, 28),
 		})
+		local iconId = Assets.id(Assets.Images["Ability" .. key])
+		if iconId then
+			make("ImageLabel", {
+				Size = UDim2.fromOffset(30, 30),
+				Position = UDim2.new(1, -36, 0, 4),
+				BackgroundTransparency = 1,
+				ScaleType = Enum.ScaleType.Fit,
+				Image = iconId,
+			}, c)
+		end
 		c.MouseButton1Click:Connect(function()
 			click()
 			Net.get("SetCharacter"):FireServer(selectedTier or activeTier(), key)
@@ -1363,12 +1392,16 @@ local function onBall(snap, isEcho)
 	end
 end
 
-local function update()
-	refreshTopBar()
-	updateStamina()
+-- Every frame: only what animates smoothly. The panels below change a few times a second at
+-- most, so they refresh at 20 Hz; the top bar only changes with the match state.
+local function updateFast()
 	updateReadout()
-	updateAbility()
 	updateOverhead()
+end
+
+local function updateSlow()
+	updateStamina()
+	updateAbility()
 	updateTimeout()
 	updateLobby()
 end
@@ -1391,10 +1424,16 @@ function UIController.init(m)
 	buildLobby()
 	buildResults()
 
-	State.signals.Announce:Connect(onAnnounce)
+	State.signals.Announce:Connect(function(a)
+		if a.kind == "Point" then
+			refreshTopBar()
+		end
+		onAnnounce(a)
+	end)
 	State.signals.Ball:Connect(onBall)
 	State.signals.Hint:Connect(showHint)
 	State.signals.Match:Connect(function()
+		refreshTopBar()
 		UIController.refreshLobby()
 	end)
 	State.signals.Profile:Connect(function()
@@ -1411,16 +1450,23 @@ function UIController.init(m)
 	end)
 	player:GetAttributeChangedSignal("Ability"):Connect(UIController.refreshLobby)
 	UIController.refreshLobby()
+	refreshTopBar()
+	pcall(updateSlow)
 
-	local acc = 0
+	local slowAcc, tagAcc = 0, 0
 	RunService.RenderStepped:Connect(function(dt)
-		local ok, err = pcall(update)
+		local ok, err = pcall(updateFast)
+		slowAcc = slowAcc + dt
+		if ok and slowAcc >= 0.05 then
+			slowAcc = 0
+			ok, err = pcall(updateSlow)
+		end
 		if not ok then
 			warn("[SpikeRush] ui: " .. tostring(err))
 		end
-		acc = acc + dt
-		if acc > 0.5 then
-			acc = 0
+		tagAcc = tagAcc + dt
+		if tagAcc > 0.5 then
+			tagAcc = 0
 			refreshTags()
 		end
 	end)

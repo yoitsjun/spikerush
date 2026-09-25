@@ -48,14 +48,19 @@ local function stop(b)
 	b.hum:Move(Vector3.zero)
 end
 
--- Face along the court only (+z or -z), like everyone in a side view.
+-- Face along the court only (+z or -z), like everyone in a side view. Writing the root CFrame
+-- every frame fights the humanoid's physics, so it's only rewritten when the facing is off.
 local function faceDir(b, dirZ)
 	if math.abs(dirZ) < 1e-3 then
 		return
 	end
+	local want = dirZ > 0 and 1 or -1
+	if b.hrp.CFrame.LookVector.Z * want > 0.999 then
+		return
+	end
 	local pos = b.hrp.Position
 	b.hum.AutoRotate = false
-	b.hrp.CFrame = CFrame.lookAt(pos, pos + Vector3.new(0, 0, dirZ > 0 and 1 or -1))
+	b.hrp.CFrame = CFrame.lookAt(pos, pos + Vector3.new(0, 0, want))
 end
 
 local function faceNet(b, side)
@@ -568,7 +573,10 @@ local function updateForces(b, grounded, charging)
 			cancel = P.HangGravityCancel
 		end
 	end
-	b.force.Force = Vector3.new(0, b.hrp.AssemblyMass * workspace.Gravity * cancel, 0)
+	if cancel ~= b.cancel then
+		b.cancel = cancel
+		b.force.Force = Vector3.new(0, b.hrp.AssemblyMass * workspace.Gravity * cancel, 0)
+	end
 end
 
 local function lockLane(b)
