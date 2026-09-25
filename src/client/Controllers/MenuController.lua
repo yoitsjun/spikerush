@@ -859,9 +859,10 @@ local function buildSequence()
 		end
 	end)
 
-	-- the S cinematic: a yellow screen, a light beam, your avatar's silhouette spiking
+	-- the S cinematic: a yellow screen (red for a Mythic), a light beam, your avatar's silhouette
+	-- spiking
 	local cin = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), Visible = false, ZIndex = 32 }, root)
-	Gui.gradient(cin, Color3.fromRGB(255, 232, 110), Color3.fromRGB(255, 176, 30), 70)
+	local cinGrad = Gui.gradient(cin, Color3.fromRGB(255, 232, 110), Color3.fromRGB(255, 176, 30), 70)
 	local cinGlow, setCinGlow = glowDisc(cin, 760, Color3.new(1, 1, 1), 32)
 	cinGlow.Position = UDim2.fromScale(0.58, 0.5)
 	local beam = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 140, 3, 0), Position = UDim2.fromScale(-0.3, 0.5), Rotation = 24, BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 33 }, cin)
@@ -926,9 +927,9 @@ local function buildSequence()
 		setGlow = setGlow,
 		cont = cont,
 		skip = skip,
-		cin = { root = cin, beam = beam, cam = cam, world = world, ball = ball, setGlow = setCinGlow },
+		cin = { root = cin, grad = cinGrad, beam = beam, cam = cam, world = world, ball = ball, setGlow = setCinGlow },
 		flash = flash,
-		card = { root = card, scale = cardScale, artGrad = artGrad, cam = ccam, world = cworld, rarity = rarity, name = name, tier = tier, line = line, ability = ability, blurb = blurb, bars = bars, foot = foot },
+		card = { root = card, stroke = card:FindFirstChildOfClass("UIStroke"), scale = cardScale, artGrad = artGrad, cam = ccam, world = cworld, rarity = rarity, name = name, tier = tier, line = line, ability = ability, blurb = blurb, bars = bars, foot = foot },
 		tray = cards,
 		summary = summary,
 		confirm = confirm,
@@ -960,13 +961,18 @@ local function waitClick(seq, allowSkip)
 	return alive(seq)
 end
 
-local function sparkleBurst(gold)
+-- The recruit's glow: red when a Mythic is inside, gold for a Legendary, else pale.
+local MYTHIC = Config.Rarity.PullGlow.Mythic
+local SPARK = { mythic = MYTHIC, gold = Color3.fromRGB(255, 214, 90) }
+
+local function sparkleBurst(tone)
 	local S = ui.seq
 	S.sparks:ClearAllChildren()
-	local color = gold and Color3.fromRGB(255, 214, 90) or Color3.fromRGB(220, 236, 255)
+	local color = SPARK[tone] or Color3.fromRGB(220, 236, 255)
+	local gold = tone ~= nil
 	S.setGlow(0, color)
 	local rng = Random.new()
-	for i = 1, 34 do
+	for i = 1, tone == "mythic" and 46 or 34 do
 		local size = rng:NextInteger(18, gold and 90 or 64)
 		local s = Gui.sparkle(S.sparks, size, color)
 		s.ZIndex = 31
@@ -989,7 +995,7 @@ local function sparkleBurst(gold)
 			s.Position = UDim2.fromScale(0.5, 0.5)
 		end
 	end
-	-- the glow swells (gold when an S is inside)
+	-- the glow swells (red for a Mythic, gold for a Legendary)
 	local t0 = os.clock()
 	task.spawn(function()
 		while os.clock() - t0 < 1.1 and S.root.Visible do
@@ -1001,10 +1007,11 @@ local function sparkleBurst(gold)
 	end)
 end
 
+-- A pull's item, rarity, rank and the colour it glows in the recruit (Mythic: red).
 local function pullInfo(kind, it)
 	local item = Spins.item(kind, it.key)
 	local rarity = item and item.Rarity or "Common"
-	return item, rarity, Spins.rarityRank(rarity), Spins.rarityColor(rarity)
+	return item, rarity, Spins.rarityRank(rarity), Config.Rarity.PullGlow[rarity] or Spins.rarityColor(rarity)
 end
 
 local function fillTray(i, kind, it)
@@ -1042,14 +1049,25 @@ end
 
 -- The S cinematic: the silhouette leaps, draws back and hammers a black ball down as a beam of
 -- light sweeps the screen. Returns false if the sequence was cancelled.
-local function cinematic(seq)
+local function cinematic(seq, mythic)
 	local S = ui.seq
 	local C = S.cin
 	local AC = mods.AnimationController
 	C.root.Visible = true
 	C.root.BackgroundTransparency = 1
 	tween(C.root, 0.12, { BackgroundTransparency = 0 })
-	C.setGlow(0)
+	-- a Mythic burns red instead of the yellow screen
+	if mythic then
+		C.grad.Color = ColorSequence.new(Color3.fromRGB(255, 96, 84), Color3.fromRGB(150, 0, 16))
+		C.beam.BackgroundColor3 = Color3.fromRGB(255, 214, 206)
+		S.flash.BackgroundColor3 = MYTHIC
+		C.setGlow(0, Color3.fromRGB(255, 190, 180))
+	else
+		C.grad.Color = ColorSequence.new(Color3.fromRGB(255, 232, 110), Color3.fromRGB(255, 176, 30))
+		C.beam.BackgroundColor3 = Color3.new(1, 1, 1)
+		S.flash.BackgroundColor3 = Color3.new(1, 1, 1)
+		C.setGlow(0, Color3.new(1, 1, 1))
+	end
 	C.beam.Position = UDim2.fromScale(-0.3, 0.5)
 	local rig = mods.SceneController.cloneAvatar(true)
 	if rig then
@@ -1134,6 +1152,13 @@ local function showCard(kind, it)
 	K.rarity.Text = rarity:upper()
 	K.rarity.TextColor3 = color
 	K.artGrad.Color = ColorSequence.new(color:Lerp(Color3.new(1, 1, 1), 0.25), color:Lerp(Color3.new(0, 0, 0), 0.75))
+	-- a Mythic card glows red at the edge
+	if K.stroke then
+		local mythic = rarity == "Mythic"
+		K.stroke.Color = mythic and MYTHIC or Gui.WHITE
+		K.stroke.Thickness = mythic and 3 or 1
+		K.stroke.Transparency = mythic and 0 or 0.82
+	end
 	local pose = "ShowCool"
 	if kind == "Char" and item and item.Char then
 		local c = item.Char
@@ -1239,10 +1264,12 @@ local function playSequence(reveal)
 	for i, it in ipairs(items) do
 		local _, _, rank, color = pullInfo(kind, it)
 		colors[i] = color
-		strength[i] = rank >= 4 and 1 or (rank == 3 and 0.65 or (rank == 2 and 0.4 or 0.2))
+		-- a Mythic glows hardest (and pulses red), a Legendary next
+		strength[i] = rank >= 5 and 1.3 or (rank >= 4 and 1 or (rank == 3 and 0.65 or (rank == 2 and 0.4 or 0.2)))
 		best = math.max(best, rank)
 	end
 	local gold = best >= 4
+	local tone = best >= 5 and "mythic" or (gold and "gold" or nil)
 	-- the recruit has the screen to itself: no menus, panels or buttons behind it
 	for _, f in pairs(ui.pages) do
 		f.Visible = false
@@ -1263,10 +1290,13 @@ local function playSequence(reveal)
 		c.frame.Visible = false
 	end
 
-	-- 1. sparkles on black (gold when an S is inside)
-	sparkleBurst(gold)
+	-- 1. sparkles on black (red when a Mythic is inside, gold for a Legendary)
+	sparkleBurst(tone)
 	if mods.AudioController then
 		mods.AudioController.play(gold and "Thunder" or "Whoosh", { volume = gold and 0.5 or 0.7 })
+		if tone == "mythic" then
+			mods.AudioController.play("Boom", { volume = 0.8 })
+		end
 	end
 	if not hold(seq, 1.15) then
 		return
@@ -1295,7 +1325,7 @@ local function playSequence(reveal)
 		mods.SceneController.popBall(i, color)
 		if rank >= 4 then
 			seq.skipping = false -- a skip lands here
-			if not cinematic(seq) then
+			if not cinematic(seq, rank >= 5) then
 				return
 			end
 			seq.skipping = false
@@ -1329,7 +1359,7 @@ local function playSequence(reveal)
 	for r = #Config.Rarity.Order, 1, -1 do
 		local name = Config.Rarity.Order[r]
 		if counts[name] then
-			table.insert(parts, string.format('<font color="#%s">%d %s</font>', Spins.rarityColor(name):ToHex(), counts[name], name))
+			table.insert(parts, string.format('<font color="#%s">%d %s</font>', (Config.Rarity.PullGlow[name] or Spins.rarityColor(name)):ToHex(), counts[name], name))
 		end
 	end
 	local refund = (reveal.refund or 0) > 0 and not profile().dev and string.format("   +%d VP from duplicates", reveal.refund) or ""

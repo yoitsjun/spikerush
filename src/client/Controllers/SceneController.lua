@@ -514,7 +514,16 @@ local function glowBall(model, color, strength)
 	hl.OutlineTransparency = 0.1
 	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	hl.Parent = model
-	light(core, "PointLight", { Range = 10 + 8 * strength, Brightness = 2 + 3 * strength, Color = color, Shadows = false })
+	local pl = light(core, "PointLight", { Range = 10 + 8 * strength, Brightness = 2 + 3 * strength, Color = color, Shadows = false })
+	if strength > 1 then
+		-- a Mythic: the glow throbs
+		local pulse = TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+		hl.FillTransparency = 0.15
+		TweenService:Create(hl, pulse, { FillTransparency = 0.6 }):Play()
+		if pl then
+			TweenService:Create(pl, pulse, { Brightness = 1.5 }):Play()
+		end
+	end
 	if strength > 0.7 then
 		local att = Instance.new("Attachment")
 		att.Parent = core
@@ -522,7 +531,7 @@ local function glowBall(model, color, strength)
 		sp.Texture = "rbxasset://textures/particles/sparkles_main.dds"
 		sp.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
 		sp.LightEmission = 1
-		sp.Rate = 30
+		sp.Rate = strength > 1 and 55 or 30
 		sp.Lifetime = NumberRange.new(0.4, 0.8)
 		sp.Speed = NumberRange.new(1, 3)
 		sp.SpreadAngle = Vector2.new(180, 180)

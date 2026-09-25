@@ -345,6 +345,11 @@ Config.Rarity = {
 		Legendary = Color3.fromRGB(255, 200, 60),
 		Mythic = Color3.fromRGB(255, 70, 110),
 	},
+	-- what a pull glows in the recruit sequence when it isn't its label colour: Mythic pulls
+	-- glow red (the sparkles, the balls, the cinematic, the tray and the card)
+	PullGlow = {
+		Mythic = Color3.fromRGB(255, 34, 44),
+	},
 }
 
 -- Spins: characters (with their ability), spike styles, colours, trails and score effects.
