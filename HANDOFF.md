@@ -1,0 +1,176 @@
+# Handoff: continuing Spike Rush
+
+This file is for whoever picks the project up next (including a new AI session). Read it together with README.md, which covers setup, controls and every player-facing mechanic. This file covers what the owner asked for, how the code fits together, what has and hasn't been verified, and what to do next.
+
+## What the owner asked for
+
+Spike Rush is modelled on *The Spike* (SUNCYAN) and its sequel The Spike Cross. The owner wants high balls, high verticals and high power in a 2.5D side view on a bigger court. They also want tiers from D- to S+ that anyone can pick, with lower tiers genuinely weaker.
+
+Only two abilities exist. Thunder Spiker turns a contact above 4.00 m into a power spike. Azure Dragon lets you jump and charge the spike in the air under reduced gravity, and a full bar hits hardest.
+
+They asked to keep the stadium and to add:
+
+- ball trails and boom jump effects;
+- impact frames;
+- a km/h and hitting-height readout at the top, under the score.
+
+**Spike power** comes from contact quality, with no timing or hold meter. The position of the character relative to the ball decides whether the spike goes more down or more forward. At the peak of S+, a weak contact should be about 110 km/h and a well-timed one about 140. Thunder at 4 m or higher should reach about 160 to 200, and Azure should be similar.
+
+**Receives and sets** go high. Bumps and sets must never cross the net, except the last (third) touch or when a powerful spike breaks the team's stamina. Sets get a dotted arc.
+
+**Stamina** works like The Spike Cross guard meter:
+
+- Heavy receives drain it. White means clean, red means unreliable (out, shank or pop-up), and broken means strong spikes can't be received.
+- There is no drain for slide receives, soft-block deflections, free balls, easy passes or weak feints.
+- It partly refills at the end of a rally, and timeouts reset it for everyone on court.
+- Defense raises the pool and lowers the drain.
+
+The latest request was: "the jumps should not all be standardized. the tier of your character sets your cap. upgrade stats like the spike mechanics." An earlier version of that message also said "you can roll for heights". That is now implemented as four upgradeable stats capped by tier, rolled heights with a paid re-roll, and upgrade points earned by playing and saved to a DataStore. Whether the paid height re-roll should stay is still an open question for the owner.
+
+**Assets.** The owner originally wanted The Spike's own sounds and visuals copied in. That was declined, and the project builds original equivalents instead: procedural effects and 26 synthesized sounds. Keep it that way.
+
+**Screenshots.** The owner shared 11 screenshots of The Spike during the first session, and they are not in this zip. The pieces built from them are:
+
+- the top bar with team names, VS and stamina bars;
+- the "129.75 km/h 3.85 m" readout;
+- thick yellow, red and pink ribbon trails with lightning;
+- a white starburst and ring at contact;
+- a white landing ellipse on the floor;
+- "GOOD 71" receive grades with a shield on perfect receives;
+- "Free Ball!";
+- the dotted set arc;
+- a blue triangle over the controlled player;
+- the "Team (Player) scored" banner with a reason tag;
+- a white impact frame with a red burst;
+- speed lines;
+- a blue near-side net post.
+
+Substitution and pause buttons, and skill icons, also appeared in those screenshots but were not built. Ask the owner to re-share the screenshots if visual matching matters.
+
+## World and scale
+
+The court's long axis is Z, with the net at z = 0. Home plays z < 0 (left of screen) and Away plays z > 0 (right). Y is up and X is depth: the camera sits on the open near side around x = -64 and looks toward +X.
+
+The ball always travels in the x = 0 plane. Players are locked to role lanes (`Config.Lanes`: WS -1.2, MB 0.2, SE 1.4, Solo 0), so they only ever move along Z.
+
+The scale is 3.2 studs per metre. The net top is 7.8 studs (2.43 m), the end lines are at z = ±30, and the court half-depth toward the camera is 14 studs. Workspace gravity is 60 and the ball uses its own gravity (40).
+
+Roles: 3v3 uses WS, MB and SE (humans claim WS first, then MB, then SE); 2v2 uses WS and SE; 1v1 uses Solo. The serve order rotates on side-out.
+
+## How the code fits together
+
+The server boots in this order from `src/server/Main.server.lua`, passing each service a shared registry `reg`:
+
+1. CharacterService
+2. ArenaBuilder
+3. BallService
+4. TeamService
+5. ProfileService
+6. BotService
+7. HitService
+8. MatchService
+
+The client boots from `src/client/Main.client.lua`, passing each controller the table `mods`:
+
+1. AudioController
+2. BallRenderer
+3. CameraController
+4. VFXController
+5. AnimationController
+6. MovementController
+7. InputController
+8. ActionController
+9. UIController
+10. MobileControls
+11. CrowdController
+
+`State` holds shared client state and signals.
+
+**A touch**, end to end:
+
+1. ActionController turns input into an action.
+2. It builds the input and context and runs `HitLogic.compute` from `src/shared`. This is deterministic, with its random numbers seeded by the ball sequence number.
+3. BallRenderer applies the result instantly as a prediction.
+4. The client sends `HitRequest`.
+5. HitService validates it: timestamp window, the reported ball position against the server's own path, the root position tolerance, touch rules, rate limit, and sanitized inputs (receive-stance age, Azure energy, set type, toss height).
+6. HitService recomputes with the same HitLogic and launches through BallService, which broadcasts `BallState`.
+7. If validation fails, the client gets `HitReject` and rolls back.
+
+Bots call `HitService.botAction` and go through the same pipeline.
+
+**Stamina and timeouts** are server-owned in TeamService. They replicate as ReplicatedStorage attributes `Stamina_<Team>`, `StaminaMax_<Team>` and `Timeouts_<Team>`, and the client passes its reading of them into its prediction. The drain from a touch is applied only in HitService, which announces guard breaks. MatchService handles recovery after rallies, the refill at set start and timeouts (queued to the next dead ball).
+
+**Characters and builds** live in `src/shared/Characters.lua`:
+
+- `derive(tier, build)` turns a build into gameplay stats and is cached.
+- `autoBuild` creates role-shaped builds for bots.
+- `sanitize` clamps any build to its tier's rules.
+- `jumpHeight` works out the Humanoid.JumpHeight that reaches the build's hitting point.
+
+**Saving** is handled by ProfileService. It uses DataStore `SpikeRushProfiles_v1` with key `u_<UserId>`, storing `{ v, points, builds[tier] = { Height, Attack, Defense, Speed, Jump } }`. A profile is only saved if it loaded successfully, so a failed load never overwrites real data.
+
+The active build is written as attributes (Tier, Height, Attack, Defense, Speed, Jump, Ability) onto the Player and the character. The client derives its prediction stats from those; the server uses `entity.charStats`, snapshotted when the match assigns teams. Picks and upgrades for your active character are rejected while your match runs, which keeps both sides identical.
+
+**Remotes** (`Net.lua`):
+
+| Remote | Payload |
+|---|---|
+| BallState | ball snapshot to clients |
+| HitRequest | client touch |
+| HitReject | rejection, triggers rollback |
+| ActionFX | Slide, Block, Whiff, Jump, Charge, ChargeEnd, Stance cosmetics |
+| MatchState | match snapshot |
+| Announce | Point, Serve, SetStart, SetEnd, MatchStart, MatchEnd, Break, Timeout, TimeoutCalled |
+| ClientReady | client finished loading |
+| Vote | `("mode", 1\|2\|3)` or `("botTier", tier)` |
+| SetCharacter | `(tier, ability)` |
+| Timeout | call a timeout |
+| Profile | client sends `"get"`, `("upgrade", tier, stat, n)` or `("reroll", tier)`; server replies with a snapshot |
+
+**Jump physics.** A hang force cancels 45% of gravity while the vertical speed is under 10 studs/s. The same rule runs in MovementController for players and in BotService for bots. That hang adds about 0.68 studs to the apex (`Characters.hangGain`), and `Characters.jumpHeight` subtracts it, so the true apex equals the build's hitting point; this was verified numerically. The Azure hover cancels 62% of gravity, but only while charging and falling, so charging never raises the hitting point.
+
+## Checks
+
+Code must stay in a Lua 5.1/5.3 compatible subset of Luau: no `+=`, `continue`, type annotations or backtick strings. The offline tools need python3, `texlua` and `texluac` (LuaTeX's Lua 5.3). Run all four after every change and keep them at zero:
+
+```
+python3 tools/check_lua.py      # syntax (texluac) and undefined globals
+python3 tools/check_config.py   # every Config reference, including local aliases, exists
+python3 tools/check_api.py      # every Module.fn / reg.Service.fn / mods.Controller.fn is defined
+texlua tools/sim_test.lua       # 39 scenarios run against the real shared modules
+```
+
+Nested config aliases such as `local AZURE = Config.Abilities.Azure` are not covered by `check_config.py`, so check those by hand. When you change a mechanic, add or update a scenario in `sim_test.lua` that proves the numbers.
+
+## Status
+
+All the code for the 2.5D game is written and every check passes, including all 39 simulations. The sound effects are generated in `assets/sfx` but not yet uploaded. The game has never been run inside Roblox Studio.
+
+These are the spots most likely to need attention on the first playtest:
+
+| Area | What to check |
+|---|---|
+| Input | W and S double as Block and Receive while the default control script also reads them as forward/back. MovementController overrides `Humanoid:Move` every frame at RenderPriority Input+1; confirm there's no depth drift and no double actions |
+| Lane lock | The HumanoidRootPart CFrame and X velocity are corrected every physics step, for players and bots; watch for jitter during slides and jumps |
+| Animation | AutoRotate is off and facing is set by CFrame. Procedural poses are layered over the default Animate script through Motor6D.Transform in Stepped; check they blend and read in profile |
+| Impact frame | Clones the attacker's character into a ViewportFrame (Archivable toggled briefly); check it lines up with the real camera and works for other players' characters |
+| Bots | Jump timing uses a simulated jump that includes the hang force. Check spikes connect, Azure bots arrive with a full bar, blocks are on time, and the lane lock doesn't fight their movement |
+| Saving | Needs "Enable Studio Access to API Services"; verify save and load, the session-only fallback, and that a failed load never gets written back |
+| Mobile | Movement reads the thumbstick X through the control module's `GetMoveVector`; the default jump button is hidden |
+| UI | The "▼" player marker and "⚙" settings glyphs rely on Roblox font fallback |
+| Camera | Long lens (FOV 34, 64 studs back); high sets must stay in frame at 16:9 and on phones |
+| Performance | Contact rings and starbursts are BillboardGuis created per hit |
+
+## Next steps
+
+Work in this order:
+
+1. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`.
+2. Tune the feel:
+   - in `Config.Player`: the run-up gather, dash and boost, air control, and hang;
+   - in `CameraController`: the camera distances;
+   - `Config.Bots` for bot skill and `Config.Stamina` for drain.
+3. Upload the `assets/sfx` files and paste their ids into `Assets.Sounds`.
+4. Lower `Config.Progression.StartingPoints` (300, for testing) before launch.
+5. Optional additions: uploaded animations in `Assets.Animations`, substitution and pause buttons, and ability icons.
+6. Ask the owner about the height re-roll.

@@ -1,0 +1,86 @@
+{
+  "name": "SpikeRush",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      },
+      "Remotes": {
+        "$className": "Folder",
+        "BallState": {
+          "$className": "RemoteEvent"
+        },
+        "HitRequest": {
+          "$className": "RemoteEvent"
+        },
+        "HitReject": {
+          "$className": "RemoteEvent"
+        },
+        "ActionFX": {
+          "$className": "RemoteEvent"
+        },
+        "MatchState": {
+          "$className": "RemoteEvent"
+        },
+        "Announce": {
+          "$className": "RemoteEvent"
+        },
+        "ClientReady": {
+          "$className": "RemoteEvent"
+        },
+        "Vote": {
+          "$className": "RemoteEvent"
+        },
+        "SetCharacter": {
+          "$className": "RemoteEvent"
+        },
+        "Timeout": {
+          "$className": "RemoteEvent"
+        },
+        "Profile": {
+          "$className": "RemoteEvent"
+        }
+      },
+      "ToolboxAssets": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true,
+        "Models": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
+        },
+        "VFX": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
+        },
+        "Sounds": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
+        }
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "$properties": {
+        "EnableMouseLockOption": false,
+        "CharacterUseJumpPower": false,
+        "CharacterJumpHeight": 6.5,
+        "CharacterWalkSpeed": 21
+      },
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client"
+        }
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "Gravity": 60
+      }
+    }
+  }
+}

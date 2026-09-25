@@ -1,0 +1,248 @@
+-- Audio. Every sound resolves in this order:
+--   1. ReplicatedStorage.ToolboxAssets.Sounds.<Key> (a Sound you inserted from the Toolbox)
+--   2. Assets.Sounds[Key] (an asset id you pasted)
+--   3. Assets.Fallback[Key] (built-in client sounds, pitched and distorted as stand-ins)
+-- Hit sounds scale with power: a perfect spike is lower, louder and crunchier.
+
+local SoundService = game:GetService("SoundService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Assets = require(Shared.Assets)
+local State = require(script.Parent.State)
+
+local AudioController = {}
+
+local group
+local holder
+local loops = {}
+local lastPlayed = {}
+
+local function resolve(key)
+	local tb = Assets.toolbox("Sounds." .. key)
+	if tb and tb:IsA("Sound") then
+		return { template = tb }
+	end
+	local id = Assets.id(Assets.Sounds[key])
+	if id then
+		return { id = id, volume = 1, speed = 1 }
+	end
+	local fb = Assets.Fallback[key]
+	if fb then
+		return fb
+	end
+	return nil
+end
+
+-- opts: volume, speed, pos (Vector3 for 3D), minGap
+function AudioController.play(key, opts)
+	opts = opts or {}
+	local info = resolve(key)
+	if not info then
+		return nil
+	end
+	local now = os.clock()
+	if lastPlayed[key] and now - lastPlayed[key] < (opts.minGap or 0.03) then
+		return nil
+	end
+	lastPlayed[key] = now
+	local sound
+	if info.template then
+		sound = info.template:Clone()
+	else
+		sound = Instance.new("Sound")
+		sound.SoundId = info.id
+		sound.Volume = info.volume or 1
+		sound.PlaybackSpeed = info.speed or 1
+		if info.distort then
+			local d = Instance.new("DistortionSoundEffect")
+			d.Level = info.distort
+			d.Parent = sound
+		end
+	end
+	sound.Volume = sound.Volume * (opts.volume or 1)
+	sound.PlaybackSpeed = sound.PlaybackSpeed * (opts.speed or 1)
+	sound.SoundGroup = group
+	if opts.pos then
+		local att = Instance.new("Attachment")
+		att.Parent = holder
+		att.WorldPosition = opts.pos
+		sound.RollOffMinDistance = 20
+		sound.RollOffMaxDistance = 260
+		sound.Parent = att
+		sound.Ended:Connect(function()
+			att:Destroy()
+		end)
+		task.delay(6, function()
+			if att.Parent then
+				att:Destroy()
+			end
+		end)
+	else
+		sound.Parent = SoundService
+		sound.Ended:Connect(function()
+			sound:Destroy()
+		end)
+		task.delay(6, function()
+			if sound.Parent then
+				sound:Destroy()
+			end
+		end)
+	end
+	sound:Play()
+	return sound
+end
+
+local function loop(key, volume)
+	if loops[key] then
+		return loops[key]
+	end
+	local info = resolve(key)
+	if not info or not (info.template or (Assets.Sounds[key] and Assets.Sounds[key] ~= "")) then
+		return nil
+	end
+	local s
+	if info.template then
+		s = info.template:Clone()
+	else
+		s = Instance.new("Sound")
+		s.SoundId = info.id
+	end
+	s.Looped = true
+	s.Volume = volume
+	s.SoundGroup = group
+	s.Parent = SoundService
+	s:Play()
+	loops[key] = s
+	return s
+end
+
+local function onHit(snap)
+	local meta = snap.meta
+	if not meta or not snap.path then
+		return
+	end
+	local pos = snap.path.segs[1].p
+	local ht = meta.hitType
+	local kmh = meta.kmh or 0
+	if ht == "Spike" or ht == "JumpServe" then
+		if meta.thunder then
+			AudioController.play("Thunder", { pos = pos, volume = 1.2 })
+			AudioController.play("SpikeHeavy", { pos = pos })
+		elseif meta.energy then
+			AudioController.play("AzureRelease", { pos = pos, speed = 1.1 - 0.35 * math.min(meta.energy, 1) })
+			if kmh >= 130 then
+				AudioController.play("SpikeHeavy", { pos = pos, volume = 0.8 })
+			end
+		elseif kmh >= 130 then
+			AudioController.play("SpikeHeavy", { pos = pos })
+		else
+			local k = math.clamp(kmh / 140, 0, 1)
+			AudioController.play("Spike", { pos = pos, speed = 1.25 - k * 0.35, volume = 0.6 + k * 0.7 })
+		end
+		if kmh >= 110 then
+			AudioController.play("Whoosh", { pos = pos, speed = 0.8 })
+		end
+	elseif ht == "Block" then
+		if meta.outcome == "Stuff" then
+			AudioController.play("Stuff", { pos = pos })
+		else
+			AudioController.play("Block", { pos = pos, volume = 0.8 })
+		end
+	elseif ht == "Set" then
+		AudioController.play("Set", { pos = pos })
+	elseif ht == "Toss" then
+		AudioController.play("Toss", { pos = pos })
+	elseif ht == "Overhand" then
+		AudioController.play("Serve", { pos = pos })
+	elseif ht == "Feint" then
+		AudioController.play("Set", { pos = pos, speed = 1.15, volume = 0.7 })
+	else
+		if meta.fail or meta.breaks then
+			AudioController.play("GuardBreak", { pos = pos })
+		elseif meta.perfect then
+			AudioController.play("ReceivePerfect", { pos = pos })
+		else
+			AudioController.play("Bump", { pos = pos, speed = 0.95 + (meta.quality or 0.5) * 0.15 })
+		end
+	end
+end
+
+function AudioController.init()
+	group = Instance.new("SoundGroup")
+	group.Name = "SpikeRushSFX"
+	group.Volume = 0.8
+	group.Parent = SoundService
+	holder = Instance.new("Part")
+	holder.Name = "SpikeRushAudio"
+	holder.Anchored = true
+	holder.CanCollide = false
+	holder.CanQuery = false
+	holder.CanTouch = false
+	holder.Transparency = 1
+	holder.Size = Vector3.new(0.2, 0.2, 0.2)
+	holder.CFrame = CFrame.new(0, 0, 0)
+	holder.Parent = workspace
+
+	local crowd = loop("CrowdLoop", 0.35)
+	loop("Music", 0.18)
+
+	State.signals.Ball:Connect(function(snap, isEcho)
+		if isEcho or snap.state ~= "Flight" then
+			return
+		end
+		onHit(snap)
+	end)
+	State.signals.BallEvent:Connect(function(kind, ev)
+		if kind == "Land" and ev.kind == "Floor" then
+			local speed = ev.vel.Magnitude
+			AudioController.play("FloorHit", { pos = ev.pos, volume = math.clamp(speed / 50, 0.4, 1.6), speed = speed > 45 and 0.8 or 1 })
+		elseif kind == "Net" then
+			AudioController.play("NetHit", { pos = ev.pos })
+		end
+	end)
+	State.signals.Announce:Connect(function(a)
+		if a.kind == "Serve" then
+			AudioController.play("Whistle", { minGap = 0.5 })
+		elseif a.kind == "Point" then
+			AudioController.play("Whistle", { speed = 0.9, minGap = 0.3 })
+			task.delay(0.12, function()
+				AudioController.play("Point", { volume = a.winner == State.myTeam and 1 or 0.6 })
+			end)
+			if a.reason == "Spike" or a.reason == "Ace" or a.reason == "Stuff" or a.reason == "Break" then
+				AudioController.play("CrowdCheer", { volume = 1 })
+			elseif a.reason == "Out" or a.reason == "Net" then
+				AudioController.play("CrowdGasp", { volume = 0.8 })
+			end
+			if crowd then
+				crowd.Volume = 0.65
+				task.delay(1.5, function()
+					crowd.Volume = 0.35
+				end)
+			end
+		elseif a.kind == "SetEnd" or a.kind == "MatchEnd" then
+			AudioController.play("CrowdCheer", { volume = 1.2 })
+			AudioController.play("Whistle", { speed = 0.8 })
+		elseif a.kind == "Break" then
+			AudioController.play("GuardBreak", { volume = 1.1, minGap = 0.3 })
+		elseif a.kind == "Timeout" then
+			AudioController.play("Whistle", { speed = 1.1 })
+			AudioController.play("Timeout")
+		elseif a.kind == "TimeoutCalled" then
+			AudioController.play("UIClick")
+		end
+	end)
+	State.signals.Action:Connect(function(_, kind, extra)
+		if kind == "Slide" then
+			AudioController.play("Slide", { volume = 0.7 })
+		elseif kind == "Whiff" then
+			AudioController.play("Whoosh", { volume = 0.35 })
+		elseif kind == "Jump" then
+			AudioController.play("Boom", { volume = extra == "Spike" and 0.8 or 0.45, minGap = 0.05 })
+		elseif kind == "Charge" then
+			AudioController.play("AzureCharge", { volume = 0.5 })
+		end
+	end)
+end
+
+return AudioController
