@@ -2,6 +2,11 @@
   "name": "SpikeRush",
   "tree": {
     "$className": "DataModel",
+    "ReplicatedFirst": {
+      "LoadingScreen": {
+        "$path": "src/first/LoadingScreen.client.lua"
+      }
+    },
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
@@ -39,6 +44,12 @@
           "$className": "RemoteEvent"
         },
         "Profile": {
+          "$className": "RemoteEvent"
+        },
+        "Forfeit": {
+          "$className": "RemoteEvent"
+        },
+        "Rotation": {
           "$className": "RemoteEvent"
         }
       },

@@ -75,4 +75,6 @@ end)
 
 Net.get("ClientReady"):FireServer()
 Net.get("Profile"):FireServer("get")
+-- lets the loading screen (ReplicatedFirst) fade out
+Players.LocalPlayer:SetAttribute("SpikeRushLoaded", true)
 print("[SpikeRush] Client ready for " .. Players.LocalPlayer.Name)
