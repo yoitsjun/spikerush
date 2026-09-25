@@ -56,7 +56,7 @@ end
 
 local function near(pos)
 	local cam = workspace.CurrentCamera
-	return cam ~= nil and math.abs(cam.CFrame.Position.Z - pos.Z) < 60
+	return cam ~= nil and math.abs(cam.CFrame.Position.Z - pos.Z) < 85
 end
 
 ------------------------------------------------------------------------------------------
@@ -1106,6 +1106,13 @@ local function onHit(snap)
 		end
 		if meta.perfect then
 			VFXController.shield(meta.id)
+		end
+		-- what the ball cost the team's guard
+		if meta.drain and meta.drain >= 5 then
+			VFXController.popup(pos - Vector3.new(0, 1.6, 0), "Guard -" .. math.floor(meta.drain + 0.5), HOT, 0.6)
+			if meta.knock and meta.knock > 0.5 then
+				shards(pos, Color3.fromRGB(210, 235, 255), 6 + math.floor(8 * meta.knock), 35)
+			end
 		end
 		if meta.free then
 			VFXController.popup(pos, "Free ball!", UI.Chalk, 1)

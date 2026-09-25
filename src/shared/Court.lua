@@ -95,7 +95,7 @@ function Court.formationSpot(kind, role, side)
 end
 
 function Court.serveSpot(side, role)
-	return Court.spot(side, C.SideDepth + 3.5, role)
+	return Court.spot(side, C.SideDepth + 1.1 * Config.Scale.StudsPerMeter, role)
 end
 
 -- Stands: the camera sits on the open near side (x < 0), so seating is on the far side (the

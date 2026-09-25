@@ -33,6 +33,7 @@ local padAxis = 0
 local facing = 1
 local jumpKind = nil
 local lastForce = nil
+local knock = nil -- { t0, speed } after a heavy receive
 
 local function getControls()
 	if controls then
@@ -228,6 +229,14 @@ function MovementController.slide(dirZ)
 	return true
 end
 
+-- A heavy receive shoves you back from the net (strength 0..1 from HitLogic's meta.knock).
+function MovementController.knockback(strength)
+	if not hum or not hrp or not strength or strength <= 0 or inAir() then
+		return
+	end
+	knock = { t0 = os.clock(), speed = P.KnockbackSpeed * (0.4 + 0.6 * strength), dur = P.KnockbackTime * (0.6 + 0.4 * strength) }
+end
+
 -- Azure Dragon: hover while gathering energy.
 function MovementController.setCharging(on)
 	charging = on == true
@@ -284,6 +293,19 @@ local function moveStep()
 	local now = os.clock()
 	local airborne = inAir()
 	local stats = State.myStats()
+
+	if knock then
+		local e = now - knock.t0
+		if e < knock.dur and not slide then
+			-- skid back away from the net, still facing it
+			hum.WalkSpeed = knock.speed * (1 - e / knock.dur)
+			hum:Move(Vector3.new(0, 0, State.mySide), false)
+			face(-State.mySide)
+			return
+		end
+		knock = nil
+		hum.WalkSpeed = baseWalk()
+	end
 
 	if slide then
 		local e = now - slide.t0
@@ -353,7 +375,7 @@ function MovementController.init(m)
 			padAxis = input.Position.X
 		end
 	end)
-	RunService.Stepped:Connect(function()
+	RunService.PreSimulation:Connect(function()
 		local ok, err = pcall(physicsStep)
 		if not ok then
 			warn("[SpikeRush] movement: " .. tostring(err))

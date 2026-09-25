@@ -89,7 +89,7 @@ local function desired(now)
 			if ballVisible then
 				lift = math.max(0, ballPos.Y - 16) * 0.5
 			end
-			local pos, look = side(r.Z - State.mySide * 12, 14 + lift, dist - 14, 0, 9 + lift)
+			local pos, look = side(r.Z - State.mySide * 17, 14 + lift, dist - 14, 0, 9 + lift)
 			return pos, look, BASE_FOV
 		end
 	end

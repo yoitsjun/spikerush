@@ -43,7 +43,7 @@ A character is a tier, a height and four stats: Attack, Defense, Speed and Jump.
 
 The A row reproduces The Spike's example A-rank wing spiker, 155 Attack, 120 Defense, 120 Speed and 155 Jump. Stats map onto gameplay the same way at every tier, from 50 up to 175. Attack sets a power multiplier from 0.45 to 1.00 for spikes and serves. Jump adds 0.40 to 1.75 m of vertical on top of your standing reach and makes the run-up faster and longer. Defense sets the team stamina pool (60 to 130), cuts stamina drain by up to 35%, and improves receives and blocks. Speed sets run speed (16 to 24) and set accuracy.
 
-Jumps are drawn the way *The Spike* draws them: heights are true to scale up to your standing hand, and every metre above it is drawn twice as tall (`Config.Scale.JumpScale`), so a maxed S+ leaps about 12 studs and hangs for about 1.8 s, far above the net, while every readout, hitting point and the 4.00 m Thunder line stay in real metres. Workspace gravity is 45 and the ball's is 36.
+The world is built at *The Spike*'s scale: 4.6 studs to the metre, a real 9 m half court, a 2.43 m net and true-metre hitting points, played by characters who stand about 1.15 m tall (a Roblox avatar). So a maxed S+ leaps about twice its own height and hits at 1.7 times the net, hanging for about 1.8 s. Workspace gravity is 45 and the ball falls at 11.25 m/s² (51.75 studs/s²).
 
 Height is rolled when a character is created, on a bell curve around 185 cm between 165 and 205. Standing reach is 1.3 cm of reach per cm of height, and your hitting point at the top of a jump is standing reach plus your Jump vertical. That is why jumps are not standardized: a maxed S+ at 185 cm hits at about 4.15 m, a maxed S+ at 170 cm tops out just under the 4.00 m Thunder line, and a tall 200 cm A-rank can clear it. Height changes reach, hitting point and hit-zone size, not the avatar's size, and every avatar shape reaches its build's number because jump height is measured from the avatar's real standing height.
 
@@ -61,7 +61,7 @@ Azure Dragon charges in the air. Hold Spike after takeoff to gather energy from 
 
 Spike power comes from contact, not a timing meter. The cleaner your hand meets the ball and the closer that is to the top of your jump, the harder the spike: at full Attack an edge contact is around 110 km/h and a perfect one at the apex about 140. Direction comes from where you are relative to the ball. A ball right at your hand goes deep, a ball further ahead of you (toward the net) comes down short and steep, and a ball behind your head sails long. You steer by where you jump from and how you drift in the air.
 
-The team stamina bars at the top of the screen work as a guard meter. Receiving a hard ball (above 60 km/h) drains your team's bar, less with more Defense. A receive pressed a little early (between 0.08 and 0.42 s before contact) is perfect, shows a shield and drains only 15% as much. Below half the bar turns red and receives get unreliable. The ball that empties it breaks the guard, and with a broken guard a spike of 90 km/h or more simply can't be received, except with a slide. Slides, soft-block deflections, free balls and feints never drain. After every rally the winner recovers 20% and the loser 35%, each set starts full, and a timeout refills both teams.
+The team stamina bars at the top of the screen work as a guard meter. Receiving a hard ball (above 60 km/h) drains your team's bar, and the drain climbs steeply with speed: about 13 for a 110 km/h spike, 27 for 140 and 50 for 180 (less with more Defense; team pools are 50 to 100), so two badly timed receives of a 180 km/h spike break an average guard. A receive pressed a little early (between 0.08 and 0.42 s before contact) is perfect, shows a shield and pays only 15% of the drain, rising to 40% against spikes of 180 km/h and more, and a hard spike makes a clean PERFECT rarer. Heavy balls knock the receiver back and stagger them, and the drain pops up as "Guard -N". Below half the bar turns red and receives get unreliable. The ball that empties it breaks the guard, and with a broken guard a spike of 90 km/h or more simply can't be received, except with a slide. Slides, soft-block deflections, free balls and feints never drain. After every rally the winner recovers 10% and the loser 20%, each set starts full, and a timeout refills both teams.
 
 When a ball is yours to play and you don't go for it (no receive, slide, jump or touch in the last second), the nearest bot on your team covers it: it digs the receive, sets it, or sends a free ball over.
 
@@ -122,7 +122,7 @@ Game code is written in a Lua 5.1/5.3 compatible subset of Luau (no `+=`, `conti
 python3 tools/check_lua.py      # syntax and undefined globals
 python3 tools/check_config.py   # every Config reference exists
 python3 tools/check_api.py      # every cross-module call is defined
-texlua tools/sim_test.lua       # 47 gameplay scenarios against the real HitLogic
+texlua tools/sim_test.lua       # 51 gameplay scenarios against the real HitLogic
 ```
 
 The simulation suite checks the headline numbers (spike speeds, Thunder and Azure ranges, depth control, stamina and guard breaks, touch rules, sets, serves, blocks, the build and upgrade rules) and that client prediction is bit-identical to the server.

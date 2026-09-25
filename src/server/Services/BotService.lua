@@ -26,6 +26,7 @@ local planSeq, planPhase = -1, nil
 
 local Z, H, P, B = Config.Zones, Config.Hits, Config.Player, Config.Bots
 local C = Config.Court
+local SPM = Config.Scale.StudsPerMeter
 local AZURE = Config.Abilities.Azure
 local SKIN = {
 	Color3.fromRGB(255, 219, 172),
@@ -104,7 +105,7 @@ local function closestMember(team, z, excludeId)
 		if rz then
 			local d = math.abs(rz - z)
 			if not e.isBot then
-				d = d - 2
+				d = d - 0.6 * SPM
 			end
 			if not best or d < bestD then
 				best, bestD = e, d
@@ -149,7 +150,7 @@ local function chooseDepth(b, team, shortest)
 		end
 	end
 	local best, bestScore = deepest, -math.huge
-	for _, cand in ipairs({ deepest, deepest - 4, deepest - 8, (deepest + shortest) / 2, shortest + 3 }) do
+	for _, cand in ipairs({ deepest, deepest - 1.25 * SPM, deepest - 2.5 * SPM, (deepest + shortest) / 2, shortest + 0.95 * SPM }) do
 		local d = 40
 		for _, f in ipairs(foes) do
 			d = math.min(d, math.abs(f - cand))
@@ -375,7 +376,7 @@ local function planAttack(team, now, exclude)
 		lead = spiker.tApex + delta
 	end
 	local cT, cP = descentTo(path, now, contactY, side)
-	local canAttack = cP ~= nil and cP.Y > C.NetTop + 1.6 and cP.Z * side < C.AttackLine + 6
+	local canAttack = cP ~= nil and cP.Y > C.NetTop + 0.5 * SPM and cP.Z * side < C.AttackLine + 1.9 * SPM
 	if not canAttack then
 		-- nothing to hit: send a free ball over on the third touch
 		local t, p = BallPhysics.findTime(path, now, function(pos, vel)
@@ -396,8 +397,8 @@ local function planAttack(team, now, exclude)
 	local noise = (spiker.rng:NextNumber() * 2 - 1) * tierPair(spiker, B.ContactNoise)
 	spiker.targetZ = cP.Z + side * (dz + Z.SpikeForward) + noise
 	-- the takeoff spot must stay on our side of the net
-	if spiker.targetZ * side < 0.9 then
-		spiker.targetZ = side * 0.9
+	if spiker.targetZ * side < 0.3 * SPM then
+		spiker.targetZ = side * 0.3 * SPM
 	end
 	if azure then
 		spiker.chargeFrom = true
@@ -447,7 +448,7 @@ local function planBlock(team, now)
 	end
 	local attSide = Court.sideOf(last.team)
 	local cT, cP = descentTo(BS.path, now, H.SetArriveY, attSide)
-	if not cT or math.abs(cP.Z) > 7 then
+	if not cT or math.abs(cP.Z) > 2.2 * SPM then
 		return
 	end
 	local side = Court.sideOf(team)
@@ -461,7 +462,7 @@ local function planBlock(team, now)
 	end
 	if blocker and blocker.rng:NextNumber() < B.BlockChance then
 		blocker.task = "Block"
-		blocker.targetZ = side * 1.3
+		blocker.targetZ = side * 0.4 * SPM
 		blocker.jumpAt = cT - blocker.tApex + 0.08 + (blocker.rng:NextNumber() * 2 - 1) * tierPair(blocker, B.JumpTimingNoise)
 	end
 end
@@ -571,8 +572,8 @@ local function serveLogic(b, now, grounded, side)
 			local contactY = e.charStats.contactMaxStuds - 0.2
 			local t, p = descentTo(path, now, contactY, side)
 			if t then
-				local depth = C.SideDepth - 3 - b.rng:NextNumber() * 8
-				local dz = dzForDepth(depth, C.SideDepth - H.SpikeDeepMargin, 9)
+				local depth = C.SideDepth - SPM * (0.95 + b.rng:NextNumber() * 2.5)
+				local dz = dzForDepth(depth, C.SideDepth - H.SpikeDeepMargin, 2.8 * SPM)
 				s.standZ = p.Z + side * (dz + Z.SpikeForward)
 				s.jumpAt = t - b.tApex + (b.rng:NextNumber() * 2 - 1) * tierPair(b, B.JumpTimingNoise)
 			end
@@ -661,6 +662,18 @@ local function updateBot(b, now)
 	local BS, MS = reg.BallService, reg.MatchService
 	lockLane(b)
 
+	-- knocked back by a heavy receive: skid away from the net
+	if b.knockUntil then
+		if now < b.knockUntil then
+			local v = hrp.AssemblyLinearVelocity
+			local left = (b.knockUntil - now) / b.knockDur
+			hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, side * b.knockSpeed * left)
+			hum:Move(Vector3.zero)
+		else
+			b.knockUntil = nil
+		end
+	end
+
 	-- sliding: a dive along the court that ignores stamina
 	if b.slideUntil then
 		if now < b.slideUntil then
@@ -690,7 +703,7 @@ local function updateBot(b, now)
 		return
 	end
 
-	if b.targetZ and not b.slideUntil and grounded then
+	if b.targetZ and not b.slideUntil and not b.knockUntil and grounded then
 		local arrived = moveTo(b, b.targetZ)
 		if arrived then
 			faceNet(b, side)
@@ -828,7 +841,7 @@ function BotService.spawn(e)
 	reg.CharacterService.applyStats(model, e.charStats)
 	local side = Court.sideOf(e.team)
 	local lane = Court.lane(e.role)
-	model:PivotTo(Court.facing(Vector3.new(lane, 3.2, side * 12), side))
+	model:PivotTo(Court.facing(Vector3.new(lane, 3.2, side * 3.75 * SPM), side))
 	model.Parent = folder
 	pcall(function()
 		hrp:SetNetworkOwner(nil)
@@ -861,6 +874,17 @@ function BotService.spawn(e)
 	e.model = model
 	planSeq = -1
 	return model
+end
+
+-- A heavy receive shoves the bot back (strength 0..1 from HitLogic's meta.knock).
+function BotService.knockback(e, strength)
+	local b = bots[e.id]
+	if not b or not strength or strength <= 0 then
+		return
+	end
+	b.knockDur = P.KnockbackTime * (0.6 + 0.4 * strength)
+	b.knockSpeed = P.KnockbackSpeed * (0.4 + 0.6 * strength)
+	b.knockUntil = Util.now() + b.knockDur
 end
 
 function BotService.despawn(e)

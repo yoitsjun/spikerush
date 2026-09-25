@@ -69,7 +69,7 @@
         "EnableMouseLockOption": false,
         "CharacterUseJumpPower": false,
         "CharacterJumpHeight": 6.5,
-        "CharacterWalkSpeed": 21
+        "CharacterWalkSpeed": 27
       },
       "StarterPlayerScripts": {
         "Client": {

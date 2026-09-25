@@ -55,7 +55,7 @@ The court's long axis is Z, with the net at z = 0. Home plays z < 0 (left of scr
 
 The ball always travels in the x = 0 plane. Players are locked to role lanes (`Config.Lanes`: WS -1.2, MB 0.2, SE 1.4, Solo 0), so they only ever move along Z.
 
-The scale is 3.2 studs per metre. The net top is 7.8 studs (2.43 m), the end lines are at z = ±30, and the court half-depth toward the camera is 14 studs. Workspace gravity is 45 and the ball uses its own gravity (36). Heights above the standing hand are drawn twice as tall (`Config.Scale.JumpScale`); see the third session notes.
+The scale is 4.6 studs per metre (`local M` in Config), matching The Spike: the net top is 11.2 studs (2.43 m), the end lines are at z = ±41.4 (9 m), the attack lines at ±13.8 (3 m), and the court half-depth toward the camera is 14 studs (visual only). Workspace gravity is 45 and the ball uses its own gravity (51.75 studs/s², 11.25 m/s²). A Roblox avatar (about 5.3 studs) stands for a 1.15 m character.
 
 Roles: 3v3 uses WS, MB and SE (humans claim WS first, then MB, then SE); 2v2 uses WS and SE; 1v1 uses Solo. The serve order rotates on side-out.
 
@@ -142,7 +142,7 @@ Code must stay in a Lua 5.1/5.3 compatible subset of Luau: no `+=`, `continue`, 
 python3 tools/check_lua.py      # syntax (texluac) and undefined globals
 python3 tools/check_config.py   # every Config reference, including local aliases, exists
 python3 tools/check_api.py      # every Module.fn / reg.Service.fn / mods.Controller.fn is defined
-texlua tools/sim_test.lua       # 47 scenarios run against the real shared modules
+texlua tools/sim_test.lua       # 51 scenarios run against the real shared modules
 ```
 
 On Debian or Ubuntu, `apt-get install texlive-binaries` provides `texlua` and `texluac`.
@@ -151,7 +151,7 @@ Nested config aliases such as `local AZURE = Config.Abilities.Azure` are not cov
 
 ## Status
 
-All the code for the 2.5D game is written and every check passes, including all 47 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
+All the code for the 2.5D game is written and every check passes, including all 51 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
 
 ### Second session (continuation)
 
@@ -185,12 +185,20 @@ No mechanic changed; the input got forgiving. With the 1.8 s anime airtime playe
 - Airborne means `FloorMaterial == Air` or the humanoid state is Jumping/Freefall, in ActionController and MovementController.
 - New simulation: with the best jump timing, an open set stays in reach 0.18 s (fresh S+) to 0.35 s (maxed S+).
 
+### Fifth session: animations, The Spike's scale, stamina nerf
+
+- **Animations never showed**: Roblox's Avatar Joint Upgrade (on by default for new experiences, and not settable from scripts or the project file) spawns R15 rigs with `AnimationConstraint` joints instead of `Motor6D`. AnimationController only looked for Motor6Ds, so it found no joints. It now takes both, keyed by the body part each joint moves (`JOINT_FOR_PART`), writes `Transform` in `RunService.PreSimulation` (the documented point, after the Animator), and skips a frame when `Animator.EvaluationThrottled`. MovementController's physics step moved to PreSimulation too.
+- **Scale**: measured from the owner's screenshots, The Spike uses a true-size court (9 m halves, 2.43 m net, hitting points true to the net) with characters drawn about 1.15 m tall. `Config` now has `local M = 4.6` (studs per metre) and every world distance is written in metres times M; values tied to the avatar's body (hit zones around the root, lanes, `PassArriveY`, `TossLow`) stay in studs. `JumpScale` is back to 1: the net and court grew instead, so a maxed S+ hand (19.1 studs) sits 1.7x the net (11.2 studs), as in The Spike. HitLogic, BallPhysics, Court, BotService, ArenaBuilder (`LEN` stretches the hall's z layout), BallRenderer, CameraController and VFXController literals were converted. Walk speeds 22 to 32, slide 50, approach boost 18. The spike zone grew (radius 2.9 x 2.8 studs) so a set, which now falls faster in studs, stays in reach 0.17 to 0.25 s. The simulation suite multiplies its old world literals by `K = SPM / 3.2`.
+- **Stamina nerf** (the owner: a 180 km/h spike shouldn't be "eaten up with nothing happening"): drain = 38 x ((kmh - 60) / 100) ^ 1.5 before Defense; the perfect-timing share rises from 0.15 (up to 100 km/h) to 0.4 (180 km/h, `HitLogic.perfectDrainMul`); `IncomingSpeedPenaltyMax` 0.5 makes clean PERFECTs on monster spikes rarer; pools 50 to 100; rally recovery 10% / 20%. HitLogic adds `meta.knock` (0 to 1 above 90 km/h): the receiver is shoved back (MovementController.knockback locally, BotService.knockback for bots via HitService), plays the Knockback pose, shows "Guard -N", and the team's stamina bar shakes. Perfectly timed receives still pay the least, which keeps the design rule; the owner asked for the nerf.
+
 These are the spots most likely to need attention on the first playtest:
 
 | Area | What to check |
 |---|---|
 | Rojo | The plugin must be 7.7.x (`rojo plugin install`, then restart Studio); "Can't parse JSON" or a protocol error on Connect means an older plugin |
-| Jumps | Humanoid.JumpHeight is now about 12 studs for a maxed S+; check the apex reaches the hitting point (the readout should show the lobby's hitting point on a perfect spike) and the air time feels right (tune `JumpScale`, `Player.Gravity`, `HangGravityCancel`) |
+| Scale | The whole hall is bigger (4.6 studs/m): check the camera frames the play, bots cover the longer court, and serves reach from behind the end line |
+| Joints | Poses must show on both AnimationConstraint and Motor6D rigs; Output should have no "[SpikeRush] animation" warnings |
+| Jumps | Humanoid.JumpHeight is about 11.5 studs for a maxed S+; check the apex reaches the hitting point (the readout should show the lobby's hitting point on a perfect spike) and the air time feels right (tune `JumpScale`, `Player.Gravity`, `HangGravityCancel`) |
 | Bot cover | Stand still while a ball comes to you: a teammate bot should dig it. Press receive early instead: the bot must hold off. Watch for bots stealing balls on high ping |
 | Animation clips | Spike (rise, bow-draw, whip, follow-through), receive, set and landing read in profile for players and bots |
 | Input | W and S double as Block and Receive while the default control script also reads them as forward/back. MovementController overrides `Humanoid:Move` every frame at RenderPriority Input+1; confirm there's no depth drift and no double actions |

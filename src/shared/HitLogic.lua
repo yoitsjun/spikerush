@@ -255,7 +255,7 @@ local function arcWithAssist(from, target, apex, g)
 		if m == nil or m >= H.NetClearance then
 			break
 		end
-		apex = apex + 1.2
+		apex = apex + 0.38 * SPM
 		v, T = HitLogic.solveArc(from, target, apex, g)
 	end
 	return v, T
@@ -276,7 +276,7 @@ local function ownSideArc(from, target, apex, g, side, minDepth)
 		if lz >= minDepth then
 			break
 		end
-		target = target + Vector3.new(0, 0, side * (minDepth - lz + 0.3))
+		target = target + Vector3.new(0, 0, side * (minDepth - lz + 0.1 * SPM))
 		v, T = HitLogic.solveArc(from, target, apex, g)
 	end
 	return v, T
@@ -293,12 +293,19 @@ local function applyIncoming(q, kmh)
 end
 
 -- Stamina a heavy ball costs the receiving team.
+-- Grows faster than the speed: a 180 km/h spike costs far more than two 120s.
 function HitLogic.drainFor(kmh, stats)
 	local over = kmh - ST.DrainStartKmh
 	if over <= 0 then
 		return 0
 	end
-	return over / 100 * ST.DrainPer100Kmh * (1 - ((stats and stats.DrainReduction) or 0))
+	return ST.DrainPer100Kmh * (over / 100) ^ ST.DrainExponent * (1 - ((stats and stats.DrainReduction) or 0))
+end
+
+-- The share of the drain a perfectly timed receive still pays.
+function HitLogic.perfectDrainMul(kmh)
+	local t = clamp((kmh - ST.PerfectMulFromKmh) / (ST.PerfectMulToKmh - ST.PerfectMulFromKmh), 0, 1)
+	return lerp(ST.PerfectDrainMul, ST.PerfectDrainMulMax, t)
 end
 
 function HitLogic.isHeavy(lastHit)
@@ -449,22 +456,22 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.quality, meta.grade = q, HitLogic.grade(q)
 		meta.downBall = true
 		meta.thunder, meta.pierce = nil, nil
-		local target = Vector3.new(0, R, -side * (6 + rng:NextNumber() * 8))
-		local v = arcWithAssist(ball, target, C.NetTop + 3, G)
+		local target = Vector3.new(0, R, -side * SPM * (1.9 + rng:NextNumber() * 2.5))
+		local v = arcWithAssist(ball, target, C.NetTop + 0.95 * SPM, G)
 		return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
 	end
 
 	local deepest = C.SideDepth - H.SpikeDeepMargin
 	local shortest = H.SpikeShortDepth
 	if kind == "JumpServe" then
-		shortest = 9
+		shortest = 2.8 * SPM
 	end
 	local depth = attackDepth(dz, qContact, rng, deepest, shortest)
 	if qContact >= 0.75 then
 		depth = math.min(depth, deepest)
 	end
 	if overcharge then
-		depth = C.SideDepth + 4 + rng:NextNumber() * 8
+		depth = C.SideDepth + SPM * (1.25 + rng:NextNumber() * 2.5)
 	end
 	local target = Vector3.new(0, R, -side * depth)
 	local steps = 0
@@ -531,9 +538,9 @@ function HitLogic.compute(input, ctx)
 		local meta = meta0("Overhand", q)
 		meta.height = HitLogic.meters(ball.Y)
 		local depth = C.SideDepth * (0.55 + 0.3 * rng:NextNumber()) + jitter(rng, (1 - q) * H.ServeError)
-		depth = clamp(depth, 8, C.SideDepth - 1.5)
+		depth = clamp(depth, 2.5 * SPM, C.SideDepth - 0.47 * SPM)
 		local target = Vector3.new(0, R, -side * depth)
-		local apex = C.NetTop + H.OverhandApexOverNet + rng:NextNumber() * 2
+		local apex = C.NetTop + H.OverhandApexOverNet + rng:NextNumber() * 0.6 * SPM
 		local v = arcWithAssist(ball, target, apex, G)
 		return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
 	end
@@ -543,7 +550,7 @@ function HitLogic.compute(input, ctx)
 		if input.grounded then
 			return false, "grounded"
 		end
-		if ball.Z * side < -0.4 then
+		if ball.Z * side < -0.12 * SPM then
 			return false, "over"
 		end
 		if action == "Spike" then
@@ -560,13 +567,13 @@ function HitLogic.compute(input, ctx)
 		meta.noDrain = true
 		meta.height = HitLogic.meters(ball.Y)
 		local frac = clamp((dz - H.SpikeDzDeep) / (H.SpikeDzShort - H.SpikeDzDeep), 0, 1)
-		local depth = lerp(H.FeintMaxDepth, 3, frac) + jitter(rng, (1 - qContact) * H.FeintError)
-		local target = Vector3.new(0, R, -side * clamp(depth, 2, H.FeintMaxDepth + 3))
+		local depth = lerp(H.FeintMaxDepth, 0.95 * SPM, frac) + jitter(rng, (1 - qContact) * H.FeintError)
+		local target = Vector3.new(0, R, -side * clamp(depth, 0.6 * SPM, H.FeintMaxDepth + 0.95 * SPM))
 		local g = G
 		if ctx.ability == "Azure" then
 			g = G * 1.6 -- topspin roll shot: drops faster
 		end
-		local v = arcWithAssist(ball, target, math.max(ball.Y + 0.5, C.NetTop + H.FeintApexOverNet), g)
+		local v = arcWithAssist(ball, target, math.max(ball.Y + 0.16 * SPM, C.NetTop + H.FeintApexOverNet), g)
 		return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t)
 	end
 
@@ -586,7 +593,7 @@ function HitLogic.compute(input, ctx)
 		if ctx.forceQuality then
 			q = ctx.forceQuality
 		end
-		local inc = ctx.ballVel or Vector3.new(0, 0, side * 30)
+		local inc = ctx.ballVel or Vector3.new(0, 0, side * 9.4 * SPM)
 		local attackKmh = last.kmh or HitLogic.kmh(inc.Magnitude)
 		local power = 0
 		if last.hitType == "Spike" then
@@ -603,26 +610,26 @@ function HitLogic.compute(input, ctx)
 		if stuffScore >= 0.45 then
 			meta.outcome = "Stuff"
 			p = Vector3.new(0, ball.Y, atk * (R + 0.1))
-			v = Vector3.new(0, -(14 + 16 * q), atk * (10 + 14 * q))
+			v = Vector3.new(0, -SPM * (4.4 + 5 * q), atk * SPM * (3.1 + 4.4 * q))
 			a = Vector3.new(0, -G * 1.3, 0)
 			hold = 0.05
 		elseif stuffScore >= 0.18 then
 			meta.outcome = "Soft"
 			meta.noDrain = true
 			p = Vector3.new(0, ball.Y, side * (R + 0.1))
-			v = Vector3.new(0, 10 + 6 * q, side * (6 + 4 * rng:NextNumber()))
+			v = Vector3.new(0, SPM * (3.1 + 1.9 * q), side * SPM * (1.9 + 1.25 * rng:NextNumber()))
 			a = Vector3.new(0, -G, 0)
 		elseif fingertips and power > 0.5 then
 			meta.outcome = "Tool"
 			meta.noDrain = true
 			p = Vector3.new(0, ball.Y, side * (R + 0.1))
-			v = Vector3.new(0, 14 + 6 * power, side * (28 + 14 * power))
+			v = Vector3.new(0, SPM * (4.4 + 1.9 * power), side * SPM * (8.75 + 4.4 * power))
 			a = Vector3.new(0, -G, 0)
 		else
 			meta.outcome = "Touch"
 			meta.noDrain = true
 			p = Vector3.new(0, ball.Y, side * (R + 0.1))
-			v = Vector3.new(0, math.abs(inc.Y) * 0.2 + 8, side * math.max(math.abs(inc.Z) * 0.35, 8))
+			v = Vector3.new(0, math.abs(inc.Y) * 0.2 + 2.5 * SPM, side * math.max(math.abs(inc.Z) * 0.35, 2.5 * SPM))
 			a = Vector3.new(0, -G, 0)
 		end
 		return launchResult(meta, p, v, a, t, hold)
@@ -698,11 +705,16 @@ function HitLogic.compute(input, ctx)
 		if heavy and not sliding then
 			drain = HitLogic.drainFor(incomingKmh, stats)
 			if perfect then
-				drain = drain * ST.PerfectDrainMul
+				drain = drain * HitLogic.perfectDrainMul(incomingKmh)
 			end
 		end
 		meta.drain = drain > 0 and drain or nil
 		meta.perfect = perfect or nil
+		-- a heavy ball knocks the receiver back (0..1), unless they slid
+		if heavy and not sliding then
+			local knock = clamp((incomingKmh - ST.KnockFromKmh) / 90, 0, 1)
+			meta.knock = knock > 0 and knock or nil
+		end
 
 		if heavy and not sliding and stam.value <= 0 and incomingKmh >= ST.BreakFailKmh then
 			-- guard broken: the spike blasts straight off the arms
@@ -713,7 +725,7 @@ function HitLogic.compute(input, ctx)
 			if (ctx.ballVel or Vector3.zero).Z * side < 0 then
 				dir = -side
 			end
-			local v = Vector3.new(0, 9 + rng:NextNumber() * 12, dir * (20 + rng:NextNumber() * 16))
+			local v = Vector3.new(0, SPM * (2.8 + rng:NextNumber() * 3.75), dir * SPM * (6.25 + rng:NextNumber() * 5))
 			return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
 		end
 		if heavy and not sliding and pct < ST.RedAt then
@@ -735,8 +747,8 @@ function HitLogic.compute(input, ctx)
 		if ctx.thirdTouch then
 			meta.hitType = "Free"
 			meta.free = true
-			local target = Vector3.new(0, R, -side * (12 + rng:NextNumber() * 10))
-			local apex = math.max(ball.Y + 2, C.NetTop + H.FreeBallApexOverNet)
+			local target = Vector3.new(0, R, -side * SPM * (3.75 + rng:NextNumber() * 3.1))
+			local apex = math.max(ball.Y + 0.6 * SPM, C.NetTop + H.FreeBallApexOverNet)
 			local v = arcWithAssist(ball, target, apex, G)
 			return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
 		end
@@ -749,18 +761,18 @@ function HitLogic.compute(input, ctx)
 			if vz * side < 0 then
 				dir = -side
 			end
-			local dist = 4 + (H.ShankAt - q) / H.ShankAt * 12 * (0.5 + rng:NextNumber())
+			local dist = SPM * (1.25 + (H.ShankAt - q) / H.ShankAt * 3.75 * (0.5 + rng:NextNumber()))
 			local tz = ball.Z + dir * dist
-			if not meta.breaks and tz * side < 1.5 then
-				tz = side * 1.5
+			if not meta.breaks and tz * side < 0.47 * SPM then
+				tz = side * 0.47 * SPM
 			end
 			if meta.breaks and rng:NextNumber() < 0.35 then
-				tz = -side * (3 + rng:NextNumber() * 6) -- popped over the net
+				tz = -side * SPM * (0.95 + rng:NextNumber() * 1.9) -- popped over the net
 			end
-			local apex = math.max(ball.Y + 2, 7 + rng:NextNumber() * 9)
+			local apex = math.max(ball.Y + 0.6 * SPM, SPM * (2.2 + rng:NextNumber() * 2.8))
 			local v = nil
 			if tz * side > 0 then
-				v = ownSideArc(ball, Vector3.new(0, R, tz), apex, G, side, 1.2)
+				v = ownSideArc(ball, Vector3.new(0, R, tz), apex, G, side, 0.38 * SPM)
 			else
 				v = arcWithAssist(ball, Vector3.new(0, R, tz), apex, G)
 			end
@@ -792,30 +804,30 @@ function HitLogic.compute(input, ctx)
 				accuracy = accuracy * 0.55
 				apex = apex * 0.92
 			end
-			apex = math.max(apex, ball.Y + 1.2)
+			apex = math.max(apex, ball.Y + 0.38 * SPM)
 			local depth = Court.attackDepth(setType) + jitter(rng, (1 - q) ^ 1.4 * H.SetError / accuracy)
-			depth = math.max(depth, 1.5)
+			depth = math.max(depth, 0.47 * SPM)
 			local g = G * H.SetGravityScale
-			local v = ownSideArc(ball, Vector3.new(0, H.SetArriveY, side * depth), apex, g, side, 1.2)
+			local v = ownSideArc(ball, Vector3.new(0, H.SetArriveY, side * depth), apex, g, side, 0.38 * SPM)
 			return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t)
 		end
 
 		-- first touch: a high pass to the setter (or up in front of yourself when solo)
 		local depth = H.SetterDepth
 		if (ctx.teamSize or 3) <= 1 then
-			depth = clamp(math.abs(root.Z) - 5, 4, 12)
+			depth = clamp(math.abs(root.Z) - 1.6 * SPM, 1.25 * SPM, 3.75 * SPM)
 		end
 		local err = (1 - q) ^ 1.3 * H.PassError
 		local apex = lerp(H.PassApexMin, H.PassApexMax, q)
 		if sliding then
-			depth = depth + 2
-			err = err + 2
+			depth = depth + 0.6 * SPM
+			err = err + 0.6 * SPM
 			apex = H.SlidePassApex
 		end
-		depth = math.max(depth + jitter(rng, err), 1.8)
-		apex = math.max(apex, ball.Y + 1)
+		depth = math.max(depth + jitter(rng, err), 0.56 * SPM)
+		apex = math.max(apex, ball.Y + 0.3 * SPM)
 		local g = G * H.PassGravityScale
-		local v = ownSideArc(ball, Vector3.new(0, H.PassArriveY, side * depth), apex, g, side, 1.2)
+		local v = ownSideArc(ball, Vector3.new(0, H.PassArriveY, side * depth), apex, g, side, 0.38 * SPM)
 		return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t)
 	end
 

@@ -63,6 +63,7 @@ local Court = require("Court")
 local Characters = require("Characters")
 local C, Z, H = Config.Court, Config.Zones, Config.Hits
 local SPM = Config.Scale.StudsPerMeter
+local K = SPM / 3.2 -- the suite's distances were written at 3.2 studs per metre
 
 local failures = 0
 local function check(cond, label, detail)
@@ -102,12 +103,12 @@ local function oppDepth(path) return -path.landing.pos.Z * side end
 
 print("== S+ spike power (targets: 110 weak end, 140 well timed) ==")
 do
-	local root = apexRoot(SP, 3.5)
+	local root = apexRoot(SP, 3.5 * K)
 	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy))
 	local path = BallPhysics.buildPath(res.launch)
 	check(ok and res.meta.kmh > 136 and res.meta.kmh <= 141, "perfect contact at the apex", string.format("%.1f km/h, %.2f m", res.meta.kmh, res.meta.height))
 	check(not path.flags.netTouch and path.landing.pos.Z * side < 0 and Court.inBounds(path.landing.pos), "perfect spike lands in", describe(path))
-	check(oppDepth(path) > 20, "clean contact goes deep", string.format("%.1f studs deep", oppDepth(path)))
+	check(oppDepth(path) > 20 * K, "clean contact goes deep", string.format("%.1f studs deep", oppDepth(path)))
 	local lowRoot = root - vec(0, 3.2, 0) -- mistimed: hit on the way up
 	local ok2, res2 = spike(lowRoot, ballAt(lowRoot, 1.9, 1.3))
 	check(ok2 and res2.meta.kmh >= 108 and res2.meta.kmh < 124, "edge contact below the apex is the weak end", string.format("%.1f km/h, contact %.2f", ok2 and res2.meta.kmh or 0, ok2 and res2.meta.contact or 0))
@@ -115,7 +116,7 @@ end
 
 print("== spike direction from relative position ==")
 do
-	local root = apexRoot(SP, 3.0)
+	local root = apexRoot(SP, 3.0 * K)
 	local depths = {}
 	for _, dz in ipairs({ -0.1, 1.0, 2.2 }) do
 		local ok, res = spike(root, ballAt(root, dz, 0))
@@ -126,7 +127,7 @@ do
 	local ok, res = spike(root, ballAt(root, -1.6, 0.4))
 	local path = BallPhysics.buildPath(res.launch)
 	check(ok and not Court.inBounds(path.landing.pos), "ball behind the head sails long", describe(path))
-	local farRoot = apexRoot(SP, 14) -- far off the net, reaching for a ball ahead
+	local farRoot = apexRoot(SP, 14 * K) -- far off the net, reaching for a ball ahead
 	local ok3, res3 = spike(farRoot, ballAt(farRoot, 2.3, 1.2))
 	local path3 = BallPhysics.buildPath(res3.launch)
 	check(ok3 and res3.meta.quality < H.SpikeAssistQuality and (path3.flags.netTouch or path3.landing.pos.Z * side > 0), "sloppy steep swing from deep finds the net", string.format("q=%.2f %s", res3.meta.quality, describe(path3)))
@@ -134,7 +135,7 @@ end
 
 print("== Thunder Spiker (target 160-200 above 4.00 m) ==")
 do
-	local root = apexRoot(SP, 3.5)
+	local root = apexRoot(SP, 3.5 * K)
 	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { ability = "Thunder" })
 	check(ok and res.meta.thunder and res.meta.kmh >= 185 and res.meta.kmh <= 200.5, "perfect thunder at 4.15 m", string.format("%.1f km/h at %.2f m", res.meta.kmh, res.meta.height))
 	local low = root - vec(0, 0.15 * SPM * Config.Scale.JumpScale, 0) -- 0.15 m lower: just over 4.00 m
@@ -143,30 +144,31 @@ do
 	local path = BallPhysics.buildPath(res.launch)
 	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "thunder spike lands in", describe(path))
 	local A = Characters.stats("A")
-	local rootA = apexRoot(A, 3.5)
+	local rootA = apexRoot(A, 3.5 * K)
 	local ok3, res3 = spike(rootA, ballAt(rootA, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = A })
 	check(ok3 and not res3.meta.thunder, "maxed A at 185 cm can't reach 4.00 m", string.format("max %.2f m, %.1f km/h", res3.meta.height, res3.meta.kmh))
 	local tallA = Characters.stats("A", "WS", 200)
-	local rootT = apexRoot(tallA, 3.5)
+	local rootT = apexRoot(tallA, 3.5 * K)
 	local ok4, res4 = spike(rootT, ballAt(rootT, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = tallA })
 	check(ok4 and res4.meta.thunder, "a 200 cm A can", string.format("%.2f m, %.1f km/h", res4.meta.height, res4.meta.kmh))
 	local shortS = Characters.stats("S+", "WS", 170)
-	local rootS = apexRoot(shortS, 3.5)
+	local rootS = apexRoot(shortS, 3.5 * K)
 	local ok5, res5 = spike(rootS, ballAt(rootS, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = shortS })
 	check(ok5 and not res5.meta.thunder, "a 170 cm S+ can't", string.format("%.2f m, %.1f km/h", res5.meta.height, res5.meta.kmh))
 end
 
-print("== anime jumps (huge on screen, same metres) ==")
+print("== The Spike's scale and jumps ==")
 do
 	local okMap = true
 	for _, m in ipairs({ 1.2, 2.0, 2.43, 3.3, 4.0, 4.6 }) do
 		okMap = okMap and math.abs(Characters.metersAt(Characters.studsAt(m)) - m) < 1e-9
 	end
 	check(okMap, "studs and metres convert both ways")
-	local trueJump = SP.ContactMaxM * SPM - (GROUND + Z.SpikeUp) - Characters.hangGain()
 	local jump = Characters.jumpHeight(SP, GROUND)
-	check(jump >= 1.9 * trueJump and jump > 11, "a maxed S+ jumps about twice as high on screen", string.format("%.1f studs (true scale %.1f), hand at %.1f studs", jump, trueJump, SP.contactMaxStuds))
-	local root = apexRoot(SP, 3.5)
+	local avatarM = 5.3 / SPM
+	check(math.abs(C.NetTop / SPM - 2.43) < 1e-6 and math.abs(C.SideDepth / SPM - 9) < 1e-6 and avatarM > 1.0 and avatarM < 1.3, "The Spike's scale: 2.43 m net, 9 m half court, characters about 1.15 m", string.format("net %.1f studs, half court %.1f studs, avatar %.2f m", C.NetTop, C.SideDepth, avatarM))
+	check(SP.contactMaxStuds / C.NetTop > 1.6 and SP.contactMaxStuds / C.NetTop < 1.8 and jump > 2 * 5.3, "a maxed S+ leaps twice its height and hits at 1.7x the net", string.format("jump %.1f studs, hand at %.1f studs = %.2fx the net", jump, SP.contactMaxStuds, SP.contactMaxStuds / C.NetTop))
+	local root = apexRoot(SP, 3.5 * K)
 	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, 0))
 	check(ok and math.abs(res.meta.height - SP.ContactMaxM) < 0.03, "the readout still shows the real hitting point", string.format("%.2f m (hitting point %.2f m)", res.meta.height, SP.ContactMaxM))
 	-- airtime of a full jump with the hang force, same integration as the bots use
@@ -222,7 +224,7 @@ end
 
 print("== Azure Dragon ==")
 do
-	local root = apexRoot(SP, 3.5)
+	local root = apexRoot(SP, 3.5 * K)
 	local b = ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy)
 	local _, none = spike(root, b, { ability = "Azure" }, { energy = 0 })
 	local _, half = spike(root, b, { ability = "Azure" }, { energy = 0.5 })
@@ -240,7 +242,7 @@ do
 	local line = {}
 	for _, tier in ipairs({ "D-", "C", "B", "A", "S", "S+" }) do
 		local st = Characters.stats(tier)
-		local root = apexRoot(st, 3.5)
+		local root = apexRoot(st, 3.5 * K)
 		local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = st })
 		okAll = okAll and ok and res.meta.kmh > prev
 		prev = ok and res.meta.kmh or prev
@@ -253,7 +255,7 @@ do
 	local freshStats = Characters.derive("S+", fresh)
 	local maxStats = Characters.stats("S+", "WS", fresh.Height)
 	check(freshStats.Power <= maxStats.Power - 0.2 and freshStats.ContactMaxM < maxStats.ContactMaxM - 0.5, "a fresh S+ is well below its cap until upgraded", string.format("fresh %d attack, %.2f m reach; maxed %.2f m", fresh.Attack, freshStats.ContactMaxM, maxStats.ContactMaxM))
-	local fr = apexRoot(freshStats, 3.5)
+	local fr = apexRoot(freshStats, 3.5 * K)
 	local okF, resF = spike(fr, ballAt(fr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = freshStats })
 	check(okF and resF.meta.kmh >= 95 and resF.meta.kmh <= 110, "a fresh S+ still spikes about 100 km/h", string.format("%.1f km/h", okF and resF.meta.kmh or 0))
 	local b = { Height = 185, Attack = 170, Defense = 140, Speed = 140, Jump = 170 }
@@ -263,7 +265,7 @@ do
 end
 
 print("== receives, stamina, slides ==")
-local incoming = vec(0, -30, side * 110) -- ~140 km/h spike arriving
+local incoming = vec(0, -30 * K, side * 110 * K) -- ~140 km/h spike arriving
 local lastSpike = { team = "Home", hitType = "Spike", kmh = 140 }
 local function receive(root, ball, stam, extraInput, extraCtx)
 	local input = { action = "Bump", t = 0, root = root, ball = ball, vy = 0, grounded = true, stanceAge = 0.2 }
@@ -273,14 +275,14 @@ local function receive(root, ball, stam, extraInput, extraCtx)
 	return HitLogic.compute(input, ctx(c))
 end
 do
-	local root = vec(0, GROUND, side * 18)
+	local root = vec(0, GROUND, side * 18 * K)
 	local ball = vec(0, root.Y + Z.ReceiveIdealY, root.Z - side * Z.ReceiveForward)
 	local ok, res = receive(root, ball, { value = 120, max = 120 })
 	local path = BallPhysics.buildPath(res.launch)
 	local _, apexP = BallPhysics.findApex(path, 0)
 	local tArr, pArr = BallPhysics.findTime(path, 0.05, function(p, v) return v.Y < 0 and p.Y <= H.PassArriveY end)
 	check(ok and res.meta.perfect and res.meta.drain < 4, "perfect receive barely drains stamina", string.format("score %d, drain %.1f", res.meta.score, res.meta.drain or 0))
-	check(apexP.Y >= 21 and pArr and math.abs(pArr.Z - side * H.SetterDepth) < 1.5, "receive goes high to the setter", string.format("apex %.1f (%.1f m), arrives z=%.1f after %.2fs", apexP.Y, apexP.Y / SPM, pArr and pArr.Z or 0, tArr or 0))
+	check(apexP.Y >= 5.5 * SPM and pArr and math.abs(pArr.Z - side * H.SetterDepth) < 1.5 * K, "receive goes high to the setter", string.format("apex %.1f (%.1f m), arrives z=%.1f after %.2fs", apexP.Y, apexP.Y / SPM, pArr and pArr.Z or 0, tArr or 0))
 	local ok2, res2 = receive(root, ball, { value = 120, max = 120 }, { stanceAge = 0.75 })
 	check(ok2 and not res2.meta.perfect and (res2.meta.drain or 0) > 12, "late-pressed receive drains full stamina", string.format("%s %d, drain %.1f", res2.meta.grade, res2.meta.score, res2.meta.drain or 0))
 	local ok3, res3 = receive(root, ball, { value = 25, max = 120 }, { stanceAge = 0.75 })
@@ -290,11 +292,26 @@ do
 	local ok5, res5 = receive(root, ball, { value = 0, max = 120 })
 	local path5 = BallPhysics.buildPath(res5.launch)
 	check(ok5 and res5.meta.fail and not Court.inBounds(path5.landing.pos), "broken guard can't stop a strong spike", describe(path5))
-	local slideRoot = vec(0, GROUND, side * 16)
+	local slideRoot = vec(0, GROUND, side * 16 * K)
 	local slideBall = vec(0, slideRoot.Y - 2.2, slideRoot.Z - side * 4.2)
 	local ok6, res6 = receive(slideRoot, slideBall, { value = 0, max = 120 }, { diving = true })
 	local path6 = BallPhysics.buildPath(res6.launch)
 	check(ok6 and not res6.meta.fail and not res6.meta.drain and path6.landing.pos.Z * side > 0, "slide receive works on a broken guard, no drain", string.format("q %.2f %s", res6.meta.quality, describe(path6)))
+	-- the nerf: a 180 km/h spike costs real guard, perfect timing saves less on it, and it knocks
+	-- the receiver back
+	local A = Characters.stats("A")
+	local fast = vec(0, -0.27, side * 0.96).Unit * HitLogic.studs(180)
+	local spike180 = { team = "Home", hitType = "Spike", kmh = 180 }
+	local okL, late180 = receive(root, ball, { value = A.StaminaPool, max = A.StaminaPool }, { stanceAge = 0.75 }, { stats = A, ballVel = fast, lastHit = spike180 })
+	check(okL and late180.meta.drain >= A.StaminaPool * 0.45 and late180.meta.drain * 2 >= A.StaminaPool and late180.meta.knock == 1, "a late receive of a 180 km/h spike costs half an average guard; two break it", string.format("drain %.1f of %.0f, knockback %.2f", late180.meta.drain or 0, A.StaminaPool, late180.meta.knock or 0))
+	local okP, perf180 = receive(root, ball, { value = A.StaminaPool, max = A.StaminaPool }, {}, { stats = A, ballVel = fast, lastHit = spike180 })
+	local okP2, perf130 = receive(root, ball, { value = A.StaminaPool, max = A.StaminaPool }, {}, { stats = A })
+	local r180 = perf180.meta.drain / late180.meta.drain
+	check(okP and okP2 and perf180.meta.perfect and r180 > 0.35 and r180 <= 0.4 and perf130.meta.perfect and perf130.meta.drain < 0.08 * A.StaminaPool, "perfect timing still pays, but less against a monster spike", string.format("perfect at 180 pays %.0f%% (%.1f), at 130 only %.1f", r180 * 100, perf180.meta.drain, perf130.meta.drain))
+	local slow = vec(0, -0.27, side * 0.96).Unit * HitLogic.studs(110)
+	local okG1, good110 = receive(root, ball, { value = 120, max = 120 }, {}, { forceQuality = 0.8, ballVel = slow, lastHit = { team = "Home", hitType = "Spike", kmh = 110 } })
+	local okG2, good180 = receive(root, ball, { value = 120, max = 120 }, {}, { forceQuality = 0.8, ballVel = fast, lastHit = spike180 })
+	check(okG1 and okG2 and good110.meta.perfect and not good180.meta.perfect, "the same good dig is PERFECT at 110 km/h but not at 180", string.format("%s %d vs %s %d", good110.meta.grade, good110.meta.score, good180.meta.grade, good180.meta.score))
 	local softHit = { team = "Home", hitType = "Block", outcome = "Soft", noDrain = true }
 	local ok7, res7 = receive(root, ball, { value = 120, max = 120 }, { stanceAge = 0.75 }, { lastHit = softHit })
 	check(ok7 and not res7.meta.drain, "soft-block deflection doesn't drain")
@@ -305,7 +322,7 @@ do
 	local over = 0
 	local worst = 99
 	for i = 1, 60 do
-		local root = vec(0, GROUND, side * (8 + (i % 20)))
+		local root = vec(0, GROUND, side * (8 + (i % 20)) * K)
 		local ball = vec(0, root.Y - 2.0 + (i % 7) * 0.5, root.Z - side * (((i % 9) - 4) * 0.8))
 		local ok, res = receive(root, ball, { value = 120, max = 120 }, { stanceAge = (i % 10) * 0.08 }, { seq = i, touchNumber = 1 + (i % 2) })
 		if ok then
@@ -315,9 +332,9 @@ do
 		end
 	end
 	check(over == 0, "60 random first/second touches: none go over", string.format("closest landing %.1f studs from the net", worst))
-	local root = vec(0, GROUND, side * 12)
+	local root = vec(0, GROUND, side * 12 * K)
 	local ball = vec(0, root.Y - 1, root.Z - side * 0.6)
-	local ok, res = receive(root, ball, { value = 120, max = 120 }, {}, { thirdTouch = true, touchNumber = 3, lastHit = { team = "Away", hitType = "Set" }, ballVel = vec(0, -12, 0) })
+	local ok, res = receive(root, ball, { value = 120, max = 120 }, {}, { thirdTouch = true, touchNumber = 3, lastHit = { team = "Away", hitType = "Set" }, ballVel = vec(0, -12 * K, 0) })
 	local path = BallPhysics.buildPath(res.launch)
 	check(ok and res.meta.free and path.landing.pos.Z * side < 0, "third-touch bump goes over as a free ball", describe(path))
 end
@@ -331,14 +348,14 @@ do
 	local _, apexP = BallPhysics.findApex(path, 0)
 	local tA, pA = BallPhysics.findTime(path, 0.05, function(p, v) return v.Y < 0 and p.Y <= H.SetArriveY end)
 	check(ok and res.meta.dotted and res.meta.hitType == "Set", "set is flagged for the dotted arc")
-	check(apexP.Y >= 20 and tA and tA > 1.2 and math.abs(pA.Z - side * H.OpenDepth) < 1.2, "open set: high, hangs, arrives at the attack spot", string.format("apex %.1f (%.1f m), %.2fs to hitting height at z=%.1f", apexP.Y, apexP.Y / SPM, tA or 0, pA and pA.Z or 0))
-	local okB, resB = HitLogic.compute({ action = "Bump", t = 0, root = vec(0, GROUND, side * 6), ball = vec(0, GROUND - 1, side * 5.4), grounded = true, stanceAge = 0.2 }, ctx({ touchNumber = 2, lastHit = { team = "Away", hitType = "Bump" } }))
+	check(apexP.Y >= 6 * SPM and tA and tA > 1.2 and math.abs(pA.Z - side * H.OpenDepth) < 1.2 * K, "open set: high, hangs, arrives at the attack spot", string.format("apex %.1f (%.1f m), %.2fs to hitting height at z=%.1f", apexP.Y, apexP.Y / SPM, tA or 0, pA and pA.Z or 0))
+	local okB, resB = HitLogic.compute({ action = "Bump", t = 0, root = vec(0, GROUND, side * 6 * K), ball = vec(0, GROUND - 1, side * (6 * K - 0.6)), grounded = true, stanceAge = 0.2 }, ctx({ touchNumber = 2, lastHit = { team = "Away", hitType = "Bump" } }))
 	check(okB and resB.meta.hitType == "Set" and resB.meta.underhand, "second-touch bump becomes an underhand set")
 end
 
 print("== serves ==")
 do
-	local serveZ = side * (C.SideDepth + 3.5)
+	local serveZ = Court.serveSpot(side, "WS").Z
 	local root = vec(0, GROUND + Characters.jumpHeight(SP, GROUND), serveZ)
 	local ball = ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy)
 	local ok, res = HitLogic.compute({ action = "Serve", t = 0, root = root, ball = ball, grounded = false }, ctx({ touchNumber = 1 }))
@@ -363,16 +380,16 @@ do
 		return HitLogic.compute({ action = "Block", t = 0, root = broot, ball = ball, grounded = false },
 			{ side = bside, team = "Home", teamSize = 3, seq = 7, ballVel = ballVel, lastHit = last, stats = stats or SP, groundY = GROUND })
 	end
-	local ok, res = block({ team = "Away", hitType = "Spike", kmh = 110 }, vec(0, -25, bside * 90))
+	local ok, res = block({ team = "Away", hitType = "Spike", kmh = 110 }, vec(0, -25 * K, bside * 90 * K))
 	local path = BallPhysics.buildPath(res.launch)
 	check(ok and res.meta.outcome == "Stuff" and path.landing.pos.Z * side > 0, "S+ blocker stuffs a 110 km/h spike", describe(path))
-	local ok2, res2 = block({ team = "Away", hitType = "Spike", kmh = 200, pierce = true }, vec(0, -25, bside * 150))
+	local ok2, res2 = block({ team = "Away", hitType = "Spike", kmh = 200, pierce = true }, vec(0, -25 * K, bside * 150 * K))
 	check(ok2 and res2.meta.outcome ~= "Stuff" and res2.meta.noDrain, "full Azure pierces the block (soft touch, no drain)", res2.meta.outcome)
 end
 
 print("== determinism ==")
 do
-	local root = apexRoot(SP, 4)
+	local root = apexRoot(SP, 4 * K)
 	local b = ballAt(root, 0.9, 0.3)
 	local _, a = spike(root, b, { seq = 99, ability = "Thunder" })
 	local _, c = spike(root, b, { seq = 99, ability = "Thunder" })

@@ -301,6 +301,14 @@ local function updateStamina()
 		local s = State.stamina(team)
 		local pct = s.max > 0 and math.clamp(s.value / s.max, 0, 1) or 0
 		block.fill.Size = UDim2.fromScale(pct, 1)
+		-- a guard hit shakes the bar for a moment
+		local hit = block.hitAt and now - block.hitAt < 0.4
+		if hit then
+			local k = 1 - (now - block.hitAt) / 0.4
+			block.bar.Position = UDim2.fromOffset(8 + math.sin(now * 90) * 4 * k * block.hitSize, 32)
+		else
+			block.bar.Position = UDim2.fromOffset(8, 32)
+		end
 		local broken = s.value <= 0
 		block.broken.Visible = broken
 		if broken then
@@ -1537,6 +1545,10 @@ local function onBall(snap, isEcho)
 	local ht = meta.hitType
 	if (ht == "Spike" or ht == "JumpServe" or ht == "Overhand") and meta.kmh then
 		showReadout(meta)
+	end
+	if meta.drain and meta.team and ui.top[meta.team] then
+		ui.top[meta.team].hitAt = os.clock()
+		ui.top[meta.team].hitSize = math.clamp(meta.drain / 25, 0.4, 1.5)
 	end
 end
 

@@ -470,7 +470,7 @@ local function buildBounces(landing)
 	local p, v, t = landing.pos, landing.vel, landing.t
 	for _ = 1, 4 do
 		local nv = Vector3.new(v.X * 0.62, math.abs(v.Y) * 0.45, v.Z * 0.62)
-		if nv.Y < 2.5 then
+		if nv.Y < 0.8 * Config.Scale.StudsPerMeter then
 			v = nv
 			break
 		end

@@ -576,17 +576,53 @@ end
 -- character registry
 ------------------------------------------------------------------------------------------
 
+-- R15 joints by the body part they move. New experiences spawn avatars with AnimationConstraint
+-- joints instead of Motor6Ds (Roblox's Avatar Joint Upgrade); both expose Part1 and a Transform
+-- that is written in PreSimulation, so joints are found by the part they drive, whatever they
+-- are called.
+local JOINT_FOR_PART = {
+	LowerTorso = "Root",
+	UpperTorso = "Waist",
+	Head = "Neck",
+	LeftUpperArm = "LeftShoulder",
+	LeftLowerArm = "LeftElbow",
+	LeftHand = "LeftWrist",
+	RightUpperArm = "RightShoulder",
+	RightLowerArm = "RightElbow",
+	RightHand = "RightWrist",
+	LeftUpperLeg = "LeftHip",
+	LeftLowerLeg = "LeftKnee",
+	LeftFoot = "LeftAnkle",
+	RightUpperLeg = "RightHip",
+	RightLowerLeg = "RightKnee",
+	RightFoot = "RightAnkle",
+}
+
 local function scanMotors(st)
 	local motors, n = {}, 0
 	for _, d in ipairs(st.model:GetDescendants()) do
-		if d:IsA("Motor6D") then
-			motors[d.Name] = d
-			n = n + 1
+		if d:IsA("AnimationConstraint") or d:IsA("Motor6D") then
+			local ok, part1 = pcall(function()
+				return d.Part1
+			end)
+			if (not ok or not part1) and d:IsA("AnimationConstraint") and d.Attachment1 then
+				part1 = d.Attachment1.Parent
+			end
+			local name = (part1 and JOINT_FOR_PART[part1.Name]) or d.Name
+			-- an AnimationConstraint wins over a leftover Motor6D for the same limb
+			if not motors[name] or d:IsA("AnimationConstraint") then
+				if not motors[name] then
+					n = n + 1
+				end
+				motors[name] = d
+			end
 		end
 	end
 	st.motors = motors
 	st.motorCount = n
 	st.lastScan = os.clock()
+	local hum = st.model:FindFirstChildOfClass("Humanoid")
+	st.animator = hum and hum:FindFirstChildOfClass("Animator")
 end
 
 local function register(model)
@@ -969,6 +1005,9 @@ local function stepCharacter(st, hum, hrp, now, dt)
 	if st.motorCount < 12 and now - st.lastScan > 1 then
 		scanMotors(st)
 	end
+	if st.motorCount > 0 and not st.motors.Waist and now - st.lastScan > 1 then
+		scanMotors(st) -- the rig was rebuilt (joints replaced): find them again
+	end
 	if st.stanceTrack and now > st.stanceTrackUntil then
 		stopStanceTrack(st)
 	end
@@ -1006,6 +1045,17 @@ local function stepCharacter(st, hum, hrp, now, dt)
 	if not pose and not procedural then
 		return
 	end
+	-- an Animator that skipped evaluation this frame reuses last frame's pose: layering on top
+	-- of it again would compound (Animator.EvaluationThrottled)
+	local animator = st.animator
+	if animator and animator.Parent and not procedural then
+		local ok, throttled = pcall(function()
+			return animator.EvaluationThrottled
+		end)
+		if ok and throttled then
+			return
+		end
+	end
 
 	-- the joints to write this frame (a reused set, so no table per character per frame)
 	local joints = st.joints
@@ -1034,7 +1084,7 @@ local function stepCharacter(st, hum, hrp, now, dt)
 	local a = Util.smoothstep((now - st.switchT) / 0.09)
 	for name in pairs(joints) do
 		local motor = st.motors[name]
-		if motor then
+		if motor and motor.Parent then
 			local base
 			if procedural then
 				base = locomotion(st, hrp, dt, name)
@@ -1125,8 +1175,8 @@ function AnimationController.init(m)
 		elseif meta.hitType == "Set" and meta.setType == "Back" then
 			pose = "SetBack"
 		end
-		if meta.fail or meta.shank then
-			pose = "Knockback"
+		if meta.fail or meta.shank or (meta.knock and meta.knock >= 0.35) then
+			pose = "Knockback" -- a heavy ball staggers the receiver
 		end
 		if pose and meta.id then
 			local st = stateFor(meta.id)
@@ -1169,7 +1219,9 @@ function AnimationController.init(m)
 		end
 	end)
 
-	RunService.Stepped:Connect(function(_, dt)
+	-- PreSimulation runs after the Animator has written this frame's joint transforms, and is the
+	-- last Luau event before they are applied to the parts
+	RunService.PreSimulation:Connect(function(dt)
 		local ok, err = pcall(step, dt)
 		if not ok then
 			warn("[SpikeRush] animation: " .. tostring(err))

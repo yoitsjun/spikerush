@@ -17,6 +17,7 @@ local BallPhysics = {}
 local C = Config.Court
 local R = Config.Ball.Radius
 local STEP = 1 / 120
+local SPM = Config.Scale.StudsPerMeter
 
 function BallPhysics.newLaunch(p, v, a, t0, hold, wob, wobF)
 	return {
@@ -131,10 +132,10 @@ function BallPhysics.buildPath(launch)
 				-- Tape contact: the classic net-cord. Over the top it trickles across, below it falls back.
 				local nv
 				if pos.Y >= C.NetTop then
-					nv = Vector3.new(vel.X * 0.55, math.abs(vel.Y) * 0.22 + 6.5, vel.Z * 0.45)
+					nv = Vector3.new(vel.X * 0.55, math.abs(vel.Y) * 0.22 + 2.0 * SPM, vel.Z * 0.45)
 					flags.crossings = (flags.crossings or 0) + 1
 				else
-					nv = Vector3.new(vel.X * 0.5, 5, -vel.Z * 0.16)
+					nv = Vector3.new(vel.X * 0.5, 1.56 * SPM, -vel.Z * 0.16)
 				end
 				ns = {
 					p = Vector3.new(pos.X, pos.Y, 0),
@@ -157,7 +158,7 @@ function BallPhysics.buildPath(launch)
 				absT = s.t0 + s.hold + tt
 				ns = {
 					p = hp,
-					v = Vector3.new(hv.X * 0.35, math.min(hv.Y, 0) * 0.25 - 3, -hv.Z * 0.18),
+					v = Vector3.new(hv.X * 0.35, math.min(hv.Y, 0) * 0.25 - 0.95 * SPM, -hv.Z * 0.18),
 					a = Vector3.new(0, s.a.Y, 0),
 					t0 = absT,
 					hold = 0,

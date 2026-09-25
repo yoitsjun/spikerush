@@ -1,40 +1,46 @@
 -- Spike Rush configuration (2.5D side-view edition).
 -- Every gameplay number lives here so feel can be tuned in one place.
 --
--- Units: 3.2 studs = 1 metre, so the HUD can show real km/h and hitting heights.
+-- Units: M studs = 1 metre, so the HUD shows real km/h and hitting heights. The scale matches
+-- The Spike: a real 9 m half court and a 2.43 m net with true-metre jumps, played by characters
+-- who stand about 1.15 m tall (a Roblox avatar is about 5.3 studs), so they fly well above the
+-- net. World distances below are written in metres times M; values tied to the avatar's own
+-- body (hit zones around the root, lanes) stay in studs.
 -- Axes: the court's long axis is Z (the net is the plane z = 0). Home plays on z < 0 (left of
 -- the screen), Away on z > 0 (right). Y is height. X is depth toward/away from the camera:
 -- the ball always travels in the x = 0 plane; players stand on shallow "lanes" near it.
 
 local Config = {}
 
+local M = 4.6 -- studs per metre
+
 Config.GameName = "Spike Rush"
 
 Config.Scale = {
-	StudsPerMeter = 3.2,
-	-- Anime jumps: heights up to the standing hand (HeightFloor, = Player.RootGround +
-	-- Zones.SpikeUp) are true scale; every stud above it is drawn JumpScale times taller. Players
-	-- visibly fly far above the net while every readout, the 4.00 m Thunder line and each
-	-- character's hitting point stay in the same real metres (Characters.studsAt / metersAt).
+	StudsPerMeter = M,
+	-- Optional stretch of heights above the standing hand (HeightFloor = Player.RootGround +
+	-- Zones.SpikeUp): every stud above it drawn JumpScale times taller. 1 = true scale, which
+	-- with small characters on a real-size court already gives The Spike's huge jumps; readouts
+	-- always stay in real metres (Characters.studsAt / metersAt).
 	HeightFloor = 6.9,
-	JumpScale = 2.0,
+	JumpScale = 1.0,
 }
 
 Config.Court = {
 	HalfWidth = 14, -- court depth toward the camera (visual only in 2.5D)
-	SideDepth = 30, -- end lines at z = +/-30 (about 9.4 m per side)
-	AttackLine = 9.6, -- 3 m
-	FreeZoneEnd = 12, -- serving area behind each end line
+	SideDepth = 9 * M, -- end lines 9 m from the net
+	AttackLine = 3 * M,
+	FreeZoneEnd = 3.5 * M, -- serving area behind each end line
 	FreeZoneSide = 8,
-	NetTop = 7.8, -- 2.43 m
-	NetBottom = 4.6,
+	NetTop = 2.43 * M,
+	NetBottom = 1.43 * M,
 	NetHalfWidth = 16,
-	AntennaHeight = 2.9,
-	CeilingY = 70,
+	AntennaHeight = 0.8 * M,
+	CeilingY = 19 * M,
 	WallHalfX = 58, -- far wall (the near side is open for the camera)
-	WallHalfZ = 78,
-	LineWidth = 0.35,
-	LobbySpawn = Vector3.new(0, 0.5, -34),
+	WallHalfZ = 20 * M,
+	LineWidth = 0.1 * M,
+	LobbySpawn = Vector3.new(0, 0.5, -10.5 * M),
 }
 
 -- Visual depth lanes by role, so teammates never stand inside each other.
@@ -48,7 +54,7 @@ Config.Lanes = {
 
 Config.Ball = {
 	Radius = 0.85,
-	Gravity = 36, -- ball gravity is separate from workspace gravity: floaty receives and sets
+	Gravity = 11.25 * M, -- ball gravity (a floaty 11.25 m/s2), separate from workspace gravity
 	MaxFlightTime = 9,
 	LandGrace = 0.2,
 	VisualBlendTime = 0.08,
@@ -61,19 +67,21 @@ Config.Player = {
 	HangGravityCancel = 0.45, -- fraction of gravity cancelled near the apex (anime hang time)
 	ApproachGather = 0.1, -- crouch before an approach jump
 	ApproachDash = 2.2, -- run-up speed (x walk speed x Approach) during the gather
-	ApproachBoost = 13, -- takeoff speed along the court for a run-up jump (x Approach)
+	ApproachBoost = 18, -- takeoff speed along the court for a run-up jump (x Approach)
 	AirControl = 0.55, -- air drift speed as a fraction of walk speed
-	SlideSpeed = 36,
+	SlideSpeed = 50,
 	SlideTime = 0.42,
 	SlideRecover = 0.38,
 	SlideCooldown = 0.75,
 	BlockChargeTime = 0.45, -- hold the block key this long for a full-height block
 	BlockMinHeight = 0.55, -- a tapped block jumps this fraction of full height
-	BlockReach = 5, -- max distance from the net that starts a block
+	BlockReach = 1.5 * M, -- max distance from the net that starts a block
 	ActionCooldown = 0.18,
 	WhiffCooldown = 0.2, -- after a missed swing, before you can swing again
 	ReceiveStance = 0.8, -- how long a receive press stays armed
 	ServeTapTime = 0.2, -- X released faster than this = overhand serve
+	KnockbackSpeed = 26, -- a heavy receive shoves the receiver back along the court...
+	KnockbackTime = 0.28, -- ...for this long (scaled by how heavy the ball was)
 }
 
 -- Hit zones, measured from the HumanoidRootPart centre.
@@ -82,8 +90,8 @@ Config.Zones = {
 	SpikeForward = 0.4, -- hand sits this far toward the net
 	SpikeCenterDz = 0.5, -- sweet spot: ball slightly ahead of the hand
 	SpikeCenterDy = -0.1,
-	SpikeRadiusZ = 2.5,
-	SpikeRadiusY = 2.2,
+	SpikeRadiusZ = 2.9, -- sized so a set falling at 4.6 studs/m stays in reach 0.15 s or more
+	SpikeRadiusY = 2.8,
 	ReceiveForward = 0.6,
 	ReceiveIdealY = -1.0,
 	ReceiveHalfY = 2.6,
@@ -102,9 +110,9 @@ Config.Zones = {
 	FloatRadiusZ = 2.8,
 	FloatRadiusY = 2.2,
 	BlockReachUp = 4.3, -- hands above the root when blocking
-	BlockOwnDepth = 1.3, -- block box: how far onto the blocker's side
-	BlockOverDepth = 1.1, -- and how far over the net
-	BlockNetDistance = 3.2, -- blocker must stand this close to the net
+	BlockOwnDepth = 1.6, -- block box: how far onto the blocker's side
+	BlockOverDepth = 1.4, -- and how far over the net
+	BlockNetDistance = 1.0 * M, -- blocker must stand this close to the net
 }
 
 Config.Hits = {
@@ -122,11 +130,11 @@ Config.Hits = {
 	SpikeGravityScale = 1.0,
 	SpikeDzDeep = -0.2, -- ball right at the hand = deepest spike (behind the head goes long)
 	SpikeDzShort = 3.0, -- ball this far ahead of the hand = shortest, steepest spike
-	SpikeDeepMargin = 1.2, -- deepest in-court landing, inside the end line
-	SpikeShortDepth = 4.5, -- shortest landing, from the net
-	SpikeError = 6,
+	SpikeDeepMargin = 0.4 * M, -- deepest in-court landing, inside the end line
+	SpikeShortDepth = 1.4 * M, -- shortest landing, from the net
+	SpikeError = 1.9 * M,
 	SpikeAssistQuality = 0.5, -- contacts at least this clean get net-clearing help
-	SpikeMinContactOverNet = 0.8,
+	SpikeMinContactOverNet = 0.25 * M,
 	ContactWeight = 0.62, -- spike quality = contact * this + jump height * (1 - this)
 	HitStopPerfect = 0.1, -- the ball freezes on the hand this long: weight on a clean hit
 	HitStopGreat = 0.06,
@@ -134,57 +142,57 @@ Config.Hits = {
 
 	-- Feints (roll shots)
 	FeintKmh = 32,
-	FeintApexOverNet = 2.6,
-	FeintMaxDepth = 9,
-	FeintError = 2.5,
+	FeintApexOverNet = 0.8 * M,
+	FeintMaxDepth = 2.8 * M,
+	FeintError = 0.8 * M,
 
 	-- Receives: high and slow so the setter has time
-	PassApexMin = 19,
-	PassApexMax = 26,
-	PassArriveY = 9,
-	PassError = 5,
+	PassApexMin = 5.6 * M,
+	PassApexMax = 7.6 * M,
+	PassArriveY = 9, -- the setter's hands (studs, from the avatar)
+	PassError = 1.6 * M,
 	PassGravityScale = 1.0,
 	ShankAt = 0.3,
-	SlidePassApex = 16,
+	SlidePassApex = 5 * M,
 	SlideQualityFloor = 0.62,
 	PerfectStanceMin = 0.08, -- receive pressed this long before contact...
 	PerfectStanceMax = 0.42, -- ...up to this long = perfect timing
 
 	-- Sets: high, with a dotted trail
-	SetApexOpen = 30,
-	SetApexQuick = 22,
-	SetApexBack = 29,
-	SetArriveY = 17.5, -- a typical maxed hitting point in studs (about 3.95 m)
-	SetError = 3,
+	SetApexOpen = 6.8 * M,
+	SetApexQuick = 5.0 * M,
+	SetApexBack = 6.6 * M,
+	SetArriveY = 3.85 * M, -- comes down through a typical maxed hitting point
+	SetError = 0.95 * M,
 	SetGravityScale = 1.0,
-	OpenDepth = 7.5, -- attack spots, distance from the net
-	QuickDepth = 3.8,
-	BackDepth = 12.5,
-	SetterDepth = 3.4,
+	OpenDepth = 2.3 * M, -- attack spots, distance from the net
+	QuickDepth = 1.2 * M,
+	BackDepth = 3.9 * M,
+	SetterDepth = 1.06 * M,
 
 	-- Serves
-	TossLow = 11,
-	TossHighMin = 18,
-	TossHighMax = 28,
+	TossLow = 11, -- studs above the release: the overhand toss comes back to the hand
+	TossHighMin = 3.4 * M,
+	TossHighMax = 5.6 * M,
 	TossChargeTime = 0.8,
 	TossForward = 1.2,
-	OverhandApexOverNet = 4.5, -- the standing serve floats over on a lob
+	OverhandApexOverNet = 1.4 * M, -- the standing serve floats over on a lob
 	JumpServeKmhMin = 95,
 	JumpServeKmhMax = 125,
 	ThunderServeKmhMin = 140,
 	ThunderServeKmhMax = 172,
-	ServeError = 4,
+	ServeError = 1.25 * M,
 	ServeGravityScale = 2.2, -- jump serves carry topspin and dive
 	ServeTopspin = 0.9,
 
 	-- Free balls (third touch only)
-	FreeBallApexOverNet = 7,
-	NetClearance = 0.4,
-	NetAssistPush = 1.2,
+	FreeBallApexOverNet = 2.2 * M,
+	NetClearance = 0.12 * M,
+	NetAssistPush = 0.38 * M,
 	NetAssistSteps = 12,
 	IncomingSpeedPenaltyStartKmh = 70,
 	IncomingSpeedPenaltyRangeKmh = 130,
-	IncomingSpeedPenaltyMax = 0.3,
+	IncomingSpeedPenaltyMax = 0.5, -- a hard spike pulls an imperfect receive down this much at most
 	AssistQualityCap = 0.62,
 }
 
@@ -192,12 +200,21 @@ Config.Hits = {
 Config.Stamina = {
 	RedAt = 0.5, -- below this fraction the bar turns red and receives get unreliable
 	DrainStartKmh = 60, -- balls slower than this never drain
-	DrainPer100Kmh = 30, -- drain per 100 km/h above the start, before Defense
+	-- drain = DrainPer100Kmh * ((kmh - start) / 100) ^ DrainExponent, before Defense: a 110 km/h
+	-- spike costs about 13, 140 about 27, 180 about 50 and 200 about 63
+	DrainPer100Kmh = 38,
+	DrainExponent = 1.5,
+	-- a perfectly timed receive pays this fraction of the drain: 0.15 up to PerfectMulFromKmh,
+	-- rising to PerfectDrainMulMax at PerfectMulToKmh (timing saves less on a monster spike)
 	PerfectDrainMul = 0.15,
+	PerfectDrainMulMax = 0.4,
+	PerfectMulFromKmh = 100,
+	PerfectMulToKmh = 180,
+	KnockFromKmh = 90, -- heavier receives push the receiver back, up to full at +90 km/h
 	BreakFailKmh = 90, -- with a broken guard, balls this fast cannot be received
 	LowQualityFloor = 0.55, -- receive quality multiplier at the bottom of the red zone
-	RecoverWinner = 0.2, -- fraction of max refilled after a rally
-	RecoverLoser = 0.35,
+	RecoverWinner = 0.1, -- fraction of max refilled after a rally
+	RecoverLoser = 0.2,
 }
 
 Config.Timeout = {
@@ -241,11 +258,11 @@ Config.StatCurve = {
 	Power = { Stat = "Attack", Range = { 0.45, 1.0 } }, -- spike and serve speed multiplier
 	VerticalM = { Stat = "Jump", Range = { 0.4, 1.75 } }, -- metres added to standing reach
 	Approach = { Stat = "Jump", Range = { 0.8, 1.25 } }, -- run-up speed and distance
-	StaminaPool = { Stat = "Defense", Range = { 60, 130 } },
+	StaminaPool = { Stat = "Defense", Range = { 50, 100 } },
 	DrainReduction = { Stat = "Defense", Range = { 0.0, 0.35 } },
 	ReceiveBonus = { Stat = "Defense", Range = { -0.1, 0.08 } },
 	BlockPower = { Stat = "Defense", Range = { 0.75, 1.15 } },
-	WalkSpeed = { Stat = "Speed", Range = { 16, 24 } },
+	WalkSpeed = { Stat = "Speed", Range = { 22, 32 } },
 	SetAccuracy = { Stat = "Speed", Range = { 0.7, 1.0 } },
 }
 
@@ -331,8 +348,8 @@ Config.Match = {
 Config.Net = {
 	MaxRewind = 0.6, -- oldest hit timestamp the server accepts
 	FutureTolerance = 0.12,
-	BallTolerance = 4.5, -- claimed ball position vs server path
-	RootTolerance = 11, -- claimed character position vs server character
+	BallTolerance = 1.4 * M, -- claimed ball position vs server path
+	RootTolerance = 3.3 * M, -- claimed character position vs server character
 	MaxRequestsPerSecond = 14,
 }
 
@@ -373,7 +390,7 @@ Config.Bots = {
 }
 
 Config.Graphics = {
-	CrowdDensityDesktop = 0.85,
+	CrowdDensityDesktop = 0.7, -- the stands grew with the court
 	CrowdDensityMobile = 0.35,
 	CrowdUpdateHz = 20,
 	CrowdCalmHz = 6, -- update rate while neither crowd is cheering

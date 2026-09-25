@@ -20,6 +20,7 @@ local Court = require(Shared.Court)
 local ArenaBuilder = {}
 
 local C = Config.Court
+local LEN = C.SideDepth / 30 -- the hall was laid out for 30-stud half courts; stretch along z
 local WHITE = Color3.fromRGB(248, 248, 244)
 local HOME = Config.Teams.Home.Color
 local AWAY = Config.Teams.Away.Color
@@ -123,8 +124,9 @@ local function buildNet(arena)
 	for _, sx in ipairs({ -1, 1 }) do
 		part(net, "Post", Vector3.new(postH, 0.7, 0.7), CFrame.new(sx * postX, postH / 2, 0) * VERTICAL, Color3.fromRGB(214, 218, 230), Enum.Material.Metal, { Shape = Enum.PartType.Cylinder })
 		-- the chunky padded pole is the landmark in the middle of the side view
-		part(net, "PostPad", Vector3.new(6.2, 1.9, 1.9), CFrame.new(sx * postX, 3.1, 0) * VERTICAL, POLE, Enum.Material.Fabric, { Shape = Enum.PartType.Cylinder })
-		deco(part(net, "PadRing", Vector3.new(0.3, 2.0, 2.0), CFrame.new(sx * postX, 6.2, 0) * VERTICAL, WHITE, Enum.Material.SmoothPlastic, { Shape = Enum.PartType.Cylinder }))
+		-- the chunky blue pad covers most of the post, as in The Spike's side view
+		part(net, "PostPad", Vector3.new(C.NetTop * 0.62, 2.2, 2.2), CFrame.new(sx * postX, C.NetTop * 0.31, 0) * VERTICAL, POLE, Enum.Material.Fabric, { Shape = Enum.PartType.Cylinder })
+		deco(part(net, "PadRing", Vector3.new(0.3, 2.3, 2.3), CFrame.new(sx * postX, C.NetTop * 0.62, 0) * VERTICAL, WHITE, Enum.Material.SmoothPlastic, { Shape = Enum.PartType.Cylinder }))
 		deco(part(net, "Cable", Vector3.new(0.9, 0.08, 0.08), CFrame.new(sx * (C.NetHalfWidth + 0.45), C.NetTop - 0.1, 0), Color3.fromRGB(60, 60, 70)))
 	end
 
@@ -167,7 +169,7 @@ local function buildNet(arena)
 	pcall(function()
 		PhysicsService:RegisterCollisionGroup("NetBarrier")
 	end)
-	part(arena, "NetBarrier", Vector3.new(C.WallHalfX * 2 + 40, 80, 0.6), CFrame.new(-20, 40, 0), WHITE, nil, {
+	part(arena, "NetBarrier", Vector3.new(C.WallHalfX * 2 + 40, C.CeilingY, 0.6), CFrame.new(-20, C.CeilingY / 2, 0), WHITE, nil, {
 		Transparency = 1,
 		CastShadow = false,
 		CollisionGroup = "NetBarrier",
@@ -175,17 +177,18 @@ local function buildNet(arena)
 
 	-- referee stand on the far side, behind the net
 	local rx = C.NetHalfWidth + 3.4
-	deco(part(net, "RefPlatform", Vector3.new(2.6, 0.3, 2.6), CFrame.new(rx, 5.2, 0), Color3.fromRGB(50, 54, 70), Enum.Material.Metal))
+	local refY = C.NetTop * 0.67
+	deco(part(net, "RefPlatform", Vector3.new(2.6, 0.3, 2.6), CFrame.new(rx, refY, 0), Color3.fromRGB(50, 54, 70), Enum.Material.Metal))
 	for _, ox in ipairs({ -1, 1 }) do
 		for _, oz in ipairs({ -1, 1 }) do
-			deco(part(net, "RefLeg", Vector3.new(0.2, 5.2, 0.2), CFrame.new(rx + ox * 1.1, 2.6, oz * 1.1), Color3.fromRGB(180, 184, 196), Enum.Material.Metal))
+			deco(part(net, "RefLeg", Vector3.new(0.2, refY, 0.2), CFrame.new(rx + ox * 1.1, refY / 2, oz * 1.1), Color3.fromRGB(180, 184, 196), Enum.Material.Metal))
 		end
 	end
 end
 
 local function buildHall(arena)
 	local W, D = C.WallHalfX, C.WallHalfZ
-	local wallH = 64
+	local wallH = C.CeilingY + 2
 	local wallColor = Color3.fromRGB(24, 28, 58)
 	-- far wall and the two ends; the near side stays open for the camera
 	part(arena, "WallFar", Vector3.new(2, wallH, D * 2 + 4), CFrame.new(W + 1, wallH / 2, 0), wallColor)
@@ -197,8 +200,8 @@ local function buildHall(arena)
 		deco(part(arena, "Accent", Vector3.new(0.3, 0.35, D), CFrame.new(W - 0.1, h, D / 2), AWAY, Enum.Material.SmoothPlastic))
 	end
 
-	banner(arena, "BannerFarHome", Vector3.new(0.4, 8, 34), CFrame.new(W - 0.3, 52, -46), Enum.NormalId.Left, string.upper(Config.Teams.Home.Name), HOME)
-	banner(arena, "BannerFarAway", Vector3.new(0.4, 8, 34), CFrame.new(W - 0.3, 52, 46), Enum.NormalId.Left, string.upper(Config.Teams.Away.Name), AWAY)
+	banner(arena, "BannerFarHome", Vector3.new(0.4, 8, 34 * LEN), CFrame.new(W - 0.3, 52, -46 * LEN), Enum.NormalId.Left, string.upper(Config.Teams.Home.Name), HOME)
+	banner(arena, "BannerFarAway", Vector3.new(0.4, 8, 34 * LEN), CFrame.new(W - 0.3, 52, 46 * LEN), Enum.NormalId.Left, string.upper(Config.Teams.Away.Name), AWAY)
 	banner(arena, "BannerHome", Vector3.new(50, 9, 0.4), CFrame.new(10, 40, -D + 0.3), Enum.NormalId.Back, "SPIKE RUSH", Config.UI.Chalk)
 	banner(arena, "BannerAway", Vector3.new(50, 9, 0.4), CFrame.new(10, 40, D - 0.3), Enum.NormalId.Front, "SPIKE RUSH", Config.UI.Chalk)
 
@@ -231,7 +234,7 @@ local function buildHall(arena)
 	local warm = Color3.fromRGB(255, 244, 226)
 	local n = 0
 	for _, x in ipairs({ -8, 8 }) do
-		for _, z in ipairs({ -36, -18, 0, 18, 36 }) do
+		for _, z in ipairs({ -36 * LEN, -18 * LEN, 0, 18 * LEN, 36 * LEN }) do
 			n = n + 1
 			local panel = deco(part(lights, "Panel", Vector3.new(6, 0.5, 6), CFrame.new(x, 52, z), warm, Enum.Material.SmoothPlastic))
 			local sl = Instance.new("SurfaceLight")
@@ -245,7 +248,7 @@ local function buildHall(arena)
 		end
 	end
 	-- wash on the far stands so the crowd reads behind the play
-	for _, z in ipairs({ -40, -14, 14, 40 }) do
+	for _, z in ipairs({ -40 * LEN, -14 * LEN, 14 * LEN, 40 * LEN }) do
 		local wash = deco(part(lights, "CrowdWash", Vector3.new(1, 1, 1), CFrame.new(S.FarStart - 6, 30, z), warm, Enum.Material.SmoothPlastic, { Transparency = 1 }))
 		local spot = Instance.new("SpotLight")
 		spot.Face = Enum.NormalId.Right
@@ -271,8 +274,8 @@ local function buildHall(arena)
 	led.Parent = arena
 	local bx = C.HalfWidth + C.FreeZoneSide + 1.5
 	local bz = C.SideDepth + C.FreeZoneEnd + 1.5
-	for _, z in ipairs({ -24, 0, 24 }) do
-		local b = part(led, "LED", Vector3.new(0.6, 2.6, 23.5), CFrame.new(bx, 1.3, z), Config.UI.Ink)
+	for _, z in ipairs({ -24 * LEN, 0, 24 * LEN }) do
+		local b = part(led, "LED", Vector3.new(0.6, 2.6, 23.5 * LEN), CFrame.new(bx, 1.3, z), Config.UI.Ink)
 		b:SetAttribute("Face", Enum.NormalId.Left.Name)
 	end
 	for _, sz in ipairs({ -1, 1 }) do
@@ -290,8 +293,8 @@ local function buildHall(arena)
 		if sz > 0 then
 			col = AWAY
 		end
-		part(arena, "Bench", Vector3.new(1.4, 1.3, 9), CFrame.new(C.HalfWidth + 5, 0.65, sz * 14), col, Enum.Material.Fabric)
-		deco(part(arena, "Bottle", Vector3.new(0.7, 0.35, 0.35), CFrame.new(C.HalfWidth + 4, 0.35, sz * 9.5) * VERTICAL, col, Enum.Material.Glass, { Shape = Enum.PartType.Cylinder }))
+		part(arena, "Bench", Vector3.new(1.4, 1.3, 9), CFrame.new(C.HalfWidth + 5, 0.65, sz * 14 * LEN), col, Enum.Material.Fabric)
+		deco(part(arena, "Bottle", Vector3.new(0.7, 0.35, 0.35), CFrame.new(C.HalfWidth + 4, 0.35, sz * 9.5 * LEN) * VERTICAL, col, Enum.Material.Glass, { Shape = Enum.PartType.Cylinder }))
 	end
 
 	local spawn = Instance.new("SpawnLocation")

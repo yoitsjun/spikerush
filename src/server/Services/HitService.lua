@@ -174,6 +174,9 @@ function HitService.process(entity, input, opts)
 		entity.stats.topKmh = math.max(entity.stats.topKmh or 0, meta.kmh)
 	end
 
+	if entity.isBot and meta.knock then
+		reg.BotService.knockback(entity, meta.knock)
+	end
 	if action == "Serve" then
 		MS.onServeHit(entity)
 	end

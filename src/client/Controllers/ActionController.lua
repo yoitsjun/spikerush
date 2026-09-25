@@ -187,6 +187,9 @@ local function execute(action, info, opts, t, ballPos)
 	meta.t = t
 	local touch = HitLogic.nextTouch(mods.BallRenderer.getTouch(), State.myTeam, State.myId, action)
 	mods.BallRenderer.predict(result, touch)
+	if meta.knock then
+		mods.MovementController.knockback(meta.knock)
+	end
 	Net.get("HitRequest"):FireServer({
 		seq = ctx.seq,
 		action = action,
@@ -888,7 +891,7 @@ local function evaluate(info, now)
 		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, 1))
 	end
 	local meta = BR.getMeta()
-	ctx.incoming = meta ~= nil and meta.team ~= State.myTeam and bp.Z * side > -2
+	ctx.incoming = meta ~= nil and meta.team ~= State.myTeam and bp.Z * side > -0.6 * Config.Scale.StudsPerMeter
 	return ctx
 end
 
