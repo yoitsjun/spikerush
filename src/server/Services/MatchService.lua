@@ -385,6 +385,9 @@ end
 
 function MatchService.playSet()
 	local TS = reg.TeamService
+	if MatchService.forfeitTeam then
+		return nil -- forfeited between sets
+	end
 	if MatchService.setNumber >= M.SetsToWin * 2 - 1 then
 		MatchService.target = M.DecidingSetPoints
 	else

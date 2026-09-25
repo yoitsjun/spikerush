@@ -140,7 +140,7 @@ end
 
 print("== Thunder Spiker (target 160-200 above 4.00 m) ==")
 do
-	-- only the very top reaches 4.00 m: a maxed S+ needs about 190 cm, a maxed S about 195 cm
+	-- only the very top reaches 4.00 m: a maxed S+ needs about 189 cm, a maxed S about 193 cm
 	local tallSP = Characters.stats("S+", "WS", 200)
 	local root = apexRoot(tallSP, 3.5 * K)
 	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { ability = "Thunder", stats = tallSP })

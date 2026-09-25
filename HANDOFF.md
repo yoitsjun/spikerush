@@ -25,7 +25,9 @@ They asked to keep the stadium and to add:
 - It partly refills at the end of a rally, and timeouts reset it for everyone on court.
 - Defense raises the pool and lowers the drain.
 
-The latest request was: "the jumps should not all be standardized. the tier of your character sets your cap. upgrade stats like the spike mechanics." An earlier version of that message also said "you can roll for heights". That is now implemented as four upgradeable stats capped by tier, rolled heights with a paid re-roll, and upgrade points earned by playing and saved to a DataStore. Whether the paid height re-roll should stay is still an open question for the owner.
+Earlier: "the jumps should not all be standardized. the tier of your character sets your cap. upgrade stats like the spike mechanics", and "you can roll for heights". In the sixth session the owner replaced upgrade points with **V Points** "just like the spike": VP buys spins (x1 = 50, x10 = 500) for stat caps, height and animations, bought in a Shop tab. That answers the old height re-roll question (height is now a spin). The owner also asked for +10 and -1/-5/-10 buttons on stats, rollable spike colours and trails, and score effects (a fire explosion and a meteor strike to start).
+
+On heights (sixth session): a D- was reaching nearly 4 m, while the owner's screenshot shows two S+ players at 3.85 m. Jumps should look higher, while the hitting points drop so the tiers spread out.
 
 **Assets.** The owner originally wanted The Spike's own sounds and visuals copied in. That was declined, and the project builds original equivalents instead: procedural effects and 26 synthesized sounds. Keep it that way.
 
@@ -55,7 +57,7 @@ The court's long axis is Z, with the net at z = 0. Home plays z < 0 (left of scr
 
 The ball always travels in the x = 0 plane. Players are locked to role lanes (`Config.Lanes`: WS -1.2, MB 0.2, SE 1.4, Solo 0), so they only ever move along Z.
 
-The scale is 4.6 studs per metre (`local M` in Config), matching The Spike: the net top is 11.2 studs (2.43 m), the end lines are at z = ±41.4 (9 m), the attack lines at ±13.8 (3 m), and the court half-depth toward the camera is 14 studs (visual only). Workspace gravity is 45 and the ball uses its own gravity (51.75 studs/s², 11.25 m/s²). A Roblox avatar (about 5.3 studs) stands for a 1.15 m character.
+Heights above the standing hand (6.9 studs) are drawn `Config.Scale.JumpScale` (1.4) times taller; `Characters.studsAt`/`metersAt` convert, and Config has a local `lift(m)` for heights written in metres that must meet a hitting point (`SetArriveY`, `SetApexQuick`). The scale is 4.6 studs per metre (`local M` in Config), matching The Spike: the net top is 11.2 studs (2.43 m), the end lines are at z = ±41.4 (9 m), the attack lines at ±13.8 (3 m), and the court half-depth toward the camera is 14 studs (visual only). Workspace gravity is 45 and the ball uses its own gravity (51.75 studs/s², 11.25 m/s²). A Roblox avatar (about 5.3 studs) stands for a 1.15 m character.
 
 Roles: 3v3 uses WS, MB and SE (humans claim WS first, then MB, then SE); 2v2 uses WS and SE; 1v1 uses Solo. The serve order rotates on side-out.
 
@@ -106,11 +108,17 @@ Bots call `HitService.botAction` and go through the same pipeline.
 **Characters and builds** live in `src/shared/Characters.lua`:
 
 - `derive(tier, build)` turns a build into gameplay stats and is cached.
-- `autoBuild` creates role-shaped builds for bots.
-- `sanitize` clamps any build to its tier's rules.
+- `autoBuild` creates role-shaped builds for bots (their caps are the tier cap).
+- `statCaps(tier, build)` reads a build's rolled caps (missing caps mean the tier cap, which is how bots, attribute-built stats and v1 characters work).
+- `rollCaps`, `capsScore`, `capsGrade`, `heightGrade` for spins; `raisable`, `lowerable`, `remaining` and `fill` for allocation.
+- `sanitize` clamps any build: caps into [72% of the tier cap, the tier cap], stats into [50, their cap], the total into the tier total.
 - `jumpHeight` works out the Humanoid.JumpHeight that reaches the build's hitting point.
 
-**Saving** is handled by ProfileService. It uses DataStore `SpikeRushProfiles_v1` with key `u_<UserId>`, storing `{ v, points, builds[tier] = { Height, Attack, Defense, Speed, Jump } }`. A profile is only saved if it loaded successfully, so a failed load never overwrites real data.
+`src/shared/Spins.lua` holds the item banners: `rollItem` (rarity by weight, then an item; the default item never drops), `odds`, `item`, `resolve`, and client helpers `equipped(model, kind)`, `tint`, `tintSequence`.
+
+**Saving** is handled by ProfileService. It uses DataStore `SpikeRushProfiles_v1` with key `u_<UserId>`, storing profile v2: `{ v = 2, vp, builds[tier] = { Height, Attack, Defense, Speed, Jump, Caps = {...} }, owned[kind][key], equip[kind], pending, receipts }`. A v1 profile (`points`) migrates on load: points become VP, and its characters keep the tier cap as every stat cap. A profile is only saved if it loaded successfully, so a failed load never overwrites real data. Spins: stat-cap and height results are stored as `pending` (saved) until kept or discarded; item spins apply at once. VP packs are Developer Products granted in `MarketplaceService.ProcessReceipt`: each PurchaseId is remembered (last 50) and the receipt is only reported granted after the profile saves (in Studio without API access it grants anyway).
+
+Equipped cosmetics are attributes on the Player and the character (`SpikeStyle`, `SpikeColor`, `SpikeTrail`, `ScoreEffect`); bots get random ones (more often at higher tiers). AnimationController swaps the airborne `Cock` pose and `Swing` clip by style (`Cock_<Style>`, `Swing_<Style>`), BallRenderer colours and styles the attack trail, and VFXController tints the spike impact and plays the score effect when an attack or stuff block lands in on the other side.
 
 The active build is written as attributes (Tier, Height, Attack, Defense, Speed, Jump, Ability) onto the Player and the character. The client derives its prediction stats from those; the server uses `entity.charStats`, snapshotted when the match assigns teams. Picks and upgrades for your active character are rejected while your match runs, which keeps both sides identical.
 
@@ -125,14 +133,16 @@ The active build is written as attributes (Tier, Height, Attack, Defense, Speed,
 | HitReject | rejection, triggers rollback |
 | ActionFX | Slide, Block, Whiff, Jump, Charge, ChargeEnd, Stance cosmetics |
 | MatchState | match snapshot |
-| Announce | Point, Serve, SetStart, SetEnd, MatchStart, MatchEnd, Break, Timeout, TimeoutCalled |
+| Announce | Point (with `playTo`, `deuce`), Serve, SetStart, SetEnd, MatchStart, MatchEnd (with `forfeit`), Break, Timeout, TimeoutCalled, Forfeit |
 | ClientReady | client finished loading |
 | Vote | `("mode", 1\|2\|3)` or `("botTier", tier)` |
 | SetCharacter | `(tier, ability)` |
 | Timeout | call a timeout |
-| Profile | client sends `"get"`, `("upgrade", tier, stat, n)` or `("reroll", tier)`; server replies with a snapshot |
+| Profile | client sends `"get"`, `("alloc", tier, stat, ±1/5/10)`, `("auto", tier)`, `("spin", banner, 1\|10, tier)`, `("keep", i)`, `"discard"`, `("equip", kind, key)`, `("buy", pack)` (Studio only, packs without an id); server replies with a snapshot (with `reveal` after a spin) |
+| Forfeit | concede the match for your team |
+| Rotation | during a timeout: `("up"\|"down"\|"serve", entityId)` on your own team |
 
-**Jump physics.** A hang force cancels 45% of gravity while the vertical speed is under 9 studs/s. The same rule runs in MovementController for players and in BotService for bots. That hang adds about 0.74 studs to the apex (`Characters.hangGain`), and `Characters.jumpHeight` subtracts it, so the true apex equals the build's hitting point; this was verified numerically. The Azure hover cancels 62% of gravity, but only while charging and falling, so charging never raises the hitting point.
+**Jump physics.** A hang force cancels 45% of gravity while the vertical speed is under 9 studs/s. The same rule runs in MovementController for players and in BotService for bots. That hang adds about 0.74 studs to the apex (`Characters.hangGain`), and `Characters.jumpHeight` subtracts it, so the true apex equals the build's hitting point; this was verified numerically. The Azure hover cancels 85% of gravity, but only while charging and falling, so charging never raises the hitting point.
 
 ## Checks
 
@@ -151,7 +161,7 @@ Nested config aliases such as `local AZURE = Config.Abilities.Azure` are not cov
 
 ## Status
 
-All the code for the 2.5D game is written and every check passes, including all 51 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
+All the code for the 2.5D game is written and every check passes, including all 65 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
 
 ### Second session (continuation)
 
@@ -191,6 +201,21 @@ No mechanic changed; the input got forgiving. With the 1.8 s anime airtime playe
 - **Scale**: measured from the owner's screenshots, The Spike uses a true-size court (9 m halves, 2.43 m net, hitting points true to the net) with characters drawn about 1.15 m tall. `Config` now has `local M = 4.6` (studs per metre) and every world distance is written in metres times M; values tied to the avatar's body (hit zones around the root, lanes, `PassArriveY`, `TossLow`) stay in studs. `JumpScale` is back to 1: the net and court grew instead, so a maxed S+ hand (19.1 studs) sits 1.7x the net (11.2 studs), as in The Spike. HitLogic, BallPhysics, Court, BotService, ArenaBuilder (`LEN` stretches the hall's z layout), BallRenderer, CameraController and VFXController literals were converted. Walk speeds 22 to 32, slide 50, approach boost 18. The spike zone grew (radius 2.9 x 2.8 studs) so a set, which now falls faster in studs, stays in reach 0.17 to 0.25 s. The simulation suite multiplies its old world literals by `K = SPM / 3.2`.
 - **Stamina nerf** (the owner: a 180 km/h spike shouldn't be "eaten up with nothing happening"): drain = 38 x ((kmh - 60) / 100) ^ 1.5 before Defense; the perfect-timing share rises from 0.15 (up to 100 km/h) to 0.4 (180 km/h, `HitLogic.perfectDrainMul`); `IncomingSpeedPenaltyMax` 0.5 makes clean PERFECTs on monster spikes rarer; pools 50 to 100; rally recovery 10% / 20%. HitLogic adds `meta.knock` (0 to 1 above 90 km/h): the receiver is shoved back (MovementController.knockback locally, BotService.knockback for bots via HitService), plays the Knockback pose, shows "Guard -N", and the team's stamina bar shakes. Perfectly timed receives still pay the least, which keeps the design rule; the owner asked for the nerf.
 
+### Sixth session: V Points, cosmetics, jump retune, match features
+
+- **Guard break**: the breaking receive (and any touch on a broken guard) now blasts the ball up and out behind the receiver, landing 1.5 to 5 m past their end line (`blastOut` in HitLogic).
+- **Azure**: `GravityCancel` 0.85 while charging on the way down (a slow float); a `ChargeLoop` stance clip pulses the charging arm, and VFXController puts an orb, sparks, a light and a spinning ring on the right hand (`handFx`), growing with energy (other clients grow it over `ChargeTime`).
+- **Jump retune**: `JumpScale` 1.4 (jumps look higher), `VerticalM` 0.25 to 1.55 m (D- about 3.2 m, maxed S+ 3.95 m at 185 cm), sets and quick-set apexes lifted to match, camera framed higher. The attack readout (and the Thunder check) is capped at the hitting point, so a ball met above the hand can't read 4 m for a short jumper.
+- **Block on W**: the default control script rewrites `Humanoid.Jump` every render step, so jumps set from input handlers (the block release, `MovementController.jump`) were wiped before physics saw them. They are now queued and applied in `moveStep`, after the control script. Pressing W works anywhere; it's a block only in a rally near the net.
+- **V Points**: see Characters, Spins and Saving above. UI: lobby tabs Play (tier, ability, mode, allocation with -10..+10 and Auto), Shop (six banners, x1/x10, result cards with a pop-in reveal, keep/discard, VP packs) and Locker (equip).
+- **Cosmetics**: spike styles (Classic, Bow, Scissor, Hammer, Whirl), spike colours (tint trails, glow, sparks and impacts; Prism is a rainbow), trails (Comet, Sparkle, Flame, Lightning segments, Stardust) and score effects (Shockwave, Fire Explosion, Meteor Strike, Thunderbolt).
+- **Deuce**: `Court.playTo(a, b, base)` is the one rule: once both teams reach base - 1 the target is the lower score + 2, capped at `PointCap` (golden point). MatchService uses it for set over and set point; the top bar shows it in a yellow diamond (red with "DEUCE" during deuce) and a callout fires on each deuce tie.
+- **Forfeit**: a Forfeit button next to Timeout (tap twice). MatchService's waits end early, the match ends with the other team winning, and the forfeiting team gets no VP.
+- **Timeout rotation**: timeouts last 10 s; a panel lets each team reorder its rotation and pick the next server (`Court.reorder`, serving team index 1, receiving team index 2 since a side-out rotates first).
+- **Bots**: skill pairs by tier in `Config.Bots` (reaction delay, jump timing, contact noise, perfect-receive chance, sloppy stance, whiff and miss chances, spike mishits, serve errors, block, read-out and slide chances). A covering bot plays the ball at once after its human whiffs (`HitService.missAge`, `Bots.CoverAfterMiss`). Idle bots re-read the formation every 0.2 s and fill the spot a human left (`Court.formationFill`, `Bots.SwapMargin`).
+- **UI**: the control rail is compact text pills (no emoji).
+- **Loading screen** in `src/first` (ReplicatedFirst), waiting for the player attribute `SpikeRushLoaded` (set at the end of Main.client) with a 25 s cap. **Icon and thumbnail**: `tools/generate_icon.py` into `assets/icon`.
+
 These are the spots most likely to need attention on the first playtest:
 
 | Area | What to check |
@@ -198,7 +223,7 @@ These are the spots most likely to need attention on the first playtest:
 | Rojo | The plugin must be 7.7.x (`rojo plugin install`, then restart Studio); "Can't parse JSON" or a protocol error on Connect means an older plugin |
 | Scale | The whole hall is bigger (4.6 studs/m): check the camera frames the play, bots cover the longer court, and serves reach from behind the end line |
 | Joints | Poses must show on both AnimationConstraint and Motor6D rigs; Output should have no "[SpikeRush] animation" warnings |
-| Jumps | Humanoid.JumpHeight is about 11.5 studs for a maxed S+; check the apex reaches the hitting point (the readout should show the lobby's hitting point on a perfect spike) and the air time feels right (tune `JumpScale`, `Player.Gravity`, `HangGravityCancel`) |
+| Jumps | Humanoid.JumpHeight is about 15 studs for a maxed S+; check the apex reaches the hitting point (the readout should show the lobby's hitting point on a perfect spike) and the air time feels right (tune `JumpScale`, `Player.Gravity`, `HangGravityCancel`) |
 | Bot cover | Stand still while a ball comes to you: a teammate bot should dig it. Press receive early instead: the bot must hold off. Watch for bots stealing balls on high ping |
 | Animation clips | Spike (rise, bow-draw, whip, follow-through), receive, set and landing read in profile for players and bots |
 | Input | W and S double as Block and Receive while the default control script also reads them as forward/back. MovementController overrides `Humanoid:Move` every frame at RenderPriority Input+1; confirm there's no depth drift and no double actions |
@@ -211,6 +236,12 @@ These are the spots most likely to need attention on the first playtest:
 | Toolbox | Runtime loading needs the asset in the owner's inventory; otherwise Output shows a `[SpikeRush] Toolbox ... did not load` line. A Toolbox ball is rescaled and centred; check it spins around its centre |
 | Mobile | Movement reads the thumbstick X through the control module's `GetMoveVector`; the default jump button is hidden |
 | UI | The "▼" player marker and "⚙" settings glyphs rely on Roblox font fallback |
+| Block jump | Hold W near the net in a rally: crouch, release, the jump must happen (it's queued to MovementController's render step) |
+| Spins | Spin x1 and x10 on every banner; keep and discard; the Locker equips; other players see your style, colour, trail and score effect |
+| Purchases | With a product id set, test in a live server or Studio's test purchases; the receipt must grant once and survive a rejoin |
+| Loading screen | Fades out once the client starts; never stuck longer than 25 s |
+| Timeout | The rotation panel shows for both teams during a timeout, and the chosen server serves next |
+| Forfeit | Ends the match at once in any phase, and the results screen says who forfeited |
 | Camera | Long lens (FOV 34, 64 studs back); high sets must stay in frame at 16:9 and on phones |
 | Performance | Rings and starbursts are pooled BillboardGuis; popups are still created per receive grade |
 
@@ -220,10 +251,11 @@ Work in this order:
 
 1. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`.
 2. Tune the feel:
-   - in `Config.Player`: the run-up gather, dash and boost, air control, and hang;
+   - in `Config.Player` and `Config.Scale.JumpScale`: the jump look, run-up, air control and hang;
    - in `CameraController`: the camera distances;
-   - `Config.Bots` for bot skill and `Config.Stamina` for drain.
-3. Fill the Toolbox slots (TOOLBOX.md) and upload the `assets/sfx` files into `Assets.Sounds`.
-4. Lower `Config.Progression.StartingPoints` (300, for testing) before launch.
-5. Optional additions: uploaded action animations in `Assets.Animations`, substitution and pause buttons.
-6. Ask the owner about the height re-roll (still open).
+   - `Config.Bots` for bot skill by tier and `Config.Stamina` for drain;
+   - `Config.Spins` and `Config.Rarity` for the spin economy.
+3. Create the VP Developer Products and paste their ids into `Config.Shop.Packs`; upload `assets/icon/GameIcon.png` and `Thumbnail.png`.
+4. Fill the Toolbox slots (TOOLBOX.md) and upload the `assets/sfx` files into `Assets.Sounds`.
+5. Lower `Config.Progression.StartingVP` (500, for testing) before launch if the economy needs it.
+6. Optional: more spike styles and score effects (they are data plus a pose/clip or an effect function), uploaded action animations in `Assets.Animations`, substitutions and pause.
