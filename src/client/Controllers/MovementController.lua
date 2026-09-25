@@ -34,6 +34,10 @@ local facing = 1
 local jumpKind = nil
 local lastForce = nil
 local knock = nil -- { t0, speed } after a heavy receive
+-- A jump asked for from an input event. The default control script rewrites Humanoid.Jump every
+-- render step (from its own keys), so a jump set straight from an input handler is wiped before
+-- physics sees it; moveStep applies it after the control script instead.
+local queued = nil -- { height, kind }
 
 local function getControls()
 	if controls then
@@ -61,7 +65,7 @@ local function onCharacter(c)
 	char = c
 	hum = c:WaitForChild("Humanoid")
 	hrp = c:WaitForChild("HumanoidRootPart")
-	slide, gather, charging = nil, nil, false
+	slide, gather, charging, queued = nil, nil, false, nil
 	hum.AutoRotate = false
 	-- state machine tweaks have to run on the client that owns the humanoid
 	hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
@@ -170,7 +174,7 @@ function MovementController.faceNet()
 end
 
 function MovementController.canJump()
-	return hum ~= nil and not slide and not gather and not inAir()
+	return hum ~= nil and not slide and not gather and not queued and not inAir()
 end
 
 -- Run-up jump: dash in the held direction (or jump in place), then take off.
@@ -195,9 +199,7 @@ function MovementController.blockJump(fraction)
 		return false
 	end
 	local k = P.BlockMinHeight + (1 - P.BlockMinHeight) * math.clamp(fraction, 0, 1)
-	hum.JumpHeight = baseJump() * k
-	jumpKind = "Block"
-	hum.Jump = true
+	queued = { height = baseJump() * k, kind = "Block" }
 	return true
 end
 
@@ -205,9 +207,7 @@ function MovementController.jump(kind)
 	if not MovementController.canJump() then
 		return false
 	end
-	jumpKind = kind
-	hum.JumpHeight = baseJump()
-	hum.Jump = true
+	queued = { height = baseJump(), kind = kind }
 	return true
 end
 
@@ -319,6 +319,13 @@ local function moveStep()
 			endSlide()
 		end
 		return
+	end
+
+	if queued then
+		jumpKind = queued.kind
+		hum.JumpHeight = queued.height
+		hum.Jump = true
+		queued = nil
 	end
 
 	if gather then

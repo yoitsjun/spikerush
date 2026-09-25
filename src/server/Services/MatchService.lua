@@ -140,7 +140,7 @@ function MatchService.judge(landing, flags, last)
 		r.error = true
 		return r
 	end
-	if last.fail then
+	if last.fail or last.breaks then
 		-- a broken guard couldn't hold the spike: the attacker's point
 		r.winner = Court.other(last.team)
 		r.reason = "Break"
@@ -407,7 +407,7 @@ local function results(winner)
 			end
 			local reward = nil
 			if e.player then
-				reward = (team == winner and P.WinPoints or P.LossPoints) + P.PlayPoints * (st.kills + st.aces + st.blocks)
+				reward = (team == winner and P.WinVP or P.LossVP) + P.PlayVP * (st.kills + st.aces + st.blocks)
 				reg.ProfileService.award(e.player, reward)
 			end
 			table.insert(list, {

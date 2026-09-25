@@ -6,6 +6,8 @@
 --  * screen: white flash, horizontal speed lines, and the impact frame: the screen goes white,
 --    the attacker becomes a black silhouette over a coloured radial burst for a split second
 --  * text: receive grades ("PERFECT 96" with a badge), callouts ("Free ball!", "Stuff!")
+--  * unlockables: the attacker's spike colour tints the impact; their score effect (fire
+--    explosion, meteor strike, thunderbolt, shockwave) plays where the point lands
 -- Parts, rings and starbursts are pooled; popups and the impact frame are short-lived.
 
 local Players = game:GetService("Players")
@@ -18,6 +20,8 @@ local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
 local Util = require(Shared.Util)
 local BallPhysics = require(Shared.BallPhysics)
+local Spins = require(Shared.Spins)
+local Court = require(Shared.Court)
 local State = require(script.Parent.State)
 
 local VFXController = {}
@@ -814,12 +818,116 @@ local function auraEmitters(att)
 	return out
 end
 
-local function setAura(model, on, energy)
+-- The charging hand: an energy orb, swirling sparks and a light on the hitting hand.
+local function handFx(model, hrp)
+	local hand = model:FindFirstChild("RightHand") or model:FindFirstChild("Right Arm") or hrp
+	local att = Instance.new("Attachment")
+	att.Name = "AzureHand"
+	att.Parent = hand
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Texture = Assets.Images.Spark
+	sparks.Color = ColorSequence.new(Color3.fromRGB(220, 250, 255), AZURE)
+	sparks.LightEmission = 1
+	sparks.LightInfluence = 0
+	sparks.Rate = 40
+	sparks.Lifetime = NumberRange.new(0.18, 0.4)
+	sparks.Speed = NumberRange.new(1.5, 4)
+	sparks.SpreadAngle = Vector2.new(180, 180)
+	sparks.RotSpeed = NumberRange.new(-360, 360)
+	sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 0) })
+	sparks.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+	sparks.LockedToPart = true
+	sparks.Parent = att
+	local light = Instance.new("PointLight")
+	light.Color = AZURE
+	light.Range = 6
+	light.Brightness = 1
+	light.Shadows = false
+	light.Parent = att
+	-- the orb: a bright core inside a spinning ring, sized in studs
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(1, 0, 1, 0)
+	gui.LightInfluence = 0
+	gui.AlwaysOnTop = false
+	gui.Adornee = att
+	gui.Parent = att
+	local glowDisc = Instance.new("Frame")
+	glowDisc.AnchorPoint = Vector2.new(0.5, 0.5)
+	glowDisc.Position = UDim2.fromScale(0.5, 0.5)
+	glowDisc.Size = UDim2.fromScale(1, 1)
+	glowDisc.BackgroundColor3 = AZURE
+	glowDisc.BackgroundTransparency = 0.55
+	glowDisc.BorderSizePixel = 0
+	glowDisc.Parent = gui
+	local gc = Instance.new("UICorner")
+	gc.CornerRadius = UDim.new(0.5, 0)
+	gc.Parent = glowDisc
+	local core = Instance.new("Frame")
+	core.AnchorPoint = Vector2.new(0.5, 0.5)
+	core.Position = UDim2.fromScale(0.5, 0.5)
+	core.Size = UDim2.fromScale(0.5, 0.5)
+	core.BackgroundColor3 = WHITE
+	core.BorderSizePixel = 0
+	core.Parent = gui
+	local cc = Instance.new("UICorner")
+	cc.CornerRadius = UDim.new(0.5, 0)
+	cc.Parent = core
+	local ring = Instance.new("Frame")
+	ring.AnchorPoint = Vector2.new(0.5, 0.5)
+	ring.Position = UDim2.fromScale(0.5, 0.5)
+	ring.Size = UDim2.fromScale(1.35, 1.35)
+	ring.BackgroundTransparency = 1
+	ring.Parent = gui
+	local rc = Instance.new("UICorner")
+	rc.CornerRadius = UDim.new(0.5, 0)
+	rc.Parent = ring
+	local rs = Instance.new("UIStroke")
+	rs.Thickness = 3
+	rs.Color = Color3.fromRGB(190, 245, 255)
+	rs.Parent = ring
+	local rg = Instance.new("UIGradient")
+	rg.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.45, 0),
+		NumberSequenceKeypoint.new(0.55, 1),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	rg.Parent = rs
+	return { att = att, sparks = sparks, light = light, gui = gui, glow = glowDisc, ring = ring, ringStroke = rs }
+end
+
+local function applyEnergy(fx, e)
+	e = math.clamp(e, 0, 1.3)
+	fx.energy = e
+	-- 30 + 110 * e particles/s for the procedural flame (base 40): about 0.75x to 4.3x
+	local k = (30 + 110 * e) / 40
+	for _, item in ipairs(fx.emitters) do
+		item[1].Rate = item[2] * k
+	end
+	local over = e > 1
+	local color = over and HOT or AZURE
+	fx.hl.FillTransparency = 0.85 - 0.35 * math.min(e, 1)
+	fx.hl.FillColor = color
+	local h = fx.hand
+	local size = 0.8 + 2.6 * math.min(e, 1)
+	h.gui.Size = UDim2.new(size, 0, size, 0)
+	h.glow.BackgroundColor3 = color
+	h.ringStroke.Color = over and Color3.fromRGB(255, 170, 190) or Color3.fromRGB(190, 245, 255)
+	h.light.Color = color
+	h.light.Range = 6 + 10 * math.min(e, 1)
+	h.light.Brightness = 1 + 3 * math.min(e, 1)
+	h.sparks.Rate = 30 + 120 * math.min(e, 1)
+	h.sparks.Color = ColorSequence.new(Color3.fromRGB(230, 250, 255), color)
+end
+
+-- remote: other players' and bots' charges grow on this client's clock
+local function setAura(model, on, energy, remote)
 	local fx = auras[model]
 	if not on then
 		if fx then
 			fx.att:Destroy()
 			fx.hl:Destroy()
+			fx.hand.att:Destroy()
 			auras[model] = nil
 		end
 		return
@@ -839,20 +947,24 @@ local function setAura(model, on, energy)
 		hl.OutlineTransparency = 0.2
 		hl.DepthMode = Enum.HighlightDepthMode.Occluded
 		hl.Parent = model
-		fx = { att = att, emitters = auraEmitters(att), hl = hl }
+		fx = { att = att, emitters = auraEmitters(att), hl = hl, hand = handFx(model, hrp), t0 = os.clock(), remote = remote }
 		auras[model] = fx
 	end
-	local e = math.clamp(energy or 0.6, 0, 1.3)
-	-- 30 + 110 * e particles/s for the procedural flame (base 40): about 0.75x to 4.3x
-	local k = (30 + 110 * e) / 40
-	for _, item in ipairs(fx.emitters) do
-		item[1].Rate = item[2] * k
-	end
-	fx.hl.FillTransparency = 0.85 - 0.35 * math.min(e, 1)
-	if e > 1 then
-		fx.hl.FillColor = HOT
-	else
-		fx.hl.FillColor = AZURE
+	applyEnergy(fx, energy or 0)
+end
+
+-- spin the orb rings and grow remote charges
+local function updateAuras(dt)
+	for model, fx in pairs(auras) do
+		if not model.Parent then
+			fx.hand.att:Destroy()
+			auras[model] = nil
+		else
+			fx.hand.ring.Rotation = (fx.hand.ring.Rotation + dt * (240 + 360 * (fx.energy or 0))) % 360
+			if fx.remote then
+				applyEnergy(fx, math.min(1, (os.clock() - fx.t0) / Config.Abilities.Azure.ChargeTime))
+			end
+		end
 	end
 end
 
@@ -1045,18 +1157,21 @@ local function onHit(snap)
 				VFXController.speedLines(0.35 + 0.2 * e, Color3.fromRGB(190, 240, 255), dirZ)
 			end
 		else
+			-- the attacker's spike colour (a V Points unlock) replaces the default hot pink
+			local tint = Spins.tint(Spins.equipped(model, "Color"))
+			local accent = tint or HOT
 			if not toolboxFx(heavy and "PerfectImpact" or "SpikeImpact", pos) then
-				starburst(pos, WHITE, heavy and 10 or 6, heavy and 14 or 10, 0.26)
+				starburst(pos, tint or WHITE, heavy and 10 or 6, heavy and 14 or 10, 0.26)
 				ringFx(pos, WHITE, 1.5, heavy and 11 or 7, 0.3, 6)
-				if heavy then
-					ringFx(pos, HOT, 1, 8, 0.3, 5)
-					burst(pos, HOT, 2.8, 0.18)
+				if heavy or tint then
+					ringFx(pos, accent, 1, heavy and 8 or 6, 0.3, 5)
+					burst(pos, accent, heavy and 2.8 or 1.8, 0.18)
 				end
-				emit(sparkEmitter, pos, heavy and 26 or 12, heavy and HOT or WHITE)
+				emit(sparkEmitter, pos, heavy and 26 or 12, (heavy or tint) and accent or WHITE)
 			end
 			if close then
 				if heavy and meta.grade == "PERFECT" and kmh >= 132 then
-					VFXController.impactFrame(meta.id, HOT)
+					VFXController.impactFrame(meta.id, accent)
 				end
 				if heavy then
 					VFXController.speedLines(0.35, WHITE, dirZ)
@@ -1095,7 +1210,7 @@ local function onHit(snap)
 		if not toolboxFx("ReceiveImpact", pos) then
 			ringFx(pos, meta.perfect and UI.Spark or WHITE, 1, 4.5, 0.22, 4)
 		end
-		if meta.fail then
+		if meta.fail or meta.breaks then
 			shards(pos, Color3.fromRGB(200, 230, 255), 12, 40)
 			VFXController.popup(pos, "Broken", HOT, 1)
 			return
@@ -1131,12 +1246,147 @@ local function onHit(snap)
 	end
 end
 
+------------------------------------------------------------------------------------------
+-- score effects (V Points unlocks): where an attack lands for a point
+------------------------------------------------------------------------------------------
+
+local SCORING = { Spike = true, JumpServe = true, Overhand = true, Feint = true, Block = true }
+
+local function light(pos, color, brightness, range, duration)
+	local p = take(Enum.PartType.Block)
+	p.Size = Vector3.new(0.2, 0.2, 0.2)
+	p.CFrame = CFrame.new(pos)
+	local l = Instance.new("PointLight")
+	l.Color = color
+	l.Brightness = brightness
+	l.Range = range
+	l.Shadows = false
+	l.Parent = p
+	local tween = TweenService:Create(l, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Brightness = 0 })
+	tween:Play()
+	tween.Completed:Connect(function()
+		l:Destroy()
+		release(p)
+	end)
+end
+
+local function fireExplosion(pos, scale, tint)
+	local s = scale or 1
+	burst(pos + Vector3.new(0, 1.5 * s, 0), Color3.fromRGB(255, 200, 80), 4.5 * s, 0.3)
+	burst(pos + Vector3.new(0, 1 * s, 0), Color3.fromRGB(255, 90, 30), 7 * s, 0.45)
+	floorRing(pos, Color3.fromRGB(40, 20, 16), 7 * s, 1.1)
+	floorRing(pos, tint or Color3.fromRGB(255, 120, 40), 11 * s, 0.5)
+	ringFx(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 170, 60), 2, 14 * s, 0.4, 8)
+	emit(fireEmitter, pos + Vector3.new(0, 1, 0), math.floor(60 * s), Color3.fromRGB(255, 150, 50))
+	emit(fireEmitter, pos + Vector3.new(0, 2.5, 0), math.floor(30 * s), tint or Color3.fromRGB(255, 70, 30))
+	emit(dustEmitter, pos, math.floor(24 * s))
+	shards(pos + Vector3.new(0, 0.6, 0), Color3.fromRGB(255, 190, 90), math.floor(12 * s), 45)
+	light(pos + Vector3.new(0, 3, 0), Color3.fromRGB(255, 140, 60), 6, 30 * s, 0.6)
+end
+
+local function meteorStrike(pos, dirZ, tint)
+	local rock = take(Enum.PartType.Ball)
+	rock.Color = Color3.fromRGB(255, 120, 40)
+	rock.Size = Vector3.new(3.4, 3.4, 3.4)
+	rock.Transparency = 0
+	local from = pos + Vector3.new(-4, 70, -dirZ * 38)
+	rock.CFrame = CFrame.new(from)
+	local streaked = 0
+	local conn
+	local t0 = os.clock()
+	local fall = 0.34
+	conn = RunService.RenderStepped:Connect(function()
+		local a = math.clamp((os.clock() - t0) / fall, 0, 1)
+		local p = from:Lerp(pos + Vector3.new(0, 1, 0), a * a)
+		rock.CFrame = CFrame.new(p)
+		streaked = streaked + 1
+		if streaked % 2 == 0 then
+			emit(fireEmitter, p, 6, tint or Color3.fromRGB(255, 110, 40))
+			burst(p, Color3.fromRGB(255, 200, 90), 1.6, 0.2)
+		end
+		if a >= 1 then
+			conn:Disconnect()
+			release(rock)
+			fireExplosion(pos, 1.35, tint)
+			starburst(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 220, 120), 14, 14, 0.35)
+			shards(pos + Vector3.new(0, 0.5, 0), Color3.fromRGB(70, 50, 40), 16, 60)
+			if near(pos) then
+				mods.CameraController.shake(0.8)
+				mods.CameraController.kick(-6)
+				VFXController.flash(0.25, 0.2)
+			end
+		end
+	end)
+end
+
+local function thunderbolt(pos, tint)
+	local color = tint or THUNDER
+	local top = pos + Vector3.new(-1, 80, 0)
+	local prev = top
+	local segs = 9
+	for i = 1, segs do
+		local along = top:Lerp(pos, i / segs)
+		local nextP = i == segs and pos or along + Vector3.new(0, 0, (math.random() - 0.5) * 7)
+		bolt(prev, (nextP - prev).Unit, (nextP - prev).Magnitude, color)
+		prev = nextP
+	end
+	bolt(pos + Vector3.new(0, 1, 0), Vector3.new(0, 0.3, 1).Unit, 8, color)
+	bolt(pos + Vector3.new(0, 1, 0), Vector3.new(0, 0.3, -1).Unit, 8, color)
+	starburst(pos + Vector3.new(0, 2, 0), color, 13, 16, 0.3)
+	ringFx(pos + Vector3.new(0, 1, 0), color, 2, 16, 0.4, 8)
+	floorRing(pos, color, 12, 0.5)
+	emit(sparkEmitter, pos + Vector3.new(0, 1, 0), 50, color)
+	light(pos + Vector3.new(0, 6, 0), color, 8, 40, 0.5)
+	if near(pos) then
+		VFXController.flash(0.4, 0.25)
+		mods.CameraController.shake(0.6)
+	end
+end
+
+local function shockwave(pos, tint)
+	local color = tint or WHITE
+	floorRing(pos, color, 14, 0.5)
+	floorRing(pos, WHITE, 8, 0.35)
+	ringFx(pos + Vector3.new(0, 2, 0), color, 2, 16, 0.4, 6)
+	emit(dustEmitter, pos, 30)
+	if near(pos) then
+		mods.CameraController.shake(0.4)
+	end
+end
+
+-- The attack (or stuff block) that just landed in: the scorer's effect at the spot.
+local function scoreEffect(pos, meta)
+	if not meta or not SCORING[meta.hitType] or not Court.inBounds(pos) then
+		return false
+	end
+	local side = State.sideOfEntity(meta.id)
+	if not side or pos.Z * side > 0 then
+		return false -- landed on the hitter's own side: not their point
+	end
+	local model = Util.modelOf(meta.id)
+	local effect = Spins.equipped(model, "Effect").Key
+	local tint = Spins.tint(Spins.equipped(model, "Color"))
+	if effect == "Fire" then
+		fireExplosion(pos, 1, tint)
+	elseif effect == "Meteor" then
+		meteorStrike(pos, -side, tint)
+	elseif effect == "Thunderbolt" then
+		thunderbolt(pos, tint)
+	elseif effect == "Shockwave" then
+		shockwave(pos, tint)
+	else
+		return false -- Dust: the normal floor impact
+	end
+	return true
+end
+
 local function onBallEvent(kind, ev, meta)
 	if kind == "Land" then
 		if ev.kind ~= "Floor" then
 			return
 		end
 		local pos = Vector3.new(0, 0.2, ev.pos.Z)
+		scoreEffect(pos, meta)
 		local speed = ev.vel.Magnitude
 		local hard = speed > 45
 		if not toolboxFx("FloorImpact", pos) then
@@ -1269,7 +1519,7 @@ function VFXController.init(m)
 		if kind == "Jump" then
 			VFXController.boom(entityId, extra)
 		elseif kind == "Charge" and model then
-			setAura(model, true, 0.6)
+			setAura(model, true, 0, true)
 		elseif kind == "ChargeEnd" and model then
 			setAura(model, false)
 		elseif kind == "Slide" and model then
@@ -1298,6 +1548,7 @@ function VFXController.init(m)
 		end
 	end)
 	RunService.RenderStepped:Connect(updateLines)
+	RunService.RenderStepped:Connect(updateAuras)
 end
 
 return VFXController

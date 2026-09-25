@@ -12,6 +12,7 @@ local Assets = require(Shared.Assets)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
+local Spins = require(Shared.Spins)
 local State = require(script.Parent.State)
 
 local BallRenderer = {}
@@ -34,6 +35,11 @@ local bounce = nil
 
 local folder, ballRoot, trailPart, trail, core, aura, glow, shadow, markerRing, markerDot
 local sparkles, sparkleOn = nil, false
+-- the attacker's equipped trail (V Points unlock): lightning drops jagged segments behind the ball
+local lightningOn, lightningColor = false, Color3.new(1, 1, 1)
+local bolts = {}
+local boltIndex, lastBoltAt, lastBoltPos = 0, 0, nil
+local BOLT_COUNT = 28
 local a0, a1, c0, c1
 local dots = {}
 local dotIndex = 0
@@ -279,6 +285,13 @@ local function buildVisuals()
 	glow.Shadows = false
 	glow.Parent = trailPart
 
+	for i = 1, BOLT_COUNT do
+		local b = basicPart("Bolt", Enum.PartType.Block, Vector3.new(0.2, 0.2, 1), Color3.new(1, 1, 1), Enum.Material.Neon)
+		b.Transparency = 1
+		b.Parent = folder
+		bolts[i] = { part = b, born = -10 }
+	end
+
 	shadow = basicPart("Shadow", Enum.PartType.Cylinder, Vector3.new(0.04, R * 2.2, R * 2.2), Color3.new(0, 0, 0))
 	shadow.Transparency = 0.4
 	shadow.Parent = folder
@@ -311,12 +324,22 @@ local function applyStyle(meta)
 		teamColor = Config.Teams[meta.team].Color
 	end
 	local attack = ht == "Spike" or ht == "JumpServe"
+	-- the attacker's unlocks: spike colour and trail
+	local model = attack and meta.id and Util.modelOf(meta.id) or nil
+	local colorItem = Spins.equipped(model, "Color")
+	local tintSeq = attack and Spins.tintSequence(colorItem) or nil
+	local tint = attack and Spins.tint(colorItem) or nil
+	local trailKey = attack and Spins.equipped(model, "Trail").Key or "Ribbon"
 	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.6) })
 	core.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
 	aura.Enabled = false
+	aura.Rate = 90
 	glow.Brightness = 0
 	core.Enabled = false
 	sparkleOn = false
+	sparkles.Rate = 80
+	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
+	lightningOn = false
 	-- thick, nearly solid ribbons like The Spike's: a Thunder spike paints the whole court
 	if attack and meta.thunder then
 		trail.Color = ColorSequence.new(Color3.fromRGB(255, 232, 40), Color3.fromRGB(255, 246, 150))
@@ -347,18 +370,18 @@ local function applyStyle(meta)
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(200, 250, 255))
 	elseif attack and kmh >= 120 then
 		-- hot pink into red, with stars, like The Spike's hardest normal spikes
-		trail.Color = ColorSequence.new(Color3.fromRGB(255, 40, 140), Color3.fromRGB(255, 90, 70))
+		trail.Color = tintSeq or ColorSequence.new(Color3.fromRGB(255, 40, 140), Color3.fromRGB(255, 90, 70))
 		trail.Transparency = fade(0.12)
 		trail.Lifetime = 0.6
 		trail.LightEmission = 0.9
 		setWidth(R * 3.2, R * 0.8)
 		core.Lifetime = 0.3
-		glow.Color = Color3.fromRGB(255, 90, 140)
+		glow.Color = tint or Color3.fromRGB(255, 90, 140)
 		glow.Brightness = 2
 		sparkleOn = true
-		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 220, 240))
+		sparkles.Color = ColorSequence.new(tint and tint:Lerp(Color3.new(1, 1, 1), 0.6) or Color3.fromRGB(255, 220, 240))
 	elseif attack then
-		trail.Color = ColorSequence.new(Color3.fromRGB(255, 70, 90), teamColor)
+		trail.Color = tintSeq or ColorSequence.new(Color3.fromRGB(255, 70, 90), teamColor)
 		trail.Transparency = fade(0.2)
 		trail.Lifetime = 0.45
 		trail.LightEmission = 0.8
@@ -378,6 +401,66 @@ local function applyStyle(meta)
 	core.Enabled = attack
 	if not attack then
 		core.Enabled = false
+		return
+	end
+	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or Color3.fromRGB(255, 90, 110)
+	if trailKey == "Comet" then
+		-- a long, wide tail tapering to a point
+		trail.Lifetime = trail.Lifetime * 1.7
+		trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.35), NumberSequenceKeypoint.new(1, 0.05) })
+		core.Lifetime = core.Lifetime * 1.5
+	elseif trailKey == "Sparkle" then
+		sparkleOn = true
+		sparkles.Rate = 140
+		sparkles.Color = ColorSequence.new(accent:Lerp(Color3.new(1, 1, 1), 0.5))
+	elseif trailKey == "Flame" then
+		aura.Enabled = true
+		aura.Rate = 140
+		aura.Color = ColorSequence.new(Color3.fromRGB(255, 220, 90), tint or Color3.fromRGB(255, 70, 30))
+		glow.Color = Color3.fromRGB(255, 140, 60)
+		glow.Brightness = math.max(glow.Brightness, 3)
+	elseif trailKey == "Lightning" then
+		lightningOn = true
+		lightningColor = accent:Lerp(Color3.new(1, 1, 1), 0.25)
+		lastBoltPos = nil
+	elseif trailKey == "Stardust" then
+		sparkleOn = true
+		sparkles.Rate = 220
+		sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.6), NumberSequenceKeypoint.new(1, 0) })
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 250, 220), accent)
+		glow.Color = accent
+		glow.Brightness = math.max(glow.Brightness, 3)
+		trail.Lifetime = trail.Lifetime * 1.3
+	end
+end
+
+-- Lightning trail: jagged neon segments dropped behind the ball, fading fast.
+local function updateBolts(pos, live, speed)
+	local clock = os.clock()
+	if lightningOn and live and speed > 8 and clock - lastBoltAt > 0.03 then
+		lastBoltAt = clock
+		local jag = Vector3.new((math.random() - 0.5) * 0.6, (math.random() - 0.5) * 2.4, (math.random() - 0.5) * 1.2)
+		local p = pos + jag
+		if lastBoltPos and (p - lastBoltPos).Magnitude < 12 then
+			boltIndex = boltIndex % BOLT_COUNT + 1
+			local b = bolts[boltIndex]
+			local len = (p - lastBoltPos).Magnitude
+			b.part.Size = Vector3.new(0.26, 0.26, len)
+			b.part.CFrame = CFrame.lookAt((p + lastBoltPos) / 2, p)
+			b.part.Color = lightningColor
+			b.born = clock
+		end
+		lastBoltPos = p
+	elseif not live then
+		lastBoltPos = nil
+	end
+	for _, b in ipairs(bolts) do
+		local age = clock - b.born
+		if age < 0.3 then
+			b.part.Transparency = age / 0.3
+		elseif b.part.Transparency < 1 then
+			b.part.Transparency = 1
+		end
 	end
 end
 
@@ -604,6 +687,7 @@ local function update(dt)
 		aura.Enabled = false
 		glow.Brightness = math.max(0, glow.Brightness - dt * 8)
 	end
+	updateBolts(pos, live, speed)
 
 	-- dotted arc behind a set
 	local clock = os.clock()

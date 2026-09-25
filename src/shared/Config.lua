@@ -18,13 +18,23 @@ Config.GameName = "Spike Rush"
 
 Config.Scale = {
 	StudsPerMeter = M,
-	-- Optional stretch of heights above the standing hand (HeightFloor = Player.RootGround +
-	-- Zones.SpikeUp): every stud above it drawn JumpScale times taller. 1 = true scale, which
-	-- with small characters on a real-size court already gives The Spike's huge jumps; readouts
-	-- always stay in real metres (Characters.studsAt / metersAt).
+	-- Stretch of heights above the standing hand (HeightFloor = Player.RootGround +
+	-- Zones.SpikeUp): every stud above it is drawn JumpScale times taller, so characters leap
+	-- far over the net like in The Spike while hitting points, the 4.00 m Thunder line and the
+	-- HUD stay in real metres (Characters.studsAt / metersAt).
 	HeightFloor = 6.9,
-	JumpScale = 1.0,
+	JumpScale = 1.4,
 }
+
+-- World height (studs) of a real height in metres, jump stretch included (Characters.studsAt).
+local function lift(meters)
+	local y = meters * M
+	local floor = Config.Scale.HeightFloor
+	if y > floor then
+		y = floor + (y - floor) * Config.Scale.JumpScale
+	end
+	return y
+end
 
 Config.Court = {
 	HalfWidth = 14, -- court depth toward the camera (visual only in 2.5D)
@@ -160,9 +170,9 @@ Config.Hits = {
 
 	-- Sets: high, with a dotted trail
 	SetApexOpen = 6.8 * M,
-	SetApexQuick = 5.0 * M,
+	SetApexQuick = lift(4.4),
 	SetApexBack = 6.6 * M,
-	SetArriveY = 3.85 * M, -- comes down through a typical maxed hitting point
+	SetArriveY = lift(3.75), -- comes down through a typical high-tier hitting point
 	SetError = 0.95 * M,
 	SetGravityScale = 1.0,
 	OpenDepth = 2.3 * M, -- attack spots, distance from the net
@@ -256,7 +266,7 @@ Config.Stats = {
 -- How each stat turns into gameplay. Values interpolate from Stats.Min to Stats.Ref.
 Config.StatCurve = {
 	Power = { Stat = "Attack", Range = { 0.45, 1.0 } }, -- spike and serve speed multiplier
-	VerticalM = { Stat = "Jump", Range = { 0.4, 1.75 } }, -- metres added to standing reach
+	VerticalM = { Stat = "Jump", Range = { 0.25, 1.55 } }, -- metres added to standing reach (D- about 3.2 m, maxed S+ about 3.95 m)
 	Approach = { Stat = "Jump", Range = { 0.8, 1.25 } }, -- run-up speed and distance
 	StaminaPool = { Stat = "Defense", Range = { 50, 100 } },
 	DrainReduction = { Stat = "Defense", Range = { 0.0, 0.35 } },
@@ -277,15 +287,103 @@ Config.Height = {
 	ZoneScale = { 0.94, 1.08 }, -- hit-zone size, shortest -> tallest
 }
 
--- Upgrade points: earned by playing, spent on stats (1 point = +1 stat) or a height re-roll.
+-- V Points (VP): the currency, like The Spike's. Earned by playing and bought in the shop,
+-- spent on spins. Stats aren't bought any more: each character's tier total is yours to spread
+-- over the four stats, up to that character's rolled stat caps.
 Config.Progression = {
-	StartingPoints = 300, -- generous so a fresh S+ can be tested near its cap right away
-	WinPoints = 30,
-	LossPoints = 15,
-	PlayPoints = 2, -- per kill, ace or block
-	HeightRollCost = 40,
+	StartingVP = 500, -- enough for one x10 spin (or ten x1) on a fresh profile
+	WinVP = 30,
+	LossVP = 15,
+	PlayVP = 2, -- per kill, ace or block
 	DataStoreName = "SpikeRushProfiles_v1",
 	AutosaveInterval = 90,
+}
+
+-- Rarity tiers shared by every spin.
+Config.Rarity = {
+	Order = { "Common", "Rare", "Epic", "Legendary" },
+	Weights = { Common = 58, Rare = 29, Epic = 10, Legendary = 3 }, -- item banners
+	Colors = {
+		Common = Color3.fromRGB(170, 178, 200),
+		Rare = Color3.fromRGB(80, 170, 255),
+		Epic = Color3.fromRGB(190, 110, 255),
+		Legendary = Color3.fromRGB(255, 200, 60),
+	},
+}
+
+-- Spins. Stat caps and height are rolled per character (tier); you see the result and keep it
+-- or throw it away (x10 shows ten and you keep the one you like). Styles, colours, trails and
+-- score effects unlock for every character; a duplicate refunds a little VP.
+Config.Spins = {
+	Costs = { [1] = 50, [10] = 500 },
+	Order = { "Caps", "Height", "Style", "Color", "Trail", "Effect" },
+	Banners = {
+		Caps = { Name = "Stat caps", Blurb = "Rolls the four stat caps of this character.", PerCharacter = true },
+		Height = { Name = "Height", Blurb = "Rolls this character's height (standing reach).", PerCharacter = true },
+		Style = { Name = "Spike style", Blurb = "Unlocks spike animations." },
+		Color = { Name = "Spike color", Blurb = "Unlocks the colour of your spikes and their impact." },
+		Trail = { Name = "Trail", Blurb = "Unlocks the trail your spikes leave." },
+		Effect = { Name = "Score effect", Blurb = "Unlocks what happens where your attack lands for a point." },
+	},
+	CapFloor = 0.72, -- a rolled stat cap is at least this fraction of the tier's cap
+	CapSkew = 1.8, -- higher = top caps rarer
+	-- grade of a cap roll by its mean (0..1 of the way to the tier cap) and of a height roll (cm)
+	CapGrades = { Legendary = 0.7, Epic = 0.52, Rare = 0.38 },
+	HeightGrades = { Legendary = 200, Epic = 194, Rare = 188 },
+	DuplicateRefund = 10,
+	MaxPending = 10,
+}
+
+-- Unlockables. The first item of each list is owned by everyone and equipped by default.
+Config.Cosmetics = {
+	Kinds = { "Style", "Color", "Trail", "Effect" },
+	Attribute = { Style = "SpikeStyle", Color = "SpikeColor", Trail = "SpikeTrail", Effect = "ScoreEffect" },
+	Style = {
+		{ Key = "Classic", Name = "Classic", Rarity = "Common" },
+		{ Key = "Bow", Name = "Full Bow", Rarity = "Rare" },
+		{ Key = "Scissor", Name = "Scissor Kick", Rarity = "Rare" },
+		{ Key = "Hammer", Name = "Double Hammer", Rarity = "Epic" },
+		{ Key = "Whirl", Name = "Whirlwind", Rarity = "Legendary" },
+	},
+	Color = {
+		{ Key = "Default", Name = "Classic", Rarity = "Common" },
+		{ Key = "Crimson", Name = "Crimson", Rarity = "Common", Color = Color3.fromRGB(255, 60, 80) },
+		{ Key = "Tangerine", Name = "Tangerine", Rarity = "Common", Color = Color3.fromRGB(255, 150, 50) },
+		{ Key = "Lime", Name = "Lime", Rarity = "Rare", Color = Color3.fromRGB(150, 255, 80) },
+		{ Key = "Violet", Name = "Violet", Rarity = "Rare", Color = Color3.fromRGB(175, 95, 255) },
+		{ Key = "Aqua", Name = "Aqua", Rarity = "Rare", Color = Color3.fromRGB(60, 230, 255) },
+		{ Key = "Gold", Name = "Gold", Rarity = "Epic", Color = Color3.fromRGB(255, 210, 60) },
+		{ Key = "Void", Name = "Void", Rarity = "Epic", Color = Color3.fromRGB(120, 50, 200) },
+		{ Key = "Prism", Name = "Prism", Rarity = "Legendary", Color = Color3.fromRGB(255, 120, 220) },
+	},
+	Trail = {
+		{ Key = "Ribbon", Name = "Ribbon", Rarity = "Common" },
+		{ Key = "Comet", Name = "Comet", Rarity = "Common" },
+		{ Key = "Sparkle", Name = "Sparkle", Rarity = "Rare" },
+		{ Key = "Flame", Name = "Flame", Rarity = "Epic" },
+		{ Key = "Lightning", Name = "Lightning", Rarity = "Epic" },
+		{ Key = "Stardust", Name = "Stardust", Rarity = "Legendary" },
+	},
+	Effect = {
+		{ Key = "Dust", Name = "Dust", Rarity = "Common" },
+		{ Key = "Shockwave", Name = "Shockwave", Rarity = "Common" },
+		{ Key = "Fire", Name = "Fire Explosion", Rarity = "Rare" },
+		{ Key = "Meteor", Name = "Meteor Strike", Rarity = "Epic" },
+		{ Key = "Thunderbolt", Name = "Thunderbolt", Rarity = "Legendary" },
+	},
+}
+
+-- VP packs, sold as Developer Products. Create each product (Creator Hub > your experience >
+-- Monetization > Developer Products) and paste its id here. A pack with Id 0 shows as "soon";
+-- in Studio it grants its VP for free so the flow can be tested.
+Config.Shop = {
+	Packs = {
+		{ Id = 0, VP = 500, Name = "Pouch" },
+		{ Id = 0, VP = 1200, Name = "Bag" },
+		{ Id = 0, VP = 2800, Name = "Crate" },
+		{ Id = 0, VP = 6500, Name = "Vault" },
+	},
+	ReceiptHistory = 50, -- purchase ids remembered per profile (duplicate receipts are ignored)
 }
 
 Config.TierColors = {
@@ -308,7 +406,7 @@ Config.Abilities = {
 		Color = Color3.fromRGB(57, 213, 255),
 		ChargeTime = 0.8, -- seconds of holding to fill the bar
 		OverchargeGrace = 0.28, -- holding past full for this long overcharges
-		GravityCancel = 0.62, -- low gravity while gathering energy
+		GravityCancel = 0.85, -- a slow, floating fall while gathering energy (on the way down only)
 		AirSpeedBonus = 1.25,
 		GaugeRechargeTime = 3.0, -- gauge refills on the ground
 		MaxBoost = 0.44, -- full energy multiplies spike speed by 1 + this

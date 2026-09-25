@@ -333,6 +333,16 @@ local function launchResult(meta, p, v, a, t, hold)
 	}
 end
 
+-- A broken guard: the ball blasts off the receiver's arms and flies out behind them, landing
+-- past their own end line (it never crosses the net).
+local function blastOut(meta, ball, side, rng, t)
+	local landing = C.SideDepth + SPM * (1.5 + rng:NextNumber() * 3.5)
+	local target = Vector3.new(0, R, side * math.max(landing, ball.Z * side + SPM))
+	local apex = ball.Y + SPM * (1.2 + rng:NextNumber() * 2.3)
+	local v = HitLogic.solveArc(ball, target, apex, G)
+	return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
+end
+
 ------------------------------------------------------------------------------------------
 -- Touch rules
 ------------------------------------------------------------------------------------------
@@ -439,7 +449,9 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local qHeight = HitLogic.heightQuality(ball.Y, stats, ctx.groundY)
 	-- clean contact x good timing: a fingertip touch at a great height is still a poor hit
 	local q = clamp(qContact * (H.ContactWeight + (1 - H.ContactWeight) * qHeight), 0, 1)
-	local heightM = HitLogic.meters(ball.Y)
+	-- the hitting point is the hand: a ball met above it still reads (and counts for Thunder) as
+	-- this character's own top, so a short jumper can't reach 4.00 m off a high ball
+	local heightM = HitLogic.meters(math.min(ball.Y, stats.contactMaxStuds))
 	local kmh, thunder, energy, overcharge, pierce = attackPower(kind, q, qContact, heightM, stats, ctx.ability, input.energy)
 	local meta = meta0(kind, q)
 	meta.height = heightM
@@ -717,25 +729,26 @@ function HitLogic.compute(input, ctx)
 		end
 
 		if heavy and not sliding and stam.value <= 0 and incomingKmh >= ST.BreakFailKmh then
-			-- guard broken: the spike blasts straight off the arms
+			-- guard broken: the spike blasts straight off the arms and out behind
 			meta.fail = true
 			meta.grade = "BROKEN"
 			meta.quality = 0
-			local dir = side
-			if (ctx.ballVel or Vector3.zero).Z * side < 0 then
-				dir = -side
-			end
-			local v = Vector3.new(0, SPM * (2.8 + rng:NextNumber() * 3.75), dir * SPM * (6.25 + rng:NextNumber() * 5))
-			return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
+			meta.score = 0
+			meta.knock = 1
+			return blastOut(meta, ball, side, rng, t)
 		end
 		if heavy and not sliding and pct < ST.RedAt then
 			local k = ST.LowQualityFloor + (1 - ST.LowQualityFloor) * (pct / ST.RedAt)
 			q = q * k
 		end
 		if heavy and not sliding and stam.value > 0 and stam.value - drain <= 0 then
-			-- this ball breaks the guard: the receive pops up out of control
+			-- this ball breaks the guard: it blasts off the arms and flies out behind the receiver
 			meta.breaks = true
-			q = math.min(q, H.ShankAt - 0.05)
+			meta.quality = 0
+			meta.grade = "BROKEN"
+			meta.score = 0
+			meta.knock = 1
+			return blastOut(meta, ball, side, rng, t)
 		end
 		meta.quality, meta.grade = q, HitLogic.grade(q)
 		if meta.perfect then
@@ -763,11 +776,8 @@ function HitLogic.compute(input, ctx)
 			end
 			local dist = SPM * (1.25 + (H.ShankAt - q) / H.ShankAt * 3.75 * (0.5 + rng:NextNumber()))
 			local tz = ball.Z + dir * dist
-			if not meta.breaks and tz * side < 0.47 * SPM then
+			if tz * side < 0.47 * SPM then
 				tz = side * 0.47 * SPM
-			end
-			if meta.breaks and rng:NextNumber() < 0.35 then
-				tz = -side * SPM * (0.95 + rng:NextNumber() * 1.9) -- popped over the net
 			end
 			local apex = math.max(ball.Y + 0.6 * SPM, SPM * (2.2 + rng:NextNumber() * 2.8))
 			local v = nil

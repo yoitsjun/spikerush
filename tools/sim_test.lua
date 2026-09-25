@@ -42,6 +42,10 @@ Random = {
 				state = (state * 16807) % 2147483647
 				return state / 2147483647
 			end,
+			NextInteger = function(self, a, b)
+				state = (state * 16807) % 2147483647
+				return a + math.floor(state / 2147483647 * (b - a + 1))
+			end,
 		}
 	end,
 }
@@ -61,6 +65,7 @@ local BallPhysics = require("BallPhysics")
 local HitLogic = require("HitLogic")
 local Court = require("Court")
 local Characters = require("Characters")
+local Spins = require("Spins")
 local C, Z, H = Config.Court, Config.Zones, Config.Hits
 local SPM = Config.Scale.StudsPerMeter
 local K = SPM / 3.2 -- the suite's distances were written at 3.2 studs per metre
@@ -135,11 +140,13 @@ end
 
 print("== Thunder Spiker (target 160-200 above 4.00 m) ==")
 do
-	local root = apexRoot(SP, 3.5 * K)
-	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { ability = "Thunder" })
-	check(ok and res.meta.thunder and res.meta.kmh >= 185 and res.meta.kmh <= 200.5, "perfect thunder at 4.15 m", string.format("%.1f km/h at %.2f m", res.meta.kmh, res.meta.height))
+	-- only the very top reaches 4.00 m: a maxed S+ needs about 190 cm, a maxed S about 195 cm
+	local tallSP = Characters.stats("S+", "WS", 200)
+	local root = apexRoot(tallSP, 3.5 * K)
+	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { ability = "Thunder", stats = tallSP })
+	check(ok and res.meta.thunder and res.meta.kmh >= 185 and res.meta.kmh <= 200.5, "perfect thunder at 4.15 m (200 cm maxed S+)", string.format("%.1f km/h at %.2f m", res.meta.kmh, res.meta.height))
 	local low = root - vec(0, 0.15 * SPM * Config.Scale.JumpScale, 0) -- 0.15 m lower: just over 4.00 m
-	local ok2, res2 = spike(low, ballAt(low, 1.4, 0.25), { ability = "Thunder" })
+	local ok2, res2 = spike(low, ballAt(low, 1.4, 0.25), { ability = "Thunder", stats = tallSP })
 	check(ok2 and res2.meta.thunder and res2.meta.kmh >= 160 and res2.meta.kmh < 185, "scrappy thunder just over 4.00 m", string.format("%.1f km/h at %.2f m", res2.meta.kmh, res2.meta.height))
 	local path = BallPhysics.buildPath(res.launch)
 	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "thunder spike lands in", describe(path))
@@ -147,10 +154,14 @@ do
 	local rootA = apexRoot(A, 3.5 * K)
 	local ok3, res3 = spike(rootA, ballAt(rootA, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = A })
 	check(ok3 and not res3.meta.thunder, "maxed A at 185 cm can't reach 4.00 m", string.format("max %.2f m, %.1f km/h", res3.meta.height, res3.meta.kmh))
-	local tallA = Characters.stats("A", "WS", 200)
-	local rootT = apexRoot(tallA, 3.5 * K)
-	local ok4, res4 = spike(rootT, ballAt(rootT, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = tallA })
-	check(ok4 and res4.meta.thunder, "a 200 cm A can", string.format("%.2f m, %.1f km/h", res4.meta.height, res4.meta.kmh))
+	local tallA = Characters.stats("A", "WS", 195)
+	local rootTA = apexRoot(tallA, 3.5 * K)
+	local ok6, res6 = spike(rootTA, ballAt(rootTA, Z.SpikeCenterDz, 2.2), { ability = "Thunder", stats = tallA })
+	check(ok6 and not res6.meta.thunder, "not a 195 cm maxed A, even off a high ball", string.format("%.2f m, %.1f km/h", res6.meta.height, res6.meta.kmh))
+	local tallS = Characters.stats("S", "WS", 200)
+	local rootT = apexRoot(tallS, 3.5 * K)
+	local ok4, res4 = spike(rootT, ballAt(rootT, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = tallS })
+	check(ok4 and res4.meta.thunder, "a 200 cm maxed S can", string.format("%.2f m, %.1f km/h", res4.meta.height, res4.meta.kmh))
 	local shortS = Characters.stats("S+", "WS", 170)
 	local rootS = apexRoot(shortS, 3.5 * K)
 	local ok5, res5 = spike(rootS, ballAt(rootS, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = shortS })
@@ -167,7 +178,12 @@ do
 	local jump = Characters.jumpHeight(SP, GROUND)
 	local avatarM = 5.3 / SPM
 	check(math.abs(C.NetTop / SPM - 2.43) < 1e-6 and math.abs(C.SideDepth / SPM - 9) < 1e-6 and avatarM > 1.0 and avatarM < 1.3, "The Spike's scale: 2.43 m net, 9 m half court, characters about 1.15 m", string.format("net %.1f studs, half court %.1f studs, avatar %.2f m", C.NetTop, C.SideDepth, avatarM))
-	check(SP.contactMaxStuds / C.NetTop > 1.6 and SP.contactMaxStuds / C.NetTop < 1.8 and jump > 2 * 5.3, "a maxed S+ leaps twice its height and hits at 1.7x the net", string.format("jump %.1f studs, hand at %.1f studs = %.2fx the net", jump, SP.contactMaxStuds, SP.contactMaxStuds / C.NetTop))
+	check(SP.contactMaxStuds / C.NetTop > 1.9 and SP.contactMaxStuds / C.NetTop < 2.2 and jump > 2.5 * 5.3, "a maxed S+ leaps over twice its height and hits at twice the net", string.format("jump %.1f studs, hand at %.1f studs = %.2fx the net", jump, SP.contactMaxStuds, SP.contactMaxStuds / C.NetTop))
+	local Dm = Characters.stats("D-")
+	check(Dm.ContactMaxM > 3.0 and Dm.ContactMaxM < 3.35 and SP.ContactMaxM > 3.85 and SP.ContactMaxM < 4.0, "a maxed D- hits about 3.2 m, a maxed S+ about 3.95 m (190 cm+ for Thunder)", string.format("D- %.2f m, S+ %.2f m", Dm.ContactMaxM, SP.ContactMaxM))
+	local DmRoot = apexRoot(Dm, 3.5 * K)
+	local okD, resD = spike(DmRoot, ballAt(DmRoot, Z.SpikeCenterDz, 2.4), { stats = Dm })
+	check(okD and resD.meta.height <= Dm.ContactMaxM + 1e-6, "a ball met above the hand still reads the hand's height", string.format("%.2f m", resD.meta.height))
 	local root = apexRoot(SP, 3.5 * K)
 	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, 0))
 	check(ok and math.abs(res.meta.height - SP.ContactMaxM) < 0.03, "the readout still shows the real hitting point", string.format("%.2f m (hitting point %.2f m)", res.meta.height, SP.ContactMaxM))
@@ -252,16 +268,67 @@ do
 	local a = Characters.autoBuild("A", "WS", 185)
 	check(a.Attack == 155 and a.Jump == 155 and a.Defense == 120 and a.Speed == 120, "A-rank wing spiker build matches The Spike's 155/120/120/155", string.format("%d/%d/%d/%d", a.Attack, a.Defense, a.Speed, a.Jump))
 	local fresh = Characters.newBuild("S+", Random.new(3))
-	local freshStats = Characters.derive("S+", fresh)
-	local maxStats = Characters.stats("S+", "WS", fresh.Height)
-	check(freshStats.Power <= maxStats.Power - 0.2 and freshStats.ContactMaxM < maxStats.ContactMaxM - 0.5, "a fresh S+ is well below its cap until upgraded", string.format("fresh %d attack, %.2f m reach; maxed %.2f m", fresh.Attack, freshStats.ContactMaxM, maxStats.ContactMaxM))
-	local fr = apexRoot(freshStats, 3.5 * K)
-	local okF, resF = spike(fr, ballAt(fr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = freshStats })
-	check(okF and resF.meta.kmh >= 95 and resF.meta.kmh <= 110, "a fresh S+ still spikes about 100 km/h", string.format("%.1f km/h", okF and resF.meta.kmh or 0))
+	local freshCaps = Characters.statCaps("S+", fresh)
+	local capSum, inCaps = 0, true
+	for _, k in ipairs(Config.Stats.Order) do
+		capSum = capSum + freshCaps[k]
+		inCaps = inCaps and fresh[k] <= freshCaps[k] and freshCaps[k] <= 175 and freshCaps[k] >= Characters.capFloor("S+")
+	end
+	check(inCaps and Characters.total(fresh) == math.min(620, capSum), "a fresh S+ has rolled caps and its points already spread inside them", string.format("caps %d/%d/%d/%d, stats %d/%d/%d/%d", freshCaps.Attack, freshCaps.Defense, freshCaps.Speed, freshCaps.Jump, fresh.Attack, fresh.Defense, fresh.Speed, fresh.Jump))
 	local b = { Height = 185, Attack = 170, Defense = 140, Speed = 140, Jump = 170 }
-	check(Characters.raisable("S+", b, "Attack", 10) == 0 and Characters.raisable("S+", { Height = 185, Attack = 100, Defense = 100, Speed = 100, Jump = 100 }, "Jump", 200) == 75, "upgrades stop at the stat cap and the tier total", string.format("total cap left %d", Characters.raisable("S+", b, "Attack", 10)))
+	check(Characters.raisable("S+", b, "Attack", 10) == 0 and Characters.raisable("S+", { Height = 185, Attack = 100, Defense = 100, Speed = 100, Jump = 100 }, "Jump", 200) == 75, "points stop at the stat cap and the tier total", string.format("total cap left %d", Characters.raisable("S+", b, "Attack", 10)))
+	local capped = { Height = 185, Attack = 120, Defense = 100, Speed = 100, Jump = 100, Caps = { Attack = 130, Defense = 175, Speed = 175, Jump = 175 } }
+	check(Characters.raisable("S+", capped, "Attack", 10) == 10 and Characters.raisable("S+", { Height = 185, Attack = 125, Defense = 100, Speed = 100, Jump = 100, Caps = capped.Caps }, "Attack", 10) == 5 and Characters.lowerable(capped, "Defense", 10) == 10 and Characters.lowerable({ Attack = 54 }, "Attack", 10) == 4, "+10 stops at a rolled cap, -10 stops at the minimum")
 	local cheat = Characters.sanitize("B", { Height = 400, Attack = 999, Defense = 999, Speed = 999, Jump = 999 })
 	check(cheat.Height == Config.Height.Max and cheat.Attack <= 140 and Characters.total(cheat) <= 500, "sanitize clamps a forged build", string.format("%d cm, %d total", cheat.Height, Characters.total(cheat)))
+	local forged = Characters.sanitize("S+", { Height = 185, Attack = 175, Defense = 175, Speed = 100, Jump = 100, Caps = { Attack = 999, Defense = 1, Speed = 150, Jump = 150 } })
+	check(forged.Caps.Attack == 175 and forged.Caps.Defense == Characters.capFloor("S+") and forged.Defense == forged.Caps.Defense, "forged caps are clamped to the tier, stats to the caps", string.format("caps %d/%d, defense %d", forged.Caps.Attack, forged.Caps.Defense, forged.Defense))
+	local old = Characters.sanitize("A", { Height = 190, Attack = 155, Defense = 120, Speed = 120, Jump = 155 })
+	check(old.Caps.Attack == 155 and old.Attack == 155, "a character from before rolled caps keeps the tier cap")
+end
+
+print("== V Points spins ==")
+do
+	local rng = Random.new(11)
+	local n, legendary, sumScore, top, lowest = 3000, 0, 0, 0, 999
+	for _ = 1, n do
+		local caps = Characters.rollCaps("S+", rng)
+		sumScore = sumScore + Characters.capsScore("S+", caps)
+		if Characters.capsGrade("S+", caps) == "Legendary" then
+			legendary = legendary + 1
+		end
+		for _, k in ipairs(Config.Stats.Order) do
+			top = math.max(top, caps[k])
+			lowest = math.min(lowest, caps[k])
+		end
+	end
+	check(top <= 175 and lowest >= Characters.capFloor("S+") and legendary / n < 0.04 and legendary > 0, "stat-cap spins stay inside the tier and a legendary roll is rare", string.format("caps %d..%d, legendary %.1f%%, mean %.2f", lowest, top, 100 * legendary / n, sumScore / n))
+	local tall = 0
+	for _ = 1, n do
+		if Characters.heightGrade(Characters.rollHeight(rng)) == "Legendary" then
+			tall = tall + 1
+		end
+	end
+	check(tall / n > 0.02 and tall / n < 0.09, "a legendary (200 cm+) height is about 1 in 20", string.format("%.1f%%", 100 * tall / n))
+	check(Spins.cost(1) == 50 and Spins.cost(10) == 500 and Spins.cost(3) == nil, "x1 costs 50 VP, x10 costs 500 VP")
+	local counts, defaults = {}, 0
+	for _ = 1, n do
+		local key = Spins.rollItem("Color", rng)
+		local item = Spins.item("Color", key)
+		counts[item.Rarity] = (counts[item.Rarity] or 0) + 1
+		if key == Spins.default("Color") then
+			defaults = defaults + 1
+		end
+	end
+	local odds = Spins.odds("Color")
+	local near = math.abs((counts.Legendary or 0) / n - odds.Legendary) < 0.015 and math.abs((counts.Common or 0) / n - odds.Common) < 0.04
+	check(near and defaults == 0, "item spins follow the rarity odds and never drop the default", string.format("common %d, rare %d, epic %d, legendary %d of %d", counts.Common or 0, counts.Rare or 0, counts.Epic or 0, counts.Legendary or 0, n))
+	local allKinds = true
+	for _, kind in ipairs(Config.Cosmetics.Kinds) do
+		local k = Spins.rollItem(kind, rng)
+		allKinds = allKinds and Spins.item(kind, k) ~= nil and Config.Cosmetics.Attribute[kind] ~= nil
+	end
+	check(allKinds, "every unlockable banner rolls a real item")
 end
 
 print("== receives, stamina, slides ==")
@@ -288,10 +355,11 @@ do
 	local ok3, res3 = receive(root, ball, { value = 25, max = 120 }, { stanceAge = 0.75 })
 	check(ok3 and res3.meta.quality < res2.meta.quality, "red stamina makes receives unreliable", string.format("q %.2f vs %.2f", res3.meta.quality, res2.meta.quality))
 	local ok4, res4 = receive(root, ball, { value = 6, max = 120 }, { stanceAge = 0.75 })
-	check(ok4 and res4.meta.breaks and res4.meta.shank, "the ball that empties the bar breaks the guard", res4.meta.grade)
+	local path4 = BallPhysics.buildPath(res4.launch)
+	check(ok4 and res4.meta.breaks and path4.landing.pos.Z * side > C.SideDepth and not path4.flags.crossings, "the ball that empties the bar breaks the guard and flies out behind", string.format("%s, %s", res4.meta.grade, describe(path4)))
 	local ok5, res5 = receive(root, ball, { value = 0, max = 120 })
 	local path5 = BallPhysics.buildPath(res5.launch)
-	check(ok5 and res5.meta.fail and not Court.inBounds(path5.landing.pos), "broken guard can't stop a strong spike", describe(path5))
+	check(ok5 and res5.meta.fail and path5.landing.pos.Z * side > C.SideDepth, "broken guard can't stop a strong spike: it flies out behind", describe(path5))
 	local slideRoot = vec(0, GROUND, side * 16 * K)
 	local slideBall = vec(0, slideRoot.Y - 2.2, slideRoot.Z - side * 4.2)
 	local ok6, res6 = receive(slideRoot, slideBall, { value = 0, max = 120 }, { diving = true })

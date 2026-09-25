@@ -99,13 +99,13 @@ local function desired(now)
 	if root then
 		focus = root.Position.Z * 0.25
 	end
-	-- jumps reach about 20 studs and sets peak near 30, so the frame sits a little higher and
-	-- starts pulling back once the ball climbs past a spiker's hand
-	local lookY = 10
-	local height = 19
+	-- hands reach about 18 to 23 studs and sets peak past 30, so the frame sits high and starts
+	-- pulling back once the ball climbs past a spiker's hand
+	local lookY = 11.5
+	local height = 21
 	if ballVisible then
 		focus = Util.lerp(focus, ballPos.Z, 0.6)
-		local over = math.max(0, ballPos.Y - 18)
+		local over = math.max(0, ballPos.Y - 21)
 		lookY = lookY + over * 0.45
 		height = height + over * 0.5
 		dist = dist + over * 0.8

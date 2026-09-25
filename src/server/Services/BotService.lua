@@ -17,6 +17,7 @@ local Util = require(Shared.Util)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
 local Characters = require(Shared.Characters)
+local Spins = require(Shared.Spins)
 
 local BotService = {}
 local reg
@@ -829,6 +830,15 @@ function BotService.spawn(e)
 	model:SetAttribute("EntityId", e.id)
 	model:SetAttribute("Team", e.team)
 	model:SetAttribute("IsBot", true)
+	-- bots show off some unlockables too (higher tiers more often)
+	local flair = 0.25 + 0.6 * (Characters.tierIndex(e.tier) or 1) / #Config.Tiers
+	for _, kind in ipairs(Config.Cosmetics.Kinds) do
+		local value = Spins.default(kind)
+		if math.random() < flair then
+			value = Spins.rollItem(kind)
+		end
+		model:SetAttribute(Config.Cosmetics.Attribute[kind], value)
+	end
 	local hum = model:FindFirstChildOfClass("Humanoid")
 	local hrp = model:FindFirstChild("HumanoidRootPart")
 	if not hum or not hrp then

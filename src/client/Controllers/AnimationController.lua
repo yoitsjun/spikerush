@@ -204,6 +204,20 @@ local POSE_DEFS = {
 		LeftElbow = { 26, 0, 0 },
 		RightElbow = { 128, 0, 0 },
 	},
+	-- Azure charge, pulsing: the hitting hand pulled higher and further back, the body coiled
+	ChargePulse = {
+		Waist = { 28, 40, 0 },
+		Neck = { 22, -24, 0 },
+		LeftHip = { 26, 0, -8 },
+		RightHip = { 0, 0, 8 },
+		LeftKnee = { -64, 0, 0 },
+		RightKnee = { -92, 0, 0 },
+		LeftShoulder = { 128, 0, -30 },
+		RightShoulder = { 184, -38, 64 },
+		LeftElbow = { 34, 0, 0 },
+		RightElbow = { 138, 0, 0 },
+		RightWrist = { -25, 0, 0 },
+	},
 	TossReady = {
 		Waist = { 4, 6, 0 },
 		Neck = { 14, 0, 0 },
@@ -334,6 +348,134 @@ local POSE_DEFS = {
 		LeftHip = { 40, 0, -6 },
 		RightHip = { 34, 0, 6 },
 		LeftKnee = { -70, 0, 0 },
+		RightKnee = { -60, 0, 0 },
+	},
+	-- Spike styles (V Points unlocks): each swaps the bow-draw at the top of the jump and the
+	-- swing through the ball. Classic is Cock + SpikeSnap above.
+	Cock_Bow = {
+		Waist = { 40, 18, 0 },
+		Neck = { 20, -10, 0 },
+		LeftShoulder = { 160, 0, -20 },
+		LeftElbow = { 10, 0, 0 },
+		RightShoulder = { 185, -30, 55 },
+		RightElbow = { 140, 0, 0 },
+		RightWrist = { -25, 0, 0 },
+		LeftHip = { -30, 0, -6 },
+		RightHip = { -40, 0, 8 },
+		LeftKnee = { -110, 0, 0 },
+		RightKnee = { -122, 0, 0 },
+		LeftAnkle = { -30, 0, 0 },
+		RightAnkle = { -30, 0, 0 },
+	},
+	Snap_Bow = {
+		Root = { -20, 0, 0 },
+		Waist = { -55, -20, 0 },
+		Neck = { -14, 10, 0 },
+		LeftShoulder = { 10, 0, -30 },
+		LeftElbow = { 50, 0, 0 },
+		RightShoulder = { 35, 0, 10 },
+		RightElbow = { 5, 0, 0 },
+		RightWrist = { -45, 0, 0 },
+		LeftHip = { 70, 0, -6 },
+		RightHip = { 62, 0, 6 },
+		LeftKnee = { -30, 0, 0 },
+		RightKnee = { -25, 0, 0 },
+	},
+	Cock_Scissor = {
+		Waist = { 18, 34, 0 },
+		Neck = { 14, -18, 0 },
+		LeftShoulder = { 150, 0, -14 },
+		LeftElbow = { 12, 0, 0 },
+		RightShoulder = { 175, -35, 48 },
+		RightElbow = { 125, 0, 0 },
+		RightWrist = { -20, 0, 0 },
+		LeftHip = { 55, 0, -6 },
+		LeftKnee = { -20, 0, 0 },
+		RightHip = { -40, 0, 8 },
+		RightKnee = { -95, 0, 0 },
+		LeftAnkle = { 10, 0, 0 },
+		RightAnkle = { -25, 0, 0 },
+	},
+	Snap_Scissor = {
+		Root = { -10, 0, 0 },
+		Waist = { -36, -30, 0 },
+		Neck = { -10, 10, 0 },
+		LeftShoulder = { 20, 0, -30 },
+		LeftElbow = { 50, 0, 0 },
+		RightShoulder = { 45, 0, 10 },
+		RightElbow = { 10, 0, 0 },
+		RightWrist = { -35, 0, 0 },
+		LeftHip = { -35, 0, -6 },
+		LeftKnee = { -90, 0, 0 },
+		RightHip = { 70, 0, 6 },
+		RightKnee = { -15, 0, 0 },
+	},
+	Cock_Hammer = {
+		Waist = { 26, 0, 0 },
+		Neck = { 16, 0, 0 },
+		LeftShoulder = { 178, 0, -30 },
+		RightShoulder = { 178, 0, 30 },
+		LeftElbow = { 120, 0, 0 },
+		RightElbow = { 120, 0, 0 },
+		LeftHip = { -20, 0, -6 },
+		RightHip = { -20, 0, 6 },
+		LeftKnee = { -95, 0, 0 },
+		RightKnee = { -95, 0, 0 },
+		LeftAnkle = { -25, 0, 0 },
+		RightAnkle = { -25, 0, 0 },
+	},
+	Snap_Hammer = {
+		Root = { -14, 0, 0 },
+		Waist = { -44, 0, 0 },
+		Neck = { -10, 0, 0 },
+		LeftShoulder = { 40, 0, -10 },
+		RightShoulder = { 40, 0, 10 },
+		LeftElbow = { 5, 0, 0 },
+		RightElbow = { 5, 0, 0 },
+		LeftWrist = { -30, 0, 0 },
+		RightWrist = { -30, 0, 0 },
+		LeftHip = { 45, 0, -6 },
+		RightHip = { 45, 0, 6 },
+		LeftKnee = { -40, 0, 0 },
+		RightKnee = { -40, 0, 0 },
+	},
+	Cock_Whirl = {
+		Waist = { 16, 70, 0 },
+		Neck = { 10, -40, 0 },
+		LeftShoulder = { 90, 0, -70 },
+		LeftElbow = { 20, 0, 0 },
+		RightShoulder = { 160, -20, 80 },
+		RightElbow = { 90, 0, 0 },
+		LeftHip = { 10, 20, -10 },
+		RightHip = { -30, 20, 10 },
+		LeftKnee = { -60, 0, 0 },
+		RightKnee = { -100, 0, 0 },
+	},
+	Snap_Whirl = {
+		Root = { -8, -50, 0 },
+		Waist = { -30, -70, 0 },
+		Neck = { -6, 30, 0 },
+		LeftShoulder = { 20, 0, -80 },
+		LeftElbow = { 30, 0, 0 },
+		RightShoulder = { 60, 0, 20 },
+		RightElbow = { 10, 0, 0 },
+		RightWrist = { -35, 0, 0 },
+		LeftHip = { 40, -20, -6 },
+		RightHip = { 30, -20, 6 },
+		LeftKnee = { -40, 0, 0 },
+		RightKnee = { -40, 0, 0 },
+	},
+	Spin_Whirl = {
+		Root = { -6, -20, 0 },
+		Waist = { -24, -30, 0 },
+		Neck = { 0, 10, 0 },
+		LeftShoulder = { 40, 0, -50 },
+		LeftElbow = { 30, 0, 0 },
+		RightShoulder = { 20, 0, -20 },
+		RightElbow = { 30, 0, 0 },
+		LeftHip = { 40, 0, -6 },
+		RightHip = { 34, 0, 6 },
+		LeftKnee = { -60, 0, 0 },
 		RightKnee = { -60, 0, 0 },
 	},
 	Air = {
@@ -483,6 +625,22 @@ local CLIP_DEFS = {
 		dur = 0.5,
 		keys = { { 0, "SpikeReach" }, { 0.05, "SpikeSnap", "out" }, { 0.24, "SpikeFollow", "smooth" } },
 	},
+	Swing_Bow = {
+		dur = 0.55,
+		keys = { { 0, "SpikeReach" }, { 0.05, "Snap_Bow", "out" }, { 0.28, "SpikeFollow", "smooth" } },
+	},
+	Swing_Scissor = {
+		dur = 0.5,
+		keys = { { 0, "SpikeReach" }, { 0.05, "Snap_Scissor", "out" }, { 0.26, "SpikeFollow", "smooth" } },
+	},
+	Swing_Hammer = {
+		dur = 0.5,
+		keys = { { 0, "Cock_Hammer" }, { 0.06, "Snap_Hammer", "out" }, { 0.26, "SpikeFollow", "smooth" } },
+	},
+	Swing_Whirl = {
+		dur = 0.6,
+		keys = { { 0, "SpikeReach" }, { 0.06, "Snap_Whirl", "out" }, { 0.16, "Spin_Whirl", "smooth" }, { 0.34, "SpikeFollow", "smooth" } },
+	},
 	Bump = {
 		dur = 0.45,
 		keys = { { 0, "Bump" }, { 0.09, "BumpLift", "out" }, { 0.45, "BumpLift" } },
@@ -494,6 +652,11 @@ local CLIP_DEFS = {
 	SetBack = {
 		dur = 0.45,
 		keys = { { 0, "SetCatch" }, { 0.1, "SetPushBack", "out" }, { 0.45, "SetPushBack" } },
+	},
+	-- looped while a stance of the same name holds ("Charge" plays "ChargeLoop")
+	ChargeLoop = {
+		dur = 0.6,
+		keys = { { 0, "Charge" }, { 0.3, "ChargePulse", "smooth" }, { 0.6, "Charge", "smooth" } },
 	},
 	Land = {
 		dur = 0.34,
@@ -734,6 +897,15 @@ end
 -- API
 ------------------------------------------------------------------------------------------
 
+-- The spike style a character has equipped (a V Points unlock, on the model's attributes).
+local function styleOf(st)
+	local style = st.model and st.model:GetAttribute("SpikeStyle")
+	if type(style) == "string" and POSES["Cock_" .. style] then
+		return style
+	end
+	return "Classic"
+end
+
 -- Clips that belong together, so a second trigger in the same instant (the hit prediction and
 -- the input handler both call this) doesn't restart or replace the first.
 local FAMILY = { Set = "Set", SetBack = "Set", Swing = "Swing", Tip = "Swing", Bump = "Bump" }
@@ -765,6 +937,9 @@ function AnimationController.playAction(entityId, pose)
 		return
 	end
 	local clip = CLIPS[pose]
+	if pose == "Swing" then
+		clip = CLIPS["Swing_" .. styleOf(st)] or clip
+	end
 	st.action = { pose = pose, clip = clip, t0 = now, dur = clip and clip.dur or DURATION[pose] or 0.3 }
 end
 
@@ -801,7 +976,7 @@ function AnimationController.setStance(entityId, pose, duration)
 		st.stance = nil
 		return
 	end
-	st.stance = { pose = pose, untilT = untilT }
+	st.stance = { pose = pose, untilT = untilT, t0 = os.clock() }
 end
 
 local STANCES = { Stance = true, Slide = true, Crouch = true, Block = true, Charge = true, TossReady = true, Dive = true }
@@ -859,6 +1034,11 @@ local function pick(st, hum, hrp, now)
 		return action.pose, POSES[action.pose], 1
 	end
 	if st.stance and now < st.stance.untilT then
+		local loop = CLIPS[st.stance.pose .. "Loop"]
+		if loop then
+			local t = (now - (st.stance.t0 or now)) % loop.dur
+			return "loop" .. st.stance.pose, sampleClip(loop, t, st.clipBuf), 1
+		end
 		return st.stance.pose, POSES[st.stance.pose], 1
 	end
 	if airborne then
@@ -868,6 +1048,10 @@ local function pick(st, hum, hrp, now)
 		if st.jumpKind == "Spike" or st.jumpKind == "Serve" then
 			if hrp.AssemblyLinearVelocity.Y > 5 then
 				return "Rise", POSES.Rise, 1
+			end
+			local style = styleOf(st)
+			if style ~= "Classic" then
+				return "Cock_" .. style, POSES["Cock_" .. style], 1
 			end
 			return "Cock", POSES.Cock, 1
 		end
@@ -1175,7 +1359,7 @@ function AnimationController.init(m)
 		elseif meta.hitType == "Set" and meta.setType == "Back" then
 			pose = "SetBack"
 		end
-		if meta.fail or meta.shank or (meta.knock and meta.knock >= 0.35) then
+		if meta.fail or meta.breaks or meta.shank or (meta.knock and meta.knock >= 0.35) then
 			pose = "Knockback" -- a heavy ball staggers the receiver
 		end
 		if pose and meta.id then

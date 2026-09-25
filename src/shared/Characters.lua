@@ -1,8 +1,10 @@
 -- Characters: tiers, builds and derived stats.
 --
--- A character = tier + height + four stats (Attack, Defense, Speed, Jump).
---   * The tier caps each stat and caps the four-stat total (Config.TierCaps), so builds differ.
---   * Height is rolled when the character is created and sets standing reach.
+-- A character = tier + height + four stats (Attack, Defense, Speed, Jump) + four stat caps.
+--   * The tier sets the four-stat total you spread freely (Total in Config.TierCaps) and the
+--     highest any stat cap can roll (Cap).
+--   * Each character's own stat caps are rolled (V Points spins), so two S+ characters differ.
+--   * Height is rolled too and sets standing reach.
 --   * Hitting point at the top of a jump = standing reach (height) + vertical (Jump stat).
 -- Stats map onto gameplay the same way for every tier (Config.StatCurve); a higher tier just
 -- lets them go higher. derive() is pure, so the client predicts with exactly the numbers the
@@ -17,6 +19,7 @@ local FLOOR = Config.Scale.HeightFloor
 local JUMP_SCALE = Config.Scale.JumpScale
 local ST = Config.Stats
 local HT = Config.Height
+local SP = Config.Spins
 
 local function clamp(x, a, b)
 	if x < a then
@@ -108,13 +111,67 @@ function Characters.startValue(tier)
 	return round(ST.Min + (cap - ST.Min) * ST.StartFraction)
 end
 
-function Characters.newBuild(tier, rng)
-	local b = { Height = Characters.rollHeight(rng) }
-	local start = Characters.startValue(tier)
+-- Lowest a rolled stat cap can be for this tier.
+function Characters.capFloor(tier)
+	return round(Characters.caps(tier).Cap * SP.CapFloor)
+end
+
+-- The four stat caps of a build: its rolled caps, or the tier cap where none were rolled (bots,
+-- builds read back from attributes, and characters made before caps were rolled).
+function Characters.statCaps(tier, build)
+	local cap = Characters.caps(tier).Cap
+	local lo = Characters.capFloor(tier)
+	local rolled = type(build) == "table" and type(build.Caps) == "table" and build.Caps or nil
+	local out = {}
 	for _, k in ipairs(ST.Order) do
-		b[k] = start
+		local v = rolled and tonumber(rolled[k])
+		out[k] = v and round(clamp(v, lo, cap)) or cap
 	end
-	return b
+	return out
+end
+
+-- One stat-caps spin: each cap lands between the floor and the tier cap, top values rare.
+function Characters.rollCaps(tier, rng)
+	rng = rng or Random.new()
+	local cap = Characters.caps(tier).Cap
+	local lo = Characters.capFloor(tier)
+	local out = {}
+	for _, k in ipairs(ST.Order) do
+		out[k] = round(lo + (cap - lo) * rng:NextNumber() ^ SP.CapSkew)
+	end
+	return out
+end
+
+-- 0..1: how far a set of caps sits from the floor toward the tier cap, on average.
+function Characters.capsScore(tier, caps)
+	local cap = Characters.caps(tier).Cap
+	local lo = Characters.capFloor(tier)
+	if cap <= lo then
+		return 1
+	end
+	local sum = 0
+	for _, k in ipairs(ST.Order) do
+		sum = sum + clamp(((caps[k] or lo) - lo) / (cap - lo), 0, 1)
+	end
+	return sum / #ST.Order
+end
+
+local function grade(value, thresholds)
+	local order = Config.Rarity.Order
+	for i = #order, 2, -1 do
+		if value >= thresholds[order[i]] then
+			return order[i]
+		end
+	end
+	return order[1]
+end
+
+function Characters.capsGrade(tier, caps)
+	return grade(Characters.capsScore(tier, caps), SP.CapGrades)
+end
+
+function Characters.heightGrade(height)
+	return grade(height, SP.HeightGrades)
 end
 
 function Characters.total(build)
@@ -125,14 +182,51 @@ function Characters.total(build)
 	return sum
 end
 
--- Force any (possibly stale or untrusted) build to obey its tier's rules.
+-- Free points of a build (tier total minus what's placed).
+function Characters.remaining(tier, build)
+	return math.max(0, Characters.caps(tier).Total - Characters.total(build))
+end
+
+-- Spread a build's free points one at a time onto its lowest stat that still has room.
+function Characters.fill(tier, build)
+	local statCaps = Characters.statCaps(tier, build)
+	local free = Characters.remaining(tier, build)
+	while free > 0 do
+		local low = nil
+		for _, k in ipairs(ST.Order) do
+			if build[k] < statCaps[k] and (not low or build[k] < build[low]) then
+				low = k
+			end
+		end
+		if not low then
+			break
+		end
+		build[low] = build[low] + 1
+		free = free - 1
+	end
+	return build
+end
+
+-- A new character: rolled height and caps, points spread evenly (move them where you like).
+function Characters.newBuild(tier, rng)
+	rng = rng or Random.new()
+	local b = { Height = Characters.rollHeight(rng) }
+	b.Caps = Characters.rollCaps(tier, rng)
+	for _, k in ipairs(ST.Order) do
+		b[k] = ST.Min
+	end
+	return Characters.fill(tier, b)
+end
+
+-- Force any (possibly stale or untrusted) build to obey its tier's and its caps' rules.
 function Characters.sanitize(tier, build)
 	build = type(build) == "table" and build or {}
 	local caps = Characters.caps(tier)
+	local statCaps = Characters.statCaps(tier, build)
 	local start = Characters.startValue(tier)
-	local out = { Height = round(clamp(tonumber(build.Height) or HT.Mean, HT.Min, HT.Max)) }
+	local out = { Height = round(clamp(tonumber(build.Height) or HT.Mean, HT.Min, HT.Max)), Caps = statCaps }
 	for _, k in ipairs(ST.Order) do
-		out[k] = round(clamp(tonumber(build[k]) or start, ST.Min, caps.Cap))
+		out[k] = round(clamp(tonumber(build[k]) or start, ST.Min, statCaps[k]))
 	end
 	-- over the total: shave the biggest stat until it fits
 	local guard = 0
@@ -149,20 +243,21 @@ function Characters.sanitize(tier, build)
 	return out
 end
 
--- How many of `n` points can go into `stat` right now (stat cap and total cap both apply).
+-- How many of `n` free points can go into `stat` right now (its cap and the total both apply).
 function Characters.raisable(tier, build, stat, n)
 	if not Characters.isStat(stat) then
 		return 0
 	end
-	local caps = Characters.caps(tier)
-	local byStat = caps.Cap - (build[stat] or 0)
-	local byTotal = caps.Total - Characters.total(build)
-	return math.max(0, math.min(n, byStat, byTotal))
+	local byStat = Characters.statCaps(tier, build)[stat] - (build[stat] or 0)
+	return math.max(0, math.min(n, byStat, Characters.remaining(tier, build)))
 end
 
--- Points still needed to finish a build.
-function Characters.remaining(tier, build)
-	return math.max(0, Characters.caps(tier).Total - Characters.total(build))
+-- How many of `n` points can come back out of `stat` (never below Stats.Min).
+function Characters.lowerable(build, stat, n)
+	if not Characters.isStat(stat) then
+		return 0
+	end
+	return math.max(0, math.min(n, (build[stat] or ST.Min) - ST.Min))
 end
 
 -- Role-shaped builds for bots (and reference builds in tests): the two stats the role lives on

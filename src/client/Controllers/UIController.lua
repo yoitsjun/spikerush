@@ -6,9 +6,12 @@
 -- sets; the attack readout (km/h and hitting height) right below it; a "Team (Player) scored"
 -- banner with the reason; name tags with tier badges and a marker over the player you control;
 -- the ability panel; charge bars over your head; a timeout button.
--- In the lobby: pick a tier and ability, upgrade that character's stats with your points,
--- re-roll its height, vote on the mode and the bot level.
+-- In the lobby (tabs): Play - pick a tier and ability, spread that character's points over its
+-- stats (up to its rolled caps), vote on the mode and the bot level; Shop - spend V Points on
+-- x1 / x10 spins (stat caps, height, spike styles, colours, trails, score effects) and buy VP;
+-- Locker - equip what you've unlocked.
 
+local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -18,6 +21,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
 local Characters = require(Shared.Characters)
+local Spins = require(Shared.Spins)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
@@ -1055,11 +1059,20 @@ local function updateTimeout()
 end
 
 ------------------------------------------------------------------------------------------
--- lobby: character builder
+-- lobby: Play (character + mode), Shop (V Points spins and packs), Locker (unlockables)
 ------------------------------------------------------------------------------------------
 
+local SPINS = Config.Spins
+local COS = Config.Cosmetics
+local STAT_SHORT = { Attack = "ATK", Defense = "DEF", Speed = "SPD", Jump = "JMP" }
+local tab = "Play"
+local banner = "Caps"
+local pendingPick = nil -- index of the pending result I've selected
+local revealed = nil -- the snapshot whose reveal already played
+local packPrices = {}
+
 local function profile()
-	return State.profile or { points = 0, builds = {} }
+	return State.profile or { vp = 0, builds = {}, owned = {}, equip = {} }
 end
 
 local function activeTier()
@@ -1070,38 +1083,27 @@ local function activeTier()
 	return Config.DefaultTier
 end
 
-local function buildLobby()
-	local root = panel(gui, {
-		Name = "Lobby",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.53),
-		Size = UDim2.fromOffset(860, 520),
-		Visible = false,
-	})
-	stroke(root, 2, UI.InkSoft)
-	ui.lobbyScale = make("UIScale", {}, root)
-	local title = label(root, {
-		Text = "Spike Rush",
-		Font = Enum.Font.Bangers,
-		TextSize = 44,
-		TextColor3 = UI.Spark,
-		Size = UDim2.fromOffset(300, 50),
-		Position = UDim2.fromOffset(20, 8),
-	})
-	stroke(title, 3, UI.Ink)
-	local timer = label(root, {
-		Text = "",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 16,
-		TextColor3 = UI.Fog,
-		Size = UDim2.fromOffset(460, 24),
-		Position = UDim2.new(1, -480, 0, 22),
-		TextXAlignment = Enum.TextXAlignment.Right,
-	})
+local function send(...)
+	click()
+	Net.get("Profile"):FireServer(...)
+end
 
+local function rarityStroke(parent, rarity, thickness)
+	return stroke(parent, thickness or 2, Spins.rarityColor(rarity))
+end
+
+local function capsLine(caps)
+	local parts = {}
+	for _, k in ipairs(Config.Stats.Order) do
+		table.insert(parts, tostring(caps[k] or "-"))
+	end
+	return table.concat(parts, " / ")
+end
+
+local function buildPlay(page)
 	-- left column: tier and ability
-	local left = make("Frame", { Size = UDim2.fromOffset(410, 400), Position = UDim2.fromOffset(20, 64), BackgroundTransparency = 1 }, root)
-	label(left, { Text = "Tier (sets your stat caps)", Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, 0, 0, 20) })
+	local left = make("Frame", { Size = UDim2.fromOffset(410, 420), BackgroundTransparency = 1 }, page)
+	label(left, { Text = "Tier (sets the point total and how high caps can roll)", Font = Enum.Font.GothamBlack, TextSize = 13, Size = UDim2.new(1, 0, 0, 20) })
 	local grid = make("Frame", { Size = UDim2.fromOffset(410, 120), Position = UDim2.fromOffset(0, 24), BackgroundTransparency = 1 }, left)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(74, 34), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
 	local chips = {}
@@ -1201,75 +1203,73 @@ local function buildLobby()
 		stepBot(1)
 	end)
 
-	-- right column: the build
-	local right = panel(root, {
-		Size = UDim2.fromOffset(390, 430),
-		Position = UDim2.fromOffset(450, 64),
+	-- right column: the build. Points move freely between the stats, up to each rolled cap.
+	local right = panel(page, {
+		Size = UDim2.fromOffset(390, 420),
+		Position = UDim2.fromOffset(430, 0),
 		BackgroundColor3 = UI.InkSoft,
 		BackgroundTransparency = 0.35,
 	})
 	local head = label(right, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 18, Size = UDim2.new(1, -24, 0, 24), Position = UDim2.fromOffset(12, 10) })
-	local points = label(right, {
+	local capsGrade = label(right, {
 		Text = "",
 		Font = Enum.Font.GothamBlack,
-		TextSize = 14,
-		TextColor3 = UI.Spark,
-		Size = UDim2.new(1, -24, 0, 20),
+		TextSize = 12,
+		Size = UDim2.new(1, -24, 0, 24),
 		Position = UDim2.fromOffset(12, 10),
 		TextXAlignment = Enum.TextXAlignment.Right,
 	})
-	local heightText = label(right, { Text = "", Font = Enum.Font.GothamBold, TextSize = 14, Size = UDim2.fromOffset(200, 30), Position = UDim2.fromOffset(12, 40) })
-	local reroll = button(right, "Re-roll height (" .. Config.Progression.HeightRollCost .. ")", {
-		Size = UDim2.fromOffset(170, 30),
-		Position = UDim2.new(1, -182, 0, 40),
-		TextSize = 12,
-	})
-	reroll.MouseButton1Click:Connect(function()
-		click()
-		Net.get("Profile"):FireServer("reroll", selectedTier or activeTier())
-	end)
+	local heightText = label(right, { Text = "", Font = Enum.Font.GothamBold, TextSize = 14, Size = UDim2.new(1, -24, 0, 22), Position = UDim2.fromOffset(12, 38) })
 	local rows = {}
+	local steps = { -10, -5, -1 }
 	for i, stat in ipairs(Config.Stats.Order) do
-		local y = 82 + (i - 1) * 44
-		label(right, { Text = stat, Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.fromOffset(70, 30), Position = UDim2.fromOffset(12, y) })
-		local track = make("Frame", {
-			Size = UDim2.fromOffset(120, 10),
-			Position = UDim2.fromOffset(84, y + 10),
-			BackgroundColor3 = Color3.fromRGB(10, 12, 26),
-			BorderSizePixel = 0,
-		}, right)
-		corner(track, 5)
-		local fill = make("Frame", { Size = UDim2.fromScale(0.5, 1), BackgroundColor3 = UI.Chalk, BorderSizePixel = 0 }, track)
-		corner(fill, 5)
-		local value = label(right, {
+		local y = 68 + (i - 1) * 44
+		label(right, { Text = stat, Font = Enum.Font.GothamBlack, TextSize = 13, Size = UDim2.fromOffset(60, 30), Position = UDim2.fromOffset(10, y) })
+		local row = { buttons = {} }
+		for j, d in ipairs(steps) do
+			local b = button(right, tostring(d), { Size = UDim2.fromOffset(34, 30), Position = UDim2.fromOffset(70 + (j - 1) * 36, y), TextSize = 12 })
+			b.MouseButton1Click:Connect(function()
+				send("alloc", selectedTier or activeTier(), stat, d)
+			end)
+			row.buttons[d] = b
+		end
+		row.value = label(right, {
 			Text = "",
 			Font = Enum.Font.GothamBlack,
 			TextSize = 13,
-			Size = UDim2.fromOffset(70, 30),
-			Position = UDim2.fromOffset(210, y),
+			Size = UDim2.fromOffset(72, 26),
+			Position = UDim2.fromOffset(180, y),
 			TextXAlignment = Enum.TextXAlignment.Center,
 		})
-		local plus1 = button(right, "+1", { Size = UDim2.fromOffset(40, 30), Position = UDim2.fromOffset(284, y), TextSize = 13 })
-		local plus5 = button(right, "+5", { Size = UDim2.fromOffset(40, 30), Position = UDim2.fromOffset(330, y), TextSize = 13 })
-		plus1.MouseButton1Click:Connect(function()
-			click()
-			Net.get("Profile"):FireServer("upgrade", selectedTier or activeTier(), stat, 1)
-		end)
-		plus5.MouseButton1Click:Connect(function()
-			click()
-			Net.get("Profile"):FireServer("upgrade", selectedTier or activeTier(), stat, 5)
-		end)
-		rows[stat] = { fill = fill, value = value, plus1 = plus1, plus5 = plus5 }
+		local track = make("Frame", {
+			Size = UDim2.fromOffset(64, 4),
+			Position = UDim2.fromOffset(184, y + 26),
+			BackgroundColor3 = Color3.fromRGB(10, 12, 26),
+			BorderSizePixel = 0,
+		}, right)
+		row.fill = make("Frame", { Size = UDim2.fromScale(0.5, 1), BackgroundColor3 = UI.Chalk, BorderSizePixel = 0 }, track)
+		for j, d in ipairs({ 1, 5, 10 }) do
+			local b = button(right, "+" .. d, { Size = UDim2.fromOffset(34, 30), Position = UDim2.fromOffset(254 + (j - 1) * 36, y), TextSize = 12 })
+			b.MouseButton1Click:Connect(function()
+				send("alloc", selectedTier or activeTier(), stat, d)
+			end)
+			row.buttons[d] = b
+		end
+		rows[stat] = row
 	end
-	local total = label(right, { Text = "", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = UI.Fog, Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 258) })
+	local free = label(right, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 13, TextColor3 = UI.Spark, Size = UDim2.fromOffset(250, 26), Position = UDim2.fromOffset(12, 244) })
+	local auto = button(right, "Auto", { Size = UDim2.fromOffset(70, 26), Position = UDim2.new(1, -82, 0, 244), TextSize = 12 })
+	auto.MouseButton1Click:Connect(function()
+		send("auto", selectedTier or activeTier())
+	end)
 	local derived = label(right, {
 		Text = "",
 		Font = Enum.Font.GothamBold,
 		TextSize = 13,
 		TextWrapped = true,
 		TextYAlignment = Enum.TextYAlignment.Top,
-		Size = UDim2.new(1, -24, 0, 110),
-		Position = UDim2.fromOffset(12, 282),
+		Size = UDim2.new(1, -24, 0, 90),
+		Position = UDim2.fromOffset(12, 278),
 	})
 	local notice = label(right, {
 		Text = "",
@@ -1277,35 +1277,270 @@ local function buildLobby()
 		TextSize = 12,
 		TextColor3 = UI.Spark,
 		TextWrapped = true,
-		Size = UDim2.new(1, -24, 0, 30),
-		Position = UDim2.new(0, 12, 1, -36),
+		Size = UDim2.new(1, -24, 0, 34),
+		Position = UDim2.new(0, 12, 1, -40),
 	})
-
-	ui.lobby = {
-		root = root,
-		timer = timer,
+	return {
 		chips = chips,
 		cards = cards,
 		votes = votes,
 		botTier = botTier,
 		head = head,
-		points = points,
+		capsGrade = capsGrade,
 		heightText = heightText,
-		reroll = reroll,
 		rows = rows,
-		total = total,
+		free = free,
 		derived = derived,
 		notice = notice,
 	}
 end
 
-function UIController.refreshLobby()
-	local L = ui.lobby
-	if not L then
-		return
+-- A result card: stat caps, a height or an unlocked item.
+local function resultCard(parent, i)
+	local c = button(parent, "", {
+		Size = UDim2.fromOffset(78, 92),
+		AutoButtonColor = true,
+		BackgroundColor3 = Color3.fromRGB(28, 32, 60),
+		LayoutOrder = i,
+		Visible = false,
+	})
+	local s = stroke(c, 2, UI.Fog)
+	local top = label(c, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 11, Size = UDim2.new(1, -6, 0, 14), Position = UDim2.fromOffset(3, 4), TextXAlignment = Enum.TextXAlignment.Center })
+	local body = label(c, {
+		Text = "",
+		Font = Enum.Font.GothamBold,
+		TextSize = 11,
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Size = UDim2.new(1, -6, 1, -22),
+		Position = UDim2.fromOffset(3, 20),
+		TextXAlignment = Enum.TextXAlignment.Center,
+	})
+	local scale = make("UIScale", { Scale = 1 }, c)
+	return { button = c, stroke = s, top = top, body = body, scale = scale }
+end
+
+local function buildShop(page)
+	-- banners
+	local list = make("Frame", { Size = UDim2.fromOffset(180, 420), BackgroundTransparency = 1 }, page)
+	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	local banners = {}
+	for i, key in ipairs(SPINS.Order) do
+		local def = SPINS.Banners[key]
+		local b = button(list, "", { Size = UDim2.fromOffset(180, 50), LayoutOrder = i })
+		label(b, { Text = def.Name, Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, -16, 0, 18), Position = UDim2.fromOffset(8, 6) })
+		label(b, {
+			Text = def.PerCharacter and "per character" or "unlocks for all",
+			Font = Enum.Font.GothamBold,
+			TextSize = 11,
+			TextColor3 = UI.Fog,
+			Size = UDim2.new(1, -16, 0, 14),
+			Position = UDim2.fromOffset(8, 28),
+		})
+		b.MouseButton1Click:Connect(function()
+			click()
+			banner = key
+			UIController.refreshLobby()
+		end)
+		banners[key] = b
 	end
-	local tier = selectedTier or activeTier()
-	local prof = profile()
+
+	-- the selected banner
+	local mid = panel(page, { Size = UDim2.fromOffset(420, 420), Position = UDim2.fromOffset(190, 0), BackgroundColor3 = UI.InkSoft, BackgroundTransparency = 0.35 })
+	local title = label(mid, { Text = "", Font = Enum.Font.Bangers, TextSize = 30, TextColor3 = UI.Spark, Size = UDim2.new(1, -24, 0, 32), Position = UDim2.fromOffset(12, 6) })
+	stroke(title, 2, UI.Ink)
+	local blurb = label(mid, { Text = "", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = UI.Fog, TextWrapped = true, Size = UDim2.new(1, -24, 0, 30), Position = UDim2.fromOffset(12, 38), TextYAlignment = Enum.TextYAlignment.Top })
+	local current = label(mid, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 12, TextWrapped = true, Size = UDim2.new(1, -24, 0, 30), Position = UDim2.fromOffset(12, 68), TextYAlignment = Enum.TextYAlignment.Top })
+	local odds = label(mid, { Text = "", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = UI.Fog, RichText = true, TextWrapped = true, Size = UDim2.new(1, -24, 0, 16), Position = UDim2.fromOffset(12, 98) })
+	local spin1 = button(mid, "", { Size = UDim2.fromOffset(190, 40), Position = UDim2.fromOffset(12, 120), BackgroundColor3 = UI.Spark, TextColor3 = UI.Ink })
+	local spin10 = button(mid, "", { Size = UDim2.fromOffset(190, 40), Position = UDim2.new(1, -202, 0, 120), BackgroundColor3 = Color3.fromRGB(255, 120, 60), TextColor3 = UI.Ink })
+	spin1.MouseButton1Click:Connect(function()
+		send("spin", banner, 1, selectedTier or activeTier())
+	end)
+	spin10.MouseButton1Click:Connect(function()
+		send("spin", banner, 10, selectedTier or activeTier())
+	end)
+	local grid = make("Frame", { Size = UDim2.fromOffset(410, 196), Position = UDim2.fromOffset(8, 168), BackgroundTransparency = 1 }, mid)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(78, 92), CellPadding = UDim2.fromOffset(3, 6), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	local results = {}
+	for i = 1, 10 do
+		local card = resultCard(grid, i)
+		card.button.MouseButton1Click:Connect(function()
+			click()
+			pendingPick = i
+			UIController.refreshLobby()
+		end)
+		results[i] = card
+	end
+	local keep = button(mid, "Keep", { Size = UDim2.fromOffset(120, 34), Position = UDim2.new(0, 12, 1, -44), BackgroundColor3 = UI.Mint, TextColor3 = UI.Ink, Visible = false })
+	local discard = button(mid, "Discard", { Size = UDim2.fromOffset(120, 34), Position = UDim2.new(0, 140, 1, -44), Visible = false })
+	local status = label(mid, { Text = "", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = UI.Spark, TextWrapped = true, Size = UDim2.new(1, -24, 0, 34), Position = UDim2.new(0, 12, 1, -44) })
+	keep.MouseButton1Click:Connect(function()
+		if pendingPick then
+			send("keep", pendingPick)
+		end
+	end)
+	discard.MouseButton1Click:Connect(function()
+		send("discard")
+	end)
+
+	-- VP packs
+	local right = make("Frame", { Size = UDim2.fromOffset(200, 420), Position = UDim2.fromOffset(620, 0), BackgroundTransparency = 1 }, page)
+	label(right, { Text = "Get V Points", Font = Enum.Font.GothamBlack, TextSize = 15, TextColor3 = UI.Spark, Size = UDim2.new(1, 0, 0, 22) })
+	local packs = {}
+	for i, pack in ipairs(Config.Shop.Packs) do
+		local b = button(right, "", { Size = UDim2.fromOffset(200, 64), Position = UDim2.fromOffset(0, 28 + (i - 1) * 72) })
+		label(b, { Text = pack.Name, Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, -16, 0, 18), Position = UDim2.fromOffset(10, 8) })
+		label(b, { Text = pack.VP .. " VP", Font = Enum.Font.GothamBlack, TextSize = 18, TextColor3 = UI.Spark, Size = UDim2.new(1, -16, 0, 22), Position = UDim2.fromOffset(10, 30) })
+		local price = label(b, { Text = "", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = UI.Fog, Size = UDim2.new(1, -16, 0, 18), Position = UDim2.fromOffset(10, 8), TextXAlignment = Enum.TextXAlignment.Right })
+		b.MouseButton1Click:Connect(function()
+			click()
+			if pack.Id ~= 0 then
+				pcall(function()
+					MarketplaceService:PromptProductPurchase(player, pack.Id)
+				end)
+			elseif profile().studio then
+				Net.get("Profile"):FireServer("buy", i)
+			end
+		end)
+		packs[i] = { button = b, price = price }
+		if pack.Id ~= 0 then
+			task.spawn(function()
+				local ok, info = pcall(function()
+					return MarketplaceService:GetProductInfo(pack.Id, Enum.InfoType.Product)
+				end)
+				if ok and info and info.PriceInRobux then
+					packPrices[i] = info.PriceInRobux
+					UIController.refreshLobby()
+				end
+			end)
+		end
+	end
+	label(right, {
+		Text = "Or earn them: " .. Config.Progression.WinVP .. " a win, " .. Config.Progression.LossVP .. " a loss, +" .. Config.Progression.PlayVP .. " per kill, ace or block.",
+		Font = Enum.Font.GothamBold,
+		TextSize = 11,
+		TextColor3 = UI.Fog,
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Size = UDim2.new(1, 0, 0, 44),
+		Position = UDim2.fromOffset(0, 320),
+	})
+	return {
+		banners = banners,
+		title = title,
+		blurb = blurb,
+		current = current,
+		odds = odds,
+		spin1 = spin1,
+		spin10 = spin10,
+		results = results,
+		keep = keep,
+		discard = discard,
+		status = status,
+		packs = packs,
+	}
+end
+
+local function buildLocker(page)
+	local rows = {}
+	for r, kind in ipairs(COS.Kinds) do
+		local y = (r - 1) * 104
+		label(page, { Text = SPINS.Banners[kind].Name, Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.fromOffset(300, 20), Position = UDim2.fromOffset(0, y) })
+		local chips = {}
+		for i, item in ipairs(COS[kind]) do
+			local b = button(page, "", { Size = UDim2.fromOffset(86, 72), Position = UDim2.fromOffset((i - 1) * 91, y + 24), BackgroundColor3 = Color3.fromRGB(28, 32, 60) })
+			local s = rarityStroke(b, item.Rarity, 2)
+			local swatch = nil
+			if item.Color then
+				swatch = make("Frame", { Size = UDim2.fromOffset(18, 18), Position = UDim2.new(1, -24, 0, 6), BackgroundColor3 = item.Color, BorderSizePixel = 0 }, b)
+				corner(swatch, 9)
+			end
+			label(b, { Text = item.Name, Font = Enum.Font.GothamBlack, TextSize = 11, TextWrapped = true, Size = UDim2.new(1, -10, 0, 30), Position = UDim2.fromOffset(5, 24), TextXAlignment = Enum.TextXAlignment.Center })
+			local tag = label(b, { Text = "", Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = Spins.rarityColor(item.Rarity), Size = UDim2.new(1, -10, 0, 12), Position = UDim2.new(0, 5, 1, -16), TextXAlignment = Enum.TextXAlignment.Center })
+			b.MouseButton1Click:Connect(function()
+				local owned = profile().owned and profile().owned[kind]
+				if owned and owned[item.Key] then
+					send("equip", kind, item.Key)
+				else
+					click()
+					tab = "Shop"
+					banner = kind
+					UIController.refreshLobby()
+				end
+			end)
+			chips[item.Key] = { button = b, stroke = s, tag = tag, item = item }
+		end
+		rows[kind] = chips
+	end
+	return { rows = rows }
+end
+
+local function buildLobby()
+	local root = panel(gui, {
+		Name = "Lobby",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.53),
+		Size = UDim2.fromOffset(860, 540),
+		Visible = false,
+	})
+	stroke(root, 2, UI.InkSoft)
+	ui.lobbyScale = make("UIScale", {}, root)
+	local title = label(root, {
+		Text = "Spike Rush",
+		Font = Enum.Font.Bangers,
+		TextSize = 44,
+		TextColor3 = UI.Spark,
+		Size = UDim2.fromOffset(220, 50),
+		Position = UDim2.fromOffset(20, 6),
+	})
+	stroke(title, 3, UI.Ink)
+	local tabs = {}
+	for i, name in ipairs({ "Play", "Shop", "Locker" }) do
+		local b = button(root, name, { Size = UDim2.fromOffset(100, 34), Position = UDim2.fromOffset(240 + (i - 1) * 108, 14) })
+		b.MouseButton1Click:Connect(function()
+			click()
+			tab = name
+			UIController.refreshLobby()
+		end)
+		tabs[name] = b
+	end
+	local vp = label(root, {
+		Text = "",
+		Font = Enum.Font.GothamBlack,
+		TextSize = 20,
+		TextColor3 = UI.Spark,
+		Size = UDim2.fromOffset(200, 34),
+		Position = UDim2.new(1, -220, 0, 14),
+		TextXAlignment = Enum.TextXAlignment.Right,
+	})
+	stroke(vp, 2, UI.Ink)
+	local timer = label(root, {
+		Text = "",
+		Font = Enum.Font.GothamBlack,
+		TextSize = 15,
+		TextColor3 = UI.Fog,
+		Size = UDim2.new(1, -40, 0, 22),
+		Position = UDim2.new(0, 20, 1, -30),
+		TextXAlignment = Enum.TextXAlignment.Center,
+	})
+	local pages = {}
+	for _, name in ipairs({ "Play", "Shop", "Locker" }) do
+		pages[name] = make("Frame", { Size = UDim2.fromOffset(820, 420), Position = UDim2.fromOffset(20, 62), BackgroundTransparency = 1, Visible = false }, root)
+	end
+	ui.lobby = {
+		root = root,
+		timer = timer,
+		vp = vp,
+		tabs = tabs,
+		pages = pages,
+		play = buildPlay(pages.Play),
+		shop = buildShop(pages.Shop),
+		locker = buildLocker(pages.Locker),
+	}
+end
+
+local function refreshPlay(L, prof, tier)
 	local build = prof.builds and prof.builds[tier]
 	for t, chip in pairs(L.chips) do
 		local on = t == tier
@@ -1338,28 +1573,40 @@ function UIController.refreshLobby()
 	local caps = Characters.caps(tier)
 	L.head.Text = tier .. " character"
 	L.head.TextColor3 = Characters.color(tier)
-	L.points.Text = "Upgrade points " .. tostring(prof.points or 0)
 	if not build then
-		L.heightText.Text = "Height rolls when you pick it"
+		L.heightText.Text = "Height and stat caps roll when you pick it"
+		L.capsGrade.Text = ""
 		for _, row in pairs(L.rows) do
 			row.value.Text = "-"
 			row.fill.Size = UDim2.fromScale(0, 1)
 		end
-		L.total.Text = ""
+		L.free.Text = ""
 		L.derived.Text = ""
+		L.notice.Text = ""
 		return
 	end
-	L.heightText.Text = "Height " .. tostring(build.Height) .. " cm"
-	local canAfford = (prof.points or 0) > 0
+	local statCaps = Characters.statCaps(tier, build)
+	local grade = Characters.capsGrade(tier, statCaps)
+	L.capsGrade.Text = grade .. " caps"
+	L.capsGrade.TextColor3 = Spins.rarityColor(grade)
+	local hGrade = Characters.heightGrade(build.Height)
+	L.heightText.Text = string.format("Height %d cm  (%s)", build.Height, hGrade)
+	L.heightText.TextColor3 = Spins.rarityColor(hGrade)
+	local freePts = Characters.remaining(tier, build)
 	for stat, row in pairs(L.rows) do
 		local v = build[stat] or 0
-		row.value.Text = v .. " / " .. caps.Cap
-		row.fill.Size = UDim2.fromScale(math.clamp((v - Config.Stats.Min) / (caps.Cap - Config.Stats.Min), 0, 1), 1)
-		local room = Characters.raisable(tier, build, stat, 5)
-		row.plus1.TextColor3 = (room > 0 and canAfford) and UI.Chalk or UI.Fog
-		row.plus5.TextColor3 = (room > 0 and canAfford) and UI.Chalk or UI.Fog
+		local cap = statCaps[stat]
+		row.value.Text = v .. " / " .. cap
+		row.value.TextColor3 = v >= cap and UI.Spark or UI.Chalk
+		row.fill.Size = UDim2.fromScale(math.clamp((v - Config.Stats.Min) / math.max(1, cap - Config.Stats.Min), 0, 1), 1)
+		local up = Characters.raisable(tier, build, stat, 1) > 0
+		local down = Characters.lowerable(build, stat, 1) > 0
+		for d, b in pairs(row.buttons) do
+			b.TextColor3 = ((d > 0 and up) or (d < 0 and down)) and UI.Chalk or UI.Fog
+		end
 	end
-	L.total.Text = string.format("Total %d of %d, %d still to spend on this character", Characters.total(build), caps.Total, Characters.remaining(tier, build))
+	L.free.Text = string.format("Free points %d  (total %d of %d)", freePts, Characters.total(build), caps.Total)
+	L.free.TextColor3 = freePts > 0 and UI.Spark or UI.Fog
 	local s = Characters.derive(tier, build)
 	local H = Config.Hits
 	local lo, hi = H.SpikeKmhMin * s.Power, H.SpikeKmhMax * s.Power
@@ -1389,6 +1636,221 @@ function UIController.refreshLobby()
 	end
 end
 
+local function showCard(card, kind, value, tier)
+	card.button.Visible = true
+	if kind == "Caps" then
+		local grade = Characters.capsGrade(tier, value)
+		card.top.Text = grade
+		card.top.TextColor3 = Spins.rarityColor(grade)
+		local lines = {}
+		for _, k in ipairs(Config.Stats.Order) do
+			table.insert(lines, STAT_SHORT[k] .. " " .. tostring(value[k]))
+		end
+		card.body.Text = table.concat(lines, "\n")
+		card.stroke.Color = Spins.rarityColor(grade)
+	elseif kind == "Height" then
+		local grade = Characters.heightGrade(value)
+		card.top.Text = grade
+		card.top.TextColor3 = Spins.rarityColor(grade)
+		card.body.Text = "\n" .. tostring(value) .. " cm"
+		card.body.TextSize = 16
+		card.stroke.Color = Spins.rarityColor(grade)
+	else
+		local item = Spins.item(kind, value.key)
+		local rarity = item and item.Rarity or "Common"
+		card.top.Text = rarity
+		card.top.TextColor3 = Spins.rarityColor(rarity)
+		card.body.Text = (item and item.Name or "?") .. "\n\n" .. (value.dup and ("+" .. SPINS.DuplicateRefund .. " VP") or "NEW")
+		card.stroke.Color = Spins.rarityColor(rarity)
+	end
+	if kind ~= "Height" then
+		card.body.TextSize = 11
+	end
+end
+
+-- Pop the cards in one after another.
+local function playReveal(cards, count, best)
+	for i = 1, count do
+		local card = cards[i]
+		card.scale.Scale = 0.2
+		task.delay(0.06 * (i - 1), function()
+			TweenService:Create(card.scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			if i == best then
+				TweenService:Create(card.scale, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 1, true, 0.25), { Scale = 1.08 }):Play()
+			end
+			click()
+		end)
+	end
+	if mods.AudioController then
+		task.delay(0.06 * count, function()
+			mods.AudioController.play("Point")
+		end)
+	end
+end
+
+local RARITY_RANK = { Common = 1, Rare = 2, Epic = 3, Legendary = 4 }
+
+local function refreshShop(L, prof, tier)
+	for key, b in pairs(L.banners) do
+		local on = key == banner
+		b.BackgroundColor3 = on and Color3.fromRGB(52, 60, 108) or UI.InkSoft
+	end
+	local def = SPINS.Banners[banner]
+	L.title.Text = def.Name
+	L.blurb.Text = def.Blurb
+	L.spin1.Text = "Spin x1   " .. SPINS.Costs[1] .. " VP"
+	L.spin10.Text = "Spin x10   " .. SPINS.Costs[10] .. " VP"
+	local vp = prof.vp or 0
+	L.spin1.AutoButtonColor = vp >= SPINS.Costs[1]
+	L.spin1.BackgroundTransparency = vp >= SPINS.Costs[1] and 0 or 0.5
+	L.spin10.BackgroundTransparency = vp >= SPINS.Costs[10] and 0 or 0.5
+
+	local build = prof.builds and prof.builds[tier]
+	if banner == "Caps" then
+		local caps = build and Characters.statCaps(tier, build)
+		L.current.Text = caps and string.format("%s character now: %s  (%s)   caps roll %d to %d", tier, capsLine(caps), Characters.capsGrade(tier, caps), Characters.capFloor(tier), Characters.caps(tier).Cap)
+			or (tier .. " character: pick it once to create it")
+		L.odds.Text = "Grades by how close the four caps are to the tier cap. Higher caps are rarer."
+	elseif banner == "Height" then
+		L.current.Text = build and string.format("%s character now: %d cm (%s)   rolls %d to %d cm", tier, build.Height, Characters.heightGrade(build.Height), Config.Height.Min, Config.Height.Max) or (tier .. " character: pick it once to create it")
+		L.odds.Text = "Most rolls land near " .. Config.Height.Mean .. " cm. 200 cm and up is legendary."
+	else
+		local owned, total = 0, 0
+		for _, item in ipairs(COS[banner]) do
+			total = total + 1
+			if prof.owned and prof.owned[banner] and prof.owned[banner][item.Key] then
+				owned = owned + 1
+			end
+		end
+		L.current.Text = string.format("Unlocked %d of %d", owned, total)
+		local o = Spins.odds(banner)
+		local parts = {}
+		for _, r in ipairs(Config.Rarity.Order) do
+			if o[r] > 0 then
+				table.insert(parts, string.format('<font color="#%s">%s %.0f%%</font>', hex(Spins.rarityColor(r)), r, o[r] * 100))
+			end
+		end
+		L.odds.Text = table.concat(parts, "   ")
+	end
+	L.current.TextColor3 = UI.Chalk
+
+	-- results: a pending stat or height spin (keep one), or the last item spin
+	local pending = prof.pending
+	local reveal = prof.reveal
+	for _, card in ipairs(L.results) do
+		card.button.Visible = false
+		card.button.BackgroundColor3 = Color3.fromRGB(28, 32, 60)
+	end
+	L.keep.Visible = false
+	L.discard.Visible = false
+	L.status.Text = ""
+	if pending then
+		local best, bestScore = 1, -1
+		for i, r in ipairs(pending.results) do
+			local score = pending.banner == "Caps" and Characters.capsScore(pending.tier, r) or r
+			if score > bestScore then
+				best, bestScore = i, score
+			end
+			showCard(L.results[i], pending.banner, r, pending.tier)
+		end
+		if not pendingPick or not pending.results[pendingPick] then
+			pendingPick = best
+		end
+		L.results[pendingPick].button.BackgroundColor3 = Color3.fromRGB(70, 84, 150)
+		L.keep.Visible = true
+		L.discard.Visible = true
+		L.keep.Text = "Keep #" .. pendingPick
+		if pending.banner ~= banner or pending.tier ~= tier then
+			L.status.Text = ""
+		end
+		if revealed ~= prof and reveal then
+			revealed = prof
+			playReveal(L.results, #pending.results, best)
+		end
+	elseif reveal and reveal.items then
+		local best, bestRank = 1, 0
+		for i, it in ipairs(reveal.items) do
+			showCard(L.results[i], reveal.banner, it, tier)
+			local item = Spins.item(reveal.banner, it.key)
+			local rank = item and RARITY_RANK[item.Rarity] or 1
+			if rank > bestRank then
+				best, bestRank = i, rank
+			end
+		end
+		if revealed ~= prof then
+			revealed = prof
+			playReveal(L.results, #reveal.items, best)
+		end
+		L.status.Text = prof.notice or "Equip them in the Locker."
+	else
+		pendingPick = nil
+		L.status.Text = prof.notice or ""
+	end
+	if pending then
+		L.status.Text = ""
+	end
+
+	for i, pack in ipairs(Config.Shop.Packs) do
+		local p = L.packs[i]
+		if pack.Id ~= 0 then
+			p.price.Text = packPrices[i] and ("R$ " .. packPrices[i]) or "..."
+		elseif prof.studio then
+			p.price.Text = "Studio: free"
+		else
+			p.price.Text = "Soon"
+		end
+	end
+end
+
+local function refreshLocker(L, prof)
+	for kind, chips in pairs(L.rows) do
+		local owned = prof.owned and prof.owned[kind] or {}
+		local equipped = prof.equip and prof.equip[kind] or Spins.default(kind)
+		for key, chip in pairs(chips) do
+			local have = owned[key] == true
+			chip.button.BackgroundColor3 = key == equipped and Color3.fromRGB(70, 84, 150) or Color3.fromRGB(28, 32, 60)
+			chip.button.BackgroundTransparency = have and 0 or 0.5
+			chip.stroke.Thickness = key == equipped and 3 or 2
+			if key == equipped then
+				chip.tag.Text = "Equipped"
+				chip.tag.TextColor3 = UI.Spark
+			elseif have then
+				chip.tag.Text = chip.item.Rarity
+				chip.tag.TextColor3 = Spins.rarityColor(chip.item.Rarity)
+			else
+				chip.tag.Text = "Locked"
+				chip.tag.TextColor3 = UI.Fog
+			end
+		end
+	end
+end
+
+function UIController.refreshLobby()
+	local L = ui.lobby
+	if not L then
+		return
+	end
+	local tier = selectedTier or activeTier()
+	local prof = profile()
+	-- a fresh spin result jumps to the shop
+	if prof.reveal and revealed ~= prof then
+		tab = "Shop"
+		if prof.reveal.banner then
+			banner = prof.reveal.banner
+		end
+	end
+	L.vp.Text = tostring(prof.vp or 0) .. " VP"
+	for name, b in pairs(L.tabs) do
+		local on = name == tab
+		b.BackgroundColor3 = on and UI.Spark or UI.InkSoft
+		b.TextColor3 = on and UI.Ink or UI.Chalk
+		L.pages[name].Visible = on
+	end
+	refreshPlay(L.play, prof, tier)
+	refreshShop(L.shop, prof, tier)
+	refreshLocker(L.locker, prof)
+end
+
 local function updateLobby()
 	local L = ui.lobby
 	local phase = State.phase()
@@ -1397,7 +1859,7 @@ local function updateLobby()
 	if show then
 		local left = math.max(0, math.ceil((State.match.phaseEnd or 0) - Util.now()))
 		if phase == "Intermission" and State.match.waitingForPick then
-			L.timer.Text = "Pick 1v1, 2v2 or 3v3 to start a match"
+			L.timer.Text = "Pick 1v1, 2v2 or 3v3 on the Play tab to start a match"
 			L.timer.TextColor3 = UI.Spark
 		elseif phase == "Intermission" then
 			L.timer.Text = "Match starts in " .. left
@@ -1425,7 +1887,7 @@ local COLS = {
 	{ "Blocks", 0.56, 0.1 },
 	{ "Digs", 0.66, 0.08 },
 	{ "Top km/h", 0.74, 0.13 },
-	{ "Points", 0.87, 0.12 },
+	{ "VP", 0.87, 0.12 },
 }
 
 local function buildResults()

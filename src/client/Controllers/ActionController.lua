@@ -475,8 +475,10 @@ local function pressSlideFeint(info)
 	end
 end
 
+-- Hold W (or Up / Y) to crouch and charge, release to jump. Near the net in a rally the jump is
+-- a block; anywhere else it's just a charged jump.
 local function pressBlock(info)
-	if not State.isPlaying or not info.grounded then
+	if not info.grounded or not mods.MovementController.canJump() then
 		return
 	end
 	block.charging = true
