@@ -57,23 +57,48 @@ Assets.Sounds = {
 	CrowdCheer = "",
 	CrowdGasp = "",
 	Music = "",
+	ImpactFrame = "",
 }
 
 -- Built-in client sounds (they ship with every Roblox install), pitched and distorted as stand-ins.
+-- An entry can also be a list of layers (each with an optional `delay`), played together.
 local LAND = "rbxasset://sounds/action_jump_land.mp3"
 local PING = "rbxasset://sounds/electronicpingshort.wav"
 local LUNGE = "rbxasset://sounds/swordlunge.wav"
 local SLASH = "rbxasset://sounds/swordslash.wav"
 Assets.Fallback = {
-	Bump = { id = LAND, speed = 1.45, volume = 1.1 },
-	ReceivePerfect = { id = LAND, speed = 1.7, volume = 1.3 },
+	Bump = {
+		{ id = LAND, speed = 1.45, volume = 1.1 },
+		{ id = LAND, speed = 2.2, volume = 0.4 },
+	},
+	ReceivePerfect = {
+		{ id = LAND, speed = 1.7, volume = 1.3 },
+		{ id = PING, speed = 2.6, volume = 0.35 },
+	},
 	Set = { id = LAND, speed = 1.9, volume = 0.8 },
-	Spike = { id = LAND, speed = 0.95, volume = 1.7, distort = 0.45 },
-	SpikeHeavy = { id = LAND, speed = 0.62, volume = 2.2, distort = 0.6 },
-	Thunder = { id = SLASH, speed = 0.45, volume = 1.4, distort = 0.7 },
+	Spike = {
+		{ id = LAND, speed = 0.95, volume = 1.7, distort = 0.45 },
+		{ id = SLASH, speed = 1.9, volume = 0.35 },
+	},
+	SpikeHeavy = {
+		{ id = LAND, speed = 0.62, volume = 2.2, distort = 0.6 },
+		{ id = LAND, speed = 0.4, volume = 1.4, distort = 0.7 },
+		{ id = SLASH, speed = 1.5, volume = 0.4 },
+	},
+	Thunder = {
+		{ id = SLASH, speed = 0.45, volume = 1.4, distort = 0.7 },
+		{ id = LAND, speed = 0.5, volume = 1.6, distort = 0.6 },
+	},
 	AzureCharge = { id = LUNGE, speed = 0.5, volume = 0.6 },
 	AzureRelease = { id = LAND, speed = 0.5, volume = 2.2, distort = 0.65 },
-	Boom = { id = LAND, speed = 0.55, volume = 1.2, distort = 0.35 },
+	Boom = {
+		{ id = LAND, speed = 0.55, volume = 1.3, distort = 0.35 },
+		{ id = LUNGE, speed = 0.7, volume = 0.35 },
+	},
+	ImpactFrame = {
+		{ id = LUNGE, speed = 0.6, volume = 0.8 },
+		{ id = LAND, speed = 0.45, volume = 2.2, distort = 0.65, delay = 0.18 },
+	},
 	Whoosh = { id = LUNGE, speed = 1.15, volume = 0.7 },
 	Block = { id = LAND, speed = 0.72, volume = 1.7, distort = 0.3 },
 	Stuff = { id = LAND, speed = 0.58, volume = 2.0, distort = 0.5 },

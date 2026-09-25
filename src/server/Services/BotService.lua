@@ -179,6 +179,26 @@ local function resetTask(b)
 	b.lastCheck = nil
 	b.chargeFrom = nil
 	b.overcharge = false
+	b.coverFor = nil
+end
+
+-- The nearest bot on `team` to z (skipping `excludeId`), to cover a ball a human should play.
+local function coverBot(team, z, excludeId)
+	local best, bestD = nil, math.huge
+	for _, b in ipairs(teamBots(team)) do
+		if b.entity.id ~= excludeId then
+			local d = math.abs(b.hrp.Position.Z - z)
+			if d < bestD then
+				best, bestD = b, d
+			end
+		end
+	end
+	return best
+end
+
+-- A covering bot holds off while its human is trying to play the ball.
+local function yieldsToHuman(b)
+	return b.coverFor ~= nil and reg.HitService.intentAge(b.coverFor) < B.CoverYield
 end
 
 -- When the ball comes down to `y` on `side` (or its apex if it never gets that high).
@@ -205,6 +225,15 @@ local function planReceive(team, now, exclude)
 	local standZ = p.Z + side * Z.ReceiveForward
 	local who = closestMember(team, standZ, exclude)
 	local b = who and bots[who.id]
+	if who and not b then
+		-- a human's ball: the nearest bot shadows it and digs it if the human doesn't
+		b = coverBot(team, standZ, exclude)
+		if not b then
+			return
+		end
+		b.coverFor = who.id
+		standZ = standZ + side * B.CoverDepth
+	end
 	if not b then
 		return
 	end
@@ -246,10 +275,22 @@ local function planSet(team, now, exclude)
 		who = closestMember(team, p.Z, exclude)
 	end
 	local b = who and bots[who.id]
+	if who and not b then
+		b = coverBot(team, p.Z, exclude)
+		if b then
+			b.coverFor = who.id
+		end
+	end
 	if not b then
 		return
 	end
 	b.task = "Set"
+	if b.coverFor then
+		b.targetZ = p.Z + side * B.CoverDepth
+		b.setType = "Open"
+		b.targetId = b.coverFor -- set it back to the human who let it go
+		return
+	end
 	b.targetZ = p.Z
 	-- feed human spikers first, then the ace, sometimes the quick
 	local target, setType = nil, "Open"
@@ -288,13 +329,32 @@ local function planAttack(team, now, exclude)
 	if last and last.team == team and last.targetId and last.targetId ~= exclude then
 		spiker = bots[last.targetId]
 		if not spiker and reg.TeamService.getEntity(last.targetId) then
-			return -- the set was meant for a human: let them have it
+			-- the set was meant for a human: a bot waits underneath and sends a free ball over
+			-- if they don't go for it
+			local cover = coverBot(team, path.landing.pos.Z, exclude)
+			if cover then
+				cover.coverFor = last.targetId
+				cover.task = "Free"
+				cover.targetZ = path.landing.pos.Z + side * (Z.ReceiveForward + B.CoverDepth)
+				cover.stanceAge = 0.25
+			end
+			return
 		end
 	end
 	if not spiker then
 		local apexT, apexP = BallPhysics.findApex(path, now)
 		local who = closestMember(team, (apexP or path.landing.pos).Z, exclude)
 		spiker = who and bots[who.id]
+		if who and not spiker then
+			local cover = coverBot(team, path.landing.pos.Z, exclude)
+			if cover then
+				cover.coverFor = who.id
+				cover.task = "Free"
+				cover.targetZ = path.landing.pos.Z + side * (Z.ReceiveForward + B.CoverDepth)
+				cover.stanceAge = 0.25
+			end
+			return
+		end
 		if not apexT then
 			spiker = nil
 		end
@@ -386,7 +446,7 @@ local function planBlock(team, now)
 		return
 	end
 	local attSide = Court.sideOf(last.team)
-	local cT, cP = descentTo(BS.path, now, C.NetTop + 5, attSide)
+	local cT, cP = descentTo(BS.path, now, H.SetArriveY, attSide)
 	if not cT or math.abs(cP.Z) > 7 then
 		return
 	end
@@ -641,6 +701,9 @@ local function updateBot(b, now)
 			hum.Jump = true
 			if b.task == "Spike" then
 				reg.HitService.fx(e.id, "Jump", "Spike")
+			elseif b.task == "Block" then
+				reg.HitService.fx(e.id, "Jump", "Block")
+				reg.HitService.fx(e.id, "Block")
 			end
 			if b.chargeFrom == true then
 				b.chargeFrom = now + 0.08
@@ -650,7 +713,7 @@ local function updateBot(b, now)
 		b.jumpAt = nil
 	end
 
-	if BS.state ~= "Flight" or not BS.path or b.acted or now < b.nextActAt then
+	if BS.state ~= "Flight" or not BS.path or b.acted or now < b.nextActAt or yieldsToHuman(b) then
 		b.lastCheck = now
 		return
 	end

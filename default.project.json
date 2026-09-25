@@ -79,7 +79,7 @@
     },
     "Workspace": {
       "$properties": {
-        "Gravity": 60
+        "Gravity": 45
       }
     }
   }

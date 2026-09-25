@@ -23,7 +23,19 @@ local reg
 local VALID = { Bump = true, Set = true, Spike = true, Feint = true, Block = true, Toss = true, Serve = true }
 local SET_TYPES = { Open = true, Quick = true, Back = true }
 local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true }
+local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true }
 local requestLog = {}
+local intentAt = {} -- entityId -> os.clock() of the player's last attempt to play the ball
+
+-- Seconds since this player last tried to play the ball (a receive stance, slide, jump, block,
+-- charge or any touch request). Bots covering a human's ball hold off while this is small.
+function HitService.intentAge(entityId)
+	local t = intentAt[entityId]
+	if not t then
+		return math.huge
+	end
+	return os.clock() - t
+end
 
 local function rateLimited(plr)
 	local now = os.clock()
@@ -187,6 +199,7 @@ function HitService.onRequest(plr, req)
 	if not entity or not TS.inMatch then
 		return reject("nomatch")
 	end
+	intentAt[entity.id] = os.clock()
 	if not VALID[req.action] or not finiteNumber(req.t) or not finiteNumber(seq) then
 		return reject("bad")
 	end
@@ -273,6 +286,9 @@ function HitService.init(r)
 		if not e then
 			return
 		end
+		if INTENT[kind] then
+			intentAt[e.id] = os.clock()
+		end
 		if type(extra) ~= "string" or #extra > 16 then
 			extra = nil
 		end
@@ -280,6 +296,7 @@ function HitService.init(r)
 	end)
 	Players.PlayerRemoving:Connect(function(plr)
 		requestLog[plr] = nil
+		intentAt["P_" .. tostring(plr.UserId)] = nil
 	end)
 end
 

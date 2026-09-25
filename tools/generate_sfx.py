@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 from scipy.io import wavfile
-from scipy.signal import butter, sosfilt
+from scipy.signal import butter, fftconvolve, sosfilt
 
 SR = 44100
 rng = np.random.default_rng(1234)
@@ -90,42 +90,91 @@ def ping(freq, dur, level=1.0, curve=7.0):
     return np.sin(2 * np.pi * freq * t_axis(dur)) * env(dur, 0.001, dur, curve) * level
 
 
+def delay(x, seconds):
+    return np.concatenate([np.zeros(int(seconds * SR)), x])
+
+
+def clap(dur=0.12, lo=1000, hi=8000, bursts=3, spread=0.004):
+    """A hand smack: a few noise bursts milliseconds apart, like a clap or a palm on leather."""
+    parts = []
+    for i in range(bursts):
+        b = band(noise(dur), lo, hi) * env(dur, 0.0003, dur * (0.25 if i < bursts - 1 else 0.6), 7)
+        parts.append(delay(b * (0.7 if i < bursts - 1 else 1.0), i * spread))
+    return mix(*parts)
+
+
+def tear(dur=0.25, lo=2000, hi=9000):
+    """The air tearing behind a fast ball: a bright noise swoosh that fades out."""
+    t = t_axis(dur)
+    return band(noise(dur), lo, hi) * np.exp(-9 * t / dur) * np.clip(t / 0.01, 0, 1)
+
+
+_IR = None
+
+
+def room(x, wet=0.1):
+    """A short arena room: convolve with a decaying, darkened noise tail."""
+    global _IR
+    if _IR is None:
+        n = int(SR * 0.9)
+        t = np.arange(n) / SR
+        _IR = low(np.random.default_rng(99).standard_normal(n), 5000) * np.exp(-7.5 * t)
+        _IR[: int(0.012 * SR)] = 0  # pre-delay
+        _IR /= np.sqrt(np.sum(_IR**2))
+    tail = fftconvolve(x, _IR)[: len(x) + len(_IR)]
+    return mix(x, tail * wet)
+
+
 # ---------------------------------------------------------------------------------------------
 # recipes
 # ---------------------------------------------------------------------------------------------
 
 
 def bump():
-    return mix(thump(170, 90, 0.18), low(noise(0.08), 1800) * env(0.08, 0.001) * 0.5)
+    # forearm pass: a dense "thock" with a little skin slap on top
+    body = thump(210, 110, 0.16, 1.0)
+    skin = clap(0.06, 1200, 5000, 2, 0.003) * 0.45
+    return room(drive(mix(body, skin, low(noise(0.05), 900) * env(0.05, 0.001) * 0.4), 1.6), 0.08)
 
 
 def receive_perfect():
-    return mix(bump() * 0.8, pad(np.zeros(1), 0.02), ping(1320, 0.5, 0.35), ping(1980, 0.45, 0.25))
+    # the clean dig: the thock plus a bright metallic "shing" that rings out
+    shing = mix(ping(2093, 0.7, 0.35, 5), ping(3322, 0.55, 0.22, 6), ping(5274, 0.4, 0.14, 7))
+    shimmer = high(noise(0.5), 6000) * env(0.5, 0.01, 0.5, 5) * 0.12
+    return room(mix(bump() * 0.9, delay(shing, 0.012), delay(shimmer, 0.012)), 0.12)
 
 
 def set_():
-    return mix(thump(320, 240, 0.12, 0.8), band(noise(0.05), 800, 4000) * env(0.05, 0.001) * 0.35)
+    # fingertips: two quick soft taps
+    tap = mix(thump(380, 260, 0.07, 0.8), band(noise(0.03), 1500, 5000) * env(0.03, 0.0005) * 0.35)
+    return room(mix(tap, delay(tap * 0.7, 0.014)), 0.08)
 
 
 def spike():
-    slap = band(noise(0.22), 900, 6000) * env(0.22, 0.001, 0.08)
-    return drive(mix(slap * 1.2, thump(120, 60, 0.25, 0.9)), 2.2)
+    # the smack: palm on leather, a punchy body, a sub drop and the air tearing behind it
+    smack = clap(0.14, 1100, 9000, 3, 0.0035) * 1.4
+    body = thump(190, 85, 0.14, 0.9)
+    sub = thump(90, 40, 0.35, 0.9)
+    return room(drive(mix(smack, body, sub, delay(tear(0.22) * 0.5, 0.02)), 2.4), 0.1)
 
 
 def spike_heavy():
-    slap = band(noise(0.4), 600, 7000) * env(0.4, 0.001, 0.12)
-    sub = thump(95, 38, 0.5, 1.3)
-    return drive(mix(slap * 1.3, sub, low(noise(0.5), 300) * env(0.5, 0.002, 0.3) * 0.6), 3.0)
+    # a strong spike hits like an explosion: a bigger smack, a long sub and a crackling blast
+    smack = clap(0.2, 800, 10000, 4, 0.004) * 1.5
+    sub = thump(85, 30, 0.7, 1.4)
+    blast = low(noise(0.6), 900) * env(0.6, 0.002, 0.25) * 0.9
+    crackle = high(noise(0.5), 3000) * (rng.random(int(SR * 0.5)) > 0.97) * np.exp(-6 * t_axis(0.5)) * 0.8
+    return room(drive(mix(smack, sub, blast, crackle, delay(tear(0.35) * 0.6, 0.03)), 3.2), 0.12)
 
 
 def thunder():
-    dur = 1.3
+    dur = 1.4
     t = t_axis(dur)
-    crackle = high(noise(dur), 1500) * (rng.random(len(t)) > 0.96) * 1.6
-    crackle = crackle * np.exp(-3.5 * t)
-    rumble = band(noise(dur), 40, 170) * env(dur, 0.02, dur, 3.0)
-    crack = band(noise(0.08), 1000, 9000) * env(0.08, 0.0005)
-    return drive(mix(crack * 1.5, crackle, rumble * 5.0), 1.6)
+    crack = clap(0.1, 1500, 12000, 3, 0.002) * 1.6
+    zap = np.sign(np.sin(2 * np.pi * 110 * t)) * (rng.random(len(t)) > 0.5) * np.exp(-5 * t) * 0.35
+    crackle = high(noise(dur), 1500) * (rng.random(len(t)) > 0.95) * 1.6 * np.exp(-3.0 * t)
+    rumble = band(noise(dur), 35, 160) * env(dur, 0.02, dur, 2.6) * 5.5
+    return room(drive(mix(crack, low(zap, 4000), crackle, rumble, spike_heavy() * 0.6), 1.8), 0.14)
 
 
 def azure_charge():
@@ -144,12 +193,25 @@ def azure_charge():
 
 
 def azure_release():
-    dur = 0.8
-    return drive(mix(band(noise(dur), 200, 5000) * env(dur, 0.002, 0.3), sweep_sine(420, 70, dur) * env(dur, 0.002, 0.5) * 0.9, thump(90, 40, 0.5, 1.0)), 2.6)
+    # a dragon's roar: a falling, growling formant over a deep blast
+    dur = 0.9
+    t = t_axis(dur)
+    growl = band(noise(dur), 150, 1400) * (0.6 + 0.4 * np.sin(2 * np.pi * 38 * t)) * env(dur, 0.01, dur, 3.5)
+    fall = sweep_sine(520, 60, dur) * env(dur, 0.002, 0.6) * 0.8
+    return room(drive(mix(spike_heavy() * 0.8, growl * 0.9, fall), 2.6), 0.14)
 
 
 def boom():
-    return drive(mix(thump(85, 38, 0.35, 1.2), low(noise(0.3), 500) * env(0.3, 0.003, 0.15) * 0.7), 1.8)
+    # the jump: a heavy whump and a gust of air
+    gust = band(noise(0.3), 200, 2500) * env(0.3, 0.004, 0.12) * 0.6
+    return room(drive(mix(thump(80, 32, 0.45, 1.4), gust), 2.0), 0.1)
+
+
+def impact_frame():
+    # the impact frame: a quick inhale (reversed swell) that slams into a hit
+    swell = band(noise(0.28), 600, 7000) * np.linspace(0, 1, int(SR * 0.28)) ** 3
+    slam = spike_heavy()
+    return mix(swell * 0.9, delay(slam, 0.28))
 
 
 def whoosh():
@@ -160,16 +222,18 @@ def whoosh():
 
 
 def block():
-    return drive(mix(low(noise(0.2), 1500) * env(0.2, 0.001, 0.06), thump(190, 110, 0.2, 0.9)), 1.6)
+    # hands on the ball at the net: a flat, hard slap
+    return room(drive(mix(clap(0.12, 700, 6000, 2, 0.003) * 1.2, thump(200, 110, 0.18, 0.9)), 1.8), 0.1)
 
 
 def stuff():
     ring = mix(ping(523, 0.6, 0.35, 5), ping(871, 0.5, 0.25, 6), ping(1307, 0.4, 0.2, 7))
-    return mix(block() * 1.2, ring)
+    return room(mix(block() * 1.2, thump(70, 35, 0.4, 1.0), ring), 0.12)
 
 
 def floor_hit():
-    return mix(thump(110, 52, 0.32, 1.1), low(noise(0.12), 900) * env(0.12, 0.001) * 0.5)
+    # the ball slamming into the court, with the hall answering
+    return room(drive(mix(thump(120, 45, 0.4, 1.3), clap(0.08, 600, 5000, 2, 0.003) * 0.6, low(noise(0.15), 900) * env(0.15, 0.001) * 0.5), 1.8), 0.18)
 
 
 def net_hit():
@@ -186,7 +250,7 @@ def toss():
 
 
 def serve():
-    return mix(band(noise(0.18), 700, 5000) * env(0.18, 0.001, 0.07), thump(230, 140, 0.2, 0.9))
+    return room(mix(clap(0.12, 900, 6000, 2, 0.003), thump(230, 120, 0.2, 0.9)), 0.1)
 
 
 def slide():
@@ -340,6 +404,7 @@ RECIPES = {
     "CrowdCheer": crowd_cheer,
     "CrowdGasp": crowd_gasp,
     "Music": music,
+    "ImpactFrame": impact_frame,
 }
 
 PEAK = {"CrowdLoop": 0.5, "Music": 0.7, "UIClick": 0.5, "CrowdGasp": 0.6, "Timeout": 0.45, "Whistle": 0.6}

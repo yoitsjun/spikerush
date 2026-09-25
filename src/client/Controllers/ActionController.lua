@@ -714,6 +714,8 @@ local function autoAssist(info, now)
 		local p = BR.getPosition(t)
 		if HitLogic.receiveZone(info.root, p, State.mySide, stats, false) then
 			stance = { t0 = now, lastCheck = nil, assist = true }
+			-- tells the server you're playing it, so a covering bot holds off
+			Net.get("ActionFX"):FireServer("Stance")
 			return
 		end
 	end

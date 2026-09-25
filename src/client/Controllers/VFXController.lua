@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
 local Util = require(Shared.Util)
+local BallPhysics = require(Shared.BallPhysics)
 local State = require(script.Parent.State)
 
 local VFXController = {}
@@ -38,6 +39,7 @@ local lines = {}
 local linesUntil, linesDir = 0, 1
 local impactGui
 local auras = {}
+local streaks = {}
 
 local GRADE_COLOR = {
 	PERFECT = UI.Spark,
@@ -234,8 +236,10 @@ local function ringFx(pos, color, fromSize, toSize, duration, thickness)
 		corner.Parent = f
 		local stroke = Instance.new("UIStroke")
 		stroke.Parent = f
-		e = { gui = gui, anchor = anchor, stroke = stroke }
+		e = { gui = gui, anchor = anchor, stroke = stroke, frame = f }
 	end
+	e.frame.Size = UDim2.fromScale(1, 1)
+	e.frame.Rotation = 0
 	e.anchor.CFrame = CFrame.new(pos)
 	e.gui.Size = UDim2.new(fromSize, 0, fromSize, 0)
 	e.stroke.Color = color
@@ -247,6 +251,7 @@ local function ringFx(pos, color, fromSize, toSize, duration, thickness)
 	task.delay(duration + 0.05, function()
 		park(e, ringPool)
 	end)
+	return e
 end
 
 local function starburst(pos, color, size, rays, duration)
@@ -303,6 +308,15 @@ local function starburst(pos, color, size, rays, duration)
 	task.delay(duration + 0.05, function()
 		park(e, burstPool)
 	end)
+end
+
+-- A sonic-boom ring: an ellipse standing across the ball's flight, as on The Spike's hardest
+-- spikes. The camera looks along +x, so screen right is +z and the flight angle on screen is
+-- atan2(vy, vz); a GUI rotation is clockwise, hence the minus.
+local function sonicRing(pos, vel, color, size, duration)
+	local e = ringFx(pos, color, size * 0.4, size, duration, 5)
+	e.frame.Size = UDim2.fromScale(0.36, 1)
+	e.frame.Rotation = -math.deg(math.atan2(vel.Y, vel.Z))
 end
 
 ------------------------------------------------------------------------------------------
@@ -412,6 +426,27 @@ local function buildScreen()
 		lines[i] = { frame = l, x = math.random(), y = math.random(), len = 0.1, speed = 1 }
 	end
 
+	-- glowing horizontal streaks that flash across the screen on the biggest hits
+	for i = 1, 4 do
+		local f = Instance.new("Frame")
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.BorderSizePixel = 0
+		f.BackgroundColor3 = WHITE
+		f.BackgroundTransparency = 1
+		f.Size = UDim2.new(1.2, 0, 0, 4)
+		f.Position = UDim2.fromScale(0.5, 0.5)
+		f.Parent = screen
+		local g = Instance.new("UIGradient")
+		g.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.35, 0),
+			NumberSequenceKeypoint.new(0.65, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		g.Parent = f
+		streaks[i] = f
+	end
+
 	impactGui = Instance.new("ScreenGui")
 	impactGui.Name = "SpikeRushImpact"
 	impactGui.IgnoreGuiInset = true
@@ -515,6 +550,9 @@ function VFXController.impactFrame(entityId, color)
 		return
 	end
 	impactGui:ClearAllChildren()
+	if mods then
+		mods.AudioController.play("ImpactFrame", { minGap = 0.2 })
+	end
 	local bg = Instance.new("Frame")
 	bg.Size = UDim2.fromScale(1, 1)
 	bg.BackgroundColor3 = WHITE
@@ -539,15 +577,71 @@ function VFXController.impactFrame(entityId, color)
 		r.BorderSizePixel = 0
 		r.Parent = burstFrame
 	end
+	-- a soft glow: stacked discs, fainter as they grow
+	for i, k in ipairs({ 0.62, 0.46, 0.3 }) do
+		local glowDisc = Instance.new("Frame")
+		glowDisc.AnchorPoint = Vector2.new(0.5, 0.5)
+		glowDisc.Position = UDim2.fromScale(0.5, 0.5)
+		glowDisc.Size = UDim2.fromScale(k, k)
+		glowDisc.BackgroundColor3 = color or HOT
+		glowDisc.BackgroundTransparency = 0.75 - i * 0.2
+		glowDisc.BorderSizePixel = 0
+		glowDisc.Parent = burstFrame
+		local gc = Instance.new("UICorner")
+		gc.CornerRadius = UDim.new(0.5, 0)
+		gc.Parent = glowDisc
+	end
 	local disc = Instance.new("Frame")
 	disc.AnchorPoint = Vector2.new(0.5, 0.5)
 	disc.Position = UDim2.fromScale(0.5, 0.5)
-	disc.Size = UDim2.fromScale(0.3, 0.3)
-	disc.BackgroundColor3 = color or HOT
+	disc.Size = UDim2.fromScale(0.16, 0.16)
+	disc.BackgroundColor3 = WHITE
 	disc.Parent = burstFrame
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0.5, 0)
 	corner.Parent = disc
+	-- a pillar of light through the hitter
+	local pillar = Instance.new("Frame")
+	pillar.AnchorPoint = Vector2.new(0.5, 0.5)
+	pillar.Position = UDim2.fromOffset(sp.X, sp.Y)
+	pillar.Size = UDim2.new(0, math.floor(vs.Y * 0.07), 2, 0)
+	pillar.BackgroundColor3 = WHITE
+	pillar.BorderSizePixel = 0
+	pillar.Parent = bg
+	local pg = Instance.new("UIGradient")
+	pg.Color = ColorSequence.new(color or HOT, WHITE)
+	pg.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.4, 0.1),
+		NumberSequenceKeypoint.new(0.6, 0.1),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	pg.Rotation = 0
+	pg.Parent = pillar
+	-- a gold crescent slash: half of a thick ring
+	local crescent = Instance.new("Frame")
+	crescent.AnchorPoint = Vector2.new(0.5, 0.5)
+	crescent.Position = UDim2.fromOffset(sp.X, sp.Y)
+	crescent.Size = UDim2.fromOffset(vs.Y * 0.5, vs.Y * 0.5)
+	crescent.BackgroundTransparency = 1
+	crescent.Rotation = -30 + math.random() * 60
+	crescent.Parent = bg
+	local cc = Instance.new("UICorner")
+	cc.CornerRadius = UDim.new(0.5, 0)
+	cc.Parent = crescent
+	local cs = Instance.new("UIStroke")
+	cs.Thickness = math.max(6, vs.Y * 0.018)
+	cs.Color = Color3.fromRGB(255, 205, 70)
+	cs.Parent = crescent
+	local cg = Instance.new("UIGradient")
+	cg.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.48, 0),
+		NumberSequenceKeypoint.new(0.52, 1),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	cg.Rotation = 90
+	cg.Parent = cs
 
 	local vp = Instance.new("ViewportFrame")
 	vp.Size = UDim2.fromScale(1, 1)
@@ -571,6 +665,8 @@ function VFXController.impactFrame(entityId, color)
 				TweenService:Create(r, TweenInfo.new(0.14), { BackgroundTransparency = 1 }):Play()
 			end
 		end
+		TweenService:Create(pillar, TweenInfo.new(0.16), { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(cs, TweenInfo.new(0.16), { Transparency = 1 }):Play()
 	end)
 	task.delay(0.26, function()
 		impactGui.Enabled = false
@@ -666,10 +762,10 @@ function VFXController.boom(entityId, kind)
 	if big and toolboxFx("JumpBoom", Vector3.new(p.X, 0.3, p.Z)) then
 		return -- the Toolbox boom replaces the procedural ring and streaks
 	end
-	floorRing(Vector3.new(p.X, 0.2, p.Z), WHITE, big and 6 or 3.5, big and 0.32 or 0.25)
-	emit(dustEmitter, Vector3.new(p.X, 0.4, p.Z), big and 16 or 8)
+	floorRing(Vector3.new(p.X, 0.2, p.Z), WHITE, big and 8 or 4, big and 0.36 or 0.26)
+	emit(dustEmitter, Vector3.new(p.X, 0.4, p.Z), big and 24 or 10)
 	if big then
-		ringFx(Vector3.new(p.X, 1.2, p.Z), WHITE, 2, 9, 0.28, 5)
+		ringFx(Vector3.new(p.X, 1.2, p.Z), WHITE, 2, 12, 0.3, 6)
 		for i = -1, 1 do
 			local s = take(Enum.PartType.Block)
 			s.Color = WHITE
@@ -760,6 +856,118 @@ local function setAura(model, on, energy)
 	end
 end
 
+-- Neon streaks across the whole screen at the height of the hit.
+function VFXController.neonStreaks(pos, color)
+	if not State.settings.dramatic then
+		return
+	end
+	local cam = workspace.CurrentCamera
+	if not cam then
+		return
+	end
+	local sp = cam:WorldToViewportPoint(pos)
+	for i, f in ipairs(streaks) do
+		local offset = (i - 2.5) * (10 + math.random() * 14)
+		f.Position = UDim2.new(0.5, 0, 0, sp.Y + offset)
+		f.Size = UDim2.new(1.2, 0, 0, (i == 2 or i == 3) and 5 or 2)
+		f.BackgroundColor3 = (i == 2 or i == 3) and color or WHITE
+		f.BackgroundTransparency = 0.05
+		f.Rotation = (math.random() - 0.5) * 2
+		TweenService:Create(f, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1.2, 0, 0, 1),
+		}):Play()
+	end
+end
+
+-- A gold shield over a receiver's head: the guard held on a perfect receive.
+function VFXController.shield(entityId, color)
+	local model = Util.modelOf(entityId)
+	local head = model and (model:FindFirstChild("Head") or model:FindFirstChild("HumanoidRootPart"))
+	if not head then
+		return
+	end
+	color = color or Color3.fromRGB(255, 205, 60)
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromOffset(46, 54)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 3.2, 0)
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0
+	gui.Adornee = head
+	gui.Parent = head
+	local root = Instance.new("Frame")
+	root.BackgroundTransparency = 1
+	root.Size = UDim2.fromScale(1, 1)
+	root.Parent = gui
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0.2
+	scale.Parent = root
+	-- a shield: a rounded top plate over a point (a square turned 45 degrees)
+	local top = Instance.new("Frame")
+	top.BackgroundColor3 = color
+	top.BorderSizePixel = 0
+	top.Size = UDim2.fromOffset(40, 28)
+	top.Position = UDim2.fromOffset(3, 2)
+	top.Parent = root
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, 6)
+	c.Parent = top
+	local point = Instance.new("Frame")
+	point.BackgroundColor3 = color
+	point.BorderSizePixel = 0
+	point.AnchorPoint = Vector2.new(0.5, 0.5)
+	point.Size = UDim2.fromOffset(28, 28)
+	point.Position = UDim2.fromOffset(23, 30)
+	point.Rotation = 45
+	point.Parent = root
+	local shine = Instance.new("Frame")
+	shine.BackgroundColor3 = WHITE
+	shine.BackgroundTransparency = 0.3
+	shine.BorderSizePixel = 0
+	shine.Size = UDim2.fromOffset(6, 30)
+	shine.Position = UDim2.fromOffset(20, 6)
+	shine.ZIndex = 2
+	shine.Parent = root
+	TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(gui, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { StudsOffsetWorldSpace = Vector3.new(0, 4.2, 0) }):Play()
+	task.delay(0.6, function()
+		for _, f in ipairs({ top, point, shine }) do
+			TweenService:Create(f, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+		end
+	end)
+	task.delay(0.95, function()
+		gui:Destroy()
+	end)
+end
+
+-- Lightning crackling along the whole flight of a Thunder spike.
+local function thunderPath(path)
+	for k = 1, 7 do
+		task.delay(0.03 + k * 0.045, function()
+			local p = BallPhysics.positionAt(path, Util.now())
+			local v = BallPhysics.velocityAt(path, Util.now())
+			local back = v.Magnitude > 0 and -v.Unit or Vector3.new(0, 0, 1)
+			for _ = 1, 2 do
+				local d = (back + Vector3.new(0, (math.random() - 0.5) * 1.6, (math.random() - 0.5) * 1.6)).Unit
+				bolt(p, d, 4 + math.random() * 5, THUNDER)
+			end
+		end)
+	end
+end
+
+-- Sonic-boom rings chasing a hard spike a moment after contact.
+local function boomRings(path, color, count)
+	for k = 1, count do
+		task.delay(0.04 + k * 0.07, function()
+			local now = Util.now()
+			if now >= path.landing.t then
+				return
+			end
+			sonicRing(BallPhysics.positionAt(path, now), BallPhysics.velocityAt(path, now), color, 5 + k, 0.3)
+		end)
+	end
+end
+
 ------------------------------------------------------------------------------------------
 -- reactions to gameplay
 ------------------------------------------------------------------------------------------
@@ -786,6 +994,15 @@ local function onHit(snap)
 	if ht == "Spike" or ht == "JumpServe" then
 		local heavy = kmh >= 120
 		local vdir = seg.v.Magnitude > 0 and seg.v.Unit or Vector3.new(0, -1, dirZ)
+		-- every attack: a reticle snapping onto the ball and dark debris streaks off the contact
+		ringFx(pos, WHITE, 7, 2.2, 0.14, 3)
+		shards(pos, Color3.fromRGB(24, 22, 30), heavy and 12 or 6, heavy and 75 or 50)
+		if heavy or meta.thunder or meta.energy then
+			boomRings(snap.path, meta.thunder and THUNDER or (meta.energy and AZURE or WHITE), meta.thunder and 3 or 2)
+			if close then
+				VFXController.neonStreaks(pos, meta.thunder and THUNDER or (meta.energy and AZURE or HOT))
+			end
+		end
 		if meta.thunder then
 			if not toolboxFx("ThunderImpact", pos) then
 				starburst(pos, THUNDER, 11, 14, 0.3)
@@ -796,11 +1013,12 @@ local function onHit(snap)
 				end
 				emit(sparkEmitter, pos, 40, THUNDER)
 			end
+			thunderPath(snap.path)
 			if close then
 				VFXController.impactFrame(meta.id, THUNDER)
 				VFXController.speedLines(0.5, Color3.fromRGB(255, 244, 180), dirZ)
-				shaker.shake(0.6)
-				shaker.kick(-6)
+				shaker.shake(0.75)
+				shaker.kick(-8)
 			end
 		elseif meta.energy then
 			local e = math.min(meta.energy, 1)
@@ -818,10 +1036,10 @@ local function onHit(snap)
 			end
 			if close and e >= 0.9 then
 				VFXController.impactFrame(meta.id, Color3.fromRGB(40, 120, 255))
-				shaker.shake(0.55)
-				shaker.kick(-5)
+				shaker.shake(0.7)
+				shaker.kick(-7)
 			elseif close then
-				shaker.shake(0.3)
+				shaker.shake(0.4)
 			end
 			if close then
 				VFXController.speedLines(0.35 + 0.2 * e, Color3.fromRGB(190, 240, 255), dirZ)
@@ -842,9 +1060,9 @@ local function onHit(snap)
 				end
 				if heavy then
 					VFXController.speedLines(0.35, WHITE, dirZ)
-					shaker.kick(-4)
+					shaker.kick(-6)
 				end
-				shaker.shake(heavy and 0.4 or 0.18)
+				shaker.shake(heavy and 0.55 or 0.25)
 			end
 		end
 		return
@@ -882,11 +1100,18 @@ local function onHit(snap)
 			VFXController.popup(pos, "Broken", HOT, 1)
 			return
 		end
+		local hrp = model and model:FindFirstChild("HumanoidRootPart")
+		if hrp and (ht == "Bump" or ht == "Free") then
+			floorRing(Vector3.new(hrp.Position.X, 0.2, hrp.Position.Z), WHITE, 3.2, 0.35)
+		end
+		if meta.perfect then
+			VFXController.shield(meta.id)
+		end
 		if meta.free then
 			VFXController.popup(pos, "Free ball!", UI.Chalk, 1)
 		elseif meta.score and ht == "Bump" then
 			local grade = meta.grade or "GOOD"
-			VFXController.popup(pos, grade .. " " .. tostring(meta.score), GRADE_COLOR[grade] or UI.Chalk, 0.9, meta.perfect)
+			VFXController.popup(pos, grade .. " " .. tostring(meta.score), GRADE_COLOR[grade] or UI.Chalk, 0.9)
 		elseif ht == "Set" and meta.grade == "PERFECT" then
 			VFXController.popup(pos, "Nice set", UI.Mint, 0.8)
 		end

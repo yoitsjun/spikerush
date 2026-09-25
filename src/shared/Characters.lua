@@ -13,6 +13,8 @@ local Config = require(script.Parent.Config)
 local Characters = {}
 
 local SPM = Config.Scale.StudsPerMeter
+local FLOOR = Config.Scale.HeightFloor
+local JUMP_SCALE = Config.Scale.JumpScale
 local ST = Config.Stats
 local HT = Config.Height
 
@@ -27,6 +29,24 @@ end
 
 local function round(x)
 	return math.floor(x + 0.5)
+end
+
+-- Height in the world (studs) for a real height in metres, and back. Up to the standing hand
+-- height the scale is true; above it every metre is drawn JUMP_SCALE times taller, so jumps
+-- look huge while hitting points, the Thunder line and the HUD keep real metres.
+function Characters.studsAt(meters)
+	local y = meters * SPM
+	if y > FLOOR then
+		y = FLOOR + (y - FLOOR) * JUMP_SCALE
+	end
+	return y
+end
+
+function Characters.metersAt(y)
+	if y > FLOOR then
+		y = FLOOR + (y - FLOOR) / JUMP_SCALE
+	end
+	return y / SPM
 end
 
 function Characters.tierIndex(tier)
@@ -204,7 +224,7 @@ function Characters.derive(tier, build)
 	s.Reach = HT.ZoneScale[1] + (HT.ZoneScale[2] - HT.ZoneScale[1]) * hn
 	s.StandingReachM = build.Height * HT.ReachPerCm
 	s.ContactMaxM = s.StandingReachM + s.VerticalM
-	s.contactMaxStuds = s.ContactMaxM * SPM
+	s.contactMaxStuds = Characters.studsAt(s.ContactMaxM)
 	cache[key] = s
 	return s
 end

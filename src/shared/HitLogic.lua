@@ -65,8 +65,9 @@ function HitLogic.studs(kmh)
 	return kmh / 3.6 * SPM
 end
 
+-- Real height in metres of a world height (see Characters.studsAt).
 function HitLogic.meters(y)
-	return y / SPM
+	return Characters.metersAt(y)
 end
 
 function HitLogic.grade(q)
@@ -431,7 +432,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local qHeight = HitLogic.heightQuality(ball.Y, stats, ctx.groundY)
 	-- clean contact x good timing: a fingertip touch at a great height is still a poor hit
 	local q = clamp(qContact * (H.ContactWeight + (1 - H.ContactWeight) * qHeight), 0, 1)
-	local heightM = ball.Y / SPM
+	local heightM = HitLogic.meters(ball.Y)
 	local kmh, thunder, energy, overcharge, pierce = attackPower(kind, q, qContact, heightM, stats, ctx.ability, input.energy)
 	local meta = meta0(kind, q)
 	meta.height = heightM
@@ -528,7 +529,7 @@ function HitLogic.compute(input, ctx)
 			q = ctx.forceQuality
 		end
 		local meta = meta0("Overhand", q)
-		meta.height = ball.Y / SPM
+		meta.height = HitLogic.meters(ball.Y)
 		local depth = C.SideDepth * (0.55 + 0.3 * rng:NextNumber()) + jitter(rng, (1 - q) * H.ServeError)
 		depth = clamp(depth, 8, C.SideDepth - 1.5)
 		local target = Vector3.new(0, R, -side * depth)
@@ -557,7 +558,7 @@ function HitLogic.compute(input, ctx)
 		end
 		local meta = meta0("Feint", qContact)
 		meta.noDrain = true
-		meta.height = ball.Y / SPM
+		meta.height = HitLogic.meters(ball.Y)
 		local frac = clamp((dz - H.SpikeDzDeep) / (H.SpikeDzShort - H.SpikeDzDeep), 0, 1)
 		local depth = lerp(H.FeintMaxDepth, 3, frac) + jitter(rng, (1 - qContact) * H.FeintError)
 		local target = Vector3.new(0, R, -side * clamp(depth, 2, H.FeintMaxDepth + 3))
@@ -684,7 +685,7 @@ function HitLogic.compute(input, ctx)
 		local meta = meta0("Bump", q)
 		meta.overhead = overhead or nil
 		meta.slide = sliding or nil
-		meta.height = ball.Y / SPM
+		meta.height = HitLogic.meters(ball.Y)
 
 		-- stamina (guard) -------------------------------------------------------------
 		local stam = ctx.stamina or { value = 1, max = 1 }

@@ -33,6 +33,7 @@ local fired = {}
 local bounce = nil
 
 local folder, ballRoot, trailPart, trail, core, aura, glow, shadow, markerRing, markerDot
+local sparkles, sparkleOn = nil, false
 local a0, a1, c0, c1
 local dots = {}
 local dotIndex = 0
@@ -257,6 +258,21 @@ local function buildVisuals()
 	aura.Enabled = false
 	aura.Parent = trailPart
 
+	-- stars shed along an attack's ribbon
+	sparkles = Instance.new("ParticleEmitter")
+	sparkles.Texture = Assets.Images.Spark
+	sparkles.Rate = 80
+	sparkles.Lifetime = NumberRange.new(0.3, 0.6)
+	sparkles.Speed = NumberRange.new(0.5, 2.5)
+	sparkles.SpreadAngle = Vector2.new(180, 180)
+	sparkles.RotSpeed = NumberRange.new(-180, 180)
+	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
+	sparkles.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+	sparkles.LightEmission = 1
+	sparkles.LightInfluence = 0
+	sparkles.Enabled = false
+	sparkles.Parent = trailPart
+
 	glow = Instance.new("PointLight")
 	glow.Range = 14
 	glow.Brightness = 0
@@ -295,60 +311,69 @@ local function applyStyle(meta)
 		teamColor = Config.Teams[meta.team].Color
 	end
 	local attack = ht == "Spike" or ht == "JumpServe"
-	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.55) })
+	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.6) })
 	core.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
 	aura.Enabled = false
 	glow.Brightness = 0
 	core.Enabled = false
+	sparkleOn = false
+	-- thick, nearly solid ribbons like The Spike's: a Thunder spike paints the whole court
 	if attack and meta.thunder then
-		trail.Color = ColorSequence.new(Color3.fromRGB(255, 232, 64), Color3.fromRGB(255, 246, 170))
-		trail.Transparency = fade(0.1)
-		trail.Lifetime = 0.6
+		trail.Color = ColorSequence.new(Color3.fromRGB(255, 232, 40), Color3.fromRGB(255, 246, 150))
+		trail.Transparency = fade(0.05)
+		trail.Lifetime = 0.9
 		trail.LightEmission = 1
-		setWidth(R * 3.0, R * 0.9)
-		core.Lifetime = 0.35
+		setWidth(R * 4.2, R * 1.2)
+		core.Lifetime = 0.5
 		aura.Color = ColorSequence.new(Color3.fromRGB(255, 240, 120))
 		aura.Enabled = true
 		glow.Color = Color3.fromRGB(255, 230, 90)
 		glow.Brightness = 5
+		sparkleOn = true
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 250, 200))
 	elseif attack and meta.energy then
 		local e = meta.energy
 		trail.Color = ColorSequence.new(Color3.fromRGB(80, 230, 255), Color3.fromRGB(30, 90, 255))
-		trail.Transparency = fade(0.15)
-		trail.Lifetime = 0.4 + 0.25 * e
+		trail.Transparency = fade(0.1)
+		trail.Lifetime = 0.5 + 0.3 * e
 		trail.LightEmission = 1
-		setWidth(R * (1.8 + 1.3 * e), R * 0.8)
-		core.Lifetime = 0.3
+		setWidth(R * (2.4 + 1.6 * e), R * 0.9)
+		core.Lifetime = 0.35
 		aura.Color = ColorSequence.new(Color3.fromRGB(120, 240, 255), Color3.fromRGB(40, 110, 255))
 		aura.Enabled = e > 0.5
 		glow.Color = Color3.fromRGB(80, 200, 255)
 		glow.Brightness = 2 + 3 * e
+		sparkleOn = true
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(200, 250, 255))
 	elseif attack and kmh >= 120 then
-		trail.Color = ColorSequence.new(Color3.fromRGB(255, 46, 92), Color3.fromRGB(255, 150, 100))
-		trail.Transparency = fade(0.2)
-		trail.Lifetime = 0.5
+		-- hot pink into red, with stars, like The Spike's hardest normal spikes
+		trail.Color = ColorSequence.new(Color3.fromRGB(255, 40, 140), Color3.fromRGB(255, 90, 70))
+		trail.Transparency = fade(0.12)
+		trail.Lifetime = 0.6
 		trail.LightEmission = 0.9
-		setWidth(R * 2.4, R * 0.7)
-		core.Lifetime = 0.25
-		glow.Color = Color3.fromRGB(255, 90, 90)
+		setWidth(R * 3.2, R * 0.8)
+		core.Lifetime = 0.3
+		glow.Color = Color3.fromRGB(255, 90, 140)
 		glow.Brightness = 2
+		sparkleOn = true
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 220, 240))
 	elseif attack then
-		trail.Color = ColorSequence.new(Color3.fromRGB(255, 120, 70), teamColor)
-		trail.Transparency = fade(0.3)
-		trail.Lifetime = 0.35
+		trail.Color = ColorSequence.new(Color3.fromRGB(255, 70, 90), teamColor)
+		trail.Transparency = fade(0.2)
+		trail.Lifetime = 0.45
 		trail.LightEmission = 0.8
-		setWidth(R * 1.7, R * 0.5)
-		core.Lifetime = 0.2
+		setWidth(R * 2.3, R * 0.6)
+		core.Lifetime = 0.24
 	elseif ht == "Set" then
 		-- sets are drawn as a dotted arc instead
 		trail.Lifetime = 0.05
 		setWidth(0.05, 0.05)
 	else
 		trail.Color = ColorSequence.new(Config.UI.Chalk)
-		trail.Transparency = fade(0.6)
-		trail.Lifetime = 0.18
+		trail.Transparency = fade(0.55)
+		trail.Lifetime = 0.22
 		trail.LightEmission = 0.4
-		setWidth(R * 0.9, 0.05)
+		setWidth(R * 1.1, 0.05)
 	end
 	core.Enabled = attack
 	if not attack then
@@ -574,6 +599,7 @@ local function update(dt)
 	local ht = cur.meta and cur.meta.hitType
 	trail.Enabled = live and speed > 8 and ht ~= "Set" and ht ~= "Toss"
 	core.Enabled = trail.Enabled and (ht == "Spike" or ht == "JumpServe")
+	sparkles.Enabled = trail.Enabled and sparkleOn
 	if not live then
 		aura.Enabled = false
 		glow.Brightness = math.max(0, glow.Brightness - dt * 8)

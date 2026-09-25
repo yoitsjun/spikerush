@@ -55,7 +55,7 @@ The court's long axis is Z, with the net at z = 0. Home plays z < 0 (left of scr
 
 The ball always travels in the x = 0 plane. Players are locked to role lanes (`Config.Lanes`: WS -1.2, MB 0.2, SE 1.4, Solo 0), so they only ever move along Z.
 
-The scale is 3.2 studs per metre. The net top is 7.8 studs (2.43 m), the end lines are at z = ±30, and the court half-depth toward the camera is 14 studs. Workspace gravity is 60 and the ball uses its own gravity (40).
+The scale is 3.2 studs per metre. The net top is 7.8 studs (2.43 m), the end lines are at z = ±30, and the court half-depth toward the camera is 14 studs. Workspace gravity is 45 and the ball uses its own gravity (36). Heights above the standing hand are drawn twice as tall (`Config.Scale.JumpScale`); see the third session notes.
 
 Roles: 3v3 uses WS, MB and SE (humans claim WS first, then MB, then SE); 2v2 uses WS and SE; 1v1 uses Solo. The serve order rotates on side-out.
 
@@ -132,7 +132,7 @@ The active build is written as attributes (Tier, Height, Attack, Defense, Speed,
 | Timeout | call a timeout |
 | Profile | client sends `"get"`, `("upgrade", tier, stat, n)` or `("reroll", tier)`; server replies with a snapshot |
 
-**Jump physics.** A hang force cancels 45% of gravity while the vertical speed is under 10 studs/s. The same rule runs in MovementController for players and in BotService for bots. That hang adds about 0.68 studs to the apex (`Characters.hangGain`), and `Characters.jumpHeight` subtracts it, so the true apex equals the build's hitting point; this was verified numerically. The Azure hover cancels 62% of gravity, but only while charging and falling, so charging never raises the hitting point.
+**Jump physics.** A hang force cancels 45% of gravity while the vertical speed is under 9 studs/s. The same rule runs in MovementController for players and in BotService for bots. That hang adds about 0.74 studs to the apex (`Characters.hangGain`), and `Characters.jumpHeight` subtracts it, so the true apex equals the build's hitting point; this was verified numerically. The Azure hover cancels 62% of gravity, but only while charging and falling, so charging never raises the hitting point.
 
 ## Checks
 
@@ -142,7 +142,7 @@ Code must stay in a Lua 5.1/5.3 compatible subset of Luau: no `+=`, `continue`, 
 python3 tools/check_lua.py      # syntax (texluac) and undefined globals
 python3 tools/check_config.py   # every Config reference, including local aliases, exists
 python3 tools/check_api.py      # every Module.fn / reg.Service.fn / mods.Controller.fn is defined
-texlua tools/sim_test.lua       # 39 scenarios run against the real shared modules
+texlua tools/sim_test.lua       # 46 scenarios run against the real shared modules
 ```
 
 On Debian or Ubuntu, `apt-get install texlive-binaries` provides `texlua` and `texluac`.
@@ -151,7 +151,7 @@ Nested config aliases such as `local AZURE = Config.Abilities.Azure` are not cov
 
 ## Status
 
-All the code for the 2.5D game is written and every check passes, including all 39 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The game has never been run inside Roblox Studio.
+All the code for the 2.5D game is written and every check passes, including all 46 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
 
 ### Second session (continuation)
 
@@ -162,11 +162,28 @@ All the code for the 2.5D game is written and every check passes, including all 
 - **Optimizations**: `State.myStats()` is cached until the build attributes change; the root CFrame (players and bots) is only rewritten when facing is actually off, which also removes a source of ground stutter; hang forces are only written when they change; VFX parts use a free list, and rings and starbursts reuse pooled BillboardGuis; set-arc dots skip their loop when none are alive; the calm crowd updates at 6 Hz instead of 20; the HUD top bar is event-driven and slow panels refresh at 20 Hz; positional sounds reuse their attachments.
 - The network policy of that session blocked Roblox, Steam, the App Store and Google, so no Toolbox asset ids were checked and no reference screenshots were downloaded. `reference/README.md` lists the sources; screenshots in `reference/` are gitignored because the repository is public.
 
+### Third session (first playtest feedback)
+
+The owner reported the game "feels weak" and asked for an overhaul. Their answers on the design rules: every number stays (110/140 km/h, Thunder 160 to 200 at 4.00 m, Azure about 200, hitting points in metres), but jumps must look far higher, like The Spike, where players fly above the net and the readout still says about 4 m; gravity lower; spikes "a little stronger".
+
+- **Anime jumps** (shared, deterministic): `Characters.studsAt` / `metersAt` map real metres to world studs. Up to `Config.Scale.HeightFloor` (6.9 studs, the standing hand) the scale is true; above it every metre is drawn `JumpScale` (2.0) times taller. `contactMaxStuds` uses the mapping, and `HitLogic.meters` (every `meta.height`, the Thunder check) maps back, so all readouts and the Thunder line are unchanged. A maxed S+ now jumps 12.1 studs (was 5.7) and hangs 1.8 s. Workspace gravity 60 to 45 (also in `default.project.json`), ball gravity 40 to 36, hang window 10 to 9. Sets, passes and tosses were raised to meet the new contact heights (`SetArriveY` 17.5, open, quick and back set apexes 30, 22 and 29, tosses 18 to 28). Seven new simulations prove it.
+- **Power floor**: Attack's multiplier range is now 0.45 to 1.0 (was 0.3) and new characters start halfway to their cap (was 35%), so a fresh S+ spikes about 100 km/h (was 75). Maxed numbers are unchanged. Hit-stop is a little longer.
+- **Lobby**: `Config.Match.RequirePick`: the intermission waits for a mode pick; the countdown starts after the first pick. The client shows "Pick 1v1, 2v2 or 3v3".
+- **Bot cover**: `HitService.intentAge(id)` records each human's last attempt (stance, slide, jump, block, charge, any hit request; the mobile assist now reports its stance). When a ball is a human's to play, the nearest teammate bot shadows it (`Config.Bots.CoverDepth` deeper) and plays it unless that human tried something within `CoverYield` (1 s): receives, sets (back to that human), and free balls on a third touch the human skips. Not covered by the simulations (it needs Roblox instances).
+- **Control rail** on the left (UIController `buildRail`/`updateRail`): one round button per action with its key or gamepad badge, lit from `State.context`, clickable; hidden on touch devices.
+- **Lighting** toned down (exposure -0.25, bloom 0.18, saturation 0.02, thin atmosphere, dimmer panels, no neon trims).
+- **Animations**: AnimationController now has keyframed clips (`CLIP_DEFS`: Swing, Bump, Set, SetBack, Land) sampled with easing, plus airborne poses by jump kind (Rise on the way up, Cock at the top, SpikeFollow after the swing). `AnimationController.jumped(id, kind)` is fed by MovementController (local) and the `Jump` ActionFX (others; bots now announce block jumps too).
+- **Sound**: `tools/generate_sfx.py` recipes redone in The Spike's style (original synthesis: clap-like smacks, sub booms, air tears, metallic shing, finger taps, a room convolution) and a new `ImpactFrame` stinger; regenerated. In game: layered stand-ins (a Fallback entry can be a list of layers with delays), a mix bus (compressor, EQ, reverb) on the SFX group, and a crowd gasp on hard digs.
+- **VFX**: thicker, longer ribbons with sparkle emitters; lightning along the whole Thunder flight; sonic-boom ellipses behind hard spikes; a contact reticle and debris streaks on every attack; neon screen streaks on the biggest hits; a gold shield above perfect receivers; a floor ring under receives; the impact frame gained a glow, a light pillar and a gold crescent; bigger jump booms; stronger camera punch.
+
 These are the spots most likely to need attention on the first playtest:
 
 | Area | What to check |
 |---|---|
-| Rojo | The plugin must be 7.7.x (`rojo plugin install`); a protocol error on Connect means a version mismatch |
+| Rojo | The plugin must be 7.7.x (`rojo plugin install`, then restart Studio); "Can't parse JSON" or a protocol error on Connect means an older plugin |
+| Jumps | Humanoid.JumpHeight is now about 12 studs for a maxed S+; check the apex reaches the hitting point (the readout should show the lobby's hitting point on a perfect spike) and the air time feels right (tune `JumpScale`, `Player.Gravity`, `HangGravityCancel`) |
+| Bot cover | Stand still while a ball comes to you: a teammate bot should dig it. Press receive early instead: the bot must hold off. Watch for bots stealing balls on high ping |
+| Animation clips | Spike (rise, bow-draw, whip, follow-through), receive, set and landing read in profile for players and bots |
 | Input | W and S double as Block and Receive while the default control script also reads them as forward/back. MovementController overrides `Humanoid:Move` every frame at RenderPriority Input+1; confirm there's no depth drift and no double actions |
 | Lane lock | The HumanoidRootPart CFrame and X velocity are corrected every physics step, for players and bots; watch for jitter during slides and jumps |
 | Animation | AutoRotate is off and facing is set by CFrame (only when it's more than about 2.5 degrees off). Procedural poses are layered over the Animator through Motor6D.Transform in Stepped; check they blend and read in profile |

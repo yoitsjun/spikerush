@@ -84,6 +84,7 @@ local function onCharacter(c)
 		if new == Enum.HumanoidStateType.Jumping then
 			local kind = jumpKind or "Jump"
 			jumpKind = nil
+			mods.AnimationController.jumped(State.myId, kind)
 			mods.VFXController.boom(State.myId, kind)
 			Net.get("ActionFX"):FireServer("Jump", kind)
 		elseif new == Enum.HumanoidStateType.Landed then

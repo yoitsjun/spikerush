@@ -35,18 +35,7 @@ local function resolve(key)
 	return nil
 end
 
--- opts: volume, speed, pos (Vector3 for 3D), minGap
-function AudioController.play(key, opts)
-	opts = opts or {}
-	local info = resolve(key)
-	if not info then
-		return nil
-	end
-	local now = os.clock()
-	if lastPlayed[key] and now - lastPlayed[key] < (opts.minGap or 0.03) then
-		return nil
-	end
-	lastPlayed[key] = now
+local function spawnSound(info, opts)
 	local sound
 	if info.template then
 		sound = Assets.sanitize(info.template:Clone())
@@ -98,6 +87,33 @@ function AudioController.play(key, opts)
 	end
 	sound:Play()
 	return sound
+end
+
+-- opts: volume, speed, pos (Vector3 for 3D), minGap
+function AudioController.play(key, opts)
+	opts = opts or {}
+	local info = resolve(key)
+	if not info then
+		return nil
+	end
+	local now = os.clock()
+	if lastPlayed[key] and now - lastPlayed[key] < (opts.minGap or 0.03) then
+		return nil
+	end
+	lastPlayed[key] = now
+	if info[1] then
+		-- a layered stand-in: every layer at once (or after its delay)
+		local first = nil
+		for _, layer in ipairs(info) do
+			if layer.delay then
+				task.delay(layer.delay, spawnSound, layer, opts)
+			else
+				first = first or spawnSound(layer, opts)
+			end
+		end
+		return first
+	end
+	return spawnSound(info, opts)
 end
 
 local function loop(key, volume)
@@ -172,6 +188,10 @@ local function onHit(snap)
 		else
 			AudioController.play("Bump", { pos = pos, speed = 0.95 + (meta.quality or 0.5) * 0.15 })
 		end
+		-- the crowd reacts when a hard spike gets dug
+		if meta.drain and not meta.fail and (meta.quality or 0) >= 0.42 then
+			AudioController.play("CrowdGasp", { volume = 0.6, minGap = 0.5 })
+		end
 	end
 end
 
@@ -180,6 +200,29 @@ function AudioController.init()
 	group.Name = "SpikeRushSFX"
 	group.Volume = 0.8
 	group.Parent = SoundService
+	-- mix bus: glue the hits together, lift the low end, and put the court in a hall
+	local comp = Instance.new("CompressorSoundEffect")
+	comp.Threshold = -20
+	comp.Ratio = 3
+	comp.Attack = 0.004
+	comp.Release = 0.15
+	comp.GainMakeup = 4
+	comp.Priority = 3
+	comp.Parent = group
+	local eq = Instance.new("EqualizerSoundEffect")
+	eq.LowGain = 3
+	eq.MidGain = 0
+	eq.HighGain = 1
+	eq.Priority = 2
+	eq.Parent = group
+	local hall = Instance.new("ReverbSoundEffect")
+	hall.DecayTime = 1.3
+	hall.Density = 0.8
+	hall.Diffusion = 0.8
+	hall.DryLevel = 0
+	hall.WetLevel = -17
+	hall.Priority = 1
+	hall.Parent = group
 	holder = Instance.new("Part")
 	holder.Name = "SpikeRushAudio"
 	holder.Anchored = true

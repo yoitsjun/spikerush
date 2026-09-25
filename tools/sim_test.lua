@@ -126,7 +126,7 @@ do
 	local ok, res = spike(root, ballAt(root, -1.6, 0.4))
 	local path = BallPhysics.buildPath(res.launch)
 	check(ok and not Court.inBounds(path.landing.pos), "ball behind the head sails long", describe(path))
-	local farRoot = apexRoot(SP, 10) -- far off the net, reaching for a ball ahead
+	local farRoot = apexRoot(SP, 14) -- far off the net, reaching for a ball ahead
 	local ok3, res3 = spike(farRoot, ballAt(farRoot, 2.3, 1.2))
 	local path3 = BallPhysics.buildPath(res3.launch)
 	check(ok3 and res3.meta.quality < H.SpikeAssistQuality and (path3.flags.netTouch or path3.landing.pos.Z * side > 0), "sloppy steep swing from deep finds the net", string.format("q=%.2f %s", res3.meta.quality, describe(path3)))
@@ -137,7 +137,7 @@ do
 	local root = apexRoot(SP, 3.5)
 	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { ability = "Thunder" })
 	check(ok and res.meta.thunder and res.meta.kmh >= 185 and res.meta.kmh <= 200.5, "perfect thunder at 4.15 m", string.format("%.1f km/h at %.2f m", res.meta.kmh, res.meta.height))
-	local low = root - vec(0, 0.65, 0) -- contact just over 4.00 m, a bit ahead of the hand
+	local low = root - vec(0, 0.15 * SPM * Config.Scale.JumpScale, 0) -- 0.15 m lower: just over 4.00 m
 	local ok2, res2 = spike(low, ballAt(low, 1.4, 0.25), { ability = "Thunder" })
 	check(ok2 and res2.meta.thunder and res2.meta.kmh >= 160 and res2.meta.kmh < 185, "scrappy thunder just over 4.00 m", string.format("%.1f km/h at %.2f m", res2.meta.kmh, res2.meta.height))
 	local path = BallPhysics.buildPath(res.launch)
@@ -154,6 +154,38 @@ do
 	local rootS = apexRoot(shortS, 3.5)
 	local ok5, res5 = spike(rootS, ballAt(rootS, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = shortS })
 	check(ok5 and not res5.meta.thunder, "a 170 cm S+ can't", string.format("%.2f m, %.1f km/h", res5.meta.height, res5.meta.kmh))
+end
+
+print("== anime jumps (huge on screen, same metres) ==")
+do
+	local okMap = true
+	for _, m in ipairs({ 1.2, 2.0, 2.43, 3.3, 4.0, 4.6 }) do
+		okMap = okMap and math.abs(Characters.metersAt(Characters.studsAt(m)) - m) < 1e-9
+	end
+	check(okMap, "studs and metres convert both ways")
+	local trueJump = SP.ContactMaxM * SPM - (GROUND + Z.SpikeUp) - Characters.hangGain()
+	local jump = Characters.jumpHeight(SP, GROUND)
+	check(jump >= 1.9 * trueJump and jump > 11, "a maxed S+ jumps about twice as high on screen", string.format("%.1f studs (true scale %.1f), hand at %.1f studs", jump, trueJump, SP.contactMaxStuds))
+	local root = apexRoot(SP, 3.5)
+	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, 0))
+	check(ok and math.abs(res.meta.height - SP.ContactMaxM) < 0.03, "the readout still shows the real hitting point", string.format("%.2f m (hitting point %.2f m)", res.meta.height, SP.ContactMaxM))
+	-- airtime of a full jump with the hang force, same integration as the bots use
+	local P = Config.Player
+	local g = P.Gravity
+	local v = math.sqrt(2 * g * jump)
+	local y, t, dt = 0, 0, 1 / 240
+	repeat
+		local a = g
+		if math.abs(v) < P.HangVelocityWindow then a = g * (1 - P.HangGravityCancel) end
+		v = v - a * dt
+		y = y + v * dt
+		t = t + dt
+	until y <= 0 or t > 5
+	check(t >= 1.3 and t <= 2.0, "full jump hangs like an anime spike", string.format("%.2f s in the air at gravity %d", t, g))
+	local B, A = Characters.stats("B"), Characters.stats("A")
+	check(H.SetArriveY >= B.contactMaxStuds and H.SetArriveY <= SP.contactMaxStuds, "sets come down through B to S+ hitting points", string.format("set arrives at %.1f studs; maxed B %.1f, A %.1f, S+ %.1f", H.SetArriveY, B.contactMaxStuds, A.contactMaxStuds, SP.contactMaxStuds))
+	local tossApex = 2 + H.TossHighMax
+	check(tossApex >= SP.contactMaxStuds + 2, "a full toss rises above an S+ jump serve contact", string.format("toss apex about %.1f studs", tossApex + GROUND))
 end
 
 print("== Azure Dragon ==")
@@ -188,7 +220,10 @@ do
 	local fresh = Characters.newBuild("S+", Random.new(3))
 	local freshStats = Characters.derive("S+", fresh)
 	local maxStats = Characters.stats("S+", "WS", fresh.Height)
-	check(freshStats.Power < 0.6 and freshStats.ContactMaxM < maxStats.ContactMaxM - 0.6, "a fresh S+ is far below its cap until upgraded", string.format("fresh %d attack, %.2f m reach; maxed %.2f m", fresh.Attack, freshStats.ContactMaxM, maxStats.ContactMaxM))
+	check(freshStats.Power <= maxStats.Power - 0.2 and freshStats.ContactMaxM < maxStats.ContactMaxM - 0.5, "a fresh S+ is well below its cap until upgraded", string.format("fresh %d attack, %.2f m reach; maxed %.2f m", fresh.Attack, freshStats.ContactMaxM, maxStats.ContactMaxM))
+	local fr = apexRoot(freshStats, 3.5)
+	local okF, resF = spike(fr, ballAt(fr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = freshStats })
+	check(okF and resF.meta.kmh >= 95 and resF.meta.kmh <= 110, "a fresh S+ still spikes about 100 km/h", string.format("%.1f km/h", okF and resF.meta.kmh or 0))
 	local b = { Height = 185, Attack = 170, Defense = 140, Speed = 140, Jump = 170 }
 	check(Characters.raisable("S+", b, "Attack", 10) == 0 and Characters.raisable("S+", { Height = 185, Attack = 100, Defense = 100, Speed = 100, Jump = 100 }, "Jump", 200) == 75, "upgrades stop at the stat cap and the tier total", string.format("total cap left %d", Characters.raisable("S+", b, "Attack", 10)))
 	local cheat = Characters.sanitize("B", { Height = 400, Attack = 999, Defense = 999, Speed = 999, Jump = 999 })

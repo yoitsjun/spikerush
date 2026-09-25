@@ -8,11 +8,11 @@ The whole game is a Rojo project. The server is authoritative, and the shared ga
 
 Install the toolchain once with `rokit install` or `aftman install` (both pin Rojo 7.7.0). Then start the live sync with `serve.bat` (Windows) or `./serve.sh` (macOS, Linux), or run `rojo serve` in this folder yourself, and press Connect in the Rojo plugin in Roblox Studio. The plugin has to be Rojo 7.7.x: older servers speak sync protocol 4, and the current plugin refuses them. `rojo plugin install` installs the matching plugin.
 
-To start from a place file instead, open `SpikeRush.rbxlx` (built with `rojo build -o SpikeRush.rbxlx`) and connect Rojo from there. Press Play: the server builds the arena at startup, bots fill every empty slot, and a match starts after the lobby countdown, so the game is fully playable solo.
+To start from a place file instead, open `SpikeRush.rbxlx` (built with `rojo build -o SpikeRush.rbxlx`) and connect Rojo from there. Press Play: the server builds the arena at startup and the lobby waits. A match only starts once a player picks 1v1, 2v2 or 3v3 (the countdown then runs, and drops to 4 seconds once everyone has picked), and bots fill every empty slot, so the game is fully playable solo.
 
 Player progress (upgrade points and every character's build) is saved with DataStoreService. In Studio this only works after enabling Game Settings > Security > "Enable Studio Access to API Services" on a published place. Without it the game still runs, profiles just last for the session, and the lobby says so.
 
-The project file sets Workspace gravity to 60 (the server also enforces it at startup), turns off mouse lock, and uses JumpHeight rather than JumpPower.
+The project file sets Workspace gravity to 45 (the server also enforces it at startup), turns off mouse lock, and uses JumpHeight rather than JumpPower.
 
 ## Controls
 
@@ -30,7 +30,7 @@ The keyboard layout follows The Spike's, with WASD and mouse alternatives.
 | Serve | X | X | Tap for an overhand serve that hits itself; hold to toss for a jump serve (longer = higher toss), then Spike to jump and Spike again to hit |
 | Timeout | T | Select | Two per set; takes effect at the next dead ball and refills stamina |
 
-On touch devices the thumbstick moves you and the buttons mirror the keyboard (Spike, Receive, Slide/Feint, Block, Set, Serve and Jump). Receive assist is on by default for touch: it arms the stance for you, with the pass quality capped at 0.62 so manual timing is always better.
+On a keyboard or gamepad, the control rail on the left edge of the screen shows every action with its key (the badges switch to gamepad buttons when you use one), lights up whichever action is live right now, and can be clicked. On touch devices the thumbstick moves you and the buttons mirror the keyboard (Spike, Receive, Slide/Feint, Block, Set, Serve and Jump). Receive assist is on by default for touch: it arms the stance for you, with the pass quality capped at 0.62 so manual timing is always better.
 
 ## Characters, tiers and upgrades
 
@@ -41,11 +41,13 @@ A character is a tier, a height and four stats: Attack, Defense, Speed and Jump.
 | Stat cap | 105 | 110 | 115 | 120 | 125 | 130 | 135 | 140 | 145 | 150 | 155 | 160 | 165 | 170 | 175 |
 | Total cap | 375 | 395 | 410 | 430 | 445 | 465 | 480 | 500 | 515 | 535 | 550 | 570 | 585 | 600 | 620 |
 
-The A row reproduces The Spike's example A-rank wing spiker, 155 Attack, 120 Defense, 120 Speed and 155 Jump. Stats map onto gameplay the same way at every tier, from 50 up to 175. Attack sets a power multiplier from 0.30 to 1.00 for spikes and serves. Jump adds 0.40 to 1.75 m of vertical on top of your standing reach and makes the run-up faster and longer. Defense sets the team stamina pool (60 to 130), cuts stamina drain by up to 35%, and improves receives and blocks. Speed sets run speed (16 to 24) and set accuracy.
+The A row reproduces The Spike's example A-rank wing spiker, 155 Attack, 120 Defense, 120 Speed and 155 Jump. Stats map onto gameplay the same way at every tier, from 50 up to 175. Attack sets a power multiplier from 0.45 to 1.00 for spikes and serves. Jump adds 0.40 to 1.75 m of vertical on top of your standing reach and makes the run-up faster and longer. Defense sets the team stamina pool (60 to 130), cuts stamina drain by up to 35%, and improves receives and blocks. Speed sets run speed (16 to 24) and set accuracy.
+
+Jumps are drawn the way *The Spike* draws them: heights are true to scale up to your standing hand, and every metre above it is drawn twice as tall (`Config.Scale.JumpScale`), so a maxed S+ leaps about 12 studs and hangs for about 1.8 s, far above the net, while every readout, hitting point and the 4.00 m Thunder line stay in real metres. Workspace gravity is 45 and the ball's is 36.
 
 Height is rolled when a character is created, on a bell curve around 185 cm between 165 and 205. Standing reach is 1.3 cm of reach per cm of height, and your hitting point at the top of a jump is standing reach plus your Jump vertical. That is why jumps are not standardized: a maxed S+ at 185 cm hits at about 4.15 m, a maxed S+ at 170 cm tops out just under the 4.00 m Thunder line, and a tall 200 cm A-rank can clear it. Height changes reach, hitting point and hit-zone size, not the avatar's size, and every avatar shape reaches its build's number because jump height is measured from the avatar's real standing height.
 
-Upgrade points are earned by playing: 30 for a win, 15 for a loss, plus 2 for each kill, ace or block. One point buys +1 on a stat, and 40 points re-roll a character's height. New players start with 300 points (`Config.Progression.StartingPoints`, set high for testing; lower it before launch). A new character starts 35% of the way from 50 to its cap, so a fresh S+ spikes at roughly half the speed of a maxed one. Your active character is locked while your match is running, which keeps client prediction identical to the server.
+Upgrade points are earned by playing: 30 for a win, 15 for a loss, plus 2 for each kill, ace or block. One point buys +1 on a stat, and 40 points re-roll a character's height. New players start with 300 points (`Config.Progression.StartingPoints`, set high for testing; lower it before launch). A new character starts halfway from 50 to its cap, so a fresh S+ already spikes about 100 km/h and upgrades take it to 140. Your active character is locked while your match is running, which keeps client prediction identical to the server.
 
 ## Abilities
 
@@ -61,15 +63,19 @@ Spike power comes from contact, not a timing meter. The cleaner your hand meets 
 
 The team stamina bars at the top of the screen work as a guard meter. Receiving a hard ball (above 60 km/h) drains your team's bar, less with more Defense. A receive pressed a little early (between 0.08 and 0.42 s before contact) is perfect, shows a shield and drains only 15% as much. Below half the bar turns red and receives get unreliable. The ball that empties it breaks the guard, and with a broken guard a spike of 90 km/h or more simply can't be received, except with a slide. Slides, soft-block deflections, free balls and feints never drain. After every rally the winner recovers 20% and the loser 35%, each set starts full, and a timeout refills both teams.
 
+When a ball is yours to play and you don't go for it (no receive, slide, jump or touch in the last second), the nearest bot on your team covers it: it digs the receive, sets it, or sends a free ball over.
+
 Receives and sets go high, and they never go over the net except on the third touch (a free ball) or when a guard break pops the ball over. Sets draw a dotted arc and hang about 1.6 s before arriving at hitting height. Serves are hit from behind the end line within 8 s: the overhand serve is a safe lob of about 50 km/h, and a jump serve from an S+ runs around 125 km/h. Blocks can stuff, soft-block, get tooled off the hands or just touch the ball.
 
 Modes are 1v1, 2v2 and 3v3 by lobby vote, with bots filling the courts and a separate vote for the bot level (default A). In 3v3 the roles are wing spiker, middle blocker and setter, and humans take wing spiker first. Matches are best of three sets to 15, with the deciding set to 11, win by two and a cap of 25.
 
 ## Visuals and audio
 
-The camera is a long-lens side view from the open near side, which keeps perspective flat like a 2D game. It rises and pulls back for high sets, closes in on your serve and swings to a low angle after a point. Spikes leave thick ribbon trails, yellow for Thunder, cyan for Azure and red for anything over 120 km/h. Every attack shows a starburst and ring at the contact, and jumps boom off the floor. The biggest hits flash a manga impact frame: the screen goes white and the attacker becomes a black silhouette over a coloured burst. The HUD shows the km/h and hitting height of the last attack under the score, "Team (Player) scored" with the reason after each point, receive grades like "PERFECT 96", and your tier badge, height and a marker over the player you control. Impact frames, speed lines, shake, the landing marker, the closer camera and receive assist can all be toggled in settings.
+Spike, receive and set are keyframed animations: the spiker's arms swing up on takeoff, draw back like a bow at the top (arched back, hitting arm cocked, legs kicked back), whip through on contact and follow through into the fall; receives drive up through a platform, sets catch at the forehead and push up onto the toes (back sets arch), and landings crouch. The camera is a long-lens side view from the open near side, which keeps perspective flat like a 2D game. It rises and pulls back for high sets, closes in on your serve and swings to a low angle after a point. Spikes leave thick ribbon trails that shed stars: yellow for Thunder (with lightning crackling along the whole flight), cyan for Azure and hot pink into red for anything over 120 km/h, chased by sonic-boom rings. Every attack shows a reticle snapping onto the ball, a starburst, a ring and dark debris streaks, the biggest hits flash neon streaks across the screen, perfect receives raise a gold shield over the receiver, and jumps boom off the floor. The biggest hits flash a manga impact frame: the screen goes white and the attacker becomes a black silhouette over a coloured burst. The HUD shows the km/h and hitting height of the last attack under the score, "Team (Player) scored" with the reason after each point, receive grades like "PERFECT 96", and your tier badge, height and a marker over the player you control. Impact frames, speed lines, shake, the landing marker, the closer camera and receive assist can all be toggled in settings.
 
-All 26 sound effects are synthesized by `tools/generate_sfx.py` into `assets/sfx/<Key>.ogg`, and they are already generated. Until you upload them the game uses Roblox's built-in client sounds as stand-ins. To use them, upload the files in Creator Hub > Development Items > Audio and paste each id into the matching key of `Assets.Sounds` in `src/shared/Assets.lua`.
+All 27 sound effects are synthesized by `tools/generate_sfx.py` into `assets/sfx/<Key>.ogg`, and they are already generated. They follow *The Spike*'s sound design without using any of its audio: spikes are a palm smack with a sub boom and an air tear, hard spikes hit like an explosion, a perfect dig rings with a metallic shing, sets are a finger double-tap, and the impact frame gets its own swell-and-slam stinger, all in a light arena room. In game they run through a mix bus (compressor, low-end lift, hall reverb).
+
+Until you upload them the game uses layered Roblox built-in client sounds as stand-ins. The quickest upload: Studio's Asset Manager > Bulk Import on `assets/sfx`, then drag the imported audio into `ReplicatedStorage.ToolboxAssets.Sounds` (each Sound keeps its file name, which is its key). Or paste each id into `Assets.Sounds`. Unverified accounts can only upload a few audio files a month, so start with Spike, SpikeHeavy, Bump, ReceivePerfect, Set, FloorHit, Boom, Thunder, ImpactFrame and Whistle.
 
 Every visual and audio slot also takes a Toolbox (Creator Store) asset, with no code changes: the ball model, eleven particle effects (impacts, the jump boom, the guard break and the Azure aura), sounds, action animations and ability icons. Drag an asset into `ReplicatedStorage.ToolboxAssets.<Category>.<Slot>`, or paste ids into `Assets.Toolbox` and bake them with `ToolboxService.install()` from the command bar, or let `ToolboxService` load them when the server starts. Scripts inside inserted assets are always deleted. [TOOLBOX.md](TOOLBOX.md) lists every slot with what to search for. Bots play Roblox's own default R15 idle, run, jump and fall animations.
 
@@ -116,7 +122,7 @@ Game code is written in a Lua 5.1/5.3 compatible subset of Luau (no `+=`, `conti
 python3 tools/check_lua.py      # syntax and undefined globals
 python3 tools/check_config.py   # every Config reference exists
 python3 tools/check_api.py      # every cross-module call is defined
-texlua tools/sim_test.lua       # 39 gameplay scenarios against the real HitLogic
+texlua tools/sim_test.lua       # 46 gameplay scenarios against the real HitLogic
 ```
 
 The simulation suite checks the headline numbers (spike speeds, Thunder and Azure ranges, depth control, stamina and guard breaks, touch rules, sets, serves, blocks, the build and upgrade rules) and that client prediction is bit-identical to the server.

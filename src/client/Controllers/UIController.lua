@@ -35,6 +35,7 @@ local gui
 local ui = {}
 local tags = {}
 local selectedTier = nil
+local myPick = nil -- the mode I picked this lobby
 
 ------------------------------------------------------------------------------------------
 -- builders
@@ -820,6 +821,137 @@ local function updateOverhead()
 end
 
 ------------------------------------------------------------------------------------------
+-- control rail (left edge): every action as a round button with its key, lit when it's live
+------------------------------------------------------------------------------------------
+
+local RAIL = {
+	{ action = "Spike", glyph = "\u{1F4A5}", key = "Z", pad = "A", color = Color3.fromRGB(235, 70, 60) },
+	{ action = "Receive", glyph = "\u{1F6E1}", key = "S", pad = "B", color = Color3.fromRGB(50, 130, 235) },
+	{ action = "SlideFeint", glyph = "\u{1F4A8}", key = "C", pad = "RB", color = Color3.fromRGB(70, 180, 140) },
+	{ action = "Block", glyph = "\u{270B}", key = "W", pad = "Y", color = Color3.fromRGB(120, 110, 220) },
+	{ action = "Set", glyph = "\u{1F64C}", key = "E", pad = "LB", color = Color3.fromRGB(240, 170, 60) },
+	{ action = "Serve", glyph = "\u{1F3D0}", key = "X", pad = "X", color = Color3.fromRGB(245, 200, 40) },
+}
+
+local function buildRail()
+	local rail = make("Frame", {
+		Name = "ControlRail",
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 14, 0.56, 0),
+		Size = UDim2.fromOffset(96, 6 * 82),
+		BackgroundTransparency = 1,
+		Visible = false,
+	}, gui)
+	ui.railScale = make("UIScale", {}, rail)
+	make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, rail)
+	local slots = {}
+	for i, def in ipairs(RAIL) do
+		local slot = make("Frame", { Size = UDim2.fromOffset(96, 76), BackgroundTransparency = 1, LayoutOrder = i }, rail)
+		local b = make("TextButton", {
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 0),
+			Size = UDim2.fromOffset(56, 56),
+			BackgroundColor3 = UI.Ink,
+			BackgroundTransparency = 0.25,
+			AutoButtonColor = false,
+			Text = def.glyph,
+			TextSize = 26,
+			Font = Enum.Font.GothamBlack,
+			TextColor3 = UI.Chalk,
+		}, slot)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, b)
+		local ring = make("UIStroke", { Thickness = 2.5, Color = UI.Chalk, Transparency = 0.35, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+		local badge = make("TextLabel", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(1, -2, 0, 4),
+			Size = UDim2.fromOffset(26, 18),
+			BackgroundColor3 = UI.Chalk,
+			TextColor3 = UI.Ink,
+			Font = Enum.Font.GothamBlack,
+			TextSize = 11,
+			Text = def.key,
+		}, b)
+		make("UICorner", { CornerRadius = UDim.new(0, 5) }, badge)
+		local name = label(slot, {
+			Text = def.action,
+			Font = Enum.Font.GothamBold,
+			TextSize = 12,
+			Size = UDim2.new(1, 0, 0, 16),
+			Position = UDim2.fromOffset(0, 58),
+			TextXAlignment = Enum.TextXAlignment.Center,
+		})
+		stroke(name, 1.5, UI.Ink)
+		-- mouse users can click the rail too
+		b.MouseButton1Down:Connect(function()
+			mods.ActionController.press(def.action)
+		end)
+		local function up()
+			mods.ActionController.release(def.action)
+		end
+		b.MouseButton1Up:Connect(up)
+		b.MouseLeave:Connect(up)
+		slots[def.action] = { slot = slot, button = b, ring = ring, badge = badge, name = name, def = def }
+	end
+	ui.rail = { frame = rail, slots = slots }
+end
+
+local RAIL_NAMES = {
+	SlideFeint = function(ctx)
+		return ctx.grounded == false and "Feint" or "Slide"
+	end,
+	Spike = function(ctx)
+		return ctx.spikeLabel or "Spike"
+	end,
+}
+
+local function updateRail()
+	local r = ui.rail
+	local show = not State.isMobile and State.isPlaying and State.match.inMatch == true
+	r.frame.Visible = show
+	if not show then
+		return
+	end
+	local cam = workspace.CurrentCamera
+	if cam then
+		ui.railScale.Scale = math.clamp(cam.ViewportSize.Y / 760, 0.62, 1.1)
+	end
+	local ctx = State.context or {}
+	local pad = mods.InputController.lastDevice() == "Gamepad"
+	local live = {
+		Spike = ctx.inZone == true or (ctx.serving == true and ctx.spikeLabel ~= nil),
+		Receive = ctx.incoming == true and ctx.grounded == true,
+		SlideFeint = (ctx.incoming == true and ctx.grounded == true) or (ctx.grounded == false and ctx.inZone == true),
+		Block = ctx.nearNet == true and ctx.grounded == true and not ctx.serving,
+		Set = ctx.canSet == true,
+		Serve = ctx.serving == true,
+	}
+	for action, sl in pairs(r.slots) do
+		local def = sl.def
+		sl.slot.Visible = action ~= "Serve" or ctx.serving == true
+		sl.badge.Text = pad and def.pad or def.key
+		local namer = RAIL_NAMES[action]
+		sl.name.Text = namer and namer(ctx) or (action == "SlideFeint" and "Slide" or action)
+		if live[action] then
+			sl.ring.Color = def.color
+			sl.ring.Thickness = 4
+			sl.ring.Transparency = 0
+			sl.button.BackgroundColor3 = def.color:Lerp(UI.Ink, 0.55)
+		else
+			sl.ring.Color = UI.Chalk
+			sl.ring.Thickness = 2.5
+			sl.ring.Transparency = 0.45
+			sl.button.BackgroundColor3 = UI.Ink
+		end
+	end
+end
+
+------------------------------------------------------------------------------------------
 -- timeout and settings buttons
 ------------------------------------------------------------------------------------------
 
@@ -954,8 +1086,8 @@ local function buildLobby()
 		Font = Enum.Font.GothamBlack,
 		TextSize = 16,
 		TextColor3 = UI.Fog,
-		Size = UDim2.fromOffset(300, 24),
-		Position = UDim2.new(1, -320, 0, 22),
+		Size = UDim2.fromOffset(460, 24),
+		Position = UDim2.new(1, -480, 0, 22),
 		TextXAlignment = Enum.TextXAlignment.Right,
 	})
 
@@ -1025,13 +1157,15 @@ local function buildLobby()
 	end
 
 	-- votes
-	label(left, { Text = "Mode", Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 284) })
+	label(left, { Text = "Pick a mode to start", Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 284) })
 	local votes = {}
 	for i, n in ipairs({ 1, 2, 3 }) do
 		local b = button(left, n .. "v" .. n, { Size = UDim2.fromOffset(94, 34), Position = UDim2.fromOffset((i - 1) * 102, 308) })
 		b.MouseButton1Click:Connect(function()
 			click()
+			myPick = n
 			Net.get("Vote"):FireServer("mode", n)
+			UIController.refreshLobby()
 		end)
 		votes[n] = b
 	end
@@ -1177,9 +1311,18 @@ function UIController.refreshLobby()
 		card.BackgroundColor3 = on and Color3.fromRGB(52, 60, 108) or UI.InkSoft
 	end
 	local counts = State.match.votes or {}
+	if State.match.phase ~= "Intermission" then
+		myPick = nil
+	end
 	for n, b in pairs(L.votes) do
 		b.Text = string.format("%dv%d   %d", n, n, counts["v" .. n] or 0)
-		b.BackgroundColor3 = (State.match.mode == n) and Color3.fromRGB(52, 60, 108) or UI.InkSoft
+		if myPick == n then
+			b.BackgroundColor3 = UI.Spark
+			b.TextColor3 = UI.Ink
+		else
+			b.BackgroundColor3 = UI.InkSoft
+			b.TextColor3 = UI.Chalk
+		end
 	end
 	L.botTier.Text = State.match.botTier or Config.Match.DefaultBotTier
 	L.botTier.TextColor3 = Characters.color(L.botTier.Text)
@@ -1245,10 +1388,15 @@ local function updateLobby()
 	L.root.Visible = show
 	if show then
 		local left = math.max(0, math.ceil((State.match.phaseEnd or 0) - Util.now()))
-		if phase == "Intermission" then
+		if phase == "Intermission" and State.match.waitingForPick then
+			L.timer.Text = "Pick 1v1, 2v2 or 3v3 to start a match"
+			L.timer.TextColor3 = UI.Spark
+		elseif phase == "Intermission" then
 			L.timer.Text = "Match starts in " .. left
+			L.timer.TextColor3 = UI.Fog
 		else
 			L.timer.Text = "Match in progress, you join at the next rally"
+			L.timer.TextColor3 = UI.Fog
 		end
 		local cam = workspace.CurrentCamera
 		if cam then
@@ -1397,6 +1545,7 @@ end
 local function updateFast()
 	updateReadout()
 	updateOverhead()
+	updateRail()
 end
 
 local function updateSlow()
@@ -1420,6 +1569,7 @@ function UIController.init(m)
 	buildCallout()
 	buildHint()
 	buildAbility()
+	buildRail()
 	buildCorner()
 	buildLobby()
 	buildResults()

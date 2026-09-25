@@ -12,6 +12,12 @@ Config.GameName = "Spike Rush"
 
 Config.Scale = {
 	StudsPerMeter = 3.2,
+	-- Anime jumps: heights up to the standing hand (HeightFloor, = Player.RootGround +
+	-- Zones.SpikeUp) are true scale; every stud above it is drawn JumpScale times taller. Players
+	-- visibly fly far above the net while every readout, the 4.00 m Thunder line and each
+	-- character's hitting point stay in the same real metres (Characters.studsAt / metersAt).
+	HeightFloor = 6.9,
+	JumpScale = 2.0,
 }
 
 Config.Court = {
@@ -42,16 +48,16 @@ Config.Lanes = {
 
 Config.Ball = {
 	Radius = 0.85,
-	Gravity = 40, -- ball gravity is separate from workspace gravity: floaty receives and sets
+	Gravity = 36, -- ball gravity is separate from workspace gravity: floaty receives and sets
 	MaxFlightTime = 9,
 	LandGrace = 0.2,
 	VisualBlendTime = 0.08,
 }
 
 Config.Player = {
-	Gravity = 60, -- workspace gravity (floaty jumps); the server also sets this at startup
+	Gravity = 45, -- workspace gravity (floaty jumps); the server also sets this at startup
 	RootGround = 3.0, -- typical HumanoidRootPart height when standing (R15)
-	HangVelocityWindow = 10, -- |vy| below this counts as "near the top of the jump"
+	HangVelocityWindow = 9, -- |vy| below this counts as "near the top of the jump"
 	HangGravityCancel = 0.45, -- fraction of gravity cancelled near the apex (anime hang time)
 	ApproachGather = 0.1, -- crouch before an approach jump
 	ApproachDash = 2.2, -- run-up speed (x walk speed x Approach) during the gather
@@ -122,9 +128,9 @@ Config.Hits = {
 	SpikeAssistQuality = 0.5, -- contacts at least this clean get net-clearing help
 	SpikeMinContactOverNet = 0.8,
 	ContactWeight = 0.62, -- spike quality = contact * this + jump height * (1 - this)
-	HitStopPerfect = 0.08,
-	HitStopGreat = 0.04,
-	HitStopThunder = 0.1,
+	HitStopPerfect = 0.1, -- the ball freezes on the hand this long: weight on a clean hit
+	HitStopGreat = 0.06,
+	HitStopThunder = 0.13,
 
 	-- Feints (roll shots)
 	FeintKmh = 32,
@@ -133,8 +139,8 @@ Config.Hits = {
 	FeintError = 2.5,
 
 	-- Receives: high and slow so the setter has time
-	PassApexMin = 18, -- about 5.6 m
-	PassApexMax = 25, -- about 7.8 m
+	PassApexMin = 19,
+	PassApexMax = 26,
 	PassArriveY = 9,
 	PassError = 5,
 	PassGravityScale = 1.0,
@@ -145,10 +151,10 @@ Config.Hits = {
 	PerfectStanceMax = 0.42, -- ...up to this long = perfect timing
 
 	-- Sets: high, with a dotted trail
-	SetApexOpen = 22,
-	SetApexQuick = 15,
-	SetApexBack = 21,
-	SetArriveY = 12.6,
+	SetApexOpen = 30,
+	SetApexQuick = 22,
+	SetApexBack = 29,
+	SetArriveY = 17.5, -- a typical maxed hitting point in studs (about 3.95 m)
 	SetError = 3,
 	SetGravityScale = 1.0,
 	OpenDepth = 7.5, -- attack spots, distance from the net
@@ -158,8 +164,8 @@ Config.Hits = {
 
 	-- Serves
 	TossLow = 11,
-	TossHighMin = 14,
-	TossHighMax = 22,
+	TossHighMin = 18,
+	TossHighMax = 28,
 	TossChargeTime = 0.8,
 	TossForward = 1.2,
 	OverhandApexOverNet = 4.5, -- the standing serve floats over on a lob
@@ -227,12 +233,12 @@ Config.Stats = {
 	Order = { "Attack", "Defense", "Speed", "Jump" },
 	Min = 50,
 	Ref = 175, -- a stat at this value gives the top of every range below (the S+ cap)
-	StartFraction = 0.35, -- a new character starts this far from Min toward its tier's cap
+	StartFraction = 0.5, -- a new character starts this far from Min toward its tier's cap
 }
 
 -- How each stat turns into gameplay. Values interpolate from Stats.Min to Stats.Ref.
 Config.StatCurve = {
-	Power = { Stat = "Attack", Range = { 0.3, 1.0 } }, -- spike and serve speed multiplier
+	Power = { Stat = "Attack", Range = { 0.45, 1.0 } }, -- spike and serve speed multiplier
 	VerticalM = { Stat = "Jump", Range = { 0.4, 1.75 } }, -- metres added to standing reach
 	Approach = { Stat = "Jump", Range = { 0.8, 1.25 } }, -- run-up speed and distance
 	StaminaPool = { Stat = "Defense", Range = { 60, 130 } },
@@ -305,13 +311,14 @@ Config.Match = {
 	DefaultTeamSize = 3,
 	FillWithBots = true,
 	MinHumansToStart = 1,
+	RequirePick = true, -- a match only starts after a player picks a mode in the lobby
 	PointsPerSet = 15,
 	DecidingSetPoints = 11,
 	WinBy = 2,
 	PointCap = 25,
 	SetsToWin = 2,
-	IntermissionTime = 15,
-	IntermissionFastTime = 4,
+	IntermissionTime = 15, -- countdown after the first pick
+	IntermissionFastTime = 4, -- once every player has picked
 	PreMatchTime = 3.2,
 	PreServeTime = 1.2,
 	ServeClock = 8,
@@ -359,6 +366,10 @@ Config.Bots = {
 	ReadOutChance = 0.85,
 	SlideChance = 0.8,
 	ServeDelay = { 1.0, 2.0 },
+	-- Covering: when a ball is a human's to play, the nearest teammate bot shadows it and plays
+	-- it unless the human tried something (stance, slide, jump, block, touch) this recently.
+	CoverYield = 1.0,
+	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 }
 
 Config.Graphics = {

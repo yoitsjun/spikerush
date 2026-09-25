@@ -262,6 +262,176 @@ local POSE_DEFS = {
 		LeftKnee = { -30, 0, 0 },
 		RightKnee = { -30, 0, 0 },
 	},
+	-- spike jump, modelled on The Spike: arms swing up on takeoff...
+	Rise = {
+		Waist = { 8, 0, 0 },
+		Neck = { 12, 0, 0 },
+		LeftShoulder = { 165, 0, -10 },
+		RightShoulder = { 165, 0, 10 },
+		LeftElbow = { 10, 0, 0 },
+		RightElbow = { 10, 0, 0 },
+		LeftHip = { -6, 0, -4 },
+		RightHip = { -14, 0, 4 },
+		LeftKnee = { -50, 0, 0 },
+		RightKnee = { -70, 0, 0 },
+		LeftAnkle = { -20, 0, 0 },
+		RightAnkle = { -20, 0, 0 },
+	},
+	-- ...then the bow-draw at the top: back arched, hitting arm cocked behind the head, the other
+	-- arm aiming at the ball, legs kicked back
+	Cock = {
+		Waist = { 22, 30, 0 },
+		Neck = { 14, -18, 0 },
+		LeftShoulder = { 150, 0, -14 },
+		LeftElbow = { 12, 0, 0 },
+		RightShoulder = { 175, -35, 48 },
+		RightElbow = { 125, 0, 0 },
+		RightWrist = { -20, 0, 0 },
+		LeftHip = { -10, 0, -6 },
+		RightHip = { -26, 0, 8 },
+		LeftKnee = { -78, 0, 0 },
+		RightKnee = { -100, 0, 0 },
+		LeftAnkle = { -25, 0, 0 },
+		RightAnkle = { -25, 0, 0 },
+	},
+	-- contact: the arm snaps straight up and forward
+	SpikeReach = {
+		Waist = { -10, -20, 0 },
+		Neck = { 0, 10, 0 },
+		LeftShoulder = { 90, 0, -20 },
+		LeftElbow = { 40, 0, 0 },
+		RightShoulder = { 160, 0, 15 },
+		RightElbow = { 5, 0, 0 },
+		RightWrist = { 10, 0, 0 },
+		LeftHip = { -5, 0, -4 },
+		RightHip = { -15, 0, 4 },
+		LeftKnee = { -70, 0, 0 },
+		RightKnee = { -85, 0, 0 },
+	},
+	-- the whip: arm through the ball, torso jackknifes, legs come forward
+	SpikeSnap = {
+		Root = { -12, 0, 0 },
+		Waist = { -38, -28, 0 },
+		Neck = { -10, 10, 0 },
+		LeftShoulder = { 20, 0, -30 },
+		LeftElbow = { 50, 0, 0 },
+		RightShoulder = { 45, 0, 10 },
+		RightElbow = { 10, 0, 0 },
+		RightWrist = { -35, 0, 0 },
+		LeftHip = { 48, 0, -6 },
+		RightHip = { 40, 0, 6 },
+		LeftKnee = { -45, 0, 0 },
+		RightKnee = { -35, 0, 0 },
+	},
+	SpikeFollow = {
+		Root = { -6, 0, 0 },
+		Waist = { -24, -12, 0 },
+		Neck = { 4, 0, 0 },
+		LeftShoulder = { 30, 0, -20 },
+		LeftElbow = { 40, 0, 0 },
+		RightShoulder = { 10, 0, -10 },
+		RightElbow = { 30, 0, 0 },
+		LeftHip = { 40, 0, -6 },
+		RightHip = { 34, 0, 6 },
+		LeftKnee = { -70, 0, 0 },
+		RightKnee = { -60, 0, 0 },
+	},
+	Air = {
+		Neck = { 8, 0, 0 },
+		LeftShoulder = { 60, 0, -20 },
+		RightShoulder = { 60, 0, 20 },
+		LeftElbow = { 30, 0, 0 },
+		RightElbow = { 30, 0, 0 },
+		LeftHip = { 10, 0, -4 },
+		RightHip = { 10, 0, 4 },
+		LeftKnee = { -35, 0, 0 },
+		RightKnee = { -35, 0, 0 },
+	},
+	-- receive: the platform drives up through the ball with the legs
+	BumpLift = {
+		drop = 0.25,
+		Waist = { -14, 0, 0 },
+		Neck = { 8, 0, 0 },
+		LeftHip = { 22, 0, -6 },
+		RightHip = { 22, 0, 6 },
+		LeftKnee = { -30, 0, 0 },
+		RightKnee = { -30, 0, 0 },
+		LeftAnkle = { 8, 0, 0 },
+		RightAnkle = { 8, 0, 0 },
+		LeftShoulder = { 86, 0, 16 },
+		RightShoulder = { 86, 0, -16 },
+		LeftElbow = { 0, 0, 0 },
+		RightElbow = { 0, 0, 0 },
+		LeftWrist = { -10, 0, 0 },
+		RightWrist = { -10, 0, 0 },
+	},
+	-- set: catch at the forehead, then push up onto the toes
+	SetCatch = {
+		drop = 0.35,
+		Waist = { 6, 0, 0 },
+		Neck = { 26, 0, 0 },
+		LeftHip = { 24, 0, -4 },
+		RightHip = { 24, 0, 4 },
+		LeftKnee = { -40, 0, 0 },
+		RightKnee = { -40, 0, 0 },
+		LeftAnkle = { 10, 0, 0 },
+		RightAnkle = { 10, 0, 0 },
+		LeftShoulder = { 140, 0, -24 },
+		RightShoulder = { 140, 0, 24 },
+		LeftElbow = { 95, 0, 0 },
+		RightElbow = { 95, 0, 0 },
+		LeftWrist = { 45, 0, 0 },
+		RightWrist = { 45, 0, 0 },
+	},
+	SetPush = {
+		drop = -0.12,
+		Waist = { 2, 0, 0 },
+		Neck = { 22, 0, 0 },
+		LeftHip = { 4, 0, -3 },
+		RightHip = { 4, 0, 3 },
+		LeftKnee = { -6, 0, 0 },
+		RightKnee = { -6, 0, 0 },
+		LeftAnkle = { -18, 0, 0 },
+		RightAnkle = { -18, 0, 0 },
+		LeftShoulder = { 172, 0, -10 },
+		RightShoulder = { 172, 0, 10 },
+		LeftElbow = { 8, 0, 0 },
+		RightElbow = { 8, 0, 0 },
+		LeftWrist = { 10, 0, 0 },
+		RightWrist = { 10, 0, 0 },
+	},
+	SetPushBack = {
+		drop = -0.1,
+		Waist = { 22, 0, 0 },
+		Neck = { 34, 0, 0 },
+		LeftHip = { -4, 0, -3 },
+		RightHip = { -4, 0, 3 },
+		LeftKnee = { -10, 0, 0 },
+		RightKnee = { -10, 0, 0 },
+		LeftAnkle = { -18, 0, 0 },
+		RightAnkle = { -18, 0, 0 },
+		LeftShoulder = { 185, 0, -8 },
+		RightShoulder = { 185, 0, 8 },
+		LeftElbow = { 6, 0, 0 },
+		RightElbow = { 6, 0, 0 },
+		LeftWrist = { 20, 0, 0 },
+		RightWrist = { 20, 0, 0 },
+	},
+	LandCrouch = {
+		drop = 0.7,
+		Waist = { -20, 0, 0 },
+		Neck = { 12, 0, 0 },
+		LeftHip = { 46, 0, -6 },
+		RightHip = { 46, 0, 6 },
+		LeftKnee = { -80, 0, 0 },
+		RightKnee = { -80, 0, 0 },
+		LeftAnkle = { 24, 0, 0 },
+		RightAnkle = { 24, 0, 0 },
+		LeftShoulder = { 30, 0, -14 },
+		RightShoulder = { 30, 0, 14 },
+		LeftElbow = { 30, 0, 0 },
+		RightElbow = { 30, 0, 0 },
+	},
 }
 
 local DURATION = {
@@ -293,6 +463,94 @@ for name, def in pairs(POSE_DEFS) do
 	POSES[name] = joints
 end
 
+-- Keyframed clips: a pose per key, eased between keys. Joints missing from a key hold the
+-- nearest key's value, so every key is a full pose for the joints the clip touches.
+local EASE = {
+	out = function(a)
+		return 1 - (1 - a) * (1 - a)
+	end,
+	inq = function(a)
+		return a * a
+	end,
+	smooth = function(a)
+		return a * a * (3 - 2 * a)
+	end,
+}
+
+local CLIP_DEFS = {
+	-- spike contact: reach, whip through, follow through into the fall
+	Swing = {
+		dur = 0.5,
+		keys = { { 0, "SpikeReach" }, { 0.05, "SpikeSnap", "out" }, { 0.24, "SpikeFollow", "smooth" } },
+	},
+	Bump = {
+		dur = 0.45,
+		keys = { { 0, "Bump" }, { 0.09, "BumpLift", "out" }, { 0.45, "BumpLift" } },
+	},
+	Set = {
+		dur = 0.42,
+		keys = { { 0, "SetCatch" }, { 0.09, "SetPush", "out" }, { 0.42, "SetPush" } },
+	},
+	SetBack = {
+		dur = 0.45,
+		keys = { { 0, "SetCatch" }, { 0.1, "SetPushBack", "out" }, { 0.45, "SetPushBack" } },
+	},
+	Land = {
+		dur = 0.34,
+		weight = 0.9,
+		keys = { { 0, "LandCrouch" }, { 0.12, "LandCrouch" }, { 0.34, "Ready", "smooth" } },
+	},
+}
+
+local CLIPS = {}
+for name, def in pairs(CLIP_DEFS) do
+	local union = {}
+	for _, k in ipairs(def.keys) do
+		for joint in pairs(POSES[k[2]]) do
+			union[joint] = true
+		end
+	end
+	local keys = {}
+	for i, k in ipairs(def.keys) do
+		local joints = {}
+		for joint in pairs(union) do
+			local cf = POSES[k[2]][joint]
+			local j = 1
+			while not cf and j < #def.keys do
+				-- nearest neighbour key that has this joint (earlier first)
+				local before = def.keys[i - j]
+				local after = def.keys[i + j]
+				cf = (before and POSES[before[2]][joint]) or (after and POSES[after[2]][joint])
+				j = j + 1
+			end
+			joints[joint] = cf or CFrame.identity
+		end
+		keys[i] = { t = k[1], joints = joints, ease = EASE[k[3] or "smooth"] }
+	end
+	CLIPS[name] = { dur = def.dur, weight = def.weight or 1, keys = keys, joints = union }
+end
+
+-- Sample a clip at time t into `out` (a reused table).
+local function sampleClip(clip, t, out)
+	local keys = clip.keys
+	local i = 1
+	while keys[i + 1] and keys[i + 1].t <= t do
+		i = i + 1
+	end
+	local k0, k1 = keys[i], keys[i + 1]
+	if not k1 then
+		for joint, cf in pairs(k0.joints) do
+			out[joint] = cf
+		end
+		return out
+	end
+	local a = k1.ease(math.clamp((t - k0.t) / (k1.t - k0.t), 0, 1))
+	for joint, cf in pairs(k0.joints) do
+		out[joint] = cf:Lerp(k1.joints[joint], a)
+	end
+	return out
+end
+
 -- pose -> Assets.Animations slot
 local SLOT = {
 	Bump = "Bump",
@@ -306,6 +564,7 @@ local SLOT = {
 	Stance = "Stance",
 	Knockback = "Knockback",
 	Celebrate = "Celebrate",
+	SetBack = "Set",
 }
 
 local function slotId(pose)
@@ -343,6 +602,8 @@ local function register(model)
 		switchT = 0,
 		phase = 0,
 		joints = {},
+		clipBuf = {},
+		prevBuf = {},
 	}
 	scanMotors(st)
 	chars[model] = st
@@ -437,13 +698,25 @@ end
 -- API
 ------------------------------------------------------------------------------------------
 
+-- Clips that belong together, so a second trigger in the same instant (the hit prediction and
+-- the input handler both call this) doesn't restart or replace the first.
+local FAMILY = { Set = "Set", SetBack = "Set", Swing = "Swing", Tip = "Swing", Bump = "Bump" }
+
 function AnimationController.playAction(entityId, pose)
-	if not POSES[pose] then
+	if not POSES[pose] and not CLIPS[pose] then
 		return
 	end
 	local st = stateFor(entityId)
 	if not st then
 		return
+	end
+	local now = os.clock()
+	local cur = st.action
+	if cur and now - cur.t0 < 0.06 and FAMILY[pose] and FAMILY[pose] == FAMILY[cur.pose] then
+		return
+	end
+	if pose == "Swing" or pose == "Tip" then
+		st.swung = true -- the rest of this jump falls in the follow-through, not the bow-draw
 	end
 	local track = uploadedTrack(st, pose, "A_")
 	if track then
@@ -455,7 +728,17 @@ function AnimationController.playAction(entityId, pose)
 	if replicatedElsewhere(st, pose) then
 		return
 	end
-	st.action = { pose = pose, t0 = os.clock(), dur = DURATION[pose] or 0.3 }
+	local clip = CLIPS[pose]
+	st.action = { pose = pose, clip = clip, t0 = now, dur = clip and clip.dur or DURATION[pose] or 0.3 }
+end
+
+-- A character left the ground. kind: "Spike" / "Serve" (run-up attack), "Block" or "Jump".
+function AnimationController.jumped(entityId, kind)
+	local st = stateFor(entityId)
+	if st then
+		st.jumpKind = kind
+		st.swung = false
+	end
 end
 
 function AnimationController.setStance(entityId, pose, duration)
@@ -515,28 +798,55 @@ local function holdsBall(st)
 	return st.model:GetAttribute("EntityId") == BR.getHolder()
 end
 
-local function pick(st, hum, hrp)
-	local now = os.clock()
-	if st.action and now < st.action.t0 + st.action.dur then
-		return st.action.pose, 1
+-- What the character should look like this frame: a key that changes when the pose changes, the
+-- target joints (a pose table or a sampled clip) and a weight.
+local function pick(st, hum, hrp, now)
+	local groundY = hum.HipHeight + hrp.Size.Y / 2
+	local airborne = hrp.Position.Y > groundY + 0.9
+	if airborne then
+		st.wasAirborne = true
+	elseif st.wasAirborne then
+		-- just landed: a short crouch unless something else is playing
+		st.wasAirborne = false
+		st.jumpKind = nil
+		st.swung = false
+		local busy = (st.action and now < st.action.t0 + st.action.dur) or (st.stance and now < st.stance.untilT)
+		if not busy then
+			st.action = { pose = "Land", clip = CLIPS.Land, t0 = now, dur = CLIPS.Land.dur }
+		end
+	end
+	local action = st.action
+	if action and now < action.t0 + action.dur then
+		if action.clip then
+			return "clip" .. action.pose .. action.t0, sampleClip(action.clip, now - action.t0, st.clipBuf), action.clip.weight
+		end
+		return action.pose, POSES[action.pose], 1
 	end
 	if st.stance and now < st.stance.untilT then
-		return st.stance.pose, 1
+		return st.stance.pose, POSES[st.stance.pose], 1
 	end
-	local groundY = hum.HipHeight + hrp.Size.Y / 2
-	if hum.FloorMaterial == Enum.Material.Air and hrp.Position.Y > groundY + 1.0 then
-		return "Windup", 0.9
+	if airborne then
+		if st.swung then
+			return "SpikeFollow", POSES.SpikeFollow, 0.95
+		end
+		if st.jumpKind == "Spike" or st.jumpKind == "Serve" then
+			if hrp.AssemblyLinearVelocity.Y > 5 then
+				return "Rise", POSES.Rise, 1
+			end
+			return "Cock", POSES.Cock, 1
+		end
+		return "Air", POSES.Air, 0.8
 	end
 	local phase = State.phase()
 	if holdsBall(st) then
-		return "Hold", 0.9
+		return "Hold", POSES.Hold, 0.9
 	end
 	local v = hrp.AssemblyLinearVelocity
 	local speed = Vector3.new(v.X, 0, v.Z).Magnitude
 	if (phase == "Rally" or phase == "Serving" or phase == "PreServe") and speed < 3 then
-		return "Ready", 0.75
+		return "Ready", POSES.Ready, 0.75
 	end
-	return nil, 0
+	return nil, nil, 0
 end
 
 -- Bot locomotion from Roblox's default animations. Returns true while the tracks drive the rig.
@@ -645,6 +955,16 @@ end
 
 local BOT_JOINTS = { "LeftHip", "RightHip", "LeftKnee", "RightKnee", "LeftShoulder", "RightShoulder", "LeftElbow", "RightElbow", "Waist", "Root" }
 
+local function copyInto(dst, src)
+	for k in pairs(dst) do
+		dst[k] = nil
+	end
+	for k, v in pairs(src) do
+		dst[k] = v
+	end
+	return dst
+end
+
 local function stepCharacter(st, hum, hrp, now, dt)
 	if st.motorCount < 12 and now - st.lastScan > 1 then
 		scanMotors(st)
@@ -652,18 +972,25 @@ local function stepCharacter(st, hum, hrp, now, dt)
 	if st.stanceTrack and now > st.stanceTrackUntil then
 		stopStanceTrack(st)
 	end
-	local pose, weight = pick(st, hum, hrp)
-	if pose ~= st.pose then
-		if pose then
-			st.prevPose = st.pose
-			st.switchT = now
-			st.pose = pose
+	local key, target, weight = pick(st, hum, hrp, now)
+	if key ~= st.key and key then
+		-- cross-fade from whatever was showing (a sampled clip is copied, its buffer is reused)
+		if st.target then
+			st.prevTarget = copyInto(st.prevBuf, st.target)
+		else
+			st.prevTarget = nil
 		end
+		st.switchT = now
+		st.key = key
+	end
+	if target then
+		st.target = target
 	end
 	st.w = Util.damp(st.w, weight, 16, dt)
-	if pose == nil and st.w < 0.02 then
-		st.pose = nil
-		st.prevPose = nil
+	if key == nil and st.w < 0.02 then
+		st.key = nil
+		st.target = nil
+		st.prevTarget = nil
 	end
 
 	-- bots: real locomotion tracks when they're loaded, the procedural cycle otherwise
@@ -675,7 +1002,8 @@ local function stepCharacter(st, hum, hrp, now, dt)
 			st.phase = st.phase + dt * Vector3.new(v.X, 0, v.Z).Magnitude * 0.55
 		end
 	end
-	if not st.pose and not procedural then
+	local pose = st.target
+	if not pose and not procedural then
 		return
 	end
 
@@ -684,15 +1012,18 @@ local function stepCharacter(st, hum, hrp, now, dt)
 	for name in pairs(joints) do
 		joints[name] = nil
 	end
-	if st.pose then
-		for name in pairs(POSES[st.pose]) do
+	if pose then
+		for name in pairs(pose) do
 			joints[name] = true
 		end
 	end
-	if st.prevPose and now - st.switchT < 0.1 then
-		for name in pairs(POSES[st.prevPose]) do
+	local prev = st.prevTarget
+	if prev and now - st.switchT < 0.1 then
+		for name in pairs(prev) do
 			joints[name] = true
 		end
+	else
+		prev = nil
 	end
 	if procedural then
 		for _, name in ipairs(BOT_JOINTS) do
@@ -710,15 +1041,14 @@ local function stepCharacter(st, hum, hrp, now, dt)
 			else
 				base = motor.Transform
 			end
-			local target = base
-			if st.pose then
-				target = POSES[st.pose][name] or base
-				if st.prevPose and a < 1 then
-					local from = POSES[st.prevPose][name] or base
-					target = from:Lerp(target, a)
+			local goal = base
+			if pose then
+				goal = pose[name] or base
+				if prev and a < 1 then
+					goal = (prev[name] or base):Lerp(goal, a)
 				end
 			end
-			motor.Transform = base:Lerp(target, st.w)
+			motor.Transform = base:Lerp(goal, st.w)
 		end
 	end
 end
@@ -790,6 +1120,10 @@ function AnimationController.init(m)
 		local pose = HIT_POSE[meta.hitType]
 		if meta.hitType == "Free" then
 			pose = meta.overhead and "Set" or "Bump"
+		elseif meta.hitType == "Set" and meta.underhand then
+			pose = "Bump"
+		elseif meta.hitType == "Set" and meta.setType == "Back" then
+			pose = "SetBack"
 		end
 		if meta.fail or meta.shank then
 			pose = "Knockback"
@@ -818,6 +1152,8 @@ function AnimationController.init(m)
 			AnimationController.setStance(entityId, nil)
 		elseif kind == "Whiff" and type(extra) == "string" then
 			AnimationController.playAction(entityId, extra)
+		elseif kind == "Jump" then
+			AnimationController.jumped(entityId, extra)
 		end
 	end)
 

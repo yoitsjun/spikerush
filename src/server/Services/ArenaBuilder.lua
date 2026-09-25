@@ -193,8 +193,8 @@ local function buildHall(arena)
 	part(arena, "WallAway", Vector3.new(W + 40, wallH, 2), CFrame.new(W / 2 - 20, wallH / 2, D + 1), wallColor)
 
 	for _, h in ipairs({ 22, 50 }) do
-		deco(part(arena, "Accent", Vector3.new(0.3, 0.35, D), CFrame.new(W - 0.1, h, -D / 2), HOME, Enum.Material.Neon))
-		deco(part(arena, "Accent", Vector3.new(0.3, 0.35, D), CFrame.new(W - 0.1, h, D / 2), AWAY, Enum.Material.Neon))
+		deco(part(arena, "Accent", Vector3.new(0.3, 0.35, D), CFrame.new(W - 0.1, h, -D / 2), HOME, Enum.Material.SmoothPlastic))
+		deco(part(arena, "Accent", Vector3.new(0.3, 0.35, D), CFrame.new(W - 0.1, h, D / 2), AWAY, Enum.Material.SmoothPlastic))
 	end
 
 	banner(arena, "BannerFarHome", Vector3.new(0.4, 8, 34), CFrame.new(W - 0.3, 52, -46), Enum.NormalId.Left, string.upper(Config.Teams.Home.Name), HOME)
@@ -219,9 +219,9 @@ local function buildHall(arena)
 		p.CastShadow = false
 	end
 	local S = Court.Stands
-	deco(part(stands, "Rail", Vector3.new(0.25, 0.25, S.FarLength), CFrame.new(S.FarStart, S.BaseTop + 1.1, 0), Config.UI.Chalk, Enum.Material.Neon))
-	deco(part(stands, "Rail", Vector3.new(S.EndLength, 0.25, 0.25), CFrame.new(S.EndLength * 0.25, S.BaseTop + 1.1, -S.EndStart), HOME, Enum.Material.Neon))
-	deco(part(stands, "Rail", Vector3.new(S.EndLength, 0.25, 0.25), CFrame.new(S.EndLength * 0.25, S.BaseTop + 1.1, S.EndStart), AWAY, Enum.Material.Neon))
+	deco(part(stands, "Rail", Vector3.new(0.25, 0.25, S.FarLength), CFrame.new(S.FarStart, S.BaseTop + 1.1, 0), Config.UI.Chalk, Enum.Material.SmoothPlastic))
+	deco(part(stands, "Rail", Vector3.new(S.EndLength, 0.25, 0.25), CFrame.new(S.EndLength * 0.25, S.BaseTop + 1.1, -S.EndStart), HOME, Enum.Material.SmoothPlastic))
+	deco(part(stands, "Rail", Vector3.new(S.EndLength, 0.25, 0.25), CFrame.new(S.EndLength * 0.25, S.BaseTop + 1.1, S.EndStart), AWAY, Enum.Material.SmoothPlastic))
 
 	-- ceiling, and a light truss low enough for its lights to reach the floor
 	part(arena, "Ceiling", Vector3.new(W * 2 + 40, 2, D * 2 + 4), CFrame.new(-20, C.CeilingY + 1, 0), Color3.fromRGB(14, 16, 30))
@@ -233,12 +233,12 @@ local function buildHall(arena)
 	for _, x in ipairs({ -8, 8 }) do
 		for _, z in ipairs({ -36, -18, 0, 18, 36 }) do
 			n = n + 1
-			local panel = deco(part(lights, "Panel", Vector3.new(6, 0.5, 6), CFrame.new(x, 52, z), warm, Enum.Material.Neon))
+			local panel = deco(part(lights, "Panel", Vector3.new(6, 0.5, 6), CFrame.new(x, 52, z), warm, Enum.Material.SmoothPlastic))
 			local sl = Instance.new("SurfaceLight")
 			sl.Face = Enum.NormalId.Bottom
 			sl.Angle = 85
 			sl.Range = 60
-			sl.Brightness = 1.5
+			sl.Brightness = 0.9
 			sl.Color = warm
 			sl.Shadows = n == 3 or n == 8
 			sl.Parent = panel
@@ -246,12 +246,12 @@ local function buildHall(arena)
 	end
 	-- wash on the far stands so the crowd reads behind the play
 	for _, z in ipairs({ -40, -14, 14, 40 }) do
-		local wash = deco(part(lights, "CrowdWash", Vector3.new(1, 1, 1), CFrame.new(S.FarStart - 6, 30, z), warm, Enum.Material.Neon, { Transparency = 1 }))
+		local wash = deco(part(lights, "CrowdWash", Vector3.new(1, 1, 1), CFrame.new(S.FarStart - 6, 30, z), warm, Enum.Material.SmoothPlastic, { Transparency = 1 }))
 		local spot = Instance.new("SpotLight")
 		spot.Face = Enum.NormalId.Right
 		spot.Angle = 70
 		spot.Range = 45
-		spot.Brightness = 1.2
+		spot.Brightness = 0.6
 		spot.Color = Color3.fromRGB(200, 210, 255)
 		spot.Parent = wash
 	end
@@ -262,8 +262,8 @@ local function buildHall(arena)
 	jumbo.Parent = arena
 	local screen = deco(part(jumbo, "Body", Vector3.new(1.5, 14, 34), CFrame.new(W - 1, 38, 0), Color3.fromRGB(16, 18, 28), Enum.Material.Metal))
 	screen:SetAttribute("Face", "Left")
-	deco(part(jumbo, "RimTop", Vector3.new(1.6, 0.5, 34.4), CFrame.new(W - 1, 45.2, 0), Config.UI.Chalk, Enum.Material.Neon))
-	deco(part(jumbo, "RimBottom", Vector3.new(1.6, 0.5, 34.4), CFrame.new(W - 1, 30.8, 0), Config.UI.Chalk, Enum.Material.Neon))
+	deco(part(jumbo, "RimTop", Vector3.new(1.6, 0.5, 34.4), CFrame.new(W - 1, 45.2, 0), Config.UI.Chalk, Enum.Material.SmoothPlastic))
+	deco(part(jumbo, "RimBottom", Vector3.new(1.6, 0.5, 34.4), CFrame.new(W - 1, 30.8, 0), Config.UI.Chalk, Enum.Material.SmoothPlastic))
 
 	-- LED boards along the far side of the free zone and at both ends (the client animates them)
 	local led = Instance.new("Folder")
@@ -308,15 +308,16 @@ local function buildHall(arena)
 end
 
 function ArenaBuilder.lighting()
-	Lighting.Ambient = Color3.fromRGB(70, 72, 96)
-	Lighting.OutdoorAmbient = Color3.fromRGB(80, 82, 108)
-	Lighting.Brightness = 1.2
+	-- a soft, even indoor light: readable colours, no glare, gentle shadows
+	Lighting.Ambient = Color3.fromRGB(88, 86, 96)
+	Lighting.OutdoorAmbient = Color3.fromRGB(96, 94, 104)
+	Lighting.Brightness = 0.8
 	Lighting.ClockTime = 20.5
-	Lighting.EnvironmentDiffuseScale = 0.35
-	Lighting.EnvironmentSpecularScale = 0.5
+	Lighting.EnvironmentDiffuseScale = 0.25
+	Lighting.EnvironmentSpecularScale = 0.15
 	Lighting.GlobalShadows = true
-	Lighting.ExposureCompensation = 0.2
-	Lighting.ShadowSoftness = 0.25
+	Lighting.ExposureCompensation = -0.25
+	Lighting.ShadowSoftness = 0.6
 
 	for _, child in ipairs(Lighting:GetChildren()) do
 		if child:GetAttribute("SpikeRush") then
@@ -324,27 +325,27 @@ function ArenaBuilder.lighting()
 		end
 	end
 	local bloom = Instance.new("BloomEffect")
-	bloom.Intensity = 0.6
-	bloom.Size = 26
-	bloom.Threshold = 1.3
+	bloom.Intensity = 0.18
+	bloom.Size = 18
+	bloom.Threshold = 2.2
 	bloom:SetAttribute("SpikeRush", true)
 	bloom.Parent = Lighting
 
 	local cc = Instance.new("ColorCorrectionEffect")
-	cc.Saturation = 0.2
-	cc.Contrast = 0.12
-	cc.Brightness = 0.02
-	cc.TintColor = Color3.fromRGB(255, 247, 238)
+	cc.Saturation = 0.02
+	cc.Contrast = 0.04
+	cc.Brightness = -0.02
+	cc.TintColor = Color3.fromRGB(252, 246, 238)
 	cc:SetAttribute("SpikeRush", true)
 	cc.Parent = Lighting
 
 	local atmo = Instance.new("Atmosphere")
-	atmo.Density = 0.18
-	atmo.Offset = 0.1
-	atmo.Color = Color3.fromRGB(170, 180, 230)
-	atmo.Decay = Color3.fromRGB(70, 80, 130)
+	atmo.Density = 0.06
+	atmo.Offset = 0
+	atmo.Color = Color3.fromRGB(150, 150, 170)
+	atmo.Decay = Color3.fromRGB(80, 80, 100)
 	atmo.Glare = 0
-	atmo.Haze = 1.1
+	atmo.Haze = 0.2
 	atmo:SetAttribute("SpikeRush", true)
 	atmo.Parent = Lighting
 end

@@ -29,6 +29,7 @@ MatchService.botVotes = {}
 MatchService.rallyResult = nil
 MatchService.rallyHits = {}
 MatchService.pendingTimeout = nil
+MatchService.waitingForPick = false
 
 local ATTACKS = { Spike = true, Feint = true, JumpServe = true, Overhand = true }
 
@@ -103,6 +104,7 @@ function MatchService.state()
 		votes = tally(),
 		botTier = botTier,
 		timeoutPending = MatchService.pendingTimeout,
+		waitingForPick = MatchService.waitingForPick,
 	}
 end
 
@@ -475,6 +477,18 @@ function MatchService.playMatch()
 	end
 end
 
+local function pickCount()
+	local n = 0
+	for userId in pairs(MatchService.votes) do
+		if Players:GetPlayerByUserId(userId) then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- The lobby waits for a player to pick a mode; nothing starts on its own. After the first pick
+-- the countdown runs (IntermissionTime), cut to IntermissionFastTime once everyone has picked.
 function MatchService.intermission()
 	local TS, BS = reg.TeamService, reg.BallService
 	TS.endMatch()
@@ -483,23 +497,33 @@ function MatchService.intermission()
 	MatchService.serverId = nil
 	MatchService.scores = { Home = 0, Away = 0 }
 	MatchService.sets = { Home = 0, Away = 0 }
-	MatchService.setPhase("Intermission", M.IntermissionTime)
-	while #Players:GetPlayers() < M.MinHumansToStart do
+	while true do
+		MatchService.waitingForPick = M.RequirePick
+		MatchService.setPhase("Intermission", M.IntermissionTime)
+		while #Players:GetPlayers() < M.MinHumansToStart or (M.RequirePick and pickCount() == 0) do
+			MatchService.phaseEnd = Util.now() + M.IntermissionTime
+			task.wait(0.2)
+		end
+		MatchService.waitingForPick = false
 		MatchService.phaseEnd = Util.now() + M.IntermissionTime
 		MatchService.broadcast()
-		task.wait(1)
-	end
-	while Util.now() < MatchService.phaseEnd do
-		local humans = #Players:GetPlayers()
-		local voted = 0
-		for _ in pairs(MatchService.votes) do
-			voted = voted + 1
+		local cancelled = false
+		while Util.now() < MatchService.phaseEnd do
+			local humans = #Players:GetPlayers()
+			local picked = pickCount()
+			if M.RequirePick and picked == 0 then
+				cancelled = true -- everyone who picked left: wait for a new pick
+				break
+			end
+			if humans > 0 and picked >= humans and MatchService.phaseEnd - Util.now() > M.IntermissionFastTime then
+				MatchService.phaseEnd = Util.now() + M.IntermissionFastTime
+				MatchService.broadcast()
+			end
+			task.wait(0.2)
 		end
-		if humans > 0 and voted >= humans and MatchService.phaseEnd - Util.now() > M.IntermissionFastTime then
-			MatchService.phaseEnd = Util.now() + M.IntermissionFastTime
-			MatchService.broadcast()
+		if not cancelled then
+			break
 		end
-		task.wait(0.2)
 	end
 	MatchService.mode = chooseMode()
 end
