@@ -657,18 +657,22 @@ Config.Bots = {
 	Names = { "Kaito", "Ren", "Sora", "Yuki", "Aoi", "Haru", "Riku", "Mei", "Taiga", "Nao", "Kira", "Shun", "Emi", "Jin" },
 	-- Skill by bot tier: every pair is { weakest (D-), strongest (S+) }, so a D- team is slow,
 	-- sloppy and mistake-prone while an S+ team is clean (on top of their stats).
-	JumpTimingNoise = { 0.15, 0.02 }, -- seconds
-	ContactNoise = { 1.3, 0.1 }, -- studs of positioning error under the ball
-	ReactionDelay = { 0.32, 0.03 }, -- seconds before starting to move for a new ball
-	PerfectReceiveChance = { 0.05, 0.65 },
-	SloppyStance = { 0.9, 0.3 }, -- how far outside the perfect window a normal receive is pressed
-	WhiffChance = { 0.3, 0.03 }, -- misses a heavy spike outright
-	MissChance = { 0.08, 0.0 }, -- misses any ball
-	SpikeMishitChance = { 0.35, 0.02 }, -- frames the swing (a weak, wild spike)
-	ServeMissChance = { 0.14, 0.01 }, -- jump serves only (the underhand serve never misses)
-	BlockChance = { 0.35, 0.9 },
-	ReadOutChance = { 0.45, 0.9 },
-	SlideChance = { 0.35, 0.85 },
+	-- (a bot plays at the lobby's bot level when its character is a lower tier: `skillP`)
+	JumpTimingNoise = { 0.12, 0.012 }, -- seconds
+	ContactNoise = { 1.1, 0.06 }, -- studs of positioning error under the ball
+	ReactionDelay = { 0.28, 0.02 }, -- seconds before starting to move for a new ball
+	PerfectReceiveChance = { 0.1, 0.8 },
+	SloppyStance = { 0.8, 0.2 }, -- how far outside the perfect window a normal receive is pressed
+	WhiffChance = { 0.25, 0.02 }, -- misses a heavy spike outright
+	MissChance = { 0.07, 0.0 }, -- misses any ball
+	SpikeMishitChance = { 0.3, 0.01 }, -- frames the swing (a weak, wild spike)
+	ServeMissChance = { 0.12, 0.01 }, -- jump serves only (the underhand serve never misses)
+	BlockChance = { 0.4, 0.95 },
+	ReadOutChance = { 0.5, 0.95 },
+	SlideChance = { 0.4, 0.9 },
+	-- characters that start a set weak by design (they scale up during it) only play as bots
+	-- when no other character of the role and tier is free
+	AvoidAbilities = { RisingSun = true, Counter = true },
 	FeintChance = 0.12,
 	-- bot serves: from this tier index (A-) a full-height jump-serve toss (thrown a little
 	-- forward to run into); below it the easy underhand serve, which always goes in
@@ -691,7 +695,8 @@ Config.Bots = {
 	-- the set goes higher ({worst, best} setter)
 	JumpSetChance = { 0.45, 1.0 },
 	JumpSetPassDepth = 3.4 * M,
-	TurnaboutChance = { 0.25, 0.6 }, -- a Turnabout setter arms it off a pass near the net
+	JumpSetSlack = 1.2, -- studs: a setter this far off its spot at takeoff sets from the ground
+	TurnaboutChance = { 0.15, 0.4 }, -- a Turnabout setter arms it off a pass it can jump for
 	RallyCryChance = 0.5, -- a Rally Cry bot pops it at a serve this often once it's ready
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long

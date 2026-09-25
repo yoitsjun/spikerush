@@ -42,8 +42,13 @@ local SKIN = {
 -- helpers
 ------------------------------------------------------------------------------------------
 
+-- A skill pair at this bot's level (the lobby's bot level, or its character's tier if higher).
+local function skillOf(e)
+	return e.skillP or e.charStats.p
+end
+
 local function tierPair(b, pair)
-	return Characters.byTier(b.entity.charStats, pair)
+	return pair[1] + (pair[2] - pair[1]) * skillOf(b.entity)
 end
 
 -- The stats this bot plays with right now (Adrenaline, Rising Sun and Rally Cry boost them).
@@ -56,7 +61,7 @@ end
 local function teamPair(team, pair)
 	for _, e in ipairs(reg.TeamService.members(team)) do
 		if e.isBot then
-			return Characters.byTier(e.charStats, pair)
+			return pair[1] + (pair[2] - pair[1]) * skillOf(e)
 		end
 	end
 	return pair[2]
@@ -210,6 +215,7 @@ local function resetTask(b)
 	b.coverFor = nil
 	b.backup = nil
 	b.notBefore = nil
+	b.setStandZ = nil
 end
 
 -- The nearest bot on `team` to z (skipping `excludeId` and `alsoExclude`), to cover a ball a
@@ -388,8 +394,12 @@ local function planJumpSet(b, side, now)
 	local jh = b.hum.JumpHeight
 	b.tApex = jumpTime(jh, P.HangGravityCancel)
 	local y = reg.TeamService.groundY(b.entity) + jh * 0.95 + Z.SetIdealY
+	local _, apex = BallPhysics.findApex(path, now)
+	if not apex or apex.Y < y + 0.3 then
+		return false -- the pass never gets that high
+	end
 	local t, p = descentTo(path, now, y, side)
-	if not t or p.Y < y - 0.3 or t - now < b.tApex + 0.15 then
+	if not t or t - now < b.tApex + 0.15 then
 		return false
 	end
 	b.targetZ = p.Z
@@ -431,14 +441,10 @@ local function planSet(team, now, exclude)
 		return
 	end
 	b.targetZ = p.Z
-	-- Turnabout: off a pass near the net the setter sometimes arms it; the set then spins over
-	-- as a spike, so it's always jumped for (and no quick is called)
+	b.setStandZ = p.Z -- where it sets from the ground if a jump set falls through
 	local e = b.entity
 	local near = math.abs(p.Z) <= B.JumpSetPassDepth
-	if e.ability == "Turnabout" and near and now >= (e.abilityReadyAt or 0) and b.rng:NextNumber() < tierPair(b, B.TurnaboutChance) then
-		reg.HitService.activateAbility(e)
-	end
-	local turn = e.ability == "Turnabout" and (e.abilityUntil or -1) >= now
+	local turn = e.ability == "Turnabout" and (e.abilityUntil or -1) >= now -- already armed: no quick
 	-- the wing spiker gets the ball; off a good pass (near the net) the setter sometimes calls a
 	-- quick to the middle instead, if the middle is close enough to the net to hit it
 	local target, setType = nil, "Open"
@@ -475,8 +481,15 @@ local function planSet(team, now, exclude)
 	b.targetId = target.id
 	if setType == "Quick" and bots[target.id] then
 		planQuick(bots[target.id], team, t, p)
-	elseif turn or (near and e.role == "SE" and b.rng:NextNumber() < tierPair(b, B.JumpSetChance)) then
-		planJumpSet(b, side, now)
+		return
+	end
+	-- a jump set off a pass near the net; Turnabout is only armed for a ball it can jump for
+	-- (from the ground it would just be a dump)
+	local arm = not turn and e.ability == "Turnabout" and near and now >= (e.abilityReadyAt or 0) and b.rng:NextNumber() < tierPair(b, B.TurnaboutChance)
+	if turn or arm or (near and e.role == "SE" and b.rng:NextNumber() < tierPair(b, B.JumpSetChance)) then
+		if planJumpSet(b, side, now) and arm then
+			reg.HitService.activateAbility(e)
+		end
 	end
 end
 
@@ -913,7 +926,10 @@ local function updateBot(b, now)
 		end
 	end
 	if b.jumpAt and now >= b.jumpAt then
-		if grounded and not b.slideUntil then
+		if b.task == "Set" and b.targetZ and math.abs(hrp.Position.Z - b.targetZ) > B.JumpSetSlack then
+			-- not under the ball in time for the jump set: set it from the ground instead
+			b.targetZ = b.setStandZ or b.targetZ
+		elseif grounded and not b.slideUntil then
 			hum.Jump = true
 			if b.task == "Spike" or b.task == "Quick" then
 				reg.HitService.fx(e.id, "Jump", "Spike")

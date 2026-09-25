@@ -401,6 +401,12 @@ do
 	local dm, dStats = clean("D-")
 	local s, sStats = clean("S")
 	check(dm < 0.5 and s > 0.85 and Characters.byTier(dStats, B.ReactionDelay) > 5 * Characters.byTier(sStats, B.ReactionDelay), "a D- bot team dig-spike-serves cleanly under half the time, an S team almost always", string.format("clean D- %.0f%%, S %.0f%%; reaction %.2f s vs %.2f s", dm * 100, s * 100, Characters.byTier(dStats, B.ReactionDelay), Characters.byTier(sStats, B.ReactionDelay)))
+	-- TeamService: a bot plays at the lobby's bot level when its character is a lower tier (an
+	-- S+ lobby fields S middles and setters, there being no S+ ones)
+	local lvl = (Characters.tierIndex("S+") - 1) / (#Config.Tiers - 1)
+	local skillP = math.max(sStats.p, lvl)
+	local perfect = B.PerfectReceiveChance[1] + (B.PerfectReceiveChance[2] - B.PerfectReceiveChance[1]) * skillP
+	check(skillP == 1 and perfect >= 0.8 and sStats.p < 1, "an S+ lobby's bots play at S+ skill even as S characters", string.format("perfect receives %.0f%% (an S character's own tier: %.0f%%)", perfect * 100, Characters.byTier(sStats, B.PerfectReceiveChance) * 100))
 end
 
 print("== gold upgrades ==")
@@ -883,6 +889,83 @@ do
 	local _, gA = BallPhysics.findApex(BallPhysics.buildPath(groundSet.launch), 0)
 	local _, jA = BallPhysics.findApex(BallPhysics.buildPath(jumpSet.launch), 0)
 	check(jA.Y > gA.Y + 3, "a jump set releases higher, so the set goes higher", string.format("apex %.1f vs %.1f studs", jA.Y, gA.Y))
+
+	-- the bot setter's jump set (BotService.planJumpSet and its airborne sweep), off a real pass:
+	-- it takes off so the top of its jump meets the ball; early or late by its timing noise it
+	-- still has to connect, and the set has to reach the attack spot
+	do
+		local SE = Characters.stats("S", "SE")
+		local g, P = Config.Player.Gravity, Config.Player
+		local jh = Characters.jumpHeight(SE, GROUND)
+		local function jump()
+			local v, y, t, out = math.sqrt(2 * g * jh), 0, 0, {}
+			local dt = 1 / 240
+			local apexT = nil
+			while t < 3 do
+				local a = g
+				if math.abs(v) < P.HangVelocityWindow then
+					a = g * (1 - P.HangGravityCancel)
+				end
+				v = v - a * dt
+				y = y + v * dt
+				t = t + dt
+				if not apexT and v <= 0 then
+					apexT = t
+				end
+				table.insert(out, y)
+				if y < 0 then
+					break
+				end
+			end
+			return out, dt, apexT
+		end
+		local ys, dt, tApex = jump()
+		local function descentTo(path, now, y)
+			local apexT, apexP = BallPhysics.findApex(path, now)
+			if apexP and apexP.Y < y and apexP.Z * side > 0 then
+				return apexT, apexP
+			end
+			return BallPhysics.findTime(path, now, function(pos, vel)
+				return vel.Y < 0 and pos.Y <= y and pos.Z * side > 0
+			end)
+		end
+		local recRoot = vec(0, GROUND, side * 18 * K)
+		local _, pass = receive(recRoot, vec(0, recRoot.Y + Z.ReceiveIdealY, recRoot.Z - side * Z.ReceiveForward), { value = 120, max = 120 })
+		local path = BallPhysics.buildPath(pass.launch)
+		local y = GROUND + jh * 0.95 + Z.SetIdealY
+		local tc, pc = descentTo(path, 0, y)
+		local results = {}
+		local _, pa = BallPhysics.findApex(path, 0)
+		local allOk = tc ~= nil and pa ~= nil and pa.Y >= y + 0.3
+		for _, err in ipairs({ 0, -0.075, 0.075 }) do
+			local jumpAt = tc - tApex + err
+			local hit = nil
+			local tt = jumpAt
+			while allOk and tt < path.landing.t do
+				local i = math.floor((tt - jumpAt) / dt)
+				local ry = GROUND + (i >= 1 and i <= #ys and math.max(0, ys[i]) or 0)
+				local root = vec(0, ry, pc.Z)
+				local pos, vel = BallPhysics.positionAt(path, tt), BallPhysics.velocityAt(path, tt)
+				if vel.Y < 0 and (HitLogic.setZone(root, pos, side, SE)) and pos.Y - root.Y <= Z.SetIdealY + 0.4 then
+					hit = { root = root, ball = pos, t = tt }
+					break
+				end
+				tt = tt + 1 / 60
+			end
+			if hit then
+				local okSet, setRes = HitLogic.compute({ action = "Set", t = hit.t, root = hit.root, ball = hit.ball, grounded = false, setType = "Open" },
+					ctx({ touchNumber = 2, stats = SE, lastHit = { team = "Away", hitType = "Bump" } }))
+				local sp = okSet and BallPhysics.buildPath(setRes.launch)
+				local good = sp and sp.landing.pos.Z * side > 0 and not sp.flags.netTouch and setRes.meta.quality >= 0.5
+				table.insert(results, string.format("%+.3fs: %s q%.2f lift %.1f", err, good and "ok" or "BAD", setRes.meta.quality or 0, hit.ball.Y - (GROUND + Z.SetIdealY)))
+				allOk = allOk and good
+			else
+				table.insert(results, string.format("%+.3fs: MISS", err))
+				allOk = false
+			end
+		end
+		check(allOk, "a bot setter's jump set meets a real pass at the top of its jump, early or late by its timing noise", table.concat(results, ", "))
+	end
 
 	-- Rising Sun: a low A at 0 points; every 3rd point lost adds a level; at 12 it beats YeJun
 	local lv = {}
