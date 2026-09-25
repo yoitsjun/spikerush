@@ -1158,6 +1158,9 @@ local function endSequence(seq)
 	S.root.Visible = false
 	S.cin.root.Visible = false
 	hideCard()
+	if ui.pages[screen] then
+		ui.pages[screen].Visible = true -- the screen comes back once the recruit is over
+	end
 	S.sparks:ClearAllChildren()
 	mods.SceneController.clearBalls()
 	MenuController.applyScene() -- back to the screen's own scene and shot
@@ -1180,6 +1183,14 @@ local function playSequence(reveal)
 		best = math.max(best, rank)
 	end
 	local gold = best >= 4
+	-- the recruit has the screen to itself: no menus, panels or buttons behind it
+	for _, f in pairs(ui.pages) do
+		f.Visible = false
+	end
+	ui.match.modal.root.Visible = false
+	ui.odds.modal.root.Visible = false
+	ui.help.root.Visible = false
+	mods.UIController.closeSettings()
 	S.root.Visible = true
 	S.black.BackgroundTransparency = 0
 	S.cont.Visible = false

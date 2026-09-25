@@ -1144,6 +1144,12 @@ local function buildCorner()
 	ui.settings = sp
 end
 
+function UIController.closeSettings()
+	if ui.settings then
+		ui.settings.Visible = false
+	end
+end
+
 -- The settings panel, opened from the menus' own Settings button: it shows just under that
 -- button (belowY, a screen position from the very top) and above the menus.
 function UIController.toggleSettings(belowY)
