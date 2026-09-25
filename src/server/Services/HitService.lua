@@ -26,11 +26,22 @@ local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge
 local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true }
 local requestLog = {}
 local intentAt = {} -- entityId -> os.clock() of the player's last attempt to play the ball
+local missedAt = {} -- entityId -> os.clock() of the player's last whiffed swing or dig
 
 -- Seconds since this player last tried to play the ball (a receive stance, slide, jump, block,
 -- charge or any touch request). Bots covering a human's ball hold off while this is small.
 function HitService.intentAge(entityId)
 	local t = intentAt[entityId]
+	if not t then
+		return math.huge
+	end
+	return os.clock() - t
+end
+
+-- Seconds since this player last swung at the ball and missed. A covering bot plays the ball
+-- right away after a miss instead of waiting for the player to try again.
+function HitService.missAge(entityId)
+	local t = missedAt[entityId]
 	if not t then
 		return math.huge
 	end
@@ -292,6 +303,9 @@ function HitService.init(r)
 		if INTENT[kind] then
 			intentAt[e.id] = os.clock()
 		end
+		if kind == "Whiff" then
+			missedAt[e.id] = os.clock()
+		end
 		if type(extra) ~= "string" or #extra > 16 then
 			extra = nil
 		end
@@ -300,6 +314,7 @@ function HitService.init(r)
 	Players.PlayerRemoving:Connect(function(plr)
 		requestLog[plr] = nil
 		intentAt["P_" .. tostring(plr.UserId)] = nil
+		missedAt["P_" .. tostring(plr.UserId)] = nil
 	end)
 end
 

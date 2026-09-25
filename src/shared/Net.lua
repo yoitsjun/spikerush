@@ -18,6 +18,8 @@ Net.Names = {
 	"SetCharacter",
 	"Timeout",
 	"Profile",
+	"Forfeit",
+	"Rotation",
 }
 
 local cache = {}

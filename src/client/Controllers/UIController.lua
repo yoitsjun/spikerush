@@ -21,6 +21,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
 local Characters = require(Shared.Characters)
+local Court = require(Shared.Court)
 local Spins = require(Shared.Spins)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
@@ -231,13 +232,35 @@ local function buildTopBar()
 	end
 	local sHome = score(0, Enum.TextXAlignment.Right)
 	local sAway = score(150, Enum.TextXAlignment.Left)
+	-- the points this set is played to (rises in a deuce), in a yellow diamond between the scores
+	local diamond = make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(120, 27),
+		Size = UDim2.fromOffset(32, 32),
+		Rotation = 45,
+		BackgroundColor3 = UI.Spark,
+		BorderSizePixel = 0,
+	}, mid)
+	corner(diamond, 4)
+	stroke(diamond, 2, UI.Ink)
+	local target = label(mid, {
+		Text = "15",
+		Font = Enum.Font.GothamBlack,
+		TextSize = 18,
+		TextColor3 = UI.Ink,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(120, 27),
+		Size = UDim2.fromOffset(40, 24),
+		TextXAlignment = Enum.TextXAlignment.Center,
+		ZIndex = 2,
+	})
 	label(mid, {
-		Text = "VS",
-		Font = Enum.Font.Bangers,
-		TextSize = 24,
+		Text = "PLAY TO",
+		Font = Enum.Font.GothamBlack,
+		TextSize = 8,
 		TextColor3 = UI.Fog,
-		Size = UDim2.fromOffset(60, 44),
-		Position = UDim2.fromOffset(90, 4),
+		Size = UDim2.fromOffset(60, 10),
+		Position = UDim2.fromOffset(90, 0),
 		TextXAlignment = Enum.TextXAlignment.Center,
 	})
 	local setLine = label(mid, {
@@ -276,7 +299,7 @@ local function buildTopBar()
 		Position = UDim2.fromScale(0.64, 0),
 	})
 	stroke(height, 2, UI.Ink)
-	ui.top = { bar = bar, Home = home, Away = away, sHome = sHome, sAway = sAway, setLine = setLine, serveDot = serveDot, kmh = kmh, height = height, shownAt = -10 }
+	ui.top = { bar = bar, Home = home, Away = away, sHome = sHome, sAway = sAway, setLine = setLine, serveDot = serveDot, kmh = kmh, height = height, shownAt = -10, target = target, diamond = diamond }
 end
 
 local function refreshTopBar()
@@ -288,7 +311,17 @@ local function refreshTopBar()
 	t.sAway.Text = tostring(scores.Away or 0)
 	t.sHome.TextColor3 = teamColor("Home")
 	t.sAway.TextColor3 = teamColor("Away")
-	t.setLine.Text = string.format("Set %d   sets %d-%d", m.setNumber or 1, sets.Home or 0, sets.Away or 0)
+	local playTo, deuce = Court.playTo(scores.Home or 0, scores.Away or 0, m.target or Config.Match.PointsPerSet)
+	t.target.Text = tostring(playTo)
+	if deuce then
+		t.setLine.Text = string.format("DEUCE, win by %d   set %d", Config.Match.WinBy, m.setNumber or 1)
+		t.setLine.TextColor3 = UI.Whistle
+		t.diamond.BackgroundColor3 = UI.Whistle
+	else
+		t.setLine.Text = string.format("Set %d   sets %d-%d", m.setNumber or 1, sets.Home or 0, sets.Away or 0)
+		t.setLine.TextColor3 = UI.Fog
+		t.diamond.BackgroundColor3 = UI.Spark
+	end
 	if m.servingTeam == "Away" then
 		t.serveDot.Position = UDim2.fromOffset(232, 24)
 	else
@@ -837,68 +870,61 @@ end
 ------------------------------------------------------------------------------------------
 
 local RAIL = {
-	{ action = "Spike", glyph = "\u{1F4A5}", key = "Z", pad = "A", color = Color3.fromRGB(235, 70, 60) },
-	{ action = "Receive", glyph = "\u{1F6E1}", key = "S", pad = "B", color = Color3.fromRGB(50, 130, 235) },
-	{ action = "SlideFeint", glyph = "\u{1F4A8}", key = "C", pad = "RB", color = Color3.fromRGB(70, 180, 140) },
-	{ action = "Block", glyph = "\u{270B}", key = "W", pad = "Y", color = Color3.fromRGB(120, 110, 220) },
-	{ action = "Set", glyph = "\u{1F64C}", key = "E", pad = "LB", color = Color3.fromRGB(240, 170, 60) },
-	{ action = "Serve", glyph = "\u{1F3D0}", key = "X", pad = "X", color = Color3.fromRGB(245, 200, 40) },
+	{ action = "Spike", key = "Z", pad = "A", color = Color3.fromRGB(235, 70, 60) },
+	{ action = "Receive", key = "S", pad = "B", color = Color3.fromRGB(50, 130, 235) },
+	{ action = "SlideFeint", key = "C", pad = "RB", color = Color3.fromRGB(70, 180, 140) },
+	{ action = "Block", key = "W", pad = "Y", color = Color3.fromRGB(120, 110, 220) },
+	{ action = "Set", key = "E", pad = "LB", color = Color3.fromRGB(240, 170, 60) },
+	{ action = "Serve", key = "X", pad = "X", color = Color3.fromRGB(245, 200, 40) },
 }
 
 local function buildRail()
 	local rail = make("Frame", {
 		Name = "ControlRail",
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 14, 0.56, 0),
-		Size = UDim2.fromOffset(96, 6 * 82),
+		Position = UDim2.new(0, 12, 0.56, 0),
+		Size = UDim2.fromOffset(124, 6 * 34),
 		BackgroundTransparency = 1,
 		Visible = false,
 	}, gui)
 	ui.railScale = make("UIScale", {}, rail)
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Vertical,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
-		Padding = UDim.new(0, 6),
+		Padding = UDim.new(0, 4),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, rail)
 	local slots = {}
 	for i, def in ipairs(RAIL) do
-		local slot = make("Frame", { Size = UDim2.fromOffset(96, 76), BackgroundTransparency = 1, LayoutOrder = i }, rail)
+		-- a compact pill: key badge + action name
 		local b = make("TextButton", {
-			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.new(0.5, 0, 0, 0),
-			Size = UDim2.fromOffset(56, 56),
+			Size = UDim2.fromOffset(124, 30),
 			BackgroundColor3 = UI.Ink,
 			BackgroundTransparency = 0.25,
 			AutoButtonColor = false,
-			Text = def.glyph,
-			TextSize = 26,
-			Font = Enum.Font.GothamBlack,
-			TextColor3 = UI.Chalk,
-		}, slot)
-		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, b)
-		local ring = make("UIStroke", { Thickness = 2.5, Color = UI.Chalk, Transparency = 0.35, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+			Text = "",
+			LayoutOrder = i,
+		}, rail)
+		corner(b, 8)
+		local ring = make("UIStroke", { Thickness = 1.5, Color = UI.Chalk, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
 		local badge = make("TextLabel", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(1, -2, 0, 4),
-			Size = UDim2.fromOffset(26, 18),
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 4, 0.5, 0),
+			Size = UDim2.fromOffset(34, 22),
 			BackgroundColor3 = UI.Chalk,
 			TextColor3 = UI.Ink,
 			Font = Enum.Font.GothamBlack,
 			TextSize = 11,
 			Text = def.key,
 		}, b)
-		make("UICorner", { CornerRadius = UDim.new(0, 5) }, badge)
-		local name = label(slot, {
+		corner(badge, 5)
+		local name = label(b, {
 			Text = def.action,
-			Font = Enum.Font.GothamBold,
-			TextSize = 12,
-			Size = UDim2.new(1, 0, 0, 16),
-			Position = UDim2.fromOffset(0, 58),
-			TextXAlignment = Enum.TextXAlignment.Center,
+			Font = Enum.Font.GothamBlack,
+			TextSize = 13,
+			Size = UDim2.new(1, -46, 1, 0),
+			Position = UDim2.fromOffset(44, 0),
 		})
-		stroke(name, 1.5, UI.Ink)
 		-- mouse users can click the rail too
 		b.MouseButton1Down:Connect(function()
 			mods.ActionController.press(def.action)
@@ -908,7 +934,7 @@ local function buildRail()
 		end
 		b.MouseButton1Up:Connect(up)
 		b.MouseLeave:Connect(up)
-		slots[def.action] = { slot = slot, button = b, ring = ring, badge = badge, name = name, def = def }
+		slots[def.action] = { slot = b, button = b, ring = ring, badge = badge, name = name, def = def }
 	end
 	ui.rail = { frame = rail, slots = slots }
 end
@@ -951,14 +977,16 @@ local function updateRail()
 		sl.name.Text = namer and namer(ctx) or (action == "SlideFeint" and "Slide" or action)
 		if live[action] then
 			sl.ring.Color = def.color
-			sl.ring.Thickness = 4
+			sl.ring.Thickness = 2.5
 			sl.ring.Transparency = 0
 			sl.button.BackgroundColor3 = def.color:Lerp(UI.Ink, 0.55)
+			sl.badge.BackgroundColor3 = def.color
 		else
 			sl.ring.Color = UI.Chalk
-			sl.ring.Thickness = 2.5
-			sl.ring.Transparency = 0.45
+			sl.ring.Thickness = 1.5
+			sl.ring.Transparency = 0.6
 			sl.button.BackgroundColor3 = UI.Ink
+			sl.badge.BackgroundColor3 = UI.Chalk
 		end
 	end
 end
@@ -988,6 +1016,26 @@ local function buildCorner()
 		click()
 		mods.ActionController.press("Timeout")
 	end)
+	-- forfeit: tap once to arm, again within 3 seconds to give up the match
+	local forfeit = button(gui, "Forfeit", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -188, 0, 12),
+		Size = UDim2.fromOffset(100, 36),
+		BackgroundColor3 = UI.Ink,
+		TextSize = 14,
+		Visible = false,
+	})
+	stroke(forfeit, 2, UI.InkSoft)
+	forfeit.MouseButton1Click:Connect(function()
+		click()
+		if ui.forfeitArmed and os.clock() - ui.forfeitArmed < 3 then
+			ui.forfeitArmed = nil
+			Net.get("Forfeit"):FireServer()
+		else
+			ui.forfeitArmed = os.clock()
+		end
+	end)
+	ui.forfeit = forfeit
 	local gear = button(gui, "⚙", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -12, 0, 12),
@@ -1046,6 +1094,16 @@ local function updateTimeout()
 	local b = ui.timeout
 	local show = State.isPlaying and State.match.inMatch == true
 	b.Visible = show
+	local f = ui.forfeit
+	f.Visible = show and State.phase() ~= "MatchEnd"
+	if ui.forfeitArmed and os.clock() - ui.forfeitArmed < 3 then
+		f.Text = "Sure?"
+		f.TextColor3 = UI.Whistle
+	else
+		ui.forfeitArmed = nil
+		f.Text = "Forfeit"
+		f.TextColor3 = UI.Fog
+	end
 	if show then
 		local left = State.timeouts(State.myTeam)
 		if State.match.timeoutPending then
@@ -1946,6 +2004,9 @@ local function showResults(a)
 	r.title.Text = teamName(a.winner) .. " win"
 	r.title.TextColor3 = teamColor(a.winner)
 	r.mvp.Text = a.mvpName and ("MVP " .. a.mvpName) or ""
+	if a.forfeit then
+		r.mvp.Text = teamName(a.forfeit) .. " forfeited"
+	end
 	local header = {}
 	for i, c in ipairs(COLS) do
 		header[i] = c[1]
@@ -1969,7 +2030,9 @@ end
 local function onAnnounce(a)
 	if a.kind == "Point" then
 		showBanner(a)
-		if a.matchPoint then
+		if a.deuce then
+			UIController.callout("Deuce!", UI.Whistle, "Play to " .. tostring(a.playTo), 1.2)
+		elseif a.matchPoint then
 			UIController.callout("Match point", teamColor(a.setPoint), teamName(a.setPoint), 1.2)
 		elseif a.setPoint then
 			UIController.callout("Set point", teamColor(a.setPoint), teamName(a.setPoint), 1.2)
@@ -1988,10 +2051,12 @@ local function onAnnounce(a)
 		if a.id == State.myId then
 			showHint("Your serve: tap X for an overhand serve, hold X to toss for a jump serve")
 		end
+	elseif a.kind == "Forfeit" then
+		UIController.callout("Forfeit", teamColor(a.team), teamName(a.team) .. " gave up the match", 1.6)
 	elseif a.kind == "TimeoutCalled" then
 		showHint(teamName(a.team) .. " called a timeout (next dead ball)")
 	elseif a.kind == "Timeout" then
-		UIController.callout("Timeout", teamColor(a.team), "Stamina refilled", 1.6)
+		UIController.callout("Timeout", teamColor(a.team), "Stamina refilled. Rearrange your rotation", 1.6)
 	elseif a.kind == "Break" then
 		if a.team == State.myTeam then
 			showHint("Guard broken! Slide to receive (C) or call a timeout (T)")
@@ -2022,10 +2087,91 @@ local function updateFast()
 	updateRail()
 end
 
+------------------------------------------------------------------------------------------
+-- timeout: rearrange your rotation and pick the next server
+------------------------------------------------------------------------------------------
+
+local ROLE_NAME = { WS = "Wing spiker", MB = "Middle blocker", SE = "Setter", Solo = "Solo" }
+
+local function buildRotation()
+	local f = panel(gui, {
+		Name = "Rotation",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 130),
+		Size = UDim2.fromOffset(460, 64 + 3 * 46),
+		Visible = false,
+	})
+	stroke(f, 2, UI.InkSoft)
+	local title = label(f, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 16, Size = UDim2.new(1, -24, 0, 22), Position = UDim2.fromOffset(12, 8) })
+	label(f, {
+		Text = "Rotation order. Serve picks who serves next; Up and Down change the order.",
+		Font = Enum.Font.GothamBold,
+		TextSize = 11,
+		TextColor3 = UI.Fog,
+		Size = UDim2.new(1, -24, 0, 16),
+		Position = UDim2.fromOffset(12, 32),
+	})
+	local rows = {}
+	for i = 1, 3 do
+		local y = 56 + (i - 1) * 46
+		local row = make("Frame", { Size = UDim2.new(1, -24, 0, 40), Position = UDim2.fromOffset(12, y), BackgroundColor3 = UI.InkSoft, BorderSizePixel = 0 }, f)
+		corner(row, 8)
+		local name = label(row, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, -200, 0, 20), Position = UDim2.fromOffset(10, 3) })
+		local sub = label(row, { Text = "", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = UI.Fog, Size = UDim2.new(1, -200, 0, 14), Position = UDim2.fromOffset(10, 22) })
+		local r = { frame = row, name = name, sub = sub }
+		local function op(kind)
+			return function()
+				if r.id then
+					click()
+					Net.get("Rotation"):FireServer(kind, r.id)
+				end
+			end
+		end
+		r.serve = button(row, "Serve", { Size = UDim2.fromOffset(64, 30), Position = UDim2.new(1, -186, 0, 5), TextSize = 12 })
+		r.up = button(row, "Up", { Size = UDim2.fromOffset(54, 30), Position = UDim2.new(1, -118, 0, 5), TextSize = 12 })
+		r.down = button(row, "Down", { Size = UDim2.fromOffset(58, 30), Position = UDim2.new(1, -60, 0, 5), TextSize = 12 })
+		r.serve.MouseButton1Click:Connect(op("serve"))
+		r.up.MouseButton1Click:Connect(op("up"))
+		r.down.MouseButton1Click:Connect(op("down"))
+		rows[i] = r
+	end
+	ui.rotation = { frame = f, title = title, rows = rows }
+end
+
+local function updateRotation()
+	local R = ui.rotation
+	local show = State.isPlaying and State.match.inMatch == true and State.phase() == "Timeout" and State.myTeam ~= nil
+	R.frame.Visible = show
+	if not show then
+		return
+	end
+	local left = math.max(0, math.ceil((State.match.phaseEnd or 0) - Util.now()))
+	R.title.Text = "Timeout " .. left .. "   " .. teamName(State.myTeam) .. " rotation"
+	local roster = State.roster(State.myTeam)
+	local serving = State.match.servingTeam == State.myTeam
+	local nextServer = serving and 1 or math.min(2, #roster)
+	for i, r in ipairs(R.rows) do
+		local e = roster[i]
+		r.frame.Visible = e ~= nil
+		r.id = e and e.id
+		if e then
+			r.name.Text = i .. ".  " .. e.name .. (e.id == State.myId and "  (you)" or "")
+			r.name.TextColor3 = e.id == State.myId and UI.Spark or UI.Chalk
+			r.sub.Text = (ROLE_NAME[e.role] or e.role or "") .. (i == nextServer and "   serves next" or "")
+			r.sub.TextColor3 = i == nextServer and UI.Mint or UI.Fog
+			r.up.TextColor3 = i > 1 and UI.Chalk or UI.Fog
+			r.down.TextColor3 = i < #roster and UI.Chalk or UI.Fog
+			r.serve.Visible = #roster > 1
+		end
+	end
+	R.frame.Size = UDim2.fromOffset(460, 64 + #roster * 46)
+end
+
 local function updateSlow()
 	updateStamina()
 	updateAbility()
 	updateTimeout()
+	updateRotation()
 	updateLobby()
 end
 
@@ -2047,6 +2193,7 @@ function UIController.init(m)
 	buildCorner()
 	buildLobby()
 	buildResults()
+	buildRotation()
 
 	State.signals.Announce:Connect(function(a)
 		if a.kind == "Point" then

@@ -46,6 +46,16 @@ local function tierPair(b, pair)
 	return Characters.byTier(b.entity.charStats, pair)
 end
 
+-- A team-level decision (reading the ball out): the skill of that team's bots.
+local function teamPair(team, pair)
+	for _, e in ipairs(reg.TeamService.members(team)) do
+		if e.isBot then
+			return Characters.byTier(e.charStats, pair)
+		end
+	end
+	return pair[2]
+end
+
 local function stop(b)
 	b.hum:Move(Vector3.zero)
 end
@@ -96,6 +106,46 @@ end
 local function rootZ(e)
 	local r = reg.TeamService.getRoot(e)
 	return r and r.Position.Z
+end
+
+-- Formation spots (z) for a team's bots. A human who has clearly moved onto a teammate's spot
+-- (say, up to the net to block) takes it over, and that teammate fills the spot they left.
+local function formationFor(team, kind)
+	local side = Court.sideOf(team)
+	local members = reg.TeamService.members(team)
+	local spots = {}
+	for _, e in ipairs(members) do
+		spots[e.id] = Court.formationSpot(kind, e.role, side).Z
+	end
+	local takenBy = {} -- member id whose spot a human is standing on -> that human's id
+	for _, e in ipairs(members) do
+		local z = not e.isBot and rootZ(e)
+		if z then
+			local own = math.abs(spots[e.id] - z)
+			local best, bestD = nil, math.huge
+			for _, o in ipairs(members) do
+				local d = math.abs(spots[o.id] - z)
+				if o.id ~= e.id and d < bestD then
+					best, bestD = o, d
+				end
+			end
+			if best and bestD + B.SwapMargin < own then
+				takenBy[best.id] = e.id
+			end
+		end
+	end
+	local out = {}
+	for _, e in ipairs(members) do
+		if e.isBot then
+			local human = takenBy[e.id]
+			if human and not takenBy[human] then
+				out[e.id] = spots[human]
+			else
+				out[e.id] = spots[e.id]
+			end
+		end
+	end
+	return out
 end
 
 -- Closest team member to z. Humans get a head start so bots never steal their ball.
@@ -198,9 +248,17 @@ local function coverBot(team, z, excludeId)
 	return best
 end
 
--- A covering bot holds off while its human is trying to play the ball.
+-- A covering bot holds off while its human is trying to play the ball, but not once they've
+-- swung and missed: then it goes for the ball (a missed spike gets sent over as a free ball).
 local function yieldsToHuman(b)
-	return b.coverFor ~= nil and reg.HitService.intentAge(b.coverFor) < B.CoverYield
+	if b.coverFor == nil then
+		return false
+	end
+	local HS = reg.HitService
+	if HS.missAge(b.coverFor) < B.CoverAfterMiss then
+		return false
+	end
+	return HS.intentAge(b.coverFor) < B.CoverYield
 end
 
 -- When the ball comes down to `y` on `side` (or its apex if it never gets that high).
@@ -248,7 +306,7 @@ local function planReceive(team, now, exclude)
 	local broken = reg.TeamService.stamina[team].value <= 0
 	local heavy = HitLogic.isHeavy(BS.lastHit)
 	if (gap > walk * timeLeft and gap < walk * timeLeft + P.SlideSpeed * P.SlideTime) or (broken and heavy) then
-		if b.rng:NextNumber() < B.SlideChance then
+		if b.rng:NextNumber() < tierPair(b, B.SlideChance) then
 			b.slideAt = t - 0.3
 		end
 	end
@@ -256,7 +314,7 @@ local function planReceive(team, now, exclude)
 	if b.rng:NextNumber() < tierPair(b, B.PerfectReceiveChance) then
 		b.stanceAge = H.PerfectStanceMin + b.rng:NextNumber() * (H.PerfectStanceMax - H.PerfectStanceMin)
 	else
-		b.stanceAge = H.PerfectStanceMax + 0.05 + b.rng:NextNumber() * 0.35
+		b.stanceAge = H.PerfectStanceMax + 0.05 + b.rng:NextNumber() * tierPair(b, B.SloppyStance)
 	end
 end
 
@@ -421,7 +479,7 @@ local function planPlay(team, now)
 	end
 	-- read the ball: an opponent ball clearly going out is left alone
 	if last and last.team ~= team and Court.outMargin(path.landing.pos) > 1.2 then
-		if math.random() < B.ReadOutChance then
+		if math.random() < teamPair(team, B.ReadOutChance) then
 			return
 		end
 	end
@@ -461,7 +519,7 @@ local function planBlock(team, now)
 			break
 		end
 	end
-	if blocker and blocker.rng:NextNumber() < B.BlockChance then
+	if blocker and blocker.rng:NextNumber() < tierPair(blocker, B.BlockChance) then
 		blocker.task = "Block"
 		blocker.targetZ = side * 0.4 * SPM
 		blocker.jumpAt = cT - blocker.tApex + 0.08 + (blocker.rng:NextNumber() * 2 - 1) * tierPair(blocker, B.JumpTimingNoise)
@@ -488,8 +546,10 @@ local function plan(now)
 		if team == defTeam and last and last.team ~= team then
 			kind = "Receive"
 		end
+		local spots = formationFor(team, kind)
 		for _, b in ipairs(teamBots(team)) do
-			b.targetZ = Court.formationSpot(kind, b.entity.role, side).Z
+			b.formKind = kind
+			b.targetZ = spots[b.entity.id] or Court.formationSpot(kind, b.entity.role, side).Z
 		end
 	end
 	planPlay(defTeam, now)
@@ -512,6 +572,9 @@ local function act(b, action, ball, extra)
 end
 
 local function whiffs(b)
+	if b.rng:NextNumber() < tierPair(b, B.MissChance) then
+		return true
+	end
 	local last = reg.BallService.lastHit
 	if not HitLogic.isHeavy(last) then
 		return false
@@ -597,15 +660,22 @@ local function serveLogic(b, now, grounded, side)
 	end
 	local ball = BallPhysics.positionAt(path, now)
 	local vel = BallPhysics.velocityAt(path, now)
+	if s.miss == nil then
+		s.miss = b.rng:NextNumber() < tierPair(b, B.ServeMissChance)
+	end
+	local extra = {}
+	if s.miss then
+		extra.quality = 0.02 -- a serve error: long, wide or into the net
+	end
 	if s.jump and not grounded then
 		local ok, _, _, dy = HitLogic.spikeZone(root, ball, side, e.charStats, 1.1)
 		if ok and dy <= Z.SpikeCenterDy + 0.3 then
-			act(b, "Serve", ball, {})
+			act(b, "Serve", ball, extra)
 		end
 	elseif not s.jump and grounded then
 		local ok = HitLogic.floatZone(root, ball, side)
 		if ok and vel.Y < 0 and ball.Y <= root.Y + Z.FloatUp + 0.2 then
-			act(b, "Serve", ball, {})
+			act(b, "Serve", ball, extra)
 		end
 	end
 end
@@ -704,7 +774,12 @@ local function updateBot(b, now)
 		return
 	end
 
-	if b.targetZ and not b.slideUntil and not b.knockUntil and grounded then
+	-- weaker bots take a moment to read a new ball before they move
+	if b.planSeq ~= BS.seq then
+		b.planSeq = BS.seq
+		b.reactAt = now + tierPair(b, B.ReactionDelay)
+	end
+	if b.targetZ and not b.slideUntil and not b.knockUntil and grounded and now >= (b.reactAt or 0) then
 		local arrived = moveTo(b, b.targetZ)
 		if arrived then
 			faceNet(b, side)
@@ -788,7 +863,11 @@ local function updateBot(b, now)
 					end
 					reg.HitService.fx(e.id, "ChargeEnd")
 				end
-				act(b, b.feint and "Feint" or "Spike", p, { t = t, energy = energy })
+				local extra = { t = t, energy = energy }
+				if b.rng:NextNumber() < tierPair(b, B.SpikeMishitChance) then
+					extra.quality = 0.2 + 0.3 * b.rng:NextNumber() -- framed it
+				end
+				act(b, b.feint and "Feint" or "Spike", p, extra)
 				b.chargeFrom = nil
 			end
 		end
@@ -919,6 +998,28 @@ function BotService.onReset(e)
 	stop(b)
 end
 
+-- Idle bots keep re-reading the formation, so a teammate who moves (a human stepping up to
+-- block) is covered while the ball is in the air, not only at the next touch.
+local nextFormAt = 0
+local function refreshFormation(now)
+	if now < nextFormAt or reg.MatchService.phase ~= "Rally" then
+		return
+	end
+	nextFormAt = now + 0.2
+	for _, team in ipairs(Config.TeamOrder) do
+		local list = teamBots(team)
+		local kind = list[1] and list[1].formKind
+		if kind then
+			local spots = formationFor(team, kind)
+			for _, b in ipairs(list) do
+				if b.task == "Base" and spots[b.entity.id] then
+					b.targetZ = spots[b.entity.id]
+				end
+			end
+		end
+	end
+end
+
 function BotService.init(r)
 	reg = r
 	folder = workspace:FindFirstChild("Bots")
@@ -934,6 +1035,7 @@ function BotService.init(r)
 			planSeq, planPhase = BS.seq, MS.phase
 			plan(now)
 		end
+		refreshFormation(now)
 		for _, b in pairs(bots) do
 			local ok, err = pcall(updateBot, b, now)
 			if not ok then

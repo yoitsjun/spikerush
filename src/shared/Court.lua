@@ -10,6 +10,25 @@ local Court = {}
 local C = Config.Court
 local R = Config.Ball.Radius
 
+-- Points needed to win the set right now. The set is played to `base`, but once both teams
+-- reach base - 1 it's deuce: you must win by Match.WinBy, so the target rises with every tie
+-- (14-14 plays to 16, 15-15 to 17, ...). Match.PointCap ends it on a golden point.
+-- Returns the target and whether it's deuce.
+function Court.playTo(a, b, base)
+	local M = Config.Match
+	local lo = math.min(a, b)
+	local target = base
+	local deuce = false
+	if lo >= base - M.WinBy + 1 then
+		target = math.max(base, lo + M.WinBy)
+		deuce = true
+	end
+	if target > M.PointCap then
+		target = M.PointCap
+	end
+	return target, deuce
+end
+
 function Court.sideOf(team)
 	local t = Config.Teams[team]
 	return t and t.Side or 1

@@ -229,7 +229,7 @@ Config.Stamina = {
 
 Config.Timeout = {
 	PerSet = 2,
-	Duration = 5,
+	Duration = 10, -- long enough to rearrange the rotation
 	ResetBothTeams = true, -- a timeout refills stamina for everyone on court
 }
 
@@ -471,20 +471,29 @@ Config.TeamOrder = { "Home", "Away" }
 
 Config.Bots = {
 	Names = { "Kaito", "Ren", "Sora", "Yuki", "Aoi", "Haru", "Riku", "Mei", "Taiga", "Nao", "Kira", "Shun", "Emi", "Jin" },
-	JumpTimingNoise = { 0.09, 0.02 }, -- seconds, weakest tier -> strongest tier
-	ContactNoise = { 0.55, 0.12 }, -- studs of positioning error, weakest -> strongest
-	PerfectReceiveChance = { 0.15, 0.6 },
-	WhiffChance = { 0.12, 0.03 },
+	-- Skill by bot tier: every pair is { weakest (D-), strongest (S+) }, so a D- team is slow,
+	-- sloppy and mistake-prone while an S+ team is clean (on top of their stats).
+	JumpTimingNoise = { 0.15, 0.02 }, -- seconds
+	ContactNoise = { 1.3, 0.1 }, -- studs of positioning error under the ball
+	ReactionDelay = { 0.32, 0.03 }, -- seconds before starting to move for a new ball
+	PerfectReceiveChance = { 0.05, 0.65 },
+	SloppyStance = { 0.9, 0.3 }, -- how far outside the perfect window a normal receive is pressed
+	WhiffChance = { 0.3, 0.03 }, -- misses a heavy spike outright
+	MissChance = { 0.08, 0.0 }, -- misses any ball
+	SpikeMishitChance = { 0.35, 0.02 }, -- frames the swing (a weak, wild spike)
+	ServeMissChance = { 0.14, 0.01 },
+	BlockChance = { 0.35, 0.9 },
+	ReadOutChance = { 0.45, 0.9 },
+	SlideChance = { 0.35, 0.85 },
 	FeintChance = 0.12,
 	JumpServeTier = 9, -- tier index from which bots jump serve
-	BlockChance = 0.85,
-	ReadOutChance = 0.85,
-	SlideChance = 0.8,
 	ServeDelay = { 1.0, 2.0 },
 	-- Covering: when a ball is a human's to play, the nearest teammate bot shadows it and plays
 	-- it unless the human tried something (stance, slide, jump, block, touch) this recently.
 	CoverYield = 1.0,
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
+	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
+	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it
 }
 
 Config.Graphics = {

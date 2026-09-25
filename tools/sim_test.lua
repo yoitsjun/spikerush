@@ -287,6 +287,18 @@ do
 	check(old.Caps.Attack == 155 and old.Attack == 155, "a character from before rolled caps keeps the tier cap")
 end
 
+print("== deuce ==")
+do
+	local base = Config.Match.PointsPerSet
+	local t1, d1 = Court.playTo(13, 12, base)
+	local t2, d2 = Court.playTo(14, 14, base)
+	local t3 = Court.playTo(15, 14, base)
+	local t4, d4 = Court.playTo(15, 15, base)
+	local t5 = Court.playTo(24, 24, base)
+	local wins = 16 >= Court.playTo(16, 14, base) and not (15 >= Court.playTo(15, 14, base)) and 15 >= Court.playTo(15, 13, base)
+	check(t1 == base and not d1 and t2 == base + 1 and d2 and t3 == base + 1 and t4 == base + 2 and d4 and t5 == Config.Match.PointCap and wins, "deuce: 14-14 plays to 16, 15-15 to 17, capped at a golden point", string.format("13-12 to %d, 14-14 to %d, 15-14 to %d, 15-15 to %d, 24-24 to %d", t1, t2, t3, t4, t5))
+end
+
 print("== V Points spins ==")
 do
 	local rng = Random.new(11)

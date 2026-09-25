@@ -33,8 +33,9 @@ MatchService.waitingForPick = false
 
 local ATTACKS = { Spike = true, Feint = true, JumpServe = true, Overhand = true }
 
+-- Waits for a phase to run out; a forfeit cuts every wait short.
 local function waitUntil(t)
-	while Util.now() < t do
+	while Util.now() < t and not MatchService.forfeitTeam do
 		task.wait(0.05)
 	end
 end
@@ -271,13 +272,14 @@ function MatchService.awardPoint(res)
 	end
 
 	local s = MatchService.scores
-	local target = MatchService.target
-	local setOver = (s[winner] >= target and s[winner] - s[loser] >= M.WinBy) or s[winner] >= M.PointCap
+	local base = MatchService.target
+	local playTo, deuce = Court.playTo(s[winner], s[loser], base)
+	local setOver = s[winner] >= playTo
 	local setPoint = nil
 	if not setOver then
 		for _, team in ipairs(Config.TeamOrder) do
 			local mine, theirs = s[team] + 1, s[Court.other(team)]
-			if (mine >= target and mine - theirs >= M.WinBy) or mine >= M.PointCap then
+			if mine >= Court.playTo(mine, theirs, base) then
 				setPoint = team
 			end
 		end
@@ -298,6 +300,8 @@ function MatchService.awardPoint(res)
 		scores = s,
 		setPoint = setPoint,
 		matchPoint = matchPoint,
+		playTo = playTo,
+		deuce = deuce and not setOver and s[winner] == s[loser],
 	})
 	waitUntil(MatchService.phaseEnd)
 	return setOver
@@ -347,10 +351,16 @@ function MatchService.playRally()
 	end
 	MatchService.setPhase("PreServe", M.PreServeTime)
 	waitUntil(MatchService.phaseEnd)
+	if MatchService.forfeitTeam then
+		return nil
+	end
 	MatchService.setPhase("Serving", M.ServeClock)
 	MatchService.announce({ kind = "Serve", team = MatchService.servingTeam, id = MatchService.serverId, name = server and server.name })
 
 	while not MatchService.rallyResult do
+		if MatchService.forfeitTeam then
+			return nil
+		end
 		if MatchService.phase == "Serving" and BS.state == "Held" then
 			if not TS.getEntity(BS.holderId) then
 				local s = TS.serverOf(MatchService.servingTeam)
@@ -387,14 +397,20 @@ function MatchService.playSet()
 	MatchService.announce({ kind = "SetStart", setNumber = MatchService.setNumber, target = MatchService.target })
 	while true do
 		local res = MatchService.playRally()
+		if MatchService.forfeitTeam then
+			return nil
+		end
 		local setOver = MatchService.awardPoint(res)
 		if setOver then
 			return res.winner
 		end
+		if MatchService.forfeitTeam then
+			return nil
+		end
 	end
 end
 
-local function results(winner)
+local function results(winner, forfeitTeam)
 	local list = {}
 	local mvp, mvpScore = nil, -math.huge
 	local P = Config.Progression
@@ -406,7 +422,7 @@ local function results(winner)
 				score = score + 0.5
 			end
 			local reward = nil
-			if e.player then
+			if e.player and team ~= forfeitTeam then
 				reward = (team == winner and P.WinVP or P.LossVP) + P.PlayVP * (st.kills + st.aces + st.blocks)
 				reg.ProfileService.award(e.player, reward)
 			end
@@ -439,6 +455,7 @@ function MatchService.playMatch()
 	TS.assign(MatchService.mode)
 	TS.resetStats()
 	MatchService.pendingTimeout = nil
+	MatchService.forfeitTeam = nil
 	MatchService.scores = { Home = 0, Away = 0 }
 	MatchService.sets = { Home = 0, Away = 0 }
 	MatchService.setNumber = 1
@@ -451,14 +468,21 @@ function MatchService.playMatch()
 
 	while true do
 		local winner = MatchService.playSet()
-		MatchService.sets[winner] = MatchService.sets[winner] + 1
-		if MatchService.sets[winner] >= M.SetsToWin then
-			local list, mvp = results(winner)
+		local forfeit = MatchService.forfeitTeam
+		if forfeit then
+			winner = Court.other(forfeit)
+		else
+			MatchService.sets[winner] = MatchService.sets[winner] + 1
+		end
+		if forfeit or MatchService.sets[winner] >= M.SetsToWin then
+			local list, mvp = results(winner, forfeit)
 			BS.hide()
+			MatchService.forfeitTeam = nil -- let the results screen run its course
 			MatchService.setPhase("MatchEnd", M.MatchEndTime)
 			MatchService.announce({
 				kind = "MatchEnd",
 				winner = winner,
+				forfeit = forfeit,
 				sets = MatchService.sets,
 				results = list,
 				mvpId = mvp and mvp.id,
@@ -575,6 +599,31 @@ function MatchService.init(r)
 		MatchService.pendingTimeout = { team = e.team, name = e.name }
 		MatchService.announce({ kind = "TimeoutCalled", team = e.team, name = e.name })
 		MatchService.broadcast()
+	end)
+	-- during a timeout, either team can rearrange its rotation and pick its next server
+	Net.get("Rotation").OnServerEvent:Connect(function(plr, op, id)
+		local TS = reg.TeamService
+		local e = TS.entityForPlayer(plr)
+		if not e or not TS.inMatch or MatchService.phase ~= "Timeout" or type(id) ~= "string" then
+			return
+		end
+		if op ~= "up" and op ~= "down" and op ~= "serve" then
+			return
+		end
+		if TS.reorder(e.team, op, id, e.team == MatchService.servingTeam) then
+			MatchService.broadcast()
+		end
+	end)
+	-- a player gives up the match for their team (the client asks twice before sending)
+	Net.get("Forfeit").OnServerEvent:Connect(function(plr)
+		local TS = reg.TeamService
+		local e = TS.entityForPlayer(plr)
+		local phase = MatchService.phase
+		if not e or not TS.inMatch or MatchService.forfeitTeam or phase == "MatchEnd" or phase == "Intermission" then
+			return
+		end
+		MatchService.forfeitTeam = e.team
+		MatchService.announce({ kind = "Forfeit", team = e.team, name = e.name })
 	end)
 	Net.get("ClientReady").OnServerEvent:Connect(function(plr)
 		Net.get("MatchState"):FireClient(plr, MatchService.state())
