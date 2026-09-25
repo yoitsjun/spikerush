@@ -128,39 +128,10 @@ function TeamService.serverOf(team)
 	return id and TeamService.entities[id]
 end
 
--- Timeout rotation edits. "up"/"down" move a player one place in the order; "serve" turns the
--- whole rotation (keeping everyone's order) so that player serves next: first in the order for
--- the serving team, second for the receiving team (a side-out rotates before it serves).
+-- Timeout rotation edits (see Court.reorder).
 function TeamService.reorder(team, op, id, serving)
-	local order = TeamService.teams[team] and TeamService.teams[team].order
-	if not order then
-		return false
-	end
-	local i = nil
-	for k, v in ipairs(order) do
-		if v == id then
-			i = k
-		end
-	end
-	if not i then
-		return false
-	end
-	local n = #order
-	if op == "up" and i > 1 then
-		order[i], order[i - 1] = order[i - 1], order[i]
-	elseif op == "down" and i < n then
-		order[i], order[i + 1] = order[i + 1], order[i]
-	elseif op == "serve" and n > 1 then
-		local want = serving and 1 or 2
-		local guard = 0
-		while order[want] ~= id and guard < n do
-			table.insert(order, table.remove(order, 1))
-			guard = guard + 1
-		end
-	else
-		return false
-	end
-	return true
+	local t = TeamService.teams[team]
+	return t ~= nil and Court.reorder(t.order, op, id, serving)
 end
 
 -- Side-out: the next player in the order serves.

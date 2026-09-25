@@ -108,44 +108,14 @@ local function rootZ(e)
 	return r and r.Position.Z
 end
 
--- Formation spots (z) for a team's bots. A human who has clearly moved onto a teammate's spot
--- (say, up to the net to block) takes it over, and that teammate fills the spot they left.
+-- Formation spots for a team's bots, with humans who moved onto a teammate's spot (say, up to
+-- the net to block) swapped in (Court.formationFill).
 local function formationFor(team, kind)
-	local side = Court.sideOf(team)
-	local members = reg.TeamService.members(team)
-	local spots = {}
-	for _, e in ipairs(members) do
-		spots[e.id] = Court.formationSpot(kind, e.role, side).Z
+	local members = {}
+	for _, e in ipairs(reg.TeamService.members(team)) do
+		table.insert(members, { id = e.id, role = e.role, isBot = e.isBot, z = not e.isBot and rootZ(e) or nil })
 	end
-	local takenBy = {} -- member id whose spot a human is standing on -> that human's id
-	for _, e in ipairs(members) do
-		local z = not e.isBot and rootZ(e)
-		if z then
-			local own = math.abs(spots[e.id] - z)
-			local best, bestD = nil, math.huge
-			for _, o in ipairs(members) do
-				local d = math.abs(spots[o.id] - z)
-				if o.id ~= e.id and d < bestD then
-					best, bestD = o, d
-				end
-			end
-			if best and bestD + B.SwapMargin < own then
-				takenBy[best.id] = e.id
-			end
-		end
-	end
-	local out = {}
-	for _, e in ipairs(members) do
-		if e.isBot then
-			local human = takenBy[e.id]
-			if human and not takenBy[human] then
-				out[e.id] = spots[human]
-			else
-				out[e.id] = spots[e.id]
-			end
-		end
-	end
-	return out
+	return Court.formationFill(members, kind, Court.sideOf(team), B.SwapMargin)
 end
 
 -- Closest team member to z. Humans get a head start so bots never steal their ball.

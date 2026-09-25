@@ -299,6 +299,47 @@ do
 	check(t1 == base and not d1 and t2 == base + 1 and d2 and t3 == base + 1 and t4 == base + 2 and d4 and t5 == Config.Match.PointCap and wins, "deuce: 14-14 plays to 16, 15-15 to 17, capped at a golden point", string.format("13-12 to %d, 14-14 to %d, 15-14 to %d, 15-15 to %d, 24-24 to %d", t1, t2, t3, t4, t5))
 end
 
+print("== rotation and formation ==")
+do
+	local order = { "a", "b", "c" }
+	Court.reorder(order, "serve", "c", true)
+	local served = order[1] == "c" and order[2] == "a" and order[3] == "b"
+	local order2 = { "a", "b", "c" }
+	Court.reorder(order2, "serve", "a", false)
+	local recv = order2[2] == "a"
+	local order3 = { "a", "b", "c" }
+	Court.reorder(order3, "down", "a", true)
+	local moved = order3[1] == "b" and order3[2] == "a" and not Court.reorder(order3, "up", "b", true)
+	check(served and recv and moved, "timeout: pick the next server (serving or receiving) and move players up and down", table.concat(order, ",") .. " / " .. table.concat(order2, ",") .. " / " .. table.concat(order3, ","))
+	local sideH = -1
+	local mbZ = Court.formationSpot("Defense", "MB", sideH).Z
+	local wsZ = Court.formationSpot("Defense", "WS", sideH).Z
+	local members = {
+		{ id = "me", role = "WS", isBot = false, z = mbZ + sideH * 0.3 }, -- stepped up to the net
+		{ id = "mb", role = "MB", isBot = true },
+		{ id = "se", role = "SE", isBot = true },
+	}
+	local spots = Court.formationFill(members, "Defense", sideH, Config.Bots.SwapMargin)
+	members[1].z = wsZ
+	local home = Court.formationFill(members, "Defense", sideH, Config.Bots.SwapMargin)
+	check(spots.mb == wsZ and spots.se == Court.formationSpot("Defense", "SE", sideH).Z and home.mb == mbZ, "step up to block and the middle drops back into your spot", string.format("middle to %.1f (your spot %.1f), back to %.1f when you return", spots.mb, wsZ, home.mb))
+end
+
+print("== bot skill by tier ==")
+do
+	local B = Config.Bots
+	local function clean(tier)
+		local st = Characters.stats(tier)
+		local dig = (1 - Characters.byTier(st, B.MissChance)) * (1 - Characters.byTier(st, B.WhiffChance))
+		local spike = 1 - Characters.byTier(st, B.SpikeMishitChance)
+		local serve = 1 - Characters.byTier(st, B.ServeMissChance)
+		return dig * spike * serve, st
+	end
+	local dm, dStats = clean("D-")
+	local s, sStats = clean("S")
+	check(dm < 0.5 and s > 0.85 and Characters.byTier(dStats, B.ReactionDelay) > 5 * Characters.byTier(sStats, B.ReactionDelay), "a D- bot team dig-spike-serves cleanly under half the time, an S team almost always", string.format("clean D- %.0f%%, S %.0f%%; reaction %.2f s vs %.2f s", dm * 100, s * 100, Characters.byTier(dStats, B.ReactionDelay), Characters.byTier(sStats, B.ReactionDelay)))
+end
+
 print("== V Points spins ==")
 do
 	local rng = Random.new(11)

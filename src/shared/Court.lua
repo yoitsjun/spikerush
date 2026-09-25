@@ -113,6 +113,76 @@ function Court.formationSpot(kind, role, side)
 	return Court.spot(side, Court.formationDepth(kind, role), role)
 end
 
+-- Formation spots (z) for the bots of a team. members: { id, role, isBot, z (current, humans) }.
+-- A human who is clearly (margin) nearer a teammate's spot than their own has taken it over,
+-- and that teammate fills the spot the human left.
+function Court.formationFill(members, kind, side, margin)
+	local spots = {}
+	for _, m in ipairs(members) do
+		spots[m.id] = Court.formationSpot(kind, m.role, side).Z
+	end
+	local takenBy = {}
+	for _, m in ipairs(members) do
+		if not m.isBot and m.z then
+			local own = math.abs(spots[m.id] - m.z)
+			local best, bestD = nil, math.huge
+			for _, o in ipairs(members) do
+				local d = math.abs(spots[o.id] - m.z)
+				if o.id ~= m.id and d < bestD then
+					best, bestD = o, d
+				end
+			end
+			if best and bestD + margin < own then
+				takenBy[best.id] = m.id
+			end
+		end
+	end
+	local out = {}
+	for _, m in ipairs(members) do
+		if m.isBot then
+			local human = takenBy[m.id]
+			if human and not takenBy[human] then
+				out[m.id] = spots[human]
+			else
+				out[m.id] = spots[m.id]
+			end
+		end
+	end
+	return out
+end
+
+-- Timeout rotation edits on a team's order (a list of ids, first serves). "up"/"down" move a
+-- player one place; "serve" turns the whole rotation (everyone keeps their order) so that
+-- player serves next: first in the order for the serving team, second for the receiving team
+-- (a side-out rotates before it serves). Returns true if the order changed.
+function Court.reorder(order, op, id, serving)
+	local i = nil
+	for k, v in ipairs(order) do
+		if v == id then
+			i = k
+		end
+	end
+	if not i then
+		return false
+	end
+	local n = #order
+	if op == "up" and i > 1 then
+		order[i], order[i - 1] = order[i - 1], order[i]
+	elseif op == "down" and i < n then
+		order[i], order[i + 1] = order[i + 1], order[i]
+	elseif op == "serve" and n > 1 then
+		local want = serving and 1 or 2
+		local guard = 0
+		while order[want] ~= id and guard < n do
+			table.insert(order, table.remove(order, 1))
+			guard = guard + 1
+		end
+	else
+		return false
+	end
+	return true
+end
+
 function Court.serveSpot(side, role)
 	return Court.spot(side, C.SideDepth + 1.1 * Config.Scale.StudsPerMeter, role)
 end
