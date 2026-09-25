@@ -671,6 +671,10 @@ function TeamService.bench(plr, reason)
 	local cf = root and root.CFrame
 	local index = removeEntity(e)
 	local bot = standIn(e, index)
+	if TeamService.entities[bot.id] ~= bot then
+		-- the match ended, or the player rejoined, while the stand-in's rig was being built
+		return
+	end
 	if cf and bot.model then
 		bot.model:PivotTo(cf)
 	end

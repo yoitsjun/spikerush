@@ -1060,6 +1060,12 @@ function BotService.spawn(e)
 		warn("[SpikeRush] Could not create a bot rig: " .. tostring(model))
 		return nil
 	end
+	-- building the rig yields: the bot may have been despawned meanwhile (the match ended, or
+	-- its player took the slot back), and a rig parented now would be left on court untracked
+	if e.despawned then
+		model:Destroy()
+		return nil
+	end
 	for _, d in ipairs(model:GetDescendants()) do
 		if d:IsA("LuaSourceContainer") then
 			d:Destroy()
@@ -1137,6 +1143,7 @@ function BotService.knockback(e, strength)
 end
 
 function BotService.despawn(e)
+	e.despawned = true -- a spawn still building this bot's rig drops it
 	bots[e.id] = nil
 	if e.model then
 		e.model:Destroy()
