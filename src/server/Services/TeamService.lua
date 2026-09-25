@@ -654,6 +654,11 @@ local function standIn(e, index)
 	TeamService.entities[id] = bot
 	local order = TeamService.teams[e.team].order
 	table.insert(order, math.min(index or (#order + 1), #order + 1), id)
+	if plr then
+		-- benched before the rig is built (spawn yields): with no human left on court, the
+		-- match's abort check would otherwise end the match before the player could rejoin
+		TeamService.benched[plr.UserId] = id
+	end
 	reg.BotService.spawn(bot)
 	TeamService.applyToModel(bot)
 	refreshBoosts(e.team)
@@ -683,7 +688,6 @@ function TeamService.bench(plr, reason)
 		BS.hold(bot.id)
 		reg.MatchService.serverId = bot.id
 	end
-	TeamService.benched[plr.UserId] = bot.id
 	local char = plr.Character
 	if reason == "afk" and char then
 		-- off to the side with the spectators
