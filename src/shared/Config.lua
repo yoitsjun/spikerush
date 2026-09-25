@@ -543,12 +543,14 @@ Config.Abilities = {
 		Name = "Counter Edge",
 		Tier = "S",
 		Role = "WS",
-		Blurb = "Spikes you receive cost no stamina: blades burst out and sink back into you, filling your Counter meter. Your next spike releases it for up to +30% power.",
+		Blurb = "Spikes you receive cost no stamina: blades burst out and sink back into you, filling your Counter meter. She scales with her receives: a full meter adds +55 Attack and +80 Defense for the rest of the set.",
 		Color = Color3.fromRGB(190, 220, 255),
-		MaxBoost = 0.3, -- at a full meter
-		GainPerKmh = 0.4, -- meter gained per km/h of the spike you receive
-		MinGain = 15,
-		MaxGain = 60,
+		-- stat points at a full meter (0..100, in proportion below it); the meter fills over a set
+		-- and starts empty the next
+		PerFull = { Attack = 55, Defense = 80 },
+		GainPerKmh = 0.14, -- meter gained per km/h of the spike you receive (about 6 hard spikes fill it)
+		MinGain = 6,
+		MaxGain = 20,
 	},
 }
 Config.AbilityOrder = { "Thunder", "Azure", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter" }

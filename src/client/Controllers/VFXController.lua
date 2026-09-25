@@ -1088,9 +1088,9 @@ local function counterBlades(model, color, count)
 	end
 end
 
--- Counter Edge released: blades fly along the spike.
-local function bladeVolley(pos, dir, color)
-	for _ = 1, 7 do
+-- Counter Edge: blades fly along her spike, more the fuller her meter.
+local function bladeVolley(pos, dir, color, count)
+	for _ = 1, count do
 		local p = take(Enum.PartType.Block)
 		p.Color = color
 		local d = (dir + Vector3.new(0, (math.random() - 0.5) * 0.5, (math.random() - 0.5) * 0.5)).Unit
@@ -1436,11 +1436,13 @@ local function onHit(snap)
 			ringFx(pos, VECTOR, 1.5, 7 + 20 * boost, 0.35, 6)
 			VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("+%.1f%%", boost * 100), VECTOR, 0.9 + 2 * boost)
 		end
-		if meta.counterRelease then
-			bladeVolley(pos, vdir, COUNTER)
-			VFXController.popup(pos + Vector3.new(0, 4.2, 0), string.format("Counter Edge +%d%%", math.floor(Config.Abilities.Counter.MaxBoost * meta.counterRelease + 0.5)), COUNTER, 1)
+		if meta.counterEdge then
+			bladeVolley(pos, vdir, COUNTER, 2 + math.floor(meta.counterEdge / 20))
+			if meta.counterEdge >= 100 then
+				VFXController.popup(pos + Vector3.new(0, 4.2, 0), "Counter Edge MAX", COUNTER, 1)
+			end
 			if close and mods.AudioController then
-				mods.AudioController.play("Blades", { volume = 0.8, speed = 1.2 })
+				mods.AudioController.play("Blades", { volume = 0.5 + 0.3 * meta.counterEdge / 100, speed = 1.2 })
 			end
 		end
 		if heavy or meta.thunder or meta.energy then

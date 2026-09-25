@@ -380,8 +380,9 @@ function HitLogic.sunLevel(enemyPoints)
 end
 
 -- The stats a touch is computed with. Adrenaline adds Attack and Jump while the team's stamina
--- is low; Rising Sun adds its level's points; Rally Cry (extra.teamBoost) multiplies every stat
--- of the team. extra: { enemyPoints, teamBoost } (a touch passes its ctx). The server raises the
+-- is low; Rising Sun adds its level's points; Counter Edge adds its meter's share of PerFull;
+-- Rally Cry (extra.teamBoost) multiplies every stat of the team. extra: { enemyPoints, counter,
+-- teamBoost } (a touch passes its ctx). The server raises the
 -- humanoid's jump and run speed to match (TeamService), so the hitting point is real.
 function HitLogic.effectiveStats(stats, ability, stamina, extra)
 	local add = {}
@@ -397,6 +398,16 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		if lvl > 0 then
 			for k, v in pairs(SUN.PerLevel) do
 				add[k] = (add[k] or 0) + v * lvl
+			end
+			any = true
+		end
+	end
+	if ability == "Counter" then
+		-- Counter Edge: she scales with the spikes she has received (the meter, 0..100)
+		local c = clamp((extra and extra.counter) or 0, 0, 100) / 100
+		if c > 0 then
+			for k, v in pairs(COUNTER.PerFull) do
+				add[k] = (add[k] or 0) + math.floor(v * c + 0.5)
 			end
 			any = true
 		end
@@ -615,11 +626,9 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.vector = true
 		meta.vectorBoost = math.floor(boost * 1000 + 0.5) / 1000
 	end
-	-- Counter Edge: the meter the spikes she received filled goes into this one
+	-- Counter Edge: her scaled Attack is already in `stats`; the blades show how charged she is
 	if kind == "Spike" and ctx.ability == "Counter" and (ctx.counter or 0) > 0 then
-		local c = clamp(ctx.counter, 0, 100) / 100
-		kmh = kmh * (1 + COUNTER.MaxBoost * c)
-		meta.counterRelease = ctx.counter
+		meta.counterEdge = clamp(ctx.counter, 0, 100)
 	end
 	local steps = 0
 	if q >= H.SpikeAssistQuality and not overcharge then

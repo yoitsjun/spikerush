@@ -907,7 +907,7 @@ do
 	check(rally.Attack == math.floor(SP.Attack * 1.12 + 0.5) and rally.Jump > SP.Jump and rally.Speed > SP.Speed and boosted.meta.kmh > normal.meta.kmh,
 		"Rally Cry: the whole team plays with +12% on every stat", string.format("ATK %d -> %d, spike %.0f -> %.0f km/h", SP.Attack, rally.Attack, normal.meta.kmh, boosted.meta.kmh))
 
-	-- Counter Edge: received spikes fill the meter instead of draining; the next spike releases it
+	-- Counter Edge: received spikes fill the meter instead of draining; she scales with it
 	local ines = Characters.derive(Characters.fromRoster(Roster.get("ines"), "max"))
 	local recRoot = vec(0, GROUND, side * 18 * K)
 	local recBall = vec(0, recRoot.Y + Z.ReceiveIdealY, recRoot.Z - side * Z.ReceiveForward)
@@ -919,8 +919,17 @@ do
 	local ib = ballAt(ir, Z.SpikeCenterDz, Z.SpikeCenterDy)
 	local _, empty = spike(ir, ib, { ability = "Counter", stats = ines, counter = 0 })
 	local _, full = spike(ir, ib, { ability = "Counter", stats = ines, counter = 100 })
-	check(dig.meta.drain == nil and (dig.meta.counterGain or 0) >= Config.Abilities.Counter.MinGain and (dig2.meta.drain or 0) > 0 and math.abs(full.meta.kmh / empty.meta.kmh - 1.3) < 0.01 and full.meta.counterRelease == 100,
-		"Counter Edge: a received spike fills the meter instead of the guard dropping; a full meter adds 30% to the next spike", string.format("+%.0f meter (vs %.1f guard), %.0f -> %.0f km/h", dig.meta.counterGain or 0, dig2.meta.drain or 0, empty.meta.kmh, full.meta.kmh))
+	local s0 = HitLogic.effectiveStats(ines, "Counter", nil, { counter = 0 })
+	local s50 = HitLogic.effectiveStats(ines, "Counter", nil, { counter = 50 })
+	local s100 = HitLogic.effectiveStats(ines, "Counter", nil, { counter = 100 })
+	local hayun = Characters.derive(Characters.fromRoster(Roster.get("hayun"), "max"))
+	local CE = Config.Abilities.Counter
+	local fills = math.ceil(100 / math.clamp(140 * CE.GainPerKmh, CE.MinGain, CE.MaxGain))
+	check(dig.meta.drain == nil and (dig.meta.counterGain or 0) >= CE.MinGain and (dig2.meta.drain or 0) > 0,
+		"Counter Edge: a received spike fills the meter instead of the guard dropping", string.format("+%.0f meter (vs %.1f guard); %d hard spikes fill it", dig.meta.counterGain or 0, dig2.meta.drain or 0, fills))
+	check(s0 == ines and ines.Attack <= hayun.Attack - 40 and ines.Defense < hayun.Defense and s50.Attack > s0.Attack and s50.Defense < s100.Defense
+		and s100.Defense >= 195 and s100.Attack >= 200 and full.meta.kmh > empty.meta.kmh * 1.15 and full.meta.counterEdge == 100 and fills >= 4 and fills <= 8,
+		"Counter Edge: low Attack and Defense empty, she scales with her receives to about 200 Defense", string.format("ATK %d / %d / %d, DEF %d / %d / %d (empty / half / full); spike %.0f -> %.0f km/h", s0.Attack, s50.Attack, s100.Attack, s0.Defense, s50.Defense, s100.Defense, empty.meta.kmh, full.meta.kmh))
 
 	-- the server re-tunes a humanoid only when its boosted stats change (TeamService.refreshBoosts
 	-- compares tables): no boost is the base table, the same boost the same cached table, and

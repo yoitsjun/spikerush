@@ -8,7 +8,7 @@ local Roster = {
 	{ Id = "yejun", Name = "YeJun", Role = "WS", Tier = "S+", Height = 189, Attack = 210, Defense = 124, Speed = 146, Jump = 190, Ability = "Thunder" },
 	{ Id = "daon", Name = "Daon", Role = "WS", Tier = "S", Height = 186, Attack = 176, Defense = 115, Speed = 124, Jump = 160, Ability = "RisingSun" },
 	{ Id = "hayun", Name = "Hayun", Role = "WS", Tier = "S", Height = 187, Attack = 198, Defense = 126, Speed = 142, Jump = 181, Ability = "Adrenaline" },
-	{ Id = "ines", Name = "Ines", Role = "WS", Tier = "S", Height = 184, Attack = 196, Defense = 140, Speed = 138, Jump = 180, Ability = "Counter" },
+	{ Id = "ines", Name = "Ines", Role = "WS", Tier = "S", Height = 184, Attack = 150, Defense = 120, Speed = 138, Jump = 180, Ability = "Counter" },
 	{ Id = "shoyo", Name = "Shoyo", Role = "WS", Tier = "S", Height = 181, Attack = 190, Defense = 118, Speed = 150, Jump = 186, Ability = "Adrenaline" },
 	{ Id = "gaeul", Name = "Gaeul", Role = "MB", Tier = "S", Height = 204, Attack = 170, Defense = 150, Speed = 116, Jump = 180, Ability = "IronWall" },
 	{ Id = "joon", Name = "Joon", Role = "MB", Tier = "S", Height = 202, Attack = 162, Defense = 162, Speed = 110, Jump = 176, Ability = "RallyCry" },

@@ -227,17 +227,19 @@ end
 ------------------------------------------------------------------------------------------
 
 -- What a character's stats depend on besides the team's stamina (HitLogic.effectiveStats'
--- `extra`): the other team's points this set (Rising Sun) and its own team's Rally Cry.
+-- `extra`): the other team's points this set (Rising Sun), the Counter Edge meter and its own
+-- team's Rally Cry.
 function TeamService.boostCtx(e, t)
 	local scores = reg.MatchService.scores or {}
 	return {
 		enemyPoints = scores[Court.other(e.team)] or 0,
+		counter = e.counter or 0,
 		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= (t or Util.now()),
 	}
 end
 
 -- Boosts change a character's real jump and run speed: Adrenaline (low stamina), Rising Sun
--- (the other team's points) and Rally Cry (the team's pop). When a character's boosted stats
+-- (the other team's points), Counter Edge (the meter) and Rally Cry (the team's pop). When a character's boosted stats
 -- change, its humanoid is re-tuned (HitLogic boosts the touches from the same inputs) and the
 -- character is flagged for everyone's effects (Adrenaline, SunLevel).
 function TeamService.refreshBoosts(team)
@@ -276,7 +278,8 @@ function TeamService.rally(team, untilT)
 	end)
 end
 
--- The Counter Edge meter (0..100) on the character and the player (the HUD and prediction).
+-- The Counter Edge meter (0..100) on the character and the player (the HUD and prediction);
+-- her stats scale with it.
 function TeamService.setCounter(e, value)
 	e.counter = value
 	local model = TeamService.getModel(e)
@@ -286,6 +289,7 @@ function TeamService.setCounter(e, value)
 	if e.player then
 		e.player:SetAttribute("Counter", value)
 	end
+	refreshBoosts(e.team)
 end
 
 -- A new set: meters that build over a set start again (Rising Sun follows the score).
