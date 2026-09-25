@@ -142,7 +142,7 @@ Code must stay in a Lua 5.1/5.3 compatible subset of Luau: no `+=`, `continue`, 
 python3 tools/check_lua.py      # syntax (texluac) and undefined globals
 python3 tools/check_config.py   # every Config reference, including local aliases, exists
 python3 tools/check_api.py      # every Module.fn / reg.Service.fn / mods.Controller.fn is defined
-texlua tools/sim_test.lua       # 46 scenarios run against the real shared modules
+texlua tools/sim_test.lua       # 47 scenarios run against the real shared modules
 ```
 
 On Debian or Ubuntu, `apt-get install texlive-binaries` provides `texlua` and `texluac`.
@@ -151,7 +151,7 @@ Nested config aliases such as `local AZURE = Config.Abilities.Azure` are not cov
 
 ## Status
 
-All the code for the 2.5D game is written and every check passes, including all 46 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
+All the code for the 2.5D game is written and every check passes, including all 47 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
 
 ### Second session (continuation)
 
@@ -175,6 +175,15 @@ The owner reported the game "feels weak" and asked for an overhaul. Their answer
 - **Animations**: AnimationController now has keyframed clips (`CLIP_DEFS`: Swing, Bump, Set, SetBack, Land) sampled with easing, plus airborne poses by jump kind (Rise on the way up, Cock at the top, SpikeFollow after the swing). `AnimationController.jumped(id, kind)` is fed by MovementController (local) and the `Jump` ActionFX (others; bots now announce block jumps too).
 - **Sound**: `tools/generate_sfx.py` recipes redone in The Spike's style (original synthesis: clap-like smacks, sub booms, air tears, metallic shing, finger taps, a room convolution) and a new `ImpactFrame` stinger; regenerated. In game: layered stand-ins (a Fallback entry can be a list of layers with delays), a mix bus (compressor, EQ, reverb) on the SFX group, and a crowd gasp on hard digs.
 - **VFX**: thicker, longer ribbons with sparkle emitters; lightning along the whole Thunder flight; sonic-boom ellipses behind hard spikes; a contact reticle and debris streaks on every attack; neon screen streaks on the biggest hits; a gold shield above perfect receivers; a floor ring under receives; the impact frame gained a glow, a light pillar and a gold crescent; bigger jump booms; stronger camera punch.
+
+### Fourth session: "when I jump sometimes it doesn't let me spike"
+
+No mechanic changed; the input got forgiving. With the 1.8 s anime airtime players press while waiting at the top, and a press more than 0.14 s before the ball entered reach used to whiff (and lock swings for 0.32 s), so the swing animation played but no spike happened. Also, for the first frames after takeoff `FloorMaterial` still reported the floor, so a quick second press started another run-up.
+
+- ActionController: a spike, feint or jump-serve press in the air commits the swing. It looks 0.6 s ahead (`SPIKE_WINDOW`), predicting your root with gravity, the hang force and the Azure hover, and the ball's path. If the ball comes into reach, the swing waits and lands at the first moment the contact is at least 0.25 clean (`MIN_CONTACT`), or as the ball starts to leave reach. Early presses therefore spike but weakly (committed swings average about 0.3 contact, 112 to 118 km/h at full Attack); a press on time still hits cleanest. An offline press simulation: across all press moments in a jump that can reach the ball, 16 to 20% used to spike and 41 to 48% do now.
+- A real miss says why: too early, too late, ahead of you, behind you, over the net, or the touch rule. `Config.Player.WhiffCooldown` is 0.2 s (was 0.32).
+- Airborne means `FloorMaterial == Air` or the humanoid state is Jumping/Freefall, in ActionController and MovementController.
+- New simulation: with the best jump timing, an open set stays in reach 0.18 s (fresh S+) to 0.35 s (maxed S+).
 
 These are the spots most likely to need attention on the first playtest:
 

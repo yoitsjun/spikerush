@@ -71,7 +71,7 @@ Config.Player = {
 	BlockMinHeight = 0.55, -- a tapped block jumps this fraction of full height
 	BlockReach = 5, -- max distance from the net that starts a block
 	ActionCooldown = 0.18,
-	WhiffCooldown = 0.32,
+	WhiffCooldown = 0.2, -- after a missed swing, before you can swing again
 	ReceiveStance = 0.8, -- how long a receive press stays armed
 	ServeTapTime = 0.2, -- X released faster than this = overhand serve
 }

@@ -122,7 +122,7 @@ Game code is written in a Lua 5.1/5.3 compatible subset of Luau (no `+=`, `conti
 python3 tools/check_lua.py      # syntax and undefined globals
 python3 tools/check_config.py   # every Config reference exists
 python3 tools/check_api.py      # every cross-module call is defined
-texlua tools/sim_test.lua       # 46 gameplay scenarios against the real HitLogic
+texlua tools/sim_test.lua       # 47 gameplay scenarios against the real HitLogic
 ```
 
 The simulation suite checks the headline numbers (spike speeds, Thunder and Azure ranges, depth control, stamina and guard breaks, touch rules, sets, serves, blocks, the build and upgrade rules) and that client prediction is bit-identical to the server.

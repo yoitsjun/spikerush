@@ -105,8 +105,19 @@ function MovementController.isGathering()
 	return gather ~= nil
 end
 
+-- In the air from the very first frame of a jump: FloorMaterial still reports the floor for a
+-- few frames after takeoff, so the humanoid's own Jumping/Freefall state counts too.
+local AIR_STATES = { [Enum.HumanoidStateType.Jumping] = true, [Enum.HumanoidStateType.Freefall] = true }
+
+local function inAir()
+	if not hum then
+		return false
+	end
+	return hum.FloorMaterial == Enum.Material.Air or AIR_STATES[hum:GetState()] == true
+end
+
 function MovementController.airborne()
-	return hum ~= nil and hum.FloorMaterial == Enum.Material.Air
+	return inAir()
 end
 
 function MovementController.root()
@@ -158,7 +169,7 @@ function MovementController.faceNet()
 end
 
 function MovementController.canJump()
-	return hum ~= nil and not slide and not gather and hum.FloorMaterial ~= Enum.Material.Air
+	return hum ~= nil and not slide and not gather and not inAir()
 end
 
 -- Run-up jump: dash in the held direction (or jump in place), then take off.
@@ -203,7 +214,7 @@ function MovementController.slide(dirZ)
 	if not hum or not hrp or slide or gather or os.clock() - lastSlideAt < P.SlideCooldown then
 		return false
 	end
-	if hum.FloorMaterial == Enum.Material.Air then
+	if inAir() then
 		return false
 	end
 	if math.abs(dirZ or 0) < 0.3 then
@@ -249,7 +260,7 @@ local function physicsStep()
 	end
 	lockLane()
 	local vy = hrp.AssemblyLinearVelocity.Y
-	local airborne = hum.FloorMaterial == Enum.Material.Air
+	local airborne = inAir()
 	local cancel = 0
 	if airborne and not slide then
 		if charging and vy <= 0 then
@@ -271,7 +282,7 @@ local function moveStep()
 		return
 	end
 	local now = os.clock()
-	local airborne = hum.FloorMaterial == Enum.Material.Air
+	local airborne = inAir()
 	local stats = State.myStats()
 
 	if slide then

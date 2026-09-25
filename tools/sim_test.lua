@@ -184,6 +184,38 @@ do
 	check(t >= 1.3 and t <= 2.0, "full jump hangs like an anime spike", string.format("%.2f s in the air at gravity %d", t, g))
 	local B, A = Characters.stats("B"), Characters.stats("A")
 	check(H.SetArriveY >= B.contactMaxStuds and H.SetArriveY <= SP.contactMaxStuds, "sets come down through B to S+ hitting points", string.format("set arrives at %.1f studs; maxed B %.1f, A %.1f, S+ %.1f", H.SetArriveY, B.contactMaxStuds, A.contactMaxStuds, SP.contactMaxStuds))
+	-- the spike window: with the best jump timing under an open set, how long the ball stays in
+	-- reach. The client commits a swing pressed up to 0.6 s early; this is the window it lands in.
+	local sroot = vec(0, GROUND, side * H.SetterDepth)
+	local _, setRes = HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = vec(0, sroot.Y + Z.SetIdealY, sroot.Z), grounded = true, setType = "Open" }, ctx({ touchNumber = 2, lastHit = { team = "Away", hitType = "Bump" } }))
+	local setPath = BallPhysics.buildPath(setRes.launch)
+	local worst, report = math.huge, {}
+	for _, b in ipairs({ { "fresh S+", Characters.derive("S+", Characters.newBuild("S+", Random.new(3))) }, { "maxed A", A }, { "maxed S+", SP } }) do
+		local st = b[2]
+		local jy, jv, ys = 0, math.sqrt(2 * g * Characters.jumpHeight(st, GROUND)), {}
+		repeat
+			ys[#ys + 1] = jy
+			local acc = g
+			if math.abs(jv) < P.HangVelocityWindow then acc = g * (1 - P.HangGravityCancel) end
+			jv = jv - acc * dt
+			jy = jy + jv * dt
+		until jy < 0
+		local best = 0
+		for ts = 0, setPath.landing.t, 1 / 30 do
+			local inz = 0
+			for i = 1, #ys, 4 do
+				local tt = ts + (i - 1) * dt
+				if tt >= setPath.landing.t then break end
+				if HitLogic.spikeZone(vec(0, GROUND + ys[i], side * H.OpenDepth), BallPhysics.positionAt(setPath, tt), side, st, 1) then
+					inz = inz + 4 * dt
+				end
+			end
+			best = math.max(best, inz)
+		end
+		worst = math.min(worst, best)
+		table.insert(report, string.format("%s %.2f s", b[1], best))
+	end
+	check(worst >= 0.15, "a well-timed jump keeps the set in reach long enough to hit", table.concat(report, ", "))
 	local tossApex = 2 + H.TossHighMax
 	check(tossApex >= SP.contactMaxStuds + 2, "a full toss rises above an S+ jump serve contact", string.format("toss apex about %.1f studs", tossApex + GROUND))
 end

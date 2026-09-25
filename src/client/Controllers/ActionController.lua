@@ -32,7 +32,15 @@ local mods
 local player = Players.LocalPlayer
 local P, Z, H = Config.Player, Config.Zones, Config.Hits
 local AZURE = Config.Abilities.Azure
-local BUFFER = 0.14
+local BUFFER = 0.14 -- how long a set press waits for the ball
+-- A spike pressed in the air commits the swing: if the ball will reach your hand within this
+-- long (your jump and the ball both predicted), the swing waits for it instead of whiffing.
+local SPIKE_WINDOW = 0.6
+-- A committed swing lands at the first moment the contact is at least this clean (or as the
+-- ball starts to leave your reach), so an early press still spikes, just not as cleanly as a
+-- press on time.
+local MIN_CONTACT = 0.25
+local ATTACK_SCALE = { Spike = 1, Serve = 1.1, Feint = 1.25 }
 
 local lastActionAt = -10
 local whiffUntil = 0
@@ -54,6 +62,8 @@ local REASONS = {
 -- helpers
 ------------------------------------------------------------------------------------------
 
+local AIR_STATES = { [Enum.HumanoidStateType.Jumping] = true, [Enum.HumanoidStateType.Freefall] = true }
+
 local function charInfo()
 	local c = player.Character
 	local hrp = c and c:FindFirstChild("HumanoidRootPart")
@@ -67,7 +77,8 @@ local function charInfo()
 		hum = hum,
 		root = hrp.Position,
 		vy = hrp.AssemblyLinearVelocity.Y,
-		grounded = hum.FloorMaterial ~= Enum.Material.Air,
+		-- FloorMaterial lags a few frames behind takeoff; the humanoid state doesn't
+		grounded = hum.FloorMaterial ~= Enum.Material.Air and not AIR_STATES[hum:GetState()],
 		groundY = hum.HipHeight + hrp.Size.Y / 2,
 	}
 end
@@ -197,7 +208,10 @@ local function execute(action, info, opts, t, ballPos)
 	return true
 end
 
-local function whiff(info, pose)
+local function whiff(info, pose, reason)
+	if reason then
+		State.hint(reason)
+	end
 	whiffUntil = os.clock() + P.WhiffCooldown
 	mods.AnimationController.pose(State.myId, pose or "Swing")
 	mods.AudioController.play("Whoosh", { volume = 0.45 })
@@ -213,38 +227,128 @@ local function inPlay()
 	return State.isPlaying and State.phase() == "Rally" and mods.BallRenderer.isLive()
 end
 
--- Will the ball come within reach of an attack in the next moment?
-local function attackSoon(info, now, scale)
-	local BR = mods.BallRenderer
-	for i = 1, 8 do
-		local dt = i * 0.018
-		local root = info.root + Vector3.new(0, info.vy * dt, 0)
-		if HitLogic.spikeZone(root, BR.getPosition(now + dt), State.mySide, State.myStats(), scale) then
-			return true
+-- My root height `dt` seconds from now while airborne: gravity with the hang force near the
+-- apex and the Azure hover while charging, the same forces MovementController applies.
+local function rootPath(info, horizon)
+	local g = workspace.Gravity
+	local y, v = info.root.Y, info.vy
+	local step = 1 / 120
+	local out = {}
+	local t = 0
+	while t < horizon do
+		local cancel = 0
+		if charge.holding and v <= 0 then
+			cancel = AZURE.GravityCancel
+		elseif math.abs(v) < P.HangVelocityWindow then
+			cancel = P.HangGravityCancel
 		end
+		v = v - g * (1 - cancel) * step
+		y = y + v * step
+		t = t + step
+		table.insert(out, y)
 	end
-	return false
+	return out, step
 end
 
--- Attack from the air: spike, feint or jump serve.
+-- Normalised offset of the ball from the centre of my spike zone (|n| <= 1 is in reach).
+local function zoneOffset(root, ball, scale)
+	local stats = State.myStats()
+	local s = scale * (stats.Reach or 1)
+	local side = State.mySide
+	local handZ = root.Z - side * Z.SpikeForward
+	local dz = (ball.Z - handZ) * -side
+	local dy = ball.Y - (root.Y + Z.SpikeUp)
+	return (dz - Z.SpikeCenterDz) / (Z.SpikeRadiusZ * s), (dy - Z.SpikeCenterDy) / (Z.SpikeRadiusY * s)
+end
+
+-- Look ahead: does the ball come into reach within the window? Returns the seconds until it
+-- does (nil if never), plus the closest approach for explaining a miss.
+local function lookAhead(info, now, scale, horizon)
+	local BR = mods.BallRenderer
+	local ys, step = rootPath(info, horizon)
+	local bestD, bestNz, bestNy = math.huge, 0, 0
+	for i = 2, #ys, 2 do
+		local t = i * step
+		local root = Vector3.new(info.root.X, ys[i], info.root.Z)
+		local nz, ny = zoneOffset(root, BR.getPosition(now + t), scale)
+		local d = math.sqrt(nz * nz + ny * ny)
+		if d <= 1 then
+			return t, nz, ny
+		end
+		if d < bestD then
+			bestD, bestNz, bestNy = d, nz, ny
+		end
+	end
+	return nil, bestNz, bestNy
+end
+
+local function missReason(nz, ny)
+	if math.abs(ny) >= math.abs(nz) then
+		if ny > 0 then
+			return "Too early: the ball's still above your reach"
+		end
+		return "Too late: the ball got below your hand"
+	end
+	if nz > 0 then
+		return "Ball's ahead of you: drift toward the net"
+	end
+	return "Ball's behind you: drift back"
+end
+
+local function attackPose(action)
+	if action == "Feint" then
+		return "Tip"
+	end
+	return "Swing"
+end
+
+-- Swing now if the contact is already decent (or about to get worse), otherwise commit the swing
+-- and let processBuffer land it.
 local function tryAttack(action, info, opts)
 	local now, ball = ballNow()
-	local ok, why = execute(action, info, opts, now, ball)
-	if ok then
-		local pose = "Swing"
-		if action == "Feint" then
-			pose = "Tip"
+	-- rules first, so a blocked touch says why instead of silently waiting
+	if action ~= "Serve" then
+		local allowed, why = HitLogic.canTouch(mods.BallRenderer.getTouch(), State.myTeam, State.myId, action, State.teamSize())
+		if not allowed then
+			State.hint(REASONS[why] or "Not your touch")
+			return false
 		end
-		mods.AnimationController.pose(State.myId, pose)
+		if ball.Z * State.mySide < -0.4 then
+			State.hint("The ball's already over the net")
+			return false
+		end
+	end
+	local scale = ATTACK_SCALE[action] or 1
+	local nz, ny = zoneOffset(info.root, ball, scale)
+	local d = math.sqrt(nz * nz + ny * ny)
+	local q = d <= 1 and (1 - d ^ 1.5) or 0
+	local swingNow = d <= 1 and q >= MIN_CONTACT
+	if d <= 1 and not swingNow then
+		-- barely in reach: swing now if the ball is on its way out, wait if it's coming in
+		local ys = rootPath(info, 1 / 60)
+		local nz2, ny2 = zoneOffset(Vector3.new(info.root.X, ys[#ys], info.root.Z), mods.BallRenderer.getPosition(now + 1 / 60), scale)
+		swingNow = math.sqrt(nz2 * nz2 + ny2 * ny2) >= d
+	end
+	if swingNow then
+		local ok, why = execute(action, info, opts, now, ball)
+		if ok then
+			mods.AnimationController.pose(State.myId, attackPose(action))
+			return true
+		end
+		if why == "over" then
+			State.hint("The ball's already over the net")
+			return false
+		end
+		if why ~= "zone" then
+			return false
+		end
+	end
+	local arrives, cz, cy = lookAhead(info, now, scale, SPIKE_WINDOW)
+	if arrives then
+		buffered = { action = action, opts = opts, expires = os.clock() + arrives + 0.25, scale = scale, lastQ = nil }
 		return true
 	end
-	if why == "zone" and attackSoon(info, now, action == "Feint" and 1.25 or 1.1) then
-		buffered = { action = action, opts = opts, expires = os.clock() + BUFFER }
-		return true
-	end
-	if why == "zone" or why == "grounded" then
-		whiff(info, action == "Feint" and "Tip" or "Swing")
-	end
+	whiff(info, attackPose(action), missReason(cz, cy))
 	return false
 end
 
@@ -531,22 +635,40 @@ local function processBuffer(info, now)
 	if not buffered then
 		return
 	end
-	if os.clock() > buffered.expires then
-		local a = buffered.action
+	local action = buffered.action
+	local attack = ATTACK_SCALE[action] ~= nil
+	if os.clock() > buffered.expires or (attack and info.grounded) then
 		buffered = nil
-		if a ~= "Set" then
-			whiff(info, a == "Feint" and "Tip" or "Swing")
+		if action ~= "Set" then
+			whiff(info, attackPose(action), "Too late: the ball got past your hand")
 		end
 		return
 	end
 	local ball = mods.BallRenderer.getPosition(now)
-	local action = buffered.action
+	if attack then
+		-- land the committed swing once the contact is decent, or as the ball starts to leave
+		local nz, ny = zoneOffset(info.root, ball, buffered.scale)
+		local d = math.sqrt(nz * nz + ny * ny)
+		if d > 1 then
+			if buffered.lastQ then
+				-- it was in reach and has left again
+				buffered = nil
+				whiff(info, attackPose(action), "Too late: the ball got past your hand")
+			end
+			return
+		else
+			local q = 1 - d ^ 1.5
+			local leaving = buffered.lastQ ~= nil and q < buffered.lastQ
+			buffered.lastQ = q
+			if q < MIN_CONTACT and not leaving then
+				return
+			end
+		end
+	end
 	local ok, why = execute(action, info, buffered.opts, now, ball)
 	if ok then
-		local pose = "Swing"
-		if action == "Feint" then
-			pose = "Tip"
-		elseif action == "Set" then
+		local pose = attackPose(action)
+		if action == "Set" then
 			pose = "Set"
 		end
 		mods.AnimationController.pose(State.myId, pose)
