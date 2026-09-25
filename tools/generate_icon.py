@@ -3,7 +3,8 @@
 
 Original art, drawn entirely here (no source images): a shaded yellow / blue / white
 volleyball in the classic 18-panel layout, a speed ribbon, a burst of light, soft grey
-stadium haze with light rays, floating bubbles and the "SPIKE RUSH" logo.
+stadium haze with light rays, floating bubbles and the "SPIKE RUSH" logo. The thumbnail adds
+the owner's avatar mid-spike, rendered from boxes by tools/avatar_render.py.
 
     python3 tools/generate_icon.py            -> assets/icon/GameIcon.png, Thumbnail.png
 
@@ -253,22 +254,65 @@ def compose_icon(size=512):
     return img.convert("RGB")
 
 
+def speed_lines(img, direction, count, seed, color=(255, 255, 255)):
+    """Thin streaks along `direction` across the frame (manga motion lines)."""
+    rnd = random.Random(seed)
+    w, h = img.size
+    dx, dy = direction
+    n = math.hypot(dx, dy)
+    dx, dy = dx / n, dy / n
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    for _ in range(count):
+        x, y = rnd.uniform(-0.2 * w, 1.2 * w), rnd.uniform(-0.2 * h, 1.2 * h)
+        L = rnd.uniform(0.08, 0.3) * w
+        d.line([(x, y), (x + dx * L, y + dy * L)], fill=color + (rnd.randint(40, 110),), width=rnd.randint(2, 6))
+    img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(1.2)))
+
+
 def compose_thumbnail(w=1920, h=1080):
+    """The owner's avatar mid-spike, sending the ball down to the left."""
+    import avatar_render
+
     img = background(w, h, seed=11)
-    bubbles(img, 40, seed=13, scale=h / 700)
-    ball_d = int(h * 0.62)
-    cx, cy = int(w * 0.68), int(h * 0.44)
-    ribbon(img, (-w * 0.05, h * 1.0), (cx - ball_d * 0.15, cy + ball_d * 0.1), h * 0.16, (255, 70, 120))
-    ribbon(img, (-w * 0.02, h * 0.75), (cx - ball_d * 0.2, cy), h * 0.06, (80, 220, 255))
-    burst(img, (cx, cy), h * 0.6, 28, (255, 250, 225), seed=17)
+    bubbles(img, 34, seed=13, scale=h / 700)
+
+    tall = int(h * 0.84)
+    spiker, hand = avatar_render.render_spiker(tall)
+    ox = int(w * 0.965 - spiker.size[0])
+    oy = int(h * 0.97 - tall)
+    hx, hy = ox + hand[0], oy + hand[1]
+
+    # flight: from the hand down and to the left
+    ball_d = int(h * 0.27)
+    cx, cy = hx - h * 0.055, hy - h * 0.035  # contact, just past the fingertips
+    bx, by = cx - h * 0.72, cy + h * 0.46
+    speed_lines(img, (bx - cx, by - cy), 60, seed=21)
+    burst(img, (cx, cy), h * 0.75, 30, (255, 250, 225), seed=17)
+    # a warm rim of light behind the spiker
+    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse([ox - h * 0.05, oy, ox + spiker.size[0] + h * 0.05, oy + tall], fill=(255, 214, 120, 105))
+    img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(h * 0.08)))
+    img.alpha_composite(spiker, (ox, oy))
+
+    ribbon(img, (cx, cy), (bx, by), h * 0.13, (255, 70, 120))
+    ribbon(img, (cx - h * 0.01, cy + h * 0.03), (bx - h * 0.02, by + h * 0.05), h * 0.045, (80, 220, 255))
+    # impact at the contact: a white flash and a ring
+    flash = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    fd = ImageDraw.Draw(flash)
+    r = h * 0.03
+    fd.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 255, 255, 235))
+    fd.ellipse([cx - r * 2.6, cy - r * 2.6, cx + r * 2.6, cy + r * 2.6], outline=(255, 255, 255, 190), width=int(h * 0.01))
+    img.alpha_composite(flash.filter(ImageFilter.GaussianBlur(h * 0.005)))
     ball = volleyball(ball_d, rotation=(0.35, -0.8, 0.4))
-    img.alpha_composite(ball, (cx - ball_d // 2, cy - ball_d // 2))
-    logo(img, "SPIKE RUSH", (w * 0.33, h * 0.78), int(h * 0.15))
-    f = font(int(h * 0.04))
+    img.alpha_composite(ball, (int(bx - ball_d / 2), int(by - ball_d / 2)))
+
+    logo(img, "SPIKE RUSH", (w * 0.3, h * 0.17), int(h * 0.14))
+    f = font(int(h * 0.036))
     d = ImageDraw.Draw(img)
     tag = "ANIME VOLLEYBALL  -  1v1  2v2  3v3"
     tb = d.textbbox((0, 0), tag, font=f)
-    d.text((w * 0.33 - (tb[2] - tb[0]) / 2, h * 0.9), tag, font=f, fill=(255, 255, 255, 255), stroke_width=4, stroke_fill=INK + (255,))
+    d.text((w * 0.3 - (tb[2] - tb[0]) / 2, h * 0.29), tag, font=f, fill=(255, 255, 255, 255), stroke_width=4, stroke_fill=INK + (255,))
     return img.convert("RGB")
 
 
