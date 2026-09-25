@@ -219,6 +219,18 @@ function LobbyService.join(plr, id, password)
 	return true
 end
 
+-- The tutorial: a hidden 1v1 against the weakest bots, started at once.
+function LobbyService.tutorial(plr)
+	local T = Config.Tutorial
+	local l = LobbyService.create(plr, { mode = T.Mode, privacy = "Public", fill = true, botTier = T.BotTier }, false)
+	if not l then
+		return
+	end
+	l.hidden = true
+	l.tutorial = true
+	LobbyService.launch(l)
+end
+
 -- Quick Match: the fullest open public quick lobby of that mode, or a new one.
 function LobbyService.quick(plr, mode)
 	local list = {}
@@ -339,7 +351,7 @@ function LobbyService.finished(l)
 	if not lobbies[l.id] then
 		return
 	end
-	if l.quick or #members(l) == 0 then
+	if l.quick or l.tutorial or #members(l) == 0 then
 		dissolve(l)
 		return
 	end
@@ -430,6 +442,7 @@ local function payloadFor(plr)
 		mine.password = mine.isHost and l.password or nil
 		mine.side = Lobbies.teamOf(l, plr.UserId)
 		mine.startsAt = l.startsAt
+		mine.tutorial = l.tutorial
 		mine.arriveBy = l.arriveBy
 		mine.reserved = LobbyService.reserved
 		for i, id in ipairs(courtQueue) do
@@ -479,6 +492,8 @@ local function onRequest(plr, op, a, b)
 	end
 	if op == "create" then
 		LobbyService.create(plr, a, false)
+	elseif op == "tutorial" then
+		LobbyService.tutorial(plr)
 	elseif op == "quick" then
 		local mode = tonumber(a)
 		if mode == 1 or mode == 2 or mode == 3 then

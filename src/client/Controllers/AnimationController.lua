@@ -1480,6 +1480,7 @@ local HIT_POSE = {
 	Spike = "Swing",
 	JumpServe = "Swing",
 	Overhand = "Swing",
+	Underhand = "Bump",
 	Feint = "Tip",
 	Block = "Block",
 	Toss = "Toss",

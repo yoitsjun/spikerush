@@ -125,6 +125,7 @@ local function build()
 	circle("Set", "Set", 72, 320, 170, Color3.fromRGB(240, 170, 60))
 	circle("Serve", "Serve", 88, 300, 270, Color3.fromRGB(245, 200, 40))
 	circle("Jump", "Jump", 64, 350, 70, UI.InkSoft)
+	circle("EasyServe", "Easy serve", 76, 210, 300, Color3.fromRGB(230, 190, 90))
 	circle("Ability", "Ability", 64, 395, 250, Color3.fromRGB(150, 205, 255))
 
 	bind("Spike", "Spike")
@@ -134,6 +135,7 @@ local function build()
 	bind("Set", "Set")
 	bind("Serve", "Serve")
 	bind("Jump", "Jump")
+	bind("EasyServe", "EasyServe")
 	bind("Ability", "Ability")
 	UserInputService.InputEnded:Connect(releaseInput)
 end
@@ -161,6 +163,7 @@ local function update()
 	buttons.Slide.button.Text = ctx.grounded == false and "Feint" or "Slide"
 	buttons.Block.button.BackgroundTransparency = (ctx.nearNet and not held.Block) and 0.22 or 0.55
 	buttons.Serve.button.Visible = ctx.serving == true
+	buttons.EasyServe.button.Visible = ctx.serving == true and ctx.spikeLabel == "Toss" -- still holding the ball
 	buttons.Set.button.Visible = State.teamSize() > 1 or ctx.canSet == true
 	-- only active abilities (Iron Wall) need a button
 	local def = Config.Abilities[State.myAbility() or ""]

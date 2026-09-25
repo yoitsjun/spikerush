@@ -10,11 +10,12 @@
 --   Jump ............ Space
 --   Set ............. E or V                (hold toward the net for a quick, away for a back set)
 --   Serve ........... X                     (tap = overhand serve; hold = jump-serve toss, longer = higher)
+--   Easy serve ...... F                     (an underhand serve straight from the hand: slow, always in)
 --   Ability ......... Q                     (active abilities: Iron Wall)
 --   Timeout ......... T
 --
--- Gamepad: A spike, B receive, X serve, Y block, RB slide/feint, LB set, R2 spike, L2 ability,
--- Select timeout.
+-- Gamepad: A spike, B receive, X serve, D-pad up easy serve, Y block, RB slide/feint, LB set,
+-- R2 spike, L2 ability, Select timeout.
 
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -43,6 +44,7 @@ local KEYS = {
 	[Enum.KeyCode.E] = "Set",
 	[Enum.KeyCode.V] = "Set",
 	[Enum.KeyCode.X] = "Serve",
+	[Enum.KeyCode.F] = "EasyServe",
 	[Enum.KeyCode.T] = "Timeout",
 	[Enum.KeyCode.Q] = "Ability",
 	[Enum.KeyCode.ButtonL2] = "Ability",
@@ -50,6 +52,7 @@ local KEYS = {
 	[Enum.KeyCode.ButtonR2] = "Spike",
 	[Enum.KeyCode.ButtonB] = "Receive",
 	[Enum.KeyCode.ButtonX] = "Serve",
+	[Enum.KeyCode.DPadUp] = "EasyServe",
 	[Enum.KeyCode.ButtonY] = "Block",
 	[Enum.KeyCode.ButtonR1] = "SlideFeint",
 	[Enum.KeyCode.ButtonL1] = "Set",

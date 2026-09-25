@@ -694,7 +694,7 @@ local function update(dt)
 		local axis = Vector3.yAxis:Cross(vel)
 		if axis.Magnitude > 0.01 then
 			local rate = 0.35
-			if cur.meta and cur.meta.hitType == "Overhand" then
+			if cur.meta and (cur.meta.hitType == "Overhand" or cur.meta.hitType == "Underhand") then
 				rate = 0.06 -- a floater barely spins
 			elseif cur.meta and cur.meta.energy then
 				rate = 0.35 + 0.9 * cur.meta.energy -- Azure: heavy spin

@@ -1,7 +1,10 @@
 -- Camera: a side-on broadcast view (the 2.5D look). A long lens from the open near side keeps
--- perspective flat, like a 2D game drawn in 3D. It tracks the ball along the court, rises and
--- pulls back for high sets, closes in on your serve, swings to a low angled view after a point,
--- and punches in on big hits (with trauma-based shake).
+-- perspective flat, like a 2D game drawn in 3D.
+-- During play it's fully zoomed out: one fixed wide shot that holds the whole court, both serve
+-- spots and the highest sets, fitted to the screen's shape (only the shake moves it). The
+-- "Follow camera" setting brings back the tracking view instead: it follows the ball, rises
+-- and pulls back for high sets, closes in on your serve, swings to a low angle after a point,
+-- and punches in on big hits.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -19,7 +22,10 @@ local player = Players.LocalPlayer
 local C = Config.Court
 local BASE_FOV = 34
 local DIST = 64
-local CLOSE_DIST = 52
+-- the wide shot must hold: both serve spots (with room to step back) and the top of the
+-- highest sets and tosses
+local WIDE_HALF_Z = C.SideDepth + 12.6
+local WIDE_TOP, WIDE_BOTTOM = 44, -2
 
 local trauma = 0
 local fovKick = 0
@@ -62,7 +68,7 @@ local function desired(now)
 	local ballPos = BR.renderPosition()
 	local ballVisible = ballPos.Y > -100
 	local root = myRoot()
-	local dist = State.settings.closeCam and CLOSE_DIST or DIST
+	local dist = DIST
 
 	-- dramatic angle on the landing spot right after a point
 	if pointCam and now < pointCam.untilT and State.settings.dramatic then
@@ -115,6 +121,20 @@ local function desired(now)
 	return pos, look, BASE_FOV
 end
 
+-- The fixed, fully zoomed-out shot: far enough back that the court fits both the screen's width
+-- and height, the lens a touch above the play looking slightly down so the floor lines read.
+local function wide()
+	local cam = workspace.CurrentCamera
+	local vs = cam and cam.ViewportSize or Vector2.new(16, 9)
+	local aspect = math.max(0.5, vs.X / math.max(1, vs.Y))
+	local tv = math.tan(math.rad(BASE_FOV / 2))
+	local halfH = (WIDE_TOP - WIDE_BOTTOM) / 2
+	local dist = math.max(WIDE_HALF_Z / (tv * aspect), halfH / tv) + 2
+	-- a wide screen leaves spare height: keep the floor near the bottom edge
+	local lookY = math.max((WIDE_TOP + WIDE_BOTTOM) / 2, WIDE_BOTTOM + dist * tv * 0.85)
+	return Vector3.new(-dist, lookY + dist * 0.1, 0), Vector3.new(2, lookY, 0), BASE_FOV
+end
+
 local function update(dt)
 	local cam = workspace.CurrentCamera
 	if not cam then
@@ -128,7 +148,14 @@ local function update(dt)
 		cam.CameraType = Enum.CameraType.Scriptable
 	end
 	local now = os.clock()
-	local pos, look, fov = desired(now)
+	local pos, look, fov
+	local zoomedOut = State.isPlaying and not State.settings.followCam
+	if zoomedOut then
+		pos, look, fov = wide()
+		fovKick = 0 -- no punch-ins on the wide shot
+	else
+		pos, look, fov = desired(now)
+	end
 	fov = fov or BASE_FOV
 	local speed = 4.5
 	if pointCam and now < pointCam.untilT then

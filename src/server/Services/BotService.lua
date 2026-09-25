@@ -684,15 +684,22 @@ local function serveLogic(b, now, grounded, side)
 			local d = B.ServeDelay
 			b.serve = {
 				at = now + d[1] + b.rng:NextNumber() * (d[2] - d[1]),
-				jump = e.charStats.index >= B.JumpServeTier and b.rng:NextNumber() < 0.75,
+				jump = e.charStats.index >= B.JumpServeTier,
 			}
 		end
 		if now >= b.serve.at and now >= b.nextActAt then
-			local h = H.TossLow
+			local ok
 			if b.serve.jump then
-				h = H.TossHighMin + b.rng:NextNumber() * (H.TossHighMax - H.TossHighMin)
+				-- high tiers: the full toss, a little forward, then the run-up and jump serve
+				ok = reg.HitService.botAction(e, "Toss", { tossHeight = H.TossHighMax, tossForward = B.JumpServeTossForward })
+			else
+				-- everyone else: the easy underhand serve straight from the hand (always in)
+				ok = reg.HitService.botAction(e, "Underhand", {})
+				if ok then
+					b.serve = nil
+				end
 			end
-			if not reg.HitService.botAction(e, "Toss", { tossHeight = h }) then
+			if not ok then
 				b.nextActAt = now + 0.2
 			end
 		end
@@ -749,7 +756,8 @@ local function serveLogic(b, now, grounded, side)
 		if ok and dy <= Z.SpikeCenterDy + 0.3 then
 			act(b, "Serve", ball, extra)
 		end
-	elseif not s.jump and grounded then
+	elseif grounded then
+		-- an overhand from the hand (a jump serve that missed in the air lands in here too)
 		local ok = HitLogic.floatZone(root, ball, side)
 		if ok and vel.Y < 0 and ball.Y <= root.Y + Z.FloatUp + 0.2 then
 			act(b, "Serve", ball, extra)

@@ -1360,7 +1360,7 @@ local function onHit(snap)
 		return
 	end
 
-	if ht == "Bump" or ht == "Set" or ht == "Free" or ht == "Feint" or ht == "Overhand" then
+	if ht == "Bump" or ht == "Set" or ht == "Free" or ht == "Feint" or ht == "Overhand" or ht == "Underhand" then
 		if not toolboxFx("ReceiveImpact", pos) then
 			ringFx(pos, meta.perfect and UI.Spark or WHITE, 1, 4.5, 0.22, 4)
 		end

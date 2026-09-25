@@ -28,8 +28,8 @@ local AZURE = Config.Abilities.Azure
 local ADRENALINE = Config.Abilities.Adrenaline
 local CHAIN = Config.Abilities.ChainReaction
 
-local ACTION_CODE = { Bump = 1, Set = 2, Spike = 3, Feint = 4, Block = 5, Toss = 6, Serve = 7 }
-local SERVES = { JumpServe = true, Overhand = true }
+local ACTION_CODE = { Bump = 1, Set = 2, Spike = 3, Feint = 4, Block = 5, Toss = 6, Serve = 7, Underhand = 8 }
+local SERVES = { JumpServe = true, Overhand = true, Underhand = true }
 
 local function clamp(x, a, b)
 	if x < a then
@@ -416,7 +416,7 @@ end
 
 -- Returns ok, reason, isThirdTouch. Block touches never count.
 function HitLogic.canTouch(touch, team, id, action, teamSize)
-	if action == "Block" or action == "Toss" or action == "Serve" then
+	if action == "Block" or action == "Toss" or action == "Serve" or action == "Underhand" then
 		return true, nil, false
 	end
 	touch = touch or {}
@@ -447,7 +447,7 @@ function HitLogic.nextTouch(touch, team, id, action)
 	if action == "Block" then
 		return { team = team, count = 0, lastId = id, lastWasBlock = true }
 	end
-	if action == "Serve" then
+	if action == "Serve" or action == "Underhand" then
 		return { team = team, count = 3, lastId = id }
 	end
 	if action == "Toss" then
@@ -612,6 +612,25 @@ function HitLogic.compute(input, ctx)
 		if fwd > 0 then
 			meta.tossForward = fwd
 		end
+		return launchResult(meta, p, v, Vector3.new(0, -G, 0), t)
+	end
+
+	-- Underhand serve (the easy one) ---------------------------------------------------------
+	-- Straight from the hand, no toss: a slow, high rainbow that always clears the net and
+	-- lands well inside the other court. Easy to receive, too (no guard drain).
+	if action == "Underhand" then
+		if not input.grounded then
+			return false, "grounded"
+		end
+		local p = Vector3.new(0, root.Y + 0.4, root.Z - side * 1.0)
+		local depth = C.SideDepth * (H.UnderhandDepthMin + (H.UnderhandDepthMax - H.UnderhandDepthMin) * rng:NextNumber())
+		local target = Vector3.new(0, R, -side * depth)
+		local apex = C.NetTop + H.UnderhandApexOverNet + rng:NextNumber() * 0.4 * SPM
+		local v = HitLogic.solveArc(p, target, apex, G)
+		local meta = meta0("Underhand", 1)
+		meta.grade = "EASY"
+		meta.noDrain = true
+		meta.height = HitLogic.meters(p.Y)
 		return launchResult(meta, p, v, Vector3.new(0, -G, 0), t)
 	end
 

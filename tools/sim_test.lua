@@ -646,6 +646,28 @@ do
 	local ok3, res3 = HitLogic.compute({ action = "Toss", t = 0, root = groot, ball = groot, grounded = true, tossHeight = 22 }, ctx())
 	local _, apexT = BallPhysics.findApex(BallPhysics.buildPath(res3.launch), 0)
 	check(ok3 and res3.meta.serveKind == "Jump" and apexT.Y > 25, "held toss goes high for a jump serve", string.format("apex %.1f", apexT.Y))
+	-- the easy underhand serve: from anywhere behind the line, any roll, it clears the net and lands in
+	local allIn, slowest, fastest, worstClear = true, math.huge, 0, math.huge
+	for d = 0, 10 do
+		local z = side * (C.SideDepth + 0.3 + d * (C.FreeZoneEnd - 0.5) / 10)
+		for seq = 1, 12 do
+			local r = vec(0, GROUND, z)
+			local okU, u = HitLogic.compute({ action = "Underhand", t = 0, root = r, ball = r, grounded = true }, ctx({ seq = seq * 13 + d, touchNumber = 1 }))
+			if not okU then
+				allIn = false
+			else
+				local up = BallPhysics.buildPath(u.launch)
+				local _, atNet = BallPhysics.findTime(up, 0, function(pos) return pos.Z * side <= 0 end)
+				if not atNet or up.flags.netTouch or not Court.inBounds(up.landing.pos) or up.landing.pos.Z * side >= 0 then
+					allIn = false
+				else
+					worstClear = math.min(worstClear, atNet.Y - C.NetTop)
+				end
+				slowest, fastest = math.min(slowest, u.meta.kmh), math.max(fastest, u.meta.kmh)
+			end
+		end
+	end
+	check(allIn and fastest < 60 and worstClear > 1 * SPM, "the easy underhand serve always clears the net and lands in, slowly", string.format("%.0f to %.0f km/h, clears the net by %.1f m or more", slowest, fastest, worstClear / SPM))
 	-- a forward toss comes back down about TossForwardMax in front, so the server runs into it
 	local function tossDrop(fwd)
 		local okT, r = HitLogic.compute({ action = "Toss", t = 0, root = groot, ball = groot, grounded = true, tossHeight = 22, tossForward = fwd }, ctx())
@@ -757,6 +779,12 @@ do
 	local q3 = Lobbies.new(12, 4, "c", Lobbies.settings({ mode = 3 })); q3.quick = true; Lobbies.seat(q3, 4); Lobbies.seat(q3, 5); Lobbies.seat(q3, 6)
 	local q4 = Lobbies.new(13, 7, "d", Lobbies.settings({ mode = 2, privacy = "Private", password = "abc" })); q4.quick = true; Lobbies.seat(q4, 7); Lobbies.seat(q4, 8); Lobbies.seat(q4, 9)
 	check(Lobbies.pickQuick({ q1, q2, q3, q4 }, 2) == q2 and Lobbies.pickQuick({ q1, q3 }, 1) == nil, "Quick Match joins the fullest open public lobby of that mode")
+	-- a tutorial lobby is hidden: only its player sees it, nobody can join
+	local tl = Lobbies.new(20, 1, "a", Lobbies.settings({ mode = 1, botTier = "D-" }))
+	tl.hidden = true
+	Lobbies.seat(tl, 1)
+	local tOk, tWhy = Lobbies.canJoin(tl, 2, nil, true)
+	check(Lobbies.visible(tl, 1, false) and not Lobbies.visible(tl, 2, true) and not tOk and tWhy == "started", "a tutorial lobby is hidden and closed to everyone else")
 	-- the teleport round trip
 	local back = Lobbies.import(Lobbies.export(l), 99)
 	check(back.mode == 2 and back.password == "spike99" and back.expected[100] == "Home" and back.expected[300] ~= nil and Lobbies.count(back) == 0 and Lobbies.import("junk") == nil, "a lobby survives the trip to its own server")
@@ -769,6 +797,23 @@ do
 	idle, afk = Lobbies.idle(idle, 0.5, "Rally", false)
 	local reset = Lobbies.idle(idle, 0.5, "Rally", true)
 	check(quiet == 0 and not before and afk and reset == 0 and Config.Afk.Timeout >= 10 and Config.Afk.Timeout <= 15, "AFK: 10 to 15 s without input while the ball is live (timeouts don't count)", string.format("%d s", Config.Afk.Timeout))
+end
+
+print("== tutorial ==")
+do
+	local Tutorial = require("Tutorial")
+	local done = {}
+	local nextStep, n, total = Tutorial.progress(done)
+	check(nextStep.id == "serve" and n == 0 and total == 7 and not Tutorial.complete(done), "the tutorial starts at the serve with 7 steps")
+	for _, hit in ipairs({ "Underhand", "Bump", "Set", "Spike", "Block" }) do
+		for _, id in ipairs(Tutorial.stepsFor(hit)) do done[id] = true end
+	end
+	local after = Tutorial.progress(done)
+	for _, id in ipairs(Tutorial.stepsFor("JumpServe")) do done[id] = true end
+	local beforePoint = Tutorial.complete(done)
+	done.point = true
+	local vp, gold, spins = Tutorial.reward()
+	check(after.id == "jumpserve" and not beforePoint and Tutorial.complete(done) and #Tutorial.stepsFor("Feint") == 0 and vp == 50 and gold == 1000 and spins == 5, "touches tick their steps, a won rally finishes it; the reward is 50 VP, 1,000 Gold and 5 free recruits")
 end
 
 print("== determinism ==")

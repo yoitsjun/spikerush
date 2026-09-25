@@ -79,10 +79,14 @@ function Lobbies.teamOf(l, userId)
 	return nil, nil
 end
 
--- Whether this player sees the lobby in the list (its members always do).
+-- Whether this player sees the lobby in the list (its members always do; nobody else sees a
+-- hidden one, like a tutorial).
 function Lobbies.visible(l, userId, isFriend)
 	if l.host == userId or Lobbies.teamOf(l, userId) then
 		return true
+	end
+	if l.hidden then
+		return false
 	end
 	if l.privacy == "Friends" then
 		return isFriend == true
@@ -96,7 +100,7 @@ function Lobbies.canJoin(l, userId, password, isFriend)
 	if Lobbies.teamOf(l, userId) then
 		return true
 	end
-	if l.state ~= "Open" then
+	if l.state ~= "Open" or l.hidden then
 		return false, "started"
 	end
 	if Lobbies.count(l) >= Lobbies.capacity(l) then

@@ -21,6 +21,7 @@ local Assets = require(Shared.Assets)
 local Characters = require(Shared.Characters)
 local Court = require(Shared.Court)
 local Util = require(Shared.Util)
+local Tutorial = require(Shared.Tutorial)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 
@@ -923,6 +924,7 @@ local RAIL = {
 	{ action = "Block", key = "W", pad = "Y", color = Color3.fromRGB(120, 110, 220) },
 	{ action = "Set", key = "E", pad = "LB", color = Color3.fromRGB(240, 170, 60) },
 	{ action = "Serve", key = "X", pad = "X", color = Color3.fromRGB(245, 200, 40) },
+	{ action = "EasyServe", key = "F", pad = "Up", color = Color3.fromRGB(255, 232, 150) },
 	{ action = "Ability", key = "Q", pad = "L2", color = Color3.fromRGB(150, 205, 255) },
 }
 
@@ -931,7 +933,7 @@ local function buildRail()
 		Name = "ControlRail",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 12, 0.56, 0),
-		Size = UDim2.fromOffset(124, 7 * 34),
+		Size = UDim2.fromOffset(124, #RAIL * 34),
 		BackgroundTransparency = 1,
 		Visible = false,
 	}, gui)
@@ -994,6 +996,9 @@ local RAIL_NAMES = {
 	Spike = function(ctx)
 		return ctx.spikeLabel or "Spike"
 	end,
+	EasyServe = function()
+		return "Easy serve"
+	end,
 }
 
 local function updateRail()
@@ -1016,12 +1021,13 @@ local function updateRail()
 		Block = ctx.nearNet == true and ctx.grounded == true and not ctx.serving,
 		Set = ctx.canSet == true,
 		Serve = ctx.serving == true,
+		EasyServe = ctx.serving == true and ctx.spikeLabel == "Toss",
 		Ability = mods.ActionController.abilityCooldown() <= 0 and not mods.ActionController.abilityActive(),
 	}
 	local abilityDef = Config.Abilities[State.myAbility() or ""]
 	for action, sl in pairs(r.slots) do
 		local def = sl.def
-		sl.slot.Visible = (action ~= "Serve" or ctx.serving == true) and (action ~= "Ability" or (abilityDef ~= nil and abilityDef.Active == true))
+		sl.slot.Visible = ((action ~= "Serve" and action ~= "EasyServe") or ctx.serving == true) and (action ~= "Ability" or (abilityDef ~= nil and abilityDef.Active == true))
 		sl.badge.Text = pad and def.pad or def.key
 		local namer = RAIL_NAMES[action]
 		sl.name.Text = namer and namer(ctx) or (action == "SlideFeint" and "Slide" or action)
@@ -1042,6 +1048,78 @@ local function updateRail()
 end
 
 ------------------------------------------------------------------------------------------
+-- the tutorial coach: the current step, how to do it, and the checklist
+------------------------------------------------------------------------------------------
+
+local function buildCoach()
+	local f = panel(gui, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 60), Size = UDim2.fromOffset(360, 196), Visible = false })
+	stroke(f, 2, UI.Spark)
+	ui.coachScale = make("UIScale", {}, f)
+	local head = label(f, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 13, TextColor3 = UI.Spark, Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 10) })
+	local title = label(f, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 22, Size = UDim2.new(1, -24, 0, 28), Position = UDim2.fromOffset(12, 28) })
+	local body = label(f, { Text = "", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = UI.Fog, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -24, 0, 54), Position = UDim2.fromOffset(12, 60) })
+	local list = make("Frame", { Size = UDim2.new(1, -24, 0, 50), Position = UDim2.fromOffset(12, 118), BackgroundTransparency = 1 }, f)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(110, 22), CellPadding = UDim2.fromOffset(4, 4), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	local chips = {}
+	for i, s in ipairs(Tutorial.Steps) do
+		local c = label(list, { Text = s.title, Font = Enum.Font.GothamBold, TextSize = 12, LayoutOrder = i, BackgroundTransparency = 0, BackgroundColor3 = UI.InkSoft, TextXAlignment = Enum.TextXAlignment.Center })
+		corner(c, 5)
+		chips[s.id] = c
+	end
+	local leave = button(f, "Back to the menu", { Size = UDim2.new(1, -24, 0, 34), Position = UDim2.new(0, 12, 1, -44), BackgroundColor3 = UI.Spark, TextColor3 = UI.Ink, TextSize = 15, Visible = false })
+	leave.MouseButton1Click:Connect(function()
+		click()
+		Net.get("Forfeit"):FireServer()
+	end)
+	ui.coach = { frame = f, head = head, title = title, body = body, chips = chips, leave = leave, done = -1 }
+end
+
+local function updateCoach()
+	local c = ui.coach
+	local prof = State.profile
+	local tut = prof and prof.tutorial
+	local show = State.isPlaying and State.match.tutorial == true and tut ~= nil
+	c.frame.Visible = show
+	if not show then
+		return
+	end
+	local cam = workspace.CurrentCamera
+	if cam then
+		ui.coachScale.Scale = math.clamp(cam.ViewportSize.Y / 760, 0.62, 1.1)
+	end
+	local nextStep, n, total = Tutorial.progress(tut.steps)
+	if n ~= c.done then
+		if c.done >= 0 and n > c.done and mods.AudioController then
+			mods.AudioController.play("Point", { volume = 0.8 })
+		end
+		c.done = n
+	end
+	for id, chip in pairs(c.chips) do
+		local ok = tut.steps[id] == true
+		chip.BackgroundColor3 = ok and UI.Mint or (nextStep and nextStep.id == id and UI.Spark or UI.InkSoft)
+		chip.TextColor3 = (ok or (nextStep and nextStep.id == id)) and UI.Ink or UI.Fog
+	end
+	if tut.done or not nextStep then
+		local vp, gold, spins = Tutorial.reward()
+		c.head.Text = "TUTORIAL COMPLETE"
+		c.title.Text = "You're ready!"
+		c.body.Text = string.format("+%d VP, +%d Gold and %d free recruits. Finish the match or head back to the menu.", vp, gold, spins)
+		c.leave.Visible = true
+		return
+	end
+	c.leave.Visible = false
+	c.head.Text = string.format("TUTORIAL  %d / %d", n + 1, total)
+	c.title.Text = nextStep.title
+	local how = nextStep.key
+	if State.isMobile then
+		how = nextStep.touch
+	elseif mods.InputController.lastDevice() == "Gamepad" then
+		how = nextStep.pad
+	end
+	c.body.Text = how
+end
+
+------------------------------------------------------------------------------------------
 -- timeout and settings buttons
 ------------------------------------------------------------------------------------------
 
@@ -1049,7 +1127,7 @@ local SETTINGS = {
 	{ key = "landingMarker", text = "Landing marker" },
 	{ key = "dramatic", text = "Impact frames and speed lines" },
 	{ key = "assist", text = "Receive assist" },
-	{ key = "closeCam", text = "Closer camera" },
+	{ key = "followCam", text = "Follow camera (zoomed in)" },
 	{ key = "shake", text = "Camera shake" },
 }
 
@@ -1316,7 +1394,7 @@ local function onAnnounce(a)
 		showResults(a)
 	elseif a.kind == "Serve" then
 		if a.id == State.myId then
-			showHint("Your serve: tap X for an overhand serve, hold X to toss for a jump serve (hold toward the net to toss it forward)")
+			showHint("Your serve: F for an easy underhand serve, tap X for an overhand serve, hold X to toss for a jump serve (hold toward the net to toss it forward)")
 		end
 	elseif a.kind == "Forfeit" then
 		UIController.callout("Forfeit", teamColor(a.team), teamName(a.team) .. " gave up the match", 1.6)
@@ -1442,6 +1520,7 @@ local function updateSlow()
 	updateAbility()
 	updateTimeout()
 	updateRotation()
+	updateCoach()
 end
 
 function UIController.init(m)
@@ -1462,6 +1541,7 @@ function UIController.init(m)
 	buildCorner()
 	buildResults()
 	buildRotation()
+	buildCoach()
 
 	State.signals.Announce:Connect(function(a)
 		if a.kind == "Point" then

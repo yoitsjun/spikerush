@@ -42,7 +42,7 @@ State.settings = {
 	shake = 1,
 	dramatic = true, -- impact frames, hit-stops, speed lines
 	assist = State.isMobile, -- auto-receive assist (capped quality) defaults on for touch
-	closeCam = false,
+	followCam = false, -- off: the fully zoomed-out wide shot during play
 }
 
 State.signals = {

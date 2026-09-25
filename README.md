@@ -8,7 +8,7 @@ The whole game is a Rojo project. The server is authoritative, and the shared ga
 
 Install the toolchain once with `rokit install` or `aftman install` (both pin Rojo 7.7.0). Then start the live sync with `serve.bat` (Windows) or `./serve.sh` (macOS, Linux), or run `rojo serve` in this folder yourself, and press Connect in the Rojo plugin in Roblox Studio. The plugin has to be Rojo 7.7.x: older servers speak sync protocol 4, and the current plugin refuses them. `rojo plugin install` installs the matching plugin.
 
-To start from a place file instead, open `SpikeRush.rbxlx` (built with `rojo build -o SpikeRush.rbxlx`) and connect Rojo from there. Press Play: the server builds the arena at startup and you land on the Home screen. Press Match, then Quick Match (or make a lobby with Fill with bots on) to play; bots fill every empty slot, so the game is fully playable solo.
+To start from a place file instead, open `SpikeRush.rbxlx` (built with `rojo build -o SpikeRush.rbxlx`) and connect Rojo from there. Press Play: the server builds the arena at startup and you land on the Home screen. New players get a **tutorial** card there: a 1v1 practice match against a D- bot with a checklist (serve, receive, set, spike, block, jump serve, win a rally), ticked by the server as you really do each one. Finishing it pays 50 VP, 1,000 Gold and 5 free recruits, once. Press Match, then Quick Match (or make a lobby with Fill with bots on) to play; bots fill every empty slot, so the game is fully playable solo.
 
 Player progress (V Points, Gold, the characters you own, their upgraded stats and the one you play, unlocked cosmetics, auto-sell choices) is saved with DataStoreService. In Studio this only works after enabling Game Settings > Security > "Enable Studio Access to API Services" on a published place. Without it the game still runs, profiles just last for the session, and the Home screen says so.
 
@@ -27,6 +27,7 @@ The keyboard layout follows The Spike's, with WASD and mouse alternatives.
 | Block | ↑ or W | Y | Hold to crouch and charge, release to jump; near the net (1.5 m) the ball that passes your hands is blocked |
 | Jump | Space | | A plain jump |
 | Set | E or V | LB | Hold toward the net for a quick set, away for a back set, nothing for an open set |
+| Easy serve | F | D-pad up | An underhand serve straight from the hand, no toss: a slow, high lob (about 45 km/h) that always clears the net and lands well inside |
 | Serve | X | X | Tap for an overhand serve that hits itself; hold to toss for a jump serve (longer = higher toss; hold toward the net as you let go to throw it forward and run into it), then Spike to jump and Spike again to hit. A dotted line shows where the toss will go, and you can't walk past the end line until the serve is hit (jumping over it is fine) |
 | Ability | Q | L2 | Active abilities only (Iron Wall) |
 | Timeout | T | Select | Two per set; takes effect at the next dead ball, refills stamina and opens the rotation editor |
@@ -62,7 +63,7 @@ Stats map onto gameplay the same way for everyone, from 50 up to 210. Attack set
 
 The world is built at *The Spike*'s scale (4.6 studs to the metre, a real 9 m half court, a 2.43 m net) with characters about 1.15 m tall, and heights above the standing hand are drawn 1.4 times taller (`Config.Scale.JumpScale`), so the best jumpers leap almost three times their own height and hit at twice the net while the readouts stay in real metres. Workspace gravity is 45 and the ball falls at 11.25 m/s².
 
-**V Points (VP)** pay for recruits. You earn 30 for a win, 15 for a loss and 2 per kill, ace or block, the match MVP gets 15 more, and a new profile starts with 500. Recruit x1 costs 50 VP, x10 500:
+**V Points (VP)** pay for recruits. You earn 30 for a win, 15 for a loss and 2 per kill, ace or block, the match MVP gets 15 more, and a new profile starts with 500. Recruit x1 costs 50 VP (a free recruit, from the tutorial, is used first), x10 500:
 
 | Banner | What it gives |
 |---|---|
@@ -104,6 +105,8 @@ When a ball is yours to play and you don't go for it (no receive, slide, jump or
 
 The bot setter feeds the wing spiker first. Off a good pass it sometimes runs a quick to the middle instead (better setters more often), and a bot middle is already in the air when the set is made. On every set to the wing spiker the middle jumps just behind as a backup: if the wing spiker misses, the middle spikes it.
 
+Bots below A- serve the easy underhand serve (always in); from A- up they toss full height, a little forward, and jump serve (only jump serves can miss, less often the higher the tier).
+
 Bots play by tier on top of their stats. A D- team reacts late (0.32 s), mistimes jumps, frames spikes, misses digs and serves, and rarely blocks; an S+ team is clean. Offline, a D- bot gets a dig, spike and serve through cleanly about a third of the time, an S bot about nine times in ten.
 
 Receives and sets go high, and they never go over the net except on the third touch (a free ball). Sets draw a dotted arc and hang about 1.6 s before arriving at hitting height. Serves are hit from behind the end line within 8 s: the overhand serve is a safe lob of about 50 km/h, and a jump serve from an S+ runs around 125 km/h. Blocks can stuff, soft-block, get tooled off the hands or just touch the ball.
@@ -126,7 +129,7 @@ If a player leaves, or gives no input for 12 s while the ball is live, an AI tak
 
 A loading screen (in ReplicatedFirst, all GUI shapes) shows soft grey light, rising bubbles, light rays and a spinning yellow, blue and white ball over the title, with tips and a progress bar, and fades out once the client has started. `tools/generate_icon.py` draws the game icon and thumbnail (`assets/icon/GameIcon.png`, 512x512, and `Thumbnail.png`, 1920x1080) in the same style; upload them in the Creator Hub.
 
-Spike, receive and set are keyframed animations: the spiker's arms swing up on takeoff, draw back like a bow at the top (arched back, hitting arm cocked, legs kicked back), whip through on contact and follow through into the fall; receives drive up through a platform, sets catch at the forehead and push up onto the toes (back sets arch), and landings crouch. The camera is a long-lens side view from the open near side, which keeps perspective flat like a 2D game. It rises and pulls back for high sets, closes in on your serve and swings to a low angle after a point. Spikes leave thick ribbon trails that shed stars: yellow for Thunder (with lightning crackling along the whole flight), cyan for Azure and hot pink into red for anything over 120 km/h, chased by sonic-boom rings. Every attack shows a reticle snapping onto the ball, a starburst, a ring and dark debris streaks, the biggest hits flash neon streaks across the screen, perfect receives raise a gold shield over the receiver, and jumps boom off the floor. The biggest hits flash a manga impact frame: the screen goes white and the attacker becomes a black silhouette over a coloured burst. The HUD shows the km/h and hitting height of the last attack under the score, "Team (Player) scored" with the reason after each point, receive grades like "PERFECT 96", and your tier badge, height and a marker over the player you control. Impact frames, speed lines, shake, the landing marker, the closer camera and receive assist can all be toggled in settings.
+Spike, receive and set are keyframed animations: the spiker's arms swing up on takeoff, draw back like a bow at the top (arched back, hitting arm cocked, legs kicked back), whip through on contact and follow through into the fall; receives drive up through a platform, sets catch at the forehead and push up onto the toes (back sets arch), and landings crouch. The camera is a long-lens side view from the open near side, which keeps perspective flat like a 2D game. During play it's fully zoomed out: one fixed wide shot of the whole court, both serve spots and the highest sets, fitted to your screen's shape. The Follow camera setting brings back the tracking view, which rises and pulls back for high sets, closes in on your serve and swings to a low angle after a point. Spikes leave thick ribbon trails that shed stars: yellow for Thunder (with lightning crackling along the whole flight), cyan for Azure and hot pink into red for anything over 120 km/h, chased by sonic-boom rings. Every attack shows a reticle snapping onto the ball, a starburst, a ring and dark debris streaks, the biggest hits flash neon streaks across the screen, perfect receives raise a gold shield over the receiver, and jumps boom off the floor. The biggest hits flash a manga impact frame: the screen goes white and the attacker becomes a black silhouette over a coloured burst. The HUD shows the km/h and hitting height of the last attack under the score, "Team (Player) scored" with the reason after each point, receive grades like "PERFECT 96", and your tier badge, height and a marker over the player you control. Impact frames, speed lines, shake, the landing marker, the closer camera and receive assist can all be toggled in settings.
 
 All 27 sound effects are synthesized by `tools/generate_sfx.py` into `assets/sfx/<Key>.ogg`, and they are already generated. They follow *The Spike*'s sound design without using any of its audio: spikes are a palm smack with a sub boom and an air tear, hard spikes hit like an explosion, a perfect dig rings with a metallic shing, sets are a finger double-tap, and the impact frame gets its own swell-and-slam stinger, all in a light arena room. In game they run through a mix bus (compressor, low-end lift, hall reverb).
 
@@ -189,10 +192,10 @@ Game code is written in a Lua 5.1/5.3 compatible subset of Luau (no `+=`, `conti
 python3 tools/check_lua.py      # syntax and undefined globals
 python3 tools/check_config.py   # every Config reference exists
 python3 tools/check_api.py      # every cross-module call is defined
-texlua tools/sim_test.lua       # 84 gameplay scenarios against the real shared code
+texlua tools/sim_test.lua       # 88 gameplay scenarios against the real shared code
 ```
 
-The simulation suite checks the headline numbers (spike speeds, Thunder and Azure ranges, hitting points by tier, depth control, stamina and guard breaks, touch rules, sets, serves, blocks, the roster, role abilities, spin odds and drop tables, deuce, rotation edits, formation fill, bot skill by tier, the Gold upgrade costs, tier-scaled guard drain, middle quicks and the backup spike, the forward serve toss, lobby rules and the AFK timer) and that client prediction is bit-identical to the server.
+The simulation suite checks the headline numbers (spike speeds, Thunder and Azure ranges, hitting points by tier, depth control, stamina and guard breaks, touch rules, sets, serves, blocks, the roster, role abilities, spin odds and drop tables, deuce, rotation edits, formation fill, bot skill by tier, the Gold upgrade costs, tier-scaled guard drain, middle quicks and the backup spike, the forward serve toss, lobby rules, the AFK timer, the underhand serve and the tutorial steps) and that client prediction is bit-identical to the server.
 
 ## Status
 

@@ -189,6 +189,11 @@ Config.Hits = {
 	TossForward = 1.2,
 	TossForwardMax = 2.4 * M, -- a full forward toss comes back down this far in front of the hand
 	OverhandApexOverNet = 1.4 * M, -- the standing serve floats over on a lob
+	-- the easy underhand serve: straight from the hand (no toss), a slow high rainbow that
+	-- always clears the net and lands well inside, between these fractions of the court's depth
+	UnderhandApexOverNet = 2.6 * M,
+	UnderhandDepthMin = 0.35,
+	UnderhandDepthMax = 0.7,
 	JumpServeKmhMin = 95,
 	JumpServeKmhMax = 125,
 	ThunderServeKmhMin = 140,
@@ -514,6 +519,16 @@ Config.Lobby = {
 	ReservedServers = true,
 }
 
+-- The tutorial (the Tutorial module has the steps): a 1v1 against a weak bot; finishing every
+-- step pays this once.
+Config.Tutorial = {
+	RewardVP = 50,
+	RewardGold = 1000,
+	RewardSpins = 5, -- free x1 recruits (used before V Points)
+	BotTier = "D-",
+	Mode = 1,
+}
+
 -- A player who stops giving input during live play is replaced by an AI playing their own
 -- character (and can take the slot back at the next dead ball).
 Config.Afk = {
@@ -560,12 +575,15 @@ Config.Bots = {
 	WhiffChance = { 0.3, 0.03 }, -- misses a heavy spike outright
 	MissChance = { 0.08, 0.0 }, -- misses any ball
 	SpikeMishitChance = { 0.35, 0.02 }, -- frames the swing (a weak, wild spike)
-	ServeMissChance = { 0.14, 0.01 },
+	ServeMissChance = { 0.14, 0.01 }, -- jump serves only (the underhand serve never misses)
 	BlockChance = { 0.35, 0.9 },
 	ReadOutChance = { 0.45, 0.9 },
 	SlideChance = { 0.35, 0.85 },
 	FeintChance = 0.12,
-	JumpServeTier = 9, -- tier index from which bots jump serve
+	-- bot serves: from this tier index (A-) a full-height jump-serve toss (thrown a little
+	-- forward to run into); below it the easy underhand serve, which always goes in
+	JumpServeTier = 10,
+	JumpServeTossForward = 0.4,
 	ServeDelay = { 1.0, 2.0 },
 	-- Covering: when a ball is a human's to play, the nearest teammate bot shadows it and plays
 	-- it unless the human tried something (stance, slide, jump, block, touch) this recently.

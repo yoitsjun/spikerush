@@ -29,6 +29,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Characters = require(Shared.Characters)
 local Roster = require(Shared.Roster)
+local Tutorial = require(Shared.Tutorial)
 local Spins = require(Shared.Spins)
 local Net = require(Shared.Net)
 
@@ -81,7 +82,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, levels = {}, owned = {}, equip = {}, autoSell = {}, receipts = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, levels = {}, owned = {}, equip = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false } }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -140,6 +141,17 @@ local function sanitizeProfile(data)
 	end
 	if type(data.char) == "string" and out.owned.Char[data.char] then
 		out.char = data.char
+	end
+	out.freeSpins = math.clamp(math.floor(tonumber(data.freeSpins) or 0), 0, 1000)
+	if type(data.tutorial) == "table" then
+		out.tutorial.done = data.tutorial.done == true
+		if type(data.tutorial.steps) == "table" then
+			for id, v in pairs(data.tutorial.steps) do
+				if v == true and Tutorial.isStep(id) then
+					out.tutorial.steps[id] = true
+				end
+			end
+		end
 	end
 	if type(data.autoSell) == "table" then
 		for _, r in ipairs(SP.AutoSellable) do
@@ -206,6 +218,8 @@ local function save(plr, force)
 		v = VERSION,
 		vp = profile.vp,
 		gold = profile.gold,
+		freeSpins = profile.freeSpins,
+		tutorial = profile.tutorial,
 		levels = profile.levels,
 		owned = profile.owned,
 		equip = profile.equip,
@@ -331,6 +345,8 @@ function ProfileService.snapshot(plr)
 	return {
 		vp = profile.vp,
 		gold = profile.gold,
+		freeSpins = profile.freeSpins or 0,
+		tutorial = { steps = table.clone(profile.tutorial.steps), done = profile.tutorial.done },
 		levels = levels,
 		owned = owned,
 		equip = table.clone(profile.equip),
@@ -364,6 +380,36 @@ function ProfileService.award(plr, vp, gold)
 	profile.gold = profile.gold + math.max(0, math.floor(gold or 0))
 	dirty[plr] = true
 	push(plr)
+end
+
+-- The tutorial: tick steps the player really did (HitService, MatchService); the last one pays
+-- the reward once.
+function ProfileService.tutorialStep(plr, ids)
+	local profile = profiles[plr]
+	if not profile or profile.tutorial.done then
+		return
+	end
+	local changed = false
+	for _, id in ipairs(ids) do
+		if Tutorial.isStep(id) and not profile.tutorial.steps[id] then
+			profile.tutorial.steps[id] = true
+			changed = true
+		end
+	end
+	if not changed then
+		return
+	end
+	dirty[plr] = true
+	if Tutorial.complete(profile.tutorial.steps) then
+		profile.tutorial.done = true
+		local vp, gold, spins = Tutorial.reward()
+		profile.vp = profile.vp + vp
+		profile.gold = profile.gold + gold
+		profile.freeSpins = (profile.freeSpins or 0) + spins
+		push(plr, string.format("Tutorial complete! +%d VP, +%s Gold and %d free recruits", vp, tostring(gold), spins))
+	else
+		push(plr)
+	end
 end
 
 local STEPS = {}
@@ -436,11 +482,16 @@ local function spinOnce(plr, profile, banner, count)
 	if not Spins.isBanner(banner) or not cost then
 		return nil
 	end
+	local free = false
 	if not profile.dev then
-		if profile.vp < cost then
+		if count == 1 and (profile.freeSpins or 0) > 0 then
+			profile.freeSpins = profile.freeSpins - 1 -- free recruits go first
+			free = true
+		elseif profile.vp < cost then
 			return nil, "Not enough VP. Get more in the shop or by playing."
+		else
+			profile.vp = profile.vp - cost
 		end
-		profile.vp = profile.vp - cost
 	end
 	dirty[plr] = true
 	local rng = Random.new()
@@ -460,7 +511,7 @@ local function spinOnce(plr, profile, banner, count)
 	if not profile.dev then
 		profile.vp = profile.vp + refund
 	end
-	return { banner = banner, count = count, items = items, refund = refund }
+	return { banner = banner, count = count, items = items, refund = refund, free = free or nil }
 end
 
 local function spin(plr, profile, banner, count)

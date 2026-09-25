@@ -25,6 +25,7 @@ local Config = require(Shared.Config)
 local Characters = require(Shared.Characters)
 local Spins = require(Shared.Spins)
 local Roster = require(Shared.Roster)
+local Tutorial = require(Shared.Tutorial)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
@@ -349,6 +350,17 @@ local function buildHome()
 		MenuController.go("recruit")
 	end)
 
+	-- the tutorial, until it's done
+	local tut = Gui.glass(p, { Size = UDim2.fromOffset(372, 118), Position = UDim2.fromOffset(M, 480), Visible = false }, 0.2)
+	Gui.stroke(tut, 2, Gui.GOLD, 0.2, true)
+	text(tut, { Text = "New here? Play the tutorial", Font = Gui.FONT_HEAVY, TextSize = 19, Size = UDim2.new(1, -28, 0, 24), Position = UDim2.fromOffset(14, 10) })
+	local tutLine = text(tut, { Text = "", TextSize = 14, TextColor3 = Gui.MUTED, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -28, 0, 36), Position = UDim2.fromOffset(14, 36) })
+	local tutGo = Gui.primary(tut, "Start tutorial", { Size = UDim2.fromOffset(170, 36), Position = UDim2.new(0, 14, 1, -46), TextSize = 16 })
+	local tutProgress = text(tut, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 14, TextColor3 = Gui.GOLD_LIGHT, Size = UDim2.fromOffset(160, 36), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 1, -46), TextXAlignment = Enum.TextXAlignment.Right })
+	onClick(tutGo, function()
+		Net.get("Lobby"):FireServer("tutorial")
+	end)
+
 	-- tip (bottom left)
 	local tip = make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, M, 1, -M), Size = UDim2.fromOffset(640, 40), BackgroundTransparency = 1 }, p)
 	local tipTag = text(tip, { Text = "TIP", Font = Gui.FONT_HEAVY, TextSize = 14, TextColor3 = Gui.INK, BackgroundTransparency = 0, BackgroundColor3 = Gui.GOLD, Size = UDim2.fromOffset(44, 24), Position = UDim2.fromOffset(0, 8), TextXAlignment = Enum.TextXAlignment.Center })
@@ -400,6 +412,10 @@ local function buildHome()
 		rSub = rSub,
 		rejoin = rejoin,
 		featured = 1,
+		tut = tut,
+		tutGo = tutGo,
+		tutLine = tutLine,
+		tutProgress = tutProgress,
 	}
 end
 
@@ -453,7 +469,21 @@ local function refreshHome(prof)
 		end
 		hm.evOdds.Text = string.format("%.2f%% per recruit%s", odds * 100, owns(prof, "Char", f.Id) and "\nRecruited" or "")
 	end
-	hm.rSub.Text = prof.dev and "Free for developers" or string.format("x1  %d VP", SP.Costs[1])
+	if (prof.freeSpins or 0) > 0 then
+		hm.rSub.Text = string.format("%d free recruit%s", prof.freeSpins, prof.freeSpins == 1 and "" or "s")
+	else
+		hm.rSub.Text = prof.dev and "Free for developers" or string.format("x1  %d VP", SP.Costs[1])
+	end
+	-- the tutorial card
+	local tut = prof.tutorial
+	hm.tut.Visible = tut ~= nil and not tut.done
+	if tut and not tut.done then
+		local vp, gold, spins = Tutorial.reward()
+		local _, n, total = Tutorial.progress(tut.steps)
+		hm.tutLine.Text = string.format('Learn the basics in a practice match. Reward: <font color="#FFD35A"><b>%d VP, %s Gold and %d free recruits</b></font>', vp, Gui.num(gold), spins)
+		hm.tutProgress.Text = n > 0 and string.format("%d of %d done", n, total) or ""
+		hm.tutGo.Text = n > 0 and "Continue tutorial" or "Start tutorial"
+	end
 	-- Match button: your lobby's state
 	local mine = lobbies.mine
 	if mine then
@@ -479,7 +509,7 @@ local function buildHelp()
 			"<b>Slide / feint</b>  C or Shift. On the ground a diving receive, in the air a roll shot.",
 			"<b>Block</b>  hold W or Up, let go to jump. Longer holds jump higher.",
 			"<b>Set</b>  E or V. Toward the net sets a quick, away a back set.",
-			"<b>Serve</b>  tap X for an overhand serve, hold X to toss for a jump serve. Hold toward the net as you let go to toss it forward.",
+			"<b>Serve</b>  F for an easy underhand serve that always goes in. Tap X for an overhand serve, hold X to toss for a jump serve (hold toward the net as you let go to toss it forward).",
 			"<b>Ability</b>  Q (Iron Wall). <b>Timeout</b>  T.",
 			"",
 			"Recruit players with V Points, then spend Gold on their stats in Players. Every character's",
@@ -648,9 +678,10 @@ local function refreshRecruit(prof)
 		b.TextColor3 = on and Spins.rarityColor(r) or Gui.MUTED
 	end
 	local free = prof.dev == true
-	R.x1Cost.Text = free and "Free" or Gui.num(SP.Costs[1])
+	local freeSpins = prof.freeSpins or 0
+	R.x1Cost.Text = (free and "Free") or (freeSpins > 0 and string.format("Free (%d)", freeSpins)) or Gui.num(SP.Costs[1])
 	R.x10Cost.Text = free and "Free" or Gui.num(SP.Costs[10])
-	R.x1.BackgroundTransparency = (free or (prof.vp or 0) >= SP.Costs[1]) and 0 or 0.45
+	R.x1.BackgroundTransparency = (free or freeSpins > 0 or (prof.vp or 0) >= SP.Costs[1]) and 0 or 0.45
 	R.x10.BackgroundTransparency = (free or (prof.vp or 0) >= SP.Costs[10]) and 0 or 0.45
 end
 
@@ -2285,7 +2316,7 @@ function MenuController.init(m)
 			lobbies = data
 			if not data.mine then
 				editing = false
-			elseif not had and shown then
+			elseif not had and shown and not data.mine.tutorial then
 				ui.match.modal.root.Visible = true -- you just joined or made one
 			end
 			MenuController.refresh()

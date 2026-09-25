@@ -8,6 +8,7 @@
 --   Block ........ hold to charge, release to jump; the ball that passes your hands is blocked.
 --   Set .......... toward the net = quick, away = back, nothing = open. A receive on the second
 --                  touch sets too.
+--   Easy serve ... an underhand serve straight from the hand: a slow, high lob that always lands in.
 --   Serve ........ tap = overhand serve (hits itself). Hold = jump-serve toss (longer = higher;
 --                  hold toward the net as you let go to toss it forward), then Spike to jump
 --                  and Spike again to hit.
@@ -197,7 +198,7 @@ local function execute(action, info, opts, t, ballPos)
 		State.hint(REASONS[why] or "Not your touch")
 		return false, why
 	end
-	if action == "Toss" and math.abs(info.root.Z) < Config.Court.SideDepth - 0.5 then
+	if (action == "Toss" or action == "Underhand") and math.abs(info.root.Z) < Config.Court.SideDepth - 0.5 then
 		State.hint(REASONS.line)
 		return false, "line"
 	end
@@ -409,6 +410,17 @@ local function myToss()
 	local BR = mods.BallRenderer
 	local meta = BR.getMeta()
 	return BR.isLive() and meta and meta.hitType == "Toss" and meta.id == State.myId
+end
+
+-- The easy serve: underhand, straight from the hand while you still hold the ball.
+local function pressEasyServe(info)
+	if not serving() or mods.BallRenderer.getState() ~= "Held" or not info.grounded then
+		return
+	end
+	serveHold = nil
+	if execute("Underhand", info, {}, Util.now(), info.root) then
+		mods.AnimationController.playAction(State.myId, "Bump")
+	end
 end
 
 -- Holding toward the net when the jump-serve toss goes up throws it forward (0..1).
@@ -714,6 +726,8 @@ function ActionController.press(action)
 		pressSet(info)
 	elseif action == "Serve" then
 		pressServe(info)
+	elseif action == "EasyServe" then
+		pressEasyServe(info)
 	end
 end
 

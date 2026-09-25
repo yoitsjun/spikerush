@@ -16,11 +16,12 @@ local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
+local Tutorial = require(Shared.Tutorial)
 
 local HitService = {}
 local reg
 
-local VALID = { Bump = true, Set = true, Spike = true, Feint = true, Block = true, Toss = true, Serve = true }
+local VALID = { Bump = true, Set = true, Spike = true, Feint = true, Block = true, Toss = true, Serve = true, Underhand = true }
 local SET_TYPES = { Open = true, Quick = true, Back = true }
 local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true }
 local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true }
@@ -93,7 +94,7 @@ function HitService.process(entity, input, opts)
 		end
 	end
 
-	if action == "Toss" then
+	if action == "Toss" or action == "Underhand" then
 		if phase ~= "Serving" or BS.state ~= "Held" or BS.holderId ~= entity.id then
 			return false, "toss"
 		end
@@ -189,8 +190,11 @@ function HitService.process(entity, input, opts)
 	if entity.isBot and meta.knock then
 		reg.BotService.knockback(entity, meta.knock)
 	end
-	if action == "Serve" then
+	if action == "Serve" or action == "Underhand" then
 		MS.onServeHit(entity)
+	end
+	if entity.player then
+		reg.ProfileService.tutorialStep(entity.player, Tutorial.stepsFor(meta.hitType))
 	end
 	MS.onHit(entity, meta, previous)
 	return true
@@ -343,6 +347,9 @@ function HitService.init(r)
 		end
 		if kind == "Whiff" then
 			missedAt[e.id] = os.clock()
+		end
+		if kind == "Block" then
+			reg.ProfileService.tutorialStep(plr, { "block" }) -- a block jump ticks the tutorial's block
 		end
 		if type(extra) ~= "string" or #extra > 16 then
 			extra = nil

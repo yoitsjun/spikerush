@@ -75,6 +75,7 @@ function MatchService.state()
 		botTier = TS.botTier,
 		timeoutPending = MatchService.pendingTimeout,
 		lobbyId = l and l.id,
+		tutorial = l and l.tutorial or nil,
 	}
 end
 
@@ -139,7 +140,7 @@ function MatchService.judge(landing, flags, last)
 			end
 		else
 			local ht = last.hitType
-			if ht == "JumpServe" or ht == "Overhand" then
+			if ht == "JumpServe" or ht == "Overhand" or ht == "Underhand" then
 				r.reason = "Ace"
 			elseif ht == "Spike" then
 				r.reason = "Spike"
@@ -227,6 +228,13 @@ function MatchService.awardPoint(res)
 			st.aces = st.aces + 1
 		elseif reason == "Stuff" or reason == "Block" then
 			st.blocks = st.blocks + 1
+		end
+	end
+
+	-- a won rally ticks the tutorial's last step for the winners
+	for _, e in ipairs(TS.members(winner)) do
+		if e.player then
+			reg.ProfileService.tutorialStep(e.player, { "point" })
 		end
 	end
 
