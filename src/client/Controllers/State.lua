@@ -25,7 +25,7 @@ State.match = {
 	votes = { v1 = 0, v2 = 0, v3 = 0 },
 	setNumber = 1,
 	target = Config.Match.PointsPerSet,
-	setsToWin = Config.Match.SetsToWin,
+	maxSets = Config.Match.MaxSets,
 	botTier = Config.Match.DefaultBotTier,
 }
 State.myTeam = nil

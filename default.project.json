@@ -43,6 +43,9 @@
         "Activity": {
           "$className": "RemoteEvent"
         },
+        "Continue": {
+          "$className": "RemoteEvent"
+        },
         "SetCharacter": {
           "$className": "RemoteEvent"
         },

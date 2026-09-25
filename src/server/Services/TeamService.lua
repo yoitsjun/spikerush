@@ -510,6 +510,34 @@ function TeamService.onCharacterAdded(plr, char)
 	end
 end
 
+-- During a timeout a player can switch to another of their characters: same slot, role and
+-- stat line, new build and ability. The team's stamina pool is re-read (the timeout refills it).
+function TeamService.swapCharacter(plr)
+	local e = TeamService.entityForPlayer(plr)
+	if not e or not TeamService.inMatch then
+		return
+	end
+	local c, tier, build = reg.ProfileService.characterBuild(plr)
+	if not Characters.isTier(tier) then
+		return
+	end
+	e.tier = tier
+	e.ability = Characters.isAbility(c.Ability) and c.Ability or nil
+	e.build = Characters.sanitize(tier, build)
+	e.charStats = Characters.derive(tier, e.build)
+	e.charId, e.charName, e.prefRole = c.Id, c.Name, c.Role
+	e.boosted = nil
+	usedChars[c.Id] = true
+	reg.ProfileService.applyActive(plr) -- the player's own attributes (the client predicts from them)
+	TeamService.applyToModel(e)
+	local model = TeamService.getModel(e)
+	if model then
+		model:SetAttribute("Adrenaline", nil)
+	end
+	TeamService.fillStamina(e.team)
+	reg.MatchService.broadcast()
+end
+
 -- Human players on court right now.
 function TeamService.humanCount()
 	local n = 0

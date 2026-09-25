@@ -1048,6 +1048,53 @@ local function updateRail()
 end
 
 ------------------------------------------------------------------------------------------
+-- after a set: keep playing for the extra set rewards, or end the match
+------------------------------------------------------------------------------------------
+
+local function buildContinue()
+	local f = panel(gui, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.58), Size = UDim2.fromOffset(520, 190), Visible = false })
+	stroke(f, 2, UI.Spark)
+	ui.againScale = make("UIScale", {}, f)
+	local title = label(f, { Text = "Keep playing?", Font = Enum.Font.GothamBlack, TextSize = 24, Size = UDim2.new(1, -24, 0, 30), Position = UDim2.fromOffset(12, 10), TextXAlignment = Enum.TextXAlignment.Center })
+	local offer = label(f, { Text = "", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = UI.Fog, TextWrapped = true, RichText = true, Size = UDim2.new(1, -32, 0, 40), Position = UDim2.fromOffset(16, 44), TextXAlignment = Enum.TextXAlignment.Center })
+	local keep = button(f, "Keep playing", { Size = UDim2.fromOffset(230, 46), Position = UDim2.new(0.5, -238, 0, 94), BackgroundColor3 = UI.Spark, TextColor3 = UI.Ink, TextSize = 17 })
+	local stop = button(f, "End match", { Size = UDim2.fromOffset(230, 46), Position = UDim2.new(0.5, 8, 0, 94), TextSize = 17 })
+	local status = label(f, { Text = "", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = UI.Fog, Size = UDim2.new(1, -24, 0, 18), Position = UDim2.new(0, 12, 1, -28), TextXAlignment = Enum.TextXAlignment.Center })
+	keep.MouseButton1Click:Connect(function()
+		click()
+		ui.again.voted = true
+		Net.get("Continue"):FireServer(true)
+	end)
+	stop.MouseButton1Click:Connect(function()
+		click()
+		ui.again.voted = false
+		Net.get("Continue"):FireServer(false)
+	end)
+	ui.again = { frame = f, title = title, offer = nil, offerLabel = offer, keep = keep, stop = stop, status = status }
+end
+
+local function updateContinue()
+	local c = ui.again
+	local show = State.isPlaying and State.phase() == "Continue"
+	c.frame.Visible = show
+	if not show then
+		return
+	end
+	local cam = workspace.CurrentCamera
+	if cam then
+		ui.againScale.Scale = math.clamp(cam.ViewportSize.Y / 760, 0.62, 1.1)
+	end
+	local o = c.offer or {}
+	c.offerLabel.Text = string.format("Another set pays <b>+%d VP, +%d Gold</b> if you win it (+%d VP, +%d Gold if you lose), on top of the match reward.", o.winVP or 0, o.winGold or 0, o.lossVP or 0, o.lossGold or 0)
+	local left = math.max(0, math.ceil((State.match.phaseEnd or 0) - Util.now()))
+	local v = State.match.continueVote
+	local tally = v and string.format("   Keep playing %d, end %d (of %d)", v[1] or 0, v[2] or 0, v[3] or 0) or ""
+	c.status.Text = string.format("%ds%s", left, tally)
+	c.keep.BackgroundColor3 = c.voted == true and UI.Mint or UI.Spark
+	c.stop.BackgroundColor3 = c.voted == false and UI.Whistle or UI.InkSoft
+end
+
+------------------------------------------------------------------------------------------
 -- the tutorial coach: the current step, how to do it, and the checklist
 ------------------------------------------------------------------------------------------
 
@@ -1311,9 +1358,19 @@ local function buildResults()
 		Position = UDim2.fromOffset(0, 62),
 		TextXAlignment = Enum.TextXAlignment.Center,
 	})
-	local list = make("Frame", { Size = UDim2.new(1, -40, 1, -110), Position = UDim2.fromOffset(20, 96), BackgroundTransparency = 1 }, f)
+	local mine = label(f, {
+		Text = "",
+		Font = Enum.Font.GothamBold,
+		TextSize = 14,
+		TextColor3 = UI.Mint,
+		RichText = true,
+		Size = UDim2.new(1, 0, 0, 18),
+		Position = UDim2.new(0, 0, 1, -28),
+		TextXAlignment = Enum.TextXAlignment.Center,
+	})
+	local list = make("Frame", { Size = UDim2.new(1, -40, 1, -136), Position = UDim2.fromOffset(20, 96), BackgroundTransparency = 1 }, f)
 	make("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, list)
-	ui.results = { frame = f, title = title, mvp = mvp, list = list }
+	ui.results = { frame = f, title = title, mvp = mvp, list = list, mine = mine }
 end
 
 local function resultRow(values, color, order, header)
@@ -1348,6 +1405,26 @@ local function showResults(a)
 	end
 	if a.forfeit then
 		r.mvp.Text = teamName(a.forfeit) .. " forfeited"
+	end
+	-- your own line: gold, extra sets and the win streak
+	r.mine.Text = ""
+	for _, e in ipairs(a.results or {}) do
+		if e.id == State.myId then
+			local parts = {}
+			if e.reward then
+				table.insert(parts, string.format("+%d VP  +%d Gold", e.reward, e.gold or 0))
+			end
+			if e.extraVP then
+				table.insert(parts, "extra sets included")
+			end
+			if e.streak and e.streak >= 2 then
+				local bonus = e.streakVP and string.format(" (+%d VP, +%d Gold)", e.streakVP, e.streakGold or 0) or ""
+				table.insert(parts, string.format("<b>Win streak %d</b>%s", e.streak, bonus))
+			elseif e.streak == 0 then
+				table.insert(parts, "win streak reset")
+			end
+			r.mine.Text = table.concat(parts, "     ")
+		end
 	end
 	local header = {}
 	for i, c in ipairs(COLS) do
@@ -1389,7 +1466,11 @@ local function onAnnounce(a)
 			UIController.callout("Set " .. tostring(a.setNumber), UI.Chalk, "First to " .. tostring(a.target), 1.4)
 		end
 	elseif a.kind == "SetEnd" then
-		UIController.callout("Set to " .. teamName(a.winner), teamColor(a.winner), string.format("%d-%d", a.sets.Home or 0, a.sets.Away or 0), 2.4)
+		UIController.callout("Set to " .. teamName(a.winner), teamColor(a.winner), string.format("Sets %d-%d", a.sets.Home or 0, a.sets.Away or 0), 2.4)
+		if a.offer then
+			ui.again.offer = a.offer
+			ui.again.voted = nil
+		end
 	elseif a.kind == "MatchEnd" then
 		showResults(a)
 	elseif a.kind == "Serve" then
@@ -1483,7 +1564,18 @@ local function buildRotation()
 		r.down.MouseButton1Click:Connect(op("down"))
 		rows[i] = r
 	end
-	ui.rotation = { frame = f, title = title, rows = rows }
+	local ready = button(f, "Ready", { Size = UDim2.fromOffset(150, 34), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, -10), BackgroundColor3 = UI.Spark, TextColor3 = UI.Ink, TextSize = 14 })
+	ready.MouseButton1Click:Connect(function()
+		click()
+		ui.rotation.ready = true
+		Net.get("Timeout"):FireServer("ready")
+	end)
+	local swap = button(f, "Character and look", { Size = UDim2.fromOffset(200, 34), AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -10), TextSize = 13 })
+	swap.MouseButton1Click:Connect(function()
+		click()
+		mods.MenuController.openSwap()
+	end)
+	ui.rotation = { frame = f, title = title, rows = rows, readyButton = ready, swap = swap }
 end
 
 local function updateRotation()
@@ -1491,8 +1583,12 @@ local function updateRotation()
 	local show = State.isPlaying and State.match.inMatch == true and State.phase() == "Timeout" and State.myTeam ~= nil
 	R.frame.Visible = show
 	if not show then
+		R.ready = nil
 		return
 	end
+	local tr = State.match.timeoutReady
+	R.readyButton.Text = R.ready and string.format("Ready %d/%d", tr and tr[1] or 1, tr and tr[2] or 1) or "Ready"
+	R.readyButton.BackgroundColor3 = R.ready and UI.Mint or UI.Spark
 	local left = math.max(0, math.ceil((State.match.phaseEnd or 0) - Util.now()))
 	R.title.Text = "Timeout " .. left .. "   " .. teamName(State.myTeam) .. " rotation"
 	local roster = State.roster(State.myTeam)
@@ -1512,7 +1608,7 @@ local function updateRotation()
 			r.serve.Visible = #roster > 1
 		end
 	end
-	R.frame.Size = UDim2.fromOffset(460, 64 + #roster * 46)
+	R.frame.Size = UDim2.fromOffset(460, 64 + #roster * 46 + 48)
 end
 
 local function updateSlow()
@@ -1521,6 +1617,7 @@ local function updateSlow()
 	updateTimeout()
 	updateRotation()
 	updateCoach()
+	updateContinue()
 end
 
 function UIController.init(m)
@@ -1542,6 +1639,7 @@ function UIController.init(m)
 	buildResults()
 	buildRotation()
 	buildCoach()
+	buildContinue()
 
 	State.signals.Announce:Connect(function(a)
 		if a.kind == "Point" then

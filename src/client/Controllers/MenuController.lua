@@ -361,6 +361,20 @@ local function buildHome()
 		Net.get("Lobby"):FireServer("tutorial")
 	end)
 
+	-- career counters
+	local stats = Gui.glass(p, { Size = UDim2.fromOffset(372, 92), Position = UDim2.fromOffset(M, 480) }, 0.25)
+	local statRow = make("Frame", { Size = UDim2.new(1, -16, 1, -12), Position = UDim2.fromOffset(8, 6), BackgroundTransparency = 1 }, stats)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, statRow)
+	local counters = {}
+	for i, def in ipairs({ { "streak", "Win streak" }, { "wins", "Wins" }, { "kills", "Spike kills" }, { "aces", "Aces" }, { "blocks", "Blocks" } }) do
+		local cell = make("Frame", { Size = UDim2.new(0.2, -4, 1, 0), BackgroundTransparency = 1, LayoutOrder = i }, statRow)
+		local n = text(cell, { Text = "0", Font = Gui.FONT_TITLE, TextSize = 28, Size = UDim2.new(1, 0, 0, 36), Position = UDim2.fromOffset(0, 6), TextXAlignment = Enum.TextXAlignment.Center })
+		Gui.stroke(n, 2, Gui.INK, 0)
+		local l = text(cell, { Text = def[2], TextSize = 12, TextColor3 = Gui.MUTED, Size = UDim2.new(1, 0, 0, 16), Position = UDim2.fromOffset(0, 44), TextXAlignment = Enum.TextXAlignment.Center })
+		local sub = text(cell, { Text = "", TextSize = 11, TextColor3 = Gui.MUTED, Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 60), TextXAlignment = Enum.TextXAlignment.Center })
+		counters[def[1]] = { value = n, label = l, sub = sub }
+	end
+
 	-- tip (bottom left)
 	local tip = make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, M, 1, -M), Size = UDim2.fromOffset(640, 40), BackgroundTransparency = 1 }, p)
 	local tipTag = text(tip, { Text = "TIP", Font = Gui.FONT_HEAVY, TextSize = 14, TextColor3 = Gui.INK, BackgroundTransparency = 0, BackgroundColor3 = Gui.GOLD, Size = UDim2.fromOffset(44, 24), Position = UDim2.fromOffset(0, 8), TextXAlignment = Enum.TextXAlignment.Center })
@@ -412,6 +426,8 @@ local function buildHome()
 		rSub = rSub,
 		rejoin = rejoin,
 		featured = 1,
+		stats = stats,
+		counters = counters,
 		tut = tut,
 		tutGo = tutGo,
 		tutLine = tutLine,
@@ -474,9 +490,21 @@ local function refreshHome(prof)
 	else
 		hm.rSub.Text = prof.dev and "Free for developers" or string.format("x1  %d VP", SP.Costs[1])
 	end
+	-- career counters (below the tutorial card while it's there)
+	local rec = prof.record or {}
+	local ct = hm.counters
+	ct.streak.value.Text = tostring(prof.winStreak or 0)
+	ct.streak.value.TextColor3 = (prof.winStreak or 0) >= 2 and Gui.GOLD or Gui.WHITE
+	ct.streak.sub.Text = string.format("best %d", prof.bestStreak or 0)
+	ct.wins.value.Text = Gui.num(rec.wins or 0)
+	ct.wins.sub.Text = string.format("of %s", Gui.num(rec.matches or 0))
+	ct.kills.value.Text = Gui.num(rec.kills or 0)
+	ct.aces.value.Text = Gui.num(rec.aces or 0)
+	ct.blocks.value.Text = Gui.num(rec.blocks or 0)
 	-- the tutorial card
 	local tut = prof.tutorial
 	hm.tut.Visible = tut ~= nil and not tut.done
+	hm.stats.Position = UDim2.fromOffset(M, hm.tut.Visible and 610 or 480)
 	if tut and not tut.done then
 		local vp, gold, spins = Tutorial.reward()
 		local _, n, total = Tutorial.progress(tut.steps)
@@ -2113,6 +2141,118 @@ local function refreshMatch()
 end
 
 ------------------------------------------------------------------------------------------
+-- Timeout: change your character or your look (the menus open over the match for it)
+------------------------------------------------------------------------------------------
+
+local swapMode = false
+local swapKind = "Style"
+
+local function buildSwap()
+	local m = modal("Swap", "Timeout: character and look", 1000, 560)
+	local P = m.panel
+	text(P, { Text = "Your characters. You keep your spot and role on court.", TextSize = 15, TextColor3 = Gui.MUTED, Size = UDim2.fromOffset(460, 20), Position = UDim2.fromOffset(24, 62) })
+	local chars = make("ScrollingFrame", { Position = UDim2.fromOffset(20, 90), Size = UDim2.fromOffset(470, 450), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, P)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(148, 78), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, chars)
+	local cards = {}
+	for i, c in ipairs(Roster) do
+		local b = make("TextButton", { BackgroundColor3 = Color3.fromRGB(22, 26, 42), BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false, LayoutOrder = i, Visible = false }, chars)
+		Gui.corner(b, 8)
+		local s = Gui.stroke(b, 1.5, tierColor(c.Tier), 0.2, true)
+		local t = text(b, { Text = c.Tier, Font = Gui.FONT_TITLE, TextSize = 26, TextColor3 = tierColor(c.Tier), Size = UDim2.fromOffset(48, 30), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 6), TextXAlignment = Enum.TextXAlignment.Right })
+		Gui.stroke(t, 2, Gui.INK, 0)
+		text(b, { Text = c.Name, Font = Gui.FONT_HEAVY, TextSize = 16, Size = UDim2.new(1, -60, 0, 22), Position = UDim2.fromOffset(10, 8), TextTruncate = Enum.TextTruncate.AtEnd })
+		local def = c.Ability and Config.Abilities[c.Ability]
+		text(b, { Text = roleName(c.Role), TextSize = 12, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -16, 0, 16), Position = UDim2.fromOffset(10, 34) })
+		text(b, { Text = def and def.Name or "", TextSize = 12, TextColor3 = def and def.Color or Gui.MUTED, Size = UDim2.new(1, -16, 0, 16), Position = UDim2.fromOffset(10, 52) })
+		onClick(b, function()
+			Net.get("Profile"):FireServer("select", c.Id)
+		end)
+		cards[c.Id] = { button = b, stroke = s }
+	end
+	local kinds = {}
+	for _, kind in ipairs(COS.Kinds) do
+		table.insert(kinds, { key = kind, text = SP.Banners[kind].Name })
+	end
+	local _, setKind = segmented(P, kinds, { Size = UDim2.fromOffset(470, 40), Position = UDim2.fromOffset(510, 56) }, function(key)
+		swapKind = key
+		MenuController.refresh()
+	end)
+	local looks = make("ScrollingFrame", { Position = UDim2.fromOffset(510, 106), Size = UDim2.fromOffset(470, 434), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, P)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(148, 60), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, looks)
+	local chips = {}
+	for _, kind in ipairs(COS.Kinds) do
+		chips[kind] = {}
+		for i, item in ipairs(COS[kind]) do
+			local b = make("TextButton", { BackgroundColor3 = Color3.fromRGB(22, 26, 42), BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false, LayoutOrder = i, Visible = false }, looks)
+			Gui.corner(b, 8)
+			local s = Gui.stroke(b, 1.5, Spins.rarityColor(item.Rarity), 0.3, true)
+			text(b, { Text = item.Name, Font = Gui.FONT_HEAVY, TextSize = 15, Size = UDim2.new(1, -16, 0, 22), Position = UDim2.fromOffset(10, 8) })
+			local tag = text(b, { Text = "", TextSize = 12, TextColor3 = Spins.rarityColor(item.Rarity), Size = UDim2.new(1, -16, 0, 16), Position = UDim2.fromOffset(10, 34) })
+			onClick(b, function()
+				Net.get("Profile"):FireServer("equip", kind, item.Key)
+			end)
+			chips[kind][item.Key] = { button = b, stroke = s, tag = tag, item = item }
+		end
+	end
+	ui.swap = { modal = m, cards = cards, setKind = setKind, chips = chips }
+end
+
+local function refreshSwap(prof)
+	local S = ui.swap
+	local current = prof.char or player:GetAttribute("CharId")
+	for id, card in pairs(S.cards) do
+		card.button.Visible = owns(prof, "Char", id)
+		local on = id == current
+		card.stroke.Thickness = on and 3 or 1.5
+		card.stroke.Color = on and Gui.GOLD or tierColor(Roster.get(id).Tier)
+		card.button.BackgroundColor3 = on and Color3.fromRGB(44, 50, 80) or Color3.fromRGB(22, 26, 42)
+	end
+	S.setKind(swapKind)
+	for kind, list in pairs(S.chips) do
+		local equipped = prof.equip and prof.equip[kind] or Spins.default(kind)
+		for key, chip in pairs(list) do
+			chip.button.Visible = kind == swapKind and owns(prof, kind, key)
+			local on = key == equipped
+			chip.stroke.Thickness = on and 3 or 1.5
+			chip.tag.Text = on and "Equipped" or chip.item.Rarity
+			chip.tag.TextColor3 = on and Gui.GOLD or Spins.rarityColor(chip.item.Rarity)
+		end
+	end
+end
+
+local function closeSwap()
+	if not swapMode then
+		return
+	end
+	swapMode = false
+	ui.swap.modal.root.Visible = false
+	gui.Enabled = shown
+	for _, v in ipairs(ui.vignettes) do
+		v.Visible = true
+	end
+	if ui.pages[screen] then
+		ui.pages[screen].Visible = true
+	end
+end
+
+-- Opened from the timeout panel: just this window over the match.
+function MenuController.openSwap()
+	if not (State.isPlaying and State.phase() == "Timeout") then
+		return
+	end
+	swapMode = true
+	gui.Enabled = true
+	for _, f in pairs(ui.pages) do
+		f.Visible = false
+	end
+	for _, v in ipairs(ui.vignettes) do
+		v.Visible = false
+	end
+	ui.swap.modal.root.Visible = true
+	refreshSwap(profile())
+end
+
+------------------------------------------------------------------------------------------
 -- screens, scenes, refresh
 ------------------------------------------------------------------------------------------
 
@@ -2175,6 +2315,9 @@ local function doRefresh()
 		refreshShop(prof)
 	end
 	refreshMatch()
+	if swapMode then
+		refreshSwap(prof)
+	end
 end
 
 function MenuController.refresh()
@@ -2194,6 +2337,9 @@ end
 local function setShown(on)
 	if on == shown then
 		return
+	end
+	if swapMode then
+		closeSwap()
 	end
 	shown = on
 	gui.Enabled = on
@@ -2268,6 +2414,7 @@ function MenuController.init(m)
 	make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 1) }) }, top)
 	local bottom = make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 260), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 0 }, canvas)
 	make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.4) }) }, bottom)
+	ui.vignettes = { top, bottom }
 
 	buildHome()
 	buildRecruit()
@@ -2278,6 +2425,7 @@ function MenuController.init(m)
 	buildTable()
 	buildMatch()
 	buildSequence()
+	buildSwap()
 
 	local tf = Gui.glass(canvas, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 20), Size = UDim2.fromOffset(620, 46), Visible = false, ZIndex = 40 }, 0.15)
 	local tl = text(tf, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 17, TextWrapped = true, Size = UDim2.new(1, -24, 1, 0), Position = UDim2.fromOffset(12, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 41 })
@@ -2330,6 +2478,10 @@ function MenuController.init(m)
 	-- slow ticks: countdowns, the featured recruit and tips rotating
 	local acc, tick = 0, 0
 	RunService.RenderStepped:Connect(function(dt)
+		-- the timeout window closes with the timeout (or its Close button)
+		if swapMode and (not ui.swap.modal.root.Visible or not State.isPlaying or State.phase() ~= "Timeout") then
+			closeSwap()
+		end
 		acc = acc + dt
 		if acc < 0.25 or not shown then
 			return

@@ -816,6 +816,27 @@ do
 	check(after.id == "jumpserve" and not beforePoint and Tutorial.complete(done) and #Tutorial.stepsFor("Feint") == 0 and vp == 50 and gold == 1000 and spins == 5, "touches tick their steps, a won rally finishes it; the reward is 50 VP, 1,000 Gold and 5 free recruits")
 end
 
+print("== match rewards: extra sets and win streaks ==")
+do
+	local Rewards = require("Rewards")
+	local PR = Config.Progression
+	local winVP, winGold = Rewards.match(true, 3)
+	local lossVP = Rewards.match(false, 0)
+	local oneVP = Rewards.extraSets({ "Home" }, "Home")
+	local xv, xg = Rewards.extraSets({ "Home", "Away", "Home" }, "Home")
+	check(Config.Match.Sets == 1 and winVP == PR.WinVP + 3 * PR.PlayVP and winGold == PR.WinGold + 3 * PR.PlayGold and lossVP == PR.LossVP and oneVP == 0
+		and xv == PR.ExtraSetLossVP + PR.ExtraSetWinVP and xg == PR.ExtraSetLossGold + PR.ExtraSetWinGold, "a match is one set; every extra set pays on top (more for the sets you win)", string.format("win %d VP / %d Gold; two extra sets (lost, won) +%d VP / +%d Gold", winVP, winGold, xv, xg))
+	local streak, bonuses = 0, {}
+	for i = 1, 8 do
+		streak = Rewards.nextStreak(streak, true)
+		bonuses[i] = Rewards.streakBonus(streak)
+	end
+	local afterLoss = Rewards.nextStreak(streak, false)
+	check(bonuses[1] == 0 and bonuses[2] == PR.StreakVP and bonuses[3] == 2 * PR.StreakVP and bonuses[8] == PR.StreakMaxSteps * PR.StreakVP and afterLoss == 0, "a win streak pays more with every straight win (capped), a loss resets it", string.format("bonus VP by streak: %d, %d, %d ... %d", bonuses[1], bonuses[2], bonuses[3], bonuses[8]))
+	check(Rewards.winner({ "Home", "Away", "Home" }, { Home = 40, Away = 44 }) == "Home" and Rewards.winner({ "Home", "Away" }, { Home = 30, Away = 32 }) == "Away" and Rewards.winner({ "Away", "Home" }, { Home = 30, Away = 30 }) == "Home",
+		"the match winner: most sets, then most points, then the last set")
+end
+
 print("== determinism ==")
 do
 	local root = apexRoot(SP, 4 * K)

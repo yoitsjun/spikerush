@@ -160,8 +160,9 @@ The active build is written as attributes (Tier, Height, Attack, Defense, Speed,
 | Lobby | client: `("create", settings)`, `"tutorial"`, `("quick", mode)`, `("join", id, password)`, `"leave"`, `"start"`, `"team"`, `("kick", userId)`, `("settings", settings)`, `"rejoin"`, `"list"` |
 | Lobbies | server: `{ list, mine, court, teleport }` per player, or `{ notice }` |
 | Activity | client: input happened (AFK watch) |
+| Continue | client, after a set: keep playing (true) or end the match (false) |
 | SetCharacter | `(tier, ability)` |
-| Timeout | call a timeout |
+| Timeout | call a timeout; `"ready"` during one: done, end it early once everyone is |
 | Profile | client sends `"get"`, `("select", charId)`, `("upgrade", charId, stat, ±1\|5\|10)`, `("spin", banner, 1\|10)`, `("autoroll", banner)`, `"stop"`, `("autosell", rarity, on)`, `("equip", kind, key)`, `("buy", pack)` (Studio only, packs without an id); server replies with a snapshot (with `reveal` after a spin) |
 | Forfeit | concede the match for your team |
 | Rotation | during a timeout: `("up"\|"down"\|"serve", entityId)` on your own team |
@@ -176,7 +177,7 @@ Code must stay in a Lua 5.1/5.3 compatible subset of Luau: no `+=`, `continue`, 
 python3 tools/check_lua.py      # syntax (texluac) and undefined globals
 python3 tools/check_config.py   # every Config reference, including local aliases, exists
 python3 tools/check_api.py      # every Module.fn / reg.Service.fn / mods.Controller.fn is defined
-texlua tools/sim_test.lua       # 88 scenarios run against the real shared modules
+texlua tools/sim_test.lua       # 91 scenarios run against the real shared modules
 ```
 
 On Debian or Ubuntu, `apt-get install texlive-binaries` provides `texlua` and `texluac`.
@@ -185,7 +186,7 @@ Nested config aliases such as `local AZURE = Config.Abilities.Azure` are not cov
 
 ## Status
 
-All the code for the 2.5D game is written and every check passes, including all 88 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
+All the code for the 2.5D game is written and every check passes, including all 91 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
 
 ### Second session (continuation)
 
@@ -252,6 +253,7 @@ No mechanic changed; the input got forgiving. With the 1.8 s anime airtime playe
 ### Eighth session: menus, recruiting, Gold, lobbies, AI stand-ins
 
 - Then: the play camera is fully zoomed out (a fixed wide shot fitted to the screen, `CameraController.wide`; the old tracking view is the "Follow camera" setting, `State.settings.followCam`); an easy **underhand serve** (F / D-pad up; HitLogic action `Underhand`: straight from the held ball, `solveArc` to 35 to 70% of the court's depth over `UnderhandApexOverNet`, a sim proves it always clears the net and lands in); **bots serve** underhand below `Bots.JumpServeTier` (A-) and full-toss jump serves from there (a missed jump serve is still played overhand); a **tutorial** (`src/shared/Tutorial.lua`: 7 steps, `stepsFor(hitType)`; `ProfileService.tutorialStep` ticks steps from HitService touches, block jumps from ActionFX and MatchService's won rallies, and pays `Config.Tutorial` once: 50 VP, 1,000 Gold, 5 `freeSpins` that x1 recruits use before VP; `LobbyService.tutorial` makes a hidden 1v1 lobby against D- bots; UIController's coach panel shows the current step in tutorial matches). Profiles gain `freeSpins` and `tutorial = { steps, done }` (still v4; missing fields default).
+- Then: a match is **one set** (`Match.Sets`); after a set MatchService runs a `Continue` phase (`askContinue`: humans vote over the `Continue` remote, `ContinueTime`), up to `MaxSets`; the winner is `Rewards.winner` (sets, then points, then the last set). `src/shared/Rewards.lua` holds the reward math (`match`, `extraSets`, `streakBonus`, `nextStreak`, `winner`), with sims. `ProfileService.recordResult(plr, won, stats)` keeps `winStreak`, `bestStreak` and `record = { matches, wins, kills, aces, blocks }` (Home's counters; tutorial matches don't count). Timeouts: `Timeout` remote `"ready"` marks you ready (`MatchService.timeoutReady`); when every human on court is ready the phase end moves to now (`waitUntil()` with no argument follows the live phase end). `Profile "select"` is allowed during a timeout and calls `TeamService.swapCharacter` (same slot, role and stat line; new build, ability and attributes; the team pool is re-read). The timeout panel's "Character and look" opens `MenuController.openSwap` (the menus' gui over the match, only that window).
 - Later in the session the owner removed Ryota (the second Thunder Spiker: YeJun is the only one) and raised YeJun's Attack to 210 (the top of the curve, `Stats.Ref`). Saves that owned Ryota simply drop him; a player who had him selected falls back to a starter.
 
 - **Menus and scenes**: see Menus above. The old lobby panel in UIController is gone (UIController keeps the HUD, results and the settings panel, which the menus open with `toggleSettings(belowY)`); the HUD's top bar and announcements stay out of the menus when the match on the court isn't yours.

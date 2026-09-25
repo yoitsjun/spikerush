@@ -30,6 +30,7 @@ local Config = require(Shared.Config)
 local Characters = require(Shared.Characters)
 local Roster = require(Shared.Roster)
 local Tutorial = require(Shared.Tutorial)
+local Rewards = require(Shared.Rewards)
 local Spins = require(Shared.Spins)
 local Net = require(Shared.Net)
 
@@ -82,7 +83,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, levels = {}, owned = {}, equip = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false } }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false } }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -143,6 +144,13 @@ local function sanitizeProfile(data)
 		out.char = data.char
 	end
 	out.freeSpins = math.clamp(math.floor(tonumber(data.freeSpins) or 0), 0, 1000)
+	out.winStreak = math.max(0, math.floor(tonumber(data.winStreak) or 0))
+	out.bestStreak = math.max(out.winStreak, math.floor(tonumber(data.bestStreak) or 0))
+	if type(data.record) == "table" then
+		for k in pairs(out.record) do
+			out.record[k] = math.max(0, math.floor(tonumber(data.record[k]) or 0))
+		end
+	end
 	if type(data.tutorial) == "table" then
 		out.tutorial.done = data.tutorial.done == true
 		if type(data.tutorial.steps) == "table" then
@@ -219,6 +227,9 @@ local function save(plr, force)
 		vp = profile.vp,
 		gold = profile.gold,
 		freeSpins = profile.freeSpins,
+		winStreak = profile.winStreak,
+		bestStreak = profile.bestStreak,
+		record = profile.record,
 		tutorial = profile.tutorial,
 		levels = profile.levels,
 		owned = profile.owned,
@@ -346,6 +357,9 @@ function ProfileService.snapshot(plr)
 		vp = profile.vp,
 		gold = profile.gold,
 		freeSpins = profile.freeSpins or 0,
+		winStreak = profile.winStreak or 0,
+		bestStreak = profile.bestStreak or 0,
+		record = table.clone(profile.record),
 		tutorial = { steps = table.clone(profile.tutorial.steps), done = profile.tutorial.done },
 		levels = levels,
 		owned = owned,
@@ -380,6 +394,28 @@ function ProfileService.award(plr, vp, gold)
 	profile.gold = profile.gold + math.max(0, math.floor(gold or 0))
 	dirty[plr] = true
 	push(plr)
+end
+
+-- A finished match: a win extends the win streak, a loss (or a forfeit) ends it, and the
+-- career counters add this match's wins, spike kills, aces and blocks (`st`, the match stats).
+-- Returns the streak after this match.
+function ProfileService.recordResult(plr, won, st)
+	local profile = profiles[plr]
+	if not profile then
+		return nil
+	end
+	profile.winStreak = Rewards.nextStreak(profile.winStreak or 0, won)
+	profile.bestStreak = math.max(profile.bestStreak or 0, profile.winStreak)
+	local r = profile.record
+	r.matches = r.matches + 1
+	r.wins = r.wins + (won and 1 or 0)
+	if st then
+		r.kills = r.kills + (st.kills or 0)
+		r.aces = r.aces + (st.aces or 0)
+		r.blocks = r.blocks + (st.blocks or 0)
+	end
+	dirty[plr] = true
+	return profile.winStreak
 end
 
 -- The tutorial: tick steps the player really did (HitService, MatchService); the last one pays
@@ -617,13 +653,18 @@ local function onRequest(plr, kind, a, b, c)
 		if not c or not owns(profile, "Char", c.Id) then
 			return
 		end
-		if inMatch(plr) then
-			push(plr, "Your character is locked until this match ends.")
+		local playing = inMatch(plr)
+		if playing and reg.MatchService.phase ~= "Timeout" then
+			push(plr, "You can change character during a timeout, or after the match.")
 			return
 		end
 		profile.char = c.Id
 		dirty[plr] = true
-		ProfileService.applyActive(plr)
+		if playing then
+			reg.TeamService.swapCharacter(plr) -- same spot and role, new character
+		else
+			ProfileService.applyActive(plr)
+		end
 		push(plr)
 	elseif kind == "equip" then
 		if Spins.isCosmetic(a) and owns(profile, a, b) then

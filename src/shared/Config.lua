@@ -316,6 +316,15 @@ Config.Progression = {
 	LossVP = 15,
 	PlayVP = 2, -- per kill, ace or block
 	MvpVP = 15, -- extra for the match MVP (when a player)
+	-- every set played past the first pays on top of the match reward
+	ExtraSetWinVP = 20,
+	ExtraSetLossVP = 10,
+	ExtraSetWinGold = 200,
+	ExtraSetLossGold = 100,
+	-- win streak: from the second straight win, each win adds this much more (capped)
+	StreakVP = 5,
+	StreakGold = 50,
+	StreakMaxSteps = 5,
 	-- Gold: the second currency, spent on stat upgrades
 	StartingGold = 3000,
 	WinGold = 300,
@@ -494,10 +503,13 @@ Config.Roles = {
 Config.Match = {
 	DefaultTeamSize = 3,
 	PointsPerSet = 15,
-	DecidingSetPoints = 11,
 	WinBy = 2,
 	PointCap = 25,
-	SetsToWin = 2,
+	-- a match is one set; after each set the players can vote to keep playing (for the extra
+	-- set rewards in Progression), up to MaxSets
+	Sets = 1,
+	MaxSets = 5,
+	ContinueTime = 12, -- seconds to vote Keep playing / End match
 	PreMatchTime = 3.2,
 	PreServeTime = 1.2,
 	ServeClock = 8,
