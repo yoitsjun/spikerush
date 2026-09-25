@@ -157,6 +157,20 @@ function State.stamina(team)
 	return { value = v, max = m }
 end
 
+-- Points the other team has this set (Rising Sun's level follows them).
+function State.enemyPoints(team)
+	local scores = State.match.scores or {}
+	return scores[team == "Home" and "Away" or "Home"] or 0
+end
+
+-- Whether a team's Rally Cry is on at shared-clock time t.
+function State.rallyOn(team, t)
+	if not team then
+		return false
+	end
+	return (ReplicatedStorage:GetAttribute("RallyUntil_" .. team) or -1) >= t
+end
+
 function State.timeouts(team)
 	return ReplicatedStorage:GetAttribute("Timeouts_" .. team) or Config.Timeout.PerSet
 end

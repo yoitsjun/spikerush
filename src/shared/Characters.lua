@@ -218,7 +218,12 @@ function Characters.derive(tier, build)
 		Jump = build.Jump,
 	}
 	for name, curve in pairs(Config.StatCurve) do
-		local n = Characters.norm(build[curve.Stat]) ^ (curve.Exp or 1)
+		local n = Characters.norm(build[curve.Stat])
+		if curve.Extrapolate then
+			-- boosted past the reference (Rally Cry, Rising Sun): keeps growing
+			n = math.max(0, ((build[curve.Stat] or ST.Min) - ST.Min) / (ST.Ref - ST.Min))
+		end
+		n = n ^ (curve.Exp or 1)
 		s[name] = curve.Range[1] + (curve.Range[2] - curve.Range[1]) * n
 	end
 	local hn = clamp((build.Height - HT.Min) / (HT.Max - HT.Min), 0, 1)
@@ -238,15 +243,16 @@ function Characters.stats(tier, role, height)
 	return Characters.derive(tier, Characters.template(tier, role, height))
 end
 
--- The same character with some stat points added (Adrenaline). Cached like derive.
-function Characters.boosted(stats, attack, jump)
-	return Characters.derive(stats.tier, {
-		Height = stats.Height,
-		Attack = stats.Attack + (attack or 0),
-		Defense = stats.Defense,
-		Speed = stats.Speed,
-		Jump = stats.Jump + (jump or 0),
-	})
+-- The same character with stat points added (`add`: { Attack = n, ... }) and then every stat
+-- multiplied (`mul`, default 1): Adrenaline, Rising Sun, Rally Cry. Cached like derive.
+function Characters.boosted(stats, add, mul)
+	add = add or {}
+	mul = mul or 1
+	local b = { Height = stats.Height }
+	for _, k in ipairs(ST.Order) do
+		b[k] = math.floor((stats[k] + (add[k] or 0)) * mul + 0.5)
+	end
+	return Characters.derive(stats.tier, b)
 end
 
 -- Build carried on a Player's attributes (the server writes them; clients predict with them).

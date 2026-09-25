@@ -1070,7 +1070,7 @@ end
 
 -- Clips that belong together, so a second trigger in the same instant (the hit prediction and
 -- the input handler both call this) doesn't restart or replace the first.
-local FAMILY = { Set = "Set", SetBack = "Set", Swing = "Swing", Tip = "Swing", Bump = "Bump" }
+local FAMILY = { Set = "Set", SetBack = "Set", Swing = "Swing", Swing_Whirl = "Swing", Tip = "Swing", Bump = "Bump" }
 
 function AnimationController.playAction(entityId, pose)
 	if not POSES[pose] and not CLIPS[pose] then
@@ -1085,7 +1085,7 @@ function AnimationController.playAction(entityId, pose)
 	if cur and now - cur.t0 < 0.06 and FAMILY[pose] and FAMILY[pose] == FAMILY[cur.pose] then
 		return
 	end
-	if pose == "Swing" or pose == "Tip" then
+	if FAMILY[pose] == "Swing" then
 		st.swung = true -- the rest of this jump falls in the follow-through, not the bow-draw
 	end
 	local track = uploadedTrack(st, pose, "A_")
@@ -1105,8 +1105,9 @@ function AnimationController.playAction(entityId, pose)
 	st.action = { pose = pose, clip = clip, t0 = now, dur = clip and clip.dur or DURATION[pose] or 0.3 }
 end
 
--- A character left the ground. kind: "Spike" / "Serve" (run-up attack), "Block" or "Jump".
--- Every kind but "Block" plays the rise and the spike wind-up in the air.
+-- A character left the ground. kind: "Spike" / "Serve" (run-up attack), "Set" (a jump set),
+-- "Block" or "Jump". A jump set rises into the setter's catch; a block has its own pose; every
+-- other kind plays the rise and the spike wind-up in the air.
 function AnimationController.jumped(entityId, kind)
 	local st = stateFor(entityId)
 	if st then
@@ -1212,7 +1213,11 @@ local function pick(st, hum, hrp, now)
 		if st.swung then
 			return "SpikeFollow", POSES.SpikeFollow, 0.95
 		end
-		-- every jump but a block gets the spike wind-up (rise, then the style's bow-draw)
+		-- a jump set: hands up over the head, ready for the ball
+		if st.jumpKind == "Set" then
+			return "SetCatch", POSES.SetCatch, 1
+		end
+		-- every other jump but a block gets the spike wind-up (rise, then the style's bow-draw)
 		if st.jumpKind ~= "Block" then
 			if hrp.AssemblyLinearVelocity.Y > 5 then
 				return "Rise", POSES.Rise, 1
@@ -1527,6 +1532,9 @@ function AnimationController.init(m)
 			pose = "Bump"
 		elseif meta.hitType == "Set" and meta.setType == "Back" then
 			pose = "SetBack"
+		end
+		if meta.turnabout and not meta.downBall then
+			pose = "Swing_Whirl" -- Turnabout: the set spins into a spike
 		end
 		if meta.fail or meta.breaks or meta.shank or (meta.knock and meta.knock >= 0.35) then
 			pose = "Knockback" -- a heavy ball staggers the receiver

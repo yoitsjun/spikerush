@@ -22,6 +22,7 @@ local Characters = require(Shared.Characters)
 local Court = require(Shared.Court)
 local Util = require(Shared.Util)
 local Tutorial = require(Shared.Tutorial)
+local HitLogic = require(Shared.HitLogic)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 
@@ -741,6 +742,19 @@ local function buildAbility()
 	corner(gauge, 5)
 	local energy = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = AZURE, BorderSizePixel = 0 }, bar)
 	corner(energy, 5)
+	-- level notches (Rising Sun's Sunrise levels)
+	local ticks = {}
+	for i = 1, 3 do
+		table.insert(ticks, make("Frame", {
+			Size = UDim2.new(0, 2, 1, 0),
+			Position = UDim2.fromScale(i / 4, 0),
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundColor3 = UI.Ink,
+			BorderSizePixel = 0,
+			ZIndex = 3,
+			Visible = false,
+		}, bar))
+	end
 	-- optional Toolbox icon (Assets.Images.Ability<Name>) to the left of the text
 	local icon = make("ImageLabel", {
 		Size = UDim2.fromOffset(36, 36),
@@ -749,7 +763,18 @@ local function buildAbility()
 		ScaleType = Enum.ScaleType.Fit,
 		Visible = false,
 	}, f)
-	ui.ability = { frame = f, name = name, line = line, bar = bar, gauge = gauge, energy = energy, icon = icon, e = 0, g = 1, st = "idle" }
+	-- a teammate's (or your own) Rally Cry: a gold tag under the panel while it lasts
+	local rally = label(f, {
+		Text = "",
+		Font = Enum.Font.GothamBlack,
+		TextSize = 13,
+		TextColor3 = Config.Abilities.RallyCry.Color,
+		Size = UDim2.new(1, 0, 0, 18),
+		Position = UDim2.new(0, 4, 1, 4),
+		Visible = false,
+	})
+	stroke(rally, 1.5, UI.Ink)
+	ui.ability = { frame = f, name = name, line = line, bar = bar, gauge = gauge, energy = energy, icon = icon, ticks = ticks, rally = rally, e = 0, g = 1, st = "idle" }
 
 	-- overhead bar for toss height, block charge and Azure energy
 	-- a BillboardGui only renders straight under PlayerGui (or in the world), never inside a ScreenGui
@@ -782,6 +807,17 @@ local function buildAbility()
 	stroke(ui.overText, 1.5, UI.Ink)
 end
 
+local ACTIVE_TEXT = {
+	IronWall = "Wall up: everything at your hands is stuffed",
+	Turnabout = "Armed: jump for your next set, it spins over",
+	RallyCry = "Rally Cry: your whole team is fired up",
+}
+local READY_TEXT = {
+	IronWall = "Ready: press Q (L2) before you block",
+	Turnabout = "Ready: press Q (L2) before your set",
+	RallyCry = "Ready: press Q (L2) to fire up your team",
+}
+
 local function updateAbility()
 	local a = ui.ability
 	local playing = State.isPlaying and State.match.inMatch
@@ -790,6 +826,14 @@ local function updateAbility()
 	a.frame.Visible = playing == true
 	local stats = State.myStats()
 	local charName = player:GetAttribute("CharName") or ""
+	for _, tick in ipairs(a.ticks) do
+		tick.Visible = false
+	end
+	local rallyLeft = (ReplicatedStorage:GetAttribute("RallyUntil_" .. tostring(State.myTeam)) or -1) - Util.now()
+	a.rally.Visible = playing == true and rallyLeft > 0
+	if a.rally.Visible then
+		a.rally.Text = string.format("RALLY CRY  +%d%% all stats  %d s", Config.Abilities.RallyCry.Boost * 100, math.ceil(rallyLeft))
+	end
 	if not def then
 		-- no ability (below S tier): just who you're playing and your hitting point
 		a.name.Text = charName
@@ -834,15 +878,16 @@ local function updateAbility()
 			a.line.Text = string.format("Wakes up below %d%% stamina", def.StaminaBelow * 100)
 			a.line.TextColor3 = UI.Fog
 		end
-	elseif ability == "IronWall" then
+	elseif def.Active then
+		-- Iron Wall, Turnabout, Rally Cry: a key press, a window, a cooldown
 		local AC = mods.ActionController
 		a.bar.Visible = true
 		a.frame.Size = UDim2.fromOffset(250, 66)
-		a.gauge.BackgroundColor3 = Color3.fromRGB(40, 60, 110)
+		a.gauge.BackgroundColor3 = def.Color:Lerp(UI.Ink, 0.75)
 		a.energy.BackgroundColor3 = def.Color
 		local left = AC.abilityCooldown()
 		if AC.abilityActive() then
-			a.line.Text = "Wall up: everything at your hands is stuffed"
+			a.line.Text = ACTIVE_TEXT[ability] or (def.Name .. " is on")
 			a.line.TextColor3 = def.Color
 			a.energy.Size = UDim2.fromScale(1, 1)
 		elseif left > 0 then
@@ -850,7 +895,7 @@ local function updateAbility()
 			a.line.TextColor3 = UI.Fog
 			a.energy.Size = UDim2.fromScale(1 - left / def.Cooldown, 1)
 		else
-			a.line.Text = "Ready: press Q (L2) before you block"
+			a.line.Text = READY_TEXT[ability] or "Ready: press Q (L2)"
 			a.line.TextColor3 = def.Color
 			a.energy.Size = UDim2.fromScale(1, 1)
 		end
@@ -858,6 +903,45 @@ local function updateAbility()
 	elseif ability == "ChainReaction" then
 		a.line.Text = "Your sets are charged: the next spike explodes"
 		a.line.TextColor3 = def.Color
+	elseif ability == "Vector" then
+		a.line.Text = string.format("Your sets pulse: steep spikes off them, up to +%d%%", def.MaxBoost * 100)
+		a.line.TextColor3 = def.Color
+	elseif ability == "RisingSun" then
+		-- the Sunrise meter: every Every points the other team scores is a level
+		local pts = State.enemyPoints(State.myTeam)
+		local lvl = HitLogic.sunLevel(pts)
+		local cap = def.Every * def.MaxLevel
+		a.bar.Visible = true
+		a.frame.Size = UDim2.fromOffset(250, 66)
+		a.gauge.BackgroundColor3 = def.Color:Lerp(UI.Ink, 0.55)
+		a.gauge.Size = UDim2.fromScale(math.min(pts, cap) / cap, 1)
+		a.energy.BackgroundColor3 = def.Color
+		a.energy.Size = UDim2.fromScale(lvl / def.MaxLevel, 1)
+		for _, tick in ipairs(a.ticks) do
+			tick.Visible = true
+		end
+		if lvl >= def.MaxLevel then
+			a.line.Text = string.format("Sunrise Lv %d/%d: full blaze", lvl, def.MaxLevel)
+		else
+			local need = (lvl + 1) * def.Every - pts
+			a.line.Text = string.format("Sunrise Lv %d/%d, next in %d point%s", lvl, def.MaxLevel, need, need == 1 and "" or "s")
+		end
+		a.line.TextColor3 = lvl > 0 and def.Color or UI.Fog
+	elseif ability == "Counter" then
+		local c = player:GetAttribute("Counter") or 0
+		a.bar.Visible = true
+		a.frame.Size = UDim2.fromOffset(250, 66)
+		a.gauge.BackgroundColor3 = def.Color:Lerp(UI.Ink, 0.8)
+		a.gauge.Size = UDim2.fromScale(1, 1)
+		a.energy.BackgroundColor3 = def.Color
+		a.energy.Size = UDim2.fromScale(math.clamp(c / 100, 0, 1), 1)
+		if c > 0 then
+			a.line.Text = string.format("Counter %d%%: next spike +%d%% power", c, math.floor(def.MaxBoost * c + 0.5))
+			a.line.TextColor3 = def.Color
+		else
+			a.line.Text = "Receive spikes to fill it (no stamina lost)"
+			a.line.TextColor3 = UI.Fog
+		end
 	else
 		a.bar.Visible = true
 		a.frame.Size = UDim2.fromOffset(250, 66)

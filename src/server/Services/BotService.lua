@@ -46,9 +46,10 @@ local function tierPair(b, pair)
 	return Characters.byTier(b.entity.charStats, pair)
 end
 
--- The stats this bot plays with right now (Adrenaline boosts them when its team is low).
+-- The stats this bot plays with right now (Adrenaline, Rising Sun and Rally Cry boost them).
 local function statsOf(e)
-	return (HitLogic.effectiveStats(e.charStats, e.ability, reg.TeamService.staminaOf(e.team)))
+	local TS = reg.TeamService
+	return (HitLogic.effectiveStats(e.charStats, e.ability, TS.staminaOf(e.team), TS.boostCtx(e)))
 end
 
 -- A team-level decision (reading the ball out): the skill of that team's bots.
@@ -379,6 +380,23 @@ local function planBackup(team, now, hitter, exclude)
 	return mb
 end
 
+-- A jump set: the setter meets the pass at the top of a jump, so the set releases higher and
+-- goes higher (HitLogic.setArc's lift). Only when the pass comes down from high enough and
+-- there's time to get under it. Returns true when planned.
+local function planJumpSet(b, side, now)
+	local path = reg.BallService.path
+	local jh = b.hum.JumpHeight
+	b.tApex = jumpTime(jh, P.HangGravityCancel)
+	local y = reg.TeamService.groundY(b.entity) + jh * 0.95 + Z.SetIdealY
+	local t, p = descentTo(path, now, y, side)
+	if not t or p.Y < y - 0.3 or t - now < b.tApex + 0.15 then
+		return false
+	end
+	b.targetZ = p.Z
+	b.jumpAt = t - b.tApex + (b.rng:NextNumber() * 2 - 1) * tierPair(b, B.JumpTimingNoise) * 0.5
+	return true
+end
+
 local function planSet(team, now, exclude)
 	local BS = reg.BallService
 	local path = BS.path
@@ -413,12 +431,20 @@ local function planSet(team, now, exclude)
 		return
 	end
 	b.targetZ = p.Z
+	-- Turnabout: off a pass near the net the setter sometimes arms it; the set then spins over
+	-- as a spike, so it's always jumped for (and no quick is called)
+	local e = b.entity
+	local near = math.abs(p.Z) <= B.JumpSetPassDepth
+	if e.ability == "Turnabout" and near and now >= (e.abilityReadyAt or 0) and b.rng:NextNumber() < tierPair(b, B.TurnaboutChance) then
+		reg.HitService.activateAbility(e)
+	end
+	local turn = e.ability == "Turnabout" and (e.abilityUntil or -1) >= now
 	-- the wing spiker gets the ball; off a good pass (near the net) the setter sometimes calls a
 	-- quick to the middle instead, if the middle is close enough to the net to hit it
 	local target, setType = nil, "Open"
 	local ws = TS.byRole(team, "WS")
 	local mb = TS.byRole(team, "MB")
-	if mb and mb.id ~= b.entity.id and mb.id ~= exclude and math.abs(p.Z) <= B.QuickPassDepth then
+	if not turn and mb and mb.id ~= b.entity.id and mb.id ~= exclude and math.abs(p.Z) <= B.QuickPassDepth then
 		local mbZ = rootZ(mb)
 		local chance = tierPair(b, B.QuickChance)
 		if not mb.isBot then
@@ -449,6 +475,8 @@ local function planSet(team, now, exclude)
 	b.targetId = target.id
 	if setType == "Quick" and bots[target.id] then
 		planQuick(bots[target.id], team, t, p)
+	elseif turn or (near and e.role == "SE" and b.rng:NextNumber() < tierPair(b, B.JumpSetChance)) then
+		planJumpSet(b, side, now)
 	end
 end
 
@@ -765,6 +793,18 @@ local function serveLogic(b, now, grounded, side)
 	end
 end
 
+-- Rally Cry: once it's ready, a bot pops it at some serves (the boost covers the rally).
+local function rallyCry(b, now)
+	local e = b.entity
+	if e.ability ~= "RallyCry" or b.rallyRolled or now < (e.abilityReadyAt or 0) then
+		return
+	end
+	b.rallyRolled = true
+	if b.rng:NextNumber() < B.RallyCryChance then
+		reg.HitService.activateAbility(e)
+	end
+end
+
 local function blockCheck(b, now, root, side)
 	local BS = reg.BallService
 	local last = BS.lastHit
@@ -847,10 +887,12 @@ local function updateBot(b, now)
 	updateForces(b, grounded, charging)
 
 	if MS.phase == "Serving" then
+		rallyCry(b, now)
 		serveLogic(b, now, grounded, side)
 		return
 	end
 	b.serve = nil
+	b.rallyRolled = nil
 	if MS.phase ~= "Rally" then
 		stop(b)
 		if grounded then
@@ -875,6 +917,8 @@ local function updateBot(b, now)
 			hum.Jump = true
 			if b.task == "Spike" or b.task == "Quick" then
 				reg.HitService.fx(e.id, "Jump", "Spike")
+			elseif b.task == "Set" then
+				reg.HitService.fx(e.id, "Jump", "Set")
 			elseif b.task == "Block" then
 				reg.HitService.fx(e.id, "Jump", "Block")
 				reg.HitService.fx(e.id, "Block")

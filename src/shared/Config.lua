@@ -283,7 +283,7 @@ Config.Stats = {
 
 -- How each stat turns into gameplay. Values interpolate from Stats.Min to Stats.Ref.
 Config.StatCurve = {
-	Power = { Stat = "Attack", Range = { 0.45, 1.0 } }, -- spike and serve speed multiplier
+	Power = { Stat = "Attack", Range = { 0.45, 1.0 }, Extrapolate = true }, -- spike and serve speed multiplier (boosts past 210 keep adding)
 	-- metres added to standing reach, on a curve (Exp) so the top jumpers pull away: the lowest
 	-- starter hits about 2.6 m, a maxed 190-Jump S+ about 4.35 m, the best maxed middle 4.4 m
 	VerticalM = { Stat = "Jump", Range = { 0.3, 2.24 }, Exp = 1.5 },
@@ -490,8 +490,63 @@ Config.Abilities = {
 		DrainMul = 2.4, -- receive drain of the exploding ball
 		FlatDrain = 16, -- plus this, even off a feint
 	},
+	Vector = {
+		Name = "Vector Set",
+		Tier = "S",
+		Role = "SE",
+		Blurb = "Your sets pulse. The spike off one gains power the steeper it comes down: a sharp, short spike gets up to +22%.",
+		Color = Color3.fromRGB(176, 120, 255),
+		MaxBoost = 0.22,
+		-- the angle (degrees below level) of the line from the contact to where the spike lands:
+		-- no boost at AngleMin (deep and flat), the full boost at AngleMax (short and steep)
+		AngleMin = 22,
+		AngleMax = 42,
+	},
+	Turnabout = {
+		Name = "Turnabout",
+		Tier = "S",
+		Role = "SE",
+		Active = true,
+		Blurb = "Press Q: your next set spins into a spike over the net, before the block can read it.",
+		Color = Color3.fromRGB(110, 255, 200),
+		Duration = 8, -- seconds the next set stays armed
+		Cooldown = 18,
+		PowerMul = 1.12,
+	},
+	RisingSun = {
+		Name = "Rising Sun",
+		Tier = "S",
+		Role = "WS",
+		Blurb = "Every 3 points the other team scores raises your Sunrise level. At level 4 (12 points) you outclass anyone.",
+		Color = Color3.fromRGB(255, 150, 40),
+		Every = 3,
+		MaxLevel = 4,
+		PerLevel = { Attack = 10, Jump = 9, Defense = 3, Speed = 6 },
+	},
+	RallyCry = {
+		Name = "Rally Cry",
+		Tier = "S",
+		Role = "MB",
+		Active = true,
+		Blurb = "Press Q: your whole team gets +12% Attack, Jump, Defense and Speed for 10 s.",
+		Color = Color3.fromRGB(255, 214, 90),
+		Duration = 10,
+		Cooldown = 30,
+		Boost = 0.12,
+	},
+	Counter = {
+		Name = "Counter Edge",
+		Tier = "S",
+		Role = "WS",
+		Blurb = "Spikes you receive cost no stamina: blades burst out and sink back into you, filling your Counter meter. Your next spike releases it for up to +30% power.",
+		Color = Color3.fromRGB(190, 220, 255),
+		MaxBoost = 0.3, -- at a full meter
+		GainPerKmh = 0.4, -- meter gained per km/h of the spike you receive
+		MinGain = 15,
+		MaxGain = 60,
+	},
 }
-Config.AbilityOrder = { "Thunder", "Azure", "Adrenaline", "IronWall", "ChainReaction" }
+Config.AbilityOrder = { "Thunder", "Azure", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS" },
@@ -625,6 +680,12 @@ Config.Bots = {
 	-- the middle backs up a set to the wing spiker: a late jump that meets the ball this long
 	-- after the wing spiker's contact, so a miss still gets spiked
 	BackupDelay = 0.14,
+	-- setters jump-set Open and Back sets off a pass that comes down near the net: taken higher,
+	-- the set goes higher ({worst, best} setter)
+	JumpSetChance = { 0.45, 1.0 },
+	JumpSetPassDepth = 3.4 * M,
+	TurnaboutChance = { 0.25, 0.6 }, -- a Turnabout setter arms it off a pass near the net
+	RallyCryChance = 0.5, -- a Rally Cry bot pops it at a serve this often once it's ready
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
 	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it

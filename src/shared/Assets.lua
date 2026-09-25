@@ -58,6 +58,8 @@ Assets.Sounds = {
 	CrowdGasp = "",
 	Music = "",
 	ImpactFrame = "",
+	Blades = "", -- Counter Edge: blades out and back in
+	RallyCry = "",
 }
 
 -- Built-in client sounds (they ship with every Roblox install), pitched and distorted as stand-ins.
@@ -112,6 +114,14 @@ Assets.Fallback = {
 	Timeout = { id = PING, speed = 1.3, volume = 0.5 },
 	UIClick = { id = PING, speed = 2.2, volume = 0.3 },
 	Point = { id = PING, speed = 1.2, volume = 0.55 },
+	Blades = {
+		{ id = SLASH, speed = 1.35, volume = 0.6 },
+		{ id = SLASH, speed = 0.95, volume = 0.45, delay = 0.3 },
+	},
+	RallyCry = {
+		{ id = PING, speed = 0.55, volume = 0.7 },
+		{ id = LAND, speed = 0.5, volume = 1.6, distort = 0.4 },
+	},
 }
 
 -- Optional action animation ids. Roblox only plays animations owned by the place's owner (or by

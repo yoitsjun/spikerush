@@ -4,7 +4,8 @@ assets/sfx/<Key>.ogg. Nothing is sampled: every sound is built from sine waves, 
 and envelopes, so you own them outright. Upload the .ogg files to Roblox
 (Creator Hub > Development Items > Audio) and paste the ids into src/shared/Assets.lua.
 
-Usage:  python3 tools/generate_sfx.py            (needs numpy, scipy and ffmpeg with libvorbis)
+Usage:  python3 tools/generate_sfx.py [Key ...]  (needs numpy, scipy and ffmpeg with libvorbis;
+        name keys to make only those)
 """
 import shutil
 import subprocess
@@ -299,6 +300,34 @@ def point():
     return mix(*parts)
 
 
+def blades():
+    # Counter Edge: blades shing out of the body, hang, and slide back in (metal on metal)
+    out_ = mix(
+        band(noise(0.18), 3000, 11000) * env(0.18, 0.001, 0.08) * 0.7,
+        ping(3150, 0.5, 0.35, 6),
+        ping(4730, 0.4, 0.25, 7),
+        sweep_sine(1800, 5200, 0.12) * env(0.12, 0.001, 0.1) * 0.3,
+    )
+    back = mix(
+        sweep_sine(5200, 1400, 0.22) * env(0.22, 0.01, 0.2, 3) * 0.25,
+        band(noise(0.22), 2500, 8000) * np.linspace(0.6, 0, int(SR * 0.22)) * 0.5,
+        delay(ping(2350, 0.25, 0.3, 8), 0.2),
+    )
+    return room(mix(out_, delay(back, 0.3)), 0.08)
+
+
+def rally_cry():
+    # a war cry for the team: a rising horn chord over a big drum
+    dur = 1.0
+    t = t_axis(dur)
+    swell = np.clip(t / 0.25, 0, 1) * np.exp(-2.2 * np.clip(t - 0.25, 0, None))
+    horn = np.zeros(len(t))
+    for f in (196, 247, 294, 392):
+        horn += drive(np.sin(2 * np.pi * f * t) + 0.5 * np.sin(4 * np.pi * f * t) + 0.25 * np.sin(6 * np.pi * f * t), 1.5)
+    horn = low(horn, 2500) * swell * 0.35
+    return room(mix(thump(90, 40, 0.5, 1.3), clap(0.14, 600, 5000, 3, 0.006) * 0.7, horn), 0.16)
+
+
 def crowd_bed(dur, seed_shift=0.0):
     t = t_axis(dur)
     y = np.zeros(len(t))
@@ -405,6 +434,8 @@ RECIPES = {
     "CrowdGasp": crowd_gasp,
     "Music": music,
     "ImpactFrame": impact_frame,
+    "Blades": blades,
+    "RallyCry": rally_cry,
 }
 
 PEAK = {"CrowdLoop": 0.5, "Music": 0.7, "UIClick": 0.5, "CrowdGasp": 0.6, "Timeout": 0.45, "Whistle": 0.6}
@@ -416,7 +447,9 @@ def main():
         return 1
     out.mkdir(parents=True, exist_ok=True)
     tmp = out / "_tmp.wav"
-    for key, fn in RECIPES.items():
+    keys = sys.argv[1:] or list(RECIPES)
+    for key in keys:
+        fn = RECIPES[key]
         y = norm(fn(), PEAK.get(key, 0.9))
         # tiny fade at both ends: no clicks
         f = min(len(y) // 4, int(0.004 * SR))

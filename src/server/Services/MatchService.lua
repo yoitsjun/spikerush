@@ -422,8 +422,9 @@ function MatchService.playSet()
 		return nil -- forfeited or called off between sets
 	end
 	MatchService.target = M.PointsPerSet
+	TS.resetSetAbilities()
 	for _, team in ipairs(Config.TeamOrder) do
-		TS.fillStamina(team)
+		TS.fillStamina(team) -- also re-reads the boosts (Rising Sun starts the set at level 0)
 	end
 	TS.resetTimeouts()
 	MatchService.announce({ kind = "SetStart", setNumber = MatchService.setNumber, target = MatchService.target })

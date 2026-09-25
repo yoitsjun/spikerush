@@ -34,6 +34,8 @@ local WHITE = Color3.new(1, 1, 1)
 local THUNDER = Color3.fromRGB(255, 226, 60)
 local AZURE = Color3.fromRGB(70, 210, 255)
 local HOT = Color3.fromRGB(255, 50, 90)
+local VECTOR = Config.Abilities.Vector.Color
+local COUNTER = Config.Abilities.Counter.Color
 
 local fxFolder
 local pool = {}
@@ -969,8 +971,19 @@ end
 ------------------------------------------------------------------------------------------
 
 local walls = {} -- entityId -> { part, untilT, side }
-local adrenalineFx = {} -- model -> { att, emitter, hl }
-local nextAdrenalineScan = 0
+local statusFx = {} -- model -> kind -> { att, em, hl }
+local sunSeen = {} -- model -> the Sunrise level last shown
+local nextStatusScan = 0
+
+-- Auras for boosts the server flags on characters (and the team's Rally Cry): flame colours,
+-- how hard they burn, and a highlight for the loud ones.
+local STATUS = {
+	Adrenaline = { fire = { Color3.fromRGB(255, 90, 60), Color3.fromRGB(255, 30, 40) }, rate = 28, fill = Color3.fromRGB(255, 60, 50), edge = Color3.fromRGB(255, 90, 70) },
+	Sun = { fire = { Color3.fromRGB(255, 230, 140), Config.Abilities.RisingSun.Color }, rate = 9, size = 2.6 },
+	Rally = { fire = { Color3.fromRGB(255, 255, 220), Config.Abilities.RallyCry.Color }, rate = 14, fill = Config.Abilities.RallyCry.Color, edge = Color3.fromRGB(255, 240, 170) },
+	Armed = { fire = { Color3.fromRGB(230, 255, 245), Config.Abilities.Turnabout.Color }, rate = 22, size = 1.6 },
+	Edge = { fire = { Color3.fromRGB(255, 255, 255), Config.Abilities.Counter.Color }, rate = 30, size = 1.4 },
+}
 
 -- Iron Wall: a glassy barrier above the middle's hands for the ability's duration.
 function VFXController.ability(entityId, ability)
@@ -1006,6 +1019,93 @@ function VFXController.ability(entityId, ability)
 		if mods and mods.AudioController then
 			mods.AudioController.play("Block", { volume = 0.7 })
 		end
+	elseif ability == "Turnabout" then
+		-- armed: a swirl at the setter's feet (the aura scan keeps a glow on while it lasts)
+		local pos = hrp.Position
+		floorRing(pos, def.Color, 4.5, 0.45)
+		ringFx(pos + Vector3.new(0, 1, 0), def.Color, 2, 9, 0.35, 6)
+		VFXController.popup(pos + Vector3.new(0, 6, 0), "Turnabout!", def.Color, 1.1)
+		if mods and mods.AudioController then
+			mods.AudioController.play("Whoosh", { volume = 0.6, speed = 0.8 })
+		end
+	elseif ability == "RallyCry" then
+		-- a golden shockwave from the middle, and a flare at every teammate's feet
+		local pos = hrp.Position
+		floorRing(pos, def.Color, 16, 0.7)
+		ringFx(pos + Vector3.new(0, 3, 0), def.Color, 2, 18, 0.5, 9)
+		starburst(pos + Vector3.new(0, 3, 0), def.Color, 10, 14, 0.35)
+		VFXController.popup(pos + Vector3.new(0, 7, 0), "Rally Cry!", def.Color, 1.3)
+		local team = State.teamOf(entityId)
+		for _, e in ipairs(team and State.roster(team) or {}) do
+			local r = Util.rootOf(e.id)
+			if r and e.id ~= entityId then
+				floorRing(r.Position, def.Color, 5, 0.5)
+				burst(r.Position + Vector3.new(0, 1.5, 0), def.Color, 2.2, 0.3)
+			end
+		end
+		if mods and mods.AudioController then
+			mods.AudioController.play("RallyCry", { volume = 0.8 })
+		end
+	end
+end
+
+-- Counter Edge: blades burst out of the receiver in the play plane, hang for a beat and slide
+-- back into the body (the spike's force goes into the meter, not the guard).
+local function counterBlades(model, color, count)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+	local from = hrp.Position + Vector3.new(0, 0.6, 0)
+	for i = 1, count do
+		local p = take(Enum.PartType.Block)
+		p.Color = color
+		local a = (i / count) * math.pi * 2 + math.random() * 0.35
+		local dir = Vector3.new((math.random() - 0.5) * 0.3, math.sin(a), math.cos(a)).Unit
+		local dist = 3.2 + math.random() * 1.8
+		p.Size = Vector3.new(0.1, 0.4, 2.6)
+		p.CFrame = CFrame.lookAt(from + dir * 0.6, from + dir * 2)
+		p.Transparency = 0.05
+		local out = TweenService:Create(p, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+			CFrame = CFrame.lookAt(from + dir * dist, from + dir * (dist + 1)),
+		})
+		out.Completed:Connect(function()
+			task.delay(0.14, function()
+				-- back into wherever the body is now
+				local c = (hrp.Parent and hrp.Position or from) + Vector3.new(0, 0.6, 0)
+				local back = TweenService:Create(p, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					CFrame = CFrame.lookAt(c + dir * 0.3, c + dir * 1.3),
+					Size = Vector3.new(0.05, 0.2, 1.1),
+					Transparency = 0.7,
+				})
+				back.Completed:Connect(function()
+					release(p)
+				end)
+				back:Play()
+			end)
+		end)
+		out:Play()
+	end
+end
+
+-- Counter Edge released: blades fly along the spike.
+local function bladeVolley(pos, dir, color)
+	for _ = 1, 7 do
+		local p = take(Enum.PartType.Block)
+		p.Color = color
+		local d = (dir + Vector3.new(0, (math.random() - 0.5) * 0.5, (math.random() - 0.5) * 0.5)).Unit
+		p.Size = Vector3.new(0.1, 0.35, 2.4)
+		p.CFrame = CFrame.lookAt(pos, pos + d)
+		p.Transparency = 0.05
+		local reach = 14 + math.random() * 10
+		local tween = TweenService:Create(p, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			CFrame = CFrame.lookAt(pos + d * reach, pos + d * (reach + 1)),
+			Transparency = 1,
+		})
+		tween.Completed:Connect(function()
+			release(p)
+		end)
+		tween:Play()
 	end
 end
 
@@ -1032,54 +1132,110 @@ local function updateAbilityFx(dt)
 			w.part.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 5.2, -w.side * 1.6))
 		end
 	end
-	-- Adrenaline: a red aura on anyone whose boost is on (the server flags the character)
-	if now < nextAdrenalineScan then
+	-- boost auras: Adrenaline (red), the Sunrise level (orange, hotter each level), the team's
+	-- Rally Cry (gold), an armed Turnabout (mint) and a charged Counter meter (steel)
+	if now < nextStatusScan then
 		return
 	end
-	nextAdrenalineScan = now + 0.3
-	local seen = {}
+	nextStatusScan = now + 0.3
+	local clock = Util.now()
+	local want = {}
 	for _, team in ipairs(Config.TeamOrder) do
+		local rally = State.rallyOn(team, clock)
 		for _, e in ipairs(State.roster(team)) do
 			local model = Util.modelOf(e.id)
-			if model and model:GetAttribute("Adrenaline") then
-				seen[model] = true
-				if not adrenalineFx[model] then
+			if model then
+				local w = {}
+				if model:GetAttribute("Adrenaline") then
+					w.Adrenaline = 1
+				end
+				local sun = model:GetAttribute("SunLevel") or 0
+				if sun > 0 then
+					w.Sun = sun
+				end
+				if sun > (sunSeen[model] or 0) then
 					local hrp = model:FindFirstChild("HumanoidRootPart")
 					if hrp then
-						local att = Instance.new("Attachment")
-						att.Name = "Adrenaline"
-						att.Parent = hrp
-						local em = makeEmitter(Assets.Images.Fire, {
-							LightEmission = 0.8,
-							Lifetime = NumberRange.new(0.3, 0.6),
-							Speed = NumberRange.new(2, 5),
-							SpreadAngle = Vector2.new(25, 25),
-							EmissionDirection = Enum.NormalId.Top,
-							Color = ColorSequence.new(Color3.fromRGB(255, 90, 60), Color3.fromRGB(255, 30, 40)),
-							Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.2), NumberSequenceKeypoint.new(1, 0) }),
-							Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 1) }),
-						})
-						em.Rate = 28
-						em.Enabled = true
-						em.Parent = att
-						local hl = Instance.new("Highlight")
-						hl.FillColor = Color3.fromRGB(255, 60, 50)
-						hl.FillTransparency = 0.85
-						hl.OutlineColor = Color3.fromRGB(255, 90, 70)
-						hl.OutlineTransparency = 0.3
-						hl.DepthMode = Enum.HighlightDepthMode.Occluded
-						hl.Parent = model
-						adrenalineFx[model] = { att = att, hl = hl }
+						local c = Config.Abilities.RisingSun.Color
+						burst(hrp.Position + Vector3.new(0, 1, 0), c, 3, 0.35)
+						ringFx(hrp.Position + Vector3.new(0, 1, 0), c, 2, 10, 0.4, 7)
+						VFXController.popup(hrp.Position + Vector3.new(0, 6, 0), "Sunrise Lv " .. sun .. "!", c, 1.1)
 					end
 				end
+				sunSeen[model] = sun
+				if rally then
+					w.Rally = 1
+				end
+				if model:GetAttribute("Ability") == "Turnabout" and (model:GetAttribute("AbilityUntil") or -1) >= clock then
+					w.Armed = 1
+				end
+				local edge = model:GetAttribute("Counter") or 0
+				if edge > 0 then
+					w.Edge = edge / 100
+				end
+				want[model] = w
 			end
 		end
 	end
-	for model, fx in pairs(adrenalineFx) do
-		if not seen[model] then
-			fx.att:Destroy()
-			fx.hl:Destroy()
-			adrenalineFx[model] = nil
+	for model, w in pairs(want) do
+		local list = statusFx[model] or {}
+		statusFx[model] = list
+		for kind, level in pairs(w) do
+			local st = STATUS[kind]
+			local fx = list[kind]
+			local hrp = model:FindFirstChild("HumanoidRootPart")
+			if not fx and hrp then
+				local att = Instance.new("Attachment")
+				att.Name = "Status" .. kind
+				att.Parent = hrp
+				local em = makeEmitter(Assets.Images.Fire, {
+					LightEmission = 0.8,
+					Lifetime = NumberRange.new(0.3, 0.6),
+					Speed = NumberRange.new(2, 5),
+					SpreadAngle = Vector2.new(25, 25),
+					EmissionDirection = Enum.NormalId.Top,
+					Color = ColorSequence.new(st.fire[1], st.fire[2]),
+					Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, st.size or 2.2), NumberSequenceKeypoint.new(1, 0) }),
+					Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 1) }),
+				})
+				em.Enabled = true
+				em.Parent = att
+				local hl = nil
+				if st.fill then
+					hl = Instance.new("Highlight")
+					hl.FillColor = st.fill
+					hl.FillTransparency = 0.85
+					hl.OutlineColor = st.edge
+					hl.OutlineTransparency = 0.3
+					hl.DepthMode = Enum.HighlightDepthMode.Occluded
+					hl.Parent = model
+				end
+				fx = { att = att, em = em, hl = hl }
+				list[kind] = fx
+			end
+			if fx then
+				fx.em.Rate = st.rate * level
+			end
+		end
+	end
+	for model, list in pairs(statusFx) do
+		local w = model.Parent and want[model] or {}
+		for kind, fx in pairs(list) do
+			if not w[kind] or not fx.att.Parent then
+				fx.att:Destroy()
+				if fx.hl then
+					fx.hl:Destroy()
+				end
+				list[kind] = nil
+			end
+		end
+		if next(list) == nil then
+			statusFx[model] = nil
+		end
+	end
+	for model in pairs(sunSeen) do
+		if not want[model] then
+			sunSeen[model] = nil
 		end
 	end
 end
@@ -1250,6 +1406,23 @@ local function onHit(snap)
 		emit(sparkEmitter, pos, 24, chain)
 		ringFx(pos, chain, 1, 6, 0.3, 5)
 	end
+	if ht == "Set" and meta.vectorSet then
+		ringFx(pos, VECTOR, 1, 6, 0.35, 5)
+		emit(sparkEmitter, pos, 14, VECTOR)
+	end
+	if meta.turnabout then
+		local tcol = Config.Abilities.Turnabout.Color
+		ringFx(pos, tcol, 1.5, 10, 0.35, 6)
+		starburst(pos, tcol, 8, 12, 0.3)
+		VFXController.popup(pos + Vector3.new(0, 2, 0), "Turnabout!", tcol, 1.1)
+	end
+	if meta.counterGain then
+		counterBlades(model, COUNTER, 8)
+		VFXController.popup(pos + Vector3.new(0, 2.2, 0), "Counter +" .. math.floor(meta.counterGain + 0.5), COUNTER, 0.85)
+		if close and mods.AudioController then
+			mods.AudioController.play("Blades", { volume = 0.7 })
+		end
+	end
 
 	if ht == "Spike" or ht == "JumpServe" then
 		local heavy = kmh >= 120
@@ -1257,6 +1430,19 @@ local function onHit(snap)
 		-- every attack: a reticle snapping onto the ball and dark debris streaks off the contact
 		ringFx(pos, WHITE, 7, 2.2, 0.14, 3)
 		shards(pos, Color3.fromRGB(24, 22, 30), heavy and 12 or 6, heavy and 75 or 50)
+		if meta.vector then
+			-- Vector Set: the boost the spike's angle earned
+			local boost = meta.vectorBoost or 0
+			ringFx(pos, VECTOR, 1.5, 7 + 20 * boost, 0.35, 6)
+			VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("+%.1f%%", boost * 100), VECTOR, 0.9 + 2 * boost)
+		end
+		if meta.counterRelease then
+			bladeVolley(pos, vdir, COUNTER)
+			VFXController.popup(pos + Vector3.new(0, 4.2, 0), string.format("Counter Edge +%d%%", math.floor(Config.Abilities.Counter.MaxBoost * meta.counterRelease + 0.5)), COUNTER, 1)
+			if close and mods.AudioController then
+				mods.AudioController.play("Blades", { volume = 0.8, speed = 1.2 })
+			end
+		end
 		if heavy or meta.thunder or meta.energy then
 			boomRings(snap.path, meta.thunder and THUNDER or (meta.energy and AZURE or WHITE), meta.thunder and 3 or 2)
 			if close then

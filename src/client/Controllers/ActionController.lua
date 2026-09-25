@@ -94,6 +94,7 @@ local function buildCtx(info, action, t)
 	if BR.getState() == "Flight" and path then
 		ballVel = BallPhysics.velocityAt(path, t)
 	end
+	local ability = State.myAbility()
 	return {
 		side = State.mySide,
 		team = State.myTeam,
@@ -104,15 +105,20 @@ local function buildCtx(info, action, t)
 		thirdTouch = third,
 		touchNumber = HitLogic.touchNumber(touch, State.myTeam),
 		stats = State.myStats(),
-		ability = State.myAbility(),
+		ability = ability,
 		groundY = info.groundY,
 		stamina = State.stamina(State.myTeam),
-		ironWall = action == "Block" and ActionController.abilityActive() or nil,
+		ironWall = action == "Block" and ability == "IronWall" and ActionController.abilityActive() or nil,
+		enemyPoints = State.enemyPoints(State.myTeam),
+		teamBoost = State.rallyOn(State.myTeam, t) or nil,
+		counter = ability == "Counter" and (player:GetAttribute("Counter") or 0) or nil,
+		turnabout = ability == "Turnabout" and ActionController.abilityActive() or nil,
 	}, ok, why
 end
 
--- Active ability (Iron Wall). The server confirms it by writing AbilityUntil/AbilityReadyAt onto
--- the player; until then the press is predicted locally so the block right after it counts.
+-- Active abilities (Iron Wall, Turnabout, Rally Cry). The server confirms one by writing
+-- AbilityUntil/AbilityReadyAt onto the player; until then the press is predicted locally so the
+-- touch right after it counts.
 local localAbilityUntil, localAbilityAt = -1, -10
 
 function ActionController.abilityActive()
@@ -147,6 +153,9 @@ local function pressAbility()
 	localAbilityUntil = Util.now() + def.Duration
 	Net.get("ActionFX"):FireServer("Ability")
 	mods.VFXController.ability(State.myId, State.myAbility())
+	if State.myAbility() == "Turnabout" then
+		State.hint("Turnabout armed: your next set spins into a spike (jump for it)")
+	end
 end
 
 local function isAzure()
@@ -223,6 +232,9 @@ local function execute(action, info, opts, t, ballPos)
 		return false, result
 	end
 	local meta = result.meta
+	if meta.turnabout then
+		localAbilityUntil = -1 -- spent (the server clears its window too)
+	end
 	meta.id = State.myId
 	meta.name = player.DisplayName
 	meta.team = State.myTeam

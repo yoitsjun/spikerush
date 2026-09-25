@@ -27,6 +27,11 @@ local SPM = Config.Scale.StudsPerMeter
 local AZURE = Config.Abilities.Azure
 local ADRENALINE = Config.Abilities.Adrenaline
 local CHAIN = Config.Abilities.ChainReaction
+local VECTOR = Config.Abilities.Vector
+local TURN = Config.Abilities.Turnabout
+local SUN = Config.Abilities.RisingSun
+local RALLY = Config.Abilities.RallyCry
+local COUNTER = Config.Abilities.Counter
 
 local ACTION_CODE = { Bump = 1, Set = 2, Spike = 3, Feint = 4, Block = 5, Toss = 6, Serve = 7, Underhand = 8 }
 local SERVES = { JumpServe = true, Overhand = true, Underhand = true }
@@ -298,7 +303,7 @@ end
 
 -- A set from `ball` to the attack spot `depth` from the net (default: the set type's spot, no
 -- error): its launch velocity and gravity. The setter AI also uses it to see a quick coming.
-function HitLogic.setArc(ball, side, setType, depth, underhand)
+function HitLogic.setArc(ball, side, setType, depth, underhand, lift)
 	local apex = H.SetApexOpen
 	if setType == "Quick" then
 		apex = H.SetApexQuick
@@ -308,6 +313,7 @@ function HitLogic.setArc(ball, side, setType, depth, underhand)
 	if underhand then
 		apex = apex * 0.92
 	end
+	apex = apex + (lift or 0) -- a jump set releases higher, so the set goes higher
 	apex = math.max(apex, ball.Y + 0.38 * SPM)
 	depth = math.max(depth or Court.attackDepth(setType), 0.47 * SPM)
 	local g = G * H.SetGravityScale
@@ -368,13 +374,48 @@ function HitLogic.adrenaline(ability, stamina)
 	return stamina.value / stamina.max < ADRENALINE.StaminaBelow
 end
 
--- The stats a touch is computed with: Adrenaline adds Attack and Jump while it's active.
--- The server raises the humanoid's jump to match (TeamService), so the hitting point is real.
-function HitLogic.effectiveStats(stats, ability, stamina)
-	if HitLogic.adrenaline(ability, stamina) then
-		return Characters.boosted(stats, ADRENALINE.AttackBonus, ADRENALINE.JumpBonus), true
+-- Rising Sun: the Sunrise level from the points the other team has this set (0..MaxLevel).
+function HitLogic.sunLevel(enemyPoints)
+	return math.min(SUN.MaxLevel, math.floor(math.max(0, enemyPoints or 0) / SUN.Every))
+end
+
+-- The stats a touch is computed with. Adrenaline adds Attack and Jump while the team's stamina
+-- is low; Rising Sun adds its level's points; Rally Cry (extra.teamBoost) multiplies every stat
+-- of the team. extra: { enemyPoints, teamBoost } (a touch passes its ctx). The server raises the
+-- humanoid's jump and run speed to match (TeamService), so the hitting point is real.
+function HitLogic.effectiveStats(stats, ability, stamina, extra)
+	local add = {}
+	local any = false
+	local adrenaline = HitLogic.adrenaline(ability, stamina)
+	if adrenaline then
+		add.Attack = ADRENALINE.AttackBonus
+		add.Jump = ADRENALINE.JumpBonus
+		any = true
 	end
-	return stats, false
+	if ability == "RisingSun" then
+		local lvl = HitLogic.sunLevel(extra and extra.enemyPoints)
+		if lvl > 0 then
+			for k, v in pairs(SUN.PerLevel) do
+				add[k] = (add[k] or 0) + v * lvl
+			end
+			any = true
+		end
+	end
+	local mul = 1
+	if extra and extra.teamBoost then
+		mul = 1 + RALLY.Boost
+		any = true
+	end
+	if not any then
+		return stats, false
+	end
+	return Characters.boosted(stats, add, mul), adrenaline
+end
+
+-- Vector Set: an attack off a teammate's pulsing set.
+function HitLogic.vectorSet(ctx)
+	local last = ctx.lastHit
+	return last ~= nil and last.vectorSet == true and last.team == ctx.team and last.hitType == "Set"
 end
 
 -- Chain Reaction: an attack off a teammate's charged set explodes.
@@ -564,6 +605,22 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		depth = C.SideDepth + SPM * (1.25 + rng:NextNumber() * 2.5)
 	end
 	local target = Vector3.new(0, R, -side * depth)
+	-- Vector Set: off her set, the steeper the line from the contact to where it lands, the more
+	-- power (a sharp, short spike gets the most)
+	if kind == "Spike" and HitLogic.vectorSet(ctx) then
+		local dropAngle = math.deg(math.atan(math.max(ball.Y - R, 0) / math.max(math.abs(target.Z - ball.Z), 1)))
+		local k = clamp((dropAngle - VECTOR.AngleMin) / (VECTOR.AngleMax - VECTOR.AngleMin), 0, 1)
+		local boost = VECTOR.MaxBoost * k
+		kmh = kmh * (1 + boost)
+		meta.vector = true
+		meta.vectorBoost = math.floor(boost * 1000 + 0.5) / 1000
+	end
+	-- Counter Edge: the meter the spikes she received filled goes into this one
+	if kind == "Spike" and ctx.ability == "Counter" and (ctx.counter or 0) > 0 then
+		local c = clamp(ctx.counter, 0, 100) / 100
+		kmh = kmh * (1 + COUNTER.MaxBoost * c)
+		meta.counterRelease = ctx.counter
+	end
 	local steps = 0
 	if q >= H.SpikeAssistQuality and not overcharge then
 		steps = H.NetAssistSteps
@@ -587,18 +644,57 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t, hold)
 end
 
+-- Turnabout: the armed set spins into a spike. High enough (a jump set) it's a real spike deep
+-- into the other court; too low to hit down, a quick dump just over the tape.
+local function turnabout(meta, ball, side, rng, t, stats, q)
+	meta.hitType = "Spike"
+	meta.turnabout = true
+	meta.height = HitLogic.meters(ball.Y)
+	meta.tierDrain = HitLogic.tierDrain(stats.tier)
+	if ball.Y < C.NetTop + H.SpikeMinContactOverNet then
+		meta.downBall = true
+		local target = Vector3.new(0, R, -side * SPM * (1.6 + rng:NextNumber() * 1.6))
+		local v = arcWithAssist(ball, target, C.NetTop + 0.8 * SPM, G)
+		return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
+	end
+	-- from right at the net: the first depth (from a mid-court aim, deeper) that clears the tape
+	-- at this speed; if none does inside the court, a little slower
+	local g = G * H.SpikeGravityScale
+	local speed = HitLogic.studs(lerp(H.SpikeKmhMin, H.SpikeKmhMax, 0.55 + 0.35 * q) * stats.Power * TURN.PowerMul)
+	local aim = C.SideDepth * (0.45 + 0.3 * rng:NextNumber())
+	local deepest = C.SideDepth - H.SpikeDeepMargin
+	for _ = 1, 8 do
+		local depth = aim
+		while depth <= deepest do
+			local v = HitLogic.solveSpeed(ball, Vector3.new(0, R, -side * depth), speed, g)
+			local m = HitLogic.netMargin(ball, v, g)
+			if m and m >= H.NetClearance then
+				return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t, H.HitStopGreat)
+			end
+			depth = depth + 0.5 * SPM
+		end
+		speed = speed * 0.88
+	end
+	-- nothing clears at speed: a quick dump over instead
+	meta.downBall = true
+	local v = arcWithAssist(ball, Vector3.new(0, R, -side * aim), C.NetTop + 0.8 * SPM, G)
+	return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
+end
+
 ------------------------------------------------------------------------------------------
 -- compute(input, ctx) -> ok, result | reason
 -- input: action, t, root, ball, vy, grounded, diving (slide), stanceAge, assist, energy,
 --        setType, targetId, tossHeight, serveKind
 -- ctx:   side, team, teamSize, seq, ballVel, lastHit, thirdTouch, touchNumber, stats,
---        ability, groundY, stamina = { value, max } (own team), forceQuality?, ironWall?
+--        ability, groundY, stamina = { value, max } (own team), forceQuality?, ironWall?,
+--        enemyPoints (Rising Sun), teamBoost (Rally Cry), counter (Counter Edge meter 0..100),
+--        turnabout (Turnabout armed)
 ------------------------------------------------------------------------------------------
 
 function HitLogic.compute(input, ctx)
 	local action = input.action
 	local side = ctx.side
-	local stats, adrenaline = HitLogic.effectiveStats(ctx.stats or Characters.stats(Config.DefaultTier), ctx.ability, ctx.stamina)
+	local stats, adrenaline = HitLogic.effectiveStats(ctx.stats or Characters.stats(Config.DefaultTier), ctx.ability, ctx.stamina, ctx)
 	ctx.adrenaline = adrenaline or nil
 	local rng = Random.new(math.floor((ctx.seq or 0) * 7919 + (ACTION_CODE[action] or 0) * 104729 + 17))
 	local root, ball, t = input.root, input.ball, input.t
@@ -839,6 +935,11 @@ function HitLogic.compute(input, ctx)
 				drain = drain + (last.flatDrain or 0)
 			end
 		end
+		if heavy and not sliding and ctx.ability == "Counter" then
+			-- Counter Edge: blades burst out and sink back in; the meter fills, the guard doesn't drop
+			meta.counterGain = clamp(incomingKmh * COUNTER.GainPerKmh, COUNTER.MinGain, COUNTER.MaxGain)
+			drain = 0
+		end
 		meta.drain = drain > 0 and drain or nil
 		meta.perfect = perfect or nil
 		-- a heavy ball knocks the receiver back (0..1), unless they slid
@@ -847,7 +948,7 @@ function HitLogic.compute(input, ctx)
 			meta.knock = knock > 0 and knock or nil
 		end
 
-		if heavy and not sliding and stam.value <= 0 and incomingKmh >= ST.BreakFailKmh then
+		if heavy and not sliding and stam.value <= 0 and incomingKmh >= ST.BreakFailKmh and ctx.ability ~= "Counter" then
 			-- guard broken: the spike blasts straight off the arms and out behind
 			meta.fail = true
 			meta.grade = "BROKEN"
@@ -874,6 +975,11 @@ function HitLogic.compute(input, ctx)
 			meta.grade = "PERFECT"
 		end
 		meta.score = math.floor(q * 100 + 0.5)
+
+		-- Turnabout: an armed set spins into a spike over the net instead
+		if ctx.turnabout and ctx.ability == "Turnabout" and touchN == 2 and not ctx.thirdTouch then
+			return turnabout(meta, ball, side, rng, t, stats, q)
+		end
 
 		-- third touch: the only touch that goes over
 		if ctx.thirdTouch then
@@ -919,6 +1025,7 @@ function HitLogic.compute(input, ctx)
 			meta.setType = setType
 			meta.dotted = true
 			meta.charged = ctx.ability == "ChainReaction" or nil
+			meta.vectorSet = ctx.ability == "Vector" or nil -- the pulsing ball
 			meta.underhand = underhand or nil
 			if type(input.targetId) == "string" then
 				meta.targetId = input.targetId
@@ -928,7 +1035,12 @@ function HitLogic.compute(input, ctx)
 				accuracy = accuracy * 0.55
 			end
 			local depth = Court.attackDepth(setType) + jitter(rng, (1 - q) ^ 1.4 * H.SetError / accuracy)
-			local v, g = HitLogic.setArc(ball, side, setType, depth, underhand)
+			-- a jump set (taken above standing height) goes up higher too; quicks stay quick
+			local lift = 0
+			if setType ~= "Quick" then
+				lift = math.max(0, ball.Y - ((ctx.groundY or Config.Player.RootGround) + Z.SetIdealY))
+			end
+			local v, g = HitLogic.setArc(ball, side, setType, depth, underhand, lift)
 			return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t)
 		end
 

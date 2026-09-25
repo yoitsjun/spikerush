@@ -16,6 +16,7 @@ local HitLogic = require(Shared.HitLogic)
 local Roster = require(Shared.Roster)
 local Lobbies = require(Shared.Lobbies)
 local Net = require(Shared.Net)
+local Util = require(Shared.Util)
 
 local TeamService = {}
 local reg
@@ -30,6 +31,7 @@ TeamService.stamina = { Home = { value = 100, max = 100 }, Away = { value = 100,
 TeamService.timeouts = { Home = Config.Timeout.PerSet, Away = Config.Timeout.PerSet }
 TeamService.benched = {} -- userId -> id of the AI standing in for them
 TeamService.idle = {} -- userId -> seconds without input while the ball was live
+TeamService.rallyUntil = { Home = -1, Away = -1 } -- Rally Cry: the team's boost lasts until then
 
 local botCounter = 0
 local usedNames = {}
@@ -209,31 +211,88 @@ function TeamService.applyToModel(e)
 		-- the local client predicts its own hits from these
 		Characters.writeAttributes(e.player, e.tier, e.build)
 	end
-	reg.CharacterService.applyStats(model, e.charStats)
+	reg.CharacterService.applyStats(model, e.liveStats or e.charStats)
+	-- ability state for the HUDs and effects (a new entity starts with it ready)
+	for _, inst in ipairs({ model, e.player or false }) do
+		if inst then
+			inst:SetAttribute("Counter", e.ability == "Counter" and (e.counter or 0) or nil)
+			inst:SetAttribute("AbilityUntil", e.abilityUntil or -1)
+			inst:SetAttribute("AbilityReadyAt", e.abilityReadyAt or 0)
+		end
+	end
 end
 
 ------------------------------------------------------------------------------------------
--- Stamina (a team guard meter for heavy receives)
+-- Stamina (a team guard meter for heavy receives) and stat boosts
 ------------------------------------------------------------------------------------------
 
--- Adrenaline: when a team's stamina crosses the threshold, its Adrenaline characters get
--- (or lose) their boosted jump; HitLogic boosts their touches from the same stamina.
-local function refreshBoosts(team)
+-- What a character's stats depend on besides the team's stamina (HitLogic.effectiveStats'
+-- `extra`): the other team's points this set (Rising Sun) and its own team's Rally Cry.
+function TeamService.boostCtx(e, t)
+	local scores = reg.MatchService.scores or {}
+	return {
+		enemyPoints = scores[Court.other(e.team)] or 0,
+		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= (t or Util.now()),
+	}
+end
+
+-- Boosts change a character's real jump and run speed: Adrenaline (low stamina), Rising Sun
+-- (the other team's points) and Rally Cry (the team's pop). When a character's boosted stats
+-- change, its humanoid is re-tuned (HitLogic boosts the touches from the same inputs) and the
+-- character is flagged for everyone's effects (Adrenaline, SunLevel).
+function TeamService.refreshBoosts(team)
 	local s = TeamService.stamina[team]
+	local now = Util.now()
 	for _, e in ipairs(TeamService.members(team)) do
-		if e.ability == "Adrenaline" then
-			local stats, on = HitLogic.effectiveStats(e.charStats, e.ability, s)
-			if on ~= (e.boosted == true) then
-				e.boosted = on
-				local model = TeamService.getModel(e)
-				if model then
-					reg.CharacterService.applyStats(model, stats)
-					model:SetAttribute("Adrenaline", on)
-				end
-				if e.isBot then
-					reg.BotService.refreshJump(e)
-				end
+		local extra = TeamService.boostCtx(e, now)
+		local stats, on = HitLogic.effectiveStats(e.charStats, e.ability, s, extra)
+		local model = TeamService.getModel(e)
+		if stats ~= (e.liveStats or e.charStats) then
+			e.liveStats = stats ~= e.charStats and stats or nil
+			if model then
+				reg.CharacterService.applyStats(model, stats)
 			end
+			if e.isBot then
+				reg.BotService.refreshJump(e)
+			end
+		end
+		if model then
+			model:SetAttribute("Adrenaline", on or nil)
+			model:SetAttribute("SunLevel", e.ability == "RisingSun" and HitLogic.sunLevel(extra.enemyPoints) or nil)
+		end
+	end
+end
+local refreshBoosts = TeamService.refreshBoosts
+
+-- Rally Cry: the whole team is boosted until `untilT` (shared clock), for every client's HUD too.
+function TeamService.rally(team, untilT)
+	TeamService.rallyUntil[team] = untilT
+	ReplicatedStorage:SetAttribute("RallyUntil_" .. team, untilT)
+	refreshBoosts(team)
+	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
+		if TeamService.rallyUntil[team] == untilT then
+			refreshBoosts(team)
+		end
+	end)
+end
+
+-- The Counter Edge meter (0..100) on the character and the player (the HUD and prediction).
+function TeamService.setCounter(e, value)
+	e.counter = value
+	local model = TeamService.getModel(e)
+	if model then
+		model:SetAttribute("Counter", value)
+	end
+	if e.player then
+		e.player:SetAttribute("Counter", value)
+	end
+end
+
+-- A new set: meters that build over a set start again (Rising Sun follows the score).
+function TeamService.resetSetAbilities()
+	for _, e in pairs(TeamService.entities) do
+		if e.ability == "Counter" then
+			TeamService.setCounter(e, 0)
 		end
 	end
 end
@@ -429,6 +488,8 @@ function TeamService.assign(size, plan)
 	end
 	TeamService.inMatch = true
 	for _, team in ipairs(Config.TeamOrder) do
+		TeamService.rallyUntil[team] = -1
+		ReplicatedStorage:SetAttribute("RallyUntil_" .. team, -1)
 		TeamService.fillStamina(team)
 	end
 	TeamService.resetTimeouts()
@@ -526,15 +587,13 @@ function TeamService.swapCharacter(plr)
 	e.build = Characters.sanitize(tier, build)
 	e.charStats = Characters.derive(tier, e.build)
 	e.charId, e.charName, e.prefRole = c.Id, c.Name, c.Role
-	e.boosted = nil
+	e.liveStats = nil
+	e.counter = 0
+	e.abilityUntil = -1
 	usedChars[c.Id] = true
 	reg.ProfileService.applyActive(plr) -- the player's own attributes (the client predicts from them)
 	TeamService.applyToModel(e)
-	local model = TeamService.getModel(e)
-	if model then
-		model:SetAttribute("Adrenaline", nil)
-	end
-	TeamService.fillStamina(e.team)
+	TeamService.fillStamina(e.team) -- re-applies the boosts (Rising Sun, Rally Cry) to the new build
 	reg.MatchService.broadcast()
 end
 
@@ -570,6 +629,8 @@ local function standIn(e, index)
 	bot.charId, bot.charName = e.charId, e.charName
 	bot.role = e.role
 	bot.stats = e.stats
+	bot.counter = e.counter
+	bot.abilityUntil, bot.abilityReadyAt = e.abilityUntil, e.abilityReadyAt
 	bot.standInFor = plr and plr.UserId
 	local hum = plr and plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
 	if hum then
@@ -585,6 +646,7 @@ local function standIn(e, index)
 	table.insert(order, math.min(index or (#order + 1), #order + 1), id)
 	reg.BotService.spawn(bot)
 	TeamService.applyToModel(bot)
+	refreshBoosts(e.team)
 	return bot
 end
 
@@ -685,10 +747,13 @@ function TeamService.hotJoin()
 			e.role = role
 			if bot.standInFor == plr.UserId then
 				e.stats = bot.stats -- carry on the same stat line
+				e.counter = bot.counter
+				e.abilityUntil, e.abilityReadyAt = bot.abilityUntil, bot.abilityReadyAt
 			end
 			TeamService.entities[e.id] = e
 			table.insert(TeamService.teams[team].order, index or 1, e.id)
 			TeamService.applyToModel(e)
+			refreshBoosts(team)
 			TeamService.benched[plr.UserId] = nil
 			TeamService.idle[plr.UserId] = 0
 		end

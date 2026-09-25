@@ -146,6 +146,8 @@ function HitService.process(entity, input, opts)
 		return false, why
 	end
 
+	-- an active ability's window (Iron Wall, Turnabout) covers this touch
+	local armed = (entity.abilityUntil or -1) >= input.t - 0.05
 	local ctx = {
 		side = Court.sideOf(team),
 		team = team,
@@ -160,7 +162,11 @@ function HitService.process(entity, input, opts)
 		groundY = TS.groundY(entity),
 		stamina = TS.staminaOf(team),
 		forceQuality = opts.forceQuality,
-		ironWall = action == "Block" and (entity.ironWallUntil or -1) >= input.t - 0.05 or nil,
+		ironWall = action == "Block" and entity.ability == "IronWall" and armed or nil,
+		enemyPoints = (MS.scores or {})[Court.other(team)] or 0,
+		teamBoost = (TS.rallyUntil[team] or -1) >= input.t - 0.05 or nil,
+		counter = entity.ability == "Counter" and (entity.counter or 0) or nil,
+		turnabout = entity.ability == "Turnabout" and armed or nil,
 	}
 	local computed, result = HitLogic.compute(input, ctx)
 	if not computed then
@@ -185,6 +191,15 @@ function HitService.process(entity, input, opts)
 	end
 	if meta.kmh and (meta.hitType == "Spike" or meta.hitType == "JumpServe") then
 		entity.stats.topKmh = math.max(entity.stats.topKmh or 0, meta.kmh)
+	end
+	-- abilities the touch used up or charged
+	if meta.turnabout then
+		HitService.setAbilityWindow(entity, -1) -- spent: the next set is a set again
+	end
+	if meta.counterGain then
+		TS.setCounter(entity, math.min(100, (entity.counter or 0) + meta.counterGain))
+	elseif meta.counterRelease then
+		TS.setCounter(entity, 0)
 	end
 
 	if entity.isBot and meta.knock then
@@ -296,9 +311,26 @@ function HitService.fx(entityId, kind, extra, exceptPlayer)
 	end
 end
 
--- Active abilities (Iron Wall): start it if it's off cooldown. The window and the cooldown are
--- written onto the character (and the player) as shared-clock times for every client's HUD and
--- effects. Returns true when it started.
+local function writeAbility(entity, name, value)
+	local model = reg.TeamService.getModel(entity)
+	if model then
+		model:SetAttribute(name, value)
+	end
+	if entity.player then
+		entity.player:SetAttribute(name, value)
+	end
+end
+
+-- An active ability's window ends at `untilT` (shared clock; -1 when it's spent).
+function HitService.setAbilityWindow(entity, untilT)
+	entity.abilityUntil = untilT
+	writeAbility(entity, "AbilityUntil", untilT)
+end
+
+-- Active abilities (Iron Wall, Turnabout, Rally Cry): start one if it's off cooldown. The window
+-- and the cooldown are written onto the character (and the player) as shared-clock times for
+-- every client's HUD and effects; Rally Cry also boosts the whole team for the window.
+-- Returns true when it started.
 function HitService.activateAbility(entity)
 	local def = entity and entity.ability and Config.Abilities[entity.ability]
 	if not def or not def.Active then
@@ -308,16 +340,11 @@ function HitService.activateAbility(entity)
 	if now < (entity.abilityReadyAt or 0) then
 		return false
 	end
-	entity.ironWallUntil = now + def.Duration
 	entity.abilityReadyAt = now + def.Cooldown
-	local model = reg.TeamService.getModel(entity)
-	if model then
-		model:SetAttribute("AbilityUntil", entity.ironWallUntil)
-		model:SetAttribute("AbilityReadyAt", entity.abilityReadyAt)
-	end
-	if entity.player then
-		entity.player:SetAttribute("AbilityUntil", entity.ironWallUntil)
-		entity.player:SetAttribute("AbilityReadyAt", entity.abilityReadyAt)
+	writeAbility(entity, "AbilityReadyAt", entity.abilityReadyAt)
+	HitService.setAbilityWindow(entity, now + def.Duration)
+	if entity.ability == "RallyCry" then
+		reg.TeamService.rally(entity.team, entity.abilityUntil)
 	end
 	HitService.fx(entity.id, "Ability", entity.ability, entity.player) -- the player already shows it
 	return true

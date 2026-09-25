@@ -7,8 +7,8 @@ four stats and possibly an ability:
   * MB: the tallest, with a big Jump (about 180) and less Attack (about 170).
   * SE: Speed and Defense (160 to 180 at the top), light on Attack and Jump.
 Abilities come with the character: S+ wing spikers have Thunder Spiker or Azure Dragon;
-S characters have their role's ability (WS Adrenaline, MB Iron Wall, SE Chain Reaction);
-everyone else has none.
+S characters have one of their role's abilities (WS Adrenaline, Rising Sun or Counter Edge;
+MB Iron Wall or Rally Cry; SE Chain Reaction, Vector Set or Turnabout); everyone else has none.
 
 The top characters are hand-set (the owner named YeJun: Thunder, 190 Jump, and the top 210
 Attack; he is the only Thunder Spiker); the rest are generated from role templates scaled by
@@ -46,6 +46,14 @@ FIXED = [
     {"Name": "Tetsuo", "Role": "MB", "Tier": "S", "Height": 201, "Attack": 166, "Defense": 158, "Speed": 112, "Jump": 178, "Ability": "IronWall"},
     {"Name": "Seoyeon", "Role": "SE", "Tier": "S", "Height": 176, "Attack": 128, "Defense": 172, "Speed": 178, "Jump": 140, "Ability": "ChainReaction"},
     {"Name": "Akira", "Role": "SE", "Tier": "S", "Height": 180, "Attack": 134, "Defense": 178, "Speed": 168, "Jump": 136, "Ability": "ChainReaction"},
+    # the second wave of S abilities (original characters; the owner described the ideas)
+    {"Name": "Ilya", "Role": "SE", "Tier": "S", "Height": 178, "Attack": 130, "Defense": 170, "Speed": 180, "Jump": 142, "Ability": "Vector"},
+    {"Name": "Haeri", "Role": "SE", "Tier": "S", "Height": 183, "Attack": 150, "Defense": 160, "Speed": 172, "Jump": 158, "Ability": "Turnabout"},
+    # Rising Sun: a low A at level 0; at level 4 (+40 ATK, +36 JMP, +12 DEF, +24 SPD) every stat
+    # beats a maxed YeJun (210 / 190 / 124 / 146)
+    {"Name": "Daon", "Role": "WS", "Tier": "S", "Height": 186, "Attack": 176, "Defense": 115, "Speed": 124, "Jump": 160, "Ability": "RisingSun"},
+    {"Name": "Joon", "Role": "MB", "Tier": "S", "Height": 202, "Attack": 162, "Defense": 162, "Speed": 110, "Jump": 176, "Ability": "RallyCry"},
+    {"Name": "Ines", "Role": "WS", "Tier": "S", "Height": 184, "Attack": 196, "Defense": 140, "Speed": 138, "Jump": 180, "Ability": "Counter"},
 ]
 
 # free for everyone: a D-tier character in each role

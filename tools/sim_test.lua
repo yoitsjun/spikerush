@@ -296,7 +296,11 @@ print("== the roster ==")
 do
 	local ids, okShape, okAbility, okLimits = {}, true, true, true
 	local tallestSE, shortestMB, notes = 0, 999, {}
-	local want = { WS = "Adrenaline", MB = "IronWall", SE = "ChainReaction" }
+	local want = {
+		WS = { Adrenaline = true, RisingSun = true, Counter = true },
+		MB = { IronWall = true, RallyCry = true },
+		SE = { ChainReaction = true, Vector = true, Turnabout = true },
+	}
 	for _, c in ipairs(Roster) do
 		okLimits = okLimits and not ids[c.Id] and Characters.isTier(c.Tier) and Config.RoleTemplates[c.Role] ~= nil
 		ids[c.Id] = true
@@ -306,7 +310,7 @@ do
 		if c.Tier == "S+" then
 			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure")
 		elseif c.Tier == "S" then
-			okAbility = okAbility and c.Ability == want[c.Role]
+			okAbility = okAbility and want[c.Role][c.Ability or ""] == true and Config.Abilities[c.Ability].Role == c.Role
 		else
 			okAbility = okAbility and c.Ability == nil
 		end
@@ -323,7 +327,7 @@ do
 		end
 	end
 	check(okLimits and #Roster >= 30, "every roster character is valid and unique", #Roster .. " characters")
-	check(okAbility, "abilities: S+ wing spikers have Thunder or Azure, S characters their role's ability, the rest none")
+	check(okAbility, "abilities: S+ wing spikers have Thunder or Azure, S characters one of their role's abilities, the rest none")
 	check(okShape and shortestMB > tallestSE, "roles: wing spikers hit hardest, middles are the tallest, setters live on speed and defense", string.format("shortest MB %d cm, tallest SE %d cm", shortestMB, tallestSE))
 	local yejun = Roster.get("yejun")
 	local ys = Characters.derive(Characters.fromRoster(yejun, "max"))
@@ -835,6 +839,99 @@ do
 	check(bonuses[1] == 0 and bonuses[2] == PR.StreakVP and bonuses[3] == 2 * PR.StreakVP and bonuses[8] == PR.StreakMaxSteps * PR.StreakVP and afterLoss == 0, "a win streak pays more with every straight win (capped), a loss resets it", string.format("bonus VP by streak: %d, %d, %d ... %d", bonuses[1], bonuses[2], bonuses[3], bonuses[8]))
 	check(Rewards.winner({ "Home", "Away", "Home" }, { Home = 40, Away = 44 }) == "Home" and Rewards.winner({ "Home", "Away" }, { Home = 30, Away = 32 }) == "Away" and Rewards.winner({ "Away", "Home" }, { Home = 30, Away = 30 }) == "Home",
 		"the match winner: most sets, then most points, then the last set")
+end
+
+print("== the second wave of S abilities ==")
+do
+	local ilya = Characters.derive(Characters.fromRoster(Roster.get("ilya"), "max"))
+	local haeri = Characters.derive(Characters.fromRoster(Roster.get("haeri"), "max"))
+	local daonC, yejunC = Roster.get("daon"), Roster.get("yejun")
+	local daon = Characters.derive(Characters.fromRoster(daonC, "max"))
+	local yejunS = Characters.derive(Characters.fromRoster(yejunC, "max"))
+	local sroot = vec(0, GROUND, side * H.SetterDepth)
+	local sball = vec(0, sroot.Y + Z.SetIdealY, sroot.Z)
+	local function set(ability, stats, root, ball, extraCtx)
+		local c = { touchNumber = 2, stats = stats, ability = ability, lastHit = { team = "Away", hitType = "Bump" } }
+		for k, v in pairs(extraCtx or {}) do c[k] = v end
+		return HitLogic.compute({ action = "Set", t = 0, root = root, ball = ball, grounded = root.Y <= GROUND + 0.01, setType = "Open" }, ctx(c))
+	end
+
+	-- Vector Set: the pulsing set; the steeper (shorter) the spike off it, the bigger the boost
+	local _, vset = set("Vector", ilya, sroot, sball)
+	vset.meta.team = "Away"
+	local sr = apexRoot(SP, 3.5 * K)
+	local _, deep = spike(sr, ballAt(sr, -0.1, 0), { lastHit = vset.meta })
+	local _, short = spike(sr, ballAt(sr, 2.2, 0), { lastHit = vset.meta })
+	local _, plain = spike(sr, ballAt(sr, 2.2, 0), { lastHit = { team = "Away", hitType = "Set" } })
+	check(vset.meta.vectorSet and short.meta.vectorBoost > deep.meta.vectorBoost and short.meta.vectorBoost <= Config.Abilities.Vector.MaxBoost + 1e-9 and plain.meta.vectorBoost == nil and short.meta.kmh > plain.meta.kmh,
+		"Vector Set: the spike off her pulsing set gains more the steeper it comes down", string.format("deep +%.1f%%, short +%.1f%% (%.0f vs %.0f km/h off a plain set)", deep.meta.vectorBoost * 100, short.meta.vectorBoost * 100, short.meta.kmh, plain.meta.kmh))
+
+	-- Turnabout: armed, her set (a jump set) spins into a spike over the net; unarmed, it's a set
+	local jroot = vec(0, GROUND + Characters.jumpHeight(haeri, GROUND) * 0.9, side * H.SetterDepth) -- near the top of her jump
+	local jball = vec(0, jroot.Y + Z.SetIdealY, jroot.Z)
+	local _, armed = set("Turnabout", haeri, jroot, jball, { turnabout = true })
+	local _, groundArmed = set("Turnabout", haeri, sroot, sball, { turnabout = true })
+	local _, unarmed = set("Turnabout", haeri, jroot, jball)
+	local ap = BallPhysics.buildPath(armed.launch)
+	local gp = BallPhysics.buildPath(groundArmed.launch)
+	local up = BallPhysics.buildPath(unarmed.launch)
+	check(armed.meta.hitType == "Spike" and armed.meta.turnabout and ap.landing.pos.Z * side < 0 and Court.inBounds(ap.landing.pos) and not ap.flags.netTouch and armed.meta.kmh > 90
+		and gp.landing.pos.Z * side < 0 and unarmed.meta.hitType == "Set" and up.landing.pos.Z * side > 0,
+		"Turnabout: armed, her jump set spins into a spike over the net (a low one dumps over); unarmed it stays a set", string.format("%.0f km/h, %s", armed.meta.kmh, describe(ap)))
+	local _, groundSet = set(nil, SP, sroot, sball)
+	local _, jumpSet = set(nil, SP, jroot, jball)
+	local _, gA = BallPhysics.findApex(BallPhysics.buildPath(groundSet.launch), 0)
+	local _, jA = BallPhysics.findApex(BallPhysics.buildPath(jumpSet.launch), 0)
+	check(jA.Y > gA.Y + 3, "a jump set releases higher, so the set goes higher", string.format("apex %.1f vs %.1f studs", jA.Y, gA.Y))
+
+	-- Rising Sun: a low A at 0 points; every 3rd point lost adds a level; at 12 it beats YeJun
+	local lv = {}
+	for _, pts in ipairs({ 0, 2, 3, 6, 9, 12, 20 }) do
+		table.insert(lv, HitLogic.sunLevel(pts))
+	end
+	local sun0 = HitLogic.effectiveStats(daon, "RisingSun", nil, { enemyPoints = 0 })
+	local sun12 = HitLogic.effectiveStats(daon, "RisingSun", nil, { enemyPoints = 12 })
+	local beats = true
+	for _, k in ipairs(Config.Stats.Order) do
+		beats = beats and sun12[k] > yejunC[k]
+	end
+	local soraA = Characters.derive(Characters.fromRoster(Roster.get("sora"), "max")) -- the A- wing spiker
+	check(table.concat(lv, ",") == "0,0,1,2,3,4,4" and beats and sun12.ContactMaxM > yejunS.ContactMaxM and math.abs(sun0.ContactMaxM - soraA.ContactMaxM) < 0.2 and sun0.Attack <= soraA.Attack,
+		"Rising Sun: a low A at 0 points, a level every 3 lost, and at 12 every stat beats a maxed YeJun", string.format("%.2f m at 0, %.2f m at 12 (YeJun %.2f m); ATK %d JMP %d DEF %d SPD %d", sun0.ContactMaxM, sun12.ContactMaxM, yejunS.ContactMaxM, sun12.Attack, sun12.Jump, sun12.Defense, sun12.Speed))
+
+	-- Rally Cry: +12% to every stat of the team
+	local rally = HitLogic.effectiveStats(SP, nil, nil, { teamBoost = true })
+	local rr = apexRoot(rally, 3.5 * K)
+	local _, boosted = spike(rr, ballAt(rr, Z.SpikeCenterDz, Z.SpikeCenterDy), { teamBoost = true })
+	local _, normal = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy))
+	check(rally.Attack == math.floor(SP.Attack * 1.12 + 0.5) and rally.Jump > SP.Jump and rally.Speed > SP.Speed and boosted.meta.kmh > normal.meta.kmh,
+		"Rally Cry: the whole team plays with +12% on every stat", string.format("ATK %d -> %d, spike %.0f -> %.0f km/h", SP.Attack, rally.Attack, normal.meta.kmh, boosted.meta.kmh))
+
+	-- Counter Edge: received spikes fill the meter instead of draining; the next spike releases it
+	local ines = Characters.derive(Characters.fromRoster(Roster.get("ines"), "max"))
+	local recRoot = vec(0, GROUND, side * 18 * K)
+	local recBall = vec(0, recRoot.Y + Z.ReceiveIdealY, recRoot.Z - side * Z.ReceiveForward)
+	local fast = vec(0, -30 * K, side * 110 * K)
+	local last = { team = "Home", hitType = "Spike", kmh = 140 }
+	local _, dig = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 0.6 }, { lastHit = last, ballVel = fast, ability = "Counter", stats = ines })
+	local _, dig2 = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 0.6 }, { lastHit = last, ballVel = fast, stats = ines })
+	local ir = apexRoot(ines, 3.5 * K)
+	local ib = ballAt(ir, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local _, empty = spike(ir, ib, { ability = "Counter", stats = ines, counter = 0 })
+	local _, full = spike(ir, ib, { ability = "Counter", stats = ines, counter = 100 })
+	check(dig.meta.drain == nil and (dig.meta.counterGain or 0) >= Config.Abilities.Counter.MinGain and (dig2.meta.drain or 0) > 0 and math.abs(full.meta.kmh / empty.meta.kmh - 1.3) < 0.01 and full.meta.counterRelease == 100,
+		"Counter Edge: a received spike fills the meter instead of the guard dropping; a full meter adds 30% to the next spike", string.format("+%.0f meter (vs %.1f guard), %.0f -> %.0f km/h", dig.meta.counterGain or 0, dig2.meta.drain or 0, empty.meta.kmh, full.meta.kmh))
+
+	-- the server re-tunes a humanoid only when its boosted stats change (TeamService.refreshBoosts
+	-- compares tables): no boost is the base table, the same boost the same cached table, and
+	-- boosts stack (Rising Sun's points, then Rally Cry's multiplier)
+	local b0 = HitLogic.effectiveStats(daon, "RisingSun", nil, { enemyPoints = 2 })
+	local b1 = HitLogic.effectiveStats(daon, "RisingSun", nil, { enemyPoints = 4 })
+	local b1b = HitLogic.effectiveStats(daon, "RisingSun", nil, { enemyPoints = 5 })
+	local both = HitLogic.effectiveStats(daon, "RisingSun", nil, { enemyPoints = 6, teamBoost = true })
+	local sun6 = HitLogic.effectiveStats(daon, "RisingSun", nil, { enemyPoints = 6 })
+	check(b0 == daon and b1 ~= daon and b1 == b1b and both.Attack == math.floor((daon.Attack + 2 * Config.Abilities.RisingSun.PerLevel.Attack) * 1.12 + 0.5) and both.Attack > sun6.Attack,
+		"boosts are shared tables (a humanoid is only re-tuned when a boost changes) and they stack", string.format("ATK %d, Lv1 %d, Lv2 %d, Lv2 + Rally %d", daon.Attack, b1.Attack, sun6.Attack, both.Attack))
 end
 
 print("== leaderboards ==")

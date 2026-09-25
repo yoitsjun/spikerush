@@ -39,6 +39,8 @@ local sparkles, sparkleOn = nil, false
 local lightningOn, lightningColor = false, Color3.new(1, 1, 1)
 local chargedHl = nil -- red glow on a Chain Reaction (charged) ball
 local chargedOn = false
+local pulseRate = 14 -- how fast a glowing ball pulses (a Vector set breathes slower)
+local VECTOR = Config.Abilities.Vector.Color
 local bolts = {}
 local boltIndex, lastBoltAt, lastBoltPos = 0, 0, nil
 local BOLT_COUNT = 28
@@ -349,9 +351,12 @@ local function applyStyle(meta)
 	aura.Enabled = false
 	aura.Rate = 90
 	glow.Brightness = 0
-	chargedOn = meta ~= nil and (meta.charged == true or meta.reaction == true)
+	local vectorSet = meta ~= nil and meta.vectorSet == true and ht == "Set"
+	chargedOn = meta ~= nil and (meta.charged == true or meta.reaction == true or vectorSet)
+	pulseRate = vectorSet and 7 or 14
 	if chargedHl then
 		chargedHl.Enabled = chargedOn
+		chargedHl.FillColor = vectorSet and VECTOR or Config.Abilities.ChainReaction.Color
 	end
 	core.Enabled = false
 	sparkleOn = false
@@ -419,6 +424,15 @@ local function applyStyle(meta)
 			sparkleOn = true
 			sparkles.Rate = 120
 			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 120, 120))
+		elseif meta.vectorSet then
+			-- a Vector set: the ball pulses violet (spike it steep for the boost)
+			aura.Color = ColorSequence.new(Color3.fromRGB(235, 215, 255), VECTOR)
+			aura.Enabled = true
+			glow.Color = VECTOR
+			glow.Brightness = 4
+			sparkleOn = true
+			sparkles.Rate = 60
+			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), VECTOR)
 		end
 	else
 		trail.Color = ColorSequence.new(Config.UI.Chalk)
@@ -724,8 +738,8 @@ local function update(dt)
 	core.Enabled = trail.Enabled and (ht == "Spike" or ht == "JumpServe")
 	sparkles.Enabled = (trail.Enabled or (live and chargedOn)) and sparkleOn
 	if chargedOn and live then
-		-- the charged ball pulses
-		local pulse = 0.5 + 0.5 * math.sin(os.clock() * 14)
+		-- the charged (or Vector) ball pulses
+		local pulse = 0.5 + 0.5 * math.sin(os.clock() * pulseRate)
 		glow.Brightness = 3.5 + 3 * pulse
 		if chargedHl then
 			chargedHl.FillTransparency = 0.35 + 0.35 * pulse
@@ -746,7 +760,7 @@ local function update(dt)
 		d.born = clock
 		d.part.CFrame = CFrame.new(pos)
 		-- a Chain Reaction set is charged: red dots
-		d.part.Color = cur.meta.charged and Config.Abilities.ChainReaction.Color or Config.UI.Chalk
+		d.part.Color = (cur.meta.charged and Config.Abilities.ChainReaction.Color) or (cur.meta.vectorSet and VECTOR) or Config.UI.Chalk
 		dotsAliveUntil = clock + 1.4
 	end
 	if clock < dotsAliveUntil then
