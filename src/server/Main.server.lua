@@ -19,6 +19,7 @@ local order = {
 	"BallService",
 	"TeamService",
 	"ProfileService",
+	"LeaderboardService",
 	"BotService",
 	"HitService",
 	"LobbyService",

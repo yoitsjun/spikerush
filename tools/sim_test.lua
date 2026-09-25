@@ -837,6 +837,17 @@ do
 		"the match winner: most sets, then most points, then the last set")
 end
 
+print("== leaderboards ==")
+do
+	local Leaderboards = require("Leaderboards")
+	local v = Leaderboards.valuesOf({ bestStreak = 4, record = { wins = 12, kills = 140, aces = 9, blocks = -3 } })
+	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and #Leaderboards.Boards == 5, "five boards (wins, best win streak, spike kills, aces, blocks) read from the career counters")
+	local ranked = Leaderboards.rank({ { userId = 5, value = 10 }, { userId = 2, value = 30 }, { userId = 9, value = 10 }, { userId = 1, value = 7 } }, 3)
+	check(#ranked == 3 and ranked[1].userId == 2 and ranked[1].rank == 1 and ranked[2].userId == 5 and ranked[2].rank == 2 and ranked[3].userId == 9 and ranked[3].rank == 2, "best first, ties share a rank, only the top N", string.format("%d:%d %d:%d %d:%d", ranked[1].rank, ranked[1].value, ranked[2].rank, ranked[2].value, ranked[3].rank, ranked[3].value))
+	local merged = Leaderboards.merge({ { userId = 1, value = 20, name = "A" }, { userId = 2, value = 15, name = "B" } }, { { userId = 2, value = 25, name = "B" }, { userId = 3, value = 5, name = "C" }, { userId = 4, value = 0, name = "D" } }, 10)
+	check(#merged == 3 and merged[1].userId == 2 and merged[1].value == 25 and merged[3].userId == 3, "players in the server show their fresh numbers at once; zeros stay off")
+end
+
 print("== determinism ==")
 do
 	local root = apexRoot(SP, 4 * K)

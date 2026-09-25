@@ -46,6 +46,9 @@
         "Continue": {
           "$className": "RemoteEvent"
         },
+        "Leaderboard": {
+          "$className": "RemoteEvent"
+        },
         "SetCharacter": {
           "$className": "RemoteEvent"
         },

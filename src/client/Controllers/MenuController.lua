@@ -309,12 +309,13 @@ local function buildHome()
 	currencyRow(p, { Position = UDim2.fromOffset(M, 166), AnchorPoint = Vector2.new(0, 0) }).UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
 	-- right: menu icons
-	local icons = make("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 62), Size = UDim2.fromOffset(400, 84), BackgroundTransparency = 1 }, p)
+	local icons = make("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 62), Size = UDim2.fromOffset(480, 84), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), HorizontalAlignment = Enum.HorizontalAlignment.Right, SortOrder = Enum.SortOrder.LayoutOrder }, icons)
 	local entries = {
 		{ Gui.icon.players, "Players", "players" },
 		{ Gui.icon.locker, "Locker", "locker" },
 		{ Gui.icon.shop, "Shop", "shop" },
+		{ Gui.icon.trophy, "Ranks", "ranks" },
 		{ Gui.icon.settings, "Settings", "settings" },
 		{ Gui.icon.help, "Help", "help" },
 	}
@@ -2141,6 +2142,117 @@ local function refreshMatch()
 end
 
 ------------------------------------------------------------------------------------------
+-- Leaderboards: wins, best win streak, spike kills, aces, blocks
+------------------------------------------------------------------------------------------
+
+local Leaderboards = require(Shared.Leaderboards)
+local boardData = nil -- the server's last answer
+local boardKey = "wins"
+local lastBoardAsk = -math.huge
+local MEDAL = { Color3.fromRGB(255, 205, 60), Color3.fromRGB(205, 214, 228), Color3.fromRGB(214, 140, 80) }
+
+local function askBoards(force)
+	if force or os.clock() - lastBoardAsk > 30 then
+		lastBoardAsk = os.clock()
+		Net.get("Leaderboard"):FireServer("get")
+	end
+end
+
+local function buildRanks()
+	local p = page("ranks")
+	header(p, "Leaderboards")
+	local list = make("Frame", { Position = UDim2.fromOffset(M, 136), Size = UDim2.fromOffset(300, 460), BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	local tabs = {}
+	for i, b in ipairs(Leaderboards.Boards) do
+		local t = make("TextButton", { Size = UDim2.new(1, 0, 0, 72), BackgroundColor3 = Color3.fromRGB(12, 14, 26), BackgroundTransparency = 0.25, Text = "", AutoButtonColor = false, LayoutOrder = i }, list)
+		Gui.corner(t, 10)
+		local s = Gui.stroke(t, 2, Gui.GOLD, 1, true)
+		text(t, { Text = b.Name, Font = Gui.FONT_HEAVY, TextSize = 20, Size = UDim2.new(1, -28, 0, 26), Position = UDim2.fromOffset(16, 10) })
+		local mine = text(t, { Text = "", TextSize = 14, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -28, 0, 20), Position = UDim2.fromOffset(16, 40) })
+		onClick(t, function()
+			boardKey = b.Key
+			MenuController.refresh()
+		end)
+		tabs[b.Key] = { button = t, stroke = s, mine = mine }
+	end
+	local panel = Gui.glass(p, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 136), Size = UDim2.new(1, -M * 2 - 330, 1, -136 - M) }, 0.15)
+	local title = Gui.title(panel, { Text = "", TextSize = 40, Size = UDim2.new(1, -40, 0, 48), Position = UDim2.fromOffset(20, 10) })
+	local scope = text(panel, { Text = "", TextSize = 14, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -40, 0, 18), Position = UDim2.fromOffset(22, 58) })
+	local rowsFrame = make("ScrollingFrame", { Position = UDim2.fromOffset(12, 86), Size = UDim2.new(1, -24, 1, -146), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, panel)
+	make("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, rowsFrame)
+	local rows = {}
+	for i = 1, Config.Leaderboards.Top do
+		local r = make("Frame", { Size = UDim2.new(1, -10, 0, 48), BackgroundColor3 = Color3.fromRGB(22, 26, 42), BackgroundTransparency = 0.2, LayoutOrder = i, Visible = false }, rowsFrame)
+		Gui.corner(r, 8)
+		local rank = text(r, { Text = "", Font = Gui.FONT_TITLE, TextSize = 22, Size = UDim2.fromOffset(52, 48), Position = UDim2.fromOffset(6, 0), TextXAlignment = Enum.TextXAlignment.Center })
+		Gui.stroke(rank, 1.5, Gui.INK, 0)
+		local shot = make("ImageLabel", { Size = UDim2.fromOffset(38, 38), Position = UDim2.fromOffset(62, 5), BackgroundColor3 = Color3.fromRGB(40, 46, 70) }, r)
+		Gui.round(shot)
+		local name = text(r, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 17, Size = UDim2.new(1, -260, 1, 0), Position = UDim2.fromOffset(112, 0), TextTruncate = Enum.TextTruncate.AtEnd })
+		local value = text(r, { Text = "", Font = Gui.FONT_NUM, TextSize = 19, Size = UDim2.fromOffset(140, 48), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 0), TextXAlignment = Enum.TextXAlignment.Right })
+		rows[i] = { frame = r, rank = rank, shot = shot, name = name, value = value, userId = nil }
+	end
+	local empty = text(panel, { Text = "No scores yet. Win matches to get on the board.", TextSize = 16, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -40, 0, 30), Position = UDim2.fromOffset(20, 100), TextXAlignment = Enum.TextXAlignment.Center })
+	local you = text(panel, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 17, TextColor3 = Gui.GOLD_LIGHT, Size = UDim2.new(1, -40, 0, 40), Position = UDim2.new(0, 20, 1, -52), RichText = true })
+	ui.ranks = { tabs = tabs, title = title, scope = scope, rows = rows, empty = empty, you = you }
+end
+
+local function refreshRanks(prof)
+	local R = ui.ranks
+	askBoards(false)
+	local mineValues = Leaderboards.valuesOf(prof)
+	local unit = "wins"
+	for _, b in ipairs(Leaderboards.Boards) do
+		local tab = R.tabs[b.Key]
+		local on = b.Key == boardKey
+		tab.stroke.Transparency = on and 0 or 1
+		tab.button.BackgroundTransparency = on and 0.05 or 0.25
+		tab.mine.Text = string.format("You: %s", Gui.num(mineValues[b.Key] or 0))
+		if on then
+			R.title.Text = b.Name
+			unit = b.Unit
+		end
+	end
+	local rows = boardData and boardData.boards and boardData.boards[boardKey] or {}
+	if boardData then
+		local mins = math.floor((boardData.refresh or 120) / 60)
+		R.scope.Text = boardData.global and string.format("Every server. The top %d, refreshed every %d minutes.", Config.Leaderboards.Top, mins) or "This server only (the global boards need DataStore access)."
+	else
+		R.scope.Text = "Loading..."
+	end
+	local myRank = nil
+	for i, row in ipairs(R.rows) do
+		local d = rows[i]
+		row.frame.Visible = d ~= nil
+		if d then
+			row.rank.Text = tostring(d.rank)
+			row.rank.TextColor3 = MEDAL[d.rank] or Gui.WHITE
+			row.name.Text = d.name or "Player"
+			row.value.Text = Gui.num(d.value) .. " " .. unit
+			if row.userId ~= d.userId then
+				row.userId = d.userId
+				row.shot.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(d.userId) .. "&w=48&h=48"
+			end
+			local me = d.userId == player.UserId
+			row.frame.BackgroundColor3 = me and Color3.fromRGB(70, 60, 24) or (d.rank <= 3 and Color3.fromRGB(34, 32, 40) or Color3.fromRGB(22, 26, 42))
+			if me then
+				myRank = d.rank
+			end
+		end
+	end
+	R.empty.Visible = boardData ~= nil and #rows == 0
+	local mine = mineValues[boardKey] or 0
+	if myRank then
+		R.you.Text = string.format("You: <b>#%d</b> with %s %s", myRank, Gui.num(mine), unit)
+	elseif mine > 0 then
+		R.you.Text = string.format("You: %s %s (not in the top %d yet)", Gui.num(mine), unit, Config.Leaderboards.Top)
+	else
+		R.you.Text = "You're not on this board yet."
+	end
+end
+
+------------------------------------------------------------------------------------------
 -- Timeout: change your character or your look (the menus open over the match for it)
 ------------------------------------------------------------------------------------------
 
@@ -2256,7 +2368,7 @@ end
 -- screens, scenes, refresh
 ------------------------------------------------------------------------------------------
 
-local SCENE = { home = "home", players = "home", shop = "home", recruit = "gym", locker = "gym" }
+local SCENE = { home = "home", players = "home", shop = "home", ranks = "home", recruit = "gym", locker = "gym" }
 local autoLine = ""
 
 function MenuController.applyScene()
@@ -2286,6 +2398,9 @@ function MenuController.go(name)
 		lockerPick = {}
 	end
 	screen = name
+	if name == "ranks" then
+		askBoards(true)
+	end
 	for n, f in pairs(ui.pages) do
 		f.Visible = n == name
 	end
@@ -2313,6 +2428,8 @@ local function doRefresh()
 		refreshLocker(prof)
 	elseif screen == "shop" then
 		refreshShop(prof)
+	elseif screen == "ranks" then
+		refreshRanks(prof)
 	end
 	refreshMatch()
 	if swapMode then
@@ -2421,6 +2538,7 @@ function MenuController.init(m)
 	buildPlayers()
 	buildLocker()
 	buildShop()
+	buildRanks()
 	buildHelp()
 	buildTable()
 	buildMatch()
@@ -2471,6 +2589,12 @@ function MenuController.init(m)
 		end
 	end)
 	player:GetAttributeChangedSignal("CharId"):Connect(MenuController.refresh)
+	Net.get("Leaderboard").OnClientEvent:Connect(function(data)
+		if type(data) == "table" and type(data.boards) == "table" then
+			boardData = data
+			MenuController.refresh()
+		end
+	end)
 
 	MenuController.go("home")
 	setShown(not State.isPlaying)

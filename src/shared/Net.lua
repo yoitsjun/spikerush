@@ -18,6 +18,7 @@ Net.Names = {
 	"Lobbies", -- server -> client: the lobby list, your lobby, notices
 	"Activity", -- client -> server: "I pressed something" (AFK detection)
 	"Continue", -- client -> server: after a set, keep playing (true) or end the match (false)
+	"Leaderboard", -- client asks, server answers with every board
 	"SetCharacter",
 	"Timeout",
 	"Profile",

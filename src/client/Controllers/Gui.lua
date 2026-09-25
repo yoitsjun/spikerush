@@ -275,6 +275,17 @@ function Gui.icon.match(parent, size, color)
 	return b
 end
 
+function Gui.icon.trophy(parent, size, color)
+	local b = box(parent, size)
+	local cup = rect(b, 0.5, 0.36, 0.52, 0.44, color, 0, 4) -- bowl
+	cup.BackgroundTransparency = 0
+	ring(b, 0.24, 0.34, 0.24, color, 2.5) -- handles
+	ring(b, 0.76, 0.34, 0.24, color, 2.5)
+	rect(b, 0.5, 0.66, 0.12, 0.2, color) -- stem
+	rect(b, 0.5, 0.82, 0.46, 0.1, color, 0, 2) -- base
+	return b
+end
+
 -- The V Point: a small volleyball (yellow, white and blue bands).
 function Gui.icon.vp(parent, size)
 	local b = box(parent, size)

@@ -44,6 +44,7 @@ Outside a match you're in the menus, drawn over two small 3D sets built on your 
 - **Players**: every character (recruited ones first), who you play, and the Gold upgrades (below).
 - **Locker**: equip spike styles, colours, trails and score effects. Whatever you click previews live in the gym: your avatar spikes on a loop with that style, the ball flies with that colour and trail, and lands with that score effect.
 - **Shop**: V Point packs.
+- **Ranks**: the leaderboards (below).
 
 ## Characters, Gold and V Points
 
@@ -63,7 +64,7 @@ Stats map onto gameplay the same way for everyone, from 50 up to 210. Attack set
 
 The world is built at *The Spike*'s scale (4.6 studs to the metre, a real 9 m half court, a 2.43 m net) with characters about 1.15 m tall, and heights above the standing hand are drawn 1.4 times taller (`Config.Scale.JumpScale`), so the best jumpers leap almost three times their own height and hit at twice the net while the readouts stay in real metres. Workspace gravity is 45 and the ball falls at 11.25 m/s².
 
-**V Points (VP)** pay for recruits. You earn 30 for a win, 15 for a loss and 2 per kill, ace or block, the match MVP gets 15 more, and a new profile starts with 500. Every extra set you choose to play pays +20 VP and +200 Gold if you win it (+10 and +100 if you lose it). A **win streak** pays from your second straight win: +5 VP and +50 Gold more per win in the streak, up to +25 and +250; a loss or a forfeit resets it (the tutorial doesn't count). Home shows your career counters: win streak (and best), wins (of matches played), spike kills, aces and blocks. Recruit x1 costs 50 VP (a free recruit, from the tutorial, is used first), x10 500:
+**V Points (VP)** pay for recruits. You earn 30 for a win, 15 for a loss and 2 per kill, ace or block, the match MVP gets 15 more, and a new profile starts with 500. Every extra set you choose to play pays +20 VP and +200 Gold if you win it (+10 and +100 if you lose it). A **win streak** pays from your second straight win: +5 VP and +50 Gold more per win in the streak, up to +25 and +250; a loss or a forfeit resets it (the tutorial doesn't count). Home shows your career counters: win streak (and best), wins (of matches played), spike kills, aces and blocks. **Leaderboards** (Ranks on Home) rank everyone on wins, best win streak, spike kills, aces and blocks: the top 50 of every server (global OrderedDataStores, read every two minutes, with the players in your server always up to date), your rank or your number, and headshots. Without DataStore access (Studio without API access) they rank the players in the server. Recruit x1 costs 50 VP (a free recruit, from the tutorial, is used first), x10 500:
 
 | Banner | What it gives |
 |---|---|
@@ -111,7 +112,7 @@ Bots play by tier on top of their stats. A D- team reacts late (0.32 s), mistime
 
 Receives and sets go high, and they never go over the net except on the third touch (a free ball). Sets draw a dotted arc and hang about 1.6 s before arriving at hitting height. Serves are hit from behind the end line within 8 s: the overhand serve is a safe lob of about 50 km/h, and a jump serve from an S+ runs around 125 km/h. Blocks can stuff, soft-block, get tooled off the hands or just touch the ball.
 
-In 3v3 the roles are wing spiker, middle blocker and setter, and humans take wing spiker first. A match is one set to 15. When it ends, everyone on court gets 12 s to vote **Keep playing** (another set, for the extra set rewards) or **End match**; it goes on if more players want to keep playing than to stop, up to five sets. The match winner is the team with the most sets (then the most points, then the last set). The yellow diamond between the scores shows the points the set is played to. At 14-14 it's deuce: you have to win by two, so the target rises with every tie (16, then 17, ...) and the diamond turns red, up to a golden point at 25. A timeout (two per set) refills stamina and opens a rotation editor for both teams: Up and Down reorder your rotation, and Serve turns it so that player serves next. "Character and look" lets you switch to another of your characters (you keep your spot and role) or change your spike style, colour, trail and score effect. The timeout ends early once everyone on court has pressed Ready.
+In 3v3 the roles are wing spiker, middle blocker and setter, and humans take wing spiker first. A match is one set to 15. When it ends, everyone on court gets 12 s to vote **Keep playing** (another set, for the extra set rewards) or **End match**; it goes on if more players want to keep playing than to stop, up to three sets. The match winner is the team with the most sets (then the most points, then the last set). The yellow diamond between the scores shows the points the set is played to. At 14-14 it's deuce: you have to win by two, so the target rises with every tie (16, then 17, ...) and the diamond turns red, up to a golden point at 25. A timeout (two per set) refills stamina and opens a rotation editor for both teams: Up and Down reorder your rotation, and Serve turns it so that player serves next. "Character and look" lets you switch to another of your characters (you keep your spot and role) or change your spike style, colour, trail and score effect. The timeout ends early once everyone on court has pressed Ready.
 
 ## Matches and lobbies
 
@@ -192,10 +193,10 @@ Game code is written in a Lua 5.1/5.3 compatible subset of Luau (no `+=`, `conti
 python3 tools/check_lua.py      # syntax and undefined globals
 python3 tools/check_config.py   # every Config reference exists
 python3 tools/check_api.py      # every cross-module call is defined
-texlua tools/sim_test.lua       # 91 gameplay scenarios against the real shared code
+texlua tools/sim_test.lua       # 94 gameplay scenarios against the real shared code
 ```
 
-The simulation suite checks the headline numbers (spike speeds, Thunder and Azure ranges, hitting points by tier, depth control, stamina and guard breaks, touch rules, sets, serves, blocks, the roster, role abilities, spin odds and drop tables, deuce, rotation edits, formation fill, bot skill by tier, the Gold upgrade costs, tier-scaled guard drain, middle quicks and the backup spike, the forward serve toss, lobby rules, the AFK timer, the underhand serve, the tutorial steps, extra-set and win-streak rewards) and that client prediction is bit-identical to the server.
+The simulation suite checks the headline numbers (spike speeds, Thunder and Azure ranges, hitting points by tier, depth control, stamina and guard breaks, touch rules, sets, serves, blocks, the roster, role abilities, spin odds and drop tables, deuce, rotation edits, formation fill, bot skill by tier, the Gold upgrade costs, tier-scaled guard drain, middle quicks and the backup spike, the forward serve toss, lobby rules, the AFK timer, the underhand serve, the tutorial steps, extra-set and win-streak rewards, leaderboard ranking) and that client prediction is bit-identical to the server.
 
 ## Status
 

@@ -508,7 +508,7 @@ Config.Match = {
 	-- a match is one set; after each set the players can vote to keep playing (for the extra
 	-- set rewards in Progression), up to MaxSets
 	Sets = 1,
-	MaxSets = 5,
+	MaxSets = 3,
 	ContinueTime = 12, -- seconds to vote Keep playing / End match
 	PreMatchTime = 3.2,
 	PreServeTime = 1.2,
@@ -529,6 +529,22 @@ Config.Lobby = {
 	QuickStartTime = 10, -- a Quick Match lobby starts on its own this long after it opens
 	ArriveTimeout = 20, -- a teleported lobby waits this long for its players in the new server
 	ReservedServers = true,
+}
+
+-- Leaderboards (the Leaderboards module ranks them): global OrderedDataStores, one per stat,
+-- written from each player's career counters; a server-only board when those can't be reached.
+Config.Leaderboards = {
+	Boards = {
+		{ Key = "wins", Name = "Wins", Unit = "wins" },
+		{ Key = "bestStreak", Name = "Best win streak", Unit = "in a row" },
+		{ Key = "kills", Name = "Spike kills", Unit = "kills" },
+		{ Key = "aces", Name = "Aces", Unit = "aces" },
+		{ Key = "blocks", Name = "Blocks", Unit = "blocks" },
+	},
+	StorePrefix = "SpikeRushBoard_v1_",
+	Top = 50,
+	RefreshInterval = 120, -- seconds between reading the global boards
+	FlushInterval = 60, -- seconds between writing changed players' scores
 }
 
 -- The tutorial (the Tutorial module has the steps): a 1v1 against a weak bot; finishing every

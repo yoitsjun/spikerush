@@ -249,6 +249,11 @@ local function save(plr, force)
 	return success
 end
 
+-- The loaded profile, or nil while it's still loading (never waits).
+function ProfileService.peek(plr)
+	return profiles[plr]
+end
+
 -- Store a profile now (before a teleport, so the next server loads the latest).
 function ProfileService.save(plr)
 	return save(plr, true)
@@ -415,6 +420,7 @@ function ProfileService.recordResult(plr, won, st)
 		r.blocks = r.blocks + (st.blocks or 0)
 	end
 	dirty[plr] = true
+	reg.LeaderboardService.track(plr, profile)
 	return profile.winStreak
 end
 
