@@ -93,26 +93,19 @@ local function freeRole(team, roles, want)
 end
 
 -- A roster character for a bot: that role, the tier nearest the bot level (within two steps),
--- not already on court. Characters that start a set weak (Config.Bots.AvoidAbilities) only
--- when nobody else fits.
+-- not already on court.
 local function rosterFor(tier, role)
 	local want = role == "Solo" and "WS" or role
 	local ti = Characters.tierIndex(tier) or 11
-	local avoid = Config.Bots.AvoidAbilities
 	local best, bestD = {}, 3
-	for pass = 1, 2 do
-		for _, c in ipairs(Roster) do
-			if c.Role == want and not usedChars[c.Id] and (pass == 2 or not avoid[c.Ability or ""]) then
-				local d = math.abs((Characters.tierIndex(c.Tier) or 1) - ti)
-				if d < bestD then
-					best, bestD = { c }, d
-				elseif d == bestD then
-					table.insert(best, c)
-				end
+	for _, c in ipairs(Roster) do
+		if c.Role == want and not usedChars[c.Id] then
+			local d = math.abs((Characters.tierIndex(c.Tier) or 1) - ti)
+			if d < bestD then
+				best, bestD = { c }, d
+			elseif d == bestD then
+				table.insert(best, c)
 			end
-		end
-		if #best > 0 then
-			break
 		end
 	end
 	if #best == 0 then

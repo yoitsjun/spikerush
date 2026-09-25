@@ -670,9 +670,6 @@ Config.Bots = {
 	BlockChance = { 0.4, 0.95 },
 	ReadOutChance = { 0.5, 0.95 },
 	SlideChance = { 0.4, 0.9 },
-	-- characters that start a set weak by design (they scale up during it) only play as bots
-	-- when no other character of the role and tier is free
-	AvoidAbilities = { RisingSun = true, Counter = true },
 	FeintChance = 0.12,
 	-- bot serves: from this tier index (A-) a full-height jump-serve toss (thrown a little
 	-- forward to run into); below it the easy underhand serve, which always goes in
@@ -696,7 +693,7 @@ Config.Bots = {
 	JumpSetChance = { 0.45, 1.0 },
 	JumpSetPassDepth = 3.4 * M,
 	JumpSetSlack = 1.2, -- studs: a setter this far off its spot at takeoff sets from the ground
-	TurnaboutChance = { 0.15, 0.4 }, -- a Turnabout setter arms it off a pass it can jump for
+	TurnaboutChance = { 0.3, 0.65 }, -- a Turnabout setter arms it off a pass it can jump for
 	RallyCryChance = 0.5, -- a Rally Cry bot pops it at a serve this often once it's ready
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long

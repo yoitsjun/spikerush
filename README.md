@@ -111,7 +111,7 @@ When a ball is yours to play and you don't go for it (no receive, slide, jump or
 
 Setters jump-set: a bot setter takes an open or back set at the top of a jump when the pass comes down near the net (better setters almost always), and a set taken higher goes higher (the height above a standing set is added to the set's peak). Quicks stay quick. A human can jump-set too: jump, then Set in the air. A setter that isn't under the ball in time sets it from the ground instead. A Turnabout bot sometimes arms it, but only for a pass it can jump for; a Rally Cry bot pops it at a serve once it's ready.
 
-Bots play at the lobby's bot level even when their character is a lower tier (an S+ lobby has S middles and setters, and they play at S+ skill). Characters that start a set weak by design (Daon, Ines) only turn up as bots when nobody else of that role and tier is free.
+Bots play at the lobby's bot level even when their character is a lower tier (an S+ lobby has S middles and setters, and they play at S+ skill).
 
 The bot setter feeds the wing spiker first. Off a good pass it sometimes runs a quick to the middle instead (better setters more often), and a bot middle is already in the air when the set is made. On every set to the wing spiker the middle jumps just behind as a backup: if the wing spiker misses, the middle spikes it.
 

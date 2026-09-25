@@ -965,6 +965,35 @@ do
 			end
 		end
 		check(allOk, "a bot setter's jump set meets a real pass at the top of its jump, early or late by its timing noise", table.concat(results, ", "))
+
+		-- Haeri (bots play her maxed): armed, the same plan turns her jump set into a real spike
+		-- over the net, not the dump a ground set gives
+		local haeriS = Characters.derive(Characters.fromRoster(Roster.get("haeri"), "max"))
+		local hjh = Characters.jumpHeight(haeriS, GROUND)
+		jh = hjh
+		local hys, _, hApex = jump()
+		local hy = GROUND + hjh * 0.95 + Z.SetIdealY
+		local ht = descentTo(path, 0, hy)
+		local hit = nil
+		local tt = ht - hApex
+		while tt < path.landing.t do
+			local i = math.floor((tt - (ht - hApex)) / dt)
+			local root = vec(0, GROUND + (i >= 1 and i <= #hys and math.max(0, hys[i]) or 0), pc.Z)
+			local pos, vel = BallPhysics.positionAt(path, tt), BallPhysics.velocityAt(path, tt)
+			if vel.Y < 0 and (HitLogic.setZone(root, pos, side, haeriS)) and pos.Y - root.Y <= Z.SetIdealY + 0.4 then
+				hit = { root = root, ball = pos, t = tt }
+				break
+			end
+			tt = tt + 1 / 60
+		end
+		local okT, tr = false, nil
+		if hit then
+			okT, tr = HitLogic.compute({ action = "Set", t = hit.t, root = hit.root, ball = hit.ball, grounded = false, setType = "Open" },
+				ctx({ touchNumber = 2, stats = haeriS, ability = "Turnabout", turnabout = true, lastHit = { team = "Away", hitType = "Bump" } }))
+		end
+		local tp = okT and BallPhysics.buildPath(tr.launch)
+		check(tp and tr.meta.turnabout and not tr.meta.downBall and tp.landing.pos.Z * side < 0 and Court.inBounds(tp.landing.pos) and not tp.flags.netTouch,
+			"Haeri's Turnabout off a bot jump set is a real spike into their court", tp and string.format("contact %.2f m, %.0f km/h, %s", HitLogic.meters(hit.ball.Y), tr.meta.kmh or 0, describe(tp)) or "no contact")
 	end
 
 	-- Rising Sun: a low A at 0 points; every 3rd point lost adds a level; at 12 it beats YeJun
