@@ -92,6 +92,18 @@ end
 ------------------------------------------------------------------------------------------
 
 -- Returns ok, contactQuality, dz (ball ahead of the hand, toward the net), dy.
+-- The serve toss: release point and velocity for a toss `height` studs up. `forward` (0..1)
+-- throws it out in front so the server can run into it: at full it comes back to hand height
+-- TossForwardMax closer to the net. Also draws the client's dotted toss guide.
+function HitLogic.tossLaunch(root, side, height, forward)
+	local h = clamp(height or H.TossLow, H.TossLow, H.TossHighMax)
+	local fwd = clamp(forward or 0, 0, 1)
+	local p = Vector3.new(0, root.Y + 2.0, root.Z - side * 0.8)
+	local vy = math.sqrt(2 * G * h)
+	local vz = H.TossForward + fwd * H.TossForwardMax / (2 * vy / G)
+	return p, Vector3.new(0, vy, -side * vz), h, fwd
+end
+
 function HitLogic.spikeZone(root, ball, side, stats, scale)
 	scale = (scale or 1) * ((stats and stats.Reach) or 1)
 	local handZ = root.Z - side * Z.SpikeForward
@@ -282,6 +294,24 @@ local function ownSideArc(from, target, apex, g, side, minDepth)
 		v, T = HitLogic.solveArc(from, target, apex, g)
 	end
 	return v, T
+end
+
+-- A set from `ball` to the attack spot `depth` from the net (default: the set type's spot, no
+-- error): its launch velocity and gravity. The setter AI also uses it to see a quick coming.
+function HitLogic.setArc(ball, side, setType, depth, underhand)
+	local apex = H.SetApexOpen
+	if setType == "Quick" then
+		apex = H.SetApexQuick
+	elseif setType == "Back" then
+		apex = H.SetApexBack
+	end
+	if underhand then
+		apex = apex * 0.92
+	end
+	apex = math.max(apex, ball.Y + 0.38 * SPM)
+	depth = math.max(depth or Court.attackDepth(setType), 0.47 * SPM)
+	local g = G * H.SetGravityScale
+	return ownSideArc(ball, Vector3.new(0, H.SetArriveY, side * depth), apex, g, side, 0.38 * SPM), g
 end
 
 local function jitter(rng, mag)
@@ -575,12 +605,13 @@ function HitLogic.compute(input, ctx)
 
 	-- Serve toss ------------------------------------------------------------------------
 	if action == "Toss" then
-		local h = clamp(input.tossHeight or H.TossLow, H.TossLow, H.TossHighMax)
-		local p = Vector3.new(0, root.Y + 2.0, root.Z - side * 0.8)
-		local v = Vector3.new(0, math.sqrt(2 * G * h), -side * H.TossForward)
+		local p, v, h, fwd = HitLogic.tossLaunch(root, side, input.tossHeight, input.tossForward)
 		local meta = meta0("Toss", 1)
 		meta.grade = "TOSS"
 		meta.serveKind = h > H.TossLow + 0.5 and "Jump" or "Overhand"
+		if fwd > 0 then
+			meta.tossForward = fwd
+		end
 		return launchResult(meta, p, v, Vector3.new(0, -G, 0), t)
 	end
 
@@ -873,22 +904,12 @@ function HitLogic.compute(input, ctx)
 			if type(input.targetId) == "string" then
 				meta.targetId = input.targetId
 			end
-			local apex = H.SetApexOpen
-			if setType == "Quick" then
-				apex = H.SetApexQuick
-			elseif setType == "Back" then
-				apex = H.SetApexBack
-			end
 			local accuracy = stats.SetAccuracy
 			if underhand then
 				accuracy = accuracy * 0.55
-				apex = apex * 0.92
 			end
-			apex = math.max(apex, ball.Y + 0.38 * SPM)
 			local depth = Court.attackDepth(setType) + jitter(rng, (1 - q) ^ 1.4 * H.SetError / accuracy)
-			depth = math.max(depth, 0.47 * SPM)
-			local g = G * H.SetGravityScale
-			local v = ownSideArc(ball, Vector3.new(0, H.SetArriveY, side * depth), apex, g, side, 0.38 * SPM)
+			local v, g = HitLogic.setArc(ball, side, setType, depth, underhand)
 			return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t)
 		end
 

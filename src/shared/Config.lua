@@ -137,7 +137,7 @@ Config.Hits = {
 	ThunderHeight = 4.0, -- metres
 	ThunderKmhMin = 160,
 	ThunderKmhMax = 200,
-	ThunderHeightSpan = 0.22, -- metres above 4.00 that count toward a max thunder spike
+	ThunderHeightSpan = 0.35, -- metres above 4.00 that count toward a max thunder spike (a maxed S+ hits about 4.35)
 	SpikeGravityScale = 1.0,
 	SpikeDzDeep = -0.2, -- ball right at the hand = deepest spike (behind the head goes long)
 	SpikeDzShort = 3.0, -- ball this far ahead of the hand = shortest, steepest spike
@@ -187,6 +187,7 @@ Config.Hits = {
 	TossHighMax = 5.6 * M,
 	TossChargeTime = 0.8,
 	TossForward = 1.2,
+	TossForwardMax = 2.4 * M, -- a full forward toss comes back down this far in front of the hand
 	OverhandApexOverNet = 1.4 * M, -- the standing serve floats over on a lob
 	JumpServeKmhMin = 95,
 	JumpServeKmhMax = 125,
@@ -278,7 +279,9 @@ Config.Stats = {
 -- How each stat turns into gameplay. Values interpolate from Stats.Min to Stats.Ref.
 Config.StatCurve = {
 	Power = { Stat = "Attack", Range = { 0.45, 1.0 } }, -- spike and serve speed multiplier
-	VerticalM = { Stat = "Jump", Range = { 0.25, 1.77 } }, -- metres added to standing reach (D about 3.4 m, a 190-Jump S+ over 4 m)
+	-- metres added to standing reach, on a curve (Exp) so the top jumpers pull away: the lowest
+	-- starter hits about 2.6 m, a maxed 190-Jump S+ about 4.35 m, the best maxed middle 4.4 m
+	VerticalM = { Stat = "Jump", Range = { 0.3, 2.24 }, Exp = 1.5 },
 	Approach = { Stat = "Jump", Range = { 0.8, 1.25 } }, -- run-up speed and distance
 	StaminaPool = { Stat = "Defense", Range = { 50, 100 } },
 	DrainReduction = { Stat = "Defense", Range = { 0.0, 0.35 } },
@@ -307,6 +310,7 @@ Config.Progression = {
 	WinVP = 30,
 	LossVP = 15,
 	PlayVP = 2, -- per kill, ace or block
+	MvpVP = 15, -- extra for the match MVP (when a player)
 	-- Gold: the second currency, spent on stat upgrades
 	StartingGold = 3000,
 	WinGold = 300,
@@ -484,16 +488,11 @@ Config.Roles = {
 
 Config.Match = {
 	DefaultTeamSize = 3,
-	FillWithBots = true,
-	MinHumansToStart = 1,
-	RequirePick = true, -- a match only starts after a player picks a mode in the lobby
 	PointsPerSet = 15,
 	DecidingSetPoints = 11,
 	WinBy = 2,
 	PointCap = 25,
 	SetsToWin = 2,
-	IntermissionTime = 15, -- countdown after the first pick
-	IntermissionFastTime = 4, -- once every player has picked
 	PreMatchTime = 3.2,
 	PreServeTime = 1.2,
 	ServeClock = 8,
@@ -501,6 +500,26 @@ Config.Match = {
 	SetEndTime = 3.5,
 	MatchEndTime = 9,
 	DefaultBotTier = "A",
+}
+
+-- Custom lobbies (the Lobbies module has the rules). A lobby plays on this server's court when
+-- it's free; otherwise it gets its own reserved server (in Studio it waits for the court).
+Config.Lobby = {
+	Privacy = { "Public", "Friends", "Private" },
+	PasswordMin = 3,
+	PasswordMax = 12, -- letters and digits
+	MaxLobbies = 16, -- per server
+	QuickStartTime = 10, -- a Quick Match lobby starts on its own this long after it opens
+	ArriveTimeout = 20, -- a teleported lobby waits this long for its players in the new server
+	ReservedServers = true,
+}
+
+-- A player who stops giving input during live play is replaced by an AI playing their own
+-- character (and can take the slot back at the next dead ball).
+Config.Afk = {
+	Timeout = 12, -- seconds without input while the ball is live (10 to 15)
+	PingInterval = 1, -- the client reports input at most this often
+	Phases = { PreServe = true, Serving = true, Rally = true },
 }
 
 Config.Net = {
@@ -551,6 +570,15 @@ Config.Bots = {
 	-- Covering: when a ball is a human's to play, the nearest teammate bot shadows it and plays
 	-- it unless the human tried something (stance, slide, jump, block, touch) this recently.
 	CoverYield = 1.0,
+	-- the setter AI's quick to the middle: only off a pass that comes down near the net, with the
+	-- middle close enough to get there; better setters call it more ({worst, best} setter)
+	QuickChance = { 0.12, 0.35 },
+	QuickHumanMul = 0.5, -- a human middle gets the quick half as often (they have to read it)
+	QuickPassDepth = 2.6 * M,
+	QuickReachDepth = 4.2 * M,
+	-- the middle backs up a set to the wing spiker: a late jump that meets the ball this long
+	-- after the wing spiker's contact, so a miss still gets spiked
+	BackupDelay = 0.14,
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
 	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it

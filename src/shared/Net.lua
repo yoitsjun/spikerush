@@ -14,7 +14,9 @@ Net.Names = {
 	"MatchState",
 	"Announce",
 	"ClientReady",
-	"Vote",
+	"Lobby", -- client -> server: create, quick, join, leave, start, team, kick, settings, rejoin
+	"Lobbies", -- server -> client: the lobby list, your lobby, notices
+	"Activity", -- client -> server: "I pressed something" (AFK detection)
 	"SetCharacter",
 	"Timeout",
 	"Profile",

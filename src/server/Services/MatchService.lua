@@ -1,13 +1,12 @@
--- Match flow: intermission (mode + bot level vote) -> match -> sets -> rallies, with rally-point
--- scoring, serve rotation, team stamina recovery, timeouts, stats, MVP and upgrade points.
+-- Match flow: intermission (the court waits for a lobby, see LobbyService) -> match -> sets ->
+-- rallies, with rally-point scoring, serve rotation, team stamina recovery, timeouts, stats, MVP
+-- and rewards. A match with no humans left on court (everyone left or went AFK) is called off.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Court = require(Shared.Court)
-local Characters = require(Shared.Characters)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 
@@ -24,62 +23,33 @@ MatchService.setNumber = 1
 MatchService.target = M.PointsPerSet
 MatchService.servingTeam = "Home"
 MatchService.serverId = nil
-MatchService.votes = {}
-MatchService.botVotes = {}
 MatchService.rallyResult = nil
 MatchService.rallyHits = {}
 MatchService.pendingTimeout = nil
-MatchService.waitingForPick = false
+MatchService.lobby = nil -- the lobby playing on this court
+MatchService.aborted = false
 
 local ATTACKS = { Spike = true, Feint = true, JumpServe = true, Overhand = true }
 
--- Waits for a phase to run out; a forfeit cuts every wait short.
+-- A forfeit, or nobody human left to play for.
+local function halted()
+	return MatchService.forfeitTeam ~= nil or MatchService.aborted
+end
+
+-- Waits for a phase to run out; a forfeit or an abort cuts every wait short.
 local function waitUntil(t)
-	while Util.now() < t and not MatchService.forfeitTeam do
+	while Util.now() < t and not halted() do
 		task.wait(0.05)
 	end
 end
 
-local function tally()
-	local counts = { v1 = 0, v2 = 0, v3 = 0 }
-	for _, m in pairs(MatchService.votes) do
-		local key = "v" .. tostring(m)
-		counts[key] = (counts[key] or 0) + 1
+-- Called off when no human is on court and nobody can come back in (an AFK player's AI keeps
+-- playing while they're still in the server).
+local function checkAbort()
+	local TS = reg.TeamService
+	if TS.inMatch and TS.humanCount() == 0 and #TS.pendingJoin == 0 and TS.benchedCount() == 0 then
+		MatchService.aborted = true
 	end
-	return counts
-end
-
-local function chooseMode()
-	local counts = tally()
-	local best, bestN = M.DefaultTeamSize, 0
-	for _, m in ipairs({ 3, 2, 1 }) do
-		local n = counts["v" .. m]
-		if n > bestN then
-			best, bestN = m, n
-		end
-	end
-	-- never leave humans on the bench: grow the teams until everybody fits
-	local humans = #Players:GetPlayers()
-	while best < 3 and humans > best * 2 do
-		best = best + 1
-	end
-	return best
-end
-
--- Most-voted bot level; ties go to the stronger tier.
-local function chooseBotTier()
-	local counts = {}
-	for _, tier in pairs(MatchService.botVotes) do
-		counts[tier] = (counts[tier] or 0) + 1
-	end
-	local best, bestN = nil, 0
-	for _, tier in ipairs(Config.Tiers) do
-		local n = counts[tier] or 0
-		if n > 0 and n >= bestN then
-			best, bestN = tier, n
-		end
-	end
-	return best or M.DefaultBotTier
 end
 
 function MatchService.state()
@@ -88,7 +58,7 @@ function MatchService.state()
 	if TS.inMatch then
 		mode = TS.teamSize
 	end
-	local botTier = TS.inMatch and TS.botTier or chooseBotTier()
+	local l = MatchService.lobby
 	return {
 		phase = MatchService.phase,
 		phaseEnd = MatchService.phaseEnd,
@@ -102,10 +72,9 @@ function MatchService.state()
 		servingTeam = MatchService.servingTeam,
 		serverId = MatchService.serverId,
 		rosters = TS.roster(),
-		votes = tally(),
-		botTier = botTier,
+		botTier = TS.botTier,
 		timeoutPending = MatchService.pendingTimeout,
-		waitingForPick = MatchService.waitingForPick,
+		lobbyId = l and l.id,
 	}
 end
 
@@ -338,6 +307,10 @@ end
 function MatchService.playRally()
 	local TS, BS = reg.TeamService, reg.BallService
 	TS.hotJoin()
+	checkAbort()
+	if halted() then
+		return nil
+	end
 	if MatchService.pendingTimeout then
 		MatchService.runTimeout()
 	end
@@ -351,14 +324,15 @@ function MatchService.playRally()
 	end
 	MatchService.setPhase("PreServe", M.PreServeTime)
 	waitUntil(MatchService.phaseEnd)
-	if MatchService.forfeitTeam then
+	if halted() then
 		return nil
 	end
 	MatchService.setPhase("Serving", M.ServeClock)
 	MatchService.announce({ kind = "Serve", team = MatchService.servingTeam, id = MatchService.serverId, name = server and server.name })
 
 	while not MatchService.rallyResult do
-		if MatchService.forfeitTeam then
+		checkAbort()
+		if halted() then
 			return nil
 		end
 		if MatchService.phase == "Serving" and BS.state == "Held" then
@@ -385,8 +359,8 @@ end
 
 function MatchService.playSet()
 	local TS = reg.TeamService
-	if MatchService.forfeitTeam then
-		return nil -- forfeited between sets
+	if halted() then
+		return nil -- forfeited or called off between sets
 	end
 	if MatchService.setNumber >= M.SetsToWin * 2 - 1 then
 		MatchService.target = M.DecidingSetPoints
@@ -400,14 +374,14 @@ function MatchService.playSet()
 	MatchService.announce({ kind = "SetStart", setNumber = MatchService.setNumber, target = MatchService.target })
 	while true do
 		local res = MatchService.playRally()
-		if MatchService.forfeitTeam then
+		if halted() or not res then
 			return nil
 		end
 		local setOver = MatchService.awardPoint(res)
 		if setOver then
 			return res.winner
 		end
-		if MatchService.forfeitTeam then
+		if halted() then
 			return nil
 		end
 	end
@@ -454,16 +428,28 @@ local function results(winner, forfeitTeam)
 			end
 		end
 	end
+	-- the MVP's bonus V Points
+	if mvp and mvp.player and mvp.team ~= forfeitTeam then
+		reg.ProfileService.award(mvp.player, P.MvpVP, 0)
+		for _, row in ipairs(list) do
+			if row.id == mvp.id then
+				row.reward = (row.reward or 0) + P.MvpVP
+				row.mvpBonus = P.MvpVP
+			end
+		end
+	end
 	return list, mvp
 end
 
 function MatchService.playMatch()
 	local TS, BS = reg.TeamService, reg.BallService
-	TS.botTier = chooseBotTier()
-	TS.assign(MatchService.mode)
+	local lobby = MatchService.lobby
+	TS.botTier = lobby.botTier
+	TS.assign(lobby.mode, reg.LobbyService.plan(lobby))
 	TS.resetStats()
 	MatchService.pendingTimeout = nil
 	MatchService.forfeitTeam = nil
+	MatchService.aborted = false
 	MatchService.scores = { Home = 0, Away = 0 }
 	MatchService.sets = { Home = 0, Away = 0 }
 	MatchService.setNumber = 1
@@ -476,6 +462,12 @@ function MatchService.playMatch()
 
 	while true do
 		local winner = MatchService.playSet()
+		if MatchService.aborted then
+			-- nobody left to play for: no results, no rewards
+			BS.hide()
+			MatchService.announce({ kind = "MatchAbort" })
+			return
+		end
 		local forfeit = MatchService.forfeitTeam
 		if forfeit then
 			winner = Court.other(forfeit)
@@ -509,55 +501,25 @@ function MatchService.playMatch()
 	end
 end
 
-local function pickCount()
-	local n = 0
-	for userId in pairs(MatchService.votes) do
-		if Players:GetPlayerByUserId(userId) then
-			n = n + 1
-		end
-	end
-	return n
-end
-
--- The lobby waits for a player to pick a mode; nothing starts on its own. After the first pick
--- the countdown runs (IntermissionTime), cut to IntermissionFastTime once everyone has picked.
+-- The court waits here until a lobby is ready to play on it (LobbyService.nextForCourt).
 function MatchService.intermission()
 	local TS, BS = reg.TeamService, reg.BallService
 	TS.endMatch()
 	BS.hide()
-	MatchService.votes = {}
+	MatchService.lobby = nil
 	MatchService.serverId = nil
 	MatchService.scores = { Home = 0, Away = 0 }
 	MatchService.sets = { Home = 0, Away = 0 }
-	while true do
-		MatchService.waitingForPick = M.RequirePick
-		MatchService.setPhase("Intermission", M.IntermissionTime)
-		while #Players:GetPlayers() < M.MinHumansToStart or (M.RequirePick and pickCount() == 0) do
-			MatchService.phaseEnd = Util.now() + M.IntermissionTime
-			task.wait(0.2)
-		end
-		MatchService.waitingForPick = false
-		MatchService.phaseEnd = Util.now() + M.IntermissionTime
-		MatchService.broadcast()
-		local cancelled = false
-		while Util.now() < MatchService.phaseEnd do
-			local humans = #Players:GetPlayers()
-			local picked = pickCount()
-			if M.RequirePick and picked == 0 then
-				cancelled = true -- everyone who picked left: wait for a new pick
-				break
-			end
-			if humans > 0 and picked >= humans and MatchService.phaseEnd - Util.now() > M.IntermissionFastTime then
-				MatchService.phaseEnd = Util.now() + M.IntermissionFastTime
-				MatchService.broadcast()
-			end
-			task.wait(0.2)
-		end
-		if not cancelled then
-			break
+	MatchService.setPhase("Intermission", 0)
+	local lobby = nil
+	while not lobby do
+		lobby = reg.LobbyService.nextForCourt()
+		if not lobby then
+			task.wait(0.25)
 		end
 	end
-	MatchService.mode = chooseMode()
+	MatchService.lobby = lobby
+	MatchService.mode = lobby.mode
 end
 
 function MatchService.start()
@@ -567,6 +529,10 @@ function MatchService.start()
 				MatchService.intermission()
 				MatchService.playMatch()
 			end)
+			if MatchService.lobby then
+				reg.LobbyService.finished(MatchService.lobby)
+				MatchService.lobby = nil
+			end
 			if not ok then
 				warn("[SpikeRush] match loop error: " .. tostring(err))
 				task.wait(2)
@@ -577,23 +543,6 @@ end
 
 function MatchService.init(r)
 	reg = r
-	-- ("mode", 1|2|3), ("cancel") or ("botTier", "S+")
-	Net.get("Vote").OnServerEvent:Connect(function(plr, kind, value)
-		if MatchService.phase ~= "Intermission" then
-			return
-		end
-		if kind == "mode" and (value == 1 or value == 2 or value == 3) then
-			MatchService.votes[plr.UserId] = value
-		elseif kind == "cancel" then
-			-- leave the queue; with nobody queued the countdown stops (intermission waits again)
-			MatchService.votes[plr.UserId] = nil
-		elseif kind == "botTier" and Characters.isTier(value) then
-			MatchService.botVotes[plr.UserId] = value
-		else
-			return
-		end
-		MatchService.broadcast()
-	end)
 	Net.get("Timeout").OnServerEvent:Connect(function(plr)
 		local TS = reg.TeamService
 		local e = TS.entityForPlayer(plr)
@@ -639,10 +588,6 @@ function MatchService.init(r)
 	Net.get("ClientReady").OnServerEvent:Connect(function(plr)
 		Net.get("MatchState"):FireClient(plr, MatchService.state())
 		reg.BallService.sendTo(plr)
-	end)
-	Players.PlayerRemoving:Connect(function(plr)
-		MatchService.votes[plr.UserId] = nil
-		MatchService.botVotes[plr.UserId] = nil
 	end)
 	reg.BallService.onDead:Connect(function(landing, flags, last)
 		if MatchService.phase == "Rally" or MatchService.phase == "Serving" then

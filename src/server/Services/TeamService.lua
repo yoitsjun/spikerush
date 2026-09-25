@@ -1,6 +1,9 @@
 -- Teams, serve order, roles, characters, team stamina and timeouts.
 -- Players and bots share one entity shape. Players play their selected roster character in its
 -- role when it's free; bots are roster characters of the bot level's tier (the Roster module).
+-- A player who leaves, or goes AFK while the ball is live (Config.Afk), is replaced on the spot
+-- by an AI playing their own character in their own avatar; an AFK player can take the slot
+-- back at the next dead ball (Rejoin in the menu).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,6 +14,8 @@ local Court = require(Shared.Court)
 local Characters = require(Shared.Characters)
 local HitLogic = require(Shared.HitLogic)
 local Roster = require(Shared.Roster)
+local Lobbies = require(Shared.Lobbies)
+local Net = require(Shared.Net)
 
 local TeamService = {}
 local reg
@@ -23,6 +28,8 @@ TeamService.pendingJoin = {}
 TeamService.botTier = Config.Match.DefaultBotTier
 TeamService.stamina = { Home = { value = 100, max = 100 }, Away = { value = 100, max = 100 } }
 TeamService.timeouts = { Home = Config.Timeout.PerSet, Away = Config.Timeout.PerSet }
+TeamService.benched = {} -- userId -> id of the AI standing in for them
+TeamService.idle = {} -- userId -> seconds without input while the ball was live
 
 local botCounter = 0
 local usedNames = {}
@@ -391,43 +398,33 @@ function TeamService.clear()
 	TeamService.teams = { Home = { order = {} }, Away = { order = {} } }
 	TeamService.inMatch = false
 	TeamService.pendingJoin = {}
+	TeamService.benched = {}
 	usedNames = {}
 	usedChars = {}
 	reg.FriendService.releaseAll()
 end
 
-function TeamService.assign(size)
+-- plan = { Home = { Player }, Away = { Player } } (a lobby's sides). Empty spots get bots: a
+-- lobby without "fill with bots" only starts full, so bots there only cover someone who left.
+function TeamService.assign(size, plan)
 	TeamService.clear()
 	TeamService.teamSize = size
-	local humans = Players:GetPlayers()
-	for i = #humans, 2, -1 do
-		local j = math.random(i)
-		humans[i], humans[j] = humans[j], humans[i]
-	end
 	local roles = roleList(size)
-	for _, plr in ipairs(humans) do
-		local home, away = #TeamService.teams.Home.order, #TeamService.teams.Away.order
-		local team = nil
-		if home <= away and home < size then
-			team = "Home"
-		elseif away < size then
-			team = "Away"
-		elseif home < size then
-			team = "Home"
-		end
-		if team then
-			local e = playerEntity(plr, team)
-			e.role = freeRole(team, roles, e.prefRole)
-			TeamService.entities[e.id] = e
-			table.insert(TeamService.teams[team].order, e.id)
-			TeamService.applyToModel(e)
+	for _, team in ipairs(Config.TeamOrder) do
+		for _, plr in ipairs((plan and plan[team]) or {}) do
+			if plr.Parent and #TeamService.teams[team].order < size and not TeamService.entityForPlayer(plr) then
+				local e = playerEntity(plr, team)
+				e.role = freeRole(team, roles, e.prefRole)
+				TeamService.entities[e.id] = e
+				table.insert(TeamService.teams[team].order, e.id)
+				TeamService.applyToModel(e)
+				TeamService.idle[plr.UserId] = 0
+			end
 		end
 	end
-	if Config.Match.FillWithBots then
-		for _, team in ipairs(Config.TeamOrder) do
-			while #TeamService.teams[team].order < size do
-				addBot(team, nil, freeRole(team, roles))
-			end
+	for _, team in ipairs(Config.TeamOrder) do
+		while #TeamService.teams[team].order < size do
+			addBot(team, nil, freeRole(team, roles))
 		end
 	end
 	TeamService.inMatch = true
@@ -492,6 +489,7 @@ function TeamService.roster()
 					role = e.role,
 					height = e.build.Height,
 					rot = i,
+					standInFor = e.standInFor,
 				})
 			end
 		end
@@ -512,7 +510,136 @@ function TeamService.onCharacterAdded(plr, char)
 	end
 end
 
--- A new player takes over a bot (and its role) at the start of the next rally.
+-- Human players on court right now.
+function TeamService.humanCount()
+	local n = 0
+	for _, e in pairs(TeamService.entities) do
+		if e.player and e.player.Parent then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- Players whose AI is on court and who are still in the server (they can come back).
+function TeamService.benchedCount()
+	local n = 0
+	for userId, botId in pairs(TeamService.benched) do
+		if TeamService.entities[botId] and Players:GetPlayerByUserId(userId) then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- An AI that plays `e`'s character (same build, ability, role, slot and stat line) in the
+-- player's own avatar.
+local function standIn(e, index)
+	botCounter = botCounter + 1
+	local id = "B_" .. botCounter
+	local plr = e.player
+	local bot = newEntity(id, e.name .. " (AI)", true, nil, e.team, e.tier, e.ability, e.build)
+	bot.charId, bot.charName = e.charId, e.charName
+	bot.role = e.role
+	bot.stats = e.stats
+	bot.standInFor = plr and plr.UserId
+	local hum = plr and plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+	if hum then
+		pcall(function()
+			bot.description = hum:GetAppliedDescription()
+		end)
+	end
+	if not bot.description and plr then
+		bot.avatarId = plr.UserId
+	end
+	TeamService.entities[id] = bot
+	local order = TeamService.teams[e.team].order
+	table.insert(order, math.min(index or (#order + 1), #order + 1), id)
+	reg.BotService.spawn(bot)
+	TeamService.applyToModel(bot)
+	return bot
+end
+
+-- Take a player off the court and put their AI in (reason "afk" or "left").
+function TeamService.bench(plr, reason)
+	local e = TeamService.entityForPlayer(plr)
+	if not e or not TeamService.inMatch then
+		TeamService.entities["P_" .. tostring(plr.UserId)] = nil
+		return
+	end
+	local root = TeamService.getRoot(e)
+	local cf = root and root.CFrame
+	local index = removeEntity(e)
+	local bot = standIn(e, index)
+	if cf and bot.model then
+		bot.model:PivotTo(cf)
+	end
+	local BS = reg.BallService
+	if BS.state == "Held" and BS.holderId == e.id then
+		BS.hold(bot.id)
+		reg.MatchService.serverId = bot.id
+	end
+	TeamService.benched[plr.UserId] = bot.id
+	local char = plr.Character
+	if reason == "afk" and char then
+		-- off to the side with the spectators
+		char:SetAttribute("Role", "Solo")
+		char:SetAttribute("Team", nil)
+		char:PivotTo(CFrame.new(Config.Court.LobbySpawn + Vector3.new(0, 4, 0)))
+	end
+	reg.MatchService.announce({ kind = "StandIn", team = e.team, name = e.name, char = e.charName, reason = reason, userId = plr.UserId })
+	reg.MatchService.broadcast()
+end
+
+-- Ask to (re)take a spot at the next dead ball: a benched player gets their AI's spot back; a
+-- lobby member who arrived late takes a bot's.
+function TeamService.requestJoin(plr)
+	if not TeamService.inMatch or TeamService.entityForPlayer(plr) then
+		return
+	end
+	local lobby = reg.MatchService.lobby
+	if not TeamService.benched[plr.UserId] and not reg.LobbyService.isMember(lobby, plr) then
+		return
+	end
+	for _, p in ipairs(TeamService.pendingJoin) do
+		if p == plr then
+			return
+		end
+	end
+	table.insert(TeamService.pendingJoin, plr)
+	Net.get("Lobbies"):FireClient(plr, { notice = "You'll be back in at the next serve." })
+end
+
+-- The bot a joining player replaces: their own AI, else a bot on their lobby side (the wing
+-- spiker first), else one on the side with the fewest humans.
+local function botFor(plr)
+	local own = TeamService.benched[plr.UserId]
+	if own and TeamService.entities[own] then
+		return TeamService.entities[own]
+	end
+	local lobby = reg.MatchService.lobby
+	local want = lobby and Lobbies.teamOf(lobby, plr.UserId)
+	local best, bestKey = nil, math.huge
+	for _, team in ipairs(Config.TeamOrder) do
+		local humans, bot = 0, nil
+		for _, e in ipairs(TeamService.members(team)) do
+			if e.isBot then
+				if not e.standInFor and (not bot or e.role == "WS") then
+					bot = e
+				end
+			else
+				humans = humans + 1
+			end
+		end
+		local key = humans + (team == want and -10 or 0)
+		if bot and key < bestKey then
+			best, bestKey = bot, key
+		end
+	end
+	return best
+end
+
+-- Pending joins happen at the start of a rally (a dead ball).
 function TeamService.hotJoin()
 	if not TeamService.inMatch then
 		return
@@ -520,33 +647,22 @@ function TeamService.hotJoin()
 	for i = #TeamService.pendingJoin, 1, -1 do
 		local plr = TeamService.pendingJoin[i]
 		table.remove(TeamService.pendingJoin, i)
-		if plr.Parent and not TeamService.entityForPlayer(plr) then
-			local bestTeam, bestBot, fewestHumans = nil, nil, math.huge
-			for _, team in ipairs(Config.TeamOrder) do
-				local humans, bot = 0, nil
-				for _, e in ipairs(TeamService.members(team)) do
-					if e.isBot then
-						if not bot or e.role == "WS" then
-							bot = e
-						end
-					else
-						humans = humans + 1
-					end
-				end
-				if bot and humans < fewestHumans then
-					bestTeam, bestBot, fewestHumans = team, bot, humans
-				end
+		local bot = plr.Parent and not TeamService.entityForPlayer(plr) and botFor(plr)
+		if bot then
+			local team, role = bot.team, bot.role
+			local index = removeEntity(bot)
+			reg.BotService.despawn(bot)
+			reg.FriendService.release(bot.friendId)
+			local e = playerEntity(plr, team)
+			e.role = role
+			if bot.standInFor == plr.UserId then
+				e.stats = bot.stats -- carry on the same stat line
 			end
-			if bestBot then
-				local role = bestBot.role
-				local index = removeEntity(bestBot)
-				reg.BotService.despawn(bestBot)
-				local e = playerEntity(plr, bestTeam)
-				e.role = role
-				TeamService.entities[e.id] = e
-				table.insert(TeamService.teams[bestTeam].order, index or 1, e.id)
-				TeamService.applyToModel(e)
-			end
+			TeamService.entities[e.id] = e
+			table.insert(TeamService.teams[team].order, index or 1, e.id)
+			TeamService.applyToModel(e)
+			TeamService.benched[plr.UserId] = nil
+			TeamService.idle[plr.UserId] = 0
 		end
 	end
 end
@@ -557,19 +673,33 @@ function TeamService.onPlayerRemoving(plr)
 			table.remove(TeamService.pendingJoin, i)
 		end
 	end
-	local e = TeamService.entityForPlayer(plr)
-	if not e or not TeamService.inMatch then
-		TeamService.entities["P_" .. tostring(plr.UserId)] = nil
+	TeamService.bench(plr, "left")
+	TeamService.benched[plr.UserId] = nil
+	TeamService.idle[plr.UserId] = nil
+end
+
+-- AFK watch: idle time builds while the ball is live; any input (the client's Activity ping)
+-- resets it. Past Config.Afk.Timeout the player's AI takes over.
+local AFK_STEP = 0.5
+local function afkTick()
+	if not TeamService.inMatch then
 		return
 	end
-	local index = removeEntity(e)
-	local bot = addBot(e.team, index, e.role)
-	local BS = reg.BallService
-	if BS.state == "Held" and BS.holderId == e.id then
-		BS.hold(bot.id)
-		reg.MatchService.serverId = bot.id
+	local phase = reg.MatchService.phase
+	local gone = {}
+	for _, e in pairs(TeamService.entities) do
+		local plr = e.player
+		if plr and plr.Parent then
+			local idle, afk = Lobbies.idle(TeamService.idle[plr.UserId] or 0, AFK_STEP, phase, false)
+			TeamService.idle[plr.UserId] = idle
+			if afk then
+				table.insert(gone, plr)
+			end
+		end
 	end
-	reg.MatchService.broadcast()
+	for _, plr in ipairs(gone) do
+		TeamService.bench(plr, "afk")
+	end
 end
 
 function TeamService.init(r)
@@ -578,15 +708,24 @@ function TeamService.init(r)
 		if not Characters.isTier(plr:GetAttribute("Tier")) then
 			plr:SetAttribute("Tier", Config.DefaultTier)
 		end
-		if TeamService.inMatch then
-			table.insert(TeamService.pendingJoin, plr)
-		end
 	end
 	Players.PlayerAdded:Connect(setup)
 	for _, plr in ipairs(Players:GetPlayers()) do
 		setup(plr)
 	end
 	Players.PlayerRemoving:Connect(TeamService.onPlayerRemoving)
+	Net.get("Activity").OnServerEvent:Connect(function(plr)
+		TeamService.idle[plr.UserId] = 0
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(AFK_STEP)
+			local ok, err = pcall(afkTick)
+			if not ok then
+				warn("[SpikeRush] afk watch: " .. tostring(err))
+			end
+		end
+	end)
 	for _, team in ipairs(Config.TeamOrder) do
 		publishStamina(team)
 	end

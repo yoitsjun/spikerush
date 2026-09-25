@@ -1534,6 +1534,23 @@ local function scoreEffect(pos, meta)
 	return true
 end
 
+-- A score effect anywhere, outside a match (the Locker's preview): the effect's key, the spike
+-- colour's tint (or nil) and the direction the attack travelled along z.
+function VFXController.previewEffect(pos, effect, tint, dirZ)
+	if effect == "Fire" then
+		fireExplosion(pos, 1, tint)
+	elseif effect == "Meteor" then
+		meteorStrike(pos, dirZ or -1, tint)
+	elseif effect == "Thunderbolt" then
+		thunderbolt(pos, tint)
+	elseif effect == "Shockwave" then
+		shockwave(pos, tint)
+	else
+		floorRing(pos, tint or WHITE, 6, 0.35)
+		emit(dustEmitter, pos, 24)
+	end
+end
+
 local function onBallEvent(kind, ev, meta)
 	if kind == "Land" then
 		if ev.kind ~= "Floor" then

@@ -67,6 +67,7 @@ local Court = require("Court")
 local Characters = require("Characters")
 local Spins = require("Spins")
 local Roster = require("Roster")
+local Lobbies = require("Lobbies")
 local C, Z, H = Config.Court, Config.Zones, Config.Hits
 local SPM = Config.Scale.StudsPerMeter
 local K = SPM / 3.2 -- the suite's distances were written at 3.2 studs per metre
@@ -141,12 +142,12 @@ end
 
 print("== Thunder Spiker (target 160-200 above 4.00 m) ==")
 do
-	-- only the very top reaches 4.00 m: a maxed S+ needs about 189 cm, a maxed S about 193 cm
-	local tallSP = Characters.stats("S+", "WS", 200)
+	-- 4.00 m takes a maxed jump: a maxed S+ hits about 4.35 m, a starting one about 3.4 m
+	local tallSP = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))
 	local root = apexRoot(tallSP, 3.5 * K)
 	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { ability = "Thunder", stats = tallSP })
-	check(ok and res.meta.thunder and res.meta.kmh >= 185 and res.meta.kmh <= 200.5, "perfect thunder at 4.15 m (200 cm maxed S+)", string.format("%.1f km/h at %.2f m", res.meta.kmh, res.meta.height))
-	local low = root - vec(0, 0.15 * SPM * Config.Scale.JumpScale, 0) -- 0.15 m lower: just over 4.00 m
+	check(ok and res.meta.thunder and res.meta.kmh >= 185 and res.meta.kmh <= 200.5, "perfect thunder from a maxed YeJun", string.format("%.1f km/h at %.2f m", res.meta.kmh, res.meta.height))
+	local low = root - vec(0, Characters.studsAt(tallSP.ContactMaxM) - Characters.studsAt(4.05), 0) -- just over 4.00 m
 	local ok2, res2 = spike(low, ballAt(low, 1.4, 0.25), { ability = "Thunder", stats = tallSP })
 	check(ok2 and res2.meta.thunder and res2.meta.kmh >= 160 and res2.meta.kmh < 185, "scrappy thunder just over 4.00 m", string.format("%.1f km/h at %.2f m", res2.meta.kmh, res2.meta.height))
 	local path = BallPhysics.buildPath(res.launch)
@@ -155,18 +156,18 @@ do
 	local rootA = apexRoot(A, 3.5 * K)
 	local ok3, res3 = spike(rootA, ballAt(rootA, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = A })
 	check(ok3 and not res3.meta.thunder, "maxed A at 185 cm can't reach 4.00 m", string.format("max %.2f m, %.1f km/h", res3.meta.height, res3.meta.kmh))
-	local tallA = Characters.stats("A", "WS", 195)
+	local tallA = Characters.stats("A", "WS", 190)
 	local rootTA = apexRoot(tallA, 3.5 * K)
 	local ok6, res6 = spike(rootTA, ballAt(rootTA, Z.SpikeCenterDz, 2.2), { ability = "Thunder", stats = tallA })
-	check(ok6 and not res6.meta.thunder, "not a 195 cm maxed A, even off a high ball", string.format("%.2f m, %.1f km/h", res6.meta.height, res6.meta.kmh))
+	check(ok6 and not res6.meta.thunder, "not a 190 cm maxed A, even off a high ball", string.format("%.2f m, %.1f km/h", res6.meta.height, res6.meta.kmh))
 	local tallS = Characters.stats("S", "WS", 200)
 	local rootT = apexRoot(tallS, 3.5 * K)
 	local ok4, res4 = spike(rootT, ballAt(rootT, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = tallS })
 	check(ok4 and res4.meta.thunder, "a 200 cm maxed S can", string.format("%.2f m, %.1f km/h", res4.meta.height, res4.meta.kmh))
-	local shortS = Characters.stats("S+", "WS", 170)
-	local rootS = apexRoot(shortS, 3.5 * K)
-	local ok5, res5 = spike(rootS, ballAt(rootS, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = shortS })
-	check(ok5 and not res5.meta.thunder, "a 170 cm S+ can't", string.format("%.2f m, %.1f km/h", res5.meta.height, res5.meta.kmh))
+	local freshSP = Characters.derive(Characters.fromRoster(Roster.get("yejun")))
+	local rootS = apexRoot(freshSP, 3.5 * K)
+	local ok5, res5 = spike(rootS, ballAt(rootS, Z.SpikeCenterDz, 0), { ability = "Thunder", stats = freshSP })
+	check(ok5 and not res5.meta.thunder, "a fresh (un-upgraded) YeJun can't: Jump upgrades unlock Thunder", string.format("%.2f m, %.1f km/h", res5.meta.height, res5.meta.kmh))
 end
 
 print("== The Spike's scale and jumps ==")
@@ -179,9 +180,14 @@ do
 	local jump = Characters.jumpHeight(SP, GROUND)
 	local avatarM = 5.3 / SPM
 	check(math.abs(C.NetTop / SPM - 2.43) < 1e-6 and math.abs(C.SideDepth / SPM - 9) < 1e-6 and avatarM > 1.0 and avatarM < 1.3, "The Spike's scale: 2.43 m net, 9 m half court, characters about 1.15 m", string.format("net %.1f studs, half court %.1f studs, avatar %.2f m", C.NetTop, C.SideDepth, avatarM))
-	check(SP.contactMaxStuds / C.NetTop > 1.9 and SP.contactMaxStuds / C.NetTop < 2.2 and jump > 2.5 * 5.3, "a maxed S+ leaps over twice its height and hits at twice the net", string.format("jump %.1f studs, hand at %.1f studs = %.2fx the net", jump, SP.contactMaxStuds, SP.contactMaxStuds / C.NetTop))
+	check(SP.contactMaxStuds / C.NetTop > 1.9 and SP.contactMaxStuds / C.NetTop < 2.35 and jump > 2.5 * 5.3, "a maxed S+ leaps over twice its height and hits at twice the net", string.format("jump %.1f studs, hand at %.1f studs = %.2fx the net", jump, SP.contactMaxStuds, SP.contactMaxStuds / C.NetTop))
 	local Dm = Characters.stats("D-")
-	check(Dm.ContactMaxM > 3.0 and Dm.ContactMaxM < 3.35 and SP.ContactMaxM > 3.95 and SP.ContactMaxM < 4.1, "a D- wing spiker hits about 3.2 m, the top S+ about 4.0 m", string.format("D- %.2f m, S+ %.2f m", Dm.ContactMaxM, SP.ContactMaxM))
+	local lowest, highest = math.huge, 0
+	for _, c in ipairs(Roster) do
+		lowest = math.min(lowest, Characters.derive(Characters.fromRoster(c)).ContactMaxM)
+		highest = math.max(highest, Characters.derive(Characters.fromRoster(c, "max")).ContactMaxM)
+	end
+	check(lowest >= 2.5 and lowest <= 2.65 and highest >= 4.3 and highest <= 4.45 and SP.ContactMaxM > 4.25 and SP.ContactMaxM < 4.4, "the lowest starter hits about 2.6 m, a maxed top jumper 4.3 to 4.4 m", string.format("lowest %.2f m, highest maxed %.2f m, S+ template %.2f m", lowest, highest, SP.ContactMaxM))
 	local DmRoot = apexRoot(Dm, 3.5 * K)
 	local okD, resD = spike(DmRoot, ballAt(DmRoot, Z.SpikeCenterDz, 2.4), { stats = Dm })
 	check(okD and resD.meta.height <= Dm.ContactMaxM + 1e-6, "a ball met above the hand still reads the hand's height", string.format("%.2f m", resD.meta.height))
@@ -200,7 +206,7 @@ do
 		y = y + v * dt
 		t = t + dt
 	until y <= 0 or t > 5
-	check(t >= 1.3 and t <= 2.0, "full jump hangs like an anime spike", string.format("%.2f s in the air at gravity %d", t, g))
+	check(t >= 1.3 and t <= 2.2, "full jump hangs like an anime spike", string.format("%.2f s in the air at gravity %d", t, g))
 	local B, A = Characters.stats("B"), Characters.stats("A")
 	check(H.SetArriveY >= B.contactMaxStuds and H.SetArriveY <= SP.contactMaxStuds, "sets come down through B to S+ hitting points", string.format("set arrives at %.1f studs; maxed B %.1f, A %.1f, S+ %.1f", H.SetArriveY, B.contactMaxStuds, A.contactMaxStuds, SP.contactMaxStuds))
 	-- the spike window: with the best jump timing under an open set, how long the ball stays in
@@ -542,6 +548,83 @@ do
 	check(okB and resB.meta.hitType == "Set" and resB.meta.underhand, "second-touch bump becomes an underhand set")
 end
 
+print("== middle quicks and the wing spiker backup ==")
+do
+	local P = Config.Player
+	local g = P.Gravity
+	local dt = 1 / 240
+	-- a bot's jump from takeoff: root heights every dt (hang near the apex, like the bots)
+	local function jumpCurve(st)
+		local jy, jv, ys = 0, math.sqrt(2 * g * Characters.jumpHeight(st, GROUND)), {}
+		repeat
+			ys[#ys + 1] = jy
+			local acc = g
+			if math.abs(jv) < P.HangVelocityWindow then acc = g * (1 - P.HangGravityCancel) end
+			jv = jv - acc * dt
+			jy = jy + jv * dt
+		until jy < 0
+		return ys
+	end
+	local function apexTime(ys)
+		local best, bi = -1, 1
+		for i, y in ipairs(ys) do if y > best then best, bi = y, i end end
+		return (bi - 1) * dt
+	end
+	-- first moment (and ball height) the ball is in this jumper's spike zone, jumping at `takeoff`
+	-- from `depth` off the net, not before `notBefore`
+	local function meets(st, depth, path, takeoff, notBefore)
+		local ys = jumpCurve(st)
+		for i = 1, #ys, 2 do
+			local tt = takeoff + (i - 1) * dt
+			if tt >= path.landing.t then break end
+			if tt >= (notBefore or -math.huge) then
+				local b = BallPhysics.positionAt(path, tt)
+				local okz, _, _, dy = HitLogic.spikeZone(vec(0, GROUND + ys[i], side * depth), b, side, st, 1)
+				if okz and dy <= Z.SpikeCenterDy + 0.25 then return tt, b end
+			end
+		end
+		return nil
+	end
+	local function descent(path, y)
+		local aT, aP = BallPhysics.findApex(path, 0)
+		if aP.Y < y then return aT, aP end
+		return BallPhysics.findTime(path, 0, function(pos, vel) return vel.Y < 0 and pos.Y <= y end)
+	end
+	local mb = Characters.derive(Characters.fromRoster(Roster.get("tetsuo"), "max"))
+	local ws = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))
+	local sroot = vec(0, GROUND, side * H.SetterDepth)
+	local sball = vec(0, sroot.Y + Z.SetIdealY, sroot.Z)
+	local function setPath(kind)
+		local _, r = HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = sball, grounded = true, setType = kind }, ctx({ touchNumber = 2, lastHit = { team = "Away", hitType = "Bump" } }))
+		return BallPhysics.buildPath(r.launch), r.meta
+	end
+	-- quick: the middle is in the air before the set is even made
+	local qPath, qMeta = setPath("Quick")
+	local vq, gq = HitLogic.setArc(sball, side, "Quick")
+	local nominal = BallPhysics.buildPath(BallPhysics.newLaunch(sball, vq, vec(0, -gq, 0), 0))
+	local cT, cP = descent(nominal, mb.contactMaxStuds - 0.15)
+	local tApex = apexTime(jumpCurve(mb))
+	local takeoff = cT - tApex
+	local hitT = meets(mb, cP.Z * side + Z.SpikeForward, qPath, takeoff, 0.2) -- once the set has left the setter's hands
+	local oPath = setPath("Open")
+	local oT = descent(oPath, mb.contactMaxStuds - 0.15)
+	check(qMeta.setType == "Quick" and takeoff <= 0.05 and hitT ~= nil and hitT > cT - 0.25 and cT < oT * 0.75, "a quick: the middle is off the floor as the set is made and meets it at the top, well ahead of an open set", string.format("takeoff at %+.2f s, contact %.2f s after the set (open set %.2f s)", takeoff, hitT or -1, oT))
+	-- backup: the middle jumps late behind the wing spiker; a miss is still spiked above the net
+	local tW = descent(oPath, ws.contactMaxStuds - 0.15)
+	local tM = descent(oPath, mb.contactMaxStuds - 0.15)
+	local tB = math.max(tM, tW + Config.Bots.BackupDelay)
+	local pB = BallPhysics.positionAt(oPath, tB)
+	local jh = Characters.jumpHeight(mb, GROUND)
+	local d = pB.Y - (GROUND + Z.SpikeUp)
+	local lead = tApex
+	if d < jh - 0.3 then
+		local v0 = math.sqrt(2 * g * jh)
+		lead = (v0 - math.sqrt(math.max(0, v0 * v0 - 2 * g * d))) / g
+	end
+	local bT, bP = meets(mb, pB.Z * side + Z.SpikeForward, oPath, tB - lead, tW + Config.Bots.BackupDelay * 0.5)
+	check(bT ~= nil and bT > tW and bP.Y > C.NetTop + 0.6 * SPM, "backup: after a wing spiker's miss the middle still spikes it, above the net", string.format("wing spiker's contact %.2f s, middle's %.2f s at %.2f m", tW, bT or -1, bP and Characters.metersAt(bP.Y) or 0))
+end
+
 print("== serves ==")
 do
 	local serveZ = Court.serveSpot(side, "WS").Z
@@ -558,6 +641,16 @@ do
 	local ok3, res3 = HitLogic.compute({ action = "Toss", t = 0, root = groot, ball = groot, grounded = true, tossHeight = 22 }, ctx())
 	local _, apexT = BallPhysics.findApex(BallPhysics.buildPath(res3.launch), 0)
 	check(ok3 and res3.meta.serveKind == "Jump" and apexT.Y > 25, "held toss goes high for a jump serve", string.format("apex %.1f", apexT.Y))
+	-- a forward toss comes back down about TossForwardMax in front, so the server runs into it
+	local function tossDrop(fwd)
+		local okT, r = HitLogic.compute({ action = "Toss", t = 0, root = groot, ball = groot, grounded = true, tossHeight = 22, tossForward = fwd }, ctx())
+		local tp = BallPhysics.buildPath(r.launch)
+		local _, back = BallPhysics.findTime(tp, 0, function(pos, vel) return vel.Y < 0 and pos.Y <= groot.Y + 2.0 end)
+		return okT and back and (groot.Z - back.Z) * side or 0, r.meta
+	end
+	local still = tossDrop(0)
+	local ahead, fmeta = tossDrop(1)
+	check(ahead - still > H.TossForwardMax * 0.9 and ahead - still < H.TossForwardMax * 1.1 and fmeta.tossForward == 1 and serveZ * side - ahead > C.SideDepth - 3 * SPM, "a forward toss drops out in front of the server (toward the net)", string.format("%.1f studs ahead vs %.1f straight up", ahead, still))
 end
 
 print("== blocks ==")
@@ -621,6 +714,56 @@ do
 	local okW, wall = block(true)
 	local okN, noWall = block(false)
 	check(okW and okN and wall.meta.outcome == "Stuff" and wall.meta.ironWall and noWall.meta.outcome ~= "Stuff", "Iron Wall: a 200 km/h piercing spike is stuffed", string.format("with the wall: %s, without: %s", wall.meta.outcome, noWall.meta.outcome))
+end
+
+print("== lobbies ==")
+do
+	local s1 = Lobbies.settings({ mode = 7, privacy = "Nope", botTier = "Z" })
+	local bad = Lobbies.settings({ mode = 2, privacy = "Private", password = "a!" })
+	local s2 = Lobbies.settings({ mode = 2, privacy = "Private", password = "spike 99!", fill = false, botTier = "S" })
+	check(s1.mode == Config.Match.DefaultTeamSize and s1.privacy == "Public" and s1.fill and s1.botTier == Config.Match.DefaultBotTier and bad == nil and s2.password == "spike99" and not s2.fill,
+		"settings are cleaned: bad mode/privacy/tier fall back, a private lobby needs a real password")
+	local l = Lobbies.new(1, 100, "Host", s2)
+	Lobbies.seat(l, 100)
+	local okNo, whyNo = Lobbies.canJoin(l, 200, "wrong")
+	local okYes = Lobbies.canJoin(l, 200, "spike99")
+	Lobbies.seat(l, 200)
+	Lobbies.seat(l, 300)
+	check(not okNo and whyNo == "password" and okYes and #l.Home == 2 and #l.Away == 1, "a private lobby lets the password in and balances the sides", string.format("Home %d, Away %d", #l.Home, #l.Away))
+	local startOk, startWhy = Lobbies.canStart(l)
+	Lobbies.seat(l, 400)
+	local fullOk, fullWhy = Lobbies.canJoin(l, 500, "spike99")
+	check(not startOk and startWhy == "teams" and Lobbies.canStart(l) and not fullOk and fullWhy == "full", "without bots it starts only with both sides full; a full lobby turns people away")
+	local f = Lobbies.new(2, 100, "Host", Lobbies.settings({ mode = 3, privacy = "Friends" }))
+	Lobbies.seat(f, 100)
+	local fOk, fWhy = Lobbies.canJoin(f, 200, nil, false)
+	check(not Lobbies.visible(f, 200, false) and Lobbies.visible(f, 201, true) and not fOk and fWhy == "friends" and Lobbies.canJoin(f, 201, nil, true) and Lobbies.canStart(f), "a friends lobby is hidden from (and closed to) everyone but the host's friends; with bots the host can start alone")
+	-- host leaves: the next member hosts; a smaller mode keeps the host
+	local h = Lobbies.new(3, 1, "A", Lobbies.settings({ mode = 3 }))
+	for _, u in ipairs({ 1, 2, 3, 4, 5 }) do Lobbies.seat(h, u) end
+	Lobbies.swap(h, 1)
+	local dropped = Lobbies.configure(h, Lobbies.settings({ mode = 1 }))
+	check(Lobbies.teamOf(h, 1) ~= nil and Lobbies.count(h) == 2 and #dropped == 3, "shrinking a lobby keeps the host and drops the newest", string.format("%d kept, %d dropped", Lobbies.count(h), #dropped))
+	Lobbies.remove(h, 1)
+	check(h.host ~= 1 and h.host ~= nil and Lobbies.teamOf(h, h.host) ~= nil, "when the host leaves the next member hosts")
+	-- quick match picks the fullest open public quick lobby of the mode
+	local q1 = Lobbies.new(10, 1, "a", Lobbies.settings({ mode = 2 })); q1.quick = true; Lobbies.seat(q1, 1)
+	local q2 = Lobbies.new(11, 2, "b", Lobbies.settings({ mode = 2 })); q2.quick = true; Lobbies.seat(q2, 2); Lobbies.seat(q2, 3)
+	local q3 = Lobbies.new(12, 4, "c", Lobbies.settings({ mode = 3 })); q3.quick = true; Lobbies.seat(q3, 4); Lobbies.seat(q3, 5); Lobbies.seat(q3, 6)
+	local q4 = Lobbies.new(13, 7, "d", Lobbies.settings({ mode = 2, privacy = "Private", password = "abc" })); q4.quick = true; Lobbies.seat(q4, 7); Lobbies.seat(q4, 8); Lobbies.seat(q4, 9)
+	check(Lobbies.pickQuick({ q1, q2, q3, q4 }, 2) == q2 and Lobbies.pickQuick({ q1, q3 }, 1) == nil, "Quick Match joins the fullest open public lobby of that mode")
+	-- the teleport round trip
+	local back = Lobbies.import(Lobbies.export(l), 99)
+	check(back.mode == 2 and back.password == "spike99" and back.expected[100] == "Home" and back.expected[300] ~= nil and Lobbies.count(back) == 0 and Lobbies.import("junk") == nil, "a lobby survives the trip to its own server")
+	-- AFK: idle time only builds while the ball is live; input resets it
+	local idle, afk = 0, false
+	for _ = 1, 20 do idle, afk = Lobbies.idle(idle, 0.5, "Timeout", false) end
+	local quiet = idle
+	for _ = 1, math.ceil(Config.Afk.Timeout / 0.5) - 1 do idle, afk = Lobbies.idle(idle, 0.5, "Rally", false) end
+	local before = afk
+	idle, afk = Lobbies.idle(idle, 0.5, "Rally", false)
+	local reset = Lobbies.idle(idle, 0.5, "Rally", true)
+	check(quiet == 0 and not before and afk and reset == 0 and Config.Afk.Timeout >= 10 and Config.Afk.Timeout <= 15, "AFK: 10 to 15 s without input while the ball is live (timeouts don't count)", string.format("%d s", Config.Afk.Timeout))
 end
 
 print("== determinism ==")

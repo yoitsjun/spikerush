@@ -247,6 +247,7 @@ function HitService.onRequest(plr, req)
 		setType = SET_TYPES[req.setType] and req.setType or nil,
 		targetId = targetId,
 		tossHeight = num(req.tossHeight, H.TossLow, H.TossHighMax, H.TossLow),
+		tossForward = num(req.tossForward, 0, 1, 0),
 	}
 	local ok, why = HitService.process(entity, input, { seq = seq, fromClient = true })
 	if not ok then
@@ -277,6 +278,7 @@ function HitService.botAction(entity, action, extra)
 		setType = extra.setType,
 		targetId = extra.targetId,
 		tossHeight = extra.tossHeight,
+		tossForward = extra.tossForward,
 	}
 	return (HitService.process(entity, input, { forceQuality = extra.quality }))
 end

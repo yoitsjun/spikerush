@@ -8,8 +8,9 @@
 --   Block ........ hold to charge, release to jump; the ball that passes your hands is blocked.
 --   Set .......... toward the net = quick, away = back, nothing = open. A receive on the second
 --                  touch sets too.
---   Serve ........ tap = overhand serve (hits itself). Hold = jump-serve toss (longer = higher),
---                  then Spike to jump and Spike again to hit.
+--   Serve ........ tap = overhand serve (hits itself). Hold = jump-serve toss (longer = higher;
+--                  hold toward the net as you let go to toss it forward), then Spike to jump
+--                  and Spike again to hit.
 --
 -- Every touch is evaluated locally with the shared HitLogic (same stats, same team stamina as
 -- the server), applied instantly and sent to the server for confirmation.
@@ -214,6 +215,7 @@ local function execute(action, info, opts, t, ballPos)
 		setType = opts.setType,
 		targetId = opts.targetId,
 		tossHeight = opts.tossHeight,
+		tossForward = opts.tossForward,
 	}
 	local ok, result = HitLogic.compute(input, ctx)
 	if not ok then
@@ -244,6 +246,7 @@ local function execute(action, info, opts, t, ballPos)
 		setType = input.setType,
 		targetId = input.targetId,
 		tossHeight = input.tossHeight,
+		tossForward = input.tossForward,
 	})
 	lastActionAt = os.clock()
 	buffered = nil
@@ -408,6 +411,15 @@ local function myToss()
 	return BR.isLive() and meta and meta.hitType == "Toss" and meta.id == State.myId
 end
 
+-- Holding toward the net when the jump-serve toss goes up throws it forward (0..1).
+local function tossForward()
+	local toward = mods.MovementController.axis() * -State.mySide
+	if toward > 0.3 then
+		return math.clamp(toward, 0, 1)
+	end
+	return 0
+end
+
 local function pressSpike(info)
 	local MC = mods.MovementController
 	if serving() then
@@ -415,7 +427,7 @@ local function pressSpike(info)
 		if BR.getState() == "Held" then
 			-- Spike on a held ball: a standard jump-serve toss
 			local now = Util.now()
-			execute("Toss", info, { tossHeight = (H.TossHighMin + H.TossHighMax) / 2 }, now, info.root)
+			execute("Toss", info, { tossHeight = (H.TossHighMin + H.TossHighMax) / 2, tossForward = tossForward() }, now, info.root)
 			autoOverhand = false
 			return
 		end
@@ -594,16 +606,60 @@ local function releaseServe(info)
 		return
 	end
 	local height = H.TossLow
+	local forward = 0
 	autoOverhand = held < P.ServeTapTime
 	if not autoOverhand then
 		local k = math.clamp((held - P.ServeTapTime) / H.TossChargeTime, 0, 1)
 		height = H.TossHighMin + (H.TossHighMax - H.TossHighMin) * k
+		forward = tossForward() -- held toward the net: out in front to run into
 	end
 	local now = Util.now()
-	if execute("Toss", info, { tossHeight = height }, now, info.root) then
+	if execute("Toss", info, { tossHeight = height, tossForward = forward }, now, info.root) then
 		mods.AnimationController.pose(State.myId, "Toss")
 		mods.AudioController.play("Toss")
 	end
+end
+
+-- The dotted toss path: while you charge the jump-serve toss, where it will go (height from the
+-- hold, forward from the direction held); once it's up, the rest of its flight.
+local GUIDE_STEP = 0.075
+local guideOn = false
+local function tossGuide(info)
+	local BR = mods.BallRenderer
+	local path, from = nil, 0
+	if serving() then
+		if serveHold and BR.getState() == "Held" then
+			local held = os.clock() - serveHold.t0
+			if held >= P.ServeTapTime then
+				local k = math.clamp((held - P.ServeTapTime) / H.TossChargeTime, 0, 1)
+				local height = H.TossHighMin + (H.TossHighMax - H.TossHighMin) * k
+				local p, v = HitLogic.tossLaunch(info.root, State.mySide, height, tossForward())
+				path = BallPhysics.buildPath(BallPhysics.newLaunch(p, v, Vector3.new(0, -Config.Ball.Gravity, 0), 0))
+			end
+		elseif myToss() then
+			path, from = BR.getPath(), Util.now()
+		end
+	end
+	if not path then
+		if guideOn then
+			BR.guide(nil)
+			guideOn = false
+		end
+		return
+	end
+	local points = {}
+	local floorY = info.root.Y - 1.5
+	local t = from + GUIDE_STEP
+	while #points < 32 and t < path.landing.t do
+		local pos = BallPhysics.positionAt(path, t)
+		if pos.Y < floorY and BallPhysics.velocityAt(path, t).Y < 0 then
+			break
+		end
+		table.insert(points, pos)
+		t = t + GUIDE_STEP
+	end
+	BR.guide(points)
+	guideOn = true
 end
 
 -- How full the jump-serve toss is right now (for the HUD ring).
@@ -961,6 +1017,10 @@ function ActionController.init(m)
 			processBlock(info, now)
 			processOverhand(info, now)
 			autoAssist(info, now)
+			tossGuide(info)
+		elseif guideOn then
+			mods.BallRenderer.guide(nil)
+			guideOn = false
 		end
 	end)
 end

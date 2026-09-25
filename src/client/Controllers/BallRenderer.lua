@@ -48,6 +48,8 @@ local dotIndex = 0
 local lastDotAt = 0
 local dotsAliveUntil = 0
 local DOT_COUNT = 48
+local guideDots = {} -- the dotted toss path
+local GUIDE_COUNT = 32
 
 ------------------------------------------------------------------------------------------
 -- visuals
@@ -847,6 +849,26 @@ end
 
 function BallRenderer.renderVelocity()
 	return renderVel
+end
+
+-- A dotted path (points along the ball's flight, nearest first), or nil to hide it. The serve
+-- toss preview uses it.
+function BallRenderer.guide(points)
+	local n = points and math.min(#points, GUIDE_COUNT) or 0
+	for i = 1, math.max(n, #guideDots) do
+		local d = guideDots[i]
+		if i <= n then
+			if not d then
+				d = basicPart("TossGuide", Enum.PartType.Ball, Vector3.new(0.6, 0.6, 0.6), Color3.fromRGB(255, 246, 214), Enum.Material.Neon)
+				d.Parent = folder
+				guideDots[i] = d
+			end
+			d.CFrame = CFrame.new(points[i])
+			d.Transparency = 0.1 + 0.6 * (i - 1) / math.max(1, n - 1)
+		elseif d then
+			d.Transparency = 1
+		end
+	end
 end
 
 function BallRenderer.init()

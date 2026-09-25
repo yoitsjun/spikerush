@@ -218,7 +218,7 @@ function Characters.derive(tier, build)
 		Jump = build.Jump,
 	}
 	for name, curve in pairs(Config.StatCurve) do
-		local n = Characters.norm(build[curve.Stat])
+		local n = Characters.norm(build[curve.Stat]) ^ (curve.Exp or 1)
 		s[name] = curve.Range[1] + (curve.Range[2] - curve.Range[1]) * n
 	end
 	local hn = clamp((build.Height - HT.Min) / (HT.Max - HT.Min), 0, 1)

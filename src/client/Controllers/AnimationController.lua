@@ -559,6 +559,43 @@ local POSE_DEFS = {
 		LeftWrist = { 20, 0, 0 },
 		RightWrist = { 20, 0, 0 },
 	},
+	-- menu showcase poses (static, posed with AnimationController.poseModel)
+	ShowCool = {
+		Waist = { 0, -12, 0 },
+		Neck = { 6, 14, -4 },
+		RightShoulder = { 158, 0, 26 },
+		RightElbow = { 128, 0, 0 },
+		LeftShoulder = { 4, 0, -9 },
+		LeftElbow = { 12, 0, 0 },
+		LeftHip = { 2, 0, -5 },
+		RightHip = { -3, 0, 7 },
+		RightKnee = { -10, 0, 0 },
+	},
+	ShowIdle = {
+		Waist = { 0, 8, 0 },
+		Neck = { -4, -12, 3 },
+		LeftShoulder = { 6, 0, -10 },
+		RightShoulder = { -4, 0, 12 },
+		LeftElbow = { 14, 0, 0 },
+		RightElbow = { 10, 0, 0 },
+		LeftHip = { 4, 0, -4 },
+		RightHip = { -2, 0, 6 },
+		LeftKnee = { -8, 0, 0 },
+	},
+	ShowReady = {
+		Waist = { -14, 0, 0 },
+		Neck = { 10, 0, 0 },
+		LeftShoulder = { 40, 0, -10 },
+		RightShoulder = { 40, 0, 10 },
+		LeftElbow = { 40, 0, 0 },
+		RightElbow = { 40, 0, 0 },
+		LeftHip = { 24, 0, -6 },
+		RightHip = { 24, 0, 6 },
+		LeftKnee = { -40, 0, 0 },
+		RightKnee = { -40, 0, 0 },
+		LeftAnkle = { 12, 0, 0 },
+		RightAnkle = { 12, 0, 0 },
+	},
 	LandCrouch = {
 		drop = 0.7,
 		Waist = { -20, 0, 0 },
@@ -761,6 +798,131 @@ local JOINT_FOR_PART = {
 	RightFoot = "RightAnkle",
 }
 
+------------------------------------------------------------------------------------------
+-- static posing (menus): solve every part's CFrame from the joints, then anchor it all
+------------------------------------------------------------------------------------------
+
+-- A pose's joint rotations (joint name -> CFrame), for posing models outside the game loop.
+function AnimationController.poseJoints(name)
+	return POSES[name]
+end
+
+-- Blend two poses (a, b: joint tables) at t (0..1).
+function AnimationController.blendJoints(a, b, t)
+	local out = {}
+	for joint, cf in pairs(a) do
+		out[joint] = cf:Lerp(b[joint] or CFrame.identity, t)
+	end
+	for joint, cf in pairs(b) do
+		if not a[joint] then
+			out[joint] = CFrame.identity:Lerp(cf, t)
+		end
+	end
+	return out
+end
+
+-- A clip sampled at t (a fresh joint table), or nil for an unknown clip; and a clip's length.
+function AnimationController.clipJoints(name, t)
+	local clip = CLIPS[name]
+	if not clip then
+		return nil
+	end
+	return sampleClip(clip, math.clamp(t, 0, clip.dur), {})
+end
+
+function AnimationController.clipDuration(name)
+	local clip = CLIPS[name]
+	return clip and clip.dur or nil
+end
+
+-- Prepare a (cloned) R15 model for static posing: remember its joints (Motor6D or
+-- AnimationConstraint) and where each accessory sits on its part, then anchor everything.
+function AnimationController.rig(model)
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return nil
+	end
+	local joints = {}
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("Motor6D") and d.Part0 and d.Part1 then
+			table.insert(joints, { part0 = d.Part0, part1 = d.Part1, c0 = d.C0, c1 = d.C1 })
+		elseif d:IsA("AnimationConstraint") and d.Attachment0 and d.Attachment1 then
+			local p0, p1 = d.Attachment0.Parent, d.Attachment1.Parent
+			if p0:IsA("BasePart") and p1:IsA("BasePart") then
+				table.insert(joints, { part0 = p0, part1 = p1, c0 = d.Attachment0.CFrame, c1 = d.Attachment1.CFrame })
+			end
+		end
+	end
+	local byPart0 = {}
+	for _, j in ipairs(joints) do
+		byPart0[j.part0] = byPart0[j.part0] or {}
+		table.insert(byPart0[j.part0], j)
+	end
+	-- accessories: keep each handle where it sits relative to the part it's welded to
+	local attached = {}
+	for _, acc in ipairs(model:GetDescendants()) do
+		if acc:IsA("Accessory") then
+			local handle = acc:FindFirstChild("Handle")
+			local att = handle and handle:FindFirstChildWhichIsA("Attachment")
+			local target = nil
+			if att then
+				local match = model:FindFirstChild(att.Name, true)
+				if match and match:IsA("Attachment") and match.Parent ~= handle and match.Parent:IsA("BasePart") then
+					target = match.Parent
+				end
+			end
+			target = target or model:FindFirstChild("Head")
+			if handle and target then
+				table.insert(attached, { part = handle, target = target, rel = target.CFrame:ToObjectSpace(handle.CFrame) })
+			end
+		end
+	end
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+		elseif d:IsA("LuaSourceContainer") then
+			d:Destroy()
+		end
+	end
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		hum.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	end
+	return { model = model, root = root, byPart0 = byPart0, attached = attached }
+end
+
+-- Place the rig at `rootCF` in pose `joints` (joint name -> rotation, as poseJoints returns).
+function AnimationController.poseModel(rig, joints, rootCF)
+	if not rig then
+		return
+	end
+	joints = joints or {}
+	rig.root.CFrame = rootCF
+	local queue = { rig.root }
+	local seen = { [rig.root] = true }
+	local i = 1
+	while queue[i] do
+		local p0 = queue[i]
+		i = i + 1
+		for _, j in ipairs(rig.byPart0[p0] or {}) do
+			if not seen[j.part1] then
+				seen[j.part1] = true
+				local name = JOINT_FOR_PART[j.part1.Name]
+				local rot = (name and joints[name]) or CFrame.identity
+				j.part1.CFrame = p0.CFrame * j.c0 * rot * j.c1:Inverse()
+				table.insert(queue, j.part1)
+			end
+		end
+	end
+	for _, a in ipairs(rig.attached) do
+		a.part.CFrame = a.target.CFrame * a.rel
+	end
+end
+
 local function scanMotors(st)
 	local motors, n = {}, 0
 	for _, d in ipairs(st.model:GetDescendants()) do
@@ -944,11 +1106,16 @@ function AnimationController.playAction(entityId, pose)
 end
 
 -- A character left the ground. kind: "Spike" / "Serve" (run-up attack), "Block" or "Jump".
+-- Every kind but "Block" plays the rise and the spike wind-up in the air.
 function AnimationController.jumped(entityId, kind)
 	local st = stateFor(entityId)
 	if st then
 		st.jumpKind = kind
 		st.swung = false
+		-- a new jump cuts the last landing's crouch short so the wind-up starts right away
+		if st.action and st.action.pose == "Land" then
+			st.action = nil
+		end
 	end
 end
 
@@ -1045,7 +1212,8 @@ local function pick(st, hum, hrp, now)
 		if st.swung then
 			return "SpikeFollow", POSES.SpikeFollow, 0.95
 		end
-		if st.jumpKind == "Spike" or st.jumpKind == "Serve" then
+		-- every jump but a block gets the spike wind-up (rise, then the style's bow-draw)
+		if st.jumpKind ~= "Block" then
 			if hrp.AssemblyLinearVelocity.Y > 5 then
 				return "Rise", POSES.Rise, 1
 			end

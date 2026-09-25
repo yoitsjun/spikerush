@@ -120,6 +120,10 @@ local function update(dt)
 	if not cam then
 		return
 	end
+	if mods.SceneController and mods.SceneController.active() then
+		camPos = nil -- the menus own the camera; start fresh when play resumes
+		return
+	end
 	if cam.CameraType ~= Enum.CameraType.Scriptable then
 		cam.CameraType = Enum.CameraType.Scriptable
 	end

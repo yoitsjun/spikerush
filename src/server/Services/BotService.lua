@@ -207,13 +207,16 @@ local function resetTask(b)
 	b.chargeFrom = nil
 	b.overcharge = false
 	b.coverFor = nil
+	b.backup = nil
+	b.notBefore = nil
 end
 
--- The nearest bot on `team` to z (skipping `excludeId`), to cover a ball a human should play.
-local function coverBot(team, z, excludeId)
+-- The nearest bot on `team` to z (skipping `excludeId` and `alsoExclude`), to cover a ball a
+-- human should play.
+local function coverBot(team, z, excludeId, alsoExclude)
 	local best, bestD = nil, math.huge
 	for _, b in ipairs(teamBots(team)) do
-		if b.entity.id ~= excludeId then
+		if b.entity.id ~= excludeId and b.entity.id ~= alsoExclude then
 			local d = math.abs(b.hrp.Position.Z - z)
 			if d < bestD then
 				best, bestD = b, d
@@ -228,6 +231,10 @@ end
 local function yieldsToHuman(b)
 	if b.coverFor == nil then
 		return false
+	end
+	local covered = reg.TeamService.getEntity(b.coverFor)
+	if b.backup and covered and covered.isBot then
+		return false -- backing up a bot: it jumps first, so a hit leaves nothing to take
 	end
 	local HS = reg.HitService
 	if HS.missAge(b.coverFor) < B.CoverAfterMiss then
@@ -293,6 +300,85 @@ local function planReceive(team, now, exclude)
 	end
 end
 
+-- Time from takeoff until this bot's hand rises to handY (its apex time if that's out of reach).
+local function handLead(b, handY)
+	local hum, hrp = b.hum, b.hrp
+	local d = handY - (hum.HipHeight + hrp.Size.Y / 2 + Z.SpikeUp)
+	local jh = hum.JumpHeight
+	if d >= jh - 0.3 then
+		return b.tApex
+	end
+	if d <= 0 then
+		return 0.05
+	end
+	local g = workspace.Gravity
+	local v0 = math.sqrt(2 * g * jh)
+	return (v0 - math.sqrt(math.max(0, v0 * v0 - 2 * g * d))) / g
+end
+
+-- A quick: the middle is in the air before the set. From where the setter will take the ball
+-- (tSet, ballP) the quick's path is known, so the middle runs in and takes off early enough to
+-- be at the top when it arrives. Once the set is made the attack plan takes over mid-air.
+local function planQuick(mb, team, tSet, ballP)
+	local side = Court.sideOf(team)
+	local v, g = HitLogic.setArc(ballP, side, "Quick")
+	local path = BallPhysics.buildPath(BallPhysics.newLaunch(ballP, v, Vector3.new(0, -g, 0), tSet))
+	local stats = statsOf(mb.entity)
+	mb.tApex = jumpTime(mb.hum.JumpHeight, P.HangGravityCancel)
+	local cT, cP = descentTo(path, tSet, stats.contactMaxStuds - 0.15, side)
+	if not cT then
+		return
+	end
+	mb.task = "Quick"
+	mb.targetZ = cP.Z + side * Z.SpikeForward
+	if mb.targetZ * side < 0.3 * SPM then
+		mb.targetZ = side * 0.3 * SPM
+	end
+	mb.jumpAt = cT - mb.tApex + (mb.rng:NextNumber() * 2 - 1) * tierPair(mb, B.JumpTimingNoise)
+end
+
+-- The middle backs up a set to `hitter` (the wing spiker): it jumps late, to meet the ball
+-- BackupDelay after the wing spiker's contact. A hit leaves it nothing to do; a miss gets
+-- spiked (lower and weaker when the ball has dropped below its best reach).
+local function planBackup(team, now, hitter, exclude)
+	local TS = reg.TeamService
+	if TS.teamSize < 3 or not hitter then
+		return nil
+	end
+	local mbE = TS.byRole(team, "MB")
+	local mb = mbE and bots[mbE.id]
+	if not mb or mbE.id == hitter.id or mbE.id == exclude then
+		return nil
+	end
+	local side = Court.sideOf(team)
+	local path = reg.BallService.path
+	local tW = descentTo(path, now, statsOf(hitter).contactMaxStuds - 0.15, side)
+	mb.tApex = jumpTime(mb.hum.JumpHeight, P.HangGravityCancel)
+	local tM = descentTo(path, now, statsOf(mbE).contactMaxStuds - 0.15, side)
+	if not tW or not tM then
+		return nil
+	end
+	local tB = math.max(tM, tW + B.BackupDelay)
+	if tB >= path.landing.t then
+		return nil
+	end
+	local pB = BallPhysics.positionAt(path, tB)
+	if pB.Y < C.NetTop + 0.6 * SPM or pB.Z * side <= 0 or pB.Z * side > C.AttackLine + 1.9 * SPM then
+		return nil
+	end
+	mb.task = "Spike"
+	mb.backup = true
+	mb.coverFor = hitter.id
+	mb.feint = false
+	mb.notBefore = tW + B.BackupDelay * 0.5
+	mb.targetZ = pB.Z + side * Z.SpikeForward
+	if mb.targetZ * side < 0.3 * SPM then
+		mb.targetZ = side * 0.3 * SPM
+	end
+	mb.jumpAt = tB - handLead(mb, pB.Y)
+	return mb
+end
+
 local function planSet(team, now, exclude)
 	local BS = reg.BallService
 	local path = BS.path
@@ -327,26 +413,33 @@ local function planSet(team, now, exclude)
 		return
 	end
 	b.targetZ = p.Z
-	-- feed human spikers first, then the ace, sometimes the quick
+	-- the wing spiker gets the ball; off a good pass (near the net) the setter sometimes calls a
+	-- quick to the middle instead, if the middle is close enough to the net to hit it
 	local target, setType = nil, "Open"
-	for _, e in ipairs(TS.members(team)) do
-		if e.id ~= b.entity.id and not e.isBot then
-			target = e
+	local ws = TS.byRole(team, "WS")
+	local mb = TS.byRole(team, "MB")
+	if mb and mb.id ~= b.entity.id and mb.id ~= exclude and math.abs(p.Z) <= B.QuickPassDepth then
+		local mbZ = rootZ(mb)
+		local chance = tierPair(b, B.QuickChance)
+		if not mb.isBot then
+			chance = chance * B.QuickHumanMul
+		end
+		if mbZ and math.abs(mbZ) <= B.QuickReachDepth and b.rng:NextNumber() < chance then
+			target, setType = mb, "Quick"
+		end
+	end
+	if not target and ws and ws.id ~= b.entity.id and ws.id ~= exclude then
+		target = ws
+		if ws.isBot and b.rng:NextNumber() > 0.9 then
+			setType = "Back"
 		end
 	end
 	if not target then
-		local ws = TS.byRole(team, "WS")
-		local mb = TS.byRole(team, "MB")
-		local roll = b.rng:NextNumber()
-		if mb and mb.id ~= b.entity.id and roll < 0.28 then
-			target, setType = mb, "Quick"
-		elseif ws and ws.id ~= b.entity.id then
-			target = ws
-			if roll > 0.9 then
-				setType = "Back"
+		-- no wing spiker to set: any other hitter, humans first
+		for _, e in ipairs(TS.members(team)) do
+			if e.id ~= b.entity.id and e.id ~= exclude and (not target or (target.isBot and not e.isBot)) then
+				target = e
 			end
-		elseif mb and mb.id ~= b.entity.id then
-			target = mb
 		end
 	end
 	if not target then
@@ -354,6 +447,9 @@ local function planSet(team, now, exclude)
 	end
 	b.setType = setType
 	b.targetId = target.id
+	if setType == "Quick" and bots[target.id] then
+		planQuick(bots[target.id], team, t, p)
+	end
 end
 
 local function planAttack(team, now, exclude)
@@ -363,10 +459,12 @@ local function planAttack(team, now, exclude)
 	local spiker = nil
 	if last and last.team == team and last.targetId and last.targetId ~= exclude then
 		spiker = bots[last.targetId]
-		if not spiker and reg.TeamService.getEntity(last.targetId) then
-			-- the set was meant for a human: a bot waits underneath and sends a free ball over
-			-- if they don't go for it
-			local cover = coverBot(team, path.landing.pos.Z, exclude)
+		local human = not spiker and reg.TeamService.getEntity(last.targetId)
+		if human then
+			-- the set was meant for a human: the middle backs them up with a late jump, and a bot
+			-- waits underneath to send a free ball over if nobody gets it
+			local backup = planBackup(team, now, human, exclude)
+			local cover = coverBot(team, path.landing.pos.Z, exclude, backup and backup.entity.id)
 			if cover then
 				cover.coverFor = last.targetId
 				cover.task = "Free"
@@ -440,6 +538,9 @@ local function planAttack(team, now, exclude)
 		spiker.overcharge = spiker.rng:NextNumber() < 0.03
 	end
 	spiker.jumpAt = cT - lead + (spiker.rng:NextNumber() * 2 - 1) * tierPair(spiker, B.JumpTimingNoise)
+	if spiker.entity.role == "WS" and last and last.hitType == "Set" and last.team == team then
+		planBackup(team, now, spiker.entity, exclude)
+	end
 end
 
 local function planPlay(team, now)
@@ -764,7 +865,7 @@ local function updateBot(b, now)
 	if b.jumpAt and now >= b.jumpAt then
 		if grounded and not b.slideUntil then
 			hum.Jump = true
-			if b.task == "Spike" then
+			if b.task == "Spike" or b.task == "Quick" then
 				reg.HitService.fx(e.id, "Jump", "Spike")
 			elseif b.task == "Block" then
 				reg.HitService.fx(e.id, "Jump", "Block")
@@ -833,6 +934,9 @@ local function updateBot(b, now)
 				local ok, _, _, dy = HitLogic.spikeZone(root, pos, side, e.charStats, 1)
 				return ok and dy <= Z.SpikeCenterDy + 0.25
 			end)
+			if t and b.notBefore and t < b.notBefore then
+				t = nil -- a backup never takes the ball off its wing spiker's hand
+			end
 			if t then
 				local energy = 0
 				if type(b.chargeFrom) == "number" then
@@ -864,8 +968,13 @@ end
 
 function BotService.spawn(e)
 	local teamCfg = Config.Teams[e.team]
-	-- a friend's avatar when there is one (FriendService), else a plain rig in team colours
-	local desc = e.friendId and reg.FriendService.description(e.friendId)
+	-- a stand-in wears its player's avatar; other bots a friend's when there is one
+	-- (FriendService), else a plain rig in team colours
+	local desc = e.description and e.description:Clone()
+	local avatarId = e.avatarId or e.friendId
+	if not desc and avatarId then
+		desc = reg.FriendService.description(avatarId)
+	end
 	if not desc then
 		desc = Instance.new("HumanoidDescription")
 		local skin = SKIN[math.random(#SKIN)]

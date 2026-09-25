@@ -17,6 +17,11 @@
 -- Select timeout.
 
 local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Net = require(Shared.Net)
 
 local InputController = {}
 local mods
@@ -117,6 +122,24 @@ function InputController.init(m)
 		local action = MOUSE[input.UserInputType] or KEYS[input.KeyCode]
 		if action then
 			release(action)
+		end
+	end)
+	-- AFK watch: any input (keys, mouse, touch, sticks) tells the server you're here, at most
+	-- once per Afk.PingInterval
+	local lastInput, lastSent = 0, 0
+	local function touched()
+		lastInput = os.clock()
+	end
+	UserInputService.InputBegan:Connect(touched)
+	UserInputService.InputChanged:Connect(touched)
+	task.spawn(function()
+		local remote = Net.get("Activity")
+		while true do
+			task.wait(Config.Afk.PingInterval)
+			if lastInput > lastSent then
+				lastSent = os.clock()
+				remote:FireServer()
+			end
 		end
 	end)
 	-- losing focus must never leave a hold (charge, toss, block) stuck on

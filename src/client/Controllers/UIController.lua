@@ -6,15 +6,13 @@
 -- sets; the attack readout (km/h and hitting height) right below it; a "Team (Player) scored"
 -- banner with the reason; name tags with tier badges and a marker over the player you control;
 -- the ability panel; charge bars over your head; a timeout button.
--- In the lobby (tabs): Play - pick one of your characters, vote on the mode and the bot level;
--- Shop - spend V Points on x1 / x10 spins or auto-roll (characters, spike styles, colours,
--- trails, score effects), see what each banner can give, auto-sell rarities, buy VP;
--- Locker - equip what you've unlocked.
+-- Out of a match the menus (MenuController) take over; this controller only lends them the
+-- settings panel.
 
-local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -22,8 +20,6 @@ local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
 local Characters = require(Shared.Characters)
 local Court = require(Shared.Court)
-local Spins = require(Shared.Spins)
-local Roster = require(Shared.Roster)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
@@ -40,7 +36,6 @@ local HOT = Color3.fromRGB(255, 50, 90)
 local gui
 local ui = {}
 local tags = {}
-local myPick = nil -- the mode I picked this lobby
 
 ------------------------------------------------------------------------------------------
 -- builders
@@ -327,8 +322,10 @@ local function refreshTopBar()
 	else
 		t.serveDot.Position = UDim2.fromOffset(-2, 24)
 	end
-	t.serveDot.Visible = m.inMatch == true
-	t.bar.Visible = m.inMatch == true
+	-- someone else's match on this court stays out of the menus
+	local mine = m.inMatch == true and State.isPlaying
+	t.serveDot.Visible = mine
+	t.bar.Visible = mine
 end
 
 local function updateStamina()
@@ -1139,13 +1136,33 @@ local function buildCorner()
 	gear.MouseButton1Click:Connect(function()
 		click()
 		sp.Visible = not sp.Visible
+		sp.Position = UDim2.new(1, -12, 0, 56)
+		gui.DisplayOrder = 10
 	end)
 	ui.timeout = timeout
+	ui.gear = gear
+	ui.settings = sp
+end
+
+-- The settings panel, opened from the menus' own Settings button: it shows just under that
+-- button (belowY, a screen position from the very top) and above the menus.
+function UIController.toggleSettings(belowY)
+	local sp = ui.settings
+	if not sp then
+		return
+	end
+	sp.Visible = not sp.Visible
+	gui.DisplayOrder = sp.Visible and 25 or 10
+	if belowY then
+		local inset = GuiService:GetGuiInset()
+		sp.Position = UDim2.new(1, -12, 0, math.max(8, belowY - inset.Y))
+	end
 end
 
 local function updateTimeout()
 	local b = ui.timeout
 	local show = State.isPlaying and State.match.inMatch == true
+	ui.gear.Visible = State.isPlaying
 	b.Visible = show
 	local f = ui.forfeit
 	f.Visible = show and State.phase() ~= "MatchEnd"
@@ -1165,783 +1182,6 @@ local function updateTimeout()
 		else
 			b.Text = "Timeout (" .. left .. ")"
 			b.TextColor3 = left > 0 and UI.Chalk or UI.Fog
-		end
-	end
-end
-
-------------------------------------------------------------------------------------------
--- lobby: Play (your characters + mode), Shop (spins, auto-roll, auto-sell, VP packs),
--- Locker (cosmetics)
-------------------------------------------------------------------------------------------
-
-local SPINS = Config.Spins
-local COS = Config.Cosmetics
-local tab = "Play"
-local banner = "Char"
-local showTable = true -- the Shop shows what a banner can give until you spin
-local revealed = nil -- the snapshot whose reveal already played
-local packPrices = {}
-
-local function profile()
-	return State.profile or { vp = 0, owned = {}, equip = {}, autoSell = {} }
-end
-
-local function send(...)
-	click()
-	Net.get("Profile"):FireServer(...)
-end
-
-local function roleName(role)
-	local r = Config.Roles[role or ""]
-	return r and r.Name or tostring(role)
-end
-
-local function abilityText(c)
-	local def = c.Ability and Config.Abilities[c.Ability]
-	return def and def.Name or "No ability"
-end
-
--- One line about a spin item: characters show tier, role and ability.
-local function itemLine(kind, item)
-	if kind == "Char" and item.Char then
-		local c = item.Char
-		return string.format("%s  %s  %s", c.Tier, Config.Roles[c.Role].Short, c.Ability and Config.Abilities[c.Ability].Name or "")
-	end
-	return item.Rarity
-end
-
-local function buildPlay(page)
-	-- left: the characters you own
-	local left = make("Frame", { Size = UDim2.fromOffset(410, 420), BackgroundTransparency = 1 }, page)
-	label(left, { Text = "Your characters", Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, 0, 0, 20) })
-	local list = make("ScrollingFrame", {
-		Size = UDim2.fromOffset(410, 262),
-		Position = UDim2.fromOffset(0, 24),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 6,
-		CanvasSize = UDim2.fromOffset(0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-	}, left)
-	make("UIGridLayout", { CellSize = UDim2.fromOffset(198, 58), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
-	local cards = {}
-	for i, c in ipairs(Roster) do
-		local b = button(list, "", { LayoutOrder = i, BackgroundColor3 = UI.InkSoft, Visible = false })
-		local s = stroke(b, 2, Characters.color(c.Tier))
-		label(b, { Text = c.Name, Font = Enum.Font.GothamBlack, TextSize = 15, Size = UDim2.new(1, -60, 0, 20), Position = UDim2.fromOffset(8, 5) })
-		local tierLabel = label(b, {
-			Text = c.Tier,
-			Font = Enum.Font.GothamBlack,
-			TextSize = 16,
-			TextColor3 = Characters.color(c.Tier),
-			Size = UDim2.fromOffset(46, 20),
-			Position = UDim2.new(1, -52, 0, 5),
-			TextXAlignment = Enum.TextXAlignment.Right,
-		})
-		local def = c.Ability and Config.Abilities[c.Ability]
-		label(b, {
-			Text = roleName(c.Role) .. (def and ("  -  " .. def.Name) or ""),
-			Font = Enum.Font.GothamBold,
-			TextSize = 11,
-			TextColor3 = def and def.Color or UI.Fog,
-			Size = UDim2.new(1, -16, 0, 14),
-			Position = UDim2.fromOffset(8, 26),
-		})
-		label(b, {
-			Text = string.format("ATK %d  JMP %d  DEF %d  SPD %d", c.Attack, c.Jump, c.Defense, c.Speed),
-			Font = Enum.Font.GothamBold,
-			TextSize = 10,
-			TextColor3 = UI.Fog,
-			Size = UDim2.new(1, -16, 0, 12),
-			Position = UDim2.fromOffset(8, 41),
-		})
-		b.MouseButton1Click:Connect(function()
-			send("select", c.Id)
-		end)
-		cards[c.Id] = { button = b, stroke = s, tier = tierLabel }
-	end
-	local count = label(left, { Text = "", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = UI.Fog, Size = UDim2.new(1, 0, 0, 16), Position = UDim2.fromOffset(0, 288), TextXAlignment = Enum.TextXAlignment.Right })
-
-	-- votes
-	label(left, { Text = "Pick a mode to start", Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 304) })
-	local votes = {}
-	for i, n in ipairs({ 1, 2, 3 }) do
-		local b = button(left, n .. "v" .. n, { Size = UDim2.fromOffset(94, 32), Position = UDim2.fromOffset((i - 1) * 102, 326) })
-		b.MouseButton1Click:Connect(function()
-			click()
-			myPick = n
-			Net.get("Vote"):FireServer("mode", n)
-			UIController.refreshLobby()
-		end)
-		votes[n] = b
-	end
-	label(left, { Text = "Bot level", Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 364) })
-	local botDown = button(left, "<", { Size = UDim2.fromOffset(40, 32), Position = UDim2.fromOffset(0, 386) })
-	local botTier = label(left, {
-		Text = "",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 18,
-		Size = UDim2.fromOffset(100, 32),
-		Position = UDim2.fromOffset(46, 386),
-		TextXAlignment = Enum.TextXAlignment.Center,
-	})
-	local botUp = button(left, ">", { Size = UDim2.fromOffset(40, 32), Position = UDim2.fromOffset(152, 386) })
-	local function stepBot(d)
-		click()
-		local cur = Characters.tierIndex(State.match.botTier or Config.Match.DefaultBotTier) or 11
-		local nextI = math.clamp(cur + d, 1, #Config.Tiers)
-		Net.get("Vote"):FireServer("botTier", Config.Tiers[nextI])
-	end
-	botDown.MouseButton1Click:Connect(function()
-		stepBot(-1)
-	end)
-	botUp.MouseButton1Click:Connect(function()
-		stepBot(1)
-	end)
-
-	-- right: the character you play
-	local right = panel(page, {
-		Size = UDim2.fromOffset(390, 420),
-		Position = UDim2.fromOffset(430, 0),
-		BackgroundColor3 = UI.InkSoft,
-		BackgroundTransparency = 0.35,
-	})
-	local name = label(right, { Text = "", Font = Enum.Font.Bangers, TextSize = 34, TextColor3 = UI.Chalk, Size = UDim2.new(1, -24, 0, 36), Position = UDim2.fromOffset(12, 4) })
-	stroke(name, 2, UI.Ink)
-	local tier = label(right, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 26, Size = UDim2.new(1, -24, 0, 36), Position = UDim2.fromOffset(12, 4), TextXAlignment = Enum.TextXAlignment.Right })
-	stroke(tier, 2, UI.Ink)
-	local sub = label(right, { Text = "", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = UI.Fog, Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 42) })
-	local abilityName = label(right, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 15, Size = UDim2.new(1, -24, 0, 20), Position = UDim2.fromOffset(12, 64) })
-	local abilityBlurb = label(right, {
-		Text = "",
-		Font = Enum.Font.Gotham,
-		TextSize = 12,
-		TextColor3 = UI.Fog,
-		TextWrapped = true,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		Size = UDim2.new(1, -24, 0, 44),
-		Position = UDim2.fromOffset(12, 86),
-	})
-	local rows = {}
-	for i, stat in ipairs(Config.Stats.Order) do
-		local y = 136 + (i - 1) * 30
-		label(right, { Text = stat, Font = Enum.Font.GothamBlack, TextSize = 13, Size = UDim2.fromOffset(80, 22), Position = UDim2.fromOffset(12, y) })
-		local track = make("Frame", {
-			Size = UDim2.fromOffset(220, 10),
-			Position = UDim2.fromOffset(94, y + 6),
-			BackgroundColor3 = Color3.fromRGB(10, 12, 26),
-			BorderSizePixel = 0,
-		}, right)
-		corner(track, 5)
-		local fill = make("Frame", { Size = UDim2.fromScale(0.5, 1), BackgroundColor3 = UI.Chalk, BorderSizePixel = 0 }, track)
-		corner(fill, 5)
-		local value = label(right, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.fromOffset(50, 22), Position = UDim2.fromOffset(326, y), TextXAlignment = Enum.TextXAlignment.Right })
-		rows[stat] = { fill = fill, value = value }
-	end
-	local derived = label(right, {
-		Text = "",
-		Font = Enum.Font.GothamBold,
-		TextSize = 13,
-		TextWrapped = true,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		Size = UDim2.new(1, -24, 0, 90),
-		Position = UDim2.fromOffset(12, 262),
-	})
-	local notice = label(right, {
-		Text = "",
-		Font = Enum.Font.GothamBold,
-		TextSize = 12,
-		TextColor3 = UI.Spark,
-		TextWrapped = true,
-		Size = UDim2.new(1, -24, 0, 34),
-		Position = UDim2.new(0, 12, 1, -40),
-	})
-	return {
-		cards = cards,
-		count = count,
-		votes = votes,
-		botTier = botTier,
-		name = name,
-		tier = tier,
-		sub = sub,
-		abilityName = abilityName,
-		abilityBlurb = abilityBlurb,
-		rows = rows,
-		derived = derived,
-		notice = notice,
-	}
-end
-
--- A result card: a character or an unlocked item.
-local function resultCard(parent, i)
-	local c = make("Frame", {
-		Size = UDim2.fromOffset(78, 92),
-		BackgroundColor3 = Color3.fromRGB(28, 32, 60),
-		BorderSizePixel = 0,
-		LayoutOrder = i,
-		Visible = false,
-	}, parent)
-	corner(c, 8)
-	local s = stroke(c, 2, UI.Fog)
-	local top = label(c, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 10, Size = UDim2.new(1, -6, 0, 14), Position = UDim2.fromOffset(3, 4), TextXAlignment = Enum.TextXAlignment.Center })
-	local body = label(c, {
-		Text = "",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 12,
-		TextWrapped = true,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		Size = UDim2.new(1, -6, 1, -22),
-		Position = UDim2.fromOffset(3, 20),
-		TextXAlignment = Enum.TextXAlignment.Center,
-	})
-	local scale = make("UIScale", { Scale = 1 }, c)
-	return { frame = c, stroke = s, top = top, body = body, scale = scale }
-end
-
-local function buildShop(page)
-	-- banners
-	local list = make("Frame", { Size = UDim2.fromOffset(170, 420), BackgroundTransparency = 1 }, page)
-	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
-	local banners = {}
-	for i, key in ipairs(SPINS.Order) do
-		local def = SPINS.Banners[key]
-		local b = button(list, "", { Size = UDim2.fromOffset(170, 48), LayoutOrder = i })
-		label(b, { Text = def.Name, Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, -16, 0, 18), Position = UDim2.fromOffset(8, 6) })
-		local owned = label(b, { Text = "", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = UI.Fog, Size = UDim2.new(1, -16, 0, 14), Position = UDim2.fromOffset(8, 27) })
-		b.MouseButton1Click:Connect(function()
-			click()
-			banner = key
-			showTable = true
-			UIController.refreshLobby()
-		end)
-		banners[key] = { button = b, owned = owned }
-	end
-
-	-- the selected banner
-	local mid = panel(page, { Size = UDim2.fromOffset(430, 420), Position = UDim2.fromOffset(180, 0), BackgroundColor3 = UI.InkSoft, BackgroundTransparency = 0.35 })
-	local title = label(mid, { Text = "", Font = Enum.Font.Bangers, TextSize = 30, TextColor3 = UI.Spark, Size = UDim2.new(1, -24, 0, 32), Position = UDim2.fromOffset(12, 4) })
-	stroke(title, 2, UI.Ink)
-	local blurb = label(mid, { Text = "", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = UI.Fog, TextWrapped = true, Size = UDim2.new(1, -24, 0, 30), Position = UDim2.fromOffset(12, 36), TextYAlignment = Enum.TextYAlignment.Top })
-	local odds = label(mid, { Text = "", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = UI.Fog, RichText = true, TextWrapped = true, Size = UDim2.new(1, -24, 0, 16), Position = UDim2.fromOffset(12, 66) })
-	local spin1 = button(mid, "", { Size = UDim2.fromOffset(130, 36), Position = UDim2.fromOffset(12, 86), BackgroundColor3 = UI.Spark, TextColor3 = UI.Ink, TextSize = 14 })
-	local spin10 = button(mid, "", { Size = UDim2.fromOffset(130, 36), Position = UDim2.fromOffset(150, 86), BackgroundColor3 = Color3.fromRGB(255, 120, 60), TextColor3 = UI.Ink, TextSize = 14 })
-	local auto = button(mid, "", { Size = UDim2.fromOffset(130, 36), Position = UDim2.fromOffset(288, 86), BackgroundColor3 = Config.Rarity.Colors.Legendary, TextColor3 = UI.Ink, TextSize = 12, TextWrapped = true })
-	spin1.MouseButton1Click:Connect(function()
-		showTable = false
-		send("spin", banner, 1)
-	end)
-	spin10.MouseButton1Click:Connect(function()
-		showTable = false
-		send("spin", banner, 10)
-	end)
-	auto.MouseButton1Click:Connect(function()
-		if profile().autoRolling then
-			send("stop")
-		else
-			showTable = false
-			send("autoroll", banner)
-		end
-	end)
-	local viewToggle = button(mid, "", { Size = UDim2.fromOffset(130, 24), Position = UDim2.new(1, -142, 0, 128), TextSize = 11 })
-	viewToggle.MouseButton1Click:Connect(function()
-		click()
-		showTable = not showTable
-		UIController.refreshLobby()
-	end)
-	local status = label(mid, { Text = "", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = UI.Spark, TextWrapped = true, Size = UDim2.new(1, -160, 0, 24), Position = UDim2.fromOffset(12, 128) })
-
-	-- results grid (after a spin)
-	local grid = make("Frame", { Size = UDim2.fromOffset(414, 196), Position = UDim2.fromOffset(8, 160), BackgroundTransparency = 1 }, mid)
-	make("UIGridLayout", { CellSize = UDim2.fromOffset(78, 92), CellPadding = UDim2.fromOffset(4, 6), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
-	local results = {}
-	for i = 1, 10 do
-		results[i] = resultCard(grid, i)
-	end
-	-- what's inside: every possible pull with its chance
-	local tableFrame = make("ScrollingFrame", {
-		Size = UDim2.fromOffset(414, 252),
-		Position = UDim2.fromOffset(8, 160),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 6,
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		CanvasSize = UDim2.fromOffset(0, 0),
-		Visible = false,
-	}, mid)
-	make("UIListLayout", { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }, tableFrame)
-	local tableRows = {}
-	local maxRows = 0
-	for _, kind in ipairs(Spins.Kinds) do
-		maxRows = math.max(maxRows, #Spins.table(kind))
-	end
-	for i = 1, maxRows do
-		local row = make("Frame", { Size = UDim2.new(1, -10, 0, 24), BackgroundColor3 = Color3.fromRGB(28, 32, 60), BorderSizePixel = 0, LayoutOrder = i, Visible = false }, tableFrame)
-		corner(row, 6)
-		local rs = stroke(row, 1.5, UI.Fog)
-		local n = label(row, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 12, Size = UDim2.new(0.34, 0, 1, 0), Position = UDim2.fromOffset(8, 0) })
-		local d = label(row, { Text = "", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = UI.Fog, Size = UDim2.new(0.38, 0, 1, 0), Position = UDim2.fromScale(0.34, 0) })
-		local ch = label(row, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 12, Size = UDim2.new(0.14, 0, 1, 0), Position = UDim2.fromScale(0.71, 0), TextXAlignment = Enum.TextXAlignment.Right })
-		local own = label(row, { Text = "", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = UI.Mint, Size = UDim2.new(0.14, -8, 1, 0), Position = UDim2.fromScale(0.86, 0), TextXAlignment = Enum.TextXAlignment.Right })
-		tableRows[i] = { frame = row, stroke = rs, name = n, desc = d, chance = ch, own = own }
-	end
-
-	-- right: auto-sell and VP packs
-	local right = make("Frame", { Size = UDim2.fromOffset(200, 420), Position = UDim2.fromOffset(620, 0), BackgroundTransparency = 1 }, page)
-	label(right, { Text = "Auto-sell pulls", Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.new(1, 0, 0, 20) })
-	local sells = {}
-	for i, r in ipairs(SPINS.AutoSellable) do
-		local b = button(right, "", { Size = UDim2.fromOffset(200, 28), Position = UDim2.fromOffset(0, 22 + (i - 1) * 32), TextSize = 12 })
-		b.MouseButton1Click:Connect(function()
-			local on = profile().autoSell and profile().autoSell[r]
-			send("autosell", r, not on)
-		end)
-		sells[r] = b
-	end
-	local y0 = 22 + #SPINS.AutoSellable * 32 + 8
-	label(right, { Text = "Get V Points", Font = Enum.Font.GothamBlack, TextSize = 14, TextColor3 = UI.Spark, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, y0) })
-	local packs = {}
-	for i, pack in ipairs(Config.Shop.Packs) do
-		local b = button(right, "", { Size = UDim2.fromOffset(200, 50), Position = UDim2.fromOffset(0, y0 + 24 + (i - 1) * 56) })
-		label(b, { Text = pack.Name, Font = Enum.Font.GothamBlack, TextSize = 13, Size = UDim2.new(1, -16, 0, 16), Position = UDim2.fromOffset(10, 6) })
-		label(b, { Text = pack.VP .. " VP", Font = Enum.Font.GothamBlack, TextSize = 16, TextColor3 = UI.Spark, Size = UDim2.new(1, -16, 0, 20), Position = UDim2.fromOffset(10, 24) })
-		local price = label(b, { Text = "", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = UI.Fog, Size = UDim2.new(1, -16, 0, 16), Position = UDim2.fromOffset(10, 6), TextXAlignment = Enum.TextXAlignment.Right })
-		b.MouseButton1Click:Connect(function()
-			click()
-			if pack.Id ~= 0 then
-				pcall(function()
-					MarketplaceService:PromptProductPurchase(player, pack.Id)
-				end)
-			elseif profile().studio then
-				Net.get("Profile"):FireServer("buy", i)
-			end
-		end)
-		packs[i] = { button = b, price = price }
-		if pack.Id ~= 0 then
-			task.spawn(function()
-				local ok, info = pcall(function()
-					return MarketplaceService:GetProductInfo(pack.Id, Enum.InfoType.Product)
-				end)
-				if ok and info and info.PriceInRobux then
-					packPrices[i] = info.PriceInRobux
-					UIController.refreshLobby()
-				end
-			end)
-		end
-	end
-	return {
-		banners = banners,
-		title = title,
-		blurb = blurb,
-		odds = odds,
-		spin1 = spin1,
-		spin10 = spin10,
-		auto = auto,
-		viewToggle = viewToggle,
-		status = status,
-		grid = grid,
-		results = results,
-		tableFrame = tableFrame,
-		tableRows = tableRows,
-		sells = sells,
-		packs = packs,
-	}
-end
-
-local function buildLocker(page)
-	local rows = {}
-	for r, kind in ipairs(COS.Kinds) do
-		local y = (r - 1) * 104
-		label(page, { Text = SPINS.Banners[kind].Name, Font = Enum.Font.GothamBlack, TextSize = 14, Size = UDim2.fromOffset(300, 20), Position = UDim2.fromOffset(0, y) })
-		local chips = {}
-		for i, item in ipairs(COS[kind]) do
-			local b = button(page, "", { Size = UDim2.fromOffset(86, 72), Position = UDim2.fromOffset((i - 1) * 91, y + 24), BackgroundColor3 = Color3.fromRGB(28, 32, 60) })
-			local s = stroke(b, 2, Spins.rarityColor(item.Rarity))
-			if item.Color then
-				local swatch = make("Frame", { Size = UDim2.fromOffset(18, 18), Position = UDim2.new(1, -24, 0, 6), BackgroundColor3 = item.Color, BorderSizePixel = 0 }, b)
-				corner(swatch, 9)
-			end
-			label(b, { Text = item.Name, Font = Enum.Font.GothamBlack, TextSize = 11, TextWrapped = true, Size = UDim2.new(1, -10, 0, 30), Position = UDim2.fromOffset(5, 24), TextXAlignment = Enum.TextXAlignment.Center })
-			local tag = label(b, { Text = "", Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = Spins.rarityColor(item.Rarity), Size = UDim2.new(1, -10, 0, 12), Position = UDim2.new(0, 5, 1, -16), TextXAlignment = Enum.TextXAlignment.Center })
-			b.MouseButton1Click:Connect(function()
-				local owned = profile().owned and profile().owned[kind]
-				if owned and owned[item.Key] then
-					send("equip", kind, item.Key)
-				else
-					click()
-					tab = "Shop"
-					banner = kind
-					showTable = true
-					UIController.refreshLobby()
-				end
-			end)
-			chips[item.Key] = { button = b, stroke = s, tag = tag, item = item }
-		end
-		rows[kind] = chips
-	end
-	return { rows = rows }
-end
-
-local function buildLobby()
-	local root = panel(gui, {
-		Name = "Lobby",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.53),
-		Size = UDim2.fromOffset(860, 540),
-		Visible = false,
-	})
-	stroke(root, 2, UI.InkSoft)
-	ui.lobbyScale = make("UIScale", {}, root)
-	local title = label(root, {
-		Text = "Spike Rush",
-		Font = Enum.Font.Bangers,
-		TextSize = 44,
-		TextColor3 = UI.Spark,
-		Size = UDim2.fromOffset(220, 50),
-		Position = UDim2.fromOffset(20, 6),
-	})
-	stroke(title, 3, UI.Ink)
-	local tabs = {}
-	for i, name in ipairs({ "Play", "Shop", "Locker" }) do
-		local b = button(root, name, { Size = UDim2.fromOffset(100, 34), Position = UDim2.fromOffset(240 + (i - 1) * 108, 14) })
-		b.MouseButton1Click:Connect(function()
-			click()
-			tab = name
-			UIController.refreshLobby()
-		end)
-		tabs[name] = b
-	end
-	local vp = label(root, {
-		Text = "",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 20,
-		TextColor3 = UI.Spark,
-		Size = UDim2.fromOffset(220, 34),
-		Position = UDim2.new(1, -240, 0, 14),
-		TextXAlignment = Enum.TextXAlignment.Right,
-	})
-	stroke(vp, 2, UI.Ink)
-	local timer = label(root, {
-		Text = "",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 15,
-		TextColor3 = UI.Fog,
-		Size = UDim2.new(1, -40, 0, 22),
-		Position = UDim2.new(0, 20, 1, -30),
-		TextXAlignment = Enum.TextXAlignment.Center,
-	})
-	local pages = {}
-	for _, name in ipairs({ "Play", "Shop", "Locker" }) do
-		pages[name] = make("Frame", { Size = UDim2.fromOffset(820, 420), Position = UDim2.fromOffset(20, 62), BackgroundTransparency = 1, Visible = false }, root)
-	end
-	ui.lobby = {
-		root = root,
-		timer = timer,
-		vp = vp,
-		tabs = tabs,
-		pages = pages,
-		play = buildPlay(pages.Play),
-		shop = buildShop(pages.Shop),
-		locker = buildLocker(pages.Locker),
-	}
-end
-
-local function refreshPlay(L, prof)
-	local owned = prof.owned and prof.owned.Char or {}
-	local current = prof.char or player:GetAttribute("CharId")
-	local n = 0
-	for id, card in pairs(L.cards) do
-		local have = owned[id] == true
-		card.button.Visible = have
-		if have then
-			n = n + 1
-		end
-		local on = id == current
-		card.button.BackgroundColor3 = on and Color3.fromRGB(70, 84, 150) or UI.InkSoft
-		card.stroke.Thickness = on and 3 or 1.5
-	end
-	L.count.Text = string.format("%d of %d characters  -  roll for more in the Shop", n, #Roster)
-	local counts = State.match.votes or {}
-	if State.match.phase ~= "Intermission" then
-		myPick = nil
-	end
-	for k, b in pairs(L.votes) do
-		b.Text = string.format("%dv%d   %d", k, k, counts["v" .. k] or 0)
-		if myPick == k then
-			b.BackgroundColor3 = UI.Spark
-			b.TextColor3 = UI.Ink
-		else
-			b.BackgroundColor3 = UI.InkSoft
-			b.TextColor3 = UI.Chalk
-		end
-	end
-	L.botTier.Text = State.match.botTier or Config.Match.DefaultBotTier
-	L.botTier.TextColor3 = Characters.color(L.botTier.Text)
-
-	local c = Roster.get(current) or Roster.get(Roster.Starters[1])
-	L.name.Text = c.Name
-	L.tier.Text = c.Tier
-	L.tier.TextColor3 = Characters.color(c.Tier)
-	L.sub.Text = string.format("%s, %d cm", roleName(c.Role), c.Height)
-	local def = c.Ability and Config.Abilities[c.Ability]
-	L.abilityName.Text = def and def.Name or "No ability"
-	L.abilityName.TextColor3 = def and def.Color or UI.Fog
-	L.abilityBlurb.Text = def and def.Blurb or "Abilities come with S and S+ characters."
-	for stat, row in pairs(L.rows) do
-		local v = c[stat]
-		row.value.Text = tostring(v)
-		row.fill.Size = UDim2.fromScale(math.clamp((v - Config.Stats.Min) / (Config.Stats.Ref - Config.Stats.Min), 0, 1), 1)
-	end
-	local s = Characters.derive(Characters.fromRoster(c))
-	local H = Config.Hits
-	local lo, hi = H.SpikeKmhMin * s.Power, H.SpikeKmhMax * s.Power
-	local thunder = ""
-	if c.Ability == "Thunder" then
-		thunder = s.ContactMaxM >= H.ThunderHeight and string.format("\nThunder spikes %.0f to %.0f km/h", H.ThunderKmhMin * s.Power, H.ThunderKmhMax * s.Power) or "\nThunder needs a 4.00 m hitting point"
-	end
-	L.derived.Text = string.format(
-		"Hitting point %s m\nSpike speed %.0f to %.0f km/h%s\nStamina %d, run speed %.1f",
-		fmt2(s.ContactMaxM),
-		lo,
-		hi,
-		thunder,
-		math.floor(s.StaminaPool + 0.5),
-		s.WalkSpeed
-	)
-	if State.isPlaying and State.match.inMatch then
-		L.notice.Text = "Your character is locked until this match ends."
-	elseif prof.notice then
-		L.notice.Text = prof.notice
-	elseif prof.dev then
-		L.notice.Text = "Developer: every character and unlockable, free spins."
-	elseif prof.saving == false then
-		L.notice.Text = "Progress isn't being saved in this session."
-	else
-		L.notice.Text = ""
-	end
-end
-
-local function showCard(card, kind, it)
-	local item = Spins.item(kind, it.key)
-	local rarity = item and item.Rarity or "Common"
-	local color = Spins.rarityColor(rarity)
-	card.frame.Visible = true
-	card.top.Text = rarity
-	card.top.TextColor3 = color
-	card.stroke.Color = color
-	card.stroke.Thickness = Spins.rarityRank(rarity) >= 4 and 3 or 2
-	local name = item and item.Name or "?"
-	if kind == "Char" and item and item.Char then
-		name = name .. "\n" .. item.Char.Tier .. " " .. Config.Roles[item.Char.Role].Short
-	end
-	local tail = "NEW"
-	if it.dup then
-		tail = "+" .. Spins.sellValue(rarity) .. " VP"
-	elseif it.sold then
-		tail = "sold +" .. Spins.sellValue(rarity)
-	end
-	card.body.Text = name .. "\n" .. tail
-end
-
--- Pop the cards in one after another.
-local function playReveal(cards, count, best)
-	for i = 1, count do
-		local card = cards[i]
-		card.scale.Scale = 0.2
-		task.delay(0.05 * (i - 1), function()
-			TweenService:Create(card.scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-			if i == best then
-				TweenService:Create(card.scale, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 1, true, 0.25), { Scale = 1.08 }):Play()
-			end
-		end)
-	end
-	if mods.AudioController then
-		mods.AudioController.play("UIClick")
-		task.delay(0.05 * count, function()
-			mods.AudioController.play("Point")
-		end)
-	end
-end
-
-local function ownedCount(prof, kind)
-	local owned = prof.owned and prof.owned[kind] or {}
-	local n = 0
-	for _, item in ipairs(Spins.items(kind)) do
-		if owned[item.Key] then
-			n = n + 1
-		end
-	end
-	return n, #Spins.items(kind)
-end
-
-local function refreshShop(L, prof)
-	for key, b in pairs(L.banners) do
-		local on = key == banner
-		b.button.BackgroundColor3 = on and Color3.fromRGB(52, 60, 108) or UI.InkSoft
-		local have, total = ownedCount(prof, key)
-		b.owned.Text = string.format("%d of %d unlocked", have, total)
-	end
-	local def = SPINS.Banners[banner]
-	L.title.Text = def.Name
-	L.blurb.Text = def.Blurb
-	local vp = prof.vp or 0
-	local free = prof.dev == true
-	L.spin1.Text = free and "Spin x1  free" or ("Spin x1  " .. SPINS.Costs[1] .. " VP")
-	L.spin10.Text = free and "Spin x10  free" or ("Spin x10  " .. SPINS.Costs[10] .. " VP")
-	L.spin1.BackgroundTransparency = (free or vp >= SPINS.Costs[1]) and 0 or 0.5
-	L.spin10.BackgroundTransparency = (free or vp >= SPINS.Costs[10]) and 0 or 0.5
-	local rolling = prof.autoRolling
-	if rolling then
-		local n = prof.reveal and prof.reveal.auto or 0
-		L.auto.Text = string.format("Stop auto-roll (%d)", n)
-		L.auto.BackgroundColor3 = UI.Whistle
-	else
-		L.auto.Text = "Auto-roll until " .. SPINS.AutoRollTarget
-		L.auto.BackgroundColor3 = Config.Rarity.Colors.Legendary
-	end
-	local o = Spins.odds(banner)
-	local parts = {}
-	for _, r in ipairs(Config.Rarity.Order) do
-		if o[r] > 0 then
-			table.insert(parts, string.format('<font color="#%s">%s %.1f%%</font>', hex(Spins.rarityColor(r)), r, o[r] * 100))
-		end
-	end
-	L.odds.Text = table.concat(parts, "   ")
-
-	-- a fresh reveal switches to the results
-	local reveal = prof.reveal
-	if reveal and reveal.items and revealed ~= prof then
-		showTable = false
-	end
-	L.viewToggle.Text = showTable and "Show last spin" or "What's inside"
-	L.tableFrame.Visible = showTable
-	L.grid.Visible = not showTable
-	L.status.Text = prof.notice or ""
-
-	-- what's inside
-	if showTable then
-		local owned = prof.owned and prof.owned[banner] or {}
-		local rowsData = Spins.table(banner)
-		for i, row in ipairs(L.tableRows) do
-			local d = rowsData[i]
-			row.frame.Visible = d ~= nil
-			if d then
-				local color = Spins.rarityColor(d.item.Rarity)
-				row.stroke.Color = color
-				row.name.Text = d.item.Name
-				row.name.TextColor3 = color
-				row.desc.Text = itemLine(banner, d.item)
-				row.chance.Text = d.chance >= 0.01 and string.format("%.1f%%", d.chance * 100) or string.format("%.2f%%", d.chance * 100)
-				row.own.Text = owned[d.item.Key] and "owned" or ""
-			end
-		end
-	end
-
-	-- the last spin
-	for _, card in ipairs(L.results) do
-		card.frame.Visible = false
-	end
-	if reveal and reveal.items and reveal.banner then
-		local best, bestRank = 1, 0
-		for i, it in ipairs(reveal.items) do
-			if L.results[i] then
-				showCard(L.results[i], reveal.banner, it)
-				local item = Spins.item(reveal.banner, it.key)
-				local rank = item and Spins.rarityRank(item.Rarity) or 1
-				if rank > bestRank then
-					best, bestRank = i, rank
-				end
-			end
-		end
-		if revealed ~= prof then
-			revealed = prof
-			playReveal(L.results, #reveal.items, best)
-		end
-	end
-
-	for r, b in pairs(L.sells) do
-		local on = prof.autoSell and prof.autoSell[r]
-		b.Text = string.format("%s: %s  (+%d VP)", r, on and "sell" or "keep", Spins.sellValue(r))
-		b.BackgroundColor3 = on and Spins.rarityColor(r):Lerp(UI.Ink, 0.45) or UI.InkSoft
-		b.TextColor3 = on and UI.Chalk or UI.Fog
-	end
-	for i, pack in ipairs(Config.Shop.Packs) do
-		local p = L.packs[i]
-		if pack.Id ~= 0 then
-			p.price.Text = packPrices[i] and ("R$ " .. packPrices[i]) or "..."
-		elseif prof.studio then
-			p.price.Text = "Studio: free"
-		else
-			p.price.Text = "Soon"
-		end
-	end
-end
-
-local function refreshLocker(L, prof)
-	for kind, chips in pairs(L.rows) do
-		local owned = prof.owned and prof.owned[kind] or {}
-		local equipped = prof.equip and prof.equip[kind] or Spins.default(kind)
-		for key, chip in pairs(chips) do
-			local have = owned[key] == true
-			chip.button.BackgroundColor3 = key == equipped and Color3.fromRGB(70, 84, 150) or Color3.fromRGB(28, 32, 60)
-			chip.button.BackgroundTransparency = have and 0 or 0.5
-			chip.stroke.Thickness = key == equipped and 3 or 2
-			if key == equipped then
-				chip.tag.Text = "Equipped"
-				chip.tag.TextColor3 = UI.Spark
-			elseif have then
-				chip.tag.Text = chip.item.Rarity
-				chip.tag.TextColor3 = Spins.rarityColor(chip.item.Rarity)
-			else
-				chip.tag.Text = "Locked"
-				chip.tag.TextColor3 = UI.Fog
-			end
-		end
-	end
-end
-
-function UIController.refreshLobby()
-	local L = ui.lobby
-	if not L then
-		return
-	end
-	local prof = profile()
-	-- a fresh spin result jumps to the shop
-	if prof.reveal and revealed ~= prof and prof.reveal.banner then
-		tab = "Shop"
-		banner = prof.reveal.banner
-	end
-	L.vp.Text = prof.dev and "DEV  free spins" or (tostring(prof.vp or 0) .. " VP")
-	for name, b in pairs(L.tabs) do
-		local on = name == tab
-		b.BackgroundColor3 = on and UI.Spark or UI.InkSoft
-		b.TextColor3 = on and UI.Ink or UI.Chalk
-		L.pages[name].Visible = on
-	end
-	refreshPlay(L.play, prof)
-	refreshShop(L.shop, prof)
-	refreshLocker(L.locker, prof)
-end
-
-local function updateLobby()
-	local L = ui.lobby
-	local phase = State.phase()
-	local show = phase == "Intermission" or not State.isPlaying
-	L.root.Visible = show
-	if show then
-		local left = math.max(0, math.ceil((State.match.phaseEnd or 0) - Util.now()))
-		if phase == "Intermission" and State.match.waitingForPick then
-			L.timer.Text = "Pick 1v1, 2v2 or 3v3 on the Play tab to start a match"
-			L.timer.TextColor3 = UI.Spark
-		elseif phase == "Intermission" then
-			L.timer.Text = "Match starts in " .. left
-			L.timer.TextColor3 = UI.Fog
-		else
-			L.timer.Text = "Match in progress, you join at the next rally"
-			L.timer.TextColor3 = UI.Fog
-		end
-		local cam = workspace.CurrentCamera
-		if cam then
-			ui.lobbyScale.Scale = math.clamp(cam.ViewportSize.Y / 640, 0.55, 1.1)
 		end
 	end
 end
@@ -2017,6 +1257,11 @@ local function showResults(a)
 	r.title.Text = teamName(a.winner) .. " win"
 	r.title.TextColor3 = teamColor(a.winner)
 	r.mvp.Text = a.mvpName and ("MVP " .. a.mvpName) or ""
+	for _, e in ipairs(a.results or {}) do
+		if e.id == a.mvpId and e.mvpBonus then
+			r.mvp.Text = r.mvp.Text .. string.format("  (+%d VP bonus)", e.mvpBonus)
+		end
+	end
 	if a.forfeit then
 		r.mvp.Text = teamName(a.forfeit) .. " forfeited"
 	end
@@ -2041,6 +1286,9 @@ end
 ------------------------------------------------------------------------------------------
 
 local function onAnnounce(a)
+	if not State.isPlaying and a.kind ~= "StandIn" then
+		return -- a match you're not in (you're in the menus)
+	end
 	if a.kind == "Point" then
 		showBanner(a)
 		if a.deuce then
@@ -2062,7 +1310,7 @@ local function onAnnounce(a)
 		showResults(a)
 	elseif a.kind == "Serve" then
 		if a.id == State.myId then
-			showHint("Your serve: tap X for an overhand serve, hold X to toss for a jump serve")
+			showHint("Your serve: tap X for an overhand serve, hold X to toss for a jump serve (hold toward the net to toss it forward)")
 		end
 	elseif a.kind == "Forfeit" then
 		UIController.callout("Forfeit", teamColor(a.team), teamName(a.team) .. " gave up the match", 1.6)
@@ -2074,6 +1322,9 @@ local function onAnnounce(a)
 		if a.team == State.myTeam then
 			showHint("Guard broken! Slide to receive (C) or call a timeout (T)")
 		end
+	elseif a.kind == "StandIn" then
+		local why = a.reason == "afk" and "is away" or "left"
+		showHint(string.format("%s %s. Their AI plays %s for now", a.name or "A player", why, a.char or "their character"))
 	end
 end
 
@@ -2185,7 +1436,6 @@ local function updateSlow()
 	updateAbility()
 	updateTimeout()
 	updateRotation()
-	updateLobby()
 end
 
 function UIController.init(m)
@@ -2204,7 +1454,6 @@ function UIController.init(m)
 	buildAbility()
 	buildRail()
 	buildCorner()
-	buildLobby()
 	buildResults()
 	buildRotation()
 
@@ -2218,18 +1467,12 @@ function UIController.init(m)
 	State.signals.Hint:Connect(showHint)
 	State.signals.Match:Connect(function()
 		refreshTopBar()
-		UIController.refreshLobby()
-	end)
-	State.signals.Profile:Connect(function()
-		UIController.refreshLobby()
 	end)
 	State.signals.Charge:Connect(function(energy, gauge, st)
 		ui.ability.e = energy
 		ui.ability.g = gauge
 		ui.ability.st = st
 	end)
-	player:GetAttributeChangedSignal("CharId"):Connect(UIController.refreshLobby)
-	UIController.refreshLobby()
 	refreshTopBar()
 	pcall(updateSlow)
 

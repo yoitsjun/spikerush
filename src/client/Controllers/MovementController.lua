@@ -262,7 +262,43 @@ local function lockLane()
 	end
 end
 
--- Physics step: lane, hang, hover.
+-- Serving: until the ball is served the server can't walk past the end line (so holding
+-- toward the net for a forward toss never walks you in). A jump may carry you over it: a jump
+-- serve lands in the court legally. Returns the line's depth from the net while it applies.
+local LINE_GAP = 0.25
+local function serveLine()
+	if not State.isPlaying or not State.isServer() then
+		return nil
+	end
+	local phase = State.phase()
+	if phase ~= "PreServe" and phase ~= "Serving" then
+		return nil
+	end
+	local BR = mods.BallRenderer
+	local meta = BR.getMeta()
+	if BR.getState() ~= "Held" and not (meta and meta.hitType == "Toss") then
+		return nil
+	end
+	return Config.Court.SideDepth + LINE_GAP
+end
+
+local function holdServeLine(airborne)
+	local line = not airborne and serveLine()
+	if not line then
+		return
+	end
+	local depth = hrp.Position.Z * State.mySide
+	-- only at the line: somebody who jumped well into the court is left where they landed
+	if depth < line and depth > line - 2.5 then
+		hrp.CFrame = hrp.CFrame + Vector3.new(0, 0, (line - depth) * State.mySide)
+		local v = hrp.AssemblyLinearVelocity
+		if v.Z * State.mySide < 0 then
+			hrp.AssemblyLinearVelocity = Vector3.new(v.X, v.Y, 0)
+		end
+	end
+end
+
+-- Physics step: lane, hang, hover, the serve line.
 local function physicsStep()
 	if not hum or not hrp or not hrp.Parent or hum.Health <= 0 then
 		return
@@ -270,6 +306,7 @@ local function physicsStep()
 	lockLane()
 	local vy = hrp.AssemblyLinearVelocity.Y
 	local airborne = inAir()
+	holdServeLine(airborne)
 	local cancel = 0
 	if airborne and not slide then
 		if charging and vy <= 0 then
@@ -353,6 +390,10 @@ local function moveStep()
 	end
 
 	local axis = MovementController.axis()
+	local line = not airborne and serveLine()
+	if line and axis * -State.mySide > 0 and hrp.Position.Z * State.mySide <= line + 0.05 then
+		axis = 0 -- at the serve line: no walking onto the court
+	end
 	if airborne then
 		local air = P.AirControl
 		if State.myAbility() == "Azure" then

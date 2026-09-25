@@ -31,6 +31,8 @@ On heights (sixth session): a D- was reaching nearly 4 m, while the owner's scre
 
 Seventh session, the owner's character design (replaces stat allocation and cap or tier rolls): "roll for character builds... 3 options a mb, a ws, or a setter. the ws has the highest jump and attack, reaching heights of 210 attack and 190 jump, if needed we can add more. a mb has the most height and similar jump but less attack maybe around 180 jump and 170 attack. the setter is speed and defense focused, with 160-180 being good for both. and instead of everyone having access to the abilities, you roll for them. make preset character builds with names... YeJun has Thunderspike + 195 attack + 190 jump". Abilities, one per role: MB S "completely shut down block anything" on a key; setter S passive "chemical reaction" that makes the spike or feint off her set explode, with more power, and wipe stamina fast; Thunder and Azure are S+; a normal WS S gets more jump and attack when stamina is low. Also: auto-sell for commons and epics, auto-roll until legendary, a preview of what you're rolling for, full access for developers, and boom jumps only with a Jump stat of 170+.
 
+Eighth session: the menus should look like The Spike's (six reference screenshots: a Home screen with a profile card and currencies top left, icons on the right, an event card, Recruit Player and Match bottom right, a tip line and the character in a locker room; a Recruit Player screen with a banner list, a Player/Skin split, a big title, a Probability Table button and Recruit x1 50 / x10 500) and must look professional, "not like AI". Recruiting must not be instant: it lights up gold for an S, Skip jumps to the S unbox, and an S plays a short animation first (the owner described a yellow screen, a silhouette spiking and a beam of light), with the spike animation "based on the player's current avatar". Also: keep the stat buttons but upgrade the rolled presets with a second currency, **Gold** (like The Spike: four stats, higher ranks cost more and go higher); cancel queue; bots are the player's friends; S+ keeps the original (hard) stamina drain and lower tiers take less; the Chain Reaction ball glows red with a sparkle; an AFK (10 to 15 s) or leaving player is replaced by an AI of the same character; custom lobbies instead of waiting (private with a password, friends only, public, fill with bots); middles spike quicks the setter AI calls, and back up a wing spiker who misses; a forward serve toss, no walking onto the court while serving, and a dotted toss path; +15 VP for the MVP; hitting points from about 2.6 m (the lowest) to 4.3 to 4.4 m (maxed); the jump animation on every jump; previews for spike animations and trails.
+
 **Assets.** The owner originally wanted The Spike's own sounds and visuals copied in. That was declined, and the project builds original equivalents instead: procedural effects and 26 synthesized sounds. Keep it that way.
 
 In the second session the owner asked to use the Roblox Toolbox heavily for VFX, animations, the ball model, sounds and UI. Toolbox (Creator Store) assets are fine; anything ripped from The Spike is not. Gameplay code from the Toolbox (ball physics, hitboxes, movement kits) is deliberately not used, because it would break the deterministic client prediction; TOOLBOX.md explains this to the owner.
@@ -68,14 +70,16 @@ Roles: 3v3 uses WS, MB and SE (humans claim WS first, then MB, then SE); 2v2 use
 The server boots in this order from `src/server/Main.server.lua`, passing each service a shared registry `reg`:
 
 1. ToolboxService
-2. CharacterService
-3. ArenaBuilder
-4. BallService
-5. TeamService
-6. ProfileService
-7. BotService
-8. HitService
-9. MatchService
+2. FriendService
+3. CharacterService
+4. ArenaBuilder
+5. BallService
+6. TeamService
+7. ProfileService
+8. BotService
+9. HitService
+10. LobbyService
+11. MatchService
 
 The client boots from `src/client/Main.client.lua`, passing each controller the table `mods`:
 
@@ -87,9 +91,11 @@ The client boots from `src/client/Main.client.lua`, passing each controller the 
 6. MovementController
 7. InputController
 8. ActionController
-9. UIController
-10. MobileControls
-11. CrowdController
+9. UIController (the match HUD, results, the settings panel)
+10. SceneController (the menu sets; owns the camera while one is shown)
+11. MenuController (every menu screen)
+12. MobileControls
+13. CrowdController
 
 `State` holds shared client state and signals.
 
@@ -122,11 +128,21 @@ Bots call `HitService.botAction` and go through the same pipeline.
 - Chain Reaction: sets by a ChainReaction character carry `meta.charged`. An attack whose `ctx.lastHit` is a charged set of its own team explodes: spike speed x `PowerMul`, and `meta.reaction`, `drainMul`, `flatDrain`; a feint gets the same (and loses `noDrain`). `HitLogic.isHeavy` treats reaction balls as heavy; the receive drain is `drainFor x drainMul`, then the perfect-timing share, then `+ flatDrain`.
 - Iron Wall: `ctx.ironWall` makes any block a Stuff (`meta.ironWall`). The server's window: `HitService.activateAbility(entity)` (from the ActionFX "Ability" request or a bot's block jump) sets `entity.ironWallUntil` and `abilityReadyAt` and the `AbilityUntil`/`AbilityReadyAt` attributes (shared clock); HitService passes `ironWall` for blocks inside the window. The client predicts its own press (`ActionController.abilityActive`).
 
-**Saving** is handled by ProfileService. It uses DataStore `SpikeRushProfiles_v1` with key `u_<UserId>`, storing profile v3: `{ v = 3, vp, owned[kind][key] (kind "Char" plus the cosmetic kinds), equip[kind], char, autoSell[rarity], receipts }`. Older profiles keep their VP and cosmetics; their v1/v2 characters don't carry over (everyone gets the starters). A profile is only saved if it loaded successfully, so a failed load never overwrites real data. Spins apply at once; a duplicate, or a new pull of a rarity set to auto-sell, turns into `SellValue` VP. Auto-roll is a server loop per player (`profile.autoRolling`) that pushes each pull and stops on `AutoRollTarget` rarity, no VP, `AutoRollMax` or a "stop". VP packs are Developer Products granted in `MarketplaceService.ProcessReceipt`: each PurchaseId is remembered (last 50) and the receipt is only reported granted after the profile saves (in Studio without API access it grants anyway). Developers (`Config.Developers`) are flagged at load (`profile.dev`): they own everything virtually (not saved) and spin for free.
+**Gold upgrades.** A roster entry's stats are its ceilings. `Characters.baseStat` is where a recruit starts (`Config.Upgrades.StartFraction` of the way from 50), `statLevel(c, levels, stat)` reads a saved value (or "max" for bots), `pointCost`/`upgradeCost` price a point (`BaseCost + (value - 50) * CostPerPoint`, times the tier's `TierMul`), and ProfileService's `upgrade` buys as many of the asked points as the Gold covers (down refunds exactly). `VerticalM` is a curve (`Exp` 1.5 on 0.3 to 2.24 m): the lowest fresh starter hits 2.60 m, a maxed YeJun 4.34 m, the best maxed middle 4.37 m.
+
+**Saving** is handled by ProfileService. It uses DataStore `SpikeRushProfiles_v1` with key `u_<UserId>`, storing profile v4: `{ v = 4, vp, gold, levels[charId][stat], owned[kind][key] (kind "Char" plus the cosmetic kinds), equip[kind], char, autoSell[rarity], receipts }`. Older profiles keep their VP and cosmetics; their v1/v2 characters don't carry over (everyone gets the starters). A profile is only saved if it loaded successfully, so a failed load never overwrites real data. Spins apply at once; a duplicate, or a new pull of a rarity set to auto-sell, turns into `SellValue` VP. Auto-roll is a server loop per player (`profile.autoRolling`) that pushes each pull and stops on `AutoRollTarget` rarity, no VP, `AutoRollMax` or a "stop". VP packs are Developer Products granted in `MarketplaceService.ProcessReceipt`: each PurchaseId is remembered (last 50) and the receipt is only reported granted after the profile saves (in Studio without API access it grants anyway). Developers (`Config.Developers`) are flagged at load (`profile.dev`): they own everything virtually (not saved) and spin for free.
 
 The active character is written as attributes on the Player and the character: `Tier, Height, Attack, Defense, Speed, Jump, Ability ("" for none), CharId, CharName, CharRole`. Equipped cosmetics are attributes too (`SpikeStyle`, `SpikeColor`, `SpikeTrail`, `ScoreEffect`); bots get random ones (more often at higher tiers). AnimationController swaps the airborne `Cock` pose and `Swing` clip by style (`Cock_<Style>`, `Swing_<Style>`), BallRenderer colours and styles the attack trail, and VFXController tints the spike impact and plays the score effect when an attack or stuff block lands in on the other side.
 
 The active build is written as attributes (Tier, Height, Attack, Defense, Speed, Jump, Ability) onto the Player and the character. The client derives its prediction stats from those; the server uses `entity.charStats`, snapshotted when the match assigns teams. Picks and upgrades for your active character are rejected while your match runs, which keeps both sides identical.
+
+**Menus.** `SceneController` builds two sets far from the court on each client (a club room at (1600, 0, -400), a gym at (1600, 0, 400)), poses static clones of your avatar with `AnimationController.rig`/`poseModel`/`poseJoints`/`blendJoints`/`clipJoints`, drives named camera shots (`home`, `recruit`, `ceiling`, `lineup`, `practice`), the recruit balls (`flyBalls`, `lineUp`, `popBall`) and the Locker's practice spike (`setPractice`: your avatar spikes on a loop with the previewed style, the ball wears the colour and trail, `VFXController.previewEffect` plays the score effect). While a scene is shown CameraController stands down. `MenuController` draws every screen on a 900-unit canvas (UIScale), with `Gui` as its UI kit (glass panels, gold and white buttons, FredokaOne titles, icons drawn from frames: no uploaded images). It shows whenever you're not on a match roster. A spin's `reveal` starts the recruit sequence (`playSequence`); during auto-roll only the last pull (the one that hit Legendary) plays in full.
+
+**Lobbies and matches.** `src/shared/Lobbies.lua` holds the rules (sims cover them); `LobbyService` keeps the lobbies per server, answers the `Lobby` remote and sends each player their own `Lobbies` view (friends-only lobbies are filtered with a cached `IsFriendsWith`). `MatchService.intermission` waits for `LobbyService.nextForCourt()`, then `TeamService.assign(mode, LobbyService.plan(lobby))` seats the lobby's players (bots fill the rest) and `LobbyService.finished` reopens the lobby (a quick lobby splits up). Starting while the court is busy reserves a server (`TeleportService:ReserveServer`) and teleports the lobby there with `Lobbies.export` as teleport data (profiles are saved first); the reserved server (`PrivateServerId ~= ""` and `PrivateServerOwnerId == 0`) rebuilds it with `Lobbies.import`, waits up to `ArriveTimeout` for its players, and plays locally from then on. In Studio (no teleports) lobbies queue for the court. **AFK and leaving**: clients fire `Activity` on input (at most once a second); TeamService adds idle time only in live phases (`Lobbies.idle`, `Config.Afk`), and `TeamService.bench` swaps a player for `standIn`: a bot with the same character, build, role, slot and stat line in the player's own avatar (`GetAppliedDescription`), announced as `StandIn`. `requestJoin` (the Rejoin button) and `hotJoin` put the player back at the next rally. MatchService calls a match off (`MatchAbort`) when no human is on court and no benched player is still in the server.
+
+**Setter AI.** `planSet` feeds the wing spiker; off a pass that comes down within `Bots.QuickPassDepth` of the net, with the middle within `QuickReachDepth`, it calls a quick with `QuickChance` (by the setter's tier; half for a human middle). `planQuick` pre-plans a bot middle's run and takeoff from the quick's known path (`HitLogic.setArc`), so it's in the air as the set is made. `planBackup` sends the bot middle up `BackupDelay` behind the wing spiker's contact (a rising contact if the ball has dropped below its best reach, `handLead`); `notBefore` stops it taking a ball the wing spiker can still hit, and it only swings at a human's ball after a whiff (or when they don't go).
+
+**Serving.** `HitLogic.tossLaunch(root, side, height, forward)` is the toss (and draws the client's dotted guide, `BallRenderer.guide`): a forward toss comes down `TossForwardMax` in front. While you serve, MovementController holds you behind the end line until the ball is served (`serveLine`); jumping over it is fine.
 
 **Toolbox assets** (`ToolboxService`, `Assets.lua`): every visual and audio slot resolves in this order: an instance in `ReplicatedStorage.ToolboxAssets.<Category>.<Slot>`, then an id in `Assets`, then the procedural or built-in fallback. `ToolboxService` fills empty `Models`/`VFX` slots from `Assets.Toolbox` at server start (InsertService: owner's or Roblox's assets only), and `ToolboxService.install()` bakes them from the command bar with `game:GetObjects`. `Assets.sanitize` deletes every script in an inserted asset and makes its parts inert; clients sanitize their clones too. BallRenderer rebuilds the ball's look when `Models.Volleyball` arrives late.
 
@@ -139,12 +155,14 @@ The active build is written as attributes (Tier, Height, Attack, Defense, Speed,
 | HitReject | rejection, triggers rollback |
 | ActionFX | Slide, Block, Whiff, Jump, Charge, ChargeEnd, Stance cosmetics; "Ability" from a client asks to start its active ability |
 | MatchState | match snapshot |
-| Announce | Point (with `playTo`, `deuce`), Serve, SetStart, SetEnd, MatchStart, MatchEnd (with `forfeit`), Break, Timeout, TimeoutCalled, Forfeit |
+| Announce | Point (with `playTo`, `deuce`), Serve, SetStart, SetEnd, MatchStart, MatchEnd (with `forfeit`, and `mvpBonus` on the MVP's row), MatchAbort, Break, Timeout, TimeoutCalled, Forfeit, StandIn (`name`, `char`, `reason` "afk"/"left", `userId`) |
 | ClientReady | client finished loading |
-| Vote | `("mode", 1\|2\|3)` or `("botTier", tier)` |
+| Lobby | client: `("create", settings)`, `("quick", mode)`, `("join", id, password)`, `"leave"`, `"start"`, `"team"`, `("kick", userId)`, `("settings", settings)`, `"rejoin"`, `"list"` |
+| Lobbies | server: `{ list, mine, court, teleport }` per player, or `{ notice }` |
+| Activity | client: input happened (AFK watch) |
 | SetCharacter | `(tier, ability)` |
 | Timeout | call a timeout |
-| Profile | client sends `"get"`, `("select", charId)`, `("spin", banner, 1\|10)`, `("autoroll", banner)`, `"stop"`, `("autosell", rarity, on)`, `("equip", kind, key)`, `("buy", pack)` (Studio only, packs without an id); server replies with a snapshot (with `reveal` after a spin) |
+| Profile | client sends `"get"`, `("select", charId)`, `("upgrade", charId, stat, ±1\|5\|10)`, `("spin", banner, 1\|10)`, `("autoroll", banner)`, `"stop"`, `("autosell", rarity, on)`, `("equip", kind, key)`, `("buy", pack)` (Studio only, packs without an id); server replies with a snapshot (with `reveal` after a spin) |
 | Forfeit | concede the match for your team |
 | Rotation | during a timeout: `("up"\|"down"\|"serve", entityId)` on your own team |
 
@@ -158,7 +176,7 @@ Code must stay in a Lua 5.1/5.3 compatible subset of Luau: no `+=`, `continue`, 
 python3 tools/check_lua.py      # syntax (texluac) and undefined globals
 python3 tools/check_config.py   # every Config reference, including local aliases, exists
 python3 tools/check_api.py      # every Module.fn / reg.Service.fn / mods.Controller.fn is defined
-texlua tools/sim_test.lua       # 51 scenarios run against the real shared modules
+texlua tools/sim_test.lua       # 84 scenarios run against the real shared modules
 ```
 
 On Debian or Ubuntu, `apt-get install texlive-binaries` provides `texlua` and `texluac`.
@@ -167,7 +185,7 @@ Nested config aliases such as `local AZURE = Config.Abilities.Azure` are not cov
 
 ## Status
 
-All the code for the 2.5D game is written and every check passes, including all 68 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
+All the code for the 2.5D game is written and every check passes, including all 84 simulations. The project builds and serves with Rojo 7.7.0 (verified with `rojo build` and a live `rojo serve`). The sound effects are generated in `assets/sfx` but not yet uploaded. The owner has connected Rojo in Studio; no runtime errors have been reported back yet.
 
 ### Second session (continuation)
 
@@ -231,6 +249,13 @@ No mechanic changed; the input got forgiving. With the 1.8 s anime airtime playe
 - **HUD**: the ability panel shows every ability's state (Adrenaline active, Iron Wall cooldown, Chain Reaction, Thunder reach, Azure energy); the control rail and the touch controls gain an Ability button for active abilities; name tags show the character's name.
 - **Effects**: Iron Wall barrier, stuff burst; charged sets glow red with sparkles and a red arc; the exploding spike burns red with a burst and "Chain Reaction!"; Adrenaline gives a red aura; boom jumps need Jump 170 (`Config.Player.BoomJumpMin`), in VFX and audio.
 
+### Eighth session: menus, recruiting, Gold, lobbies, AI stand-ins
+
+- **Menus and scenes**: see Menus above. The old lobby panel in UIController is gone (UIController keeps the HUD, results and the settings panel, which the menus open with `toggleSettings(belowY)`); the HUD's top bar and announcements stay out of the menus when the match on the court isn't yours.
+- **Recruit sequence**: sparkles (gold when Legendary or better is inside) -> balls under the gym ceiling -> the line-up and Click to Continue -> each ball pops; a Legendary or Mythic plays the cinematic (a ViewportFrame with `ImageColor3` black over a yellow gradient, your avatar's clone animated Gather -> Rise -> your style's Cock -> the Swing clip, a black ball, a light beam, a white flash), then the reveal card; Skip jumps to the next one; then the results and Confirm.
+- **Gold** and **friend bots** (FriendService: bots borrow an unused friend's name and avatar; the character's name shows under it), **tier-scaled drain** (`HitLogic.tierDrain`: S+ full, D- a quarter), a red glow and sparkles on charged sets, cancel queue (Leave / Cancel queue in the Match panel).
+- **Lobbies, AFK stand-ins, middle quicks and backups, the forward toss, the serve line and toss guide, the MVP bonus, the height curve, the wind-up on every jump** (AnimationController plays Rise then the style's Cock for any jump but a block).
+
 These are the spots most likely to need attention on the first playtest:
 
 | Area | What to check |
@@ -262,12 +287,19 @@ These are the spots most likely to need attention on the first playtest:
 | Developers | In Studio every character and unlockable is owned and spins are free |
 | Camera | Long lens (FOV 34, 64 studs back); high sets must stay in frame at 16:9 and on phones |
 | Performance | Rings and starbursts are pooled BillboardGuis; popups are still created per receive grade |
+| Menus | Home, Recruit, Players, Locker, Shop and the Match panel at 16:9, ultrawide and phone sizes (the canvas scales from 900 units tall, at least 1180 wide); the avatar appears in the club room and the recruit hall once it has loaded; the Settings button opens the settings panel under it |
+| Recruit | x1 and x10 on every banner: the sequence, gold sparkles for an S, Skip to the S, the cinematic (silhouette in your style), the card (your avatar posed) and Confirm; auto-roll shows the running line and plays the final Legendary |
+| Locker | Clicking a style, colour, trail or effect restyles the practice spike at once; Equip only for owned items |
+| Lobbies | Quick Match (countdown, Cancel queue), create each privacy (a friend sees a Friends lobby, a stranger doesn't; a wrong password is refused), switch sides, remove a player, change settings, Start; a second lobby while the court is busy teleports (live servers only) and the reserved server starts it |
+| AFK | Stop pressing anything for 12 s during a rally: your AI (your avatar, "(AI)") takes over and Home shows Rejoin; Rejoin puts you back at the next serve with the same stat line. Leaving mid-match leaves your AI in |
+| Quicks | Watch bot setters call quicks off good passes (the middle is up as the set goes) and middles back up the wing spiker |
+| Serve | Holding toward the net at the line doesn't walk you in; the dotted guide matches the toss; a full forward toss lands about 2.4 m ahead |
 
 ## Next steps
 
 Work in this order:
 
-1. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`.
+1. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`. Reserved servers only work in a published game: test lobbies that teleport with two or more players in a live server.
 2. Tune the feel:
    - in `Config.Player` and `Config.Scale.JumpScale`: the jump look, run-up, air control and hang;
    - in `CameraController`: the camera distances;

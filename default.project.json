@@ -34,7 +34,13 @@
         "ClientReady": {
           "$className": "RemoteEvent"
         },
-        "Vote": {
+        "Lobby": {
+          "$className": "RemoteEvent"
+        },
+        "Lobbies": {
+          "$className": "RemoteEvent"
+        },
+        "Activity": {
           "$className": "RemoteEvent"
         },
         "SetCharacter": {

@@ -21,6 +21,7 @@ local order = {
 	"ProfileService",
 	"BotService",
 	"HitService",
+	"LobbyService",
 	"MatchService",
 }
 

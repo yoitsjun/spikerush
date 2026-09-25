@@ -224,6 +224,11 @@ local function save(plr, force)
 	return success
 end
 
+-- Store a profile now (before a teleport, so the next server loads the latest).
+function ProfileService.save(plr)
+	return save(plr, true)
+end
+
 -- One DataStore read per player: a second caller (say the match assigning teams while the join
 -- load is still waiting on the DataStore) waits for the first instead of loading again and
 -- replacing the profile the first caller already handed out.
