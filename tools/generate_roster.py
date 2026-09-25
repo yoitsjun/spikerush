@@ -10,9 +10,9 @@ Abilities come with the character: S+ wing spikers have Thunder Spiker or Azure 
 S characters have their role's ability (WS Adrenaline, MB Iron Wall, SE Chain Reaction);
 everyone else has none.
 
-The top characters are hand-set (the owner named YeJun: Thunder, 195 Attack, 190 Jump); the
-rest are generated from role templates scaled by tier with a fixed seed, so the file is stable
-and reviewable. Re-run after changing a template:  python3 tools/generate_roster.py
+The top characters are hand-set (the owner named YeJun: Thunder, 190 Jump, and the top 210
+Attack; he is the only Thunder Spiker); the rest are generated from role templates scaled by
+tier with a fixed seed, so the file is stable and reviewable. Re-run after changing a template:  python3 tools/generate_roster.py
 """
 import random
 from pathlib import Path
@@ -38,9 +38,8 @@ NAMES = [
 
 # the signature characters, set by hand
 FIXED = [
-    {"Name": "YeJun", "Role": "WS", "Tier": "S+", "Height": 189, "Attack": 195, "Defense": 124, "Speed": 146, "Jump": 190, "Ability": "Thunder"},
+    {"Name": "YeJun", "Role": "WS", "Tier": "S+", "Height": 189, "Attack": 210, "Defense": 124, "Speed": 146, "Jump": 190, "Ability": "Thunder"},
     {"Name": "Seojin", "Role": "WS", "Tier": "S+", "Height": 184, "Attack": 210, "Defense": 128, "Speed": 140, "Jump": 175, "Ability": "Azure"},
-    {"Name": "Ryota", "Role": "WS", "Tier": "S+", "Height": 192, "Attack": 203, "Defense": 120, "Speed": 138, "Jump": 185, "Ability": "Thunder"},
     {"Name": "Hayun", "Role": "WS", "Tier": "S", "Height": 187, "Attack": 198, "Defense": 126, "Speed": 142, "Jump": 181, "Ability": "Adrenaline"},
     {"Name": "Shoyo", "Role": "WS", "Tier": "S", "Height": 181, "Attack": 190, "Defense": 118, "Speed": 150, "Jump": 186, "Ability": "Adrenaline"},
     {"Name": "Gaeul", "Role": "MB", "Tier": "S", "Height": 204, "Attack": 170, "Defense": 150, "Speed": 116, "Jump": 180, "Ability": "IronWall"},

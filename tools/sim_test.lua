@@ -327,8 +327,13 @@ do
 	check(okShape and shortestMB > tallestSE, "roles: wing spikers hit hardest, middles are the tallest, setters live on speed and defense", string.format("shortest MB %d cm, tallest SE %d cm", shortestMB, tallestSE))
 	local yejun = Roster.get("yejun")
 	local ys = Characters.derive(Characters.fromRoster(yejun, "max"))
-	local ryota = Characters.derive(Characters.fromRoster(Roster.get("ryota"), "max"))
-	check(yejun.Ability == "Thunder" and yejun.Attack == 195 and yejun.Jump == 190 and ys.ContactMaxM >= 4.0 and ryota.ContactMaxM >= 4.0, "fully upgraded, YeJun (Thunder, 195 Attack, 190 Jump) and Ryota reach the 4.00 m Thunder line", string.format("YeJun %.2f m, Ryota %.2f m", ys.ContactMaxM, ryota.ContactMaxM))
+	local thunders = 0
+	for _, c in ipairs(Roster) do
+		if c.Ability == "Thunder" then
+			thunders = thunders + 1
+		end
+	end
+	check(yejun.Ability == "Thunder" and thunders == 1 and yejun.Attack == Config.Stats.Ref and yejun.Jump == 190 and ys.ContactMaxM >= 4.0 and ys.Power == 1, "YeJun is the only Thunder Spiker: top Attack (full power), 190 Jump, and maxed he reaches the 4.00 m line", string.format("Attack %d, power x%.2f, %.2f m", yejun.Attack, ys.Power, ys.ContactMaxM))
 	local starters = true
 	local roles = {}
 	for _, id in ipairs(Roster.Starters) do
@@ -400,7 +405,7 @@ do
 	local fresh = Characters.derive(Characters.fromRoster(yejun))
 	local maxed = Characters.derive(Characters.fromRoster(yejun, "max"))
 	local base = Characters.baseStat(yejun, "Attack")
-	check(base < yejun.Attack and fresh.Attack == base and maxed.Attack == 195 and fresh.ContactMaxM < maxed.ContactMaxM - 0.4, "a recruit starts well below its ceiling and upgrades up to it", string.format("YeJun attack %d -> %d, hitting point %.2f -> %.2f m", base, yejun.Attack, fresh.ContactMaxM, maxed.ContactMaxM))
+	check(base < yejun.Attack and fresh.Attack == base and maxed.Attack == yejun.Attack and fresh.ContactMaxM < maxed.ContactMaxM - 0.4, "a recruit starts well below its ceiling and upgrades up to it", string.format("YeJun attack %d -> %d, hitting point %.2f -> %.2f m", base, yejun.Attack, fresh.ContactMaxM, maxed.ContactMaxM))
 	local rising = Characters.pointCost(yejun, 180) > Characters.pointCost(yejun, 120) and Characters.pointCost(yejun, 120) > Characters.pointCost(riku, 120)
 	local full = 0
 	for _, stat in ipairs(Config.Stats.Order) do

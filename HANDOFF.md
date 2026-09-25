@@ -251,6 +251,8 @@ No mechanic changed; the input got forgiving. With the 1.8 s anime airtime playe
 
 ### Eighth session: menus, recruiting, Gold, lobbies, AI stand-ins
 
+- Later in the session the owner removed Ryota (the second Thunder Spiker: YeJun is the only one) and raised YeJun's Attack to 210 (the top of the curve, `Stats.Ref`). Saves that owned Ryota simply drop him; a player who had him selected falls back to a starter.
+
 - **Menus and scenes**: see Menus above. The old lobby panel in UIController is gone (UIController keeps the HUD, results and the settings panel, which the menus open with `toggleSettings(belowY)`); the HUD's top bar and announcements stay out of the menus when the match on the court isn't yours.
 - **Recruit sequence**: sparkles (gold when Legendary or better is inside) -> balls under the gym ceiling -> the line-up and Click to Continue -> each ball pops; a Legendary or Mythic plays the cinematic (a ViewportFrame with `ImageColor3` black over a yellow gradient, your avatar's clone animated Gather -> Rise -> your style's Cock -> the Swing clip, a black ball, a light beam, a white flash), then the reveal card; Skip jumps to the next one; then the results and Confirm.
 - **Gold** and **friend bots** (FriendService: bots borrow an unused friend's name and avatar; the character's name shows under it), **tier-scaled drain** (`HitLogic.tierDrain`: S+ full, D- a quarter), a red glow and sparkles on charged sets, cancel queue (Leave / Cancel queue in the Match panel).

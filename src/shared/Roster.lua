@@ -4,9 +4,8 @@
 -- ability (Config.Abilities). Starters are owned by everyone.
 
 local Roster = {
-	{ Id = "ryota", Name = "Ryota", Role = "WS", Tier = "S+", Height = 192, Attack = 203, Defense = 120, Speed = 138, Jump = 185, Ability = "Thunder" },
 	{ Id = "seojin", Name = "Seojin", Role = "WS", Tier = "S+", Height = 184, Attack = 210, Defense = 128, Speed = 140, Jump = 175, Ability = "Azure" },
-	{ Id = "yejun", Name = "YeJun", Role = "WS", Tier = "S+", Height = 189, Attack = 195, Defense = 124, Speed = 146, Jump = 190, Ability = "Thunder" },
+	{ Id = "yejun", Name = "YeJun", Role = "WS", Tier = "S+", Height = 189, Attack = 210, Defense = 124, Speed = 146, Jump = 190, Ability = "Thunder" },
 	{ Id = "hayun", Name = "Hayun", Role = "WS", Tier = "S", Height = 187, Attack = 198, Defense = 126, Speed = 142, Jump = 181, Ability = "Adrenaline" },
 	{ Id = "shoyo", Name = "Shoyo", Role = "WS", Tier = "S", Height = 181, Attack = 190, Defense = 118, Speed = 150, Jump = 186, Ability = "Adrenaline" },
 	{ Id = "gaeul", Name = "Gaeul", Role = "MB", Tier = "S", Height = 204, Attack = 170, Defense = 150, Speed = 116, Jump = 180, Ability = "IronWall" },
