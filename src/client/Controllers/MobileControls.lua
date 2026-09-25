@@ -125,6 +125,7 @@ local function build()
 	circle("Set", "Set", 72, 320, 170, Color3.fromRGB(240, 170, 60))
 	circle("Serve", "Serve", 88, 300, 270, Color3.fromRGB(245, 200, 40))
 	circle("Jump", "Jump", 64, 350, 70, UI.InkSoft)
+	circle("Ability", "Ability", 64, 395, 250, Color3.fromRGB(150, 205, 255))
 
 	bind("Spike", "Spike")
 	bind("Receive", "Receive")
@@ -133,6 +134,7 @@ local function build()
 	bind("Set", "Set")
 	bind("Serve", "Serve")
 	bind("Jump", "Jump")
+	bind("Ability", "Ability")
 	UserInputService.InputEnded:Connect(releaseInput)
 end
 
@@ -160,6 +162,10 @@ local function update()
 	buttons.Block.button.BackgroundTransparency = (ctx.nearNet and not held.Block) and 0.22 or 0.55
 	buttons.Serve.button.Visible = ctx.serving == true
 	buttons.Set.button.Visible = State.teamSize() > 1 or ctx.canSet == true
+	-- only active abilities (Iron Wall) need a button
+	local def = Config.Abilities[State.myAbility() or ""]
+	buttons.Ability.button.Visible = def ~= nil and def.Active == true
+	glow("Ability", mods.ActionController.abilityCooldown() <= 0)
 end
 
 function MobileControls.init(m)

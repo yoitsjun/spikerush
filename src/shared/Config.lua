@@ -88,6 +88,7 @@ Config.Player = {
 	BlockReach = 1.5 * M, -- max distance from the net that starts a block
 	ActionCooldown = 0.18,
 	WhiffCooldown = 0.2, -- after a missed swing, before you can swing again
+	BoomJumpMin = 170, -- Jump stat needed for a boom jump (the shockwave off the floor)
 	ReceiveStance = 0.8, -- how long a receive press stays armed
 	ServeTapTime = 0.2, -- X released faster than this = overhand serve
 	KnockbackSpeed = 26, -- a heavy receive shoves the receiver back along the court...
@@ -233,40 +234,34 @@ Config.Timeout = {
 	ResetBothTeams = true, -- a timeout refills stamina for everyone on court
 }
 
--- Character tiers, weakest to strongest. A tier doesn't fix your stats: it sets the ceiling.
--- Like The Spike, every character has four stats (Attack, Defense, Speed, Jump) that you upgrade
--- with points. The tier caps each stat and caps the total, so a build can't max everything.
+-- Characters are named presets you roll for with V Points (src/shared/Roster, made by
+-- tools/generate_roster.py): a role, a tier, a height, four stats and maybe an ability.
+-- Tiers run weakest to strongest; bots of a tier use roster characters of that tier.
 Config.Tiers = { "D-", "D", "D+", "C-", "C", "C+", "B-", "B", "B+", "A-", "A", "A+", "S-", "S", "S+" }
 Config.DefaultTier = "S+"
-Config.TierCaps = {
-	["D-"] = { Cap = 105, Total = 375 },
-	["D"] = { Cap = 110, Total = 395 },
-	["D+"] = { Cap = 115, Total = 410 },
-	["C-"] = { Cap = 120, Total = 430 },
-	["C"] = { Cap = 125, Total = 445 },
-	["C+"] = { Cap = 130, Total = 465 },
-	["B-"] = { Cap = 135, Total = 480 },
-	["B"] = { Cap = 140, Total = 500 },
-	["B+"] = { Cap = 145, Total = 515 },
-	["A-"] = { Cap = 150, Total = 535 },
-	["A"] = { Cap = 155, Total = 550 },
-	["A+"] = { Cap = 160, Total = 570 },
-	["S-"] = { Cap = 165, Total = 585 },
-	["S"] = { Cap = 170, Total = 600 },
-	["S+"] = { Cap = 175, Total = 620 },
+
+-- Role templates: the stats of the very top (S+) character of each role. Lower tiers scale
+-- toward Stats.Min (TierScale). Used for bots when the roster has nobody of a tier and role,
+-- and by the simulation suite; the roster generator uses the same numbers.
+Config.RoleTemplates = {
+	WS = { Attack = 210, Jump = 190, Defense = 130, Speed = 145, Height = 187 },
+	MB = { Attack = 172, Jump = 182, Defense = 150, Speed = 118, Height = 201 },
+	SE = { Attack = 132, Jump = 142, Defense = 178, Speed = 180, Height = 177 },
+	Solo = { Attack = 200, Jump = 184, Defense = 150, Speed = 160, Height = 185 },
 }
+Config.TierScale = { Low = 0.42, Exponent = 1.1 } -- D- stats are Low of the way up from Min
 
 Config.Stats = {
 	Order = { "Attack", "Defense", "Speed", "Jump" },
 	Min = 50,
-	Ref = 175, -- a stat at this value gives the top of every range below (the S+ cap)
-	StartFraction = 0.5, -- a new character starts this far from Min toward its tier's cap
+	Max = 250, -- hard limit on any preset
+	Ref = 210, -- a stat at this value gives the top of every range below (the best WS Attack)
 }
 
 -- How each stat turns into gameplay. Values interpolate from Stats.Min to Stats.Ref.
 Config.StatCurve = {
 	Power = { Stat = "Attack", Range = { 0.45, 1.0 } }, -- spike and serve speed multiplier
-	VerticalM = { Stat = "Jump", Range = { 0.25, 1.55 } }, -- metres added to standing reach (D- about 3.2 m, maxed S+ about 3.95 m)
+	VerticalM = { Stat = "Jump", Range = { 0.25, 1.77 } }, -- metres added to standing reach (D about 3.4 m, a 190-Jump S+ over 4 m)
 	Approach = { Stat = "Jump", Range = { 0.8, 1.25 } }, -- run-up speed and distance
 	StaminaPool = { Stat = "Defense", Range = { 50, 100 } },
 	DrainReduction = { Stat = "Defense", Range = { 0.0, 0.35 } },
@@ -276,11 +271,11 @@ Config.StatCurve = {
 	SetAccuracy = { Stat = "Speed", Range = { 0.7, 1.0 } },
 }
 
--- Heights are rolled when a character is created. Taller = higher standing reach and bigger
--- hit zones, so two characters with the same Jump stat hit from different heights.
+-- Every character has a height. Taller = higher standing reach and bigger hit zones, so two
+-- characters with the same Jump stat hit from different heights.
 Config.Height = {
 	Min = 165,
-	Max = 205,
+	Max = 210,
 	Mean = 185,
 	Spread = 9, -- roughly one standard deviation, cm
 	ReachPerCm = 0.013, -- standing reach in metres per cm of height
@@ -301,37 +296,46 @@ Config.Progression = {
 
 -- Rarity tiers shared by every spin.
 Config.Rarity = {
-	Order = { "Common", "Rare", "Epic", "Legendary" },
-	Weights = { Common = 58, Rare = 29, Epic = 10, Legendary = 3 }, -- item banners
+	Order = { "Common", "Rare", "Epic", "Legendary", "Mythic" },
+	Weights = { Common = 55, Rare = 28, Epic = 12.5, Legendary = 4, Mythic = 0.5 },
 	Colors = {
 		Common = Color3.fromRGB(170, 178, 200),
 		Rare = Color3.fromRGB(80, 170, 255),
 		Epic = Color3.fromRGB(190, 110, 255),
 		Legendary = Color3.fromRGB(255, 200, 60),
+		Mythic = Color3.fromRGB(255, 70, 110),
 	},
 }
 
--- Spins. Stat caps and height are rolled per character (tier); you see the result and keep it
--- or throw it away (x10 shows ten and you keep the one you like). Styles, colours, trails and
--- score effects unlock for every character; a duplicate refunds a little VP.
+-- Spins: characters (with their ability), spike styles, colours, trails and score effects.
+-- Everything you pull is yours for good; a duplicate, or a pull of a rarity you auto-sell,
+-- turns into VP (SellValue).
 Config.Spins = {
 	Costs = { [1] = 50, [10] = 500 },
-	Order = { "Caps", "Height", "Style", "Color", "Trail", "Effect" },
+	Order = { "Char", "Style", "Color", "Trail", "Effect" },
 	Banners = {
-		Caps = { Name = "Stat caps", Blurb = "Rolls the four stat caps of this character.", PerCharacter = true },
-		Height = { Name = "Height", Blurb = "Rolls this character's height (standing reach).", PerCharacter = true },
+		Char = { Name = "Characters", Blurb = "Named characters with their own role, stats, height and ability." },
 		Style = { Name = "Spike style", Blurb = "Unlocks spike animations." },
 		Color = { Name = "Spike color", Blurb = "Unlocks the colour of your spikes and their impact." },
 		Trail = { Name = "Trail", Blurb = "Unlocks the trail your spikes leave." },
 		Effect = { Name = "Score effect", Blurb = "Unlocks what happens where your attack lands for a point." },
 	},
-	CapFloor = 0.72, -- a rolled stat cap is at least this fraction of the tier's cap
-	CapSkew = 1.8, -- higher = top caps rarer
-	-- grade of a cap roll by its mean (0..1 of the way to the tier cap) and of a height roll (cm)
-	CapGrades = { Legendary = 0.7, Epic = 0.52, Rare = 0.38 },
-	HeightGrades = { Legendary = 200, Epic = 194, Rare = 188 },
-	DuplicateRefund = 10,
-	MaxPending = 10,
+	-- a character's rarity comes from its tier; sub-tiers share it (minus most common)
+	TierRarity = { D = "Common", C = "Common", B = "Rare", A = "Epic", S = "Legendary", ["S+"] = "Mythic" },
+	TierWeights = { ["-"] = 3, [""] = 2, ["+"] = 1 },
+	SellValue = { Common = 5, Rare = 12, Epic = 30, Legendary = 80, Mythic = 250 },
+	AutoSellable = { "Common", "Rare", "Epic" },
+	AutoRollMax = 100, -- an auto-roll stops after this many spins
+	AutoRollDelay = 0.4, -- seconds between auto-roll spins (so the reveal can be seen)
+	AutoRollTarget = "Legendary", -- stops at this rarity or better
+}
+
+-- Developers get everything: every character and unlockable, free spins. The place's owner
+-- (or group owner) counts automatically, as does anyone in a Studio test session.
+Config.Developers = {
+	UserIds = {}, -- extra developer UserIds
+	Studio = true,
+	Owner = true,
 }
 
 -- Unlockables. The first item of each list is owned by everyone and equipped by default.
@@ -394,14 +398,18 @@ Config.TierColors = {
 	S = Color3.fromRGB(255, 196, 60),
 }
 
+-- Abilities come with a character (the Roster module). S+ wing spikers: Thunder Spiker or Azure Dragon.
+-- S characters have their role's ability. Everyone else has none.
 Config.Abilities = {
 	Thunder = {
 		Name = "Thunder Spiker",
+		Tier = "S+",
 		Blurb = "Hit the ball above 4.00 m and it becomes a lightning spike.",
 		Color = Color3.fromRGB(255, 225, 77),
 	},
 	Azure = {
 		Name = "Azure Dragon",
+		Tier = "S+",
 		Blurb = "Hold Spike in the air to gather energy under low gravity. A full bar hits hardest and pierces blocks. Hold too long and it flies out.",
 		Color = Color3.fromRGB(57, 213, 255),
 		ChargeTime = 0.8, -- seconds of holding to fill the bar
@@ -412,14 +420,44 @@ Config.Abilities = {
 		MaxBoost = 0.44, -- full energy multiplies spike speed by 1 + this
 		PierceAt = 0.97,
 	},
+	Adrenaline = {
+		Name = "Adrenaline",
+		Tier = "S",
+		Role = "WS",
+		Blurb = "When your team's stamina drops low, you jump higher and hit harder.",
+		Color = Color3.fromRGB(255, 80, 70),
+		StaminaBelow = 0.4, -- fraction of the team's bar
+		AttackBonus = 18, -- stat points while active
+		JumpBonus = 16,
+	},
+	IronWall = {
+		Name = "Iron Wall",
+		Tier = "S",
+		Role = "MB",
+		Active = true, -- press the Ability key (Q)
+		Blurb = "Press Q: for a moment every ball that reaches your block is stuffed, whatever its power.",
+		Color = Color3.fromRGB(150, 205, 255),
+		Duration = 3.0,
+		Cooldown = 20,
+	},
+	ChainReaction = {
+		Name = "Chain Reaction",
+		Tier = "S",
+		Role = "SE",
+		Blurb = "Your sets are charged. The spike or feint off one explodes: more power, and it tears through the receivers' stamina.",
+		Color = Color3.fromRGB(190, 90, 255),
+		PowerMul = 1.15, -- spike speed off a charged set
+		DrainMul = 2.4, -- receive drain of the exploding ball
+		FlatDrain = 16, -- plus this, even off a feint
+	},
 }
-Config.AbilityOrder = { "Thunder", "Azure" }
+Config.AbilityOrder = { "Thunder", "Azure", "Adrenaline", "IronWall", "ChainReaction" }
 
 Config.Roles = {
-	WS = { Name = "Wing spiker" },
-	SE = { Name = "Setter" },
-	MB = { Name = "Middle blocker" },
-	Solo = { Name = "Solo" },
+	WS = { Name = "Wing spiker", Short = "WS" },
+	SE = { Name = "Setter", Short = "SE" },
+	MB = { Name = "Middle blocker", Short = "MB" },
+	Solo = { Name = "Solo", Short = "SO" },
 }
 
 Config.Match = {

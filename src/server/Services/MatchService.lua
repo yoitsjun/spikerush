@@ -432,6 +432,7 @@ local function results(winner, forfeitTeam)
 			table.insert(list, {
 				id = e.id,
 				name = e.name,
+				char = e.charName,
 				team = team,
 				isBot = e.isBot,
 				tier = e.tier,

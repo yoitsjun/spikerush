@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""Generate src/shared/Roster.lua: the named preset characters you roll for with V Points.
+
+Every character has a role (WS wing spiker, MB middle blocker, SE setter), a tier, a height,
+four stats and possibly an ability:
+  * WS: the highest Attack and Jump (up to 210 / 190 at the very top).
+  * MB: the tallest, with a big Jump (about 180) and less Attack (about 170).
+  * SE: Speed and Defense (160 to 180 at the top), light on Attack and Jump.
+Abilities come with the character: S+ wing spikers have Thunder Spiker or Azure Dragon;
+S characters have their role's ability (WS Adrenaline, MB Iron Wall, SE Chain Reaction);
+everyone else has none.
+
+The top characters are hand-set (the owner named YeJun: Thunder, 195 Attack, 190 Jump); the
+rest are generated from role templates scaled by tier with a fixed seed, so the file is stable
+and reviewable. Re-run after changing a template:  python3 tools/generate_roster.py
+"""
+import random
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+OUT = ROOT / "src" / "shared" / "Roster.lua"
+
+TIERS = ["D-", "D", "D+", "C-", "C", "C+", "B-", "B", "B+", "A-", "A", "A+", "S-", "S", "S+"]
+STAT_MIN = 50
+
+# top-of-the-line values per role (S+); lower tiers scale down toward STAT_MIN
+TEMPLATES = {
+    "WS": {"Attack": 210, "Jump": 190, "Defense": 130, "Speed": 145, "Height": (180, 194)},
+    "MB": {"Attack": 172, "Jump": 182, "Defense": 150, "Speed": 118, "Height": (196, 206)},
+    "SE": {"Attack": 132, "Jump": 142, "Defense": 178, "Speed": 180, "Height": (170, 184)},
+}
+
+NAMES = [
+    "Minjae", "Haneul", "Kaito", "Jiho", "Sora", "Dohyun", "Haruki", "Yuna", "Rin", "Taeyang",
+    "Aoi", "Jisoo", "Ren", "Eunwoo", "Mio", "Hyunwoo", "Nagi", "Sungmin", "Kaede", "Itsuki",
+    "Mirae", "Kenji", "Sena", "Yuto", "Jiwon", "Asahi", "Doyun", "Hikari", "Minseo", "Taeho",
+]
+
+# the signature characters, set by hand
+FIXED = [
+    {"Name": "YeJun", "Role": "WS", "Tier": "S+", "Height": 189, "Attack": 195, "Defense": 124, "Speed": 146, "Jump": 190, "Ability": "Thunder"},
+    {"Name": "Seojin", "Role": "WS", "Tier": "S+", "Height": 184, "Attack": 210, "Defense": 128, "Speed": 140, "Jump": 175, "Ability": "Azure"},
+    {"Name": "Ryota", "Role": "WS", "Tier": "S+", "Height": 192, "Attack": 203, "Defense": 120, "Speed": 138, "Jump": 185, "Ability": "Thunder"},
+    {"Name": "Hayun", "Role": "WS", "Tier": "S", "Height": 187, "Attack": 198, "Defense": 126, "Speed": 142, "Jump": 181, "Ability": "Adrenaline"},
+    {"Name": "Shoyo", "Role": "WS", "Tier": "S", "Height": 181, "Attack": 190, "Defense": 118, "Speed": 150, "Jump": 186, "Ability": "Adrenaline"},
+    {"Name": "Gaeul", "Role": "MB", "Tier": "S", "Height": 204, "Attack": 170, "Defense": 150, "Speed": 116, "Jump": 180, "Ability": "IronWall"},
+    {"Name": "Tetsuo", "Role": "MB", "Tier": "S", "Height": 201, "Attack": 166, "Defense": 158, "Speed": 112, "Jump": 178, "Ability": "IronWall"},
+    {"Name": "Seoyeon", "Role": "SE", "Tier": "S", "Height": 176, "Attack": 128, "Defense": 172, "Speed": 178, "Jump": 140, "Ability": "ChainReaction"},
+    {"Name": "Akira", "Role": "SE", "Tier": "S", "Height": 180, "Attack": 134, "Defense": 178, "Speed": 168, "Jump": 136, "Ability": "ChainReaction"},
+]
+
+# free for everyone: a D-tier character in each role
+STARTERS = [("Riku", "WS", "D"), ("Daichi", "MB", "D"), ("Hana", "SE", "D")]
+
+# generated characters: (role, tier) slots
+SLOTS = []
+for role in ("WS", "MB", "SE"):
+    SLOTS += [(role, "A+"), (role, "A-"), (role, "B+"), (role, "B-"), (role, "C+"), (role, "C-"), (role, "D+")]
+
+
+def tier_k(tier):
+    i = TIERS.index(tier)
+    return 0.42 + 0.58 * (i / (len(TIERS) - 1)) ** 1.1
+
+
+def make(rnd, name, role, tier):
+    t = TEMPLATES[role]
+    k = tier_k(tier)
+    c = {"Name": name, "Role": role, "Tier": tier}
+    lo, hi = t["Height"]
+    c["Height"] = rnd.randint(lo, hi)
+    for stat in ("Attack", "Defense", "Speed", "Jump"):
+        v = STAT_MIN + (t[stat] - STAT_MIN) * k + rnd.uniform(-6, 6)
+        c[stat] = int(round(min(max(v, STAT_MIN), t[stat])))
+    c["Ability"] = None
+    return c
+
+
+def slug(name):
+    return name.lower()
+
+
+def lua_entry(c):
+    ability = '"%s"' % c["Ability"] if c.get("Ability") else "nil"
+    return (
+        '\t{ Id = "%s", Name = "%s", Role = "%s", Tier = "%s", Height = %d, Attack = %d, Defense = %d, Speed = %d, Jump = %d, Ability = %s },'
+        % (slug(c["Name"]), c["Name"], c["Role"], c["Tier"], c["Height"], c["Attack"], c["Defense"], c["Speed"], c["Jump"], ability)
+    )
+
+
+def main():
+    rnd = random.Random(20260925)
+    names = NAMES[:]
+    rnd.shuffle(names)
+    chars = [dict(c) for c in FIXED]
+    for name, role, tier in STARTERS:
+        chars.append(make(rnd, name, role, tier))
+    for role, tier in SLOTS:
+        chars.append(make(rnd, names.pop(), role, tier))
+    order = {t: i for i, t in enumerate(TIERS)}
+    chars.sort(key=lambda c: (-order[c["Tier"]], ["WS", "MB", "SE"].index(c["Role"]), c["Name"]))
+
+    lines = [
+        "-- GENERATED by tools/generate_roster.py: edit the templates there and re-run.",
+        "-- The named preset characters you roll for with V Points. Each has a role (WS wing",
+        "-- spiker, MB middle blocker, SE setter), a tier, a height (cm), four stats and maybe an",
+        "-- ability (Config.Abilities). Starters are owned by everyone.",
+        "",
+        "local Roster = {",
+    ]
+    lines += [lua_entry(c) for c in chars]
+    lines += [
+        "}",
+        "",
+        "Roster.Starters = { %s }" % ", ".join('"%s"' % slug(n) for n, _, _ in STARTERS),
+        "",
+        "local byId = {}",
+        "for _, c in ipairs(Roster) do",
+        "\tbyId[c.Id] = c",
+        "end",
+        "",
+        "function Roster.get(id)",
+        "\treturn byId[id or \"\"]",
+        "end",
+        "",
+        "return Roster",
+        "",
+    ]
+    OUT.write_text("\n".join(lines))
+    print("wrote %d characters to %s" % (len(chars), OUT))
+    for c in chars:
+        print("  %-8s %-3s %-2s %3d cm  ATK %3d DEF %3d SPD %3d JMP %3d  %s" % (c["Name"], c["Tier"], c["Role"], c["Height"], c["Attack"], c["Defense"], c["Speed"], c["Jump"], c["Ability"] or "-"))
+
+
+if __name__ == "__main__":
+    main()

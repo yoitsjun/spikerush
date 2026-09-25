@@ -134,12 +134,13 @@ function State.myStats()
 	return statsCache
 end
 
+-- My character's ability, or nil (only S and S+ characters have one).
 function State.myAbility()
 	local a = player:GetAttribute("Ability")
 	if Characters.isAbility(a) then
 		return a
 	end
-	return Config.AbilityOrder[1]
+	return nil
 end
 
 -- Depth lane I stand on (players never walk toward or away from the camera).

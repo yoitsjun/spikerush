@@ -1,19 +1,21 @@
--- Player profiles: V Points (VP), one saved character per tier (rolled height, rolled stat
--- caps and four stats), unlocked cosmetics and what's equipped. Saved with DataStoreService;
--- falls back to session-only profiles when the DataStore isn't reachable (e.g. Studio without
--- "Enable Studio Access to API Services").
+-- Player profiles: V Points (VP), the characters you own (named presets from the Roster module, each
+-- with its role, stats, height and ability), the one you play, your unlocked cosmetics and
+-- what's equipped, and your auto-sell choices. Saved with DataStoreService; falls back to
+-- session-only profiles when the DataStore isn't reachable (e.g. Studio without "Enable Studio
+-- Access to API Services").
 --
 -- Client requests arrive on the "Profile" remote:
 --   ("get")                          -> reply with a snapshot
---   ("alloc", tier, stat, delta)     -> move points between the free pool and a stat (+-1/5/10)
---   ("auto", tier)                   -> spread the free points
---   ("spin", banner, count, tier)    -> x1 / x10 spin (Config.Spins)
---   ("keep", index) / ("discard")    -> resolve a pending stat-cap or height spin
+--   ("select", charId)               -> play an owned character
+--   ("spin", banner, 1|10)           -> x1 / x10 spin (Config.Spins)
+--   ("autoroll", banner) / ("stop")  -> spin x1 until a Legendary or better (or out of VP)
+--   ("autosell", rarity, on)         -> pulls of that rarity turn straight into VP
 --   ("equip", kind, key)             -> equip an unlocked style, colour, trail or score effect
 --   ("buy", packIndex)               -> Studio only: grant a pack whose product id isn't set yet
--- and on "SetCharacter" (tier, ability) to pick which character you play.
--- Your active character locks while you're in a match, so prediction always matches the server.
+-- Your character locks while you're in a match, so prediction always matches the server.
 -- VP packs are Developer Products granted in MarketplaceService.ProcessReceipt.
+-- Developers (Config.Developers: the place owner, Studio sessions, listed ids) own everything
+-- and spin for free.
 
 local DataStoreService = game:GetService("DataStoreService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -24,6 +26,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Characters = require(Shared.Characters)
+local Roster = require(Shared.Roster)
 local Spins = require(Shared.Spins)
 local Net = require(Shared.Net)
 
@@ -33,7 +36,7 @@ local reg
 local P = Config.Progression
 local SP = Config.Spins
 local COS = Config.Cosmetics
-local VERSION = 2
+local VERSION = 3
 local profiles = {}
 local dirty = {}
 local loading = {}
@@ -45,37 +48,53 @@ local function key(plr)
 	return "u_" .. tostring(plr.UserId)
 end
 
+------------------------------------------------------------------------------------------
+-- developers
+------------------------------------------------------------------------------------------
+
+local function isDeveloper(plr)
+	local D = Config.Developers
+	if D.Studio and RunService:IsStudio() then
+		return true
+	end
+	for _, id in ipairs(D.UserIds) do
+		if id == plr.UserId then
+			return true
+		end
+	end
+	if D.Owner then
+		if game.CreatorType == Enum.CreatorType.User then
+			return plr.UserId == game.CreatorId
+		end
+		local ok, rank = pcall(function()
+			return plr:GetRankInGroup(game.CreatorId)
+		end)
+		return ok and rank == 255
+	end
+	return false
+end
+
+------------------------------------------------------------------------------------------
+-- profile data
+------------------------------------------------------------------------------------------
+
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, builds = {}, owned = {}, equip = {}, receipts = {} }
+	local p = { v = VERSION, vp = P.StartingVP, owned = {}, equip = {}, autoSell = {}, receipts = {} }
+	for _, kind in ipairs(Spins.Kinds) do
+		p.owned[kind] = {}
+		for k in pairs(Spins.starters(kind)) do
+			p.owned[kind][k] = true
+		end
+	end
 	for _, kind in ipairs(COS.Kinds) do
-		p.owned[kind] = { [Spins.default(kind)] = true }
 		p.equip[kind] = Spins.default(kind)
 	end
+	p.char = Roster.Starters[1]
 	return p
 end
 
-local function sanitizePending(pending)
-	if type(pending) ~= "table" or not Spins.isBanner(pending.banner) or not Characters.isTier(pending.tier) then
-		return nil
-	end
-	if type(pending.results) ~= "table" or #pending.results == 0 then
-		return nil
-	end
-	local out = { banner = pending.banner, tier = pending.tier, results = {} }
-	for i = 1, math.min(#pending.results, SP.MaxPending) do
-		local r = pending.results[i]
-		if pending.banner == "Caps" and type(r) == "table" then
-			local caps = Characters.statCaps(pending.tier, { Caps = r })
-			table.insert(out.results, caps)
-		elseif pending.banner == "Height" and tonumber(r) then
-			table.insert(out.results, math.floor(math.clamp(tonumber(r), Config.Height.Min, Config.Height.Max)))
-		end
-	end
-	return #out.results > 0 and out or nil
-end
-
--- Old (v1) profiles had upgrade points: they become VP, and their characters keep the tier cap
--- as every stat cap (sanitize fills in missing caps that way).
+-- Older profiles (v1 upgrade points, v2 rolled caps) keep their VP and cosmetics; their old
+-- characters don't carry over, everyone gets the starters.
 local function sanitizeProfile(data)
 	if type(data) ~= "table" then
 		return newProfile()
@@ -86,14 +105,7 @@ local function sanitizeProfile(data)
 		vp = data.points
 	end
 	out.vp = math.max(0, math.floor(tonumber(vp) or P.StartingVP))
-	if type(data.builds) == "table" then
-		for tier, b in pairs(data.builds) do
-			if Characters.isTier(tier) then
-				out.builds[tier] = Characters.sanitize(tier, b)
-			end
-		end
-	end
-	for _, kind in ipairs(COS.Kinds) do
+	for _, kind in ipairs(Spins.Kinds) do
 		local owned = type(data.owned) == "table" and data.owned[kind]
 		if type(owned) == "table" then
 			for k, v in pairs(owned) do
@@ -102,12 +114,21 @@ local function sanitizeProfile(data)
 				end
 			end
 		end
+	end
+	for _, kind in ipairs(COS.Kinds) do
 		local eq = type(data.equip) == "table" and data.equip[kind]
 		if eq and out.owned[kind][eq] then
 			out.equip[kind] = eq
 		end
 	end
-	out.pending = sanitizePending(data.pending)
+	if type(data.char) == "string" and out.owned.Char[data.char] then
+		out.char = data.char
+	end
+	if type(data.autoSell) == "table" then
+		for _, r in ipairs(SP.AutoSellable) do
+			out.autoSell[r] = data.autoSell[r] == true or nil
+		end
+	end
 	if type(data.receipts) == "table" then
 		for _, id in ipairs(data.receipts) do
 			if type(id) == "string" and #out.receipts < Config.Shop.ReceiptHistory then
@@ -116,6 +137,14 @@ local function sanitizeProfile(data)
 		end
 	end
 	return out
+end
+
+-- Everything is owned by a developer; otherwise what the profile holds.
+local function owns(profile, kind, k)
+	if profile.dev then
+		return Spins.item(kind, k) ~= nil
+	end
+	return profile.owned[kind] ~= nil and profile.owned[kind][k] == true
 end
 
 local function load(plr)
@@ -139,6 +168,7 @@ local function load(plr)
 	local profile = data and sanitizeProfile(data) or newProfile()
 	-- only a profile that loaded (or was confirmed new) may ever be written back
 	profile.canSave = ok
+	profile.dev = isDeveloper(plr)
 	-- a player who left while the DataStore answered must not be cached (nothing would clear it)
 	if plr.Parent then
 		profiles[plr] = profile
@@ -158,10 +188,10 @@ local function save(plr, force)
 	local payload = {
 		v = VERSION,
 		vp = profile.vp,
-		builds = profile.builds,
 		owned = profile.owned,
 		equip = profile.equip,
-		pending = profile.pending,
+		char = profile.char,
+		autoSell = profile.autoSell,
 		receipts = profile.receipts,
 	}
 	local success = pcall(function()
@@ -198,6 +228,7 @@ function ProfileService.get(plr)
 		warn("[SpikeRush] profile load error: " .. tostring(profile))
 		profile = newProfile()
 		profile.canSave = false
+		profile.dev = isDeveloper(plr)
 		if plr.Parent then
 			profiles[plr] = profile
 		end
@@ -205,19 +236,14 @@ function ProfileService.get(plr)
 	return profile
 end
 
--- The saved character for `tier`, created (rolled height and caps) the first time it's used.
-function ProfileService.build(plr, tier)
+-- The roster character this player plays.
+function ProfileService.character(plr)
 	local profile = ProfileService.get(plr)
-	if not Characters.isTier(tier) then
-		tier = Config.DefaultTier
+	local c = Roster.get(profile.char)
+	if not c or not owns(profile, "Char", c.Id) then
+		c = Roster.get(Roster.Starters[1])
 	end
-	local b = profile.builds[tier]
-	if not b then
-		b = Characters.newBuild(tier, Random.new())
-		profile.builds[tier] = b
-		dirty[plr] = true
-	end
-	return b
+	return c
 end
 
 -- Equipped cosmetics as attributes on the Player and its avatar, so every client draws them.
@@ -235,47 +261,42 @@ end
 
 -- Write the active character onto the Player (and its avatar) so clients can read it.
 function ProfileService.applyActive(plr)
-	local tier = plr:GetAttribute("Tier")
-	if not Characters.isTier(tier) then
-		tier = Config.DefaultTier
-	end
-	local b = ProfileService.build(plr, tier)
-	Characters.writeAttributes(plr, tier, b)
+	local c = ProfileService.character(plr)
+	local tier, build = Characters.fromRoster(c)
+	local ability = c.Ability or ""
 	local char = plr.Character
+	for _, inst in ipairs({ plr, char or plr }) do
+		Characters.writeAttributes(inst, tier, build)
+		inst:SetAttribute("Ability", ability)
+		inst:SetAttribute("CharId", c.Id)
+		inst:SetAttribute("CharName", c.Name)
+		inst:SetAttribute("CharRole", c.Role)
+	end
 	if char then
-		Characters.writeAttributes(char, tier, b)
-		char:SetAttribute("Ability", plr:GetAttribute("Ability"))
-		reg.CharacterService.applyStats(char, Characters.derive(tier, b))
+		reg.CharacterService.applyStats(char, Characters.derive(tier, build))
 	end
 	applyCosmetics(plr, ProfileService.get(plr))
 end
 
-local function copyBuild(b)
-	local out = table.clone(b)
-	out.Caps = table.clone(b.Caps or {})
-	return out
-end
-
 function ProfileService.snapshot(plr)
 	local profile = ProfileService.get(plr)
-	local builds = {}
-	for _, tier in ipairs(Config.Tiers) do
-		if profile.builds[tier] then
-			builds[tier] = copyBuild(profile.builds[tier])
-		end
-	end
 	local owned = {}
-	for _, kind in ipairs(COS.Kinds) do
-		owned[kind] = table.clone(profile.owned[kind])
+	for _, kind in ipairs(Spins.Kinds) do
+		owned[kind] = {}
+		for _, item in ipairs(Spins.items(kind)) do
+			if owns(profile, kind, item.Key) then
+				owned[kind][item.Key] = true
+			end
+		end
 	end
 	return {
 		vp = profile.vp,
-		builds = builds,
 		owned = owned,
 		equip = table.clone(profile.equip),
-		pending = profile.pending,
-		tier = plr:GetAttribute("Tier"),
-		ability = plr:GetAttribute("Ability"),
+		char = ProfileService.character(plr).Id,
+		autoSell = table.clone(profile.autoSell),
+		autoRolling = profile.autoRolling and profile.autoRolling.banner or nil,
+		dev = profile.dev or nil,
 		saving = profile.canSave and store ~= nil,
 		studio = RunService:IsStudio(),
 	}
@@ -298,100 +319,108 @@ function ProfileService.award(plr, amount)
 	push(plr)
 end
 
-local function lockedFor(plr, tier)
+local function inMatch(plr)
 	local TS = reg.TeamService
-	return TS.inMatch and TS.entityForPlayer(plr) ~= nil and tier == plr:GetAttribute("Tier")
+	return TS.inMatch and TS.entityForPlayer(plr) ~= nil
 end
 
--- A character changed: store it and, if it's the one in use, re-apply it.
-local function commit(plr, profile, tier, b)
-	profile.builds[tier] = Characters.sanitize(tier, b)
-	dirty[plr] = true
-	if tier == plr:GetAttribute("Tier") then
-		ProfileService.applyActive(plr)
-	end
-end
+------------------------------------------------------------------------------------------
+-- spins
+------------------------------------------------------------------------------------------
 
-local ALLOC_STEPS = { [-10] = true, [-5] = true, [-1] = true, [1] = true, [5] = true, [10] = true }
-
-local function spin(plr, profile, banner, count, tier)
-	count = tonumber(count)
-	local cost = count and Spins.cost(count)
+-- Spin `count` times on `banner`. Duplicates, and pulls of a rarity set to auto-sell, turn
+-- into VP. Returns the reveal (or nil and a reason).
+local function spinOnce(plr, profile, banner, count)
+	local cost = Spins.cost(count)
 	if not Spins.isBanner(banner) or not cost then
-		return
+		return nil
 	end
-	local def = SP.Banners[banner]
-	if def.PerCharacter and not Characters.isTier(tier) then
-		return
+	if not profile.dev then
+		if profile.vp < cost then
+			return nil, "Not enough VP. Get more in the shop or by playing."
+		end
+		profile.vp = profile.vp - cost
 	end
-	if def.PerCharacter and profile.pending then
-		push(plr, "Keep or discard your last " .. SP.Banners[profile.pending.banner].Name:lower() .. " spin first.")
-		return
-	end
-	if profile.vp < cost then
-		push(plr, "Not enough VP. Get more in the shop or by playing.")
-		return
-	end
-	profile.vp = profile.vp - cost
 	dirty[plr] = true
 	local rng = Random.new()
-	if def.PerCharacter then
-		ProfileService.build(plr, tier) -- make sure the character exists
-		local results = {}
-		for i = 1, count do
-			if banner == "Caps" then
-				results[i] = Characters.rollCaps(tier, rng)
-			else
-				results[i] = Characters.rollHeight(rng)
-			end
-		end
-		profile.pending = { banner = banner, tier = tier, results = results }
-		push(plr, nil, { banner = banner, tier = tier, count = count })
-		return
-	end
 	local items, refund = {}, 0
 	for i = 1, count do
 		local k = Spins.rollItem(banner, rng)
-		local dup = profile.owned[banner][k] == true
-		if dup then
-			refund = refund + SP.DuplicateRefund
+		local item = Spins.item(banner, k)
+		local dup = owns(profile, banner, k)
+		local sold = not dup and profile.autoSell[item.Rarity] == true
+		if dup or sold then
+			refund = refund + Spins.sellValue(item.Rarity)
+		else
+			profile.owned[banner][k] = true
 		end
-		profile.owned[banner][k] = true
-		items[i] = { key = k, dup = dup }
+		items[i] = { key = k, dup = dup or nil, sold = sold or nil }
 	end
-	profile.vp = profile.vp + refund
-	local notice = nil
-	if refund > 0 then
-		notice = string.format("Duplicates refunded %d VP.", refund)
+	if not profile.dev then
+		profile.vp = profile.vp + refund
 	end
-	push(plr, notice, { banner = banner, count = count, items = items })
+	return { banner = banner, count = count, items = items, refund = refund }
 end
 
-local function keep(plr, profile, index)
-	local pending = profile.pending
-	if not pending then
+local function spin(plr, profile, banner, count)
+	if profile.autoRolling then
+		push(plr, "Stop the auto-roll first.")
 		return
 	end
-	index = math.floor(tonumber(index) or 0)
-	local result = pending.results[index]
-	if not result then
+	local reveal, why = spinOnce(plr, profile, banner, tonumber(count))
+	if not reveal then
+		if why then
+			push(plr, why)
+		end
 		return
 	end
-	if lockedFor(plr, pending.tier) then
-		push(plr, "Your character is locked until this match ends. Keep it after the match.")
+	local notice = nil
+	if reveal.refund > 0 and not profile.dev then
+		notice = string.format("+%d VP from duplicates and auto-sell.", reveal.refund)
+	end
+	push(plr, notice, reveal)
+end
+
+-- Keep spinning x1 until a pull of AutoRollTarget rarity or better, the VP run out, the cap is
+-- reached or the player stops it.
+local function autoRoll(plr, profile, banner)
+	if profile.autoRolling or not Spins.isBanner(banner) then
 		return
 	end
-	local b = copyBuild(ProfileService.build(plr, pending.tier))
-	if pending.banner == "Caps" then
-		b.Caps = table.clone(result)
-		b = Characters.sanitize(pending.tier, b)
-		Characters.fill(pending.tier, b) -- new room gets used right away; move it with the buttons
-	else
-		b.Height = result
-	end
-	profile.pending = nil
-	commit(plr, profile, pending.tier, b)
+	local run = { banner = banner }
+	profile.autoRolling = run
 	push(plr)
+	task.spawn(function()
+		local target = Spins.rarityRank(SP.AutoRollTarget)
+		local rolls, notice = 0, nil
+		while profile.autoRolling == run and plr.Parent do
+			if rolls >= SP.AutoRollMax then
+				notice = string.format("Auto-roll stopped after %d spins.", rolls)
+				break
+			end
+			local reveal, why = spinOnce(plr, profile, banner, 1)
+			if not reveal then
+				notice = why or "Auto-roll stopped."
+				break
+			end
+			rolls = rolls + 1
+			reveal.auto = rolls
+			local item = Spins.item(banner, reveal.items[1].key)
+			if Spins.rarityRank(item.Rarity) >= target then
+				profile.autoRolling = nil
+				push(plr, string.format("%s after %d spins!", item.Name, rolls), reveal)
+				return
+			end
+			push(plr, nil, reveal)
+			task.wait(SP.AutoRollDelay)
+		end
+		if profile.autoRolling == run then
+			profile.autoRolling = nil
+		end
+		if plr.Parent then
+			push(plr, notice)
+		end
+	end)
 end
 
 local function grantPack(plr, pack)
@@ -401,7 +430,7 @@ local function grantPack(plr, pack)
 	push(plr, string.format("+%d VP", pack.VP))
 end
 
-local function onRequest(plr, kind, a, b, c)
+local function onRequest(plr, kind, a, b)
 	local profile = ProfileService.get(plr)
 	if kind == "get" then
 		push(plr)
@@ -409,76 +438,52 @@ local function onRequest(plr, kind, a, b, c)
 	end
 	-- a little spacing between requests (buttons can be mashed)
 	local now = os.clock()
-	if lastRequest[plr] and now - lastRequest[plr] < 0.05 then
+	if kind ~= "stop" and lastRequest[plr] and now - lastRequest[plr] < 0.05 then
 		return
 	end
 	lastRequest[plr] = now
 
 	if kind == "spin" then
-		spin(plr, profile, a, b, c)
-		return
-	elseif kind == "keep" then
-		keep(plr, profile, a)
-		return
-	elseif kind == "discard" then
-		if profile.pending then
-			profile.pending = nil
-			dirty[plr] = true
+		spin(plr, profile, a, b)
+	elseif kind == "autoroll" then
+		autoRoll(plr, profile, a)
+	elseif kind == "stop" then
+		profile.autoRolling = nil
+		push(plr)
+	elseif kind == "autosell" then
+		for _, r in ipairs(SP.AutoSellable) do
+			if r == a then
+				profile.autoSell[r] = b == true or nil
+				dirty[plr] = true
+			end
 		end
 		push(plr)
-		return
+	elseif kind == "select" then
+		local c = Roster.get(a)
+		if not c or not owns(profile, "Char", c.Id) then
+			return
+		end
+		if inMatch(plr) then
+			push(plr, "Your character is locked until this match ends.")
+			return
+		end
+		profile.char = c.Id
+		dirty[plr] = true
+		ProfileService.applyActive(plr)
+		push(plr)
 	elseif kind == "equip" then
-		if Spins.isCosmetic(a) and profile.owned[a][b] then
+		if Spins.isCosmetic(a) and owns(profile, a, b) then
 			profile.equip[a] = b
 			dirty[plr] = true
 			applyCosmetics(plr, profile)
 		end
 		push(plr)
-		return
 	elseif kind == "buy" then
 		local pack = Config.Shop.Packs[tonumber(a) or 0]
 		if pack and pack.Id == 0 and RunService:IsStudio() then
 			grantPack(plr, pack)
 		end
-		return
 	end
-
-	local tier = a
-	if not Characters.isTier(tier) then
-		return
-	end
-	if lockedFor(plr, tier) then
-		push(plr, "Your character is locked until this match ends.")
-		return
-	end
-	local build = copyBuild(ProfileService.build(plr, tier))
-	if kind == "alloc" then
-		local stat, delta = b, math.floor(tonumber(c) or 0)
-		if not ALLOC_STEPS[delta] or not Characters.isStat(stat) then
-			return
-		end
-		local n
-		if delta > 0 then
-			n = Characters.raisable(tier, build, stat, delta)
-			if n <= 0 then
-				push(plr, Characters.remaining(tier, build) <= 0 and "No free points. Take some from another stat first." or "That stat is at its cap. Spin stat caps to raise it.")
-				return
-			end
-			build[stat] = build[stat] + n
-		else
-			n = Characters.lowerable(build, stat, -delta)
-			if n <= 0 then
-				return
-			end
-			build[stat] = build[stat] - n
-		end
-	elseif kind == "auto" then
-		Characters.fill(tier, build)
-	else
-		return
-	end
-	commit(plr, profile, tier, build)
-	push(plr)
 end
 
 -- Developer Product purchases. Granted exactly once per PurchaseId, and only reported as
@@ -545,6 +550,10 @@ function ProfileService.init(r)
 		setup(plr)
 	end
 	Players.PlayerRemoving:Connect(function(plr)
+		local profile = profiles[plr]
+		if profile then
+			profile.autoRolling = nil
+		end
 		save(plr)
 		profiles[plr] = nil
 		dirty[plr] = nil
@@ -567,20 +576,6 @@ function ProfileService.init(r)
 
 	MarketplaceService.ProcessReceipt = processReceipt
 	Net.get("Profile").OnServerEvent:Connect(onRequest)
-	Net.get("SetCharacter").OnServerEvent:Connect(function(plr, tier, ability)
-		if reg.TeamService.inMatch and reg.TeamService.entityForPlayer(plr) then
-			push(plr, "Your character is locked until this match ends.")
-			return
-		end
-		if Characters.isTier(tier) then
-			plr:SetAttribute("Tier", tier)
-		end
-		if Characters.isAbility(ability) then
-			plr:SetAttribute("Ability", ability)
-		end
-		ProfileService.applyActive(plr)
-		push(plr)
-	end)
 end
 
 return ProfileService

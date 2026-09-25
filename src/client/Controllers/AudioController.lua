@@ -8,7 +8,9 @@ local SoundService = game:GetService("SoundService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
+local Util = require(Shared.Util)
 local State = require(script.Parent.State)
 
 local AudioController = {}
@@ -282,13 +284,16 @@ function AudioController.init()
 			AudioController.play("UIClick")
 		end
 	end)
-	State.signals.Action:Connect(function(_, kind, extra)
+	State.signals.Action:Connect(function(entityId, kind, extra)
 		if kind == "Slide" then
 			AudioController.play("Slide", { volume = 0.7 })
 		elseif kind == "Whiff" then
 			AudioController.play("Whoosh", { volume = 0.35 })
 		elseif kind == "Jump" then
-			AudioController.play("Boom", { volume = extra == "Spike" and 0.8 or 0.45, minGap = 0.05 })
+			local model = Util.modelOf(entityId)
+			if model and (model:GetAttribute("Jump") or 0) >= Config.Player.BoomJumpMin then
+				AudioController.play("Boom", { volume = extra == "Spike" and 0.8 or 0.45, minGap = 0.05 })
+			end
 		elseif kind == "Charge" then
 			AudioController.play("AzureCharge", { volume = 0.5 })
 		end

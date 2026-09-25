@@ -10,9 +10,11 @@
 --   Jump ............ Space
 --   Set ............. E or V                (hold toward the net for a quick, away for a back set)
 --   Serve ........... X                     (tap = overhand serve; hold = jump-serve toss, longer = higher)
+--   Ability ......... Q                     (active abilities: Iron Wall)
 --   Timeout ......... T
 --
--- Gamepad: A spike, B receive, X serve, Y block, RB slide/feint, LB set, R2 spike, Select timeout.
+-- Gamepad: A spike, B receive, X serve, Y block, RB slide/feint, LB set, R2 spike, L2 ability,
+-- Select timeout.
 
 local UserInputService = game:GetService("UserInputService")
 
@@ -37,6 +39,8 @@ local KEYS = {
 	[Enum.KeyCode.V] = "Set",
 	[Enum.KeyCode.X] = "Serve",
 	[Enum.KeyCode.T] = "Timeout",
+	[Enum.KeyCode.Q] = "Ability",
+	[Enum.KeyCode.ButtonL2] = "Ability",
 	[Enum.KeyCode.ButtonA] = "Spike",
 	[Enum.KeyCode.ButtonR2] = "Spike",
 	[Enum.KeyCode.ButtonB] = "Receive",

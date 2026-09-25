@@ -752,6 +752,12 @@ end
 ------------------------------------------------------------------------------------------
 
 -- The "boom" under a jumper's feet.
+-- Boom jumps (the shockwave off the floor) need a big Jump stat (Player.BoomJumpMin);
+-- everyone else just kicks up a little dust.
+function VFXController.hasBoom(model)
+	return model ~= nil and (model:GetAttribute("Jump") or 0) >= Config.Player.BoomJumpMin
+end
+
 function VFXController.boom(entityId, kind)
 	local model = Util.modelOf(entityId)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
@@ -759,6 +765,10 @@ function VFXController.boom(entityId, kind)
 		return
 	end
 	local p = hrp.Position
+	if not VFXController.hasBoom(model) then
+		emit(dustEmitter, Vector3.new(p.X, 0.4, p.Z), 6)
+		return
+	end
 	local big = kind == "Spike" or kind == "Serve"
 	if entityId == State.myId and mods then
 		mods.AudioController.play("Boom", { volume = big and 0.8 or 0.45, minGap = 0.05 })
@@ -954,7 +964,128 @@ local function setAura(model, on, energy, remote)
 end
 
 -- spin the orb rings and grow remote charges
+------------------------------------------------------------------------------------------
+-- role abilities
+------------------------------------------------------------------------------------------
+
+local walls = {} -- entityId -> { part, untilT, side }
+local adrenalineFx = {} -- model -> { att, emitter, hl }
+local nextAdrenalineScan = 0
+
+-- Iron Wall: a glassy barrier above the middle's hands for the ability's duration.
+function VFXController.ability(entityId, ability)
+	local def = Config.Abilities[ability or ""]
+	local model = Util.modelOf(entityId)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not def or not hrp then
+		return
+	end
+	if ability == "IronWall" then
+		local w = walls[entityId]
+		if not w then
+			local part = Instance.new("Part")
+			part.Name = "IronWall"
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.CastShadow = false
+			part.Material = Enum.Material.ForceField
+			part.Color = def.Color
+			part.Size = Vector3.new(9, 7.5, 0.5)
+			part.Parent = fxFolder
+			w = { part = part }
+			walls[entityId] = w
+		end
+		w.untilT = os.clock() + def.Duration
+		w.side = State.sideOfEntity(entityId) or 1
+		local top = hrp.Position + Vector3.new(0, 5, 0)
+		ringFx(top, def.Color, 2, 12, 0.35, 7)
+		shards(top, def.Color, 10, 40)
+		VFXController.popup(top + Vector3.new(0, 2, 0), "Iron Wall!", def.Color, 1.2)
+		if mods and mods.AudioController then
+			mods.AudioController.play("Block", { volume = 0.7 })
+		end
+	end
+end
+
+local function chainExplosion(pos, color)
+	burst(pos, color, 5, 0.3)
+	burst(pos, Color3.fromRGB(255, 220, 255), 2.4, 0.18)
+	ringFx(pos, color, 2, 16, 0.4, 8)
+	starburst(pos, color, 12, 14, 0.3)
+	emit(fireEmitter, pos, 50, color)
+	emit(sparkEmitter, pos, 30, Color3.fromRGB(255, 200, 255))
+	shards(pos, color, 14, 60)
+end
+
+local function updateAbilityFx(dt)
+	local now = os.clock()
+	for id, w in pairs(walls) do
+		local hrp = Util.rootOf(id)
+		if not hrp or now > w.untilT then
+			w.part:Destroy()
+			walls[id] = nil
+		else
+			local left = w.untilT - now
+			w.part.Transparency = left < 0.4 and (1 - left / 0.4) or 0.15
+			w.part.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 5.2, -w.side * 1.6))
+		end
+	end
+	-- Adrenaline: a red aura on anyone whose boost is on (the server flags the character)
+	if now < nextAdrenalineScan then
+		return
+	end
+	nextAdrenalineScan = now + 0.3
+	local seen = {}
+	for _, team in ipairs(Config.TeamOrder) do
+		for _, e in ipairs(State.roster(team)) do
+			local model = Util.modelOf(e.id)
+			if model and model:GetAttribute("Adrenaline") then
+				seen[model] = true
+				if not adrenalineFx[model] then
+					local hrp = model:FindFirstChild("HumanoidRootPart")
+					if hrp then
+						local att = Instance.new("Attachment")
+						att.Name = "Adrenaline"
+						att.Parent = hrp
+						local em = makeEmitter(Assets.Images.Fire, {
+							LightEmission = 0.8,
+							Lifetime = NumberRange.new(0.3, 0.6),
+							Speed = NumberRange.new(2, 5),
+							SpreadAngle = Vector2.new(25, 25),
+							EmissionDirection = Enum.NormalId.Top,
+							Color = ColorSequence.new(Color3.fromRGB(255, 90, 60), Color3.fromRGB(255, 30, 40)),
+							Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.2), NumberSequenceKeypoint.new(1, 0) }),
+							Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 1) }),
+						})
+						em.Rate = 28
+						em.Enabled = true
+						em.Parent = att
+						local hl = Instance.new("Highlight")
+						hl.FillColor = Color3.fromRGB(255, 60, 50)
+						hl.FillTransparency = 0.85
+						hl.OutlineColor = Color3.fromRGB(255, 90, 70)
+						hl.OutlineTransparency = 0.3
+						hl.DepthMode = Enum.HighlightDepthMode.Occluded
+						hl.Parent = model
+						adrenalineFx[model] = { att = att, hl = hl }
+					end
+				end
+			end
+		end
+	end
+	for model, fx in pairs(adrenalineFx) do
+		if not seen[model] then
+			fx.att:Destroy()
+			fx.hl:Destroy()
+			adrenalineFx[model] = nil
+		end
+	end
+end
+
 local function updateAuras(dt)
+	updateAbilityFx(dt)
 	for model, fx in pairs(auras) do
 		if not model.Parent then
 			fx.hand.att:Destroy()
@@ -1103,6 +1234,23 @@ local function onHit(snap)
 		setAura(model, false)
 	end
 
+	local chain = Config.Abilities.ChainReaction.Color
+	if meta.reaction then
+		chainExplosion(pos, chain)
+		VFXController.popup(pos + Vector3.new(0, 1.5, 0), "Chain Reaction!", chain, 1.2)
+		if close then
+			shaker.shake(0.6)
+			VFXController.flash(0.25, 0.2)
+		end
+	end
+	if meta.adrenaline then
+		VFXController.popup(pos + Vector3.new(0, 3, 0), "Adrenaline!", Config.Abilities.Adrenaline.Color, 0.8)
+	end
+	if ht == "Set" and meta.charged then
+		emit(sparkEmitter, pos, 24, chain)
+		ringFx(pos, chain, 1, 6, 0.3, 5)
+	end
+
 	if ht == "Spike" or ht == "JumpServe" then
 		local heavy = kmh >= 120
 		local vdir = seg.v.Magnitude > 0 and seg.v.Unit or Vector3.new(0, -1, dirZ)
@@ -1185,6 +1333,12 @@ local function onHit(snap)
 
 	if ht == "Block" then
 		local outcome = meta.outcome
+		if meta.ironWall then
+			local wc = Config.Abilities.IronWall.Color
+			starburst(pos, wc, 13, 16, 0.3)
+			ringFx(pos, wc, 2, 16, 0.4, 9)
+			shards(pos, wc, 14, 55)
+		end
 		if outcome == "Stuff" then
 			if not toolboxFx("BlockImpact", pos) then
 				starburst(pos, tc, 10, 12, 0.3)
@@ -1516,7 +1670,9 @@ function VFXController.init(m)
 	end)
 	State.signals.Action:Connect(function(entityId, kind, extra)
 		local model = Util.modelOf(entityId)
-		if kind == "Jump" then
+		if kind == "Ability" then
+			VFXController.ability(entityId, extra)
+		elseif kind == "Jump" then
 			VFXController.boom(entityId, extra)
 		elseif kind == "Charge" and model then
 			setAura(model, true, 0, true)

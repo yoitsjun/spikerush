@@ -159,6 +159,7 @@ function HitService.process(entity, input, opts)
 		groundY = TS.groundY(entity),
 		stamina = TS.staminaOf(team),
 		forceQuality = opts.forceQuality,
+		ironWall = action == "Block" and (entity.ironWallUntil or -1) >= input.t - 0.05 or nil,
 	}
 	local computed, result = HitLogic.compute(input, ctx)
 	if not computed then
@@ -289,10 +290,45 @@ function HitService.fx(entityId, kind, extra, exceptPlayer)
 	end
 end
 
+-- Active abilities (Iron Wall): start it if it's off cooldown. The window and the cooldown are
+-- written onto the character (and the player) as shared-clock times for every client's HUD and
+-- effects. Returns true when it started.
+function HitService.activateAbility(entity)
+	local def = entity and entity.ability and Config.Abilities[entity.ability]
+	if not def or not def.Active then
+		return false
+	end
+	local now = Util.now()
+	if now < (entity.abilityReadyAt or 0) then
+		return false
+	end
+	entity.ironWallUntil = now + def.Duration
+	entity.abilityReadyAt = now + def.Cooldown
+	local model = reg.TeamService.getModel(entity)
+	if model then
+		model:SetAttribute("AbilityUntil", entity.ironWallUntil)
+		model:SetAttribute("AbilityReadyAt", entity.abilityReadyAt)
+	end
+	if entity.player then
+		entity.player:SetAttribute("AbilityUntil", entity.ironWallUntil)
+		entity.player:SetAttribute("AbilityReadyAt", entity.abilityReadyAt)
+	end
+	HitService.fx(entity.id, "Ability", entity.ability, entity.player) -- the player already shows it
+	return true
+end
+
 function HitService.init(r)
 	reg = r
 	Net.get("HitRequest").OnServerEvent:Connect(HitService.onRequest)
 	Net.get("ActionFX").OnServerEvent:Connect(function(plr, kind, extra)
+		if kind == "Ability" then
+			local e = reg.TeamService.entityForPlayer(plr)
+			local phase = reg.MatchService.phase
+			if e and (phase == "Rally" or phase == "Serving") then
+				HitService.activateAbility(e)
+			end
+			return
+		end
 		if type(kind) ~= "string" or not FX_KINDS[kind] or rateLimited(plr) then
 			return
 		end

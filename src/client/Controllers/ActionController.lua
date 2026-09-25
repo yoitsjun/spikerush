@@ -105,7 +105,46 @@ local function buildCtx(info, action, t)
 		ability = State.myAbility(),
 		groundY = info.groundY,
 		stamina = State.stamina(State.myTeam),
+		ironWall = action == "Block" and ActionController.abilityActive() or nil,
 	}, ok, why
+end
+
+-- Active ability (Iron Wall). The server confirms it by writing AbilityUntil/AbilityReadyAt onto
+-- the player; until then the press is predicted locally so the block right after it counts.
+local localAbilityUntil, localAbilityAt = -1, -10
+
+function ActionController.abilityActive()
+	local serverUntil = player:GetAttribute("AbilityUntil") or -1
+	local now = Util.now()
+	return now <= math.max(serverUntil, localAbilityUntil)
+end
+
+-- 0 when ready, else seconds of cooldown left.
+function ActionController.abilityCooldown()
+	local readyAt = player:GetAttribute("AbilityReadyAt") or 0
+	return math.max(0, readyAt - Util.now())
+end
+
+local function pressAbility()
+	local def = Config.Abilities[State.myAbility() or ""]
+	if not def or not def.Active then
+		if def then
+			State.hint(def.Name .. " works on its own, no key needed")
+		end
+		return
+	end
+	if not State.isPlaying or not State.match.inMatch then
+		return
+	end
+	local left = ActionController.abilityCooldown()
+	if left > 0 or os.clock() - localAbilityAt < 0.5 then
+		State.hint(string.format("%s is ready in %d s", def.Name, math.ceil(left)))
+		return
+	end
+	localAbilityAt = os.clock()
+	localAbilityUntil = Util.now() + def.Duration
+	Net.get("ActionFX"):FireServer("Ability")
+	mods.VFXController.ability(State.myId, State.myAbility())
 end
 
 local function isAzure()
@@ -591,6 +630,10 @@ function ActionController.chargeState()
 end
 
 function ActionController.press(action)
+	if action == "Ability" then
+		pressAbility()
+		return
+	end
 	if action == "Timeout" then
 		if State.isPlaying and State.timeouts(State.myTeam) > 0 then
 			Net.get("Timeout"):FireServer()

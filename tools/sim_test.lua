@@ -66,6 +66,7 @@ local HitLogic = require("HitLogic")
 local Court = require("Court")
 local Characters = require("Characters")
 local Spins = require("Spins")
+local Roster = require("Roster")
 local C, Z, H = Config.Court, Config.Zones, Config.Hits
 local SPM = Config.Scale.StudsPerMeter
 local K = SPM / 3.2 -- the suite's distances were written at 3.2 studs per metre
@@ -180,7 +181,7 @@ do
 	check(math.abs(C.NetTop / SPM - 2.43) < 1e-6 and math.abs(C.SideDepth / SPM - 9) < 1e-6 and avatarM > 1.0 and avatarM < 1.3, "The Spike's scale: 2.43 m net, 9 m half court, characters about 1.15 m", string.format("net %.1f studs, half court %.1f studs, avatar %.2f m", C.NetTop, C.SideDepth, avatarM))
 	check(SP.contactMaxStuds / C.NetTop > 1.9 and SP.contactMaxStuds / C.NetTop < 2.2 and jump > 2.5 * 5.3, "a maxed S+ leaps over twice its height and hits at twice the net", string.format("jump %.1f studs, hand at %.1f studs = %.2fx the net", jump, SP.contactMaxStuds, SP.contactMaxStuds / C.NetTop))
 	local Dm = Characters.stats("D-")
-	check(Dm.ContactMaxM > 3.0 and Dm.ContactMaxM < 3.35 and SP.ContactMaxM > 3.85 and SP.ContactMaxM < 4.0, "a maxed D- hits about 3.2 m, a maxed S+ about 3.95 m (190 cm+ for Thunder)", string.format("D- %.2f m, S+ %.2f m", Dm.ContactMaxM, SP.ContactMaxM))
+	check(Dm.ContactMaxM > 3.0 and Dm.ContactMaxM < 3.35 and SP.ContactMaxM > 3.95 and SP.ContactMaxM < 4.1, "a D- wing spiker hits about 3.2 m, the top S+ about 4.0 m", string.format("D- %.2f m, S+ %.2f m", Dm.ContactMaxM, SP.ContactMaxM))
 	local DmRoot = apexRoot(Dm, 3.5 * K)
 	local okD, resD = spike(DmRoot, ballAt(DmRoot, Z.SpikeCenterDz, 2.4), { stats = Dm })
 	check(okD and resD.meta.height <= Dm.ContactMaxM + 1e-6, "a ball met above the hand still reads the hand's height", string.format("%.2f m", resD.meta.height))
@@ -208,7 +209,8 @@ do
 	local _, setRes = HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = vec(0, sroot.Y + Z.SetIdealY, sroot.Z), grounded = true, setType = "Open" }, ctx({ touchNumber = 2, lastHit = { team = "Away", hitType = "Bump" } }))
 	local setPath = BallPhysics.buildPath(setRes.launch)
 	local worst, report = math.huge, {}
-	for _, b in ipairs({ { "fresh S+", Characters.derive("S+", Characters.newBuild("S+", Random.new(3))) }, { "maxed A", A }, { "maxed S+", SP } }) do
+	local starter = Characters.derive(Characters.fromRoster(Roster.get("riku")))
+	for _, b in ipairs({ { "starter Riku (D)", starter }, { "A", A }, { "S+", SP } }) do
 		local st = b[2]
 		local jy, jv, ys = 0, math.sqrt(2 * g * Characters.jumpHeight(st, GROUND)), {}
 		repeat
@@ -251,7 +253,7 @@ do
 	check(over.meta.overcharge and not Court.inBounds(path.landing.pos), "overcharge flies out", describe(path))
 end
 
-print("== tiers, builds and upgrades ==")
+print("== tiers and builds ==")
 do
 	local prev = 0
 	local okAll = true
@@ -265,26 +267,57 @@ do
 		table.insert(line, string.format("%s %.0f/%.2fm", tier, ok and res.meta.kmh or 0, ok and res.meta.height or 0))
 	end
 	check(okAll, "maxed builds: power and hitting point rise with tier", table.concat(line, "  "))
-	local a = Characters.autoBuild("A", "WS", 185)
-	check(a.Attack == 155 and a.Jump == 155 and a.Defense == 120 and a.Speed == 120, "A-rank wing spiker build matches The Spike's 155/120/120/155", string.format("%d/%d/%d/%d", a.Attack, a.Defense, a.Speed, a.Jump))
-	local fresh = Characters.newBuild("S+", Random.new(3))
-	local freshCaps = Characters.statCaps("S+", fresh)
-	local capSum, inCaps = 0, true
-	for _, k in ipairs(Config.Stats.Order) do
-		capSum = capSum + freshCaps[k]
-		inCaps = inCaps and fresh[k] <= freshCaps[k] and freshCaps[k] <= 175 and freshCaps[k] >= Characters.capFloor("S+")
+	local cheat = Characters.sanitize("B", { Height = 400, Attack = 999, Defense = -5, Speed = 999, Jump = 999 })
+	check(cheat.Height == Config.Height.Max and cheat.Attack == Config.Stats.Max and cheat.Defense == Config.Stats.Min, "sanitize clamps a forged build", string.format("%d cm, %d attack, %d defense", cheat.Height, cheat.Attack, cheat.Defense))
+end
+
+print("== the roster ==")
+do
+	local ids, okShape, okAbility, okLimits = {}, true, true, true
+	local tallestSE, shortestMB, notes = 0, 999, {}
+	local want = { WS = "Adrenaline", MB = "IronWall", SE = "ChainReaction" }
+	for _, c in ipairs(Roster) do
+		okLimits = okLimits and not ids[c.Id] and Characters.isTier(c.Tier) and Config.RoleTemplates[c.Role] ~= nil
+		ids[c.Id] = true
+		for _, k in ipairs(Config.Stats.Order) do
+			okLimits = okLimits and c[k] >= Config.Stats.Min and c[k] <= Config.Stats.Max
+		end
+		if c.Tier == "S+" then
+			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure")
+		elseif c.Tier == "S" then
+			okAbility = okAbility and c.Ability == want[c.Role]
+		else
+			okAbility = okAbility and c.Ability == nil
+		end
+		if c.Role == "WS" then
+			okShape = okShape and c.Attack <= 210 and c.Jump <= 190 and c.Attack > c.Defense
+		elseif c.Role == "SE" then
+			okShape = okShape and c.Speed > c.Attack and c.Defense > c.Jump
+			tallestSE = math.max(tallestSE, c.Height)
+			if c.Tier == "S" then
+				okShape = okShape and c.Speed >= 160 and c.Speed <= 180 and c.Defense >= 160 and c.Defense <= 180
+			end
+		elseif c.Role == "MB" then
+			shortestMB = math.min(shortestMB, c.Height)
+		end
 	end
-	check(inCaps and Characters.total(fresh) == math.min(620, capSum), "a fresh S+ has rolled caps and its points already spread inside them", string.format("caps %d/%d/%d/%d, stats %d/%d/%d/%d", freshCaps.Attack, freshCaps.Defense, freshCaps.Speed, freshCaps.Jump, fresh.Attack, fresh.Defense, fresh.Speed, fresh.Jump))
-	local b = { Height = 185, Attack = 170, Defense = 140, Speed = 140, Jump = 170 }
-	check(Characters.raisable("S+", b, "Attack", 10) == 0 and Characters.raisable("S+", { Height = 185, Attack = 100, Defense = 100, Speed = 100, Jump = 100 }, "Jump", 200) == 75, "points stop at the stat cap and the tier total", string.format("total cap left %d", Characters.raisable("S+", b, "Attack", 10)))
-	local capped = { Height = 185, Attack = 120, Defense = 100, Speed = 100, Jump = 100, Caps = { Attack = 130, Defense = 175, Speed = 175, Jump = 175 } }
-	check(Characters.raisable("S+", capped, "Attack", 10) == 10 and Characters.raisable("S+", { Height = 185, Attack = 125, Defense = 100, Speed = 100, Jump = 100, Caps = capped.Caps }, "Attack", 10) == 5 and Characters.lowerable(capped, "Defense", 10) == 10 and Characters.lowerable({ Attack = 54 }, "Attack", 10) == 4, "+10 stops at a rolled cap, -10 stops at the minimum")
-	local cheat = Characters.sanitize("B", { Height = 400, Attack = 999, Defense = 999, Speed = 999, Jump = 999 })
-	check(cheat.Height == Config.Height.Max and cheat.Attack <= 140 and Characters.total(cheat) <= 500, "sanitize clamps a forged build", string.format("%d cm, %d total", cheat.Height, Characters.total(cheat)))
-	local forged = Characters.sanitize("S+", { Height = 185, Attack = 175, Defense = 175, Speed = 100, Jump = 100, Caps = { Attack = 999, Defense = 1, Speed = 150, Jump = 150 } })
-	check(forged.Caps.Attack == 175 and forged.Caps.Defense == Characters.capFloor("S+") and forged.Defense == forged.Caps.Defense, "forged caps are clamped to the tier, stats to the caps", string.format("caps %d/%d, defense %d", forged.Caps.Attack, forged.Caps.Defense, forged.Defense))
-	local old = Characters.sanitize("A", { Height = 190, Attack = 155, Defense = 120, Speed = 120, Jump = 155 })
-	check(old.Caps.Attack == 155 and old.Attack == 155, "a character from before rolled caps keeps the tier cap")
+	check(okLimits and #Roster >= 30, "every roster character is valid and unique", #Roster .. " characters")
+	check(okAbility, "abilities: S+ wing spikers have Thunder or Azure, S characters their role's ability, the rest none")
+	check(okShape and shortestMB > tallestSE, "roles: wing spikers hit hardest, middles are the tallest, setters live on speed and defense", string.format("shortest MB %d cm, tallest SE %d cm", shortestMB, tallestSE))
+	local yejun = Roster.get("yejun")
+	local ys = Characters.derive(Characters.fromRoster(yejun))
+	local ryota = Characters.derive(Characters.fromRoster(Roster.get("ryota")))
+	check(yejun.Ability == "Thunder" and yejun.Attack == 195 and yejun.Jump == 190 and ys.ContactMaxM >= 4.0 and ryota.ContactMaxM >= 4.0, "YeJun (Thunder, 195 Attack, 190 Jump) and Ryota reach the 4.00 m Thunder line", string.format("YeJun %.2f m, Ryota %.2f m", ys.ContactMaxM, ryota.ContactMaxM))
+	local starters = true
+	local roles = {}
+	for _, id in ipairs(Roster.Starters) do
+		local c = Roster.get(id)
+		starters = starters and c ~= nil and string.sub(c.Tier, 1, 1) == "D"
+		if c then
+			roles[c.Role] = true
+		end
+	end
+	check(starters and roles.WS and roles.MB and roles.SE, "everyone starts with a D-tier wing spiker, middle and setter")
 end
 
 print("== deuce ==")
@@ -343,54 +376,56 @@ end
 print("== V Points spins ==")
 do
 	local rng = Random.new(11)
-	local n, legendary, sumScore, top, lowest = 3000, 0, 0, 0, 999
-	for _ = 1, n do
-		local caps = Characters.rollCaps("S+", rng)
-		sumScore = sumScore + Characters.capsScore("S+", caps)
-		if Characters.capsGrade("S+", caps) == "Legendary" then
-			legendary = legendary + 1
-		end
-		for _, k in ipairs(Config.Stats.Order) do
-			top = math.max(top, caps[k])
-			lowest = math.min(lowest, caps[k])
-		end
-	end
-	check(top <= 175 and lowest >= Characters.capFloor("S+") and legendary / n < 0.04 and legendary > 0, "stat-cap spins stay inside the tier and a legendary roll is rare", string.format("caps %d..%d, legendary %.1f%%, mean %.2f", lowest, top, 100 * legendary / n, sumScore / n))
-	local tall = 0
-	for _ = 1, n do
-		if Characters.heightGrade(Characters.rollHeight(rng)) == "Legendary" then
-			tall = tall + 1
-		end
-	end
-	check(tall / n > 0.02 and tall / n < 0.09, "a legendary (200 cm+) height is about 1 in 20", string.format("%.1f%%", 100 * tall / n))
+	local n = 20000
 	check(Spins.cost(1) == 50 and Spins.cost(10) == 500 and Spins.cost(3) == nil, "x1 costs 50 VP, x10 costs 500 VP")
-	local counts, defaults = {}, 0
+	local counts, starterDrops = {}, 0
+	local startersSet = Spins.starters("Char")
 	for _ = 1, n do
-		local key = Spins.rollItem("Color", rng)
-		local item = Spins.item("Color", key)
+		local key = Spins.rollItem("Char", rng)
+		local item = Spins.item("Char", key)
 		counts[item.Rarity] = (counts[item.Rarity] or 0) + 1
-		if key == Spins.default("Color") then
+		if startersSet[key] then
+			starterDrops = starterDrops + 1
+		end
+	end
+	local odds = Spins.odds("Char")
+	local near = math.abs((counts.Mythic or 0) / n - odds.Mythic) < 0.003 and math.abs((counts.Common or 0) / n - odds.Common) < 0.02
+	check(near and starterDrops == 0 and odds.Mythic < 0.01, "character spins follow the rarity odds (S+ is Mythic, under 1%) and never drop a starter", string.format("common %d, rare %d, epic %d, legendary %d, mythic %d of %d", counts.Common or 0, counts.Rare or 0, counts.Epic or 0, counts.Legendary or 0, counts.Mythic or 0, n))
+	local total, best = 0, nil
+	for _, row in ipairs(Spins.table("Char")) do
+		total = total + row.chance
+		best = best or row
+	end
+	check(math.abs(total - 1) < 1e-9 and best.item.Rarity == "Mythic", "the drop table lists every character with its chance, best first", string.format("%s first at %.2f%%", best.item.Name, best.chance * 100))
+	local defaults = 0
+	for _ = 1, 3000 do
+		if Spins.rollItem("Color", rng) == Spins.default("Color") then
 			defaults = defaults + 1
 		end
 	end
-	local odds = Spins.odds("Color")
-	local near = math.abs((counts.Legendary or 0) / n - odds.Legendary) < 0.015 and math.abs((counts.Common or 0) / n - odds.Common) < 0.04
-	check(near and defaults == 0, "item spins follow the rarity odds and never drop the default", string.format("common %d, rare %d, epic %d, legendary %d of %d", counts.Common or 0, counts.Rare or 0, counts.Epic or 0, counts.Legendary or 0, n))
 	local allKinds = true
 	for _, kind in ipairs(Config.Cosmetics.Kinds) do
 		local k = Spins.rollItem(kind, rng)
 		allKinds = allKinds and Spins.item(kind, k) ~= nil and Config.Cosmetics.Attribute[kind] ~= nil
 	end
-	check(allKinds, "every unlockable banner rolls a real item")
+	check(allKinds and defaults == 0, "every unlockable banner rolls a real item and never the default")
+	local rising = true
+	for i = 2, #Config.Rarity.Order do
+		rising = rising and Spins.sellValue(Config.Rarity.Order[i]) > Spins.sellValue(Config.Rarity.Order[i - 1])
+	end
+	check(rising, "selling pays more for rarer pulls")
 end
 
 print("== receives, stamina, slides ==")
 local incoming = vec(0, -30 * K, side * 110 * K) -- ~140 km/h spike arriving
 local lastSpike = { team = "Home", hitType = "Spike", kmh = 140 }
+-- receives are made by a defensive character (the S+ setter template, 178 Defense) unless a
+-- test says otherwise
+local DEF = Characters.stats("S+", "SE")
 local function receive(root, ball, stam, extraInput, extraCtx)
 	local input = { action = "Bump", t = 0, root = root, ball = ball, vy = 0, grounded = true, stanceAge = 0.2 }
 	for k, v in pairs(extraInput or {}) do input[k] = v end
-	local c = { ballVel = incoming, lastHit = lastSpike, touchNumber = 1, thirdTouch = false, stamina = stam }
+	local c = { ballVel = incoming, lastHit = lastSpike, touchNumber = 1, thirdTouch = false, stamina = stam, stats = DEF }
 	for k, v in pairs(extraCtx or {}) do c[k] = v end
 	return HitLogic.compute(input, ctx(c))
 end
@@ -506,6 +541,53 @@ do
 	check(ok and res.meta.outcome == "Stuff" and path.landing.pos.Z * side > 0, "S+ blocker stuffs a 110 km/h spike", describe(path))
 	local ok2, res2 = block({ team = "Away", hitType = "Spike", kmh = 200, pierce = true }, vec(0, -25 * K, bside * 150 * K))
 	check(ok2 and res2.meta.outcome ~= "Stuff" and res2.meta.noDrain, "full Azure pierces the block (soft touch, no drain)", res2.meta.outcome)
+end
+
+print("== role abilities ==")
+do
+	-- Adrenaline (S wing spiker): low team stamina = more Attack and Jump
+	local hayun = Characters.derive(Characters.fromRoster(Roster.get("hayun")))
+	local low = { value = 20, max = 100 }
+	local boostedStats, on = HitLogic.effectiveStats(hayun, "Adrenaline", low)
+	local _, off = HitLogic.effectiveStats(hayun, "Adrenaline", { value = 80, max = 100 })
+	local root = apexRoot(boostedStats, 3.5 * K)
+	local b = ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local okA, fired = spike(root, b, { ability = "Adrenaline", stats = hayun, stamina = low })
+	local okB, calm = spike(apexRoot(hayun, 3.5 * K), ballAt(apexRoot(hayun, 3.5 * K), Z.SpikeCenterDz, Z.SpikeCenterDy), { ability = "Adrenaline", stats = hayun, stamina = { value = 80, max = 100 } })
+	check(on and not off and okA and okB and fired.meta.adrenaline and fired.meta.kmh > calm.meta.kmh + 4 and boostedStats.ContactMaxM > hayun.ContactMaxM + 0.1, "Adrenaline: under 40% stamina an S wing spiker hits harder from higher", string.format("%.1f vs %.1f km/h, %.2f vs %.2f m", fired.meta.kmh, calm.meta.kmh, boostedStats.ContactMaxM, hayun.ContactMaxM))
+
+	-- Chain Reaction (S setter): her set is charged, the spike or feint off it explodes
+	local seoyeon = Characters.derive(Characters.fromRoster(Roster.get("seoyeon")))
+	local sroot = vec(0, GROUND, side * H.SetterDepth)
+	local okS, set = HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = vec(0, sroot.Y + Z.SetIdealY, sroot.Z), grounded = true, setType = "Open" }, ctx({ touchNumber = 2, stats = seoyeon, ability = "ChainReaction", lastHit = { team = "Away", hitType = "Bump" } }))
+	local charged = set.meta
+	charged.team = "Away"
+	local sr = apexRoot(SP, 3.5 * K)
+	local sb = ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local _, plain = spike(sr, sb, { lastHit = { team = "Away", hitType = "Set" } })
+	local _, boom = spike(sr, sb, { lastHit = charged })
+	local _, feint = spike(sr, sb, { lastHit = charged }, { action = "Feint" })
+	check(okS and charged.charged and boom.meta.reaction and math.abs(boom.meta.kmh / plain.meta.kmh - Config.Abilities.ChainReaction.PowerMul) < 0.01 and feint.meta.reaction and not feint.meta.noDrain, "Chain Reaction: a charged set makes the spike (and even a feint) explode", string.format("%.1f vs %.1f km/h", boom.meta.kmh, plain.meta.kmh))
+	local recRoot = vec(0, GROUND, side * 18 * K)
+	local recBall = vec(0, recRoot.Y + Z.ReceiveIdealY, recRoot.Z - side * Z.ReceiveForward)
+	local fast = vec(0, -30 * K, side * 110 * K)
+	local _, normalDig = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 0.6 }, { lastHit = { team = "Home", hitType = "Spike", kmh = 140 }, ballVel = fast })
+	local _, boomDig = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 0.6 }, { lastHit = { team = "Home", hitType = "Spike", kmh = 140, reaction = true, drainMul = boom.meta.drainMul, flatDrain = boom.meta.flatDrain }, ballVel = fast })
+	local _, feintDig = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 0.6 }, { lastHit = { team = "Home", hitType = "Feint", kmh = 32, reaction = true, noDrain = nil, drainMul = feint.meta.drainMul, flatDrain = feint.meta.flatDrain }, ballVel = vec(0, -8 * K, side * 10 * K) })
+	check((boomDig.meta.drain or 0) > 2.5 * (normalDig.meta.drain or 0) and (feintDig.meta.drain or 0) >= 10, "the explosion wipes the receivers' stamina fast, even off a feint", string.format("dig drains %.1f vs %.1f; a charged feint %.1f", boomDig.meta.drain or 0, normalDig.meta.drain or 0, feintDig.meta.drain or 0))
+
+	-- Iron Wall (S middle): everything that reaches the block is stuffed, even a full Azure
+	local bside = -side
+	local gaeul = Characters.derive(Characters.fromRoster(Roster.get("gaeul")))
+	local broot = vec(0, GROUND + Characters.jumpHeight(gaeul, GROUND) * 0.9, bside * 1.2)
+	local bball = vec(0, C.NetTop + 2.4, bside * 0.3)
+	local function block(wall)
+		return HitLogic.compute({ action = "Block", t = 0, root = broot, ball = bball, grounded = false },
+			{ side = bside, team = "Home", teamSize = 3, seq = 7, ballVel = vec(0, -25 * K, bside * 150 * K), lastHit = { team = "Away", hitType = "Spike", kmh = 200, pierce = true, thunder = true }, stats = gaeul, groundY = GROUND, ironWall = wall })
+	end
+	local okW, wall = block(true)
+	local okN, noWall = block(false)
+	check(okW and okN and wall.meta.outcome == "Stuff" and wall.meta.ironWall and noWall.meta.outcome ~= "Stuff", "Iron Wall: a 200 km/h piercing spike is stuffed", string.format("with the wall: %s, without: %s", wall.meta.outcome, noWall.meta.outcome))
 end
 
 print("== determinism ==")

@@ -403,6 +403,17 @@ local function applyStyle(meta)
 		core.Enabled = false
 		return
 	end
+	if meta.reaction then
+		-- off a charged set: the ball burns violet
+		local c = Config.Abilities.ChainReaction.Color
+		trail.Color = ColorSequence.new(c, Color3.fromRGB(255, 120, 220))
+		aura.Color = ColorSequence.new(Color3.fromRGB(255, 180, 255), c)
+		aura.Enabled = true
+		glow.Color = c
+		glow.Brightness = math.max(glow.Brightness, 4)
+		sparkleOn = true
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(240, 200, 255))
+	end
 	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or Color3.fromRGB(255, 90, 110)
 	if trailKey == "Comet" then
 		-- a long, wide tail tapering to a point
@@ -697,6 +708,8 @@ local function update(dt)
 		local d = dots[dotIndex]
 		d.born = clock
 		d.part.CFrame = CFrame.new(pos)
+		-- a Chain Reaction set is charged: violet dots
+		d.part.Color = cur.meta.charged and Config.Abilities.ChainReaction.Color or Config.UI.Chalk
 		dotsAliveUntil = clock + 1.4
 	end
 	if clock < dotsAliveUntil then

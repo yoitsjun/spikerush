@@ -25,6 +25,8 @@ local C, Z, H, ST = Config.Court, Config.Zones, Config.Hits, Config.Stamina
 local R, G = Config.Ball.Radius, Config.Ball.Gravity
 local SPM = Config.Scale.StudsPerMeter
 local AZURE = Config.Abilities.Azure
+local ADRENALINE = Config.Abilities.Adrenaline
+local CHAIN = Config.Abilities.ChainReaction
 
 local ACTION_CODE = { Bump = 1, Set = 2, Spike = 3, Feint = 4, Block = 5, Toss = 6, Serve = 7 }
 local SERVES = { JumpServe = true, Overhand = true }
@@ -309,11 +311,40 @@ function HitLogic.perfectDrainMul(kmh)
 end
 
 function HitLogic.isHeavy(lastHit)
-	if not lastHit or lastHit.noDrain then
+	if not lastHit then
+		return false
+	end
+	if lastHit.reaction then
+		return true -- an exploding Chain Reaction ball, even a feint
+	end
+	if lastHit.noDrain then
 		return false
 	end
 	local ht = lastHit.hitType
 	return ht == "Spike" or ht == "JumpServe" or ht == "Overhand"
+end
+
+-- Adrenaline: active while the team's stamina is below the threshold.
+function HitLogic.adrenaline(ability, stamina)
+	if ability ~= "Adrenaline" or type(stamina) ~= "table" or not stamina.max or stamina.max <= 0 then
+		return false
+	end
+	return stamina.value / stamina.max < ADRENALINE.StaminaBelow
+end
+
+-- The stats a touch is computed with: Adrenaline adds Attack and Jump while it's active.
+-- The server raises the humanoid's jump to match (TeamService), so the hitting point is real.
+function HitLogic.effectiveStats(stats, ability, stamina)
+	if HitLogic.adrenaline(ability, stamina) then
+		return Characters.boosted(stats, ADRENALINE.AttackBonus, ADRENALINE.JumpBonus), true
+	end
+	return stats, false
+end
+
+-- Chain Reaction: an attack off a teammate's charged set explodes.
+local function reaction(ctx)
+	local last = ctx.lastHit
+	return last ~= nil and last.charged == true and last.team == ctx.team and last.hitType == "Set"
 end
 
 local function meta0(action, q)
@@ -453,9 +484,19 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	-- this character's own top, so a short jumper can't reach 4.00 m off a high ball
 	local heightM = HitLogic.meters(math.min(ball.Y, stats.contactMaxStuds))
 	local kmh, thunder, energy, overcharge, pierce = attackPower(kind, q, qContact, heightM, stats, ctx.ability, input.energy)
+	local boom = kind == "Spike" and reaction(ctx)
+	if boom then
+		kmh = kmh * CHAIN.PowerMul
+	end
 	local meta = meta0(kind, q)
 	meta.height = heightM
 	meta.contact = qContact
+	meta.adrenaline = ctx.adrenaline or nil
+	if boom then
+		meta.reaction = true
+		meta.drainMul = CHAIN.DrainMul
+		meta.flatDrain = CHAIN.FlatDrain
+	end
 	meta.thunder = thunder or nil
 	meta.energy = energy > 0 and energy or nil
 	meta.overcharge = overcharge or nil
@@ -514,13 +555,14 @@ end
 -- input: action, t, root, ball, vy, grounded, diving (slide), stanceAge, assist, energy,
 --        setType, targetId, tossHeight, serveKind
 -- ctx:   side, team, teamSize, seq, ballVel, lastHit, thirdTouch, touchNumber, stats,
---        ability, groundY, stamina = { value, max }, forceQuality?
+--        ability, groundY, stamina = { value, max } (own team), forceQuality?, ironWall?
 ------------------------------------------------------------------------------------------
 
 function HitLogic.compute(input, ctx)
 	local action = input.action
 	local side = ctx.side
-	local stats = ctx.stats or Characters.stats(Config.DefaultTier)
+	local stats, adrenaline = HitLogic.effectiveStats(ctx.stats or Characters.stats(Config.DefaultTier), ctx.ability, ctx.stamina)
+	ctx.adrenaline = adrenaline or nil
 	local rng = Random.new(math.floor((ctx.seq or 0) * 7919 + (ACTION_CODE[action] or 0) * 104729 + 17))
 	local root, ball, t = input.root, input.ball, input.t
 
@@ -578,6 +620,13 @@ function HitLogic.compute(input, ctx)
 		local meta = meta0("Feint", qContact)
 		meta.noDrain = true
 		meta.height = HitLogic.meters(ball.Y)
+		if reaction(ctx) then
+			-- a feint off a charged set still explodes: soft, but it tears through the guard
+			meta.noDrain = nil
+			meta.reaction = true
+			meta.drainMul = CHAIN.DrainMul
+			meta.flatDrain = CHAIN.FlatDrain
+		end
 		local frac = clamp((dz - H.SpikeDzDeep) / (H.SpikeDzShort - H.SpikeDzDeep), 0, 1)
 		local depth = lerp(H.FeintMaxDepth, 0.95 * SPM, frac) + jitter(rng, (1 - qContact) * H.FeintError)
 		local target = Vector3.new(0, R, -side * clamp(depth, 0.6 * SPM, H.FeintMaxDepth + 0.95 * SPM))
@@ -615,9 +664,15 @@ function HitLogic.compute(input, ctx)
 		if last.pierce then
 			stuffScore = math.min(stuffScore, 0.3)
 		end
+		if ctx.ironWall then
+			-- Iron Wall: whatever reaches the hands is stuffed, pierce and thunder included
+			stuffScore = 1
+			q = math.max(q, 0.9)
+		end
 		local atk = -side
 		local meta = meta0("Block", clamp(q, 0, 1))
 		meta.attackKmh = attackKmh
+		meta.ironWall = ctx.ironWall or nil
 		local p, v, a, hold = nil, nil, nil, 0
 		if stuffScore >= 0.45 then
 			meta.outcome = "Stuff"
@@ -716,8 +771,15 @@ function HitLogic.compute(input, ctx)
 		local drain = 0
 		if heavy and not sliding then
 			drain = HitLogic.drainFor(incomingKmh, stats)
+			if last.reaction then
+				drain = drain * (last.drainMul or 1)
+			end
 			if perfect then
 				drain = drain * HitLogic.perfectDrainMul(incomingKmh)
+			end
+			if last.reaction then
+				-- the explosion itself: no timing saves you from it
+				drain = drain + (last.flatDrain or 0)
 			end
 		end
 		meta.drain = drain > 0 and drain or nil
@@ -799,6 +861,7 @@ function HitLogic.compute(input, ctx)
 			meta.hitType = "Set"
 			meta.setType = setType
 			meta.dotted = true
+			meta.charged = ctx.ability == "ChainReaction" or nil
 			meta.underhand = underhand or nil
 			if type(input.targetId) == "string" then
 				meta.targetId = input.targetId

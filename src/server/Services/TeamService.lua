@@ -1,5 +1,6 @@
--- Teams, serve order, roles, character tiers, team stamina and timeouts.
--- Players and bots share one entity shape.
+-- Teams, serve order, roles, characters, team stamina and timeouts.
+-- Players and bots share one entity shape. Players play their selected roster character in its
+-- role when it's free; bots are roster characters of the bot level's tier (the Roster module).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -8,6 +9,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Court = require(Shared.Court)
 local Characters = require(Shared.Characters)
+local HitLogic = require(Shared.HitLogic)
+local Roster = require(Shared.Roster)
 
 local TeamService = {}
 local reg
@@ -23,6 +26,7 @@ TeamService.timeouts = { Home = Config.Timeout.PerSet, Away = Config.Timeout.Per
 
 local botCounter = 0
 local usedNames = {}
+local usedChars = {} -- roster ids already on court this match
 
 local function newRecord()
 	return { kills = 0, aces = 0, blocks = 0, digs = 0, assists = 0, errors = 0, topKmh = 0 }
@@ -33,7 +37,7 @@ local function newEntity(id, name, isBot, plr, team, tier, ability, build)
 		tier = Config.DefaultTier
 	end
 	if not Characters.isAbility(ability) then
-		ability = Config.AbilityOrder[1]
+		ability = nil
 	end
 	build = Characters.sanitize(tier, build)
 	return {
@@ -51,14 +55,55 @@ local function newEntity(id, name, isBot, plr, team, tier, ability, build)
 	}
 end
 
--- A player's entity uses the saved character for their chosen tier.
+-- A player's entity is their selected roster character.
 local function playerEntity(plr, team)
-	local tier = plr:GetAttribute("Tier")
-	if not Characters.isTier(tier) then
-		tier = Config.DefaultTier
+	local c = reg.ProfileService.character(plr)
+	local tier, build = Characters.fromRoster(c)
+	local e = newEntity("P_" .. tostring(plr.UserId), plr.DisplayName, false, plr, team, tier, c.Ability, build)
+	e.charId, e.charName, e.prefRole = c.Id, c.Name, c.Role
+	usedChars[c.Id] = true
+	return e
+end
+
+-- The first role of `roles` nobody on `team` has yet (preferring `want`).
+local function freeRole(team, roles, want)
+	local taken = {}
+	for _, e in ipairs(TeamService.members(team)) do
+		taken[e.role] = true
 	end
-	local build = reg.ProfileService.build(plr, tier)
-	return newEntity("P_" .. tostring(plr.UserId), plr.DisplayName, false, plr, team, tier, plr:GetAttribute("Ability"), build)
+	for _, r in ipairs(roles) do
+		if r == want and not taken[r] then
+			return r
+		end
+	end
+	for _, r in ipairs(roles) do
+		if not taken[r] then
+			return r
+		end
+	end
+	return roles[1]
+end
+
+-- A roster character for a bot: that role, the tier nearest the bot level (within two steps),
+-- not already on court.
+local function rosterFor(tier, role)
+	local want = role == "Solo" and "WS" or role
+	local ti = Characters.tierIndex(tier) or 11
+	local best, bestD = {}, 3
+	for _, c in ipairs(Roster) do
+		if c.Role == want and not usedChars[c.Id] then
+			local d = math.abs((Characters.tierIndex(c.Tier) or 1) - ti)
+			if d < bestD then
+				best, bestD = { c }, d
+			elseif d == bestD then
+				table.insert(best, c)
+			end
+		end
+	end
+	if #best == 0 then
+		return nil
+	end
+	return best[math.random(#best)]
 end
 
 function TeamService.getModel(e)
@@ -150,7 +195,8 @@ function TeamService.applyToModel(e)
 	end
 	model:SetAttribute("Team", e.team)
 	model:SetAttribute("Role", e.role)
-	model:SetAttribute("Ability", e.ability)
+	model:SetAttribute("Ability", e.ability or "")
+	model:SetAttribute("CharName", e.charName or e.name)
 	model:SetAttribute("EntityId", e.id)
 	Characters.writeAttributes(model, e.tier, e.build)
 	if e.player then
@@ -164,10 +210,33 @@ end
 -- Stamina (a team guard meter for heavy receives)
 ------------------------------------------------------------------------------------------
 
+-- Adrenaline: when a team's stamina crosses the threshold, its Adrenaline characters get
+-- (or lose) their boosted jump; HitLogic boosts their touches from the same stamina.
+local function refreshBoosts(team)
+	local s = TeamService.stamina[team]
+	for _, e in ipairs(TeamService.members(team)) do
+		if e.ability == "Adrenaline" then
+			local stats, on = HitLogic.effectiveStats(e.charStats, e.ability, s)
+			if on ~= (e.boosted == true) then
+				e.boosted = on
+				local model = TeamService.getModel(e)
+				if model then
+					reg.CharacterService.applyStats(model, stats)
+					model:SetAttribute("Adrenaline", on)
+				end
+				if e.isBot then
+					reg.BotService.refreshJump(e)
+				end
+			end
+		end
+	end
+end
+
 local function publishStamina(team)
 	local s = TeamService.stamina[team]
 	ReplicatedStorage:SetAttribute("Stamina_" .. team, s.value)
 	ReplicatedStorage:SetAttribute("StaminaMax_" .. team, s.max)
+	refreshBoosts(team)
 end
 
 function TeamService.staminaOf(team)
@@ -259,10 +328,19 @@ end
 local function addBot(team, index, role)
 	botCounter = botCounter + 1
 	local id = "B_" .. botCounter
-	local ability = Config.AbilityOrder[math.random(#Config.AbilityOrder)]
-	local build = Characters.autoBuild(TeamService.botTier, role or "WS", Characters.rollHeight(Random.new()))
-	local e = newEntity(id, pickBotName(), true, nil, team, TeamService.botTier, ability, build)
-	e.role = role or "WS"
+	role = role or "WS"
+	local e
+	local c = rosterFor(TeamService.botTier, role)
+	if c then
+		usedChars[c.Id] = true
+		local tier, build = Characters.fromRoster(c)
+		e = newEntity(id, c.Name, true, nil, team, tier, c.Ability, build)
+		e.charId, e.charName = c.Id, c.Name
+	else
+		local build = Characters.template(TeamService.botTier, role, Characters.rollHeight(Random.new()))
+		e = newEntity(id, pickBotName(), true, nil, team, TeamService.botTier, nil, build)
+	end
+	e.role = role
 	TeamService.entities[id] = e
 	local order = TeamService.teams[team].order
 	if index then
@@ -308,6 +386,7 @@ function TeamService.clear()
 	TeamService.inMatch = false
 	TeamService.pendingJoin = {}
 	usedNames = {}
+	usedChars = {}
 end
 
 function TeamService.assign(size)
@@ -331,7 +410,7 @@ function TeamService.assign(size)
 		end
 		if team then
 			local e = playerEntity(plr, team)
-			e.role = roles[#TeamService.teams[team].order + 1] or "WS"
+			e.role = freeRole(team, roles, e.prefRole)
 			TeamService.entities[e.id] = e
 			table.insert(TeamService.teams[team].order, e.id)
 			TeamService.applyToModel(e)
@@ -340,7 +419,7 @@ function TeamService.assign(size)
 	if Config.Match.FillWithBots then
 		for _, team in ipairs(Config.TeamOrder) do
 			while #TeamService.teams[team].order < size do
-				addBot(team, nil, roles[#TeamService.teams[team].order + 1])
+				addBot(team, nil, freeRole(team, roles))
 			end
 		end
 	end
@@ -402,6 +481,7 @@ function TeamService.roster()
 					isBot = e.isBot,
 					tier = e.tier,
 					ability = e.ability,
+					char = e.charName,
 					role = e.role,
 					height = e.build.Height,
 					rot = i,
@@ -490,9 +570,6 @@ function TeamService.init(r)
 	local function setup(plr)
 		if not Characters.isTier(plr:GetAttribute("Tier")) then
 			plr:SetAttribute("Tier", Config.DefaultTier)
-		end
-		if not Characters.isAbility(plr:GetAttribute("Ability")) then
-			plr:SetAttribute("Ability", Config.AbilityOrder[1])
 		end
 		if TeamService.inMatch then
 			table.insert(TeamService.pendingJoin, plr)

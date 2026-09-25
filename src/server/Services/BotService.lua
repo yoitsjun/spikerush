@@ -46,6 +46,11 @@ local function tierPair(b, pair)
 	return Characters.byTier(b.entity.charStats, pair)
 end
 
+-- The stats this bot plays with right now (Adrenaline boosts them when its team is low).
+local function statsOf(e)
+	return (HitLogic.effectiveStats(e.charStats, e.ability, reg.TeamService.staminaOf(e.team)))
+end
+
 -- A team-level decision (reading the ball out): the skill of that team's bots.
 local function teamPair(team, pair)
 	for _, e in ipairs(reg.TeamService.members(team)) do
@@ -392,7 +397,8 @@ local function planAttack(team, now, exclude)
 	if not spiker then
 		return
 	end
-	local stats = spiker.entity.charStats
+	local stats = statsOf(spiker.entity)
+	spiker.tApex = jumpTime(spiker.hum.JumpHeight, P.HangGravityCancel)
 	local contactY = stats.contactMaxStuds - 0.15
 	local lead = spiker.tApex
 	local azure = spiker.entity.ability == "Azure"
@@ -603,7 +609,7 @@ local function serveLogic(b, now, grounded, side)
 	if not s.planned then
 		s.planned = true
 		if s.jump then
-			local contactY = e.charStats.contactMaxStuds - 0.2
+			local contactY = statsOf(e).contactMaxStuds - 0.2
 			local t, p = descentTo(path, now, contactY, side)
 			if t then
 				local depth = C.SideDepth - SPM * (0.95 + b.rng:NextNumber() * 2.5)
@@ -763,6 +769,9 @@ local function updateBot(b, now)
 			elseif b.task == "Block" then
 				reg.HitService.fx(e.id, "Jump", "Block")
 				reg.HitService.fx(e.id, "Block")
+				if e.ability == "IronWall" then
+					reg.HitService.activateAbility(e) -- whenever it's off cooldown
+				end
 			end
 			if b.chargeFrom == true then
 				b.chargeFrom = now + 0.08
@@ -951,6 +960,14 @@ function BotService.despawn(e)
 	if e.model then
 		e.model:Destroy()
 		e.model = nil
+	end
+end
+
+-- The humanoid's jump changed (Adrenaline): re-time jumps from the new height.
+function BotService.refreshJump(e)
+	local b = bots[e.id]
+	if b then
+		b.tApex = jumpTime(b.hum.JumpHeight, P.HangGravityCancel)
 	end
 end
 
