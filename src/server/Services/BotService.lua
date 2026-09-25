@@ -864,14 +864,18 @@ end
 
 function BotService.spawn(e)
 	local teamCfg = Config.Teams[e.team]
-	local desc = Instance.new("HumanoidDescription")
-	local skin = SKIN[math.random(#SKIN)]
-	desc.HeadColor = skin
-	desc.LeftArmColor = skin
-	desc.RightArmColor = skin
-	desc.TorsoColor = teamCfg.Color
-	desc.LeftLegColor = teamCfg.Dark
-	desc.RightLegColor = teamCfg.Dark
+	-- a friend's avatar when there is one (FriendService), else a plain rig in team colours
+	local desc = e.friendId and reg.FriendService.description(e.friendId)
+	if not desc then
+		desc = Instance.new("HumanoidDescription")
+		local skin = SKIN[math.random(#SKIN)]
+		desc.HeadColor = skin
+		desc.LeftArmColor = skin
+		desc.RightArmColor = skin
+		desc.TorsoColor = teamCfg.Color
+		desc.LeftLegColor = teamCfg.Dark
+		desc.RightLegColor = teamCfg.Dark
+	end
 	local ok, model = pcall(function()
 		return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
 	end)

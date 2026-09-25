@@ -226,6 +226,11 @@ Config.Stamina = {
 	LowQualityFloor = 0.55, -- receive quality multiplier at the bottom of the red zone
 	RecoverWinner = 0.1, -- fraction of max refilled after a rally
 	RecoverLoser = 0.2,
+	-- The drain above is what an S+ attacker's ball costs. Lower tiers hit the guard less and
+	-- less: Low for a D-, rising along ((tier - 1) / 14) ^ Exponent to 1 for S+ (B about half,
+	-- A about 0.7, S about 0.9).
+	TierDrainLow = 0.25,
+	TierDrainExponent = 1.6,
 }
 
 Config.Timeout = {
@@ -250,6 +255,18 @@ Config.RoleTemplates = {
 	Solo = { Attack = 200, Jump = 184, Defense = 150, Speed = 160, Height = 185 },
 }
 Config.TierScale = { Low = 0.42, Exponent = 1.1 } -- D- stats are Low of the way up from Min
+
+-- Upgrades: a character's roster stats are its ceilings. A newly recruited character starts
+-- StartFraction of the way up from Stats.Min and is upgraded with Gold, one point at a time.
+-- A point costs more the higher the stat already is, and more on a higher-tier character.
+-- Taking points back refunds exactly what they cost.
+Config.Upgrades = {
+	StartFraction = 0.55,
+	BaseCost = 8, -- gold for a point at Stats.Min
+	CostPerPoint = 0.35, -- plus this per stat point above Min
+	TierMul = { D = 0.6, C = 0.8, B = 1.0, A = 1.3, S = 1.7, ["S+"] = 2.2 },
+	Steps = { 1, 5, 10 },
+}
 
 Config.Stats = {
 	Order = { "Attack", "Defense", "Speed", "Jump" },
@@ -290,6 +307,11 @@ Config.Progression = {
 	WinVP = 30,
 	LossVP = 15,
 	PlayVP = 2, -- per kill, ace or block
+	-- Gold: the second currency, spent on stat upgrades
+	StartingGold = 3000,
+	WinGold = 300,
+	LossGold = 150,
+	PlayGold = 20, -- per kill, ace or block
 	DataStoreName = "SpikeRushProfiles_v1",
 	AutosaveInterval = 90,
 }
@@ -445,7 +467,7 @@ Config.Abilities = {
 		Tier = "S",
 		Role = "SE",
 		Blurb = "Your sets are charged. The spike or feint off one explodes: more power, and it tears through the receivers' stamina.",
-		Color = Color3.fromRGB(190, 90, 255),
+		Color = Color3.fromRGB(255, 64, 64),
 		PowerMul = 1.15, -- spike speed off a charged set
 		DrainMul = 2.4, -- receive drain of the exploding ball
 		FlatDrain = 16, -- plus this, even off a feint
@@ -532,6 +554,7 @@ Config.Bots = {
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
 	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it
+	FriendsPerPlayer = 30, -- bots wear these players' friends' avatars and names
 }
 
 Config.Graphics = {

@@ -425,9 +425,12 @@ local function results(winner, forfeitTeam)
 				score = score + 0.5
 			end
 			local reward = nil
+			local gold = nil
 			if e.player and team ~= forfeitTeam then
-				reward = (team == winner and P.WinVP or P.LossVP) + P.PlayVP * (st.kills + st.aces + st.blocks)
-				reg.ProfileService.award(e.player, reward)
+				local plays = st.kills + st.aces + st.blocks
+				reward = (team == winner and P.WinVP or P.LossVP) + P.PlayVP * plays
+				gold = (team == winner and P.WinGold or P.LossGold) + P.PlayGold * plays
+				reg.ProfileService.award(e.player, reward, gold)
 			end
 			table.insert(list, {
 				id = e.id,
@@ -444,6 +447,7 @@ local function results(winner, forfeitTeam)
 				errors = st.errors,
 				topKmh = st.topKmh,
 				reward = reward,
+				gold = gold,
 			})
 			if score > mvpScore then
 				mvp, mvpScore = e, score
@@ -573,13 +577,16 @@ end
 
 function MatchService.init(r)
 	reg = r
-	-- ("mode", 1|2|3) or ("botTier", "S+")
+	-- ("mode", 1|2|3), ("cancel") or ("botTier", "S+")
 	Net.get("Vote").OnServerEvent:Connect(function(plr, kind, value)
 		if MatchService.phase ~= "Intermission" then
 			return
 		end
 		if kind == "mode" and (value == 1 or value == 2 or value == 3) then
 			MatchService.votes[plr.UserId] = value
+		elseif kind == "cancel" then
+			-- leave the queue; with nobody queued the countdown stops (intermission waits again)
+			MatchService.votes[plr.UserId] = nil
 		elseif kind == "botTier" and Characters.isTier(value) then
 			MatchService.botVotes[plr.UserId] = value
 		else

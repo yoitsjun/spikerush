@@ -13,6 +13,7 @@ local Services = script.Parent:WaitForChild("Services")
 local registry = {}
 local order = {
 	"ToolboxService",
+	"FriendService",
 	"CharacterService",
 	"ArenaBuilder",
 	"BallService",

@@ -76,7 +76,7 @@ Abilities come with characters, one per role, at the top tiers.
 | Azure Dragon | S+ wing spikers | charge in the air (below) |
 | Adrenaline | S wing spikers | while the team's stamina is under 40%, +18 Attack and +16 Jump: you jump higher and hit harder, with a red aura |
 | Iron Wall | S middle blockers | press Q (L2): for 3 s every ball that reaches your block is stuffed, whatever its power, pierce and Thunder included. 20 s cooldown |
-| Chain Reaction | S setters | passive: your sets are charged (violet arc). The spike off one explodes: 15% more speed, 2.4 times the receive drain plus 16 flat that no timing saves you from. A feint off a charged set explodes too |
+| Chain Reaction | S setters | passive: your sets are charged: the ball glows red and sparks, with a red arc. The spike off one explodes: 15% more speed, 2.4 times the receive drain plus 16 flat that no timing saves you from. A feint off a charged set explodes too |
 
 Azure Dragon charges in the air. Hold Spike after takeoff to gather energy from a gauge that refills on the ground over 3 s; the bar fills in 0.8 s. While charging you float down slowly (85% of gravity cancelled on the way down, so charging never raises your hitting point), drift 25% faster in the air, and a pulsing blue orb gathers on your hitting hand with sparks, a light and a spinning ring. A full bar multiplies spike speed by 1.44 and pierces blocks (except an Iron Wall), and holding 0.28 s past full overcharges the swing so it flies out.
 

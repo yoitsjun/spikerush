@@ -268,6 +268,21 @@ do
 	end
 	check(okAll, "maxed builds: power and hitting point rise with tier", table.concat(line, "  "))
 	local cheat = Characters.sanitize("B", { Height = 400, Attack = 999, Defense = -5, Speed = 999, Jump = 999 })
+	-- the same 140 km/h spike from an S+ drains the full amount, from lower tiers less and less
+	local recRoot = vec(0, GROUND, side * 18 * K)
+	local recBall = vec(0, recRoot.Y + Z.ReceiveIdealY, recRoot.Z - side * Z.ReceiveForward)
+	local drains = {}
+	for _, tier in ipairs({ "S+", "S", "A", "B", "C", "D-" }) do
+		local _, r = HitLogic.compute({ action = "Bump", t = 0, root = recRoot, ball = recBall, vy = 0, grounded = true, stanceAge = 0.6 },
+			ctx({ ballVel = vec(0, -30 * K, side * 110 * K), lastHit = { team = "Home", hitType = "Spike", kmh = 140, tierDrain = HitLogic.tierDrain(tier) }, touchNumber = 1, stamina = { value = 200, max = 200 } }))
+		table.insert(drains, r.meta.drain or 0)
+	end
+	local falling = true
+	for i = 2, #drains do
+		falling = falling and drains[i] < drains[i - 1]
+	end
+	local steeper = (drains[4] - drains[5]) / drains[1] > 0 and HitLogic.tierDrain("S+") == 1 and math.abs(HitLogic.tierDrain("D-") - Config.Stamina.TierDrainLow) < 1e-9
+	check(falling and steeper and drains[6] < 0.3 * drains[1], "an S+ spike drains the full guard cost; lower tiers less and less", string.format("S+ %.1f  S %.1f  A %.1f  B %.1f  C %.1f  D- %.1f", drains[1], drains[2], drains[3], drains[4], drains[5], drains[6]))
 	check(cheat.Height == Config.Height.Max and cheat.Attack == Config.Stats.Max and cheat.Defense == Config.Stats.Min, "sanitize clamps a forged build", string.format("%d cm, %d attack, %d defense", cheat.Height, cheat.Attack, cheat.Defense))
 end
 
@@ -305,9 +320,9 @@ do
 	check(okAbility, "abilities: S+ wing spikers have Thunder or Azure, S characters their role's ability, the rest none")
 	check(okShape and shortestMB > tallestSE, "roles: wing spikers hit hardest, middles are the tallest, setters live on speed and defense", string.format("shortest MB %d cm, tallest SE %d cm", shortestMB, tallestSE))
 	local yejun = Roster.get("yejun")
-	local ys = Characters.derive(Characters.fromRoster(yejun))
-	local ryota = Characters.derive(Characters.fromRoster(Roster.get("ryota")))
-	check(yejun.Ability == "Thunder" and yejun.Attack == 195 and yejun.Jump == 190 and ys.ContactMaxM >= 4.0 and ryota.ContactMaxM >= 4.0, "YeJun (Thunder, 195 Attack, 190 Jump) and Ryota reach the 4.00 m Thunder line", string.format("YeJun %.2f m, Ryota %.2f m", ys.ContactMaxM, ryota.ContactMaxM))
+	local ys = Characters.derive(Characters.fromRoster(yejun, "max"))
+	local ryota = Characters.derive(Characters.fromRoster(Roster.get("ryota"), "max"))
+	check(yejun.Ability == "Thunder" and yejun.Attack == 195 and yejun.Jump == 190 and ys.ContactMaxM >= 4.0 and ryota.ContactMaxM >= 4.0, "fully upgraded, YeJun (Thunder, 195 Attack, 190 Jump) and Ryota reach the 4.00 m Thunder line", string.format("YeJun %.2f m, Ryota %.2f m", ys.ContactMaxM, ryota.ContactMaxM))
 	local starters = true
 	local roles = {}
 	for _, id in ipairs(Roster.Starters) do
@@ -371,6 +386,24 @@ do
 	local dm, dStats = clean("D-")
 	local s, sStats = clean("S")
 	check(dm < 0.5 and s > 0.85 and Characters.byTier(dStats, B.ReactionDelay) > 5 * Characters.byTier(sStats, B.ReactionDelay), "a D- bot team dig-spike-serves cleanly under half the time, an S team almost always", string.format("clean D- %.0f%%, S %.0f%%; reaction %.2f s vs %.2f s", dm * 100, s * 100, Characters.byTier(dStats, B.ReactionDelay), Characters.byTier(sStats, B.ReactionDelay)))
+end
+
+print("== gold upgrades ==")
+do
+	local yejun, riku = Roster.get("yejun"), Roster.get("riku")
+	local fresh = Characters.derive(Characters.fromRoster(yejun))
+	local maxed = Characters.derive(Characters.fromRoster(yejun, "max"))
+	local base = Characters.baseStat(yejun, "Attack")
+	check(base < yejun.Attack and fresh.Attack == base and maxed.Attack == 195 and fresh.ContactMaxM < maxed.ContactMaxM - 0.4, "a recruit starts well below its ceiling and upgrades up to it", string.format("YeJun attack %d -> %d, hitting point %.2f -> %.2f m", base, yejun.Attack, fresh.ContactMaxM, maxed.ContactMaxM))
+	local rising = Characters.pointCost(yejun, 180) > Characters.pointCost(yejun, 120) and Characters.pointCost(yejun, 120) > Characters.pointCost(riku, 120)
+	local full = 0
+	for _, stat in ipairs(Config.Stats.Order) do
+		full = full + Characters.upgradeCost(yejun, Characters.baseStat(yejun, stat), yejun[stat])
+	end
+	local split = Characters.upgradeCost(yejun, 130, 140) + Characters.upgradeCost(yejun, 140, 150) == Characters.upgradeCost(yejun, 130, 150)
+	check(rising and split, "points cost more the higher the stat and the tier, and refunds add up exactly", string.format("YeJun point at 120: %d gold, at 180: %d; Riku at 120: %d; maxing YeJun: %d gold", Characters.pointCost(yejun, 120), Characters.pointCost(yejun, 180), Characters.pointCost(riku, 120), full))
+	local forged = Characters.derive(Characters.fromRoster(riku, { Attack = 999, Jump = 1 }))
+	check(forged.Attack == riku.Attack and forged.Jump == Characters.baseStat(riku, "Jump"), "saved levels are clamped between the base and the ceiling")
 end
 
 print("== V Points spins ==")
@@ -546,7 +579,7 @@ end
 print("== role abilities ==")
 do
 	-- Adrenaline (S wing spiker): low team stamina = more Attack and Jump
-	local hayun = Characters.derive(Characters.fromRoster(Roster.get("hayun")))
+	local hayun = Characters.derive(Characters.fromRoster(Roster.get("hayun"), "max"))
 	local low = { value = 20, max = 100 }
 	local boostedStats, on = HitLogic.effectiveStats(hayun, "Adrenaline", low)
 	local _, off = HitLogic.effectiveStats(hayun, "Adrenaline", { value = 80, max = 100 })
@@ -557,7 +590,7 @@ do
 	check(on and not off and okA and okB and fired.meta.adrenaline and fired.meta.kmh > calm.meta.kmh + 4 and boostedStats.ContactMaxM > hayun.ContactMaxM + 0.1, "Adrenaline: under 40% stamina an S wing spiker hits harder from higher", string.format("%.1f vs %.1f km/h, %.2f vs %.2f m", fired.meta.kmh, calm.meta.kmh, boostedStats.ContactMaxM, hayun.ContactMaxM))
 
 	-- Chain Reaction (S setter): her set is charged, the spike or feint off it explodes
-	local seoyeon = Characters.derive(Characters.fromRoster(Roster.get("seoyeon")))
+	local seoyeon = Characters.derive(Characters.fromRoster(Roster.get("seoyeon"), "max"))
 	local sroot = vec(0, GROUND, side * H.SetterDepth)
 	local okS, set = HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = vec(0, sroot.Y + Z.SetIdealY, sroot.Z), grounded = true, setType = "Open" }, ctx({ touchNumber = 2, stats = seoyeon, ability = "ChainReaction", lastHit = { team = "Away", hitType = "Bump" } }))
 	local charged = set.meta
@@ -578,7 +611,7 @@ do
 
 	-- Iron Wall (S middle): everything that reaches the block is stuffed, even a full Azure
 	local bside = -side
-	local gaeul = Characters.derive(Characters.fromRoster(Roster.get("gaeul")))
+	local gaeul = Characters.derive(Characters.fromRoster(Roster.get("gaeul"), "max"))
 	local broot = vec(0, GROUND + Characters.jumpHeight(gaeul, GROUND) * 0.9, bside * 1.2)
 	local bball = vec(0, C.NetTop + 2.4, bside * 0.3)
 	local function block(wall)

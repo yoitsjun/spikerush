@@ -131,11 +131,48 @@ function Characters.autoBuild(tier, role, height)
 	return Characters.sanitize(tier, Characters.template(tier, role, height))
 end
 
--- A roster entry (the Roster module) as a tier and a build.
-function Characters.fromRoster(c)
+------------------------------------------------------------------------------------------
+-- Roster characters and upgrades
+------------------------------------------------------------------------------------------
+
+local UP = Config.Upgrades
+
+-- Where a freshly recruited character's stat starts (its roster value is the ceiling).
+function Characters.baseStat(c, stat)
+	return round(ST.Min + (c[stat] - ST.Min) * UP.StartFraction)
+end
+
+-- A character's current value of `stat` from its saved levels (missing = base), in range.
+function Characters.statLevel(c, levels, stat)
+	local base = Characters.baseStat(c, stat)
+	if levels == "max" then
+		return c[stat]
+	end
+	local v = type(levels) == "table" and tonumber(levels[stat]) or nil
+	return round(clamp(v or base, base, c[stat]))
+end
+
+-- Gold for the point that takes `stat` from `value` to `value + 1` on character `c`.
+function Characters.pointCost(c, value)
+	local mul = UP.TierMul[c.Tier] or UP.TierMul[string.sub(c.Tier, 1, 1)] or 1
+	return math.ceil((UP.BaseCost + (value - ST.Min) * UP.CostPerPoint) * mul)
+end
+
+-- Gold to go from `from` to `to` (to > from); the same amount comes back going down.
+function Characters.upgradeCost(c, from, to)
+	local sum = 0
+	for v = from, to - 1 do
+		sum = sum + Characters.pointCost(c, v)
+	end
+	return sum
+end
+
+-- A roster entry as a tier and a build. levels: the saved stat values ({ Attack = 150, ... }),
+-- nil for a fresh recruit, or "max" for the fully upgraded character (bots).
+function Characters.fromRoster(c, levels)
 	local b = { Height = c.Height }
 	for _, stat in ipairs(ST.Order) do
-		b[stat] = c[stat]
+		b[stat] = Characters.statLevel(c, levels, stat)
 	end
 	return c.Tier, Characters.sanitize(c.Tier, b)
 end

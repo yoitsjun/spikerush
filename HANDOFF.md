@@ -229,7 +229,7 @@ No mechanic changed; the input got forgiving. With the 1.8 s anime airtime playe
 - **Match**: players take their character's role when it's free (`freeRole`); bots are roster characters (`rosterFor`: that role, the nearest tier within two steps, not already on court), else the role template.
 - **Shop**: banner list with owned counts, What's inside (every pull and chance), results cards (NEW / +VP / sold), auto-roll with Stop, auto-sell toggles, VP packs.
 - **HUD**: the ability panel shows every ability's state (Adrenaline active, Iron Wall cooldown, Chain Reaction, Thunder reach, Azure energy); the control rail and the touch controls gain an Ability button for active abilities; name tags show the character's name.
-- **Effects**: Iron Wall barrier, stuff burst; charged sets draw a violet arc; the exploding spike burns violet with a burst and "Chain Reaction!"; Adrenaline gives a red aura; boom jumps need Jump 170 (`Config.Player.BoomJumpMin`), in VFX and audio.
+- **Effects**: Iron Wall barrier, stuff burst; charged sets glow red with sparkles and a red arc; the exploding spike burns red with a burst and "Chain Reaction!"; Adrenaline gives a red aura; boom jumps need Jump 170 (`Config.Player.BoomJumpMin`), in VFX and audio.
 
 These are the spots most likely to need attention on the first playtest:
 

@@ -37,6 +37,8 @@ local folder, ballRoot, trailPart, trail, core, aura, glow, shadow, markerRing, 
 local sparkles, sparkleOn = nil, false
 -- the attacker's equipped trail (V Points unlock): lightning drops jagged segments behind the ball
 local lightningOn, lightningColor = false, Color3.new(1, 1, 1)
+local chargedHl = nil -- red glow on a Chain Reaction (charged) ball
+local chargedOn = false
 local bolts = {}
 local boltIndex, lastBoltAt, lastBoltPos = 0, 0, nil
 local BOLT_COUNT = 28
@@ -279,6 +281,16 @@ local function buildVisuals()
 	sparkles.Enabled = false
 	sparkles.Parent = trailPart
 
+	chargedHl = Instance.new("Highlight")
+	chargedHl.FillColor = Config.Abilities.ChainReaction.Color
+	chargedHl.OutlineColor = Color3.fromRGB(255, 220, 200)
+	chargedHl.FillTransparency = 0.45
+	chargedHl.OutlineTransparency = 0
+	chargedHl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	chargedHl.Enabled = false
+	chargedHl.Adornee = ballRoot
+	chargedHl.Parent = folder
+
 	glow = Instance.new("PointLight")
 	glow.Range = 14
 	glow.Brightness = 0
@@ -335,6 +347,10 @@ local function applyStyle(meta)
 	aura.Enabled = false
 	aura.Rate = 90
 	glow.Brightness = 0
+	chargedOn = meta ~= nil and (meta.charged == true or meta.reaction == true)
+	if chargedHl then
+		chargedHl.Enabled = chargedOn
+	end
 	core.Enabled = false
 	sparkleOn = false
 	sparkles.Rate = 80
@@ -391,6 +407,17 @@ local function applyStyle(meta)
 		-- sets are drawn as a dotted arc instead
 		trail.Lifetime = 0.05
 		setWidth(0.05, 0.05)
+		if meta.charged then
+			-- a Chain Reaction set: the ball glows red and throws sparks, easy to spot
+			local red = Config.Abilities.ChainReaction.Color
+			aura.Color = ColorSequence.new(Color3.fromRGB(255, 190, 150), red)
+			aura.Enabled = true
+			glow.Color = red
+			glow.Brightness = 5
+			sparkleOn = true
+			sparkles.Rate = 120
+			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 120, 120))
+		end
 	else
 		trail.Color = ColorSequence.new(Config.UI.Chalk)
 		trail.Transparency = fade(0.55)
@@ -404,15 +431,15 @@ local function applyStyle(meta)
 		return
 	end
 	if meta.reaction then
-		-- off a charged set: the ball burns violet
+		-- off a charged set: the ball burns red
 		local c = Config.Abilities.ChainReaction.Color
-		trail.Color = ColorSequence.new(c, Color3.fromRGB(255, 120, 220))
-		aura.Color = ColorSequence.new(Color3.fromRGB(255, 180, 255), c)
+		trail.Color = ColorSequence.new(c, Color3.fromRGB(255, 170, 60))
+		aura.Color = ColorSequence.new(Color3.fromRGB(255, 220, 160), c)
 		aura.Enabled = true
 		glow.Color = c
 		glow.Brightness = math.max(glow.Brightness, 4)
 		sparkleOn = true
-		sparkles.Color = ColorSequence.new(Color3.fromRGB(240, 200, 255))
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 230, 210))
 	end
 	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or Color3.fromRGB(255, 90, 110)
 	if trailKey == "Comet" then
@@ -693,7 +720,15 @@ local function update(dt)
 	local ht = cur.meta and cur.meta.hitType
 	trail.Enabled = live and speed > 8 and ht ~= "Set" and ht ~= "Toss"
 	core.Enabled = trail.Enabled and (ht == "Spike" or ht == "JumpServe")
-	sparkles.Enabled = trail.Enabled and sparkleOn
+	sparkles.Enabled = (trail.Enabled or (live and chargedOn)) and sparkleOn
+	if chargedOn and live then
+		-- the charged ball pulses
+		local pulse = 0.5 + 0.5 * math.sin(os.clock() * 14)
+		glow.Brightness = 3.5 + 3 * pulse
+		if chargedHl then
+			chargedHl.FillTransparency = 0.35 + 0.35 * pulse
+		end
+	end
 	if not live then
 		aura.Enabled = false
 		glow.Brightness = math.max(0, glow.Brightness - dt * 8)
@@ -708,7 +743,7 @@ local function update(dt)
 		local d = dots[dotIndex]
 		d.born = clock
 		d.part.CFrame = CFrame.new(pos)
-		-- a Chain Reaction set is charged: violet dots
+		-- a Chain Reaction set is charged: red dots
 		d.part.Color = cur.meta.charged and Config.Abilities.ChainReaction.Color or Config.UI.Chalk
 		dotsAliveUntil = clock + 1.4
 	end

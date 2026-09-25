@@ -1,5 +1,6 @@
--- Player profiles: V Points (VP), the characters you own (named presets from the Roster module, each
--- with its role, stats, height and ability), the one you play, your unlocked cosmetics and
+-- Player profiles: V Points (VP) and Gold, the characters you own (and how far you've upgraded
+-- each), (named presets from the Roster module, each
+-- with its role, stat ceilings, height and ability), the one you play, your unlocked cosmetics and
 -- what's equipped, and your auto-sell choices. Saved with DataStoreService; falls back to
 -- session-only profiles when the DataStore isn't reachable (e.g. Studio without "Enable Studio
 -- Access to API Services").
@@ -7,6 +8,7 @@
 -- Client requests arrive on the "Profile" remote:
 --   ("get")                          -> reply with a snapshot
 --   ("select", charId)               -> play an owned character
+--   ("upgrade", charId, stat, delta) -> +1/5/10 costs Gold, -1/5/10 refunds exactly what it cost
 --   ("spin", banner, 1|10)           -> x1 / x10 spin (Config.Spins)
 --   ("autoroll", banner) / ("stop")  -> spin x1 until a Legendary or better (or out of VP)
 --   ("autosell", rarity, on)         -> pulls of that rarity turn straight into VP
@@ -36,7 +38,7 @@ local reg
 local P = Config.Progression
 local SP = Config.Spins
 local COS = Config.Cosmetics
-local VERSION = 3
+local VERSION = 4
 local profiles = {}
 local dirty = {}
 local loading = {}
@@ -79,7 +81,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, owned = {}, equip = {}, autoSell = {}, receipts = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, levels = {}, owned = {}, equip = {}, autoSell = {}, receipts = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -105,6 +107,21 @@ local function sanitizeProfile(data)
 		vp = data.points
 	end
 	out.vp = math.max(0, math.floor(tonumber(vp) or P.StartingVP))
+	if data.gold ~= nil then
+		out.gold = math.max(0, math.floor(tonumber(data.gold) or 0))
+	end
+	if type(data.levels) == "table" then
+		for id, lv in pairs(data.levels) do
+			local c = Roster.get(id)
+			if c and type(lv) == "table" then
+				local clean = {}
+				for _, stat in ipairs(Config.Stats.Order) do
+					clean[stat] = Characters.statLevel(c, lv, stat)
+				end
+				out.levels[id] = clean
+			end
+		end
+	end
 	for _, kind in ipairs(Spins.Kinds) do
 		local owned = type(data.owned) == "table" and data.owned[kind]
 		if type(owned) == "table" then
@@ -188,6 +205,8 @@ local function save(plr, force)
 	local payload = {
 		v = VERSION,
 		vp = profile.vp,
+		gold = profile.gold,
+		levels = profile.levels,
 		owned = profile.owned,
 		equip = profile.equip,
 		char = profile.char,
@@ -259,10 +278,16 @@ local function applyCosmetics(plr, profile)
 	end
 end
 
+-- The tier and build this player plays: their character with its upgrades.
+function ProfileService.characterBuild(plr)
+	local c = ProfileService.character(plr)
+	local tier, build = Characters.fromRoster(c, ProfileService.get(plr).levels[c.Id])
+	return c, tier, build
+end
+
 -- Write the active character onto the Player (and its avatar) so clients can read it.
 function ProfileService.applyActive(plr)
-	local c = ProfileService.character(plr)
-	local tier, build = Characters.fromRoster(c)
+	local c, tier, build = ProfileService.characterBuild(plr)
 	local ability = c.Ability or ""
 	local char = plr.Character
 	for _, inst in ipairs({ plr, char or plr }) do
@@ -289,8 +314,19 @@ function ProfileService.snapshot(plr)
 			end
 		end
 	end
+	local levels = {}
+	for id in pairs(owned.Char) do
+		local c = Roster.get(id)
+		local lv = {}
+		for _, stat in ipairs(Config.Stats.Order) do
+			lv[stat] = Characters.statLevel(c, profile.levels[id], stat)
+		end
+		levels[id] = lv
+	end
 	return {
 		vp = profile.vp,
+		gold = profile.gold,
+		levels = levels,
 		owned = owned,
 		equip = table.clone(profile.equip),
 		char = ProfileService.character(plr).Id,
@@ -309,19 +345,79 @@ local function push(plr, notice, reveal)
 	Net.get("Profile"):FireClient(plr, snap)
 end
 
-function ProfileService.award(plr, amount)
+local function inMatch(plr)
+	local TS = reg.TeamService
+	return TS.inMatch and TS.entityForPlayer(plr) ~= nil
+end
+
+function ProfileService.award(plr, vp, gold)
 	local profile = profiles[plr]
-	if not profile or amount <= 0 then
+	if not profile then
 		return
 	end
-	profile.vp = profile.vp + math.floor(amount)
+	profile.vp = profile.vp + math.max(0, math.floor(vp or 0))
+	profile.gold = profile.gold + math.max(0, math.floor(gold or 0))
 	dirty[plr] = true
 	push(plr)
 end
 
-local function inMatch(plr)
-	local TS = reg.TeamService
-	return TS.inMatch and TS.entityForPlayer(plr) ~= nil
+local STEPS = {}
+for _, n in ipairs(Config.Upgrades.Steps) do
+	STEPS[n] = true
+	STEPS[-n] = true
+end
+
+-- Upgrade (or take back) points of one stat of one owned character.
+local function upgrade(plr, profile, id, stat, delta)
+	local c = Roster.get(id)
+	delta = math.floor(tonumber(delta) or 0)
+	if not c or not owns(profile, "Char", id) or not Characters.isStat(stat) or not STEPS[delta] then
+		return
+	end
+	if id == ProfileService.character(plr).Id and inMatch(plr) then
+		push(plr, "Your character is locked until this match ends.")
+		return
+	end
+	local lv = profile.levels[id] or {}
+	local cur = Characters.statLevel(c, lv, stat)
+	local target = math.clamp(cur + delta, Characters.baseStat(c, stat), c[stat])
+	if target == cur then
+		push(plr, delta > 0 and (stat .. " is at its ceiling.") or (stat .. " is at its base."))
+		return
+	end
+	if target > cur then
+		local cost = Characters.upgradeCost(c, cur, target)
+		if not profile.dev and cost > profile.gold then
+			-- buy as many points as the gold allows
+			local afford = cur
+			local spent = 0
+			while afford < target and spent + Characters.pointCost(c, afford) <= profile.gold do
+				spent = spent + Characters.pointCost(c, afford)
+				afford = afford + 1
+			end
+			if afford == cur then
+				push(plr, string.format("Not enough Gold: the next %s point costs %d.", stat, Characters.pointCost(c, cur)))
+				return
+			end
+			target, cost = afford, spent
+		end
+		if not profile.dev then
+			profile.gold = profile.gold - cost
+		end
+	elseif not profile.dev then
+		profile.gold = profile.gold + Characters.upgradeCost(c, target, cur)
+	end
+	local clean = {}
+	for _, k in ipairs(Config.Stats.Order) do
+		clean[k] = Characters.statLevel(c, lv, k)
+	end
+	clean[stat] = target
+	profile.levels[id] = clean
+	dirty[plr] = true
+	if id == ProfileService.character(plr).Id then
+		ProfileService.applyActive(plr)
+	end
+	push(plr)
 end
 
 ------------------------------------------------------------------------------------------
@@ -430,7 +526,7 @@ local function grantPack(plr, pack)
 	push(plr, string.format("+%d VP", pack.VP))
 end
 
-local function onRequest(plr, kind, a, b)
+local function onRequest(plr, kind, a, b, c)
 	local profile = ProfileService.get(plr)
 	if kind == "get" then
 		push(plr)
@@ -443,7 +539,9 @@ local function onRequest(plr, kind, a, b)
 	end
 	lastRequest[plr] = now
 
-	if kind == "spin" then
+	if kind == "upgrade" then
+		upgrade(plr, profile, a, b, c)
+	elseif kind == "spin" then
 		spin(plr, profile, a, b)
 	elseif kind == "autoroll" then
 		autoRoll(plr, profile, a)

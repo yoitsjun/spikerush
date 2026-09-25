@@ -57,8 +57,7 @@ end
 
 -- A player's entity is their selected roster character.
 local function playerEntity(plr, team)
-	local c = reg.ProfileService.character(plr)
-	local tier, build = Characters.fromRoster(c)
+	local c, tier, build = reg.ProfileService.characterBuild(plr)
 	local e = newEntity("P_" .. tostring(plr.UserId), plr.DisplayName, false, plr, team, tier, c.Ability, build)
 	e.charId, e.charName, e.prefRole = c.Id, c.Name, c.Role
 	usedChars[c.Id] = true
@@ -333,12 +332,19 @@ local function addBot(team, index, role)
 	local c = rosterFor(TeamService.botTier, role)
 	if c then
 		usedChars[c.Id] = true
-		local tier, build = Characters.fromRoster(c)
+		local tier, build = Characters.fromRoster(c, "max")
 		e = newEntity(id, c.Name, true, nil, team, tier, c.Ability, build)
 		e.charId, e.charName = c.Id, c.Name
 	else
 		local build = Characters.template(TeamService.botTier, role, Characters.rollHeight(Random.new()))
 		e = newEntity(id, pickBotName(), true, nil, team, TeamService.botTier, nil, build)
+		e.charName = e.name
+	end
+	-- the bot wears a friend's avatar and name (the character name shows under it)
+	local friend = reg.FriendService.take()
+	if friend then
+		e.friendId = friend.id
+		e.name = friend.name
 	end
 	e.role = role
 	TeamService.entities[id] = e
@@ -387,6 +393,7 @@ function TeamService.clear()
 	TeamService.pendingJoin = {}
 	usedNames = {}
 	usedChars = {}
+	reg.FriendService.releaseAll()
 end
 
 function TeamService.assign(size)

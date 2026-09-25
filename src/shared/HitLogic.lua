@@ -304,6 +304,12 @@ function HitLogic.drainFor(kmh, stats)
 	return ST.DrainPer100Kmh * (over / 100) ^ ST.DrainExponent * (1 - ((stats and stats.DrainReduction) or 0))
 end
 
+-- How hard an attacker of this tier hits the guard (1 for S+, down to TierDrainLow for D-).
+function HitLogic.tierDrain(tier)
+	local i = Characters.tierIndex(tier) or #Config.Tiers
+	return ST.TierDrainLow + (1 - ST.TierDrainLow) * ((i - 1) / (#Config.Tiers - 1)) ^ ST.TierDrainExponent
+end
+
 -- The share of the drain a perfectly timed receive still pays.
 function HitLogic.perfectDrainMul(kmh)
 	local t = clamp((kmh - ST.PerfectMulFromKmh) / (ST.PerfectMulToKmh - ST.PerfectMulFromKmh), 0, 1)
@@ -492,6 +498,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	meta.height = heightM
 	meta.contact = qContact
 	meta.adrenaline = ctx.adrenaline or nil
+	meta.tierDrain = HitLogic.tierDrain(stats.tier)
 	if boom then
 		meta.reaction = true
 		meta.drainMul = CHAIN.DrainMul
@@ -770,7 +777,7 @@ function HitLogic.compute(input, ctx)
 		local perfect = heavy and not sliding and q >= H.PerfectAt
 		local drain = 0
 		if heavy and not sliding then
-			drain = HitLogic.drainFor(incomingKmh, stats)
+			drain = HitLogic.drainFor(incomingKmh, stats) * (last.tierDrain or 1)
 			if last.reaction then
 				drain = drain * (last.drainMul or 1)
 			end
