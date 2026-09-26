@@ -207,6 +207,38 @@ Assets.Images = {
 	Halftone = "102527515036737", -- decal 124271316176270: a halftone dot fade
 }
 
+-- Effect textures (image ids) for the particle kits in Fx.lua: hand-drawn anime sprites and
+-- flipbooks out of two free Creator Store VFX packs, "Yona VFX Pack" (18170940328) and
+-- "BIG VFX PACK" (17290956157). The flipbook layout is noted where there is one.
+Assets.Fx = {
+	HitStar = "7919757890", -- a jagged comic impact star (Yona, Hit-03)
+	HitBurst = "16937229477", -- a many-pointed white burst (BIG, Anime Crack-01)
+	Glint = "13768810492", -- a thin four-point glint (Yona, Arrow-Shot)
+	Sparkle = "1084970835", -- a fat four-point star (Yona, Golden-Sparks-01)
+	Streak = "7845168136", -- a tapered spark line (Yona, Hit-03)
+	HitRing = "13634052022", -- 4x4: an impact ring breaking into shards (Yona, Hit-02)
+	Ring = "7919579655", -- a thin ring, the sonic boom around a hard spike (Yona, Hit-03)
+	SpikyRing = "8904012224", -- a ragged shockwave ring (Yona, Red-Explosion)
+	Radial = "2850138336", -- a ring of speed lines (Yona, Explosion-01)
+	Slash = "7216847656", -- a crescent swoosh (BIG, Anime Slashes-01)
+	Glow = "4509687978", -- a soft white glow (Yona, Blast-Explosion-02)
+	Dot = "10558378459", -- a soft dot, embers (Yona, Block)
+	Specks = "1851669703", -- scattered star specks (BIG, Anime Stars-01)
+	Smoke = "16669188960", -- 4x4: cel-shaded smoke puffs (BIG, Anime Smoke-01)
+	GroundWave = "16954602535", -- a radial shock disc, laid on the floor (BIG, Lighting-01)
+	DustRing = "13108021212", -- a ring of dust, laid on the floor (Yona, Electricity Impact)
+	Crack = "13784241004", -- 4x4: a crack spreading across the floor (Yona, Ground-Crack-02)
+	Crater = "17067057050", -- a cracked crater (BIG, Big-Crack-01)
+	Fire = "11395090403", -- 4x4: anime flames (Yona, Explosion-02)
+	FireWhite = "11534281007", -- 4x4: white flames, tinted in code (Yona, Blast-Explosion-02)
+	Fireball = "12782553831", -- 4x4: a rolling fireball (BIG, Anime Realistic-Explosion-01)
+	Rock = "8132607319", -- a rock, meteor debris (Yona, Explosion-01)
+	Bolt = "13592365549", -- a lightning bolt (Yona, Lightning)
+	Bolt2 = "13612625856", -- another bolt (Yona, Lightning)
+	Electric = "14862694841", -- 4x4: crackling electricity (Yona, Lightning)
+	Arcs = "16951505034", -- 2x2: lightning arcs (BIG, Anime Lighting-03)
+}
+
 -- Font families (a FontFace family: rbxasset://fonts/families/<Name>.json, or a Creator Store
 -- font's rbxassetid). Display is set heavy and italic; Body upright.
 Assets.Fonts = {
@@ -231,6 +263,7 @@ Assets.Toolbox = {
 		Bench = "5110642461", -- "Modern Bench" (smartlegoman1): wood slats on metal legs
 		BallCart = "10807459912", -- "Basketball rack" (twoborn): a two-tier ball rack
 	},
+	-- an effect can be one piece of a pack: "<asset id>/<path inside it>"
 	VFX = {
 		SpikeImpact = "",
 		PerfectImpact = "",
@@ -243,14 +276,34 @@ Assets.Toolbox = {
 		JumpBoom = "",
 		GuardBreak = "",
 		AzureAura = "",
+		-- score effects (the Locker's Effect unlocks), played where the point lands
+		ScoreFire = "17290956157/Folder/Big/Explosion-01", -- BIG VFX PACK: a cel-shaded fireball
+		ScoreMeteor = "18170940328/Explosion-VFX/Explosion-01", -- Yona: rocks, smoke, speed lines
+		ScoreThunderbolt = "17290956157/Folder/Big/Lighting-01", -- BIG VFX PACK: a shock disc and a rising bolt
+		ScoreShockwave = "",
+		-- ball trails (the Locker's Trail unlocks), held on the ball while an attack flies
+		TrailComet = "",
+		TrailSparkle = "",
+		TrailFlame = "",
+		TrailLightning = "",
+		TrailStardust = "",
 	},
 }
 
--- The "Yaw" attribute ToolboxService stamps on a model it loads by id, for models that face
--- another way as published (these two run along Z; the menu sets want their long side along X).
-Assets.ToolboxYaw = {
-	Bench = 90,
-	BallCart = 90,
+
+
+-- Attributes ToolboxService stamps on an asset it loads by id (a hand-set attribute wins):
+--   Yaw    degrees a prop turns, for models that face another way as published (the bench and
+--          cart run along Z; the menu sets want their long side along X)
+--   Scale  sizes and speeds of an effect's particles, for packs made at a sword-fight scale
+--          (the match camera sits 64 studs back)
+--   Lift   studs an effect plays above the spot, for effects centred on their middle
+Assets.ToolboxAttributes = {
+	Bench = { Yaw = 90 },
+	BallCart = { Yaw = 90 },
+	ScoreFire = { Scale = 0.55, Lift = 2.5 },
+	ScoreMeteor = { Scale = 0.5, Lift = 1.5 },
+	ScoreThunderbolt = { Scale = 0.7 },
 }
 
 function Assets.id(value)
@@ -267,6 +320,22 @@ function Assets.id(value)
 end
 
 -- The numeric id in any accepted form, or nil.
+-- A Toolbox slot value: the asset id, and the path of the piece to take out of it ("" for the
+-- whole asset). "18170940328/Explosion-VFX/Explosion-01" -> 18170940328, "Explosion-VFX/Explosion-01"
+function Assets.ref(value)
+	if type(value) == "number" then
+		return value > 0 and value or nil, ""
+	end
+	if type(value) ~= "string" then
+		return nil, ""
+	end
+	local digits, path = string.match(value, "^%s*(%d+)/(.+)$")
+	if digits then
+		return tonumber(digits), path
+	end
+	return Assets.number(value), ""
+end
+
 function Assets.number(value)
 	if type(value) == "number" then
 		return value > 0 and value or nil

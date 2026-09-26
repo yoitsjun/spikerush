@@ -22,6 +22,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Assets = require(Shared.Assets)
 local Spins = require(Shared.Spins)
+local Fx = require(script.Parent.Fx)
 
 local SceneController = {}
 local mods
@@ -778,7 +779,7 @@ function SceneController.lineUp(colors, strength)
 	return balls
 end
 
--- A ball bursts (it's been opened): a flash in its colour.
+-- A ball bursts (it's been opened): a hit star, a ring and sparks in its colour.
 function SceneController.popBall(i, color)
 	local m = balls[i]
 	if not m or not m.Parent then
@@ -786,11 +787,9 @@ function SceneController.popBall(i, color)
 	end
 	local pos = m.PrimaryPart.Position
 	m:Destroy()
-	local flash = part({ Shape = Enum.PartType.Ball, Size = Vector3.one * 2, CFrame = CFrame.new(pos), Color = color, Material = Enum.Material.Neon, Transparency = 0.1 })
-	TweenService:Create(flash, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.one * 9, Transparency = 1 }):Play()
-	task.delay(0.4, function()
-		flash:Destroy()
-	end)
+	Fx.play("Burst", pos, { color = color, scale = 0.8 })
+	Fx.play("Ring", pos, { color = color, scale = 0.9 })
+	Fx.play("Sparks", pos, { color = color, n = 10, scale = 0.8 })
 end
 
 ------------------------------------------------------------------------------------------
@@ -849,10 +848,14 @@ local function practiceBall()
 	b.coreTrail.LightEmission = 1
 	local att = Instance.new("Attachment")
 	att.Parent = core
-	b.sparkles = emitter(att, Assets.Images.Spark)
+	b.att = att
+	b.kits = {}
+	b.sparkles = emitter(att, Assets.id(Assets.Fx.Glint) or "")
 	b.sparkles.RotSpeed = NumberRange.new(-180, 180)
 	b.sparkles.Transparency = fadeSeq(0)
-	b.aura = emitter(att, Assets.Images.Fire)
+	b.aura = emitter(att, Assets.id(Assets.Fx.FireWhite) or "")
+	b.aura.FlipbookLayout = Enum.ParticleFlipbookLayout.Grid4x4
+	b.aura.FlipbookMode = Enum.ParticleFlipbookMode.OneShot
 	b.aura.Lifetime = NumberRange.new(0.18, 0.32)
 	b.aura.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.8), NumberSequenceKeypoint.new(1, 0) })
 	b.aura.Transparency = fadeSeq(0.2)
@@ -875,29 +878,31 @@ local function styleBall(b, colorKey, trailKey)
 	b.coreTrail.Lifetime = 0.3
 	b.sparkleOn = true
 	b.sparkles.Rate = 80
-	b.sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
+	b.sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.2, 1.8), NumberSequenceKeypoint.new(1, 0) })
 	b.sparkles.Color = ColorSequence.new(accent:Lerp(Color3.new(1, 1, 1), 0.6))
 	b.auraOn = false
 	b.glow.Color = accent
-	b.lightning = nil
+	if b.kit then
+		b.kit.set(false)
+	end
+	b.kit = nil
+	if trailKey and trailKey ~= "Ribbon" then
+		-- the unlock's hand-drawn kit rides the ball, as in a match (BallRenderer)
+		local kit = b.kits[trailKey]
+		if not kit then
+			kit = Fx.attach("Trail" .. trailKey, b.att)
+			b.kits[trailKey] = kit
+		end
+		b.kit = kit
+		b.kitColor = trailKey == "Flame" and tint or accent
+	end
 	if trailKey == "Comet" then
 		b.trail.Lifetime = 1.0
 		b.trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.35), NumberSequenceKeypoint.new(1, 0.05) })
 		b.coreTrail.Lifetime = 0.45
-	elseif trailKey == "Sparkle" then
-		b.sparkles.Rate = 140
-		b.sparkles.Color = ColorSequence.new(accent:Lerp(Color3.new(1, 1, 1), 0.5))
 	elseif trailKey == "Flame" then
-		b.auraOn = true
-		b.aura.Rate = 140
-		b.aura.Color = ColorSequence.new(Color3.fromRGB(255, 220, 90), tint or Color3.fromRGB(255, 70, 30))
 		b.glow.Color = Color3.fromRGB(255, 140, 60)
-	elseif trailKey == "Lightning" then
-		b.lightning = accent:Lerp(Color3.new(1, 1, 1), 0.25)
 	elseif trailKey == "Stardust" then
-		b.sparkles.Rate = 220
-		b.sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.6), NumberSequenceKeypoint.new(1, 0) })
-		b.sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 250, 220), accent)
 		b.trail.Lifetime = 0.8
 	end
 end
@@ -908,20 +913,8 @@ local function launchFx(b, on)
 	b.sparkles.Enabled = on and b.sparkleOn
 	b.aura.Enabled = on and b.auraOn
 	b.glow.Brightness = on and 3 or 0
-end
-
--- Lightning: jagged neon segments dropped behind the ball, fading fast.
-local function dropBolt(b, from, to)
-	local mid = (from + to) / 2 + Vector3.new(0, (math.random() - 0.5) * 1.6, (math.random() - 0.5) * 0.8)
-	for _, seg in ipairs({ { from, mid }, { mid, to } }) do
-		local len = (seg[2] - seg[1]).Magnitude
-		if len > 0.05 then
-			local p = part({ Size = Vector3.new(0.25, 0.25, len), CFrame = CFrame.lookAt((seg[1] + seg[2]) / 2, seg[2]), Color = b.lightning, Material = Enum.Material.Neon, CastShadow = false })
-			TweenService:Create(p, TweenInfo.new(0.25), { Transparency = 1, Size = Vector3.new(0.05, 0.05, len) }):Play()
-			task.delay(0.3, function()
-				p:Destroy()
-			end)
-		end
+	if b.kit then
+		b.kit.set(on, b.kitColor)
 	end
 end
 
@@ -1015,9 +1008,6 @@ local function updatePractice(now)
 			b.model:PivotTo(CFrame.new(pos))
 			if b.prism then
 				b.trail.Color = ColorSequence.new(Spins.tint(Spins.resolve("Color", "Prism"), now))
-			end
-			if b.lightning and p.last then
-				dropBolt(b, p.last, pos)
 			end
 			p.last = pos
 		end

@@ -40,33 +40,46 @@ Filled now with "Volleyball Ball" (`123275048347543`, one MeshPart in yellow, bl
 
 The club room's lockers, its bench, and the ball cart in the club room and the recruit gym. Each is scaled to its spot by its bounding box (the lockers to 12 studs tall against the back wall, the bench to 11 studs long, the cart to 8.8 studs in the club room and 12 in the gym) and stands on the floor. A cart comes stocked: any part in it about as wide as it is tall and deep (the balls of a basketball rack, say) is swapped for the Toolbox volleyball. Until a slot is filled the room uses simple built stand-ins.
 
-The front of a prop is the -Z face of its bounding box, and a bench or cart should run along X. A model that faces another way takes a number attribute `Yaw` (degrees: 90, 180 or -90) that turns it; `Assets.ToolboxYaw` stamps it on models loaded by id.
+The front of a prop is the -Z face of its bounding box, and a bench or cart should run along X. A model that faces another way takes a number attribute `Yaw` (degrees: 90, 180 or -90) that turns it; `Assets.ToolboxAttributes` stamps it on models loaded by id.
 
 Filled now with "Locker School" (`15868311397`, six blue lockers), "Modern Bench" (`5110642461`, wood slats on metal legs) and "Basketball rack" (`10807459912`, a two-tier ball rack). Search for "school lockers", "locker room bench" and "ball rack" or "ball cart" to swap them.
 
 ### Effects: `ToolboxAssets.VFX.<Name>`
 
-Each effect fires once at the contact point. The template can be an Attachment, a Part or a Model holding ParticleEmitters. The game calls `:Emit(n)` on every emitter, where `n` is the emitter's `EmitCount` attribute (default 20); add an `EmitDelay` attribute (seconds) to stagger layers. Emitters are switched off first, so looping effects become bursts. A Part template is hidden unless you give it a `Visible = true` attribute.
+Every effect in a match is a particle kit in `src/client/Controllers/Fx.lua`, drawn with hand-made anime textures from two free Creator Store packs, "Yona VFX Pack" (`18170940328`) and "BIG VFX PACK" (`17290956157`): comic hit stars, a ragged hit-ring flipbook, spark streaks, cel-shaded smoke, anime flames, lightning sprites and arcs, a spreading floor crack, a crater and rocks. Their image ids are in `Assets.Fx`; swap an id there to restyle every kit that uses it.
 
-| Slot | When | Search for |
+A Toolbox effect in `ToolboxAssets.VFX.<Name>` replaces the kit of the same name. The template can be an Attachment, a Part or a Model holding ParticleEmitters. A burst calls `:Emit(n)` on every emitter, where `n` is the emitter's `EmitCount` attribute (default 20); add an `EmitDelay` attribute (seconds) to stagger layers. Emitters are switched off first, so looping effects become bursts, and beams, trails and lights are switched off too (nothing would animate them once the pack's scripts are gone). A Part template is hidden unless you give it a `Visible = true` attribute. When the game tints an effect (a spike colour unlock, a team colour), a Toolbox effect keeps each colour's brightness and takes the tint's hue.
+
+Three attributes size and place a template, and `Assets.ToolboxAttributes` stamps them on assets loaded by id:
+
+- `Scale`: multiplies the particles' sizes and speeds and the attachments' offsets. Packs made for sword fights need about 0.5 to 0.7.
+- `Lift`: studs above the spot, for effects centred on their middle (an explosion) rather than on the floor.
+- `Yaw`: models only (see above).
+
+A slot's id can name one piece of a pack: `"17290956157/Folder/Big/Explosion-01"` loads the pack once and takes that path out of it (a name that repeats, like the two folders called "Folder" in that pack, is searched in every copy).
+
+| Slot | When | Now |
 |---|---|---|
-| `SpikeImpact` | a normal spike | "hit impact vfx", "punch impact" |
-| `PerfectImpact` | a spike of 120 km/h or more | "anime impact", "shockwave vfx" |
-| `ThunderImpact` | Thunder Spiker | "lightning impact", "thunder vfx" |
-| `AzureImpact` | Azure Dragon | "blue energy burst", "water dragon vfx" |
-| `BlockImpact` | stuff block | "shield hit vfx", "block impact" |
-| `FloorImpact` | the ball hits the floor | "ground impact", "dust burst" |
-| `ReceiveImpact` | bump, set, free ball | "small hit spark" |
-| `NetImpact` | the ball hits the net | "small ripple", "soft impact" |
-| `JumpBoom` | a run-up or serve jump | "jump boom", "ground slam", "dash smoke" |
-| `GuardBreak` | a team's stamina breaks | "shatter vfx", "glass break particles" |
-| `AzureAura` | held on the player while charging Azure | "aura vfx", "blue flame aura" |
+| `SpikeImpact` | a normal spike | kit: hit star, hit ring, sparks, glints |
+| `PerfectImpact` | a spike of 120 km/h or more | kit: burst, star, two rings, speed-line ring, sparks, glow |
+| `ThunderImpact` | Thunder Spiker | kit: burst, electricity, arcs (plus three bolts along the spike) |
+| `AzureImpact` | Azure Dragon | kit: blue burst, ring, blue flames |
+| `BlockImpact` | stuff block (Iron Wall too) | kit: star, ragged ring, sparks, dust |
+| `FloorImpact` | the ball hits the floor | kit: a ragged ring laid on the floor, cel dust |
+| `ReceiveImpact` | bump, set, free ball | kit: a small hit ring and a glint |
+| `NetImpact` | the ball hits the net | kit: a small ring and sparks |
+| `JumpBoom` | a boom jump | kit: floor ring, dust ring, dust |
+| `GuardBreak` | a team's stamina breaks | kit: red burst and ring, pale sparks |
+| `AzureAura` | held while charging Azure | kit: blue anime flames; the rate scales with the energy gathered |
+| `ScoreFire` | a Fire score effect | BIG VFX PACK `Folder/Big/Explosion-01`, a cel-shaded fireball (`Scale` 0.55, `Lift` 2.5) |
+| `ScoreMeteor` | a Meteor score effect, after the rock falls | Yona `Explosion-VFX/Explosion-01`: rocks, smoke and speed lines (`Scale` 0.5, `Lift` 1.5) |
+| `ScoreThunderbolt` | a Thunderbolt score effect, under the bolt | BIG VFX PACK `Folder/Big/Lighting-01`: a shock disc and a rising bolt (`Scale` 0.7) |
+| `ScoreShockwave` | a Shockwave score effect | kit: floor rings, a ragged ring, a speed-line ring, dust |
+| `TrailComet`, `TrailSparkle`, `TrailFlame`, `TrailLightning`, `TrailStardust` | held on the ball while an attack with that trail unlock flies | kits: a comet's glow, glints, anime flames, crackling arcs, glitter |
 
-`AzureAura` is the one held effect: its emitters stay on while the player charges, and their rate scales with the energy gathered.
+A trail template's emitters stay on at their own `Rate` while the ball flies and drop particles along the flight, so a trail needs a high rate (100 or more a second), a short lifetime and a low speed. The packs' own trails were made for torches and characters and looked sparse on a 100 km/h ball, which is why the trail slots use kits for now.
 
-The side-view camera sits about 64 studs away with a long lens, so effects need to be big and bright to read. Prefer emitters with `LightEmission` near 1 and sizes of 2 to 8 studs.
-
-Particle textures for the built-in effects are in `Assets.Images` (`Spark`, `Smoke`, `Fire`). A Toolbox decal or image id works there too.
+The side-view camera sits about 64 studs away with a long lens, so effects need to be big and bright to read. Prefer emitters with `LightEmission` near 1 and sizes of 2 to 8 studs for contact, 10 to 20 for a score effect.
 
 ### Sounds: `Assets.Sounds.<Key>` or `ToolboxAssets.Sounds.<Key>`
 

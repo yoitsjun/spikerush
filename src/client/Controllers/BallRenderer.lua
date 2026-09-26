@@ -14,6 +14,7 @@ local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local Spins = require(Shared.Spins)
 local State = require(script.Parent.State)
+local Fx = require(script.Parent.Fx)
 
 local BallRenderer = {}
 
@@ -35,15 +36,14 @@ local bounce = nil
 
 local folder, ballRoot, trailPart, trail, core, aura, glow, shadow, markerRing, markerDot
 local sparkles, sparkleOn = nil, false
--- the attacker's equipped trail (V Points unlock): lightning drops jagged segments behind the ball
-local lightningOn, lightningColor = false, Color3.new(1, 1, 1)
+-- the attacker's equipped trail (V Points unlock): a hand-drawn Fx kit riding the ball
+local trailKits = {} -- trail key -> Fx.attach handle on the trail anchor
+local trailKit, trailColor, trailLit = nil, nil, false
 local chargedHl = nil -- red glow on a Chain Reaction (charged) ball
 local chargedOn = false
 local pulseRate = 14 -- how fast a glowing ball pulses (a Vector set breathes slower)
 local VECTOR = Config.Abilities.Vector.Color
-local bolts = {}
-local boltIndex, lastBoltAt, lastBoltPos = 0, 0, nil
-local BOLT_COUNT = 28
+local SPARKLE_SIZE = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.2, 1.8), NumberSequenceKeypoint.new(1, 0) })
 local a0, a1, c0, c1
 local dots = {}
 local dotIndex = 0
@@ -258,7 +258,9 @@ local function buildVisuals()
 	end
 
 	aura = Instance.new("ParticleEmitter")
-	aura.Texture = Assets.Images.Fire
+	aura.Texture = Assets.id(Assets.Fx.FireWhite) or ""
+	aura.FlipbookLayout = Enum.ParticleFlipbookLayout.Grid4x4
+	aura.FlipbookMode = Enum.ParticleFlipbookMode.OneShot
 	aura.Rate = 90
 	aura.Lifetime = NumberRange.new(0.18, 0.32)
 	aura.Speed = NumberRange.new(0.5, 2)
@@ -272,13 +274,13 @@ local function buildVisuals()
 
 	-- stars shed along an attack's ribbon
 	sparkles = Instance.new("ParticleEmitter")
-	sparkles.Texture = Assets.Images.Spark
+	sparkles.Texture = Assets.id(Assets.Fx.Glint) or ""
 	sparkles.Rate = 80
 	sparkles.Lifetime = NumberRange.new(0.3, 0.6)
 	sparkles.Speed = NumberRange.new(0.5, 2.5)
 	sparkles.SpreadAngle = Vector2.new(180, 180)
 	sparkles.RotSpeed = NumberRange.new(-180, 180)
-	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
+	sparkles.Size = SPARKLE_SIZE
 	sparkles.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
 	sparkles.LightEmission = 1
 	sparkles.LightInfluence = 0
@@ -300,13 +302,6 @@ local function buildVisuals()
 	glow.Brightness = 0
 	glow.Shadows = false
 	glow.Parent = trailPart
-
-	for i = 1, BOLT_COUNT do
-		local b = basicPart("Bolt", Enum.PartType.Block, Vector3.new(0.2, 0.2, 1), Color3.new(1, 1, 1), Enum.Material.Neon)
-		b.Transparency = 1
-		b.Parent = folder
-		bolts[i] = { part = b, born = -10 }
-	end
 
 	shadow = basicPart("Shadow", Enum.PartType.Cylinder, Vector3.new(0.04, R * 2.2, R * 2.2), Color3.new(0, 0, 0))
 	shadow.Transparency = 0.4
@@ -330,6 +325,21 @@ end
 
 local function fade(tail)
 	return NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.6, tail), NumberSequenceKeypoint.new(1, 1) })
+end
+
+-- The Fx kit for a trail unlock on the trail anchor, rebuilt when a Toolbox trail fills its slot.
+local function kitFor(key)
+	local name = "Trail" .. key
+	local h = trailKits[key]
+	if h and h.src ~= (Fx.override(name) or false) then
+		h.destroy()
+		h = nil
+	end
+	if not h then
+		h = Fx.attach(name, trailPart)
+		trailKits[key] = h
+	end
+	return h
 end
 
 local function applyStyle(meta)
@@ -361,8 +371,7 @@ local function applyStyle(meta)
 	core.Enabled = false
 	sparkleOn = false
 	sparkles.Rate = 80
-	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
-	lightningOn = false
+	sparkles.Size = SPARKLE_SIZE
 	-- thick, nearly solid ribbons like The Spike's: a Thunder spike paints the whole court
 	if attack and meta.thunder then
 		trail.Color = ColorSequence.new(Color3.fromRGB(255, 232, 40), Color3.fromRGB(255, 246, 150))
@@ -442,6 +451,10 @@ local function applyStyle(meta)
 		setWidth(R * 1.1, 0.05)
 	end
 	core.Enabled = attack
+	if trailKit and trailLit then
+		trailKit.set(false)
+	end
+	trailKit, trailLit = nil, false
 	if not attack then
 		core.Enabled = false
 		return
@@ -458,65 +471,27 @@ local function applyStyle(meta)
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 230, 210))
 	end
 	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or Color3.fromRGB(255, 90, 110)
+	if trailKey ~= "Ribbon" then
+		-- the unlock's kit (flames, glints, stardust, arcs, a comet's glow) rides the ball; a
+		-- flame keeps its own orange unless the spike has a colour
+		trailKit = kitFor(trailKey)
+		trailColor = trailKey == "Flame" and tint or accent
+	end
 	if trailKey == "Comet" then
 		-- a long, wide tail tapering to a point
 		trail.Lifetime = trail.Lifetime * 1.7
 		trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.35), NumberSequenceKeypoint.new(1, 0.05) })
 		core.Lifetime = core.Lifetime * 1.5
-	elseif trailKey == "Sparkle" then
-		sparkleOn = true
-		sparkles.Rate = 140
-		sparkles.Color = ColorSequence.new(accent:Lerp(Color3.new(1, 1, 1), 0.5))
 	elseif trailKey == "Flame" then
-		aura.Enabled = true
-		aura.Rate = 140
-		aura.Color = ColorSequence.new(Color3.fromRGB(255, 220, 90), tint or Color3.fromRGB(255, 70, 30))
 		glow.Color = Color3.fromRGB(255, 140, 60)
 		glow.Brightness = math.max(glow.Brightness, 3)
-	elseif trailKey == "Lightning" then
-		lightningOn = true
-		lightningColor = accent:Lerp(Color3.new(1, 1, 1), 0.25)
-		lastBoltPos = nil
 	elseif trailKey == "Stardust" then
-		sparkleOn = true
-		sparkles.Rate = 220
-		sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.6), NumberSequenceKeypoint.new(1, 0) })
-		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 250, 220), accent)
 		glow.Color = accent
 		glow.Brightness = math.max(glow.Brightness, 3)
 		trail.Lifetime = trail.Lifetime * 1.3
 	end
 end
 
--- Lightning trail: jagged neon segments dropped behind the ball, fading fast.
-local function updateBolts(pos, live, speed)
-	local clock = os.clock()
-	if lightningOn and live and speed > 8 and clock - lastBoltAt > 0.03 then
-		lastBoltAt = clock
-		local jag = Vector3.new((math.random() - 0.5) * 0.6, (math.random() - 0.5) * 2.4, (math.random() - 0.5) * 1.2)
-		local p = pos + jag
-		if lastBoltPos and (p - lastBoltPos).Magnitude < 12 then
-			boltIndex = boltIndex % BOLT_COUNT + 1
-			local b = bolts[boltIndex]
-			local len = (p - lastBoltPos).Magnitude
-			b.part.Size = Vector3.new(0.26, 0.26, len)
-			b.part.CFrame = CFrame.lookAt((p + lastBoltPos) / 2, p)
-			b.part.Color = lightningColor
-			b.born = clock
-		end
-		lastBoltPos = p
-	elseif not live then
-		lastBoltPos = nil
-	end
-	for _, b in ipairs(bolts) do
-		local age = clock - b.born
-		if age < 0.3 then
-			b.part.Transparency = age / 0.3
-		elseif b.part.Transparency < 1 then
-			b.part.Transparency = 1
-		end
-	end
-end
 
 ------------------------------------------------------------------------------------------
 -- state handling
@@ -737,6 +712,10 @@ local function update(dt)
 	trail.Enabled = live and speed > 8 and ht ~= "Set" and ht ~= "Toss"
 	core.Enabled = trail.Enabled and (ht == "Spike" or ht == "JumpServe")
 	sparkles.Enabled = (trail.Enabled or (live and chargedOn)) and sparkleOn
+	if trailKit and trail.Enabled ~= trailLit then
+		trailLit = trail.Enabled
+		trailKit.set(trailLit, trailColor)
+	end
 	if chargedOn and live then
 		-- the charged (or Vector) ball pulses
 		local pulse = 0.5 + 0.5 * math.sin(os.clock() * pulseRate)
@@ -749,7 +728,6 @@ local function update(dt)
 		aura.Enabled = false
 		glow.Brightness = math.max(0, glow.Brightness - dt * 8)
 	end
-	updateBolts(pos, live, speed)
 
 	-- dotted arc behind a set
 	local clock = os.clock()

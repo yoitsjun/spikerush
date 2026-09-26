@@ -1,14 +1,16 @@
--- Anime-style effects for the side view, all procedural (no assets required), with optional
--- Toolbox overrides (ReplicatedStorage.ToolboxAssets.VFX.<Name>).
---  * contact: starbursts and rings drawn in the screen plane, lightning bolts (Thunder Spiker),
---    a dragon-blue burst and hover aura (Azure Dragon), shards, sparks
---  * jumps: a "boom" ring and streaks under the feet
---  * screen: white flash, horizontal speed lines, and the impact frame: the screen goes white,
---    the attacker becomes a black silhouette over a coloured radial burst for a split second
+-- Anime-style effects for the side view. Everything in the world is a hand-drawn particle kit
+-- from Fx (anime flipbooks out of Creator Store VFX packs), and any kit can be swapped for a
+-- Toolbox effect in ReplicatedStorage.ToolboxAssets.VFX.<Name>.
+--  * contact: comic hit stars, ring flipbooks and streaking sparks; lightning sprites (Thunder
+--    Spiker), blue flames (Azure Dragon), sonic-boom rings chasing the hardest spikes
+--  * jumps: a shock disc and cel-shaded dust under the feet
+--  * screen: white flash, speed-line streaks, and the impact frame: the screen goes white, the
+--    attacker becomes a black silhouette over hand-drawn speed lines for a split second
 --  * text: receive grades ("PERFECT 96" with a badge), callouts ("Free ball!", "Stuff!")
 --  * unlockables: the attacker's spike colour tints the impact; their score effect (fire
 --    explosion, meteor strike, thunderbolt, shockwave) plays where the point lands
--- Parts, rings and starbursts are pooled; popups and the impact frame are short-lived.
+-- Kits, sonic rings and the parts left (blades, walls) are pooled; popups and the impact frame
+-- are short-lived.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -23,13 +25,13 @@ local BallPhysics = require(Shared.BallPhysics)
 local Spins = require(Shared.Spins)
 local Court = require(Shared.Court)
 local State = require(script.Parent.State)
+local Fx = require(script.Parent.Fx)
 
 local VFXController = {}
 local mods
 
 local player = Players.LocalPlayer
 local UI = Config.UI
-local FLAT = CFrame.Angles(0, 0, math.rad(90))
 local WHITE = Color3.new(1, 1, 1)
 local THUNDER = Color3.fromRGB(255, 226, 60)
 local AZURE = Color3.fromRGB(70, 210, 255)
@@ -39,13 +41,15 @@ local COUNTER = Config.Abilities.Counter.Color
 
 local fxFolder
 local pool = {}
-local emitterHolder, sparkEmitter, dustEmitter, fireEmitter
 local screen, flashFrame, linesFrame
 local lines = {}
 local linesUntil, linesDir = 0, 1
 local impactGui
 local auras = {}
 local streaks = {}
+
+-- the HUD's display face: heavy italic
+local DISPLAY = Font.new(Assets.Fonts.Display, Enum.FontWeight.Heavy, Enum.FontStyle.Italic)
 
 local GRADE_COLOR = {
 	PERFECT = UI.Spark,
@@ -108,109 +112,61 @@ local function release(p)
 	table.insert(list, p)
 end
 
-local function animate(p, duration, fromSize, toSize, fromT, toT, cf)
-	p.Size = fromSize
-	p.Transparency = fromT
-	p.CFrame = cf
-	local tween = TweenService:Create(p, TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-		Size = toSize,
-		Transparency = toT,
-	})
-	tween:Play()
-	tween.Completed:Connect(function()
-		release(p)
-	end)
+------------------------------------------------------------------------------------------
+-- building blocks: the calls the effects below are written in, drawn with Fx's kits
+------------------------------------------------------------------------------------------
+
+-- a soft glow about `radius` studs across
+local function burst(pos, color, radius)
+	Fx.play("Glow", pos, { color = color, scale = radius / 4 })
 end
 
-local function burst(pos, color, radius, duration)
-	local p = take(Enum.PartType.Ball)
-	p.Color = color
-	animate(p, duration, Vector3.new(0.4, 0.4, 0.4), Vector3.new(radius * 2, radius * 2, radius * 2), 0.05, 1, CFrame.new(pos))
+-- a shock disc on the floor out to `radius` studs
+local function floorRing(pos, color, radius)
+	Fx.play("Wave", Vector3.new(pos.X, 0.25, pos.Z), { color = color, scale = radius / 5.5 })
 end
 
-local function floorRing(pos, color, radius, duration)
-	local p = take(Enum.PartType.Cylinder)
-	p.Color = color
-	animate(p, duration, Vector3.new(0.06, 0.6, 0.6), Vector3.new(0.02, radius * 2, radius * 2), 0.1, 1, CFrame.new(pos.X, 0.2, pos.Z) * FLAT)
-end
-
--- Shards fly out within the play plane so they read from the side camera.
+-- streaking sparks thrown out in the play plane
 local function shards(pos, color, count, speed)
-	for i = 1, count do
-		local p = take(Enum.PartType.Block)
-		p.Color = color
-		local a = (i / count) * math.pi * 2 + math.random() * 0.5
-		local dir = Vector3.new((math.random() - 0.5) * 0.4, math.sin(a), math.cos(a)).Unit
-		local len = 0.9 + math.random() * 1.4
-		p.Size = Vector3.new(0.16, 0.16, len)
-		p.CFrame = CFrame.lookAt(pos, pos + dir)
-		p.Transparency = 0
-		local goal = CFrame.lookAt(pos + dir * speed * 0.2, pos + dir * (speed * 0.2 + 1))
-		local tween = TweenService:Create(p, TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			CFrame = goal,
-			Size = Vector3.new(0.05, 0.05, len * 1.5),
-			Transparency = 1,
-		})
-		tween:Play()
-		tween.Completed:Connect(function()
-			release(p)
-		end)
-	end
+	Fx.play("Sparks", pos, { color = color, n = count, scale = math.clamp(speed / 55, 0.6, 1.5) })
 end
 
--- A jagged lightning bolt from `from` along `dir`, in the play plane.
+-- The camera looks along +x, so screen right is +z and up is +y: an upright sprite turns
+-- clockwise by this many degrees to point along a world direction.
+local function screenAngle(dir)
+	return math.deg(math.atan2(dir.Z, dir.Y))
+end
+
+-- a lightning bolt sprite from `from` along `dir`
 local function bolt(from, dir, length, color)
-	local segs = 6
-	local prev = from
-	local side = Vector3.new(0, -dir.Z, dir.Y)
-	for i = 1, segs do
-		local along = from + dir * (length * i / segs)
-		local jag = side * ((math.random() - 0.5) * length * 0.28)
-		local nextP = along + jag
-		if i == segs then
-			nextP = along
-		end
-		local p = take(Enum.PartType.Block)
-		p.Color = color
-		local mid = (prev + nextP) / 2
-		local seg = (nextP - prev).Magnitude
-		p.Size = Vector3.new(0.22, 0.22, seg)
-		p.CFrame = CFrame.lookAt(mid, nextP) + Vector3.new(-0.6, 0, 0)
-		p.Transparency = 0
-		local tween = TweenService:Create(p, TweenInfo.new(0.22, Enum.EasingStyle.Linear), { Transparency = 1, Size = Vector3.new(0.08, 0.08, seg) })
-		tween:Play()
-		tween.Completed:Connect(function()
-			release(p)
-		end)
-		prev = nextP
+	Fx.play("Bolt", from + dir * (length / 2), { color = color, scale = length / 10, angle = screenAngle(dir) })
+end
+
+-- a ring flipbook growing out to `toSize` studs
+local function ringFx(pos, color, _, toSize)
+	Fx.play("Ring", pos, { color = color, scale = toSize / 10 })
+end
+
+-- a comic hit star about `size` studs across (a many-pointed burst when big)
+local function starburst(pos, color, size)
+	if size >= 10 then
+		Fx.play("Burst", pos, { color = color, scale = size / 11 })
+	else
+		Fx.play("Star", pos, { color = color, scale = size / 7.5 })
 	end
 end
 
-------------------------------------------------------------------------------------------
--- GUI shapes in world space (always face the camera). Rings and starbursts are pooled: each
--- entry owns its anchor part and BillboardGui and is only re-coloured and re-tweened on reuse.
-------------------------------------------------------------------------------------------
-
-local ringPool, burstPool = {}, {}
-local MAX_RAYS = 16
-
-local function newBillboard()
-	local anchor = newPart(Enum.PartType.Block)
-	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
-	local gui = Instance.new("BillboardGui")
-	gui.AlwaysOnTop = true
-	gui.LightInfluence = 0
-	gui.Adornee = anchor
-	gui.Enabled = false
-	gui.Parent = anchor
-	return gui, anchor
+-- sparks, dust and flames in the counts the effects were tuned with
+local SHARE = { Sparks = 0.4, Dust = 0.5, Fire = 0.35 }
+local function emit(kit, pos, count, color)
+	Fx.play(kit, pos, { color = color, n = math.max(1, math.ceil(count * SHARE[kit])) })
 end
 
-local function park(entry, list)
-	entry.gui.Enabled = false
-	entry.anchor.CFrame = PARKED
-	table.insert(list, entry)
-end
+------------------------------------------------------------------------------------------
+-- billboards: popups, and the sonic booms around a hard spike
+------------------------------------------------------------------------------------------
+
+local sonicPool = {}
 
 -- One-off billboard (popups): the gui is destroyed afterwards, the anchor goes back to the pool.
 local function billboard(pos, size)
@@ -227,175 +183,42 @@ local function billboard(pos, size)
 	return gui, anchor
 end
 
-local function ringFx(pos, color, fromSize, toSize, duration, thickness)
-	local e = table.remove(ringPool)
-	if not e then
-		local gui, anchor = newBillboard()
-		local f = Instance.new("Frame")
-		f.AnchorPoint = Vector2.new(0.5, 0.5)
-		f.Position = UDim2.fromScale(0.5, 0.5)
-		f.Size = UDim2.fromScale(1, 1)
-		f.BackgroundTransparency = 1
-		f.Parent = gui
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.5, 0)
-		corner.Parent = f
-		local stroke = Instance.new("UIStroke")
-		stroke.Parent = f
-		e = { gui = gui, anchor = anchor, stroke = stroke, frame = f }
-	end
-	e.frame.Size = UDim2.fromScale(1, 1)
-	e.frame.Rotation = 0
-	e.anchor.CFrame = CFrame.new(pos)
-	e.gui.Size = UDim2.new(fromSize, 0, fromSize, 0)
-	e.stroke.Color = color
-	e.stroke.Thickness = thickness or 6
-	e.stroke.Transparency = 0
-	e.gui.Enabled = true
-	TweenService:Create(e.gui, TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(toSize, 0, toSize, 0) }):Play()
-	TweenService:Create(e.stroke, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1, Thickness = 1 }):Play()
-	task.delay(duration + 0.05, function()
-		park(e, ringPool)
-	end)
-	return e
-end
-
-local function starburst(pos, color, size, rays, duration)
-	local e = table.remove(burstPool)
-	if not e then
-		local gui, anchor = newBillboard()
-		local scale = Instance.new("UIScale")
-		scale.Parent = gui
-		local list = {}
-		for i = 1, MAX_RAYS do
-			local r = Instance.new("Frame")
-			r.AnchorPoint = Vector2.new(0, 0.5)
-			r.Position = UDim2.fromScale(0.5, 0.5)
-			r.BorderSizePixel = 0
-			r.Parent = gui
-			list[i] = r
-		end
-		local core = Instance.new("Frame")
-		core.AnchorPoint = Vector2.new(0.5, 0.5)
-		core.Position = UDim2.fromScale(0.5, 0.5)
-		core.Size = UDim2.fromScale(0.26, 0.26)
-		core.BackgroundColor3 = WHITE
-		core.Parent = gui
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.5, 0)
-		corner.Parent = core
-		e = { gui = gui, anchor = anchor, scale = scale, rays = list, core = core }
-	end
-	rays = math.min(rays, MAX_RAYS)
-	e.anchor.CFrame = CFrame.new(pos)
-	e.gui.Size = UDim2.new(size, 0, size, 0)
-	e.scale.Scale = 0.35
-	for i, r in ipairs(e.rays) do
-		if i <= rays then
-			r.Visible = true
-			r.Size = UDim2.new(0.28 + math.random() * 0.22, 0, 0, math.random(4, 9))
-			r.Rotation = (i / rays) * 360 + math.random() * 12
-			r.BackgroundColor3 = color
-			r.BackgroundTransparency = 0
-		else
-			r.Visible = false
-		end
-	end
-	e.core.BackgroundTransparency = 0
-	e.gui.Enabled = true
-	TweenService:Create(e.scale, TweenInfo.new(duration * 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	task.delay(duration * 0.35, function()
-		local fade = TweenInfo.new(duration * 0.65)
-		for i = 1, rays do
-			TweenService:Create(e.rays[i], fade, { BackgroundTransparency = 1 }):Play()
-		end
-		TweenService:Create(e.core, fade, { BackgroundTransparency = 1 }):Play()
-	end)
-	task.delay(duration + 0.05, function()
-		park(e, burstPool)
-	end)
-end
-
--- A sonic-boom ring: an ellipse standing across the ball's flight, as on The Spike's hardest
--- spikes. The camera looks along +x, so screen right is +z and the flight angle on screen is
--- atan2(vy, vz); a GUI rotation is clockwise, hence the minus.
+-- A sonic-boom ring, as on The Spike's hardest spikes: a thin hand-drawn ring squeezed into an
+-- ellipse standing across the ball's flight. The flight's angle on screen is atan2(vy, vz) and
+-- a GUI rotation is clockwise, hence the minus.
 local function sonicRing(pos, vel, color, size, duration)
-	local e = ringFx(pos, color, size * 0.4, size, duration, 5)
-	e.frame.Size = UDim2.fromScale(0.36, 1)
-	e.frame.Rotation = -math.deg(math.atan2(vel.Y, vel.Z))
-end
-
-------------------------------------------------------------------------------------------
--- particles
-------------------------------------------------------------------------------------------
-
-local function makeEmitter(texture, props)
-	local e = Instance.new("ParticleEmitter")
-	e.Texture = texture
-	e.Enabled = false
-	e.LightInfluence = 0
-	for k, v in pairs(props) do
-		e[k] = v
+	local e = table.remove(sonicPool)
+	if not e then
+		local anchor = newPart(Enum.PartType.Block)
+		anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+		local gui = Instance.new("BillboardGui")
+		gui.AlwaysOnTop = true
+		gui.LightInfluence = 0
+		gui.Adornee = anchor
+		gui.Enabled = false
+		gui.Parent = anchor
+		local img = Instance.new("ImageLabel")
+		img.AnchorPoint = Vector2.new(0.5, 0.5)
+		img.Position = UDim2.fromScale(0.5, 0.5)
+		img.Size = UDim2.fromScale(0.36, 1)
+		img.BackgroundTransparency = 1
+		img.Image = Assets.id(Assets.Fx.Ring) or ""
+		img.Parent = gui
+		e = { gui = gui, anchor = anchor, img = img }
 	end
-	e.Parent = emitterHolder
-	return e
-end
-
-local function emit(emitter, pos, count, color)
-	emitterHolder.CFrame = CFrame.new(pos)
-	if color then
-		emitter.Color = ColorSequence.new(color)
-	end
-	emitter:Emit(count)
-end
-
--- A Toolbox effect from ReplicatedStorage.ToolboxAssets.VFX.<name>, fired once at `pos`.
--- Templates can be an Attachment, a Part or a Model holding ParticleEmitters. Each emitter
--- bursts :Emit(EmitCount) after EmitDelay seconds (both optional attributes).
-local function toolboxFx(name, pos)
-	local template = Assets.toolbox("VFX." .. name)
-	if not template then
-		return false
-	end
-	local holder = take(Enum.PartType.Block)
-	holder.Size = Vector3.new(0.2, 0.2, 0.2)
-	holder.Transparency = 1
-	holder.CFrame = CFrame.new(pos)
-	local clone = Assets.sanitize(template:Clone())
-	if clone:IsA("BasePart") then
-		if not clone:GetAttribute("Visible") then
-			clone.Transparency = 1
-		end
-		clone.CFrame = holder.CFrame
-	elseif clone:IsA("Model") then
-		clone:PivotTo(holder.CFrame)
-	end
-	clone.Parent = holder
-	local longest = 0.5
-	local list = clone:GetDescendants()
-	table.insert(list, clone)
-	for _, d in ipairs(list) do
-		if d:IsA("ParticleEmitter") then
-			d.Enabled = false
-			local delay = d:GetAttribute("EmitDelay") or 0
-			local count = d:GetAttribute("EmitCount") or 20
-			if delay > 0 then
-				task.delay(delay, function()
-					if d.Parent then
-						d:Emit(count)
-					end
-				end)
-			else
-				d:Emit(count)
-			end
-			longest = math.max(longest, delay + d.Lifetime.Max)
-		end
-	end
-	task.delay(longest + 0.3, function()
-		clone:Destroy()
-		release(holder)
+	e.anchor.CFrame = CFrame.new(pos)
+	e.gui.Size = UDim2.new(size * 0.4, 0, size * 0.4, 0)
+	e.img.ImageColor3 = color
+	e.img.ImageTransparency = 0
+	e.img.Rotation = -math.deg(math.atan2(vel.Y, vel.Z))
+	e.gui.Enabled = true
+	TweenService:Create(e.gui, TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(size, 0, size, 0) }):Play()
+	TweenService:Create(e.img, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { ImageTransparency = 1 }):Play()
+	task.delay(duration + 0.05, function()
+		e.gui.Enabled = false
+		e.anchor.CFrame = PARKED
+		table.insert(sonicPool, e)
 	end)
-	return true
 end
 
 ------------------------------------------------------------------------------------------
@@ -422,34 +245,28 @@ local function buildScreen()
 	linesFrame.BackgroundTransparency = 1
 	linesFrame.Visible = false
 	linesFrame.Parent = screen
+	-- speed lines: tapered hand-drawn strokes (the spark streak), not flat bars
+	local stroke = Assets.id(Assets.Fx.Streak) or ""
 	local count = State.isMobile and 14 or 24
 	for i = 1, count do
-		local l = Instance.new("Frame")
+		local l = Instance.new("ImageLabel")
 		l.AnchorPoint = Vector2.new(0.5, 0.5)
-		l.BorderSizePixel = 0
-		l.BackgroundColor3 = WHITE
+		l.BackgroundTransparency = 1
+		l.Image = stroke
 		l.Parent = linesFrame
 		lines[i] = { frame = l, x = math.random(), y = math.random(), len = 0.1, speed = 1 }
 	end
 
-	-- glowing horizontal streaks that flash across the screen on the biggest hits
+	-- glowing streaks that flash across the screen on the biggest hits
 	for i = 1, 4 do
-		local f = Instance.new("Frame")
+		local f = Instance.new("ImageLabel")
 		f.AnchorPoint = Vector2.new(0.5, 0.5)
-		f.BorderSizePixel = 0
-		f.BackgroundColor3 = WHITE
 		f.BackgroundTransparency = 1
-		f.Size = UDim2.new(1.2, 0, 0, 4)
+		f.Image = stroke
+		f.ImageTransparency = 1
+		f.Size = UDim2.new(1.2, 0, 0, 12)
 		f.Position = UDim2.fromScale(0.5, 0.5)
 		f.Parent = screen
-		local g = Instance.new("UIGradient")
-		g.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.35, 0),
-			NumberSequenceKeypoint.new(0.65, 0),
-			NumberSequenceKeypoint.new(1, 1),
-		})
-		g.Parent = f
 		streaks[i] = f
 	end
 
@@ -475,7 +292,7 @@ function VFXController.speedLines(duration, color, dir)
 	linesUntil = os.clock() + duration
 	linesDir = dir or 1
 	for _, l in ipairs(lines) do
-		l.frame.BackgroundColor3 = color or WHITE
+		l.frame.ImageColor3 = color or WHITE
 		l.x = math.random()
 		l.y = 0.08 + math.random() * 0.84
 		l.len = 0.12 + math.random() * 0.25
@@ -502,8 +319,8 @@ local function updateLines(dt)
 			l.x = 1.3
 		end
 		l.frame.Position = UDim2.fromScale(l.x, l.y)
-		l.frame.Size = UDim2.new(l.len, 0, 0, 2 + (l.speed > 3.5 and 2 or 0))
-		l.frame.BackgroundTransparency = 1 - 0.7 * fade
+		l.frame.Size = UDim2.new(l.len, 0, 0, l.speed > 3.5 and 12 or 7)
+		l.frame.ImageTransparency = 1 - 0.8 * fade
 	end
 end
 
@@ -567,45 +384,33 @@ function VFXController.impactFrame(entityId, color)
 
 	local sp = cam:WorldToViewportPoint(hrp.Position + Vector3.new(0, 1.5, 0))
 	local vs = cam.ViewportSize
+	local tint = color or HOT
+	local function sprite(parent, key, size, props)
+		local img = Instance.new("ImageLabel")
+		img.AnchorPoint = Vector2.new(0.5, 0.5)
+		img.Position = UDim2.fromScale(0.5, 0.5)
+		img.Size = UDim2.fromScale(size, size)
+		img.BackgroundTransparency = 1
+		img.Image = Assets.id(Assets.Fx[key]) or ""
+		for k, v in pairs(props or {}) do
+			img[k] = v
+		end
+		img.Parent = parent
+		return img
+	end
+	-- speed lines rushing into the hitter, a glow and a comic hit star, in the attack's colour
 	local burstFrame = Instance.new("Frame")
 	burstFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	burstFrame.Position = UDim2.fromOffset(sp.X, sp.Y)
 	burstFrame.Size = UDim2.fromOffset(vs.Y * 1.3, vs.Y * 1.3)
 	burstFrame.BackgroundTransparency = 1
 	burstFrame.Parent = bg
-	for i = 1, 22 do
-		local r = Instance.new("Frame")
-		r.AnchorPoint = Vector2.new(0, 0.5)
-		r.Position = UDim2.fromScale(0.5, 0.5)
-		r.Size = UDim2.new(0.25 + math.random() * 0.3, 0, 0, math.random(8, 26))
-		r.Rotation = (i / 22) * 360 + math.random() * 8
-		r.BackgroundColor3 = color or HOT
-		r.BorderSizePixel = 0
-		r.Parent = burstFrame
-	end
-	-- a soft glow: stacked discs, fainter as they grow
-	for i, k in ipairs({ 0.62, 0.46, 0.3 }) do
-		local glowDisc = Instance.new("Frame")
-		glowDisc.AnchorPoint = Vector2.new(0.5, 0.5)
-		glowDisc.Position = UDim2.fromScale(0.5, 0.5)
-		glowDisc.Size = UDim2.fromScale(k, k)
-		glowDisc.BackgroundColor3 = color or HOT
-		glowDisc.BackgroundTransparency = 0.75 - i * 0.2
-		glowDisc.BorderSizePixel = 0
-		glowDisc.Parent = burstFrame
-		local gc = Instance.new("UICorner")
-		gc.CornerRadius = UDim.new(0.5, 0)
-		gc.Parent = glowDisc
-	end
-	local disc = Instance.new("Frame")
-	disc.AnchorPoint = Vector2.new(0.5, 0.5)
-	disc.Position = UDim2.fromScale(0.5, 0.5)
-	disc.Size = UDim2.fromScale(0.16, 0.16)
-	disc.BackgroundColor3 = WHITE
-	disc.Parent = burstFrame
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = disc
+	local images = {
+		sprite(burstFrame, "Radial", 1.5, { ImageColor3 = tint, Rotation = math.random() * 360 }),
+		sprite(burstFrame, "Radial", 1, { ImageColor3 = tint, Rotation = math.random() * 360 }),
+		sprite(burstFrame, "Glow", 0.75, { ImageColor3 = tint, ImageTransparency = 0.25 }),
+		sprite(burstFrame, "HitStar", 0.42, { ImageColor3 = tint:Lerp(WHITE, 0.35), Rotation = math.random() * 360 }),
+	}
 	-- a pillar of light through the hitter
 	local pillar = Instance.new("Frame")
 	pillar.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -615,39 +420,22 @@ function VFXController.impactFrame(entityId, color)
 	pillar.BorderSizePixel = 0
 	pillar.Parent = bg
 	local pg = Instance.new("UIGradient")
-	pg.Color = ColorSequence.new(color or HOT, WHITE)
+	pg.Color = ColorSequence.new(tint, WHITE)
 	pg.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 1),
 		NumberSequenceKeypoint.new(0.4, 0.1),
 		NumberSequenceKeypoint.new(0.6, 0.1),
 		NumberSequenceKeypoint.new(1, 1),
 	})
-	pg.Rotation = 0
 	pg.Parent = pillar
-	-- a gold crescent slash: half of a thick ring
-	local crescent = Instance.new("Frame")
-	crescent.AnchorPoint = Vector2.new(0.5, 0.5)
-	crescent.Position = UDim2.fromOffset(sp.X, sp.Y)
-	crescent.Size = UDim2.fromOffset(vs.Y * 0.5, vs.Y * 0.5)
-	crescent.BackgroundTransparency = 1
-	crescent.Rotation = -30 + math.random() * 60
-	crescent.Parent = bg
-	local cc = Instance.new("UICorner")
-	cc.CornerRadius = UDim.new(0.5, 0)
-	cc.Parent = crescent
-	local cs = Instance.new("UIStroke")
-	cs.Thickness = math.max(6, vs.Y * 0.018)
-	cs.Color = Color3.fromRGB(255, 205, 70)
-	cs.Parent = crescent
-	local cg = Instance.new("UIGradient")
-	cg.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0),
-		NumberSequenceKeypoint.new(0.48, 0),
-		NumberSequenceKeypoint.new(0.52, 1),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	cg.Rotation = 90
-	cg.Parent = cs
+	-- a gold crescent slash across the swing
+	local slash = Instance.new("Frame")
+	slash.AnchorPoint = Vector2.new(0.5, 0.5)
+	slash.Position = UDim2.fromOffset(sp.X, sp.Y)
+	slash.Size = UDim2.fromOffset(vs.Y * 0.6, vs.Y * 0.6)
+	slash.BackgroundTransparency = 1
+	slash.Parent = bg
+	table.insert(images, sprite(slash, "Slash", 1, { ImageColor3 = Color3.fromRGB(255, 205, 70), Rotation = -40 + math.random() * 80 }))
 
 	local vp = Instance.new("ViewportFrame")
 	vp.Size = UDim2.fromScale(1, 1)
@@ -664,15 +452,13 @@ function VFXController.impactFrame(entityId, color)
 
 	impactGui.Enabled = true
 	task.delay(0.09, function()
-		TweenService:Create(bg, TweenInfo.new(0.14), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(vp, TweenInfo.new(0.14), { ImageTransparency = 1 }):Play()
-		for _, r in ipairs(burstFrame:GetChildren()) do
-			if r:IsA("Frame") then
-				TweenService:Create(r, TweenInfo.new(0.14), { BackgroundTransparency = 1 }):Play()
-			end
+		local fade = TweenInfo.new(0.14)
+		TweenService:Create(bg, fade, { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(vp, fade, { ImageTransparency = 1 }):Play()
+		for _, img in ipairs(images) do
+			TweenService:Create(img, fade, { ImageTransparency = 1 }):Play()
 		end
 		TweenService:Create(pillar, TweenInfo.new(0.16), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(cs, TweenInfo.new(0.16), { Transparency = 1 }):Play()
 	end)
 	task.delay(0.26, function()
 		impactGui.Enabled = false
@@ -700,25 +486,21 @@ function VFXController.popup(pos, text, color, size, badge)
 	layout.Parent = row
 	local fades = {}
 	if badge then
-		-- a small shield badge: perfect receives drain almost no stamina
-		local b = Instance.new("Frame")
-		b.Size = UDim2.fromOffset(30, 30)
-		b.Rotation = 45
-		b.BackgroundColor3 = color
+		-- the shield icon: perfect receives drain almost no stamina
+		local b = Instance.new("ImageLabel")
+		b.Size = UDim2.fromOffset(36, 36)
+		b.BackgroundTransparency = 1
+		b.Image = Assets.image("IconDefense") or ""
+		b.ImageColor3 = color
 		b.LayoutOrder = 1
 		b.Parent = row
-		local st = Instance.new("UIStroke")
-		st.Thickness = 3
-		st.Color = UI.Ink
-		st.Parent = b
-		table.insert(fades, { b, "BackgroundTransparency" })
-		table.insert(fades, { st, "Transparency" })
+		table.insert(fades, { b, "ImageTransparency" })
 	end
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
 	label.AutomaticSize = Enum.AutomaticSize.X
 	label.Size = UDim2.fromScale(0, 1)
-	label.Font = Enum.Font.Bangers
+	label.FontFace = DISPLAY
 	label.Text = text
 	label.TextColor3 = color
 	label.TextSize = 44
@@ -767,68 +549,18 @@ function VFXController.boom(entityId, kind)
 		return
 	end
 	local p = hrp.Position
+	local foot = Vector3.new(p.X, 0.25, p.Z)
 	if not VFXController.hasBoom(model) then
-		emit(dustEmitter, Vector3.new(p.X, 0.4, p.Z), 6)
+		Fx.play("Dust", foot, { n = 3, scale = 0.7 })
 		return
 	end
 	local big = kind == "Spike" or kind == "Serve"
 	if entityId == State.myId and mods then
 		mods.AudioController.play("Boom", { volume = big and 0.8 or 0.45, minGap = 0.05 })
 	end
-	if big and toolboxFx("JumpBoom", Vector3.new(p.X, 0.3, p.Z)) then
-		return -- the Toolbox boom replaces the procedural ring and streaks
-	end
-	floorRing(Vector3.new(p.X, 0.2, p.Z), WHITE, big and 8 or 4, big and 0.36 or 0.26)
-	emit(dustEmitter, Vector3.new(p.X, 0.4, p.Z), big and 24 or 10)
-	if big then
-		ringFx(Vector3.new(p.X, 1.2, p.Z), WHITE, 2, 12, 0.3, 6)
-		for i = -1, 1 do
-			local s = take(Enum.PartType.Block)
-			s.Color = WHITE
-			local base = Vector3.new(p.X - 0.8, 1.6, p.Z + i * 0.7)
-			animate(s, 0.22, Vector3.new(0.1, 3.2, 0.14), Vector3.new(0.04, 0.4, 0.06), 0.2, 1, CFrame.new(base))
-		end
-	end
+	Fx.play("JumpBoom", foot, big and nil or { scale = 0.55, count = 0.5 })
 end
 
--- Emitters for the Azure aura: the Toolbox AzureAura template's emitters if there is one,
--- otherwise a procedural blue flame. Returns a list of { emitter, baseRate }.
-local function auraEmitters(att)
-	local out = {}
-	local template = Assets.toolbox("VFX.AzureAura")
-	if template then
-		local clone = Assets.sanitize(template:Clone())
-		local list = clone:GetDescendants()
-		table.insert(list, clone)
-		for _, d in ipairs(list) do
-			if d:IsA("ParticleEmitter") then
-				local pe = d:Clone()
-				pe.Enabled = true
-				pe.Parent = att
-				table.insert(out, { pe, pe.Rate > 0 and pe.Rate or 40 })
-			end
-		end
-		clone:Destroy()
-		if #out > 0 then
-			return out
-		end
-	end
-	local pe = Instance.new("ParticleEmitter")
-	pe.Texture = Assets.Images.Fire
-	pe.Color = ColorSequence.new(Color3.fromRGB(150, 245, 255), Color3.fromRGB(30, 100, 255))
-	pe.LightEmission = 1
-	pe.LightInfluence = 0
-	pe.Rate = 40
-	pe.Lifetime = NumberRange.new(0.3, 0.55)
-	pe.Speed = NumberRange.new(2, 5)
-	pe.RotSpeed = NumberRange.new(-200, 200)
-	pe.SpreadAngle = Vector2.new(180, 180)
-	pe.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 0) })
-	pe.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1) })
-	pe.Parent = att
-	table.insert(out, { pe, 40 })
-	return out
-end
 
 -- The charging hand: an energy orb, swirling sparks and a light on the hitting hand.
 local function handFx(model, hrp)
@@ -837,7 +569,7 @@ local function handFx(model, hrp)
 	att.Name = "AzureHand"
 	att.Parent = hand
 	local sparks = Instance.new("ParticleEmitter")
-	sparks.Texture = Assets.Images.Spark
+	sparks.Texture = Assets.id(Assets.Fx.Glint) or ""
 	sparks.Color = ColorSequence.new(Color3.fromRGB(220, 250, 255), AZURE)
 	sparks.LightEmission = 1
 	sparks.LightInfluence = 0
@@ -845,8 +577,8 @@ local function handFx(model, hrp)
 	sparks.Lifetime = NumberRange.new(0.18, 0.4)
 	sparks.Speed = NumberRange.new(1.5, 4)
 	sparks.SpreadAngle = Vector2.new(180, 180)
-	sparks.RotSpeed = NumberRange.new(-360, 360)
-	sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 0) })
+	sparks.RotSpeed = NumberRange.new(-180, 180)
+	sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.1), NumberSequenceKeypoint.new(1, 0) })
 	sparks.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
 	sparks.LockedToPart = true
 	sparks.Parent = att
@@ -856,47 +588,27 @@ local function handFx(model, hrp)
 	light.Brightness = 1
 	light.Shadows = false
 	light.Parent = att
-	-- the orb: a bright core inside a spinning ring, sized in studs
+	-- the orb, sized in studs: a glow, a white core and a spinning crescent of a ring
 	local gui = Instance.new("BillboardGui")
 	gui.Size = UDim2.new(1, 0, 1, 0)
 	gui.LightInfluence = 0
 	gui.AlwaysOnTop = false
 	gui.Adornee = att
 	gui.Parent = att
-	local glowDisc = Instance.new("Frame")
-	glowDisc.AnchorPoint = Vector2.new(0.5, 0.5)
-	glowDisc.Position = UDim2.fromScale(0.5, 0.5)
-	glowDisc.Size = UDim2.fromScale(1, 1)
-	glowDisc.BackgroundColor3 = AZURE
-	glowDisc.BackgroundTransparency = 0.55
-	glowDisc.BorderSizePixel = 0
-	glowDisc.Parent = gui
-	local gc = Instance.new("UICorner")
-	gc.CornerRadius = UDim.new(0.5, 0)
-	gc.Parent = glowDisc
-	local core = Instance.new("Frame")
-	core.AnchorPoint = Vector2.new(0.5, 0.5)
-	core.Position = UDim2.fromScale(0.5, 0.5)
-	core.Size = UDim2.fromScale(0.5, 0.5)
-	core.BackgroundColor3 = WHITE
-	core.BorderSizePixel = 0
-	core.Parent = gui
-	local cc = Instance.new("UICorner")
-	cc.CornerRadius = UDim.new(0.5, 0)
-	cc.Parent = core
-	local ring = Instance.new("Frame")
-	ring.AnchorPoint = Vector2.new(0.5, 0.5)
-	ring.Position = UDim2.fromScale(0.5, 0.5)
-	ring.Size = UDim2.fromScale(1.35, 1.35)
-	ring.BackgroundTransparency = 1
-	ring.Parent = gui
-	local rc = Instance.new("UICorner")
-	rc.CornerRadius = UDim.new(0.5, 0)
-	rc.Parent = ring
-	local rs = Instance.new("UIStroke")
-	rs.Thickness = 3
-	rs.Color = Color3.fromRGB(190, 245, 255)
-	rs.Parent = ring
+	local function sprite(key, size, color)
+		local img = Instance.new("ImageLabel")
+		img.AnchorPoint = Vector2.new(0.5, 0.5)
+		img.Position = UDim2.fromScale(0.5, 0.5)
+		img.Size = UDim2.fromScale(size, size)
+		img.BackgroundTransparency = 1
+		img.Image = Assets.id(Assets.Fx[key]) or ""
+		img.ImageColor3 = color
+		img.Parent = gui
+		return img
+	end
+	local glowDisc = sprite("Glow", 1.9, AZURE)
+	sprite("Dot", 0.75, WHITE)
+	local ring = sprite("Ring", 1.45, Color3.fromRGB(190, 245, 255))
 	local rg = Instance.new("UIGradient")
 	rg.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0),
@@ -904,27 +616,24 @@ local function handFx(model, hrp)
 		NumberSequenceKeypoint.new(0.55, 1),
 		NumberSequenceKeypoint.new(1, 1),
 	})
-	rg.Parent = rs
-	return { att = att, sparks = sparks, light = light, gui = gui, glow = glowDisc, ring = ring, ringStroke = rs }
+	rg.Parent = ring
+	return { att = att, sparks = sparks, light = light, gui = gui, glow = glowDisc, ring = ring }
 end
 
 local function applyEnergy(fx, e)
 	e = math.clamp(e, 0, 1.3)
 	fx.energy = e
-	-- 30 + 110 * e particles/s for the procedural flame (base 40): about 0.75x to 4.3x
-	local k = (30 + 110 * e) / 40
-	for _, item in ipairs(fx.emitters) do
-		item[1].Rate = item[2] * k
-	end
+	-- 30 + 110 * e flames a second at the kit's base 40: about 0.75x to 4.3x
 	local over = e > 1
+	fx.aura.set(true, over and HOT or nil, (30 + 110 * e) / 40)
 	local color = over and HOT or AZURE
 	fx.hl.FillTransparency = 0.85 - 0.35 * math.min(e, 1)
 	fx.hl.FillColor = color
 	local h = fx.hand
 	local size = 0.8 + 2.6 * math.min(e, 1)
 	h.gui.Size = UDim2.new(size, 0, size, 0)
-	h.glow.BackgroundColor3 = color
-	h.ringStroke.Color = over and Color3.fromRGB(255, 170, 190) or Color3.fromRGB(190, 245, 255)
+	h.glow.ImageColor3 = color
+	h.ring.ImageColor3 = over and Color3.fromRGB(255, 170, 190) or Color3.fromRGB(190, 245, 255)
 	h.light.Color = color
 	h.light.Range = 6 + 10 * math.min(e, 1)
 	h.light.Brightness = 1 + 3 * math.min(e, 1)
@@ -959,7 +668,7 @@ local function setAura(model, on, energy, remote)
 		hl.OutlineTransparency = 0.2
 		hl.DepthMode = Enum.HighlightDepthMode.Occluded
 		hl.Parent = model
-		fx = { att = att, emitters = auraEmitters(att), hl = hl, hand = handFx(model, hrp), t0 = os.clock(), remote = remote }
+		fx = { att = att, aura = Fx.attach("AzureAura", att), hl = hl, hand = handFx(model, hrp), t0 = os.clock(), remote = remote }
 		auras[model] = fx
 	end
 	applyEnergy(fx, energy or 0)
@@ -971,7 +680,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local walls = {} -- entityId -> { part, untilT, side }
-local statusFx = {} -- model -> kind -> { att, em, hl }
+local statusFx = {} -- model -> kind -> { att, aura, hl }
 local sunSeen = {} -- model -> the Sunrise level last shown
 local nextStatusScan = 0
 
@@ -1110,13 +819,7 @@ local function bladeVolley(pos, dir, color, count)
 end
 
 local function chainExplosion(pos, color)
-	burst(pos, color, 5, 0.3)
-	burst(pos, Color3.fromRGB(255, 220, 255), 2.4, 0.18)
-	ringFx(pos, color, 2, 16, 0.4, 8)
-	starburst(pos, color, 12, 14, 0.3)
-	emit(fireEmitter, pos, 50, color)
-	emit(sparkEmitter, pos, 30, Color3.fromRGB(255, 200, 255))
-	shards(pos, color, 14, 60)
+	Fx.play("ChainExplosion", pos, { color = color })
 end
 
 local function updateAbilityFx(dt)
@@ -1188,18 +891,6 @@ local function updateAbilityFx(dt)
 				local att = Instance.new("Attachment")
 				att.Name = "Status" .. kind
 				att.Parent = hrp
-				local em = makeEmitter(Assets.Images.Fire, {
-					LightEmission = 0.8,
-					Lifetime = NumberRange.new(0.3, 0.6),
-					Speed = NumberRange.new(2, 5),
-					SpreadAngle = Vector2.new(25, 25),
-					EmissionDirection = Enum.NormalId.Top,
-					Color = ColorSequence.new(st.fire[1], st.fire[2]),
-					Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, st.size or 2.2), NumberSequenceKeypoint.new(1, 0) }),
-					Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 1) }),
-				})
-				em.Enabled = true
-				em.Parent = att
 				local hl = nil
 				if st.fill then
 					hl = Instance.new("Highlight")
@@ -1210,11 +901,11 @@ local function updateAbilityFx(dt)
 					hl.DepthMode = Enum.HighlightDepthMode.Occluded
 					hl.Parent = model
 				end
-				fx = { att = att, em = em, hl = hl }
+				fx = { att = att, aura = Fx.attach("StatusAura", att), hl = hl }
 				list[kind] = fx
 			end
 			if fx then
-				fx.em.Rate = st.rate * level
+				fx.aura.set(true, st.fire[2], st.rate * level / 40)
 			end
 		end
 	end
@@ -1268,13 +959,13 @@ function VFXController.neonStreaks(pos, color)
 	for i, f in ipairs(streaks) do
 		local offset = (i - 2.5) * (10 + math.random() * 14)
 		f.Position = UDim2.new(0.5, 0, 0, sp.Y + offset)
-		f.Size = UDim2.new(1.2, 0, 0, (i == 2 or i == 3) and 5 or 2)
-		f.BackgroundColor3 = (i == 2 or i == 3) and color or WHITE
-		f.BackgroundTransparency = 0.05
+		f.Size = UDim2.new(1.2, 0, 0, (i == 2 or i == 3) and 16 or 8)
+		f.ImageColor3 = (i == 2 or i == 3) and color or WHITE
+		f.ImageTransparency = 0
 		f.Rotation = (math.random() - 0.5) * 2
 		TweenService:Create(f, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			BackgroundTransparency = 1,
-			Size = UDim2.new(1.2, 0, 0, 1),
+			ImageTransparency = 1,
+			Size = UDim2.new(1.2, 0, 0, 3),
 		}):Play()
 	end
 end
@@ -1301,37 +992,26 @@ function VFXController.shield(entityId, color)
 	local scale = Instance.new("UIScale")
 	scale.Scale = 0.2
 	scale.Parent = root
-	-- a shield: a rounded top plate over a point (a square turned 45 degrees)
-	local top = Instance.new("Frame")
-	top.BackgroundColor3 = color
-	top.BorderSizePixel = 0
-	top.Size = UDim2.fromOffset(40, 28)
-	top.Position = UDim2.fromOffset(3, 2)
-	top.Parent = root
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 6)
-	c.Parent = top
-	local point = Instance.new("Frame")
-	point.BackgroundColor3 = color
-	point.BorderSizePixel = 0
-	point.AnchorPoint = Vector2.new(0.5, 0.5)
-	point.Size = UDim2.fromOffset(28, 28)
-	point.Position = UDim2.fromOffset(23, 30)
-	point.Rotation = 45
-	point.Parent = root
-	local shine = Instance.new("Frame")
-	shine.BackgroundColor3 = WHITE
-	shine.BackgroundTransparency = 0.3
-	shine.BorderSizePixel = 0
-	shine.Size = UDim2.fromOffset(6, 30)
-	shine.Position = UDim2.fromOffset(20, 6)
-	shine.ZIndex = 2
-	shine.Parent = root
+	-- the shield icon with a glint across it
+	local icon = Instance.new("ImageLabel")
+	icon.BackgroundTransparency = 1
+	icon.Size = UDim2.fromScale(1, 1)
+	icon.Image = Assets.image("IconDefense") or ""
+	icon.ImageColor3 = color
+	icon.Parent = root
+	local glint = Instance.new("ImageLabel")
+	glint.BackgroundTransparency = 1
+	glint.AnchorPoint = Vector2.new(0.5, 0.5)
+	glint.Position = UDim2.fromScale(0.68, 0.28)
+	glint.Size = UDim2.fromScale(0.8, 0.8)
+	glint.Image = Assets.id(Assets.Fx.Glint) or ""
+	glint.ZIndex = 2
+	glint.Parent = root
 	TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	TweenService:Create(gui, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { StudsOffsetWorldSpace = Vector3.new(0, 4.2, 0) }):Play()
 	task.delay(0.6, function()
-		for _, f in ipairs({ top, point, shine }) do
-			TweenService:Create(f, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+		for _, f in ipairs({ icon, glint }) do
+			TweenService:Create(f, TweenInfo.new(0.3), { ImageTransparency = 1 }):Play()
 		end
 	end)
 	task.delay(0.95, function()
@@ -1403,12 +1083,12 @@ local function onHit(snap)
 		VFXController.popup(pos + Vector3.new(0, 3, 0), "Adrenaline!", Config.Abilities.Adrenaline.Color, 0.8)
 	end
 	if ht == "Set" and meta.charged then
-		emit(sparkEmitter, pos, 24, chain)
+		emit("Sparks", pos, 24, chain)
 		ringFx(pos, chain, 1, 6, 0.3, 5)
 	end
 	if ht == "Set" and meta.vectorSet then
 		ringFx(pos, VECTOR, 1, 6, 0.35, 5)
-		emit(sparkEmitter, pos, 14, VECTOR)
+		emit("Sparks", pos, 14, VECTOR)
 	end
 	if meta.turnabout then
 		local tcol = Config.Abilities.Turnabout.Color
@@ -1427,9 +1107,6 @@ local function onHit(snap)
 	if ht == "Spike" or ht == "JumpServe" then
 		local heavy = kmh >= 120
 		local vdir = seg.v.Magnitude > 0 and seg.v.Unit or Vector3.new(0, -1, dirZ)
-		-- every attack: a reticle snapping onto the ball and dark debris streaks off the contact
-		ringFx(pos, WHITE, 7, 2.2, 0.14, 3)
-		shards(pos, Color3.fromRGB(24, 22, 30), heavy and 12 or 6, heavy and 75 or 50)
 		if meta.vector then
 			-- Vector Set: the boost the spike's angle earned
 			local boost = meta.vectorBoost or 0
@@ -1454,14 +1131,10 @@ local function onHit(snap)
 			end
 		end
 		if meta.thunder then
-			if not toolboxFx("ThunderImpact", pos) then
-				starburst(pos, THUNDER, 11, 14, 0.3)
-				ringFx(pos, THUNDER, 2, 14, 0.35, 8)
-				for _ = 1, 4 do
-					local d = (vdir + Vector3.new(0, (math.random() - 0.5) * 1.2, (math.random() - 0.5) * 1.2)).Unit
-					bolt(pos, d, 7 + math.random() * 5, THUNDER)
-				end
-				emit(sparkEmitter, pos, 40, THUNDER)
+			Fx.play("ThunderImpact", pos)
+			for _ = 1, 3 do
+				local d = (vdir + Vector3.new(0, (math.random() - 0.5) * 1.2, (math.random() - 0.5) * 1.2)).Unit
+				bolt(pos, d, 7 + math.random() * 5, THUNDER)
 			end
 			thunderPath(snap.path)
 			if close then
@@ -1472,12 +1145,7 @@ local function onHit(snap)
 			end
 		elseif meta.energy then
 			local e = math.min(meta.energy, 1)
-			if not toolboxFx("AzureImpact", pos) then
-				starburst(pos, AZURE, 7 + 6 * e, 12, 0.3)
-				ringFx(pos, AZURE, 2, 8 + 8 * e, 0.35, 7)
-				ringFx(pos, WHITE, 1, 5 + 4 * e, 0.25, 4)
-				emit(fireEmitter, pos, math.floor(10 + 25 * e), AZURE)
-			end
+			Fx.play("AzureImpact", pos, { scale = 0.7 + 0.4 * e })
 			if meta.pierce then
 				VFXController.popup(pos, "Pierce!", AZURE, 1.1)
 			end
@@ -1498,15 +1166,7 @@ local function onHit(snap)
 			-- the attacker's spike colour (a V Points unlock) replaces the default hot pink
 			local tint = Spins.tint(Spins.equipped(model, "Color"))
 			local accent = tint or HOT
-			if not toolboxFx(heavy and "PerfectImpact" or "SpikeImpact", pos) then
-				starburst(pos, tint or WHITE, heavy and 10 or 6, heavy and 14 or 10, 0.26)
-				ringFx(pos, WHITE, 1.5, heavy and 11 or 7, 0.3, 6)
-				if heavy or tint then
-					ringFx(pos, accent, 1, heavy and 8 or 6, 0.3, 5)
-					burst(pos, accent, heavy and 2.8 or 1.8, 0.18)
-				end
-				emit(sparkEmitter, pos, heavy and 26 or 12, (heavy or tint) and accent or WHITE)
-			end
+			Fx.play(heavy and "PerfectImpact" or "SpikeImpact", pos, { color = tint or (heavy and HOT or nil) })
 			if close then
 				if heavy and meta.grade == "PERFECT" and kmh >= 132 then
 					VFXController.impactFrame(meta.id, accent)
@@ -1524,25 +1184,17 @@ local function onHit(snap)
 	if ht == "Block" then
 		local outcome = meta.outcome
 		if meta.ironWall then
-			local wc = Config.Abilities.IronWall.Color
-			starburst(pos, wc, 13, 16, 0.3)
-			ringFx(pos, wc, 2, 16, 0.4, 9)
-			shards(pos, wc, 14, 55)
+			Fx.play("BlockImpact", pos, { color = Config.Abilities.IronWall.Color, scale = 1.35 })
 		end
 		if outcome == "Stuff" then
-			if not toolboxFx("BlockImpact", pos) then
-				starburst(pos, tc, 10, 12, 0.3)
-				ringFx(pos, tc, 2, 12, 0.35, 8)
-				shards(pos, tc, 10, 45)
-				emit(sparkEmitter, pos, 30, tc)
-			end
+			Fx.play("BlockImpact", pos, { color = tc })
 			VFXController.popup(pos, "Stuff!", tc, 1.2)
 			VFXController.impactFrame(meta.id, tc)
 			shaker.shake(0.5)
 			shaker.kick(-5)
 		else
-			ringFx(pos, tc, 1, 5, 0.25, 5)
-			emit(sparkEmitter, pos, 8, tc)
+			Fx.play("ReceiveImpact", pos, { color = tc })
+			emit("Sparks", pos, 8, tc)
 			if outcome == "Soft" then
 				VFXController.popup(pos, "Soft block", UI.Chalk, 0.7)
 			end
@@ -1551,9 +1203,7 @@ local function onHit(snap)
 	end
 
 	if ht == "Bump" or ht == "Set" or ht == "Free" or ht == "Feint" or ht == "Overhand" or ht == "Underhand" then
-		if not toolboxFx("ReceiveImpact", pos) then
-			ringFx(pos, meta.perfect and UI.Spark or WHITE, 1, 4.5, 0.22, 4)
-		end
+		Fx.play("ReceiveImpact", pos, { color = meta.perfect and UI.Spark or nil })
 		if meta.fail or meta.breaks then
 			shards(pos, Color3.fromRGB(200, 230, 255), 12, 40)
 			VFXController.popup(pos, "Broken", HOT, 1)
@@ -1582,7 +1232,7 @@ local function onHit(snap)
 			VFXController.popup(pos, "Nice set", UI.Mint, 0.8)
 		end
 		if meta.slide then
-			emit(dustEmitter, Vector3.new(pos.X, 0.4, pos.Z), 14)
+			emit("Dust", Vector3.new(pos.X, 0.4, pos.Z), 14)
 		end
 		if mine then
 			shaker.shake(meta.drain and math.clamp(meta.drain / 40, 0.05, 0.3) or 0.05)
@@ -1596,106 +1246,81 @@ end
 
 local SCORING = { Spike = true, JumpServe = true, Overhand = true, Feint = true, Block = true }
 
-local function light(pos, color, brightness, range, duration)
-	local p = take(Enum.PartType.Block)
-	p.Size = Vector3.new(0.2, 0.2, 0.2)
-	p.CFrame = CFrame.new(pos)
-	local l = Instance.new("PointLight")
-	l.Color = color
-	l.Brightness = brightness
-	l.Range = range
-	l.Shadows = false
-	l.Parent = p
-	local tween = TweenService:Create(l, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Brightness = 0 })
-	tween:Play()
-	tween.Completed:Connect(function()
-		l:Destroy()
-		release(p)
-	end)
-end
-
-local function fireExplosion(pos, scale, tint)
-	local s = scale or 1
-	burst(pos + Vector3.new(0, 1.5 * s, 0), Color3.fromRGB(255, 200, 80), 4.5 * s, 0.3)
-	burst(pos + Vector3.new(0, 1 * s, 0), Color3.fromRGB(255, 90, 30), 7 * s, 0.45)
-	floorRing(pos, Color3.fromRGB(40, 20, 16), 7 * s, 1.1)
-	floorRing(pos, tint or Color3.fromRGB(255, 120, 40), 11 * s, 0.5)
-	ringFx(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 170, 60), 2, 14 * s, 0.4, 8)
-	emit(fireEmitter, pos + Vector3.new(0, 1, 0), math.floor(60 * s), Color3.fromRGB(255, 150, 50))
-	emit(fireEmitter, pos + Vector3.new(0, 2.5, 0), math.floor(30 * s), tint or Color3.fromRGB(255, 70, 30))
-	emit(dustEmitter, pos, math.floor(24 * s))
-	shards(pos + Vector3.new(0, 0.6, 0), Color3.fromRGB(255, 190, 90), math.floor(12 * s), 45)
-	light(pos + Vector3.new(0, 3, 0), Color3.fromRGB(255, 140, 60), 6, 30 * s, 0.6)
-end
-
+-- The meteor: a burning rock drops out of the sky onto the spot, then the crater.
 local function meteorStrike(pos, dirZ, tint)
 	local rock = take(Enum.PartType.Ball)
-	rock.Color = Color3.fromRGB(255, 120, 40)
-	rock.Size = Vector3.new(3.4, 3.4, 3.4)
+	rock.Material = Enum.Material.Basalt
+	rock.Color = Color3.fromRGB(70, 52, 44)
+	rock.Size = Vector3.new(3.2, 3.2, 3.2)
 	rock.Transparency = 0
 	local from = pos + Vector3.new(-4, 70, -dirZ * 38)
 	rock.CFrame = CFrame.new(from)
-	local streaked = 0
-	local conn
+	local att = Instance.new("Attachment")
+	att.Parent = rock
+	local flames = Fx.attach("MeteorTrail", att)
+	flames.set(true, tint)
 	local t0 = os.clock()
 	local fall = 0.34
+	local conn
 	conn = RunService.RenderStepped:Connect(function()
 		local a = math.clamp((os.clock() - t0) / fall, 0, 1)
-		local p = from:Lerp(pos + Vector3.new(0, 1, 0), a * a)
-		rock.CFrame = CFrame.new(p)
-		streaked = streaked + 1
-		if streaked % 2 == 0 then
-			emit(fireEmitter, p, 6, tint or Color3.fromRGB(255, 110, 40))
-			burst(p, Color3.fromRGB(255, 200, 90), 1.6, 0.2)
+		rock.CFrame = CFrame.new(from:Lerp(pos + Vector3.new(0, 1, 0), a * a))
+		if a < 1 then
+			return
 		end
-		if a >= 1 then
-			conn:Disconnect()
+		conn:Disconnect()
+		flames.set(false)
+		rock.Transparency = 1
+		task.delay(0.5, function()
+			flames.destroy()
+			att:Destroy()
+			rock.Material = Enum.Material.Neon
 			release(rock)
-			fireExplosion(pos, 1.35, tint)
-			starburst(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 220, 120), 14, 14, 0.35)
-			shards(pos + Vector3.new(0, 0.5, 0), Color3.fromRGB(70, 50, 40), 16, 60)
-			if near(pos) then
-				mods.CameraController.shake(0.8)
-				mods.CameraController.kick(-6)
-				VFXController.flash(0.25, 0.2)
-			end
+		end)
+		Fx.play("ScoreMeteor", pos, { color = tint })
+		if near(pos) then
+			mods.CameraController.shake(0.8)
+			mods.CameraController.kick(-6)
+			VFXController.flash(0.25, 0.2)
 		end
 	end)
 end
 
+-- The thunderbolt: a jagged bolt of hand-drawn segments out of the sky, then the ground
+-- crackles.
 local function thunderbolt(pos, tint)
 	local color = tint or THUNDER
-	local top = pos + Vector3.new(-1, 80, 0)
+	local top = pos + Vector3.new(-1, 64, 0)
 	local prev = top
-	local segs = 9
+	local segs = 7
 	for i = 1, segs do
-		local along = top:Lerp(pos, i / segs)
-		local nextP = i == segs and pos or along + Vector3.new(0, 0, (math.random() - 0.5) * 7)
+		local nextP = i == segs and pos or top:Lerp(pos, i / segs) + Vector3.new(0, 0, (math.random() - 0.5) * 6)
 		bolt(prev, (nextP - prev).Unit, (nextP - prev).Magnitude, color)
 		prev = nextP
 	end
-	bolt(pos + Vector3.new(0, 1, 0), Vector3.new(0, 0.3, 1).Unit, 8, color)
-	bolt(pos + Vector3.new(0, 1, 0), Vector3.new(0, 0.3, -1).Unit, 8, color)
-	starburst(pos + Vector3.new(0, 2, 0), color, 13, 16, 0.3)
-	ringFx(pos + Vector3.new(0, 1, 0), color, 2, 16, 0.4, 8)
-	floorRing(pos, color, 12, 0.5)
-	emit(sparkEmitter, pos + Vector3.new(0, 1, 0), 50, color)
-	light(pos + Vector3.new(0, 6, 0), color, 8, 40, 0.5)
+	Fx.play("ScoreThunderbolt", pos, { color = color })
 	if near(pos) then
 		VFXController.flash(0.4, 0.25)
 		mods.CameraController.shake(0.6)
 	end
 end
 
-local function shockwave(pos, tint)
-	local color = tint or WHITE
-	floorRing(pos, color, 14, 0.5)
-	floorRing(pos, WHITE, 8, 0.35)
-	ringFx(pos + Vector3.new(0, 2, 0), color, 2, 16, 0.4, 6)
-	emit(dustEmitter, pos, 30)
-	if near(pos) then
-		mods.CameraController.shake(0.4)
+-- A score effect at pos: the effect's key, the spike colour's tint (or nil) and which way the
+-- attack travelled along z. False for Dust, the plain floor impact.
+local function playScore(effect, pos, tint, dirZ)
+	if effect == "Meteor" then
+		meteorStrike(pos, dirZ, tint)
+	elseif effect == "Thunderbolt" then
+		thunderbolt(pos, tint)
+	elseif effect == "Fire" or effect == "Shockwave" then
+		Fx.play("Score" .. effect, pos, { color = tint })
+		if near(pos) then
+			mods.CameraController.shake(effect == "Fire" and 0.5 or 0.4)
+		end
+	else
+		return false
 	end
+	return true
 end
 
 -- The attack (or stuff block) that just landed in: the scorer's effect at the spot.
@@ -1709,35 +1334,14 @@ local function scoreEffect(pos, meta)
 	end
 	local model = Util.modelOf(meta.id)
 	local effect = Spins.equipped(model, "Effect").Key
-	local tint = Spins.tint(Spins.equipped(model, "Color"))
-	if effect == "Fire" then
-		fireExplosion(pos, 1, tint)
-	elseif effect == "Meteor" then
-		meteorStrike(pos, -side, tint)
-	elseif effect == "Thunderbolt" then
-		thunderbolt(pos, tint)
-	elseif effect == "Shockwave" then
-		shockwave(pos, tint)
-	else
-		return false -- Dust: the normal floor impact
-	end
-	return true
+	return playScore(effect, pos, Spins.tint(Spins.equipped(model, "Color")), -side)
 end
 
 -- A score effect anywhere, outside a match (the Locker's preview): the effect's key, the spike
 -- colour's tint (or nil) and the direction the attack travelled along z.
 function VFXController.previewEffect(pos, effect, tint, dirZ)
-	if effect == "Fire" then
-		fireExplosion(pos, 1, tint)
-	elseif effect == "Meteor" then
-		meteorStrike(pos, dirZ or -1, tint)
-	elseif effect == "Thunderbolt" then
-		thunderbolt(pos, tint)
-	elseif effect == "Shockwave" then
-		shockwave(pos, tint)
-	else
-		floorRing(pos, tint or WHITE, 6, 0.35)
-		emit(dustEmitter, pos, 24)
+	if not playScore(effect, pos, tint, dirZ or -1) then
+		Fx.play("FloorImpact", pos, { color = tint })
 	end
 end
 
@@ -1750,28 +1354,19 @@ local function onBallEvent(kind, ev, meta)
 		scoreEffect(pos, meta)
 		local speed = ev.vel.Magnitude
 		local hard = speed > 45
-		if not toolboxFx("FloorImpact", pos) then
-			floorRing(pos, WHITE, hard and 8 or 3.5, hard and 0.4 or 0.3)
-			emit(dustEmitter, pos, hard and 28 or 10)
-			if hard then
-				local c = WHITE
-				if meta and meta.thunder then
-					c = THUNDER
-				elseif meta and meta.energy then
-					c = AZURE
-				end
-				starburst(pos + Vector3.new(0, 0.8, 0), c, 8, 10, 0.3)
-				shards(pos + Vector3.new(0, 0.4, 0), Color3.fromRGB(255, 220, 170), 8, 30)
-			end
+		local c = nil
+		if meta and meta.thunder then
+			c = THUNDER
+		elseif meta and meta.energy then
+			c = AZURE
 		end
+		Fx.play("FloorImpact", pos, { color = c, scale = hard and 1 or 0.55, count = hard and 1.4 or 0.6 })
 		if hard then
+			starburst(pos + Vector3.new(0, 0.8, 0), c or WHITE, 8)
 			mods.CameraController.shake(0.35)
 		end
 	elseif kind == "Net" then
-		local pos = Vector3.new(0, ev.pos.Y, 0)
-		if not toolboxFx("NetImpact", pos) then
-			ringFx(pos, WHITE, 1, 4, 0.3, 4)
-		end
+		Fx.play("NetImpact", Vector3.new(0, ev.pos.Y, 0))
 		VFXController.rippleNet()
 	end
 end
@@ -1802,10 +1397,7 @@ local function onBreak(a)
 	local model = a.id and Util.modelOf(a.id)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
 	local pos = hrp and hrp.Position + Vector3.new(0, 2, 0) or Vector3.new(0, 3, 0)
-	if not toolboxFx("GuardBreak", pos) then
-		shards(pos, Color3.fromRGB(210, 235, 255), 16, 50)
-		ringFx(pos, HOT, 2, 12, 0.4, 8)
-	end
+	Fx.play("GuardBreak", pos)
 	VFXController.popup(pos, "Guard break!", HOT, 1.2)
 	if a.team == State.myTeam then
 		VFXController.flash(0.35, 0.3)
@@ -1819,45 +1411,7 @@ function VFXController.init(m)
 	fxFolder.Name = "SpikeRushFX"
 	fxFolder.Parent = workspace
 
-	emitterHolder = Instance.new("Part")
-	emitterHolder.Name = "Emitters"
-	emitterHolder.Anchored = true
-	emitterHolder.CanCollide = false
-	emitterHolder.CanQuery = false
-	emitterHolder.CanTouch = false
-	emitterHolder.Transparency = 1
-	emitterHolder.Size = Vector3.new(0.2, 0.2, 0.2)
-	emitterHolder.Parent = fxFolder
-
-	sparkEmitter = makeEmitter(Assets.Images.Spark, {
-		LightEmission = 1,
-		Lifetime = NumberRange.new(0.2, 0.45),
-		Speed = NumberRange.new(18, 42),
-		SpreadAngle = Vector2.new(180, 180),
-		Drag = 6,
-		Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) }),
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }),
-	})
-	dustEmitter = makeEmitter(Assets.Images.Smoke, {
-		Lifetime = NumberRange.new(0.5, 0.9),
-		Speed = NumberRange.new(6, 14),
-		SpreadAngle = Vector2.new(180, 10),
-		EmissionDirection = Enum.NormalId.Top,
-		Drag = 4,
-		Acceleration = Vector3.new(0, 2, 0),
-		Color = ColorSequence.new(Color3.fromRGB(230, 214, 190)),
-		Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 3.4) }),
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 1) }),
-	})
-	fireEmitter = makeEmitter(Assets.Images.Fire, {
-		LightEmission = 1,
-		Lifetime = NumberRange.new(0.25, 0.5),
-		Speed = NumberRange.new(8, 20),
-		SpreadAngle = Vector2.new(180, 180),
-		Drag = 5,
-		Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.2), NumberSequenceKeypoint.new(1, 0) }),
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) }),
-	})
+	task.spawn(Fx.preload)
 
 	buildScreen()
 
@@ -1872,7 +1426,7 @@ function VFXController.init(m)
 		if a.kind == "Break" then
 			onBreak(a)
 		elseif a.kind == "Point" and a.landing and (a.reason == "Spike" or a.reason == "Ace" or a.reason == "Stuff" or a.reason == "Break") then
-			emit(sparkEmitter, a.landing + Vector3.new(0, 1, 0), 24, teamColor(a.winner))
+			emit("Sparks", a.landing + Vector3.new(0, 1, 0), 24, teamColor(a.winner))
 		end
 	end)
 	State.signals.Action:Connect(function(entityId, kind, extra)
@@ -1888,7 +1442,7 @@ function VFXController.init(m)
 		elseif kind == "Slide" and model then
 			local hrp = model:FindFirstChild("HumanoidRootPart")
 			if hrp then
-				emit(dustEmitter, Vector3.new(hrp.Position.X, 0.4, hrp.Position.Z), 12)
+				emit("Dust", Vector3.new(hrp.Position.X, 0.4, hrp.Position.Z), 12)
 			end
 		end
 	end)

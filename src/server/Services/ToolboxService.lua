@@ -61,15 +61,70 @@ local function unwrap(list)
 	return model
 end
 
-local function place(category, slot, inst)
+local function place(category, slot, inst, id, path)
 	Assets.sanitize(inst)
 	inst.Name = slot
-	local yaw = Assets.ToolboxYaw and Assets.ToolboxYaw[slot]
-	if yaw and inst:GetAttribute("Yaw") == nil then
-		inst:SetAttribute("Yaw", yaw)
+	for key, value in pairs(Assets.ToolboxAttributes and Assets.ToolboxAttributes[slot] or {}) do
+		if inst:GetAttribute(key) == nil then
+			inst:SetAttribute(key, value)
+		end
 	end
+	inst:SetAttribute("AssetId", tostring(id) .. (path ~= "" and ("/" .. path) or ""))
 	inst.Parent = folder(category)
 	return inst
+end
+
+-- The piece at `path` ("A/B/C") inside a loaded pack. Packs repeat names (two folders called
+-- "Folder"), so every child with the right name is tried.
+local function findPath(root, path)
+	local names = {}
+	for name in string.gmatch(path, "[^/]+") do
+		table.insert(names, name)
+	end
+	local function walk(node, i)
+		if i > #names then
+			return node
+		end
+		for _, c in ipairs(node:GetChildren()) do
+			if c.Name == names[i] then
+				local found = walk(c, i + 1)
+				if found then
+					return found
+				end
+			end
+		end
+		return nil
+	end
+	return walk(root, 1)
+end
+
+-- A copy of the slot's piece out of a pack loaded once per id (several slots share packs).
+local function piece(packs, id, path, load)
+	local pack = packs[id]
+	if pack == nil then
+		pack = load(id) or false
+		packs[id] = pack
+	end
+	if not pack then
+		return nil, "the asset did not load"
+	end
+	if path == "" then
+		packs[id] = nil -- the whole asset goes into the slot
+		return pack
+	end
+	local found = findPath(pack, path)
+	if not found then
+		return nil, "no " .. path .. " inside it"
+	end
+	return found:Clone()
+end
+
+local function dropPacks(packs)
+	for _, pack in pairs(packs) do
+		if pack then
+			pack:Destroy()
+		end
+	end
 end
 
 -- Runtime: AssetService (any free Creator Store model when the experience allows third-party
@@ -109,9 +164,9 @@ end
 local function each(fn)
 	for category, slots in pairs(Assets.Toolbox or {}) do
 		for slot, value in pairs(slots) do
-			local id = Assets.number(value)
+			local id, path = Assets.ref(value)
 			if id then
-				fn(category, slot, id)
+				fn(category, slot, id, path)
 			end
 		end
 	end
@@ -119,19 +174,21 @@ end
 
 function ToolboxService.loadAll()
 	local loaded, failed = 0, 0
-	each(function(category, slot, id)
+	local packs = {}
+	each(function(category, slot, id, path)
 		if folder(category):FindFirstChild(slot) then
 			return
 		end
-		local inst, err = loadRuntime(id)
+		local inst, err = piece(packs, id, path, loadRuntime)
 		if inst then
-			place(category, slot, inst)
+			place(category, slot, inst, id, path)
 			loaded = loaded + 1
 		else
 			failed = failed + 1
 			warn(string.format("[SpikeRush] Toolbox %s.%s (%d) did not load: %s. Get it to the place owner's inventory, or bake it with ToolboxService.install() in Studio.", category, slot, id, tostring(err)))
 		end
 	end)
+	dropPacks(packs)
 	if loaded > 0 or failed > 0 then
 		print(string.format("[SpikeRush] Toolbox assets: %d loaded, %d failed", loaded, failed))
 	end
@@ -141,24 +198,26 @@ end
 -- slots that are already filled. Save the place afterwards to keep them.
 function ToolboxService.install(replace)
 	local done = 0
-	each(function(category, slot, id)
+	local packs = {}
+	each(function(category, slot, id, path)
 		local existing = folder(category):FindFirstChild(slot)
 		if existing and not replace then
 			print(string.format("[SpikeRush] %s.%s already filled, skipped", category, slot))
 			return
 		end
-		local inst = loadStudio(id)
+		local inst, err = piece(packs, id, path, loadStudio)
 		if not inst then
-			warn(string.format("[SpikeRush] %s.%s: asset %d could not be loaded", category, slot, id))
+			warn(string.format("[SpikeRush] %s.%s: asset %d could not be used: %s", category, slot, id, tostring(err)))
 			return
 		end
 		if existing then
 			existing:Destroy()
 		end
-		place(category, slot, inst)
+		place(category, slot, inst, id, path)
 		done = done + 1
-		print(string.format("[SpikeRush] %s.%s <- %d (%s)", category, slot, id, inst.ClassName))
+		print(string.format("[SpikeRush] %s.%s <- %d%s (%s)", category, slot, id, path ~= "" and ("/" .. path) or "", inst.ClassName))
 	end)
+	dropPacks(packs)
 	print(string.format("[SpikeRush] Installed %d Toolbox asset(s). Save the place to keep them.", done))
 	return done
 end
