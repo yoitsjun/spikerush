@@ -291,36 +291,150 @@ end
 -- Home
 ------------------------------------------------------------------------------------------
 
+-- A nav item: an icon over a caption. `icon` is a Toolbox image key (Assets.image) or a
+-- drawn Gui.icon function. The active one is signal yellow with a slanted bar under it; the
+-- rest light up under the pointer.
+local function navItem(parent, icon, caption, props, active)
+	local b = make("TextButton", { Size = UDim2.fromOffset(96, 74), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, parent)
+	for k, v in pairs(props or {}) do
+		b[k] = v
+	end
+	local rest = active and Gui.SIGNAL or Gui.CHALK
+	local img
+	if type(icon) == "string" then
+		img = Gui.iconImage(b, icon, 30, rest, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6) })
+	else
+		local drawn = icon(b, 30, Gui.HAIRLINE)
+		drawn.AnchorPoint = Vector2.new(0.5, 0)
+		drawn.Position = UDim2.new(0.5, 0, 0, 6)
+	end
+	local cap = Gui.label(b, {
+		Text = caption,
+		display = true,
+		TextSize = 17,
+		TextColor3 = rest,
+		TextStrokeTransparency = 0.6,
+		Size = UDim2.new(1, 0, 0, 20),
+		Position = UDim2.fromOffset(0, 40),
+		TextXAlignment = Enum.TextXAlignment.Center,
+	})
+	local bar = Gui.plate(b, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 66), Size = UDim2.fromOffset(46, 5) }, Gui.SIGNAL)
+	bar.Visible = active == true
+	b.MouseEnter:Connect(function()
+		if img then
+			img.ImageColor3 = Gui.SIGNAL
+		end
+		cap.TextColor3 = Gui.SIGNAL
+		if Gui.onHover then
+			Gui.onHover()
+		end
+	end)
+	b.MouseLeave:Connect(function()
+		if img then
+			img.ImageColor3 = rest
+		end
+		cap.TextColor3 = rest
+	end)
+	return b
+end
+
+-- Home: the club room behind a match-day overlay. Profile and currencies top left, the nav
+-- across the top, shortcuts down the right, the featured recruit and your record on the left,
+-- a tip at the bottom, and Recruit Player and the big slanted Match plate bottom right.
 local function buildHome()
 	local p = page("home")
-	-- profile card (top left)
-	local card = Gui.glass(p, { Size = UDim2.fromOffset(372, 92), Position = UDim2.fromOffset(M, 62) }, 0.25)
+
+	-- profile: a square headshot, the name, a slanted accent bar, who you play
 	local shot = make("ImageLabel", {
 		Size = UDim2.fromOffset(72, 72),
-		Position = UDim2.fromOffset(10, 10),
-		BackgroundColor3 = Color3.fromRGB(40, 46, 70),
+		Position = UDim2.fromOffset(M, 24),
+		BackgroundColor3 = Gui.NAVY_LIGHT,
+		BorderSizePixel = 0,
 		Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(player.UserId) .. "&w=150&h=150",
-	}, card)
-	Gui.round(shot)
-	Gui.stroke(shot, 2, Gui.GOLD, 0, true)
-	local name = text(card, { Text = player.DisplayName, Font = Gui.FONT_HEAVY, TextSize = 24, Size = UDim2.new(1, -104, 0, 28), Position = UDim2.fromOffset(94, 14), TextTruncate = Enum.TextTruncate.AtEnd })
-	local sub = text(card, { Text = "", TextSize = 15, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -104, 0, 20), Position = UDim2.fromOffset(94, 44), RichText = true })
-	local badge = text(card, { Text = "", TextSize = 13, TextColor3 = Gui.GOLD, Size = UDim2.new(1, -104, 0, 16), Position = UDim2.fromOffset(94, 66) })
-	currencyRow(p, { Position = UDim2.fromOffset(M, 166), AnchorPoint = Vector2.new(0, 0) }).UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	}, p)
+	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, shot)
+	local name = Gui.label(p, {
+		Text = player.DisplayName,
+		display = true,
+		TextSize = 30,
+		TextStrokeTransparency = 0.6,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Size = UDim2.fromOffset(340, 34),
+		Position = UDim2.fromOffset(M + 86, 20),
+	})
+	local sub = Gui.label(p, {
+		Text = "",
+		TextSize = 16,
+		weight = Enum.FontWeight.Medium,
+		RichText = true,
+		TextStrokeTransparency = 0.6,
+		Size = UDim2.fromOffset(340, 20),
+		Position = UDim2.fromOffset(M + 86, 54),
+	})
+	Gui.plate(p, { Size = UDim2.fromOffset(64, 5), Position = UDim2.fromOffset(M + 86, 82) }, Gui.SIGNAL)
+	local badge = Gui.label(p, {
+		Text = "",
+		TextSize = 13,
+		weight = Enum.FontWeight.Medium,
+		TextColor3 = Gui.SIGNAL,
+		TextStrokeTransparency = 0.6,
+		Size = UDim2.fromOffset(280, 16),
+		Position = UDim2.fromOffset(M + 160, 76),
+	})
 
-	-- right: menu icons
-	local icons = make("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 62), Size = UDim2.fromOffset(480, 84), BackgroundTransparency = 1 }, p)
-	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), HorizontalAlignment = Enum.HorizontalAlignment.Right, SortOrder = Enum.SortOrder.LayoutOrder }, icons)
-	local entries = {
-		{ Gui.icon.players, "Players", "players" },
-		{ Gui.icon.locker, "Locker", "locker" },
-		{ Gui.icon.shop, "Shop", "shop" },
-		{ Gui.icon.trophy, "Ranks", "ranks" },
-		{ Gui.icon.settings, "Settings", "settings" },
-		{ Gui.icon.help, "Help", "help" },
-	}
-	for i, e in ipairs(entries) do
-		local b = iconButton(icons, e[1], e[2], { LayoutOrder = i })
+	-- currencies, inline under the profile: icon, amount, a "+" to the shop
+	local cur = make("Frame", { Size = UDim2.fromOffset(440, 30), Position = UDim2.fromOffset(M, 110), BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, cur)
+	local function currency(order, iconFn)
+		iconFn(cur, 24).LayoutOrder = order
+		local amount = Gui.label(cur, {
+			Text = "0",
+			display = true,
+			TextSize = 21,
+			TextStrokeTransparency = 0.6,
+			AutomaticSize = Enum.AutomaticSize.X,
+			Size = UDim2.fromOffset(0, 28),
+			LayoutOrder = order + 1,
+		})
+		local plus = make("TextButton", {
+			Text = "+",
+			FontFace = Gui.display(),
+			TextSize = 26,
+			TextColor3 = Gui.SIGNAL,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(22, 28),
+			LayoutOrder = order + 2,
+		}, cur)
+		return amount, plus
+	end
+	local vp, vpPlus = currency(1, Gui.icon.vp)
+	make("Frame", { Size = UDim2.fromOffset(12, 1), BackgroundTransparency = 1, LayoutOrder = 4 }, cur)
+	local gold, goldPlus = currency(5, Gui.icon.gold)
+	goldPlus.Visible = false -- Gold is earned, not bought
+	onClick(vpPlus, function()
+		MenuController.go("shop")
+	end)
+	ui.currencies = ui.currencies or {}
+	table.insert(ui.currencies, { vp = vp, gold = gold })
+
+	-- the nav across the top
+	local tabs = { { "IconHome", "Home", "home" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" } }
+	local nav = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 18), Size = UDim2.fromOffset(#tabs * 96 + (#tabs - 1) * 14, 74), BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), SortOrder = Enum.SortOrder.LayoutOrder }, nav)
+	for i, e in ipairs(tabs) do
+		local b = navItem(nav, e[1], e[2], { LayoutOrder = i }, e[3] == "home")
+		onClick(b, function()
+			if e[3] ~= "home" then
+				MenuController.go(e[3])
+			end
+		end)
+	end
+
+	-- shortcuts down the right
+	local side = make("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 18), Size = UDim2.fromOffset(96, 3 * 80), BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, side)
+	for i, e in ipairs({ { "IconSettings", "Settings", "settings" }, { "IconRanks", "Ranks", "ranks" }, { "IconHelp", "Help", "help" } }) do
+		local b = navItem(side, e[1], e[2], { LayoutOrder = i })
 		onClick(b, function()
 			if e[3] == "settings" then
 				mods.UIController.toggleSettings(b.AbsolutePosition.Y + b.AbsoluteSize.Y + 6)
@@ -332,83 +446,127 @@ local function buildHome()
 		end)
 	end
 
-	-- featured recruit (left, middle)
-	local ev = Gui.glass(p, { Size = UDim2.fromOffset(372, 236), Position = UDim2.fromOffset(M, 232) }, 0.2)
-	local stripe = make("Frame", { Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, ev)
-	Gui.corner(stripe, 10)
-	Gui.gradient(stripe, Color3.fromRGB(255, 120, 190), Color3.fromRGB(255, 196, 60), 0)
-	text(stripe, { Text = "FEATURED RECRUIT", Font = Gui.FONT_HEAVY, TextSize = 16, TextColor3 = Gui.INK, Size = UDim2.new(1, -24, 1, 0), Position = UDim2.fromOffset(14, 0) })
-	local evName = Gui.title(ev, { Text = "", TextSize = 46, Size = UDim2.new(1, -28, 0, 50), Position = UDim2.fromOffset(14, 44) })
-	local evTier = text(ev, { Text = "", Font = Gui.FONT_TITLE, TextSize = 40, Size = UDim2.fromOffset(80, 50), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 44), TextXAlignment = Enum.TextXAlignment.Right })
-	Gui.stroke(evTier, 2.5, Gui.INK, 0)
-	local evLine = text(ev, { Text = "", TextSize = 16, Size = UDim2.new(1, -28, 0, 20), Position = UDim2.fromOffset(14, 96) })
-	local evBlurb = text(ev, { Text = "", TextSize = 14, TextColor3 = Gui.MUTED, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -28, 0, 56), Position = UDim2.fromOffset(14, 120) })
-	local evGo = Gui.primary(ev, "Recruit now", { Size = UDim2.fromOffset(150, 38), Position = UDim2.new(0, 14, 1, -50), TextSize = 17 })
-	local evOdds = text(ev, { Text = "", TextSize = 13, TextColor3 = Gui.MUTED, Size = UDim2.fromOffset(180, 38), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 1, -50), TextXAlignment = Enum.TextXAlignment.Right })
-	onClick(evGo, function()
+	-- the featured recruit, as an event card: the tier as a huge faint watermark (no character
+	-- art: the card sells the pull), halftone grain, the ability, quick links along the bottom
+	local ev = Gui.card(p, { Size = UDim2.fromOffset(470, 292), Position = UDim2.fromOffset(M, 186), ClipsDescendants = true })
+	Gui.halftone(ev, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.6, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.93 })
+	local evMark = Gui.label(ev, {
+		Text = "",
+		display = true,
+		weight = Enum.FontWeight.Heavy,
+		TextSize = 230,
+		TextTransparency = 0.92,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextYAlignment = Enum.TextYAlignment.Bottom,
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, 10, 1, 40),
+		Size = UDim2.fromOffset(320, 240),
+	})
+	Gui.label(ev, { Text = "Featured recruit", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Size = UDim2.fromOffset(300, 18), Position = UDim2.fromOffset(18, 14) })
+	local evName = Gui.label(ev, { Text = "", display = true, TextSize = 50, Size = UDim2.fromOffset(330, 54), Position = UDim2.fromOffset(16, 30) })
+	local evTier = Gui.plate(ev, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 18), Size = UDim2.fromOffset(78, 34) }, Gui.SIGNAL)
+	local evTierText = Gui.label(evTier, { Text = "", display = true, TextSize = 24, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+	local evLine = Gui.label(ev, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, Size = UDim2.fromOffset(434, 20), Position = UDim2.fromOffset(18, 88) })
+	local evBlurb = Gui.label(ev, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.fromOffset(434, 56), Position = UDim2.fromOffset(18, 112) })
+	local evOdds = Gui.label(ev, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(434, 16), Position = UDim2.fromOffset(18, 170) })
+	local links = make("Frame", { Size = UDim2.fromOffset(434, 80), Position = UDim2.fromOffset(12, 200), BackgroundTransparency = 1 }, ev)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, links)
+	local function toRecruit()
 		banner = "Char"
 		recruitTab = "Player"
 		MenuController.go("recruit")
+	end
+	onClick(navItem(links, Gui.icon.recruit, "Recruit", { LayoutOrder = 1 }), toRecruit)
+	onClick(navItem(links, "IconRanks", "Odds", { LayoutOrder = 2 }), function()
+		MenuController.openTable("Char")
+	end)
+	onClick(navItem(links, "IconPlayers", "Your team", { LayoutOrder = 3 }), function()
+		MenuController.go("players")
 	end)
 
+	-- your record: a warm card, the win streak big, the rest in a row
+	local stats = Gui.card(p, { Size = UDim2.fromOffset(470, 118), Position = UDim2.fromOffset(M, 490) }, Color3.fromRGB(120, 92, 24))
+	Gui.label(stats, { Text = "Win streak", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL_HOT, Size = UDim2.fromOffset(140, 18), Position = UDim2.fromOffset(18, 12) })
+	local counters = {}
+	counters.streak = {
+		value = Gui.label(stats, { Text = "0", display = true, TextSize = 54, Size = UDim2.fromOffset(120, 56), Position = UDim2.fromOffset(16, 30) }),
+		sub = Gui.label(stats, { Text = "", TextSize = 13, TextColor3 = Gui.CHALK, TextTransparency = 0.2, Size = UDim2.fromOffset(120, 16), Position = UDim2.fromOffset(18, 88) }),
+	}
+	make("Frame", { Size = UDim2.fromOffset(1, 86), Position = UDim2.fromOffset(150, 16), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.5, BorderSizePixel = 0 }, stats)
+	for i, def in ipairs({ { "wins", "Wins" }, { "kills", "Spike kills" }, { "aces", "Aces" }, { "blocks", "Blocks" } }) do
+		local x = 164 + (i - 1) * 74
+		counters[def[1]] = {
+			value = Gui.label(stats, { Text = "0", display = true, TextSize = 30, Size = UDim2.fromOffset(70, 34), Position = UDim2.fromOffset(x, 22) }),
+			label = Gui.label(stats, { Text = def[2], TextSize = 13, TextColor3 = Gui.CHALK, TextTransparency = 0.2, Size = UDim2.fromOffset(72, 16), Position = UDim2.fromOffset(x, 60) }),
+			sub = Gui.label(stats, { Text = "", TextSize = 12, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(72, 14), Position = UDim2.fromOffset(x, 78) }),
+		}
+	end
+
 	-- the tutorial, until it's done
-	local tut = Gui.glass(p, { Size = UDim2.fromOffset(372, 118), Position = UDim2.fromOffset(M, 480), Visible = false }, 0.2)
-	Gui.stroke(tut, 2, Gui.GOLD, 0.2, true)
-	text(tut, { Text = "New here? Play the tutorial", Font = Gui.FONT_HEAVY, TextSize = 19, Size = UDim2.new(1, -28, 0, 24), Position = UDim2.fromOffset(14, 10) })
-	local tutLine = text(tut, { Text = "", TextSize = 14, TextColor3 = Gui.MUTED, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -28, 0, 36), Position = UDim2.fromOffset(14, 36) })
-	local tutGo = Gui.primary(tut, "Start tutorial", { Size = UDim2.fromOffset(170, 36), Position = UDim2.new(0, 14, 1, -46), TextSize = 16 })
-	local tutProgress = text(tut, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 14, TextColor3 = Gui.GOLD_LIGHT, Size = UDim2.fromOffset(160, 36), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 1, -46), TextXAlignment = Enum.TextXAlignment.Right })
+	local tut = Gui.card(p, { Size = UDim2.fromOffset(470, 112), Position = UDim2.fromOffset(M, 620), Visible = false })
+	Gui.label(tut, { Text = "New here? Play the tutorial", display = true, TextSize = 22, Size = UDim2.fromOffset(434, 26), Position = UDim2.fromOffset(18, 10) })
+	local tutLine = Gui.label(tut, { Text = "", TextSize = 14, TextColor3 = Gui.DIM, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.fromOffset(434, 34), Position = UDim2.fromOffset(18, 38) })
+	local tutGo = Gui.plateButton(tut, { Size = UDim2.fromOffset(180, 32), Position = UDim2.fromOffset(12, 72) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	local tutGoLabel = Gui.label(tutGo, { Text = "Start tutorial", display = true, TextSize = 18, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+	local tutProgress = Gui.label(tut, { Text = "", display = true, TextSize = 16, TextColor3 = Gui.SIGNAL_HOT, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 76), Size = UDim2.fromOffset(160, 24) })
 	onClick(tutGo, function()
 		Net.get("Lobby"):FireServer("tutorial")
 	end)
 
-	-- career counters
-	local stats = Gui.glass(p, { Size = UDim2.fromOffset(372, 92), Position = UDim2.fromOffset(M, 480) }, 0.25)
-	local statRow = make("Frame", { Size = UDim2.new(1, -16, 1, -12), Position = UDim2.fromOffset(8, 6), BackgroundTransparency = 1 }, stats)
-	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, statRow)
-	local counters = {}
-	for i, def in ipairs({ { "streak", "Win streak" }, { "wins", "Wins" }, { "kills", "Spike kills" }, { "aces", "Aces" }, { "blocks", "Blocks" } }) do
-		local cell = make("Frame", { Size = UDim2.new(0.2, -4, 1, 0), BackgroundTransparency = 1, LayoutOrder = i }, statRow)
-		local n = text(cell, { Text = "0", Font = Gui.FONT_TITLE, TextSize = 28, Size = UDim2.new(1, 0, 0, 36), Position = UDim2.fromOffset(0, 6), TextXAlignment = Enum.TextXAlignment.Center })
-		Gui.stroke(n, 2, Gui.INK, 0)
-		local l = text(cell, { Text = def[2], TextSize = 12, TextColor3 = Gui.MUTED, Size = UDim2.new(1, 0, 0, 16), Position = UDim2.fromOffset(0, 44), TextXAlignment = Enum.TextXAlignment.Center })
-		local sub = text(cell, { Text = "", TextSize = 11, TextColor3 = Gui.MUTED, Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 60), TextXAlignment = Enum.TextXAlignment.Center })
-		counters[def[1]] = { value = n, label = l, sub = sub }
+	-- tip, bottom left: plain text over the room
+	local tipText = Gui.label(p, {
+		Text = TIPS[1],
+		TextSize = 18,
+		TextStrokeTransparency = 0.5,
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Bottom,
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, M, 1, -M - 6),
+		Size = UDim2.new(1, -(M * 2 + 360 + 14 + 150 + 40), 0, 48),
+	})
+
+	-- Match: the one loud thing on the screen, a slanted signal-yellow plate with print grain
+	local matchPos = UDim2.new(1, -M, 1, -M)
+	local match, matchPlate = Gui.plateButton(p, { AnchorPoint = Vector2.new(1, 1), Position = matchPos, Size = UDim2.fromOffset(360, 120) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	Gui.halftone(matchPlate.Body, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1) })
+	-- two racing stripes at the same 12 degree lean as the plate's ends
+	for i = 1, 2 do
+		make("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(1, -60 + (i - 1) * 18, 0.5, 0),
+			Size = UDim2.fromOffset(10, 124),
+			Rotation = 12,
+			BackgroundColor3 = Gui.LINE,
+			BackgroundTransparency = 0.8,
+			BorderSizePixel = 0,
+		}, match)
 	end
-
-	-- tip (bottom left)
-	local tip = make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, M, 1, -M), Size = UDim2.fromOffset(640, 40), BackgroundTransparency = 1 }, p)
-	local tipTag = text(tip, { Text = "TIP", Font = Gui.FONT_HEAVY, TextSize = 14, TextColor3 = Gui.INK, BackgroundTransparency = 0, BackgroundColor3 = Gui.GOLD, Size = UDim2.fromOffset(44, 24), Position = UDim2.fromOffset(0, 8), TextXAlignment = Enum.TextXAlignment.Center })
-	Gui.corner(tipTag, 5)
-	local tipText = text(tip, { Text = TIPS[1], TextSize = 16, Size = UDim2.new(1, -56, 1, 0), Position = UDim2.fromOffset(56, 0), TextWrapped = true })
-	Gui.stroke(tipText, 1, Gui.INK, 0.5)
-
-	-- bottom right: Recruit Player and Match
-	local match = Gui.primary(p, "", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M), Size = UDim2.fromOffset(300, 96) })
-	local matchIcon = Gui.icon.vp(match, 52)
-	matchIcon.Position = UDim2.fromOffset(18, 22)
-	text(match, { Text = "MATCH", Font = Gui.FONT_TITLE, TextSize = 40, TextColor3 = Gui.INK, Size = UDim2.new(1, -90, 0, 44), Position = UDim2.fromOffset(84, 12) })
-	local matchSub = text(match, { Text = "", TextSize = 15, TextColor3 = Color3.fromRGB(70, 48, 8), Size = UDim2.new(1, -90, 0, 20), Position = UDim2.fromOffset(86, 58) })
+	local inset = Gui.plateInset(matchPlate)
+	local ball = Gui.icon.vp(match, 54)
+	ball.Position = UDim2.fromOffset(inset, 33)
+	Gui.label(match, { Text = "Match", display = true, weight = Enum.FontWeight.Heavy, TextSize = 64, TextColor3 = Gui.LINE, Size = UDim2.fromOffset(220, 70), Position = UDim2.fromOffset(inset + 66, 12) })
+	local matchSub = Gui.label(match, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, Size = UDim2.fromOffset(240, 20), Position = UDim2.fromOffset(inset + 70, 80) })
 	onClick(match, function()
 		MenuController.openMatch()
 	end)
-	local recruit = Gui.secondary(p, "", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M - 316, 1, -M), Size = UDim2.fromOffset(250, 96) })
-	local rIcon = Gui.icon.recruit(recruit, 44, Gui.INK)
-	rIcon.Position = UDim2.fromOffset(16, 26)
-	text(recruit, { Text = "Recruit Player", Font = Gui.FONT_HEAVY, TextSize = 22, TextColor3 = Gui.INK, Size = UDim2.new(1, -76, 0, 28), Position = UDim2.fromOffset(70, 20) })
-	local rSub = text(recruit, { Text = "", TextSize = 15, TextColor3 = Color3.fromRGB(80, 86, 100), Size = UDim2.new(1, -76, 0, 20), Position = UDim2.fromOffset(70, 50) })
-	onClick(recruit, function()
-		banner = "Char"
-		recruitTab = "Player"
-		MenuController.go("recruit")
-	end)
 
-	-- your AI is playing for you
-	local rejoin = Gui.glass(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 110), Size = UDim2.fromOffset(566, 64), Visible = false }, 0.15)
-	Gui.stroke(rejoin, 2, Color3.fromRGB(255, 90, 110), 0, true)
-	text(rejoin, { Text = "Your AI is playing for you", Font = Gui.FONT_HEAVY, TextSize = 20, Size = UDim2.new(1, -190, 0, 26), Position = UDim2.fromOffset(18, 8) })
-	text(rejoin, { Text = "Jump back in at the next serve.", TextSize = 14, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -190, 0, 20), Position = UDim2.fromOffset(18, 34) })
-	local rejoinGo = Gui.primary(rejoin, "Rejoin", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(150, 44) })
+	-- Recruit Player: a square hairline button beside it
+	local recruit = Gui.cardButton(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M - 360 - 14, 1, -M), Size = UDim2.fromOffset(150, 120) })
+	local rIcon = Gui.icon.recruit(recruit, 40, Gui.HAIRLINE)
+	rIcon.AnchorPoint = Vector2.new(0.5, 0)
+	rIcon.Position = UDim2.new(0.5, 0, 0, 16)
+	Gui.label(recruit, { Text = "Recruit Player", display = true, TextSize = 19, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 64), TextXAlignment = Enum.TextXAlignment.Center })
+	local rSub = Gui.label(recruit, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, Size = UDim2.new(1, -12, 0, 16), Position = UDim2.fromOffset(6, 90), TextXAlignment = Enum.TextXAlignment.Center })
+	onClick(recruit, toRecruit)
+
+	-- your AI is playing for you: a red-edged card over the buttons
+	local rejoin = Gui.card(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 134), Size = UDim2.fromOffset(524, 64), Visible = false })
+	rejoin.UIStroke.Color = Gui.ALERT
+	rejoin.UIStroke.Thickness = 2
+	Gui.label(rejoin, { Text = "Your AI is playing for you", display = true, TextSize = 22, Size = UDim2.fromOffset(340, 26), Position = UDim2.fromOffset(18, 8) })
+	Gui.label(rejoin, { Text = "Jump back in at the next serve.", TextSize = 14, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(340, 18), Position = UDim2.fromOffset(18, 36) })
+	local rejoinGo = Gui.plateButton(rejoin, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(130, 40) }, Gui.ALERT, Color3.fromRGB(250, 92, 112))
+	Gui.label(rejoinGo, { Text = "Rejoin", display = true, TextSize = 20, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
 	onClick(rejoinGo, function()
 		Net.get("Lobby"):FireServer("rejoin")
 	end)
@@ -419,10 +577,14 @@ local function buildHome()
 		badge = badge,
 		evName = evName,
 		evTier = evTier,
+		evTierText = evTierText,
+		evMark = evMark,
 		evLine = evLine,
 		evBlurb = evBlurb,
 		evOdds = evOdds,
 		tipText = tipText,
+		match = match,
+		matchPos = matchPos,
 		matchSub = matchSub,
 		rSub = rSub,
 		rejoin = rejoin,
@@ -430,7 +592,7 @@ local function buildHome()
 		stats = stats,
 		counters = counters,
 		tut = tut,
-		tutGo = tutGo,
+		tutGoLabel = tutGoLabel,
 		tutLine = tutLine,
 		tutProgress = tutProgress,
 	}
@@ -460,7 +622,7 @@ end
 local function refreshHome(prof)
 	local hm = ui.home
 	local c = Roster.get(prof.char or player:GetAttribute("CharId")) or Roster.get(Roster.Starters[1])
-	hm.sub.Text = string.format('Playing <font color="#%s"><b>%s</b></font>  %s %s', tierColor(c.Tier):ToHex(), c.Name, c.Tier, roleName(c.Role))
+	hm.sub.Text = string.format('Playing <font color="#%s"><b>%s</b></font>, %s %s', tierColor(c.Tier):ToHex(), c.Name, c.Tier, string.lower(roleName(c.Role)))
 	local have, total = ownedCount(prof, "Char")
 	if prof.saving == false then
 		hm.badge.Text = "Progress isn't being saved in this session"
@@ -473,9 +635,10 @@ local function refreshHome(prof)
 	if f then
 		local def = f.Ability and Config.Abilities[f.Ability]
 		hm.evName.Text = f.Name
-		hm.evTier.Text = f.Tier
-		hm.evTier.TextColor3 = tierColor(f.Tier)
-		hm.evLine.Text = string.format("%s, %d cm  -  %s", roleName(f.Role), f.Height, def and def.Name or "")
+		hm.evTierText.Text = f.Tier
+		hm.evMark.Text = f.Tier
+		Gui.tint(hm.evTier, tierColor(f.Tier))
+		hm.evLine.Text = string.format("%s, %d cm. %s", roleName(f.Role), f.Height, def and def.Name or "")
 		hm.evLine.TextColor3 = def and def.Color or Gui.WHITE
 		hm.evBlurb.Text = def and def.Blurb or ""
 		local odds = 0
@@ -505,13 +668,12 @@ local function refreshHome(prof)
 	-- the tutorial card
 	local tut = prof.tutorial
 	hm.tut.Visible = tut ~= nil and not tut.done
-	hm.stats.Position = UDim2.fromOffset(M, hm.tut.Visible and 610 or 480)
 	if tut and not tut.done then
 		local vp, gold, spins = Tutorial.reward()
 		local _, n, total = Tutorial.progress(tut.steps)
 		hm.tutLine.Text = string.format('Learn the basics in a practice match. Reward: <font color="#FFD35A"><b>%d VP, %s Gold and %d free recruits</b></font>', vp, Gui.num(gold), spins)
 		hm.tutProgress.Text = n > 0 and string.format("%d of %d done", n, total) or ""
-		hm.tutGo.Text = n > 0 and "Continue tutorial" or "Start tutorial"
+		hm.tutGoLabel.Text = n > 0 and "Continue tutorial" or "Start tutorial"
 	end
 	-- Match button: your lobby's state
 	local mine = lobbies.mine
@@ -2427,6 +2589,7 @@ function MenuController.go(name)
 	if name ~= "locker" then
 		lockerPick = {}
 	end
+	local changed = name ~= screen
 	screen = name
 	if name == "ranks" then
 		askBoards(true)
@@ -2436,6 +2599,17 @@ function MenuController.go(name)
 	end
 	MenuController.applyScene()
 	MenuController.refresh()
+	if changed and shown then
+		if mods.AudioController then
+			mods.AudioController.play("UISwipe", { minGap = 0.1, volume = 0.6 })
+		end
+		if name == "home" then
+			-- the screen's one entrance: the Match plate slides back in
+			local hm = ui.home
+			hm.match.Position = hm.matchPos + UDim2.fromOffset(70, 0)
+			tween(hm.match, 0.34, { Position = hm.matchPos }, Enum.EasingStyle.Quint)
+		end
+	end
 end
 
 local function doRefresh()
@@ -2448,8 +2622,9 @@ local function doRefresh()
 		c.vp.Text = Gui.num(prof.vp or 0)
 		c.gold.Text = Gui.num(prof.gold or 0)
 	end
-	refreshHome(prof)
-	if screen == "recruit" then
+	if screen == "home" then
+		refreshHome(prof) -- go("home") refreshes, so other screens needn't keep Home current
+	elseif screen == "recruit" then
 		refreshRecruit(prof)
 		ui.recruit.status.Text = prof.autoRolling and autoLine or ""
 	elseif screen == "players" then
@@ -2546,6 +2721,11 @@ end
 
 function MenuController.init(m)
 	mods = m
+	Gui.onHover = function()
+		if mods.AudioController then
+			mods.AudioController.play("UIHover", { minGap = 0.06, volume = 0.45 })
+		end
+	end
 	gui = make("ScreenGui", {
 		Name = "SpikeRushMenu",
 		ResetOnSpawn = false,

@@ -6,7 +6,30 @@
 --   * icons drawn from GUI shapes (no uploaded images): home, recruit, players, locker, shop,
 --     settings, help, back, the V Point volleyball and the Gold coin
 
+--
+-- The broadcast kit (Home first; the other screens move over one by one): slanted plates in
+-- court navy, signal yellow and ball blue, a solid edge tab instead of borders, heavy italic
+-- condensed type (Assets.Fonts), filled white icons and a halftone texture from the Toolbox
+-- (Assets.image). No rounded corners, no glass, no soft gradients.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Assets = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Assets"))
+
 local Gui = {}
+
+-- broadcast palette (from the volleyball: yellow, blue, white panels)
+Gui.NAVY = Color3.fromRGB(13, 27, 62)
+Gui.NAVY_LIGHT = Color3.fromRGB(26, 44, 92)
+Gui.SIGNAL = Color3.fromRGB(255, 210, 31)
+Gui.SIGNAL_HOT = Color3.fromRGB(255, 228, 110)
+Gui.BLUE = Color3.fromRGB(31, 87, 214)
+Gui.BLUE_HOT = Color3.fromRGB(62, 118, 240)
+Gui.CHALK = Color3.fromRGB(242, 245, 250)
+Gui.LINE = Color3.fromRGB(7, 13, 34)
+Gui.ALERT = Color3.fromRGB(232, 56, 79)
+Gui.DIM = Color3.fromRGB(150, 164, 196)
+Gui.HAIRLINE = Color3.fromRGB(222, 184, 96) -- the thin gold edge on every card
+Gui.CARD = Color3.fromRGB(12, 14, 22)
 
 Gui.INK = Color3.fromRGB(16, 18, 30)
 Gui.WHITE = Color3.fromRGB(246, 247, 250)
@@ -369,6 +392,264 @@ function Gui.currency(parent, iconFn, props)
 	}, f)
 	Gui.round(plus)
 	return f, amount, plus
+end
+
+------------------------------------------------------------------------------------------
+-- broadcast kit
+------------------------------------------------------------------------------------------
+
+-- Faces are built once: Font.new per label would allocate on every refresh.
+local faces = {}
+local function face(family, weight, style)
+	local key = family .. weight.Name .. style.Name
+	local f = faces[key]
+	if not f then
+		f = Font.new(family, weight, style)
+		faces[key] = f
+	end
+	return f
+end
+
+-- Display: heavy italic condensed (names, numbers, big buttons). Body: upright condensed.
+function Gui.display(weight)
+	return face(Assets.Fonts.Display, weight or Enum.FontWeight.Bold, Enum.FontStyle.Italic)
+end
+
+function Gui.body(weight)
+	return face(Assets.Fonts.Body, weight or Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+end
+
+-- A label in the broadcast faces: `props.display` picks the display face, `props.weight` its
+-- weight; everything else is a TextLabel property.
+function Gui.label(parent, props)
+	local l = make("TextLabel", {
+		BackgroundTransparency = 1,
+		TextColor3 = Gui.CHALK,
+		TextSize = 16,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, parent)
+	local display, weight = false, nil
+	for k, v in pairs(props or {}) do
+		if k == "display" then
+			display = v
+		elseif k == "weight" then
+			weight = v
+		else
+			l[k] = v
+		end
+	end
+	l.FontFace = display and Gui.display(weight) or Gui.body(weight)
+	return l
+end
+
+-- A card: dark and see-through with a one-pixel gold hairline and square corners. `tint`
+-- (optional) warms the fill (the career card).
+function Gui.card(parent, props, tint)
+	local f = make("Frame", {
+		BackgroundColor3 = tint or Gui.CARD,
+		BackgroundTransparency = tint and 0.55 or 0.3,
+		BorderSizePixel = 0,
+	}, parent)
+	for k, v in pairs(props or {}) do
+		f[k] = v
+	end
+	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.15, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, f)
+	return f
+end
+
+-- A hairline button (the card look, pressable): the edge brightens under the pointer.
+function Gui.cardButton(parent, props)
+	local b = make("TextButton", {
+		BackgroundColor3 = Gui.CARD,
+		BackgroundTransparency = 0.3,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+	}, parent)
+	for k, v in pairs(props or {}) do
+		b[k] = v
+	end
+	local edge = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.15, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+	local scale = make("UIScale", { Scale = 1 }, b)
+	b.MouseEnter:Connect(function()
+		edge.Thickness = 2
+		edge.Transparency = 0
+		b.BackgroundTransparency = 0.15
+		if Gui.onHover then
+			Gui.onHover()
+		end
+	end)
+	b.MouseLeave:Connect(function()
+		edge.Thickness = 1
+		edge.Transparency = 0.15
+		b.BackgroundTransparency = 0.3
+		scale.Scale = 1
+	end)
+	b.MouseButton1Down:Connect(function()
+		scale.Scale = 0.97
+	end)
+	b.MouseButton1Up:Connect(function()
+		scale.Scale = 1
+	end)
+	return b
+end
+
+-- The slanted ends: a right triangle from the Toolbox, mirrored so every plate leans forward
+-- (the top edge further right than the bottom). A cap as wide as SLANT x its height keeps the
+-- same 12 degree angle at any size.
+Gui.SLANT = 0.21
+local FLIP = 1024 -- a mirror rect at least as big as the image (it clamps to the image)
+local slantImage = nil
+local function capImage()
+	slantImage = slantImage or Assets.image("Slant") or ""
+	return slantImage
+end
+
+-- A plate: a transparent frame (props: Size in offsets, Position, ...) holding a body and two
+-- caps in `color`. `opts.flatLeft` / `opts.flatRight` square off an end (a plate that runs off
+-- the screen). Children go straight into the returned frame; keep text `Gui.plateInset(plate)`
+-- in from the left.
+function Gui.plate(parent, props, color, opts)
+	opts = opts or {}
+	local f = make("Frame", { BackgroundTransparency = 1, BorderSizePixel = 0 }, parent)
+	for k, v in pairs(props or {}) do
+		f[k] = v
+	end
+	local h = f.Size.Y.Offset
+	local s = math.floor(h * Gui.SLANT + 0.5)
+	local left = opts.flatLeft and 0 or s
+	local right = opts.flatRight and 0 or s
+	-- the body overlaps each cap by a pixel so no seam shows between them
+	make("Frame", {
+		Name = "Body",
+		BackgroundColor3 = color,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(math.max(0, left - 1), 0),
+		Size = UDim2.new(1, -math.max(0, left - 1) - math.max(0, right - 1), 1, 0),
+		ZIndex = f.ZIndex,
+	}, f)
+	if left > 0 then
+		make("ImageLabel", {
+			Name = "CapL",
+			BackgroundTransparency = 1,
+			Image = capImage(),
+			ImageColor3 = color,
+			ImageRectOffset = Vector2.new(FLIP, 0),
+			ImageRectSize = Vector2.new(-FLIP, FLIP),
+			Size = UDim2.new(0, left, 1, 0),
+			ZIndex = f.ZIndex,
+		}, f)
+	end
+	if right > 0 then
+		make("ImageLabel", {
+			Name = "CapR",
+			BackgroundTransparency = 1,
+			Image = capImage(),
+			ImageColor3 = color,
+			ImageRectOffset = Vector2.new(0, FLIP),
+			ImageRectSize = Vector2.new(FLIP, -FLIP),
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.fromScale(1, 0),
+			Size = UDim2.new(0, right, 1, 0),
+			ZIndex = f.ZIndex,
+		}, f)
+	end
+	f:SetAttribute("Slant", s)
+	return f
+end
+
+-- How far text should sit from a plate's left edge.
+function Gui.plateInset(plate)
+	return (plate:GetAttribute("Slant") or 0) + 12
+end
+
+function Gui.tint(plate, color)
+	local body = plate:FindFirstChild("Body")
+	if body then
+		body.BackgroundColor3 = color
+	end
+	for _, name in ipairs({ "CapL", "CapR" }) do
+		local cap = plate:FindFirstChild(name)
+		if cap then
+			cap.ImageColor3 = color
+		end
+	end
+end
+
+function Gui.fade(plate, transparency)
+	local body = plate:FindFirstChild("Body")
+	if body then
+		body.BackgroundTransparency = transparency
+	end
+	for _, name in ipairs({ "CapL", "CapR" }) do
+		local cap = plate:FindFirstChild(name)
+		if cap then
+			cap.ImageTransparency = transparency
+		end
+	end
+end
+
+-- Hooks the menus set for hover and press sounds (Gui has no audio of its own).
+Gui.onHover = nil
+
+-- A plate that is a button: `color` at rest, `hot` under the pointer, pressed a touch smaller.
+function Gui.plateButton(parent, props, color, hot, opts)
+	local b = make("TextButton", { BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0 }, parent)
+	for k, v in pairs(props or {}) do
+		b[k] = v
+	end
+	local plate = Gui.plate(b, { Size = UDim2.fromOffset(b.Size.X.Offset, b.Size.Y.Offset), ZIndex = b.ZIndex }, color, opts)
+	plate.Size = UDim2.fromScale(1, 1)
+	local scale = make("UIScale", { Scale = 1 }, b)
+	b.MouseEnter:Connect(function()
+		Gui.tint(plate, hot or color)
+		if Gui.onHover then
+			Gui.onHover()
+		end
+	end)
+	b.MouseLeave:Connect(function()
+		Gui.tint(plate, color)
+		scale.Scale = 1
+	end)
+	b.MouseButton1Down:Connect(function()
+		scale.Scale = 0.97
+	end)
+	b.MouseButton1Up:Connect(function()
+		scale.Scale = 1
+	end)
+	return b, plate
+end
+
+-- A Toolbox icon (Assets.image key), tinted.
+function Gui.iconImage(parent, key, size, color, props)
+	local im = make("ImageLabel", {
+		BackgroundTransparency = 1,
+		Image = Assets.image(key) or "",
+		ImageColor3 = color or Gui.CHALK,
+		Size = UDim2.fromOffset(size, size),
+		ScaleType = Enum.ScaleType.Fit,
+	}, parent)
+	for k, v in pairs(props or {}) do
+		im[k] = v
+	end
+	return im
+end
+
+-- The halftone texture laid over a plate's right end (print grain, not a gradient).
+function Gui.halftone(parent, props)
+	local im = make("ImageLabel", {
+		Name = "Halftone",
+		BackgroundTransparency = 1,
+		Image = Assets.image("Halftone") or "",
+		ImageColor3 = Gui.LINE,
+		ImageTransparency = 0.82,
+		ScaleType = Enum.ScaleType.Crop,
+		Rotation = 180,
+	}, parent)
+	for k, v in pairs(props or {}) do
+		im[k] = v
+	end
+	return im
 end
 
 -- Number with thousands separators: 18435 -> "18,435".

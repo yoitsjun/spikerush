@@ -25,6 +25,8 @@
 --        :Emit(n) where n = its "EmitCount" attribute (default 20).
 --        AzureAura is held on the charging player instead (its emitters stay enabled).
 --   ToolboxAssets.Sounds.<Key>        -> a Sound instance; overrides the matching key below.
+--   ToolboxAssets.UI.<Key>            -> a Decal (or ImageLabel) whose image overrides
+--        Assets.Images[Key]: the menu icons, the slant cap and the halftone texture.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -51,7 +53,9 @@ Assets.Sounds = {
 	GuardBreak = "",
 	Whistle = "",
 	Timeout = "",
-	UIClick = "",
+	UIClick = "15675059323", -- Roblox_UI_Bright_Click (Roblox's own, plays in any game)
+	UIHover = "15675032796", -- Roblox_UI_Small_Click
+	UISwipe = "15675024286", -- Roblox_UI_Whoosh_01: a menu screen changes
 	Point = "",
 	CrowdLoop = "",
 	CrowdCheer = "",
@@ -155,12 +159,33 @@ Assets.BotAnimations = {
 
 -- Images: particle textures that ship with the client, and optional UI icons (Decal or Image
 -- ids from the Toolbox). Empty icons fall back to text.
+-- These are image ids, not the Toolbox decal ids: a decal's image id is its `Texture` after
+-- `game:GetObjects("rbxassetid://<decal id>")`. The decal each one came from is noted.
 Assets.Images = {
 	Spark = "rbxasset://textures/particles/sparkles_main.dds",
 	Smoke = "rbxasset://textures/particles/smoke_main.dds",
 	Fire = "rbxasset://textures/particles/fire_main.dds",
 	AbilityThunder = "",
 	AbilityAzure = "",
+	-- menu icons: one filled white glyph style (Toolbox decals)
+	IconHome = "13300916613", -- decal 13300916690 (Fluent "home")
+	IconSettings = "13300915301", -- decal 13300915335 (Fluent "settings")
+	IconRanks = "71015270952901", -- decal 111656292605156
+	IconPlayers = "100423427541804", -- decal 112043200329621
+	IconShop = "13429538917", -- decal 13429538960
+	IconLocker = "11955919597", -- decal 11955919656
+	IconHelp = "546164656", -- decal 546164659
+	IconBack = "116379345467715", -- decal 106533782606560
+	-- a right triangle (right angle bottom-left): mirrored, the slanted ends of every plate
+	Slant = "2288884279", -- decal 2288884281
+	Halftone = "102527515036737", -- decal 124271316176270: a halftone dot fade
+}
+
+-- Font families (a FontFace family: rbxasset://fonts/families/<Name>.json, or a Creator Store
+-- font's rbxassetid). Display is set heavy and italic; Body upright.
+Assets.Fonts = {
+	Display = "rbxasset://fonts/families/Oswald.json",
+	Body = "rbxasset://fonts/families/RobotoCondensed.json",
 }
 
 -- Custom ball mesh (see tools/generate_volleyball_asset.py). The generated OBJ has radius 1,
@@ -227,6 +252,20 @@ function Assets.toolbox(path)
 		node = node:FindFirstChild(piece)
 	end
 	return node
+end
+
+-- The image for a UI slot: a Decal or ImageLabel in ToolboxAssets.UI.<key>, else the id in
+-- Assets.Images, else nil.
+function Assets.image(key)
+	local inst = Assets.toolbox("UI." .. key)
+	if inst then
+		if inst:IsA("Decal") then
+			return inst.Texture
+		elseif inst:IsA("ImageLabel") or inst:IsA("ImageButton") then
+			return inst.Image
+		end
+	end
+	return Assets.id(Assets.Images[key])
 end
 
 -- Make an inserted asset inert: no scripts can run, and no part collides, casts shadows or
