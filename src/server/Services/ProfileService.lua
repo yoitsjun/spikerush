@@ -13,9 +13,9 @@
 --   ("autoroll", banner) / ("stop")  -> spin x1 until a Legendary or better (or out of VP)
 --   ("autosell", rarity, on)         -> pulls of that rarity turn straight into VP
 --   ("equip", kind, key)             -> equip an unlocked style, colour, trail or score effect
---   ("buy", packIndex)               -> Studio only: grant a pack whose product id isn't set yet
+--   ("buy", packIndex, "VP"|"Gold")  -> Studio only: grant a pack whose product id isn't set yet
 -- Your character locks while you're in a match, so prediction always matches the server.
--- VP packs are Developer Products granted in MarketplaceService.ProcessReceipt.
+-- VP and Gold packs are Developer Products granted in MarketplaceService.ProcessReceipt.
 -- Developers (Config.Developers: the place owner, Studio sessions, listed ids) own everything
 -- and spin for free.
 
@@ -617,11 +617,36 @@ local function autoRoll(plr, profile, banner)
 	end)
 end
 
+-- A pack holds VP (Config.Shop.Packs) or Gold (Config.Shop.GoldPacks). `sign` -1 takes it back.
+local function applyPack(profile, pack, sign)
+	profile.vp = profile.vp + (pack.VP or 0) * sign
+	profile.gold = profile.gold + (pack.Gold or 0) * sign
+end
+
+local function packText(pack)
+	if pack.Gold then
+		return string.format("+%d Gold", pack.Gold)
+	end
+	return string.format("+%d VP", pack.VP or 0)
+end
+
+-- The pack a Developer Product sells, or nil.
+local function packFor(productId)
+	for _, list in ipairs({ Config.Shop.Packs, Config.Shop.GoldPacks }) do
+		for _, p in ipairs(list) do
+			if p.Id ~= 0 and p.Id == productId then
+				return p
+			end
+		end
+	end
+	return nil
+end
+
 local function grantPack(plr, pack)
 	local profile = ProfileService.get(plr)
-	profile.vp = profile.vp + pack.VP
+	applyPack(profile, pack, 1)
 	dirty[plr] = true
-	push(plr, string.format("+%d VP", pack.VP))
+	push(plr, packText(pack))
 end
 
 local function onRequest(plr, kind, a, b, c)
@@ -680,7 +705,8 @@ local function onRequest(plr, kind, a, b, c)
 		end
 		push(plr)
 	elseif kind == "buy" then
-		local pack = Config.Shop.Packs[tonumber(a) or 0]
+		local list = b == "Gold" and Config.Shop.GoldPacks or Config.Shop.Packs
+		local pack = list[tonumber(a) or 0]
 		if pack and pack.Id == 0 and RunService:IsStudio() then
 			grantPack(plr, pack)
 		end
@@ -694,12 +720,7 @@ local function processReceipt(info)
 	if not plr then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	local pack = nil
-	for _, p in ipairs(Config.Shop.Packs) do
-		if p.Id ~= 0 and p.Id == info.ProductId then
-			pack = p
-		end
-	end
+	local pack = packFor(info.ProductId)
 	if not pack then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
@@ -710,7 +731,7 @@ local function processReceipt(info)
 			return Enum.ProductPurchaseDecision.PurchaseGranted
 		end
 	end
-	profile.vp = profile.vp + pack.VP
+	applyPack(profile, pack, 1)
 	table.insert(profile.receipts, 1, id)
 	while #profile.receipts > Config.Shop.ReceiptHistory do
 		table.remove(profile.receipts)
@@ -719,11 +740,11 @@ local function processReceipt(info)
 	local stored = save(plr, true)
 	if not stored and not RunService:IsStudio() then
 		-- not persisted: undo, and let Roblox retry later
-		profile.vp = profile.vp - pack.VP
+		applyPack(profile, pack, -1)
 		table.remove(profile.receipts, 1)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	push(plr, string.format("+%d VP. Thanks for the support!", pack.VP))
+	push(plr, packText(pack) .. ". Thanks for the support!")
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 

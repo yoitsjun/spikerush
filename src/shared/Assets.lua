@@ -13,12 +13,18 @@
 --   2. Baked from the ids in Assets.Toolbox below by running this in the Studio command bar
 --      (edit mode), then saving the place:
 --        require(game.ServerScriptService.Server.Services.ToolboxService).install()
---   3. Loaded at runtime from the same ids by ToolboxService. InsertService can only load assets
---      the place's owner owns (so "Get" a free model to your inventory first) or Roblox made.
+--   3. Loaded at runtime from the same ids by ToolboxService, with AssetService:LoadAssetAsync
+--      (any free Creator Store model once Game Settings > Security > "Allow Loading Third Party
+--      Assets" is on), else InsertService (only assets the place's owner owns or Roblox made).
 -- Every inserted asset is sanitized: scripts are deleted and parts are made non-colliding, so
 -- a free model can never run code in the game.
 --
---   ToolboxAssets.Models.Volleyball   -> any ball model (replaces the procedural ball)
+--   ToolboxAssets.Models.Volleyball   -> any ball model: the match ball and every menu ball
+--   ToolboxAssets.Models.Locker       -> the club room's lockers (a bank of them, front facing -Z)
+--   ToolboxAssets.Models.Bench        -> the club room's bench (long side along X)
+--   ToolboxAssets.Models.BallCart     -> the ball cart in the club room and the recruit gym; any
+--        balls in it are swapped for the volleyball. Menu props are scaled and placed by their
+--        bounding box; a number attribute "Yaw" (degrees) turns one that faces another way.
 --   ToolboxAssets.VFX.<Name>          -> a Part, Model or Attachment holding ParticleEmitters.
 --        Impact names: SpikeImpact, PerfectImpact, ThunderImpact, AzureImpact, BlockImpact,
 --        FloorImpact, ReceiveImpact, NetImpact, JumpBoom, GuardBreak. Each emitter fires
@@ -200,7 +206,10 @@ Assets.Mesh = {
 -- Models and VFX only: sounds, animations and images take their ids in the tables above.
 Assets.Toolbox = {
 	Models = {
-		Volleyball = "",
+		Volleyball = "123275048347543", -- "Volleyball Ball" (virtuallegendary): one MeshPart
+		Locker = "15868311397", -- "Locker School" (ZlatanCooler12): six blue lockers
+		Bench = "5110642461", -- "Modern Bench" (smartlegoman1): wood slats on metal legs
+		BallCart = "10807459912", -- "Basketball rack" (twoborn): a two-tier ball rack
 	},
 	VFX = {
 		SpikeImpact = "",
@@ -215,6 +224,13 @@ Assets.Toolbox = {
 		GuardBreak = "",
 		AzureAura = "",
 	},
+}
+
+-- The "Yaw" attribute ToolboxService stamps on a model it loads by id, for models that face
+-- another way as published (these two run along Z; the menu sets want their long side along X).
+Assets.ToolboxYaw = {
+	Bench = 90,
+	BallCart = 90,
 }
 
 function Assets.id(value)

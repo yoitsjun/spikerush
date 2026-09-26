@@ -422,15 +422,23 @@ Config.Cosmetics = {
 	},
 }
 
--- VP packs, sold as Developer Products. Create each product (Creator Hub > your experience >
--- Monetization > Developer Products) and paste its id here. A pack with Id 0 shows as "soon";
--- in Studio it grants its VP for free so the flow can be tested.
+-- VP and Gold packs, sold as Developer Products. Create each product (Creator Hub > your
+-- experience > Monetization > Developer Products) and paste its id here. A pack with Id 0 shows
+-- as "soon"; in Studio it grants its VP or Gold for free so the flow can be tested.
 Config.Shop = {
 	Packs = {
 		{ Id = 0, VP = 500, Name = "Pouch" },
 		{ Id = 0, VP = 1200, Name = "Bag" },
 		{ Id = 0, VP = 2800, Name = "Crate" },
 		{ Id = 0, VP = 6500, Name = "Vault" },
+	},
+	-- Gold for stat upgrades: ten times the VP pack at the same step (a win pays 300 Gold, and
+	-- maxing one S+ stat from where a recruit starts costs about 8,000)
+	GoldPacks = {
+		{ Id = 0, Gold = 5000, Name = "Stack" },
+		{ Id = 0, Gold = 12000, Name = "Satchel" },
+		{ Id = 0, Gold = 28000, Name = "Chest" },
+		{ Id = 0, Gold = 65000, Name = "Treasury" },
 	},
 	ReceiptHistory = 50, -- purchase ids remembered per profile (duplicate receipts are ignored)
 }

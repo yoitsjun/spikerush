@@ -8,13 +8,14 @@
 --                  the reveal card and the results. Skip jumps straight to the next S.
 --   Players ...... your characters: pick who you play, spend Gold on their four stats.
 --   Locker ....... equip spike styles, colours, trails and score effects, with a live preview.
---   Shop ......... V Point packs.
+--   Shop ......... V Point and Gold packs, and a big Recruit button.
 --   Match ........ Quick Match, the lobby list, Create Lobby (public, friends only or private
 --                  with a password, fill with bots, bot level) and your lobby.
 -- Layout is drawn on a 900-unit-tall canvas scaled to the screen, so it keeps its proportions
 -- on every device.
 
 local Players = game:GetService("Players")
+local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -257,6 +258,8 @@ local function header(page, title)
 	onClick(back, function()
 		MenuController.go("home")
 	end)
+	ui.headers = ui.headers or {}
+	table.insert(ui.headers, back)
 	currencyRow(page, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M - 66, 0, 72) })
 	local gear = iconButton(page, Gui.icon.settings, "", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 4, 0, 62) })
 	onClick(gear, function()
@@ -272,19 +275,53 @@ local function page(name)
 	return f
 end
 
--- A modal: a dim backdrop and a centred glass panel with a title and a close button.
-local function modal(name, title, w, h)
-	local back = make("TextButton", { Name = name, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, Text = "", AutoButtonColor = false, Visible = false, ZIndex = 20 }, canvas)
-	local panel = Gui.glass(back, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(w, h), ZIndex = 20, Active = true }, 0.08)
-	local t = text(panel, { Text = title, Font = Gui.FONT_TITLE, TextSize = 34, Size = UDim2.new(1, -150, 0, 44), Position = UDim2.fromOffset(24, 14), ZIndex = 21 })
-	Gui.stroke(t, 2, Gui.INK, 0)
-	local close = Gui.flat(panel, "Close", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 18), Size = UDim2.fromOffset(96, 36), ZIndex = 21 })
+-- A signal-yellow plate button and its label (returned so it can be renamed).
+local function actionPlate(parent, props, caption, textSize)
+	local b = Gui.plateButton(parent, props, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	local l = Gui.label(b, { Text = caption, display = true, TextSize = textSize or 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+	return b, l
+end
+
+-- A hairline button and its label.
+local function hairButton(parent, props, caption, textSize)
+	local b = Gui.cardButton(parent, props)
+	local l = Gui.label(b, { Text = caption, display = true, TextSize = textSize or 20, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+	return b, l
+end
+
+-- A modal: a dim backdrop and a centred panel with a title and a Close button. Only Close, or a
+-- click on the dim area outside the panel, closes it: the panel is a button of its own laid over
+-- the backdrop, so a click anywhere inside it (a label, the gap between two cards) stops there.
+-- `broadcast` draws it in Home's kit (a dark hairline card, the display face, a slanted accent
+-- under the title); otherwise it's a glass panel.
+local function modal(name, title, w, h, broadcast)
+	local root = make("Frame", { Name = name, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 20 }, canvas)
+	local shade = make("TextButton", { Name = "Shade", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, Text = "", AutoButtonColor = false, ZIndex = 20 }, root)
+	local panel = make("TextButton", { Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(w, h), BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 21 }, root)
+	local t, close
+	if broadcast then
+		panel.BackgroundColor3 = Gui.CARD
+		panel.BackgroundTransparency = 0.06
+		make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.15, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, panel)
+		Gui.halftone(panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.55, 0, 0, 190), ImageColor3 = Gui.CHALK, ImageTransparency = 0.94 })
+		t = Gui.label(panel, { Text = title, display = true, weight = Enum.FontWeight.Heavy, TextSize = 46, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -170, 0, 52), Position = UDim2.fromOffset(26, 12) })
+		Gui.plate(panel, { Size = UDim2.fromOffset(64, 6), Position = UDim2.fromOffset(28, 68) }, Gui.SIGNAL)
+		close = hairButton(panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 18), Size = UDim2.fromOffset(112, 40) }, "Close")
+	else
+		panel.BackgroundColor3 = Color3.fromRGB(10, 12, 22)
+		panel.BackgroundTransparency = 0.08
+		Gui.corner(panel, 10)
+		Gui.stroke(panel, 1, Gui.WHITE, 0.82, true)
+		t = text(panel, { Text = title, Font = Gui.FONT_TITLE, TextSize = 34, Size = UDim2.new(1, -150, 0, 44), Position = UDim2.fromOffset(24, 14), ZIndex = 21 })
+		Gui.stroke(t, 2, Gui.INK, 0)
+		close = Gui.flat(panel, "Close", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 18), Size = UDim2.fromOffset(96, 36), ZIndex = 21 })
+	end
 	local function hide()
-		back.Visible = false
+		root.Visible = false
 	end
 	onClick(close, hide)
-	back.MouseButton1Click:Connect(hide)
-	return { root = back, panel = panel, title = t, hide = hide }
+	shade.MouseButton1Click:Connect(hide)
+	return { root = root, panel = panel, title = t, hide = hide }
 end
 
 ------------------------------------------------------------------------------------------
@@ -295,7 +332,7 @@ end
 -- drawn Gui.icon function. The active one is signal yellow with a slanted bar under it; the
 -- rest light up under the pointer.
 local function navItem(parent, icon, caption, props, active)
-	local b = make("TextButton", { Size = UDim2.fromOffset(96, 74), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, parent)
+	local b = make("TextButton", { Name = caption, Size = UDim2.fromOffset(96, 74), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, parent)
 	for k, v in pairs(props or {}) do
 		b[k] = v
 	end
@@ -338,77 +375,89 @@ local function navItem(parent, icon, caption, props, active)
 	return b
 end
 
+-- The recruit screen on its player banner (Home's featured card, the Shop's Recruit button).
+local function goRecruit()
+	banner = "Char"
+	recruitTab = "Player"
+	MenuController.go("recruit")
+end
+
 -- Home: the club room behind a match-day overlay. Profile and currencies top left, the nav
 -- across the top, shortcuts down the right, the featured recruit and your record on the left,
 -- a tip at the bottom, and Recruit Player and the big slanted Match plate bottom right.
+local PROFILE_H = 152 -- the profile block: the headshot row and the currencies under it
+local NAV_BOTTOM = 92 -- where the nav across the top ends
+
 local function buildHome()
 	local p = page("home")
 
-	-- profile: a square headshot, the name, a slanted accent bar, who you play
+	-- profile, top left under Roblox's own buttons (placeHome moves it there): a square
+	-- headshot, the name, who you play, a slanted accent bar, and the currencies under it
+	local prof = make("Frame", { Name = "Profile", Size = UDim2.fromOffset(560, PROFILE_H), Position = UDim2.fromOffset(M, 24), BackgroundTransparency = 1 }, p)
 	local shot = make("ImageLabel", {
-		Size = UDim2.fromOffset(72, 72),
-		Position = UDim2.fromOffset(M, 24),
+		Size = UDim2.fromOffset(100, 100),
 		BackgroundColor3 = Gui.NAVY_LIGHT,
 		BorderSizePixel = 0,
 		Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(player.UserId) .. "&w=150&h=150",
-	}, p)
-	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, shot)
-	local name = Gui.label(p, {
+	}, prof)
+	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, shot)
+	local name = Gui.label(prof, {
 		Text = player.DisplayName,
 		display = true,
-		TextSize = 30,
+		TextSize = 42,
 		TextStrokeTransparency = 0.6,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		Size = UDim2.fromOffset(340, 34),
-		Position = UDim2.fromOffset(M + 86, 20),
+		Size = UDim2.fromOffset(420, 46),
+		Position = UDim2.fromOffset(118, -4),
 	})
-	local sub = Gui.label(p, {
+	local sub = Gui.label(prof, {
 		Text = "",
-		TextSize = 16,
+		TextSize = 20,
 		weight = Enum.FontWeight.Medium,
 		RichText = true,
 		TextStrokeTransparency = 0.6,
-		Size = UDim2.fromOffset(340, 20),
-		Position = UDim2.fromOffset(M + 86, 54),
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Size = UDim2.fromOffset(420, 24),
+		Position = UDim2.fromOffset(118, 44),
 	})
-	Gui.plate(p, { Size = UDim2.fromOffset(64, 5), Position = UDim2.fromOffset(M + 86, 82) }, Gui.SIGNAL)
-	local badge = Gui.label(p, {
+	Gui.plate(prof, { Size = UDim2.fromOffset(84, 6), Position = UDim2.fromOffset(118, 80) }, Gui.SIGNAL)
+	local badge = Gui.label(prof, {
 		Text = "",
-		TextSize = 13,
+		TextSize = 15,
 		weight = Enum.FontWeight.Medium,
 		TextColor3 = Gui.SIGNAL,
 		TextStrokeTransparency = 0.6,
-		Size = UDim2.fromOffset(280, 16),
-		Position = UDim2.fromOffset(M + 160, 76),
+		Size = UDim2.fromOffset(330, 18),
+		Position = UDim2.fromOffset(214, 74),
 	})
 
-	-- currencies, inline under the profile: icon, amount, a "+" to the shop
-	local cur = make("Frame", { Size = UDim2.fromOffset(440, 30), Position = UDim2.fromOffset(M, 110), BackgroundTransparency = 1 }, p)
-	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, cur)
+	-- currencies under the headshot: icon, amount, a "+" to the shop
+	local cur = make("Frame", { Size = UDim2.fromOffset(560, 40), Position = UDim2.fromOffset(0, 112), BackgroundTransparency = 1 }, prof)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, cur)
 	local function currency(order, iconFn)
-		iconFn(cur, 24).LayoutOrder = order
+		iconFn(cur, 32).LayoutOrder = order
 		local amount = Gui.label(cur, {
 			Text = "0",
 			display = true,
-			TextSize = 21,
+			TextSize = 28,
 			TextStrokeTransparency = 0.6,
 			AutomaticSize = Enum.AutomaticSize.X,
-			Size = UDim2.fromOffset(0, 28),
+			Size = UDim2.fromOffset(0, 36),
 			LayoutOrder = order + 1,
 		})
 		local plus = make("TextButton", {
 			Text = "+",
 			FontFace = Gui.display(),
-			TextSize = 26,
+			TextSize = 34,
 			TextColor3 = Gui.SIGNAL,
 			BackgroundTransparency = 1,
-			Size = UDim2.fromOffset(22, 28),
+			Size = UDim2.fromOffset(28, 36),
 			LayoutOrder = order + 2,
 		}, cur)
 		return amount, plus
 	end
 	local vp, vpPlus = currency(1, Gui.icon.vp)
-	make("Frame", { Size = UDim2.fromOffset(12, 1), BackgroundTransparency = 1, LayoutOrder = 4 }, cur)
+	make("Frame", { Size = UDim2.fromOffset(16, 1), BackgroundTransparency = 1, LayoutOrder = 4 }, cur)
 	local gold, goldPlus = currency(5, Gui.icon.gold)
 	goldPlus.Visible = false -- Gold is earned, not bought
 	onClick(vpPlus, function()
@@ -446,9 +495,12 @@ local function buildHome()
 		end)
 	end
 
+	-- the left column under the profile (placeHome moves the two together)
+	local column = make("Frame", { Name = "Column", Size = UDim2.fromOffset(470, 546), Position = UDim2.fromOffset(M, 24 + PROFILE_H + 20), BackgroundTransparency = 1 }, p)
+
 	-- the featured recruit, as an event card: the tier as a huge faint watermark (no character
 	-- art: the card sells the pull), halftone grain, the ability, quick links along the bottom
-	local ev = Gui.card(p, { Size = UDim2.fromOffset(470, 292), Position = UDim2.fromOffset(M, 186), ClipsDescendants = true })
+	local ev = Gui.card(column, { Size = UDim2.fromOffset(470, 292), ClipsDescendants = true })
 	Gui.halftone(ev, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.6, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.93 })
 	local evMark = Gui.label(ev, {
 		Text = "",
@@ -471,12 +523,7 @@ local function buildHome()
 	local evOdds = Gui.label(ev, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(434, 16), Position = UDim2.fromOffset(18, 170) })
 	local links = make("Frame", { Size = UDim2.fromOffset(434, 80), Position = UDim2.fromOffset(12, 200), BackgroundTransparency = 1 }, ev)
 	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, links)
-	local function toRecruit()
-		banner = "Char"
-		recruitTab = "Player"
-		MenuController.go("recruit")
-	end
-	onClick(navItem(links, Gui.icon.recruit, "Recruit", { LayoutOrder = 1 }), toRecruit)
+	onClick(navItem(links, Gui.icon.recruit, "Recruit", { LayoutOrder = 1 }), goRecruit)
 	onClick(navItem(links, "IconRanks", "Odds", { LayoutOrder = 2 }), function()
 		MenuController.openTable("Char")
 	end)
@@ -485,7 +532,7 @@ local function buildHome()
 	end)
 
 	-- your record: a warm card, the win streak big, the rest in a row
-	local stats = Gui.card(p, { Size = UDim2.fromOffset(470, 118), Position = UDim2.fromOffset(M, 490) }, Color3.fromRGB(120, 92, 24))
+	local stats = Gui.card(column, { Size = UDim2.fromOffset(470, 118), Position = UDim2.fromOffset(0, 304) }, Color3.fromRGB(120, 92, 24))
 	Gui.label(stats, { Text = "Win streak", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL_HOT, Size = UDim2.fromOffset(140, 18), Position = UDim2.fromOffset(18, 12) })
 	local counters = {}
 	counters.streak = {
@@ -503,7 +550,7 @@ local function buildHome()
 	end
 
 	-- the tutorial, until it's done
-	local tut = Gui.card(p, { Size = UDim2.fromOffset(470, 112), Position = UDim2.fromOffset(M, 620), Visible = false })
+	local tut = Gui.card(column, { Size = UDim2.fromOffset(470, 112), Position = UDim2.fromOffset(0, 434), Visible = false })
 	Gui.label(tut, { Text = "New here? Play the tutorial", display = true, TextSize = 22, Size = UDim2.fromOffset(434, 26), Position = UDim2.fromOffset(18, 10) })
 	local tutLine = Gui.label(tut, { Text = "", TextSize = 14, TextColor3 = Gui.DIM, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.fromOffset(434, 34), Position = UDim2.fromOffset(18, 38) })
 	local tutGo = Gui.plateButton(tut, { Size = UDim2.fromOffset(180, 32), Position = UDim2.fromOffset(12, 72) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
@@ -557,7 +604,7 @@ local function buildHome()
 	rIcon.Position = UDim2.new(0.5, 0, 0, 16)
 	Gui.label(recruit, { Text = "Recruit Player", display = true, TextSize = 19, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 64), TextXAlignment = Enum.TextXAlignment.Center })
 	local rSub = Gui.label(recruit, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, Size = UDim2.new(1, -12, 0, 16), Position = UDim2.fromOffset(6, 90), TextXAlignment = Enum.TextXAlignment.Center })
-	onClick(recruit, toRecruit)
+	onClick(recruit, goRecruit)
 
 	-- your AI is playing for you: a red-edged card over the buttons
 	local rejoin = Gui.card(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 134), Size = UDim2.fromOffset(524, 64), Visible = false })
@@ -572,6 +619,8 @@ local function buildHome()
 	end)
 
 	ui.home = {
+		profile = prof,
+		column = column,
 		name = name,
 		sub = sub,
 		badge = badge,
@@ -595,7 +644,43 @@ local function buildHome()
 		tutGoLabel = tutGoLabel,
 		tutLine = tutLine,
 		tutProgress = tutProgress,
+		navWidth = nav.Size.X.Offset,
 	}
+end
+
+-- Home's profile sits under Roblox's own buttons at the top left, whatever size they are: the
+-- menus ignore the GUI inset, so it starts GetGuiInset's height down (pixels, divided by the
+-- canvas scale), and the left column follows it. When the name row still reaches the nav across
+-- the top, the name stops short of it.
+local function placeHome()
+	local hm = ui.home
+	if not hm then
+		return
+	end
+	local inset = GuiService:GetGuiInset()
+	local top = math.max(24, inset.Y / canvasScale.Scale + 12)
+	hm.profile.Position = UDim2.fromOffset(M, top)
+	hm.column.Position = UDim2.fromOffset(M, top + PROFILE_H + 20)
+	local width = 420
+	if top - 4 < NAV_BOTTOM then
+		local navLeft = canvas.Size.X.Offset / 2 + 30 - hm.navWidth / 2
+		width = math.clamp(navLeft - (M + 118) - 16, 160, 420)
+	end
+	hm.name.Size = UDim2.fromOffset(width, 46)
+	hm.sub.Size = UDim2.fromOffset(width, 24)
+end
+
+-- A sub-screen's back button and title reach into the top bar on short screens: there they slide
+-- right of Roblox's buttons (TopbarInset is the part of the bar those buttons leave free).
+local function placeHeaders()
+	local s = canvasScale.Scale
+	local x = M
+	if 64 * s < GuiService:GetGuiInset().Y then
+		x = math.max(M, GuiService.TopbarInset.Min.X / s + 12)
+	end
+	for _, back in ipairs(ui.headers or {}) do
+		back.Position = UDim2.fromOffset(x, 64)
+	end
 end
 
 local FEATURED = {}
@@ -1877,71 +1962,102 @@ local function refreshLocker(prof)
 end
 
 ------------------------------------------------------------------------------------------
--- Shop
+-- Shop: V Point and Gold packs for Robux, and a big way into Recruit
 ------------------------------------------------------------------------------------------
 
-local packPrices = {}
+-- product prices in Robux, looked up once per pack
+local packPrices = { VP = {}, Gold = {} }
+
+-- the Shop's two rows: V Point packs and Gold packs (Config.Shop), each a Developer Product
+local SHOP_ROWS = {
+	{ key = "VP", title = "V Points", note = "Recruit players and looks", icon = Gui.icon.vp },
+	{ key = "Gold", title = "Gold", note = "Upgrade your players' stats", icon = Gui.icon.gold },
+}
+
+local function shopPacks(key)
+	return key == "Gold" and Config.Shop.GoldPacks or Config.Shop.Packs
+end
 
 local function buildShop()
 	local p = page("shop")
 	header(p, "Shop")
-	local row = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromOffset(1100, 330), BackgroundTransparency = 1 }, p)
-	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 20), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, row)
-	local prices = {}
-	for i, pack in ipairs(Config.Shop.Packs) do
-		local card = Gui.glass(row, { Size = UDim2.fromOffset(250, 320), LayoutOrder = i }, 0.15)
-		local icon = Gui.icon.vp(card, 96)
-		icon.AnchorPoint = Vector2.new(0.5, 0)
-		icon.Position = UDim2.new(0.5, 0, 0, 30)
-		local amount = Gui.title(card, { Text = Gui.num(pack.VP), TextSize = 48, Size = UDim2.new(1, 0, 0, 56), Position = UDim2.fromOffset(0, 140), TextXAlignment = Enum.TextXAlignment.Center })
-		amount.Name = "Amount"
-		text(card, { Text = "V Points  -  " .. pack.Name, TextSize = 16, TextColor3 = Gui.MUTED, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 198), TextXAlignment = Enum.TextXAlignment.Center })
-		local buy = Gui.primary(card, "", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -22), Size = UDim2.fromOffset(190, 52), TextSize = 20 })
-		onClick(buy, function()
-			if pack.Id ~= 0 then
-				pcall(function()
-					MarketplaceService:PromptProductPurchase(player, pack.Id)
-				end)
-			elseif profile().studio then
-				Net.get("Profile"):FireServer("buy", i)
-			end
-		end)
-		prices[i] = buy
-		if pack.Id ~= 0 then
-			task.spawn(function()
-				local ok, info = pcall(function()
-					return MarketplaceService:GetProductInfo(pack.Id, Enum.InfoType.Product)
-				end)
-				if ok and info and info.PriceInRobux then
-					packPrices[i] = info.PriceInRobux
-					MenuController.refresh()
+	local packs = make("Frame", { Position = UDim2.fromOffset(M, 138), Size = UDim2.fromOffset(4 * 200 + 3 * 14, 560), BackgroundTransparency = 1 }, p)
+	local prices = { VP = {}, Gold = {} }
+	for r, row in ipairs(SHOP_ROWS) do
+		local y = (r - 1) * 284
+		Gui.label(packs, { Text = row.title, display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextStrokeTransparency = 0.6, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 36), Position = UDim2.fromOffset(0, y) })
+		Gui.label(packs, { Text = row.note, TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextStrokeTransparency = 0.6, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(420, 20), Position = UDim2.new(1, 0, 0, y + 12) })
+		Gui.plate(packs, { Size = UDim2.fromOffset(60, 6), Position = UDim2.fromOffset(2, y + 40) }, Gui.SIGNAL)
+		for i, pack in ipairs(shopPacks(row.key)) do
+			local card = Gui.card(packs, { Size = UDim2.fromOffset(200, 224), Position = UDim2.fromOffset((i - 1) * 214, y + 56), ClipsDescendants = true })
+			Gui.halftone(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.94 })
+			local icon = row.icon(card, 58)
+			icon.AnchorPoint = Vector2.new(0.5, 0)
+			icon.Position = UDim2.new(0.5, 0, 0, 16)
+			Gui.label(card, { Text = Gui.num(pack[row.key]), display = true, weight = Enum.FontWeight.Heavy, TextSize = 42, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center })
+			Gui.label(card, { Text = pack.Name, TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 128), TextXAlignment = Enum.TextXAlignment.Center })
+			local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(172, 44) }, "", 20)
+			onClick(buy, function()
+				if pack.Id ~= 0 then
+					pcall(function()
+						MarketplaceService:PromptProductPurchase(player, pack.Id)
+					end)
+				elseif profile().studio then
+					Net.get("Profile"):FireServer("buy", i, row.key)
 				end
 			end)
+			prices[row.key][i] = price
+			if pack.Id ~= 0 then
+				task.spawn(function()
+					local ok, info = pcall(function()
+						return MarketplaceService:GetProductInfo(pack.Id, Enum.InfoType.Product)
+					end)
+					if ok and info and info.PriceInRobux then
+						packPrices[row.key][i] = info.PriceInRobux
+						MenuController.refresh()
+					end
+				end)
+			end
 		end
 	end
+
+	-- Recruit: the big way in, bottom right like Home's Match plate
+	local recruit, recruitPlate = Gui.plateButton(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M), Size = UDim2.fromOffset(440, 128) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	Gui.halftone(recruitPlate.Body, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1) })
+	local inset = Gui.plateInset(recruitPlate)
+	local rIcon = Gui.icon.recruit(recruit, 58, Gui.LINE)
+	rIcon.Position = UDim2.fromOffset(inset, 34)
+	rIcon.ZIndex = 2
+	Gui.label(recruit, { Text = "Recruit", display = true, weight = Enum.FontWeight.Heavy, TextSize = 66, TextColor3 = Gui.LINE, Size = UDim2.fromOffset(280, 72), Position = UDim2.fromOffset(inset + 72, 10), ZIndex = 2 })
+	Gui.label(recruit, { Text = "Players, spike styles, colours, trails and effects", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.fromOffset(300, 40), Position = UDim2.fromOffset(inset + 76, 82), ZIndex = 2 })
+	onClick(recruit, goRecruit)
+
+	-- where Gold also comes from, bottom left like Home's tip line
 	local P = Config.Progression
-	local note = text(p, {
-		Text = string.format("Gold comes from matches: %d for a win, %d for a loss and %d for every kill, ace or block. The match MVP earns %d extra V Points.", P.WinGold, P.LossGold, P.PlayGold, P.MvpVP),
-		TextSize = 16,
+	Gui.label(p, {
+		Text = string.format("Gold also comes from matches: %d for a win, %d for a loss and %d for every kill, ace or block. The match MVP earns %d extra V Points.", P.WinGold, P.LossGold, P.PlayGold, P.MvpVP),
+		TextSize = 17,
 		TextWrapped = true,
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.52, 190),
-		Size = UDim2.fromOffset(900, 44),
-		TextXAlignment = Enum.TextXAlignment.Center,
+		TextStrokeTransparency = 0.5,
+		TextYAlignment = Enum.TextYAlignment.Bottom,
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, M, 1, -M - 6),
+		Size = UDim2.new(1, -(M * 2 + 440 + 40), 0, 48),
 	})
-	Gui.stroke(note, 1, Gui.INK, 0.4)
 	ui.shop = { prices = prices }
 end
 
 local function refreshShop(prof)
-	for i, pack in ipairs(Config.Shop.Packs) do
-		local b = ui.shop.prices[i]
-		if pack.Id ~= 0 then
-			b.Text = packPrices[i] and ("R$ " .. packPrices[i]) or "..."
-		elseif prof.studio then
-			b.Text = "Free in Studio"
-		else
-			b.Text = "Soon"
+	for key, labels in pairs(ui.shop.prices) do
+		for i, pack in ipairs(shopPacks(key)) do
+			local label = labels[i]
+			if pack.Id ~= 0 then
+				label.Text = packPrices[key][i] and ("R$ " .. packPrices[key][i]) or "..."
+			elseif prof.studio then
+				label.Text = "Free in Studio"
+			else
+				label.Text = "Soon"
+			end
 		end
 	end
 end
@@ -1959,15 +2075,83 @@ local joinTarget = nil -- a private lobby waiting for its password
 local PRIVACY_TEXT = { Public = "Public", Friends = "Friends only", Private = "Private" }
 local STATE_TEXT = { Open = "Open", Queued = "Queued", Teleporting = "Starting", Arriving = "Starting", Playing = "Playing" }
 
+-- Broadcast tabs: slanted plates, the picked one signal yellow with dark type, the rest dark with
+-- chalk type that turns yellow under the pointer. Returns the row and a setter(activeKey).
+local function plateTabs(parent, items, props, onPick)
+	local f = make("Frame", { BackgroundTransparency = 1 }, parent)
+	for k, v in pairs(props or {}) do
+		f[k] = v
+	end
+	local h = f.Size.Y.Offset
+	local w = math.floor((f.Size.X.Offset - (#items - 1) * 6) / #items)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, f)
+	local tabs = {}
+	for i, it in ipairs(items) do
+		local b = make("TextButton", { Size = UDim2.fromOffset(w, h), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, LayoutOrder = i }, f)
+		local rest = Gui.plate(b, { Size = UDim2.fromOffset(w, h) }, Gui.NAVY)
+		Gui.fade(rest, 0.3)
+		local picked = Gui.plate(b, { Size = UDim2.fromOffset(w, h), Visible = false }, Gui.SIGNAL)
+		local label = Gui.label(b, { Text = it.text, display = true, TextSize = math.floor(h * 0.48), Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+		local tab = { key = it.key, rest = rest, picked = picked, label = label, on = false }
+		tabs[i] = tab
+		onClick(b, function()
+			onPick(it.key)
+		end)
+		b.MouseEnter:Connect(function()
+			if not tab.on then
+				label.TextColor3 = Gui.SIGNAL
+				if Gui.onHover then
+					Gui.onHover()
+				end
+			end
+		end)
+		b.MouseLeave:Connect(function()
+			if not tab.on then
+				label.TextColor3 = Gui.CHALK
+			end
+		end)
+	end
+	local function set(active)
+		for _, tab in ipairs(tabs) do
+			tab.on = tab.key == active
+			tab.picked.Visible = tab.on
+			tab.rest.Visible = not tab.on
+			tab.label.TextColor3 = tab.on and Gui.LINE or Gui.CHALK
+		end
+	end
+	return f, set
+end
+
+-- A text field in the broadcast kit: dark, a hairline edge, body type.
+local function field(parent, props)
+	local box = make("TextBox", {
+		BackgroundColor3 = Color3.fromRGB(6, 8, 16),
+		BackgroundTransparency = 0.1,
+		BorderSizePixel = 0,
+		TextColor3 = Gui.CHALK,
+		PlaceholderColor3 = Gui.DIM,
+		Text = "",
+		FontFace = Gui.body(Enum.FontWeight.Medium),
+		TextSize = 18,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ClearTextOnFocus = false,
+	}, parent)
+	for k, v in pairs(props or {}) do
+		box[k] = v
+	end
+	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.45, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, box)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, box)
+	return box
+end
+
 local function stepper(parent, props, onStep)
 	local f = make("Frame", { BackgroundTransparency = 1 }, parent)
 	for k, v in pairs(props or {}) do
 		f[k] = v
 	end
-	local down = Gui.flat(f, "<", { Size = UDim2.fromOffset(44, 40), Font = Gui.FONT_HEAVY, TextSize = 20 })
-	local value = text(f, { Text = "", Font = Gui.FONT_TITLE, TextSize = 28, Size = UDim2.new(1, -96, 1, 0), Position = UDim2.fromOffset(48, 0), TextXAlignment = Enum.TextXAlignment.Center })
-	Gui.stroke(value, 2, Gui.INK, 0)
-	local up = Gui.flat(f, ">", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromOffset(44, 40), Font = Gui.FONT_HEAVY, TextSize = 20 })
+	local down = hairButton(f, { Size = UDim2.fromOffset(44, 42) }, "<", 24)
+	local value = Gui.label(f, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Size = UDim2.new(1, -96, 1, 0), Position = UDim2.fromOffset(48, 0), TextXAlignment = Enum.TextXAlignment.Center })
+	local up = hairButton(f, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromOffset(44, 42) }, ">", 24)
 	onClick(down, function()
 		onStep(-1)
 	end)
@@ -1978,37 +2162,45 @@ local function stepper(parent, props, onStep)
 end
 
 local function formRow(parent, y, label)
-	text(parent, { Text = label, Font = Gui.FONT_HEAVY, TextSize = 17, Size = UDim2.fromOffset(170, 40), Position = UDim2.fromOffset(0, y) })
+	return Gui.label(parent, { Text = label, display = true, TextSize = 21, Size = UDim2.fromOffset(170, 44), Position = UDim2.fromOffset(0, y) })
 end
 
+-- The Match window, in Home's broadcast kit: plate tabs, hairline cards, the display face and a
+-- signal-yellow plate for the one action on each page.
+local MODE_LINES = {
+	{ "Solo", "Spike, set and dig on your own" },
+	{ "Pairs", "A wing spiker and a setter" },
+	{ "Full team", "Wing spiker, middle and setter" },
+}
+
 local function buildMatch()
-	local m = modal("Match", "Match", 900, 620)
+	local m = modal("Match", "Match", 900, 620, true)
 	local P = m.panel
-	local tabs, setTab = segmented(P, { { key = "Quick", text = "Quick Match" }, { key = "Browse", text = "Lobbies" }, { key = "Create", text = "Create Lobby" } }, { Size = UDim2.fromOffset(560, 46), Position = UDim2.fromOffset(24, 70) }, function(key)
+	local tabs, setTab = plateTabs(P, { { key = "Quick", text = "Quick Match" }, { key = "Browse", text = "Lobbies" }, { key = "Create", text = "Create Lobby" } }, { Size = UDim2.fromOffset(600, 46), Position = UDim2.fromOffset(24, 88) }, function(key)
 		matchTab = key
 		joinTarget = nil
 		MenuController.refresh()
 	end)
-	local body = make("Frame", { Position = UDim2.fromOffset(24, 132), Size = UDim2.new(1, -48, 1, -152), BackgroundTransparency = 1 }, P)
+	local body = make("Frame", { Position = UDim2.fromOffset(26, 152), Size = UDim2.new(1, -52, 1, -172), BackgroundTransparency = 1 }, P)
 
-	-- Quick Match
+	-- Quick Match: a card per mode
 	local quick = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, body)
-	text(quick, { Text = "Jump into a public match with whoever is here. Bots take any empty spots when the countdown runs out.", TextSize = 16, TextColor3 = Gui.MUTED, TextWrapped = true, Size = UDim2.new(1, 0, 0, 44) })
+	Gui.label(quick, { Text = "Jump into a public match with whoever is here. Bots take any empty spots when the countdown runs out.", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, 0, 0, 44) })
 	local modes = {}
 	for i, n in ipairs({ 1, 2, 3 }) do
-		local b = make("TextButton", { Size = UDim2.fromOffset(262, 250), Position = UDim2.fromOffset((i - 1) * 278, 64), BackgroundColor3 = Color3.fromRGB(22, 26, 42), BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false }, quick)
-		Gui.corner(b, 12)
-		local s = Gui.stroke(b, 2, Gui.WHITE, 0.75, true)
-		Gui.title(b, { Text = n .. "v" .. n, TextSize = 76, Size = UDim2.new(1, 0, 0, 90), Position = UDim2.fromOffset(0, 36), TextXAlignment = Enum.TextXAlignment.Center })
-		text(b, { Text = (n * 2) .. " players", TextSize = 17, TextColor3 = Gui.MUTED, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 132), TextXAlignment = Enum.TextXAlignment.Center })
-		local waiting = text(b, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 16, TextColor3 = Gui.GOLD_LIGHT, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 190), TextXAlignment = Enum.TextXAlignment.Center })
+		local b = Gui.cardButton(quick, { Size = UDim2.fromOffset(268, 276), Position = UDim2.fromOffset((i - 1) * 280, 52), ClipsDescendants = true })
+		Gui.halftone(b, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.62, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.93 })
+		Gui.label(b, { Text = MODE_LINES[n][1], TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Size = UDim2.fromOffset(220, 18), Position = UDim2.fromOffset(18, 16) })
+		Gui.label(b, { Text = n .. "v" .. n, display = true, weight = Enum.FontWeight.Heavy, TextSize = 108, Size = UDim2.fromOffset(240, 112), Position = UDim2.fromOffset(14, 32) })
+		Gui.label(b, { Text = (n * 2) .. " players", display = true, TextSize = 21, Size = UDim2.fromOffset(220, 24), Position = UDim2.fromOffset(18, 144) })
+		Gui.label(b, { Text = MODE_LINES[n][2], TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(236, 18), Position = UDim2.fromOffset(18, 170) })
+		local go = Gui.plate(b, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 14, 1, -18), Size = UDim2.fromOffset(200, 46) }, Gui.SIGNAL)
+		local waiting = Gui.label(go, { Text = "", display = true, TextSize = 21, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
 		b.MouseEnter:Connect(function()
-			s.Color = Gui.GOLD
-			s.Transparency = 0
+			Gui.tint(go, Gui.SIGNAL_HOT)
 		end)
 		b.MouseLeave:Connect(function()
-			s.Color = Gui.WHITE
-			s.Transparency = 0.75
+			Gui.tint(go, Gui.SIGNAL)
 		end)
 		onClick(b, function()
 			Net.get("Lobby"):FireServer("quick", n)
@@ -2018,20 +2210,20 @@ local function buildMatch()
 
 	-- the lobby list
 	local browse = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, body)
-	local list = make("ScrollingFrame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, browse)
+	local list = make("ScrollingFrame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, browse)
 	make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
-	local empty = text(browse, { Text = "No lobbies here yet. Create one, or use Quick Match.", TextSize = 17, TextColor3 = Gui.MUTED, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 20), TextXAlignment = Enum.TextXAlignment.Center })
+	local empty = Gui.label(browse, { Text = "No lobbies here yet. Create one, or use Quick Match.", TextSize = 18, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 20), TextXAlignment = Enum.TextXAlignment.Center })
 	local rows = {}
 	for i = 1, LC.MaxLobbies do
-		local r = make("Frame", { Size = UDim2.new(1, -10, 0, 70), BackgroundColor3 = Color3.fromRGB(22, 26, 42), BackgroundTransparency = 0.1, LayoutOrder = i, Visible = false }, list)
-		Gui.corner(r, 10)
-		local host = text(r, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 19, Size = UDim2.new(0.5, 0, 0, 26), Position = UDim2.fromOffset(18, 10), TextTruncate = Enum.TextTruncate.AtEnd })
-		local detail = text(r, { Text = "", TextSize = 14, TextColor3 = Gui.MUTED, Size = UDim2.new(0.6, 0, 0, 20), Position = UDim2.fromOffset(18, 38) })
-		local count = text(r, { Text = "", Font = Gui.FONT_NUM, TextSize = 20, Size = UDim2.fromOffset(80, 70), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -280, 0, 0), TextXAlignment = Enum.TextXAlignment.Right })
-		local state = text(r, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 13, BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(60, 66, 96), Size = UDim2.fromOffset(84, 24), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -168, 0.5, 0), TextXAlignment = Enum.TextXAlignment.Center })
-		Gui.corner(state, 5)
-		local join = Gui.primary(r, "Join", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(136, 44), TextSize = 18 })
-		local entry = { frame = r, host = host, detail = detail, count = count, state = state, join = join }
+		local r = Gui.card(list, { Size = UDim2.new(1, -10, 0, 72), LayoutOrder = i, Visible = false })
+		local host = Gui.label(r, { Text = "", display = true, TextSize = 24, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(0.5, 0, 0, 30), Position = UDim2.fromOffset(18, 8) })
+		local detail = Gui.label(r, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.new(0.6, 0, 0, 20), Position = UDim2.fromOffset(18, 42) })
+		local count = Gui.label(r, { Text = "", display = true, TextSize = 26, Size = UDim2.fromOffset(80, 72), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -292, 0, 0), TextXAlignment = Enum.TextXAlignment.Right })
+		local state = Gui.plate(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -170, 0.5, 0), Size = UDim2.fromOffset(100, 26) }, Gui.NAVY_LIGHT)
+		local stateLabel = Gui.label(state, { Text = "", display = true, TextSize = 15, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+		local join, joinPlate = Gui.plateButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(140, 44) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+		local joinLabel = Gui.label(join, { Text = "Join", display = true, TextSize = 20, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+		local entry = { frame = r, host = host, detail = detail, count = count, state = state, stateLabel = stateLabel, join = join, joinPlate = joinPlate, joinLabel = joinLabel }
 		onClick(join, function()
 			local l = entry.lobby
 			if not l then
@@ -2046,13 +2238,13 @@ local function buildMatch()
 		end)
 		rows[i] = entry
 	end
-	-- password prompt
-	local prompt = Gui.glass(browse, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromOffset(460, 190), Visible = false, ZIndex = 5 }, 0.02)
-	text(prompt, { Text = "This lobby is private", Font = Gui.FONT_HEAVY, TextSize = 20, Size = UDim2.new(1, -40, 0, 28), Position = UDim2.fromOffset(20, 16) })
-	local pwBox = make("TextBox", { Size = UDim2.new(1, -40, 0, 44), Position = UDim2.fromOffset(20, 54), BackgroundColor3 = Color3.fromRGB(8, 10, 18), TextColor3 = Gui.WHITE, PlaceholderText = "Password", PlaceholderColor3 = Gui.MUTED, Text = "", Font = Gui.FONT, TextSize = 18, ClearTextOnFocus = false }, prompt)
-	Gui.corner(pwBox, 6)
-	local pwJoin = Gui.primary(prompt, "Join", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -20, 1, -16), Size = UDim2.fromOffset(140, 44) })
-	local pwCancel = Gui.flat(prompt, "Cancel", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -172, 1, -16), Size = UDim2.fromOffset(110, 44) })
+	-- password prompt (a button of its own, so a click on it never reaches the rows under it)
+	local prompt = make("TextButton", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromOffset(480, 200), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Visible = false, ZIndex = 5 }, browse)
+	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.15, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, prompt)
+	Gui.label(prompt, { Text = "This lobby is private", display = true, TextSize = 26, Size = UDim2.new(1, -40, 0, 30), Position = UDim2.fromOffset(20, 14) })
+	local pwBox = field(prompt, { Size = UDim2.new(1, -40, 0, 46), Position = UDim2.fromOffset(20, 56), PlaceholderText = "Password" })
+	local pwJoin = actionPlate(prompt, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -20, 1, -16), Size = UDim2.fromOffset(150, 46) }, "Join")
+	local pwCancel = hairButton(prompt, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -184, 1, -16), Size = UDim2.fromOffset(120, 46) }, "Cancel")
 	onClick(pwJoin, function()
 		if joinTarget then
 			Net.get("Lobby"):FireServer("join", joinTarget, pwBox.Text)
@@ -2069,36 +2261,35 @@ local function buildMatch()
 	-- Create Lobby (also the host's settings)
 	local create = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, body)
 	formRow(create, 0, "Mode")
-	local _, setMode = segmented(create, { { key = 1, text = "1v1" }, { key = 2, text = "2v2" }, { key = 3, text = "3v3" } }, { Size = UDim2.fromOffset(420, 44), Position = UDim2.fromOffset(180, 0) }, function(k)
+	local _, setMode = plateTabs(create, { { key = 1, text = "1v1" }, { key = 2, text = "2v2" }, { key = 3, text = "3v3" } }, { Size = UDim2.fromOffset(420, 44), Position = UDim2.fromOffset(180, 0) }, function(k)
 		form.mode = k
 		MenuController.refresh()
 	end)
 	formRow(create, 62, "Who can join")
-	local _, setPrivacy = segmented(create, { { key = "Public", text = "Public" }, { key = "Friends", text = "Friends" }, { key = "Private", text = "Private" } }, { Size = UDim2.fromOffset(420, 44), Position = UDim2.fromOffset(180, 62) }, function(k)
+	local _, setPrivacy = plateTabs(create, { { key = "Public", text = "Public" }, { key = "Friends", text = "Friends" }, { key = "Private", text = "Private" } }, { Size = UDim2.fromOffset(420, 44), Position = UDim2.fromOffset(180, 62) }, function(k)
 		form.privacy = k
 		MenuController.refresh()
 	end)
-	local privacyNote = text(create, { Text = "", TextSize = 14, TextColor3 = Gui.MUTED, Size = UDim2.fromOffset(420, 20), Position = UDim2.fromOffset(180, 110) })
-	formRow(create, 140, "Password")
-	local cpw = make("TextBox", { Size = UDim2.fromOffset(420, 42), Position = UDim2.fromOffset(180, 140), BackgroundColor3 = Color3.fromRGB(8, 10, 18), TextColor3 = Gui.WHITE, PlaceholderText = string.format("%d to %d letters or digits", LC.PasswordMin, LC.PasswordMax), PlaceholderColor3 = Gui.MUTED, Text = "", Font = Gui.FONT, TextSize = 18, ClearTextOnFocus = false }, create)
-	Gui.corner(cpw, 6)
+	local privacyNote = Gui.label(create, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(480, 20), Position = UDim2.fromOffset(180, 110) })
+	local cpwLabel = formRow(create, 140, "Password")
+	local cpw = field(create, { Size = UDim2.fromOffset(420, 44), Position = UDim2.fromOffset(180, 140), PlaceholderText = string.format("%d to %d letters or digits", LC.PasswordMin, LC.PasswordMax) })
 	cpw:GetPropertyChangedSignal("Text"):Connect(function()
 		form.password = cpw.Text
 	end)
 	formRow(create, 200, "Fill with bots")
-	local _, setFill = segmented(create, { { key = true, text = "On" }, { key = false, text = "Off" } }, { Size = UDim2.fromOffset(280, 44), Position = UDim2.fromOffset(180, 200) }, function(k)
+	local _, setFill = plateTabs(create, { { key = true, text = "On" }, { key = false, text = "Off" } }, { Size = UDim2.fromOffset(280, 44), Position = UDim2.fromOffset(180, 200) }, function(k)
 		form.fill = k
 		MenuController.refresh()
 	end)
-	local fillNote = text(create, { Text = "", TextSize = 14, TextColor3 = Gui.MUTED, Size = UDim2.fromOffset(500, 20), Position = UDim2.fromOffset(180, 248) })
+	local fillNote = Gui.label(create, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(500, 20), Position = UDim2.fromOffset(180, 248) })
 	formRow(create, 280, "Bot level")
-	local botValue = stepper(create, { Size = UDim2.fromOffset(220, 40), Position = UDim2.fromOffset(180, 280) }, function(d)
+	local botValue = stepper(create, { Size = UDim2.fromOffset(220, 42), Position = UDim2.fromOffset(180, 280) }, function(d)
 		local i = Characters.tierIndex(form.botTier) or 11
 		form.botTier = Config.Tiers[math.clamp(i + d, 1, #Config.Tiers)]
 		MenuController.refresh()
 	end)
-	local submit = Gui.primary(create, "", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(220, 56), TextSize = 20 })
-	local cancelEdit = Gui.flat(create, "Back to lobby", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -236, 1, 0), Size = UDim2.fromOffset(160, 56), Visible = false })
+	local submit, submitLabel = actionPlate(create, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(250, 58) }, "Create Lobby", 24)
+	local cancelEdit = hairButton(create, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -266, 1, 0), Size = UDim2.fromOffset(180, 58), Visible = false }, "Back to lobby")
 	onClick(submit, function()
 		local s = { mode = form.mode, privacy = form.privacy, password = form.password, fill = form.fill, botTier = form.botTier }
 		if editing then
@@ -2114,25 +2305,24 @@ local function buildMatch()
 		MenuController.refresh()
 	end)
 
-	-- your lobby
+	-- your lobby: both sides as cards with the team's colour along the top
 	local lobby = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, body)
-	local info = text(lobby, { Text = "", TextSize = 16, TextColor3 = Gui.MUTED, RichText = true, Size = UDim2.new(1, 0, 0, 22) })
-	local status = text(lobby, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 18, TextColor3 = Gui.GOLD_LIGHT, Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 28) })
+	local info = Gui.label(lobby, { Text = "", TextSize = 16, TextColor3 = Gui.DIM, RichText = true, Size = UDim2.new(1, 0, 0, 22) })
+	local status = Gui.label(lobby, { Text = "", display = true, TextSize = 22, TextColor3 = Gui.SIGNAL, Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 26) })
 	local sides = {}
 	for i, team in ipairs(Config.TeamOrder) do
 		local cfg = Config.Teams[team]
-		local col = Gui.glass(lobby, { Size = UDim2.new(0.5, -8, 0, 250), Position = UDim2.new((i - 1) * 0.5, (i - 1) * 8, 0, 66) }, 0.25)
-		local band = make("Frame", { Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = cfg.Color }, col)
-		Gui.corner(band, 3)
-		text(col, { Text = cfg.Name, Font = Gui.FONT_TITLE, TextSize = 26, TextColor3 = cfg.Color, Size = UDim2.new(1, -24, 0, 34), Position = UDim2.fromOffset(14, 12) })
+		local col = Gui.card(lobby, { Size = UDim2.new(0.5, -8, 0, 256), Position = UDim2.new((i - 1) * 0.5, (i - 1) * 8, 0, 64) })
+		make("Frame", { Size = UDim2.new(1, 0, 0, 5), BackgroundColor3 = cfg.Color, BorderSizePixel = 0 }, col)
+		Gui.label(col, { Text = cfg.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextColor3 = cfg.Color, Size = UDim2.new(1, -28, 0, 36), Position = UDim2.fromOffset(14, 12) })
 		local slots = {}
 		for s = 1, 3 do
-			local row = make("Frame", { Size = UDim2.new(1, -24, 0, 54), Position = UDim2.fromOffset(12, 52 + (s - 1) * 62), BackgroundColor3 = Color3.fromRGB(26, 30, 48), BackgroundTransparency = 0.2 }, col)
-			Gui.corner(row, 8)
-			local nm = text(row, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 17, Size = UDim2.new(1, -140, 1, 0), Position = UDim2.fromOffset(14, 0), TextTruncate = Enum.TextTruncate.AtEnd })
-			local tag = text(row, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 12, TextColor3 = Gui.INK, BackgroundTransparency = 0, BackgroundColor3 = Gui.GOLD, Size = UDim2.fromOffset(44, 20), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -86, 0.5, 0), TextXAlignment = Enum.TextXAlignment.Center, Visible = false })
-			Gui.corner(tag, 4)
-			local kick = Gui.flat(row, "Remove", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(72, 32), TextSize = 13, Visible = false })
+			local row = make("Frame", { Size = UDim2.new(1, -24, 0, 54), Position = UDim2.fromOffset(12, 56 + (s - 1) * 62), BackgroundColor3 = Gui.NAVY, BackgroundTransparency = 0.4, BorderSizePixel = 0 }, col)
+			make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.7, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, row)
+			local nm = Gui.label(row, { Text = "", display = true, TextSize = 21, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -164, 1, 0), Position = UDim2.fromOffset(14, 0) })
+			local tag = Gui.plate(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -92, 0.5, 0), Size = UDim2.fromOffset(58, 22), Visible = false }, Gui.SIGNAL)
+			Gui.label(tag, { Text = "HOST", display = true, TextSize = 13, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+			local kick = hairButton(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(76, 32), Visible = false }, "Remove", 14)
 			local slot = { row = row, name = nm, tag = tag, kick = kick }
 			onClick(kick, function()
 				if slot.userId then
@@ -2143,10 +2333,10 @@ local function buildMatch()
 		end
 		sides[team] = { col = col, slots = slots }
 	end
-	local swap = Gui.flat(lobby, "Switch side", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.fromOffset(150, 54) })
-	local settingsB = Gui.flat(lobby, "Settings", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 162, 1, 0), Size = UDim2.fromOffset(130, 54) })
-	local leave = Gui.secondary(lobby, "Leave", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -236, 1, 0), Size = UDim2.fromOffset(170, 56), TextSize = 19 })
-	local start = Gui.primary(lobby, "Start", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(220, 56), TextSize = 22 })
+	local swap = hairButton(lobby, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.fromOffset(160, 56) }, "Switch side")
+	local settingsB = hairButton(lobby, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 172, 1, 0), Size = UDim2.fromOffset(140, 56) }, "Settings")
+	local leave, leaveLabel = hairButton(lobby, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -266, 1, 0), Size = UDim2.fromOffset(180, 56) }, "Leave lobby")
+	local start = actionPlate(lobby, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(250, 58) }, "Start", 28)
 	onClick(swap, function()
 		Net.get("Lobby"):FireServer("team")
 	end)
@@ -2171,6 +2361,7 @@ local function buildMatch()
 		modal = m,
 		tabs = tabs,
 		setTab = setTab,
+		body = body,
 		quick = quick,
 		modes = modes,
 		browse = browse,
@@ -2183,10 +2374,12 @@ local function buildMatch()
 		setPrivacy = setPrivacy,
 		privacyNote = privacyNote,
 		cpw = cpw,
+		cpwLabel = cpwLabel,
 		setFill = setFill,
 		fillNote = fillNote,
 		botValue = botValue,
 		submit = submit,
+		submitLabel = submitLabel,
 		cancelEdit = cancelEdit,
 		lobby = lobby,
 		info = info,
@@ -2195,6 +2388,7 @@ local function buildMatch()
 		swap = swap,
 		settings = settingsB,
 		leave = leave,
+		leaveLabel = leaveLabel,
 		start = start,
 	}
 end
@@ -2235,6 +2429,9 @@ local function refreshMatch()
 	local mine = lobbies.mine
 	local inLobby = mine ~= nil and not editing
 	Mt.tabs.Visible = mine == nil
+	-- in a lobby there are no tabs: its page moves up into their place
+	Mt.body.Position = UDim2.fromOffset(26, mine and 100 or 152)
+	Mt.body.Size = UDim2.new(1, -52, 1, mine and -120 or -172)
 	Mt.setTab(matchTab)
 	Mt.quick.Visible = mine == nil and matchTab == "Quick"
 	Mt.browse.Visible = mine == nil and matchTab == "Browse"
@@ -2268,12 +2465,13 @@ local function refreshMatch()
 			row.host.Text = l.quick and ("Quick Match " .. l.mode .. "v" .. l.mode) or (l.hostName .. "'s Lobby")
 			row.detail.Text = string.format("%dv%d   %s   %s   Bots %s", l.mode, l.mode, PRIVACY_TEXT[l.privacy] or l.privacy, l.fill and "Bots fill" or "No bots", l.botTier)
 			row.count.Text = string.format("%d/%d", l.count, l.capacity)
-			row.state.Text = STATE_TEXT[l.state] or l.state
-			row.state.BackgroundColor3 = l.state == "Open" and Color3.fromRGB(40, 150, 100) or Color3.fromRGB(80, 86, 116)
+			row.stateLabel.Text = STATE_TEXT[l.state] or l.state
+			Gui.tint(row.state, l.state == "Open" and Color3.fromRGB(34, 150, 96) or Gui.NAVY_LIGHT)
 			local can = l.state == "Open" and l.count < l.capacity and not l.mine
-			row.join.Text = l.mine and "Joined" or (l.locked and "Password" or "Join")
+			row.joinLabel.Text = l.mine and "Joined" or (l.locked and "Password" or "Join")
 			row.join.Active = can
-			row.join.BackgroundTransparency = can and 0 or 0.5
+			Gui.fade(row.joinPlate, can and 0 or 0.55)
+			row.joinLabel.TextTransparency = can and 0 or 0.35
 		end
 	end
 	Mt.empty.Visible = shownRows == 0
@@ -2284,11 +2482,12 @@ local function refreshMatch()
 	Mt.setPrivacy(form.privacy)
 	Mt.setFill(form.fill)
 	Mt.cpw.Visible = form.privacy == "Private"
+	Mt.cpwLabel.Visible = Mt.cpw.Visible
 	Mt.privacyNote.Text = form.privacy == "Friends" and "Only your Roblox friends in this server see and join it." or (form.privacy == "Private" and "Listed with a lock: players need the password." or "Anyone in this server can join.")
 	Mt.fillNote.Text = form.fill and "Start any time: bots take the empty spots." or "Both teams must be full before you can start."
 	Mt.botValue.Text = form.botTier
 	Mt.botValue.TextColor3 = tierColor(form.botTier)
-	Mt.submit.Text = editing and "Save settings" or "Create Lobby"
+	Mt.submitLabel.Text = editing and "Save settings" or "Create Lobby"
 	Mt.cancelEdit.Visible = editing
 
 	-- your lobby
@@ -2312,13 +2511,12 @@ local function refreshMatch()
 				slot.userId = who and who.id or nil
 				if who then
 					slot.name.Text = who.name .. (who.id == player.UserId and "  (you)" or "")
-					slot.name.TextColor3 = who.id == player.UserId and Gui.GOLD_LIGHT or Gui.WHITE
+					slot.name.TextColor3 = who.id == player.UserId and Gui.SIGNAL or Gui.CHALK
 					slot.tag.Visible = who.host == true
-					slot.tag.Text = "Host"
 					slot.kick.Visible = mine.isHost and who.id ~= player.UserId and mine.state == "Open"
 				else
 					slot.name.Text = mine.fill and "Bot" or "Open"
-					slot.name.TextColor3 = Gui.MUTED
+					slot.name.TextColor3 = Gui.DIM
 					slot.tag.Visible = false
 					slot.kick.Visible = false
 				end
@@ -2329,7 +2527,7 @@ local function refreshMatch()
 		Mt.settings.Visible = open and mine.isHost and not mine.quick
 		Mt.start.Visible = open and mine.isHost and not mine.quick
 		Mt.leave.Visible = open or mine.state == "Queued"
-		Mt.leave.Text = mine.quick and "Cancel queue" or "Leave lobby"
+		Mt.leaveLabel.Text = mine.quick and "Cancel queue" or "Leave lobby"
 	end
 end
 
@@ -2717,6 +2915,8 @@ local function layout()
 	end
 	canvasScale.Scale = s
 	canvas.Size = UDim2.fromOffset(vs.X / s, vs.Y / s)
+	placeHome()
+	placeHeaders()
 end
 
 function MenuController.init(m)
@@ -2769,6 +2969,11 @@ function MenuController.init(m)
 	end
 	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
 	watchCamera()
+	-- Roblox's top bar can change size (and may still be settling on the first frames)
+	pcall(function()
+		GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(layout)
+	end)
+	task.delay(1, layout)
 
 	State.signals.Profile:Connect(onProfile)
 	State.signals.Match:Connect(function()

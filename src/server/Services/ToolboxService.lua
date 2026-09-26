@@ -4,13 +4,16 @@
 -- Toolbox models and effects plug into the game without touching code. A slot that already
 -- holds an instance (dragged in by hand in Studio, or baked with install()) is left alone.
 --
--- Runtime loading uses InsertService, which only loads assets owned by the place's owner or by
--- Roblox: "Get" a free model on the Creator Store first so it sits in your inventory (or in the
--- owning group's). install() runs from the Studio command bar with game:GetObjects, which can
--- read any public asset, and bakes the result into the place:
+-- Runtime loading tries AssetService:LoadAssetAsync first, which reads any free Creator Store
+-- model once Game Settings > Security > "Allow Loading Third Party Assets" is on, then
+-- InsertService, which only loads assets owned by the place's owner or by Roblox ("Get" a free
+-- model first so it sits in your inventory, or in the owning group's). install() runs from the
+-- Studio command bar with game:GetObjects, which can read any public asset, and bakes the result
+-- into the place:
 --   require(game.ServerScriptService.Server.Services.ToolboxService).install()
 -- Every inserted asset is sanitized (Assets.sanitize): scripts are deleted before it is parented.
 
+local AssetService = game:GetService("AssetService")
 local InsertService = game:GetService("InsertService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -61,17 +64,28 @@ end
 local function place(category, slot, inst)
 	Assets.sanitize(inst)
 	inst.Name = slot
+	local yaw = Assets.ToolboxYaw and Assets.ToolboxYaw[slot]
+	if yaw and inst:GetAttribute("Yaw") == nil then
+		inst:SetAttribute("Yaw", yaw)
+	end
 	inst.Parent = folder(category)
 	return inst
 end
 
--- Runtime: InsertService (owner's or Roblox's assets only).
+-- Runtime: AssetService (any free Creator Store model when the experience allows third-party
+-- assets), else InsertService (owner's or Roblox's assets only).
 local function loadRuntime(id)
 	local ok, result = pcall(function()
-		return InsertService:LoadAsset(id)
+		return AssetService:LoadAssetAsync(id)
 	end)
 	if not ok or not result then
-		return nil, tostring(result)
+		local err = result
+		ok, result = pcall(function()
+			return InsertService:LoadAsset(id)
+		end)
+		if not ok or not result then
+			return nil, tostring(result) .. " (AssetService: " .. tostring(err) .. ")"
+		end
 	end
 	local inst = unwrap(result:GetChildren())
 	if inst then

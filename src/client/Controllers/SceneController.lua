@@ -1,5 +1,5 @@
 -- The menu scenes: two small sets built on this client only, far from the court.
---   * Home: a sunlit club room (lockers, a big window, benches, a ball basket, a clock) with
+--   * Home: a sunlit club room (lockers, a big window, a bench, a ball cart, a clock) with
 --     your own avatar posed in front of the camera.
 --   * Gym: a school gym (vaulted ceiling with timber arches, tall windows throwing light shafts,
 --     a stage with a red curtain, a ball cart) where recruiting happens: three silhouettes of
@@ -7,6 +7,9 @@
 --     (volleyballs flying under the ceiling, then lined up over the stage).
 -- The Locker previews unlockables in the gym: your avatar spikes on a loop with the spike style,
 -- colour, trail and score effect you're looking at.
+-- The lockers, the bench, the ball carts and every ball are Toolbox models when their slots in
+-- ReplicatedStorage.ToolboxAssets.Models are filled (Locker, Bench, BallCart, Volleyball), and
+-- simple built stand-ins when they aren't. A cart's own balls are swapped for the volleyball.
 -- While a scene is shown this controller owns the camera (CameraController stands down) and a
 -- local colour grade and depth of field are switched on.
 
@@ -29,6 +32,8 @@ local GYM = Vector3.new(1600, 0, 400)
 
 local folder
 local homeBuilt, gymBuilt = false, false
+local homeProps, gymProps -- the furniture, rebuilt when a Toolbox model lands
+local rng = Random.new()
 local current = nil
 local camCF, camFov = nil, 40
 local shotFrom, shotTo, shotT0, shotDur = nil, nil, 0, 0
@@ -75,17 +80,115 @@ local function light(parent, class, props)
 	return l
 end
 
--- A volleyball: white with a yellow and a blue band.
-local function makeBall(parent, radius, pos)
+-- A copy of the Toolbox model in ReplicatedStorage.ToolboxAssets.Models.<slot> as a Model with
+-- its scripts stripped, or nil. Unlike on the court, props cast shadows in the menu sets.
+local function toolboxModel(slot)
+	local template = Assets.toolbox("Models." .. slot)
+	if not template then
+		return nil
+	end
+	local clone = Assets.sanitize(template:Clone())
+	local m = clone
+	if not clone:IsA("Model") then
+		m = Instance.new("Model")
+		if clone:IsA("BasePart") then
+			clone.Parent = m
+		else
+			-- a Tool, Accessory or Folder: keep its parts
+			for _, d in ipairs(clone:GetDescendants()) do
+				if d:IsA("BasePart") and not d.Parent:IsA("BasePart") then
+					d.Parent = m
+				end
+			end
+			clone:Destroy()
+		end
+	end
+	if not m:FindFirstChildWhichIsA("BasePart", true) then
+		m:Destroy()
+		return nil
+	end
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.CastShadow = d.Transparency < 1
+		end
+	end
+	m.Name = slot
+	return m
+end
+
+-- A volleyball: the Toolbox ball when there is one, else white with a yellow and a blue band.
+-- Its PrimaryPart is a core at the centre (invisible under a Toolbox ball) that carries lights and
+-- trails, so the whole ball moves with PivotTo. `tumble` turns it at random (balls at rest).
+local function makeBall(parent, radius, pos, tumble)
 	local m = Instance.new("Model")
 	m.Name = "Ball"
 	local core = part({ Shape = Enum.PartType.Ball, Size = Vector3.one * radius * 2, CFrame = CFrame.new(pos), Color = Color3.fromRGB(250, 250, 244) }, m)
-	local tilt = CFrame.Angles(math.rad(20), math.rad(30), math.rad(90))
-	local band1 = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(radius * 0.62, radius * 2.03, radius * 2.03), CFrame = CFrame.new(pos) * tilt * CFrame.new(radius * 0.52, 0, 0), Color = Color3.fromRGB(255, 205, 40) }, m)
-	local band2 = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(radius * 0.62, radius * 2.03, radius * 2.03), CFrame = CFrame.new(pos) * tilt * CFrame.new(-radius * 0.52, 0, 0), Color = Color3.fromRGB(34, 86, 196) }, m)
 	m.PrimaryPart = core
+	local look = toolboxModel("Volleyball")
+	if look then
+		core.Transparency = 1
+		core.CastShadow = false
+		local _, size = look:GetBoundingBox()
+		look:ScaleTo(look:GetScale() * radius * 2 / math.max(size.X, size.Y, size.Z, 0.01))
+		local box = look:GetBoundingBox()
+		local turn = tumble and CFrame.Angles(rng:NextNumber() * math.pi * 2, rng:NextNumber() * math.pi * 2, rng:NextNumber() * math.pi * 2) or CFrame.identity
+		look:PivotTo(CFrame.new(pos) * turn * box:ToObjectSpace(look:GetPivot()))
+		look.Parent = m
+	else
+		-- two bands through the centre, crossed, so the ball stays round from every side
+		local tilt = CFrame.new(pos) * CFrame.Angles(math.rad(20), math.rad(30), math.rad(90))
+		part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(radius * 0.62, radius * 2.04, radius * 2.04), CFrame = tilt, Color = Color3.fromRGB(255, 205, 40) }, m)
+		part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(radius * 0.62, radius * 2.04, radius * 2.04), CFrame = tilt * CFrame.Angles(0, math.rad(90), 0), Color = Color3.fromRGB(34, 86, 196) }, m)
+	end
 	m.Parent = parent
-	return m, { core, band1, band2 }
+	return m
+end
+
+-- Scale a prop to fit `fit` (studs along each axis, 0 for any) keeping its proportions, then
+-- stand it on `base`: the bottom of its box on base's position and its front (the box's -Z face)
+-- along base's LookVector, or its back on base's position with `back` (against a wall). A Toolbox
+-- model that faces another way can carry a number attribute "Yaw" (degrees) that turns it.
+-- Returns the size it stands at.
+local function standProp(m, base, fit, back)
+	local yaw = math.rad(m:GetAttribute("Yaw") or 0)
+	local _, size = m:GetBoundingBox()
+	if math.abs(math.cos(yaw)) < 0.5 then
+		size = Vector3.new(size.Z, size.Y, size.X) -- a quarter turn swaps width and depth
+	end
+	local s = math.huge
+	if fit.X > 0 then
+		s = math.min(s, fit.X / size.X)
+	end
+	if fit.Y > 0 then
+		s = math.min(s, fit.Y / size.Y)
+	end
+	if fit.Z > 0 then
+		s = math.min(s, fit.Z / size.Z)
+	end
+	if s < math.huge then
+		m:ScaleTo(m:GetScale() * s)
+		size = size * s
+	end
+	local box = m:GetBoundingBox()
+	local centre = base * CFrame.new(0, size.Y / 2, back and -size.Z / 2 or 0)
+	m:PivotTo(centre * CFrame.Angles(0, yaw, 0) * box:ToObjectSpace(m:GetPivot()))
+	return size
+end
+
+-- Swap every ball in a prop (a part about as deep and tall as it is wide, and at least `minSize`
+-- across) for a volleyball: a Toolbox ball cart may come stocked with basketballs.
+local function stockWithBalls(m, minSize)
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") and d.Parent then
+			local s = d.Size
+			local lo, hi = math.min(s.X, s.Y, s.Z), math.max(s.X, s.Y, s.Z)
+			if lo >= minSize and hi <= lo * 1.1 then
+				local pos = d.Position
+				d:Destroy()
+				makeBall(m, lo / 2, pos, true)
+			end
+		end
+	end
 end
 
 local function surfaceText(p, face, text, color, font, bg)
@@ -110,6 +213,61 @@ end
 ------------------------------------------------------------------------------------------
 -- home: the club room
 ------------------------------------------------------------------------------------------
+
+-- The club room's furniture, into homeProps: the Toolbox lockers, bench and ball cart when those
+-- slots are filled, else built stand-ins. Runs again whenever a Toolbox model lands.
+local function furnishHome()
+	if not homeProps then
+		return
+	end
+	homeProps:ClearAllChildren()
+	local H = HOME
+	-- lockers along the right of the back wall
+	local lockers = toolboxModel("Locker")
+	if lockers then
+		lockers.Parent = homeProps
+		standProp(lockers, CFrame.new(H + Vector3.new(15.2, 0, 17.95)), Vector3.new(14.6, 12, 0), true)
+	else
+		local steel = Color3.fromRGB(150, 158, 166)
+		for i = 0, 5 do
+			local x = 9 + i * 2.5
+			local body = box(homeProps, Vector3.new(2.4, 12, 3), CFrame.new(H + Vector3.new(x, 6, 16.3)), steel, Enum.Material.Metal)
+			body.Reflectance = 0.05
+			for v = 0, 3 do
+				box(homeProps, Vector3.new(1.4, 0.12, 0.05), CFrame.new(H + Vector3.new(x, 10.4 - v * 0.35, 14.78)), Color3.fromRGB(70, 76, 84))
+			end
+			box(homeProps, Vector3.new(0.14, 0.9, 0.12), CFrame.new(H + Vector3.new(x + 0.8, 6.5, 14.74)), Color3.fromRGB(60, 64, 70), Enum.Material.Metal)
+			box(homeProps, Vector3.new(0.06, 12, 0.06), CFrame.new(H + Vector3.new(x + 1.22, 6, 14.78)), Color3.fromRGB(88, 94, 102))
+		end
+	end
+	-- a bench with a towel on it
+	local benchTop = 2.45
+	local bench = toolboxModel("Bench")
+	if bench then
+		bench.Parent = homeProps
+		benchTop = standProp(bench, CFrame.new(H + Vector3.new(-6, 0, 5)), Vector3.new(11, 0, 0)).Y
+	else
+		local seat = box(homeProps, Vector3.new(11, 0.5, 2.2), CFrame.new(H + Vector3.new(-6, 2.2, 5)), Color3.fromRGB(176, 124, 80), Enum.Material.WoodPlanks)
+		for _, dx in ipairs({ -4.8, 4.8 }) do
+			box(homeProps, Vector3.new(0.4, 2, 1.8), seat.CFrame * CFrame.new(dx, -1.2, 0), Color3.fromRGB(60, 62, 70), Enum.Material.Metal)
+		end
+	end
+	box(homeProps, Vector3.new(3, 0.16, 1.3), CFrame.new(H + Vector3.new(-3.5, benchTop + 0.08, 5.2)) * CFrame.Angles(0, math.rad(8), 0), Color3.fromRGB(246, 246, 240), Enum.Material.Fabric) -- a towel
+	-- the ball cart under the window, full of volleyballs
+	local cartAt = H + Vector3.new(-10, 0, 13.4)
+	local cart = toolboxModel("BallCart")
+	if cart then
+		cart.Parent = homeProps
+		local size = standProp(cart, CFrame.new(cartAt), Vector3.new(8.8, 0, 0))
+		stockWithBalls(cart, size.Y * 0.15)
+	else
+		local basket = box(homeProps, Vector3.new(5, 3.4, 4), CFrame.new(cartAt + Vector3.new(0, 1.7, 0)), Color3.fromRGB(40, 70, 170), Enum.Material.Fabric)
+		basket.Reflectance = 0
+		for i = 0, 4 do
+			makeBall(homeProps, 0.9, cartAt + Vector3.new(-1.6 + i * 0.85, 3.9 + (i % 2) * 0.5, -0.8 + (i % 3) * 0.7), true)
+		end
+	end
+end
 
 local function buildHome()
 	if homeBuilt then
@@ -179,22 +337,10 @@ local function buildHome()
 		shaft.CastShadow = false
 	end
 
-	-- lockers along the right of the back wall
-	local steel = Color3.fromRGB(150, 158, 166)
-	for i = 0, 5 do
-		local x = 9 + i * 2.5
-		local body = box(room, Vector3.new(2.4, 12, 3), CFrame.new(H + Vector3.new(x, 6, 16.3)), steel, Enum.Material.Metal)
-		body.Reflectance = 0.05
-		for v = 0, 3 do
-			box(room, Vector3.new(1.4, 0.12, 0.05), CFrame.new(H + Vector3.new(x, 10.4 - v * 0.35, 14.78)), Color3.fromRGB(70, 76, 84))
-		end
-		box(room, Vector3.new(0.14, 0.9, 0.12), CFrame.new(H + Vector3.new(x + 0.8, 6.5, 14.74)), Color3.fromRGB(60, 64, 70), Enum.Material.Metal)
-		box(room, Vector3.new(0.06, 12, 0.06), CFrame.new(H + Vector3.new(x + 1.22, 6, 14.78)), Color3.fromRGB(88, 94, 102))
-	end
-	-- a jersey hanging on the lockers: black with a gold number
-	local jersey = box(room, Vector3.new(4, 4.6, 0.12), CFrame.new(H + Vector3.new(16.5, 15, 14.6)), Color3.fromRGB(24, 24, 28), Enum.Material.Fabric)
+	-- a jersey pinned on the wall above the lockers: black with a gold number
+	local jersey = box(room, Vector3.new(4, 4.6, 0.12), CFrame.new(H + Vector3.new(15.2, 15.2, 17.8)), Color3.fromRGB(24, 24, 28), Enum.Material.Fabric)
 	surfaceText(jersey, Enum.NormalId.Front, "7", Color3.fromRGB(230, 184, 70), Enum.Font.FredokaOne)
-	box(room, Vector3.new(4.2, 0.2, 0.3), CFrame.new(H + Vector3.new(16.5, 17.4, 14.7)), Color3.fromRGB(90, 90, 96), Enum.Material.Metal)
+	box(room, Vector3.new(4.2, 0.2, 0.3), CFrame.new(H + Vector3.new(15.2, 17.6, 17.8)), Color3.fromRGB(90, 90, 96), Enum.Material.Metal)
 
 	-- a clock above the window
 	local clock = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 3, 3), CFrame = CFrame.new(H + Vector3.new(-5, 21.3, 17.8)) * CFrame.Angles(0, math.rad(90), 0), Color = Color3.fromRGB(245, 245, 240) }, room)
@@ -202,23 +348,19 @@ local function buildHome()
 	box(room, Vector3.new(0.12, 1.1, 0.05), CFrame.new(H + Vector3.new(-5, 21.7, 17.6)), Color3.fromRGB(30, 30, 34))
 	box(room, Vector3.new(0.8, 0.12, 0.05), CFrame.new(H + Vector3.new(-4.65, 21.3, 17.6)), Color3.fromRGB(30, 30, 34))
 
-	-- shelves with boxes on the left wall, a ball basket and a bench
+	-- shelves with boxes on the left wall
 	for i, y in ipairs({ 4, 8.5, 13 }) do
 		box(room, Vector3.new(3, 0.3, 14), CFrame.new(H + Vector3.new(-21.2, y, 8)), Color3.fromRGB(120, 86, 60), Enum.Material.WoodPlanks)
 		for b = 0, 2 do
 			box(room, Vector3.new(2.4, 2 + (b + i) % 2 * 0.8, 2.6), CFrame.new(H + Vector3.new(-21.2, y + 1.2, 3 + b * 4 + i)) * CFrame.Angles(0, math.rad((b * 7) % 11), 0), Color3.fromRGB(196, 158, 112), Enum.Material.Cardboard)
 		end
 	end
-	local basket = box(room, Vector3.new(5, 3.4, 4), CFrame.new(H + Vector3.new(-13, 1.7, 13)), Color3.fromRGB(40, 70, 170), Enum.Material.Fabric)
-	basket.Reflectance = 0
-	for i = 0, 4 do
-		makeBall(room, 0.9, H + Vector3.new(-14.6 + i * 0.85, 3.9 + (i % 2) * 0.5, 12.2 + (i % 3) * 0.7))
-	end
-	local bench = box(room, Vector3.new(11, 0.5, 2.2), CFrame.new(H + Vector3.new(-6, 2.2, 5)), Color3.fromRGB(176, 124, 80), Enum.Material.WoodPlanks)
-	for _, dx in ipairs({ -4.8, 4.8 }) do
-		box(room, Vector3.new(0.4, 2, 1.8), bench.CFrame * CFrame.new(dx, -1.2, 0), Color3.fromRGB(60, 62, 70), Enum.Material.Metal)
-	end
-	box(room, Vector3.new(3, 0.3, 1.2), bench.CFrame * CFrame.new(2.5, 0.4, 0.2), Color3.fromRGB(246, 246, 240), Enum.Material.Fabric) -- a towel
+
+	-- the lockers, the bench and the ball cart (furnishHome)
+	homeProps = Instance.new("Model")
+	homeProps.Name = "Props"
+	homeProps.Parent = room
+	furnishHome()
 
 	-- warm room light
 	local lamp = box(room, Vector3.new(10, 0.2, 3), CFrame.new(H + Vector3.new(2, 24, 4)), Color3.fromRGB(255, 244, 222), Enum.Material.Neon)
@@ -231,6 +373,32 @@ end
 ------------------------------------------------------------------------------------------
 -- gym: the recruit hall
 ------------------------------------------------------------------------------------------
+
+-- The recruit hall's ball cart, into gymProps: the Toolbox cart full of volleyballs, else a
+-- built one. Runs again whenever a Toolbox model lands.
+local function furnishGym()
+	if not gymProps then
+		return
+	end
+	gymProps:ClearAllChildren()
+	local at = GYM + Vector3.new(0, 0, 40)
+	local cart = toolboxModel("BallCart")
+	if cart then
+		cart.Parent = gymProps
+		local size = standProp(cart, CFrame.new(at), Vector3.new(12, 0, 0))
+		stockWithBalls(cart, size.Y * 0.15)
+		return
+	end
+	local body = box(gymProps, Vector3.new(9, 5, 6), CFrame.new(at + Vector3.new(0, 6, 0)), Color3.fromRGB(34, 74, 190), Enum.Material.Fabric)
+	surfaceText(body, Enum.NormalId.Back, "SPIKE RUSH", Color3.fromRGB(245, 245, 250), Enum.Font.FredokaOne)
+	box(gymProps, Vector3.new(9.2, 0.4, 6.2), CFrame.new(at + Vector3.new(0, 8.6, 0)), Color3.fromRGB(24, 54, 150), Enum.Material.Fabric)
+	for _, dx in ipairs({ -4.2, 4.2 }) do
+		for _, dz in ipairs({ -2.7, 2.7 }) do
+			box(gymProps, Vector3.new(0.3, 3.5, 0.3), CFrame.new(at + Vector3.new(dx, 1.9, dz)), Color3.fromRGB(190, 194, 200), Enum.Material.Metal)
+			part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 0.8, 0.8), CFrame = CFrame.new(at + Vector3.new(dx, 0.4, dz)), Color = Color3.fromRGB(40, 40, 44) }, gymProps)
+		end
+	end
+end
 
 local function buildGym()
 	if gymBuilt then
@@ -323,17 +491,37 @@ local function buildGym()
 		light(lamp, "PointLight", { Range = 50, Brightness = 1.2, Color = Color3.fromRGB(255, 228, 190), Shadows = false })
 	end
 
-	-- the ball cart
-	local cart = G + Vector3.new(0, 0, 40)
-	local body = box(hall, Vector3.new(9, 5, 6), CFrame.new(cart + Vector3.new(0, 6, 0)), Color3.fromRGB(34, 74, 190), Enum.Material.Fabric)
-	surfaceText(body, Enum.NormalId.Back, "SPIKE RUSH", Color3.fromRGB(245, 245, 250), Enum.Font.FredokaOne)
-	box(hall, Vector3.new(9.2, 0.4, 6.2), CFrame.new(cart + Vector3.new(0, 8.6, 0)), Color3.fromRGB(24, 54, 150), Enum.Material.Fabric)
-	for _, dx in ipairs({ -4.2, 4.2 }) do
-		for _, dz in ipairs({ -2.7, 2.7 }) do
-			box(hall, Vector3.new(0.3, 3.5, 0.3), CFrame.new(cart + Vector3.new(dx, 1.9, dz)), Color3.fromRGB(190, 194, 200), Enum.Material.Metal)
-			part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 0.8, 0.8), CFrame = CFrame.new(cart + Vector3.new(dx, 0.4, dz)), Color = Color3.fromRGB(40, 40, 44) }, hall)
+	-- the ball cart (furnishGym)
+	gymProps = Instance.new("Model")
+	gymProps.Name = "Props"
+	gymProps.Parent = hall
+	furnishGym()
+end
+
+-- Toolbox models can land after the sets are built (ToolboxService loads ids when the server
+-- starts): refurnish the built sets when the Models folder changes.
+local function watchToolbox()
+	task.spawn(function()
+		local root = ReplicatedStorage:WaitForChild("ToolboxAssets", 30)
+		local models = root and root:WaitForChild("Models", 10)
+		if not models then
+			return
 		end
-	end
+		local queued = false
+		local function refurnish()
+			if queued then
+				return
+			end
+			queued = true
+			task.defer(function()
+				queued = false
+				furnishHome()
+				furnishGym()
+			end)
+		end
+		models.ChildAdded:Connect(refurnish)
+		models.ChildRemoved:Connect(refurnish)
+	end)
 end
 
 ------------------------------------------------------------------------------------------
@@ -919,6 +1107,7 @@ function SceneController.init(m)
 	if player.Character then
 		onCharacter(player.Character)
 	end
+	watchToolbox()
 	RunService:BindToRenderStep("SpikeRushScene", Enum.RenderPriority.Camera.Value + 2, function()
 		local ok, err = pcall(update)
 		if not ok then

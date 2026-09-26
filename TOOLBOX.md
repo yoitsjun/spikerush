@@ -24,7 +24,7 @@ The first one found wins, so a hand-placed asset always beats an id.
    require(game.ServerScriptService.Server.Services.ToolboxService).install()
    ```
    This uses `game:GetObjects`, which can read any public asset. Pass `true` to replace slots that are already filled.
-3. **Load at runtime.** With ids in `Assets.Toolbox`, `ToolboxService` loads every empty slot when the server starts. `InsertService` only loads assets owned by the place's owner (or group) or made by Roblox, so click **Get** on the Creator Store first to put the model in your inventory. Failures are printed in Output with a `[SpikeRush]` prefix.
+3. **Load at runtime.** With ids in `Assets.Toolbox`, `ToolboxService` loads every empty slot when the server starts. It tries `AssetService:LoadAssetAsync` first, which loads any free Creator Store model once Game Settings > Security > **Allow Loading Third Party Assets** is on (its scripts can't run, and they're deleted anyway). Otherwise it falls back to `InsertService`, which only loads assets owned by the place's owner (or group) or made by Roblox, so click **Get** on the Creator Store first to put the model in your inventory. Failures are printed in Output with a `[SpikeRush]` prefix.
 
 Sounds, animations and images don't go in `Assets.Toolbox`. Paste their ids into `Assets.Sounds`, `Assets.Animations` and `Assets.Images`, or drop a `Sound` into `ToolboxAssets.Sounds.<Key>`.
 
@@ -32,7 +32,17 @@ Sounds, animations and images don't go in `Assets.Toolbox`. Paste their ids into
 
 ### Ball: `ToolboxAssets.Models.Volleyball`
 
-Search for "volleyball". Pick a single mesh (MeshPart) or a small model with the classic three-panel look. It's scaled to the gameplay ball (0.53 m diameter) and centred automatically, so its size doesn't matter. Avoid balls with physics scripts, BodyVelocity or constraints; they're stripped anyway.
+Search for "volleyball". Pick a single mesh (MeshPart) or a small model with the classic three-panel look. It's scaled to the gameplay ball (0.53 m diameter) and centred automatically, so its size doesn't matter. Avoid balls with physics scripts, BodyVelocity or constraints; they're stripped anyway. The same ball is every ball in the menus too: the ball carts, the volleyballs of the recruit sequence and the Locker's practice spike.
+
+Filled now with "Volleyball Ball" (`123275048347543`, one MeshPart in yellow, blue and white).
+
+### Menu props: `ToolboxAssets.Models.Locker`, `Bench`, `BallCart`
+
+The club room's lockers, its bench, and the ball cart in the club room and the recruit gym. Each is scaled to its spot by its bounding box (the lockers to 12 studs tall against the back wall, the bench to 11 studs long, the cart to 8.8 studs in the club room and 12 in the gym) and stands on the floor. A cart comes stocked: any part in it about as wide as it is tall and deep (the balls of a basketball rack, say) is swapped for the Toolbox volleyball. Until a slot is filled the room uses simple built stand-ins.
+
+The front of a prop is the -Z face of its bounding box, and a bench or cart should run along X. A model that faces another way takes a number attribute `Yaw` (degrees: 90, 180 or -90) that turns it; `Assets.ToolboxYaw` stamps it on models loaded by id.
+
+Filled now with "Locker School" (`15868311397`, six blue lockers), "Modern Bench" (`5110642461`, wood slats on metal legs) and "Basketball rack" (`10807459912`, a two-tier ball rack). Search for "school lockers", "locker room bench" and "ball rack" or "ball cart" to swap them.
 
 ### Effects: `ToolboxAssets.VFX.<Name>`
 
