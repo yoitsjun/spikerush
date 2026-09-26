@@ -637,8 +637,9 @@ local SHOTS = {
 	recruit = { from = GYM + Vector3.new(1, 5.2, -30), to = GYM + Vector3.new(9.5, 4.8, -11), fov = 40 },
 	ceiling = { from = GYM + Vector3.new(0, 8, 8), to = GYM + Vector3.new(0, 50, 34), fov = 62 },
 	lineup = { from = GYM + Vector3.new(0, 9.5, 12), to = GYM + Vector3.new(0, 18, 88), fov = 58 },
-	-- the Locker's practice spike, side on like the match camera (the action sits left of centre)
-	practice = { from = GYM + Vector3.new(-40, 9, 12), to = GYM + Vector3.new(0, 7, 12), fov = 40 },
+	-- the Locker's practice spike, side on like the match camera; the camera sits 12 studs to the
+	-- side so the action plays in the left third, clear of the Locker's panel
+	practice = { from = GYM + Vector3.new(-40, 9, 24), to = GYM + Vector3.new(0, 7, 24), fov = 40 },
 }
 
 local function shotCF(name)
