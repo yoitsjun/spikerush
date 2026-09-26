@@ -281,7 +281,14 @@ The owner asked for these after pulling the Ines/Ilya changes; everything was pl
 - **Shop**: Gold packs next to the VP packs (`Config.Shop.GoldPacks`), granted like VP packs; a big Recruit plate opens Recruit Player (`goRecruit`). The Shop's content is in the broadcast kit.
 - **Popups**: a click inside a popup used to reach the backdrop behind it and close it. `modal()` now makes the panel a button of its own over the backdrop.
 - **Match window**: restyled in Home's broadcast kit (plate tabs, hairline mode cards, lobby cards edged in team colours, signal-yellow plates for each page's action).
-- **Loading screen**: holds at least 3 s, then plays the silhouette spike (see the checklist) and waits for a click.
+- **Loading screen**: holds at least 3 s, then plays the silhouette spike (see the checklist) and waits for a click. (Redone in the tenth session: see below.)
+
+### Tenth session: the loading freeze, the logo, the menus in The Spike's style, Toolbox VFX, new courts
+
+The owner asked for a full UI overhaul "that doesn't look AI-made", based heavily on The Spike's layout and feel with some creative liberties, Toolbox assets used heavily, and nothing copied from The Spike's art, characters, logo or branding.
+
+- **Loading screen** (`src/first/LoadingScreen.client.lua`), from the owner's reference of The Spike's frozen recruit frame: one amber frame, a feathered pillar of light with a black ball at its top, the logo top left. Your avatar's silhouette (SceneController's `cloneAvatar(true)` in a ViewportFrame tinted black) rises into a dedicated freeze pose (`freezePose`: the chest turned open to the side camera, the left arm up the pillar, the hitting hand cocked behind the head; the game's own `Cock` turns the other way and hides the pointing arm from this side). The camera is fitted so the pointing hand lands on `HAND_AT` and hand-to-feet spans `HAND_TO_FEET` of the screen, so blocky and tall avatars frame alike; the pillar and ball are GUI placed over the hand. A click plays `followPose` (the arms whip, the hips stay put), an impact flash, speed lines and the blast.
+- **Logo**: SPIKE RUSH in Montserrat Heavy italic (the 900 weight: `Enum.FontWeight` has no `Black`), white over an ink outline, an orange rim and an ink extrude (stacked TextLabels, stroke widths scaled to the logo's height), RUSH in an orange-to-gold gradient with three speed marks, tilted up 4 degrees. It echoes the energy of The Spike Cross's logo (the owner's reference) without copying its lettering.
 
 These are the spots most likely to need attention on the first playtest:
 
@@ -306,7 +313,7 @@ These are the spots most likely to need attention on the first playtest:
 | Block jump | Hold W near the net in a rally: crouch, release, the jump must happen (it's queued to MovementController's render step) |
 | Spins | Spin x1 and x10 on every banner; keep and discard; the Locker equips; other players see your style, colour, trail and score effect |
 | Purchases | With a product id set (VP and Gold packs), test in a live server or Studio's test purchases; the receipt must grant once and survive a rejoin |
-| Loading screen | Holds at least 3 s, then the silhouette spike plays and freezes with "Click to continue" (your avatar; the ball alone if it hasn't loaded); a click lands the ball and fades into the game. The loading part is never stuck longer than 25 s |
+| Loading screen | One amber frame with the pillar, the ball and the logo; "Loading" for at least 1.5 s, then your avatar's silhouette rises into the bow-draw under the ball and freezes on "Click to continue" (the ball alone if the avatar hasn't loaded); a click plays the swing, the blast and the fade. Never stuck longer than 25 s |
 | Timeout | The rotation panel shows for both teams during a timeout, and the chosen server serves next |
 | Forfeit | Ends the match at once in any phase, and the results screen says who forfeited |
 | Characters | Selecting a character updates the lobby, the HUD and the name tag; bots show roster names; roles follow characters |
