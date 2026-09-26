@@ -65,6 +65,7 @@ Assets.Sounds = {
 	Point = "",
 	CrowdLoop = "",
 	CrowdCheer = "",
+	CrowdServe = "", -- the crowd swells as the server tosses
 	CrowdGasp = "",
 	Music = "",
 	ImpactFrame = "",

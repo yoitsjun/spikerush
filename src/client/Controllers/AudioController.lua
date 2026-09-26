@@ -178,6 +178,7 @@ local function onHit(snap)
 		AudioController.play("Set", { pos = pos })
 	elseif ht == "Toss" then
 		AudioController.play("Toss", { pos = pos })
+		AudioController.play("CrowdServe", { volume = 0.9, minGap = 1 })
 	elseif ht == "Overhand" or ht == "Underhand" then
 		AudioController.play("Serve", { pos = pos, speed = ht == "Underhand" and 1.15 or 1 })
 	elseif ht == "Feint" then

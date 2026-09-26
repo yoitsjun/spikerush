@@ -76,6 +76,7 @@ Since the 2022 audio privacy change, a sound only plays in your game if it's pub
 |---|---|
 | `CrowdLoop` | "stadium crowd ambience", "arena crowd loop" |
 | `CrowdCheer`, `CrowdGasp` | "crowd cheer", "crowd gasp" |
+| `CrowdServe` | "crowd cheer build up", "stadium crowd anticipation" (plays on every serve toss) |
 | `Music` | a loopable sports or anime track from Roblox's music library |
 | `Whistle` | "referee whistle" |
 | `Spike`, `SpikeHeavy`, `Bump`, `Set` | "volleyball hit", "ball smack" |
