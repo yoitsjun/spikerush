@@ -626,9 +626,11 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.vector = true
 		meta.vectorBoost = math.floor(boost * 1000 + 0.5) / 1000
 	end
-	-- Counter Edge: her scaled Attack is already in `stats`; the blades show how charged she is
+	-- Counter Edge: the meter's Attack is already in `stats`; the spike releases the meter on top
 	if kind == "Spike" and ctx.ability == "Counter" and (ctx.counter or 0) > 0 then
-		meta.counterEdge = clamp(ctx.counter, 0, 100)
+		local c = clamp(ctx.counter, 0, 100)
+		kmh = kmh * (1 + COUNTER.ReleaseBoost * c / 100)
+		meta.counterRelease = c
 	end
 	local steps = 0
 	if q >= H.SpikeAssistQuality and not overcharge then
@@ -944,10 +946,15 @@ function HitLogic.compute(input, ctx)
 				drain = drain + (last.flatDrain or 0)
 			end
 		end
-		if heavy and not sliding and ctx.ability == "Counter" then
-			-- Counter Edge: blades burst out and sink back in; the meter fills, the guard doesn't drop
-			meta.counterGain = clamp(incomingKmh * COUNTER.GainPerKmh, COUNTER.MinGain, COUNTER.MaxGain)
-			drain = 0
+		if ctx.ability == "Counter" and touchN == 1 and last and last.team ~= ctx.team then
+			-- Counter Edge: any ball of theirs she digs fills the meter; a hard spike fills it most
+			-- (blades burst out and sink back in) and costs no guard
+			if heavy then
+				meta.counterGain = clamp(incomingKmh * COUNTER.GainPerKmh, COUNTER.MinGain, COUNTER.MaxGain)
+				drain = 0
+			else
+				meta.counterGain = COUNTER.LightGain
+			end
 		end
 		meta.drain = drain > 0 and drain or nil
 		meta.perfect = perfect or nil
@@ -1048,6 +1055,11 @@ function HitLogic.compute(input, ctx)
 			local lift = 0
 			if setType ~= "Quick" then
 				lift = math.max(0, ball.Y - ((ctx.groundY or Config.Player.RootGround) + Z.SetIdealY))
+				if ctx.ability == "Vector" then
+					-- Vector Set: tight to the net and high, for the steepest spike
+					depth = depth * VECTOR.SetDepthMul
+					lift = lift + VECTOR.SetLift
+				end
 			end
 			local v, g = HitLogic.setArc(ball, side, setType, depth, underhand, lift)
 			return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t)

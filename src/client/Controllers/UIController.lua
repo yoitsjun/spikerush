@@ -937,10 +937,10 @@ local function updateAbility()
 		a.energy.Size = UDim2.fromScale(math.clamp(c / 100, 0, 1), 1)
 		if c > 0 then
 			local k = math.clamp(c, 0, 100) / 100
-			a.line.Text = string.format("Counter %d%%: +%d ATK, +%d DEF", c, math.floor(def.PerFull.Attack * k + 0.5), math.floor(def.PerFull.Defense * k + 0.5))
+			a.line.Text = string.format("Counter %d%%: spike +%d%%, +%d ATK", c, math.floor(def.ReleaseBoost * 100 * k + 0.5), math.floor(def.PerFull.Attack * k + 0.5))
 			a.line.TextColor3 = def.Color
 		else
-			a.line.Text = "Receive spikes to scale up (no stamina lost)"
+			a.line.Text = "Dig their balls to fill it (spikes cost no stamina)"
 			a.line.TextColor3 = UI.Fog
 		end
 	else

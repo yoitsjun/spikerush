@@ -198,6 +198,8 @@ function HitService.process(entity, input, opts)
 	end
 	if meta.counterGain then
 		TS.setCounter(entity, math.min(100, (entity.counter or 0) + meta.counterGain))
+	elseif meta.counterRelease then
+		TS.setCounter(entity, 0) -- her spike released it
 	end
 
 	if entity.isBot and meta.knock then

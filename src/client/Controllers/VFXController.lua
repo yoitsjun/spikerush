@@ -1436,13 +1436,15 @@ local function onHit(snap)
 			ringFx(pos, VECTOR, 1.5, 7 + 20 * boost, 0.35, 6)
 			VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("+%.1f%%", boost * 100), VECTOR, 0.9 + 2 * boost)
 		end
-		if meta.counterEdge then
-			bladeVolley(pos, vdir, COUNTER, 2 + math.floor(meta.counterEdge / 20))
-			if meta.counterEdge >= 100 then
-				VFXController.popup(pos + Vector3.new(0, 4.2, 0), "Counter Edge MAX", COUNTER, 1)
+		if meta.counterRelease then
+			-- Counter Edge released: blades fly with the ball, more the fuller the meter was
+			local c = meta.counterRelease
+			bladeVolley(pos, vdir, COUNTER, 3 + math.floor(c / 12))
+			if c >= 50 then
+				VFXController.popup(pos + Vector3.new(0, 4.2, 0), string.format("Counter Edge +%d%%", math.floor(Config.Abilities.Counter.ReleaseBoost * c + 0.5)), COUNTER, 0.8 + 0.4 * c / 100)
 			end
 			if close and mods.AudioController then
-				mods.AudioController.play("Blades", { volume = 0.5 + 0.3 * meta.counterEdge / 100, speed = 1.2 })
+				mods.AudioController.play("Blades", { volume = 0.5 + 0.4 * c / 100, speed = 1.2 })
 			end
 		end
 		if heavy or meta.thunder or meta.energy then

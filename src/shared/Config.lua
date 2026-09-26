@@ -499,13 +499,17 @@ Config.Abilities = {
 		Name = "Vector Set",
 		Tier = "S",
 		Role = "SE",
-		Blurb = "Your sets pulse. The spike off one gains power the steeper it comes down: a sharp, short spike gets up to +22%.",
+		Blurb = "Your sets pulse, and they go tight to the net and high. The spike off one gains power the steeper it comes down: a sharp, short spike gets up to +22%.",
 		Color = Color3.fromRGB(176, 120, 255),
 		MaxBoost = 0.22,
 		-- the angle (degrees below level) of the line from the contact to where the spike lands:
 		-- no boost at AngleMin (deep and flat), the full boost at AngleMax (short and steep)
 		AngleMin = 22,
 		AngleMax = 42,
+		-- her open and back sets: this much of the usual distance from the net, and this much
+		-- higher, so the attacker hits close to the net from the top of the jump (steep)
+		SetDepthMul = 0.6,
+		SetLift = 1.2 * M,
 	},
 	Turnabout = {
 		Name = "Turnabout",
@@ -543,14 +547,15 @@ Config.Abilities = {
 		Name = "Counter Edge",
 		Tier = "S",
 		Role = "WS",
-		Blurb = "Spikes you receive cost no stamina: blades burst out and sink back into you, filling your Counter meter. She scales with her receives: a full meter adds +55 Attack and +80 Defense for the rest of the set.",
+		Blurb = "Every ball the other team sends that you dig fills your Counter meter, and one hard spike fills it. Spikes you receive cost no stamina: blades burst out and sink back in. The meter adds up to +40 Attack and +70 Defense, and your next spike releases all of it for up to +12% more power.",
 		Color = Color3.fromRGB(190, 220, 255),
-		-- stat points at a full meter (0..100, in proportion below it); the meter fills over a set
-		-- and starts empty the next
-		PerFull = { Attack = 55, Defense = 80 },
-		GainPerKmh = 0.14, -- meter gained per km/h of the spike you receive (about 6 hard spikes fill it)
-		MinGain = 6,
-		MaxGain = 20,
+		-- stat points at a full meter (0..100, in proportion below it)
+		PerFull = { Attack = 40, Defense = 70 },
+		ReleaseBoost = 0.12, -- her spike releases the meter: speed x (1 + this x meter / 100), then it's empty
+		GainPerKmh = 0.8, -- meter per km/h of a hard spike she receives (a 125 km/h spike fills it)
+		MinGain = 40,
+		MaxGain = 100,
+		LightGain = 30, -- any other ball of theirs she digs (serves, feints, free balls)
 	},
 }
 Config.AbilityOrder = { "Thunder", "Azure", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter" }

@@ -29,6 +29,7 @@ local Z, H, P, B = Config.Zones, Config.Hits, Config.Player, Config.Bots
 local C = Config.Court
 local SPM = Config.Scale.StudsPerMeter
 local AZURE = Config.Abilities.Azure
+local VECTOR = Config.Abilities.Vector
 local SKIN = {
 	Color3.fromRGB(255, 219, 172),
 	Color3.fromRGB(241, 194, 125),
@@ -462,8 +463,8 @@ local function planSet(team, now, exclude)
 	end
 	if not target and ws and ws.id ~= b.entity.id and ws.id ~= exclude then
 		target = ws
-		if ws.isBot and b.rng:NextNumber() > 0.9 then
-			setType = "Back"
+		if ws.isBot and b.rng:NextNumber() > 0.9 and b.entity.ability ~= "Vector" then
+			setType = "Back" -- (a Vector setter keeps it in front, tight to the net)
 		end
 	end
 	if not target then
@@ -486,7 +487,8 @@ local function planSet(team, now, exclude)
 	-- a jump set off a pass near the net; Turnabout is only armed for a ball it can jump for
 	-- (from the ground it would just be a dump)
 	local arm = not turn and e.ability == "Turnabout" and near and now >= (e.abilityReadyAt or 0) and b.rng:NextNumber() < tierPair(b, B.TurnaboutChance)
-	if turn or arm or (near and e.role == "SE" and b.rng:NextNumber() < tierPair(b, B.JumpSetChance)) then
+	-- (a Vector setter always jumps for it: the higher her set, the steeper the spike)
+	if turn or arm or (near and e.role == "SE" and (e.ability == "Vector" or b.rng:NextNumber() < tierPair(b, B.JumpSetChance))) then
 		if planJumpSet(b, side, now) and arm then
 			reg.HitService.activateAbility(e)
 		end
@@ -567,6 +569,11 @@ local function planAttack(team, now, exclude)
 	spiker.task = "Spike"
 	spiker.feint = spiker.rng:NextNumber() < B.FeintChance
 	local depth, deepest = chooseDepth(spiker, team, H.SpikeShortDepth)
+	if last and last.vectorSet and last.team == team then
+		-- off a Vector set the steepest spike gains the most: aim short enough for the full angle
+		local steep = (cP.Y - Config.Ball.Radius) / math.tan(math.rad(VECTOR.AngleMax)) - math.abs(cP.Z)
+		depth = math.clamp(math.min(depth, steep), H.SpikeShortDepth, deepest)
+	end
 	local dz = dzForDepth(depth, deepest, H.SpikeShortDepth)
 	local noise = (spiker.rng:NextNumber() * 2 - 1) * tierPair(spiker, B.ContactNoise)
 	spiker.targetZ = cP.Z + side * (dz + Z.SpikeForward) + noise

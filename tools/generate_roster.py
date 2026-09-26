@@ -53,9 +53,9 @@ FIXED = [
     # beats a maxed YeJun (210 / 190 / 124 / 146)
     {"Name": "Daon", "Role": "WS", "Tier": "S", "Height": 186, "Attack": 176, "Defense": 115, "Speed": 124, "Jump": 160, "Ability": "RisingSun"},
     {"Name": "Joon", "Role": "MB", "Tier": "S", "Height": 202, "Attack": 162, "Defense": 162, "Speed": 110, "Jump": 176, "Ability": "RallyCry"},
-    # Counter Edge: low Attack and Defense at an empty meter; she scales with her receives to
-    # 205 Attack and 200 Defense at a full one (+55 / +80)
-    {"Name": "Ines", "Role": "WS", "Tier": "S", "Height": 184, "Attack": 150, "Defense": 120, "Speed": 138, "Jump": 180, "Ability": "Counter"},
+    # Counter Edge: lower Attack and Defense at an empty meter; a full one (one hard spike dug)
+    # makes her 210 Attack and 200 Defense (+40 / +70) until her next spike releases it
+    {"Name": "Ines", "Role": "WS", "Tier": "S", "Height": 184, "Attack": 170, "Defense": 130, "Speed": 138, "Jump": 180, "Ability": "Counter"},
 ]
 
 # free for everyone: a D-tier character in each role

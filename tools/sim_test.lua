@@ -871,6 +871,14 @@ do
 	local _, plain = spike(sr, ballAt(sr, 2.2, 0), { lastHit = { team = "Away", hitType = "Set" } })
 	check(vset.meta.vectorSet and short.meta.vectorBoost > deep.meta.vectorBoost and short.meta.vectorBoost <= Config.Abilities.Vector.MaxBoost + 1e-9 and plain.meta.vectorBoost == nil and short.meta.kmh > plain.meta.kmh,
 		"Vector Set: the spike off her pulsing set gains more the steeper it comes down", string.format("deep +%.1f%%, short +%.1f%% (%.0f vs %.0f km/h off a plain set)", deep.meta.vectorBoost * 100, short.meta.vectorBoost * 100, short.meta.kmh, plain.meta.kmh))
+	-- her open set goes tight to the net and high (the attacker hits near the net, steeply)
+	local _, nset = set(nil, ilya, sroot, sball)
+	local vp, np = BallPhysics.buildPath(vset.launch), BallPhysics.buildPath(nset.launch)
+	local _, vA = BallPhysics.findApex(vp, 0)
+	local _, nA = BallPhysics.findApex(np, 0)
+	local vz, nz = math.abs(vp.landing.pos.Z), math.abs(np.landing.pos.Z)
+	check(vz < nz - 0.5 * SPM and vA.Y > nA.Y + 0.8 * SPM and vp.landing.pos.Z * side > 0,
+		"Vector Set: her sets go tight to the net and high", string.format("lands %.2f m from the net (a plain set %.2f m), apex %.1f vs %.1f studs", vz / SPM, nz / SPM, vA.Y, nA.Y))
 
 	-- Turnabout: armed, her set (a jump set) spins into a spike over the net; unarmed, it's a set
 	local jroot = vec(0, GROUND + Characters.jumpHeight(haeri, GROUND) * 0.9, side * H.SetterDepth) -- near the top of her jump
@@ -1019,7 +1027,8 @@ do
 	check(rally.Attack == math.floor(SP.Attack * 1.12 + 0.5) and rally.Jump > SP.Jump and rally.Speed > SP.Speed and boosted.meta.kmh > normal.meta.kmh,
 		"Rally Cry: the whole team plays with +12% on every stat", string.format("ATK %d -> %d, spike %.0f -> %.0f km/h", SP.Attack, rally.Attack, normal.meta.kmh, boosted.meta.kmh))
 
-	-- Counter Edge: received spikes fill the meter instead of draining; she scales with it
+	-- Counter Edge: dug balls fill the meter (a hard spike fills it, without draining); she scales
+	-- with it and her next spike releases it
 	local ines = Characters.derive(Characters.fromRoster(Roster.get("ines"), "max"))
 	local recRoot = vec(0, GROUND, side * 18 * K)
 	local recBall = vec(0, recRoot.Y + Z.ReceiveIdealY, recRoot.Z - side * Z.ReceiveForward)
@@ -1036,12 +1045,13 @@ do
 	local s100 = HitLogic.effectiveStats(ines, "Counter", nil, { counter = 100 })
 	local hayun = Characters.derive(Characters.fromRoster(Roster.get("hayun"), "max"))
 	local CE = Config.Abilities.Counter
-	local fills = math.ceil(100 / math.clamp(140 * CE.GainPerKmh, CE.MinGain, CE.MaxGain))
-	check(dig.meta.drain == nil and (dig.meta.counterGain or 0) >= CE.MinGain and (dig2.meta.drain or 0) > 0,
-		"Counter Edge: a received spike fills the meter instead of the guard dropping", string.format("+%.0f meter (vs %.1f guard); %d hard spikes fill it", dig.meta.counterGain or 0, dig2.meta.drain or 0, fills))
-	check(s0 == ines and ines.Attack <= hayun.Attack - 40 and ines.Defense < hayun.Defense and s50.Attack > s0.Attack and s50.Defense < s100.Defense
-		and s100.Defense >= 195 and s100.Attack >= 200 and full.meta.kmh > empty.meta.kmh * 1.15 and full.meta.counterEdge == 100 and fills >= 4 and fills <= 8,
-		"Counter Edge: low Attack and Defense empty, she scales with her receives to about 200 Defense", string.format("ATK %d / %d / %d, DEF %d / %d / %d (empty / half / full); spike %.0f -> %.0f km/h", s0.Attack, s50.Attack, s100.Attack, s0.Defense, s50.Defense, s100.Defense, empty.meta.kmh, full.meta.kmh))
+	-- a served ball she digs (not heavy) fills it a little and drains like any receive
+	local _, light = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 0.3 }, { lastHit = { team = "Home", hitType = "Underhand", noDrain = true, kmh = 45 }, ballVel = vec(0, -10 * K, side * 40 * K), ability = "Counter", stats = ines })
+	check(dig.meta.drain == nil and (dig.meta.counterGain or 0) >= 100 and (dig2.meta.drain or 0) > 0 and light.meta.counterGain == CE.LightGain,
+		"Counter Edge: one hard spike dug fills the meter with no guard lost; any other ball of theirs adds some", string.format("+%.0f from a %d km/h spike (vs %.1f guard), +%d from a serve", dig.meta.counterGain or 0, last.kmh, dig2.meta.drain or 0, light.meta.counterGain or 0))
+	check(s0 == ines and ines.Attack < hayun.Attack and ines.Defense <= 130 and s50.Attack > s0.Attack and s50.Defense < s100.Defense
+		and s100.Defense >= 195 and s100.Attack >= 205 and full.meta.kmh >= 150 and full.meta.kmh > empty.meta.kmh * 1.25 and full.meta.counterRelease == 100 and empty.meta.counterRelease == nil,
+		"Counter Edge: a full meter makes her 210 / 200 and her spike releases it for a big hit", string.format("ATK %d / %d / %d, DEF %d / %d / %d (empty / half / full); spike %.0f -> %.0f km/h", s0.Attack, s50.Attack, s100.Attack, s0.Defense, s50.Defense, s100.Defense, empty.meta.kmh, full.meta.kmh))
 
 	-- the server re-tunes a humanoid only when its boosted stats change (TeamService.refreshBoosts
 	-- compares tables): no boost is the base table, the same boost the same cached table, and
