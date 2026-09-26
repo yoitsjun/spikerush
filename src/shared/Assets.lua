@@ -198,6 +198,9 @@ Assets.Images = {
 	IconJump = "13751812696", -- decal 13751812742 (leap)
 	IconStar = "93992148478224", -- decal 109164246035556
 	IconLock = "18854796316", -- decal 18854796355
+	-- the match's corner buttons
+	IconTimeout = "132706456899814", -- decal 109363194447921 (sand timer)
+	IconForfeit = "9440647549", -- decal 9440647555 (flag)
 	-- a right triangle (right angle bottom-left): mirrored, the slanted ends of every plate
 	Slant = "2288884279", -- decal 2288884281
 	Halftone = "102527515036737", -- decal 124271316176270: a halftone dot fade

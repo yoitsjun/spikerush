@@ -1,11 +1,14 @@
--- HUD and menus. Visual language: stadium "ink" navy panels, team colours and the stamina and
--- ability colours carry the energy, one loud element at a time (manga callouts in Bangers),
--- numbers in Gotham Black, sentence case everywhere.
+-- The match HUD, in the menus' broadcast kit (Gui): dark hairline cards, heavy italic
+-- condensed type for names and numbers, slanted plates, signal yellow for the one thing that
+-- matters. Team, stamina and ability colours carry the energy.
 --
--- In play (modelled on The Spike's layout): a top bar with team names, stamina bars, score and
--- sets; the attack readout (km/h and hitting height) right below it; a "Team (Player) scored"
--- banner with the reason; name tags with tier badges and a marker over the player you control;
--- the ability panel; charge bars over your head; a timeout button.
+-- In play (laid out like The Spike's): a slanted scoreboard across the top (each team's name over
+-- its stamina bar and timeout ticks, a signal-yellow VS plate with the points played to over it
+-- and a white score box under each side); the attack readout under it (the km/h with small
+-- decimals, and the hitting height); a point banner with gold edges and the reason; name tags
+-- with tier badges and a marker over the player you control; the ability card top left; round
+-- Timeout, Forfeit and Settings buttons top right; the control pills bottom left, each with its
+-- key.
 -- Out of a match the menus (MenuController) take over; this controller only lends them the
 -- settings panel.
 
@@ -25,6 +28,7 @@ local Tutorial = require(Shared.Tutorial)
 local HitLogic = require(Shared.HitLogic)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
+local Gui = require(script.Parent.Gui)
 
 local UIController = {}
 local mods
@@ -67,47 +71,71 @@ local function stroke(parent, thickness, color, transparency)
 	}, parent)
 end
 
+-- A dark hairline card (edge() adds the hairline, or a coloured one).
 local function panel(parent, props)
 	local f = make("Frame", {
-		BackgroundColor3 = UI.Ink,
-		BackgroundTransparency = 0.08,
+		BackgroundColor3 = Gui.CARD,
+		BackgroundTransparency = 0.12,
 		BorderSizePixel = 0,
 	}, parent)
 	for k, v in pairs(props or {}) do
 		f[k] = v
 	end
-	corner(f, 10)
+	corner(f, 6)
 	return f
+end
+
+local function edge(f, color, transparency)
+	return make("UIStroke", { Color = color or Gui.HAIRLINE, Thickness = 1, Transparency = transparency or 0.45, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, f)
+end
+
+-- The old Gotham and Bangers faces map onto the kit's: Gotham Black and Bangers to the display
+-- face (heavy italic condensed), Gotham Bold to the body face.
+local function faceFor(font)
+	if font == Enum.Font.GothamBlack or font == Enum.Font.Bangers then
+		return Gui.display(Enum.FontWeight.Heavy)
+	elseif font == Enum.Font.GothamBold then
+		return Gui.body(Enum.FontWeight.Medium)
+	end
+	return nil
 end
 
 local function label(parent, props)
 	local l = make("TextLabel", {
 		BackgroundTransparency = 1,
 		TextColor3 = UI.Chalk,
-		Font = Enum.Font.GothamBold,
+		FontFace = Gui.body(Enum.FontWeight.Medium),
 		TextSize = 14,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, parent)
 	for k, v in pairs(props or {}) do
-		l[k] = v
+		if k == "Font" then
+			l.FontFace = faceFor(v) or l.FontFace
+		else
+			l[k] = v
+		end
 	end
 	return l
 end
 
 local function button(parent, text, props)
 	local b = make("TextButton", {
-		BackgroundColor3 = UI.InkSoft,
+		BackgroundColor3 = Color3.fromRGB(38, 42, 58),
 		BorderSizePixel = 0,
 		AutoButtonColor = true,
 		Text = text,
 		TextColor3 = UI.Chalk,
-		Font = Enum.Font.GothamBlack,
-		TextSize = 15,
+		FontFace = Gui.display(),
+		TextSize = 18,
 	}, parent)
 	for k, v in pairs(props or {}) do
-		b[k] = v
+		if k == "Font" then
+			b.FontFace = faceFor(v) or b.FontFace
+		else
+			b[k] = v
+		end
 	end
-	corner(b, 8)
+	corner(b, 6)
 	return b
 end
 
@@ -135,168 +163,89 @@ end
 -- top bar: team names, stamina, score, sets, timeouts
 ------------------------------------------------------------------------------------------
 
+-- A team's wing of the scoreboard: a slanted dark plate, the name toward the VS plate, the stamina
+-- bar under it and a tick per timeout left.
 local function buildTeamBlock(parent, team, align)
 	local right = align == "Right"
-	local f = make("Frame", {
-		Size = UDim2.new(0, 250, 1, 0),
-		BackgroundTransparency = 1,
-	}, parent)
-	if right then
-		f.Position = UDim2.new(1, -250, 0, 0)
-	end
-	local xAlign = right and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left
+	local f = Gui.plate(parent, { Name = team, AnchorPoint = Vector2.new(right and 1 or 0, 0), Position = right and UDim2.fromScale(1, 0) or UDim2.new(), Size = UDim2.fromOffset(330, 60) }, Gui.CARD)
+	Gui.fade(f, 0.16)
 	local name = label(f, {
 		Text = teamName(team),
 		Font = Enum.Font.GothamBlack,
-		TextSize = 17,
+		TextSize = 21,
 		TextColor3 = teamColor(team),
-		Size = UDim2.new(1, -16, 0, 22),
-		Position = UDim2.fromOffset(8, 6),
-		TextXAlignment = xAlign,
+		Size = UDim2.new(1, -64, 0, 24),
+		Position = UDim2.fromOffset(right and 26 or 38, 4),
+		TextXAlignment = right and Enum.TextXAlignment.Left or Enum.TextXAlignment.Right,
+		ZIndex = 2,
 	})
 	stroke(name, 1.5, UI.Ink)
+	local barX, barY = right and 22 or 34, 32
 	local bar = make("Frame", {
-		Size = UDim2.new(1, -16, 0, 12),
-		Position = UDim2.fromOffset(8, 32),
+		Size = UDim2.new(1, -56, 0, 10),
+		Position = UDim2.fromOffset(barX, barY),
 		BackgroundColor3 = Color3.fromRGB(10, 12, 26),
 		BorderSizePixel = 0,
+		ZIndex = 2,
 	}, f)
-	corner(bar, 6)
-	local barStroke = stroke(bar, 1.5, UI.Fog, 0.4)
-	local fill = make("Frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = UI.Chalk,
-		BorderSizePixel = 0,
-	}, bar)
+	local barStroke = make("UIStroke", { Thickness = 1, Color = UI.Fog, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, bar)
+	local fill = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = UI.Chalk, BorderSizePixel = 0, ZIndex = 2 }, bar)
 	if right then
 		fill.AnchorPoint = Vector2.new(1, 0)
 		fill.Position = UDim2.fromScale(1, 0)
 	end
-	corner(fill, 6)
 	local broken = label(bar, {
 		Text = "Broken",
 		Font = Enum.Font.GothamBlack,
-		TextSize = 11,
+		TextSize = 12,
 		TextColor3 = HOT,
 		Size = UDim2.fromScale(1, 1),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		Visible = false,
+		ZIndex = 3,
 	})
-	local pips = make("Frame", {
-		Size = UDim2.new(1, -16, 0, 10),
-		Position = UDim2.fromOffset(8, 50),
-		BackgroundTransparency = 1,
-	}, f)
+	local pips = make("Frame", { Size = UDim2.new(1, -56, 0, 5), Position = UDim2.fromOffset(barX, 48), BackgroundTransparency = 1, ZIndex = 2 }, f)
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
-		HorizontalAlignment = right and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Left,
+		HorizontalAlignment = right and Enum.HorizontalAlignment.Left or Enum.HorizontalAlignment.Right,
 		Padding = UDim.new(0, 5),
 	}, pips)
 	local pipList = {}
 	for i = 1, Config.Timeout.PerSet do
-		local p = make("Frame", { Size = UDim2.fromOffset(10, 10), BackgroundColor3 = UI.Chalk, BorderSizePixel = 0, LayoutOrder = i }, pips)
-		corner(p, 5)
-		table.insert(pipList, p)
+		table.insert(pipList, make("Frame", { Size = UDim2.fromOffset(18, 5), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 2 }, pips))
 	end
-	return { name = name, bar = bar, fill = fill, barStroke = barStroke, broken = broken, pips = pipList }
+	return { name = name, bar = bar, fill = fill, barStroke = barStroke, broken = broken, pips = pipList, barX = barX, barY = barY }
 end
 
 local function buildTopBar()
-	local bar = panel(gui, {
-		Name = "TopBar",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 8),
-		Size = UDim2.fromOffset(760, 66),
-	})
-	stroke(bar, 2, UI.InkSoft)
+	local bar = make("Frame", { Name = "TopBar", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(820, 84), BackgroundTransparency = 1 }, gui)
 	local home = buildTeamBlock(bar, "Home", "Left")
 	local away = buildTeamBlock(bar, "Away", "Right")
-	local mid = make("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0),
-		Size = UDim2.new(0, 240, 1, 0),
-		BackgroundTransparency = 1,
-	}, bar)
-	local function score(x, align)
-		return label(mid, {
-			Text = "0",
-			Font = Enum.Font.GothamBlack,
-			TextSize = 38,
-			Size = UDim2.new(0, 90, 0, 44),
-			Position = UDim2.fromOffset(x, 4),
-			TextXAlignment = align,
-		})
+	-- the centre: a signal-yellow VS plate with the points played to on a dark tag over it (it
+	-- rises in a deuce), and a white score box under each side
+	local mid = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(170, 84), BackgroundTransparency = 1, ZIndex = 3 }, bar)
+	local vs = Gui.plate(mid, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10), Size = UDim2.fromOffset(122, 42), ZIndex = 3 }, Gui.SIGNAL)
+	label(vs, { Text = "VS", Font = Enum.Font.GothamBlack, TextSize = 30, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 })
+	local tag = Gui.plate(mid, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -6), Size = UDim2.fromOffset(58, 20), ZIndex = 4 }, Gui.LINE)
+	local target = label(tag, { Text = "15", Font = Enum.Font.GothamBlack, TextSize = 15, TextColor3 = Gui.SIGNAL, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 5 })
+	local function scoreBox(x)
+		local box = Gui.plate(mid, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, x, 0, 54), Size = UDim2.fromOffset(64, 30), ZIndex = 3 }, Gui.CHALK)
+		return label(box, { Text = "0", Font = Enum.Font.GothamBlack, TextSize = 24, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 })
 	end
-	local sHome = score(0, Enum.TextXAlignment.Right)
-	local sAway = score(150, Enum.TextXAlignment.Left)
-	-- the points this set is played to (rises in a deuce), in a yellow diamond between the scores
-	local diamond = make("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromOffset(120, 27),
-		Size = UDim2.fromOffset(32, 32),
-		Rotation = 45,
-		BackgroundColor3 = UI.Spark,
-		BorderSizePixel = 0,
-	}, mid)
-	corner(diamond, 4)
-	stroke(diamond, 2, UI.Ink)
-	local target = label(mid, {
-		Text = "15",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 18,
-		TextColor3 = UI.Ink,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromOffset(120, 27),
-		Size = UDim2.fromOffset(40, 24),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		ZIndex = 2,
-	})
-	label(mid, {
-		Text = "PLAY TO",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 8,
-		TextColor3 = UI.Fog,
-		Size = UDim2.fromOffset(60, 10),
-		Position = UDim2.fromOffset(90, 0),
-		TextXAlignment = Enum.TextXAlignment.Center,
-	})
-	local setLine = label(mid, {
-		Text = "",
-		Font = Enum.Font.GothamBold,
-		TextSize = 12,
-		TextColor3 = UI.Fog,
-		Size = UDim2.new(1, 0, 0, 14),
-		Position = UDim2.fromOffset(0, 48),
-		TextXAlignment = Enum.TextXAlignment.Center,
-	})
-	local serveDot = make("Frame", { Size = UDim2.fromOffset(10, 10), BackgroundColor3 = UI.Spark, BorderSizePixel = 0 }, mid)
-	corner(serveDot, 5)
-
-	-- attack readout under the bar: "129.75 km/h   3.85 m"
-	local readout = make("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 80),
-		Size = UDim2.fromOffset(300, 30),
-		BackgroundTransparency = 1,
-	}, gui)
-	local kmh = label(readout, {
-		Text = "",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 24,
-		Size = UDim2.new(0.62, 0, 1, 0),
-		TextXAlignment = Enum.TextXAlignment.Right,
-	})
+	local sHome = scoreBox(-36)
+	local sAway = scoreBox(36)
+	local setLine = label(bar, { Text = "", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = UI.Fog, Size = UDim2.new(1, 0, 0, 16), Position = UDim2.fromOffset(0, 88), TextXAlignment = Enum.TextXAlignment.Center })
+	stroke(setLine, 1, UI.Ink, 0.4)
+	-- who serves: a small ball beside that team's score box
+	local serveDot = Gui.icon.vp(bar, 20)
+	serveDot.ZIndex = 5
+	-- the attack readout under the scoreboard: "129.75 km/h   3.85 m"
+	local readout = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 108), Size = UDim2.fromOffset(440, 42), BackgroundTransparency = 1 }, gui)
+	local kmh = label(readout, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 36, RichText = true, Size = UDim2.new(0.6, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Right })
 	stroke(kmh, 2, UI.Ink)
-	local height = label(readout, {
-		Text = "",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 20,
-		TextColor3 = UI.Fog,
-		Size = UDim2.new(0.36, 0, 1, 0),
-		Position = UDim2.fromScale(0.64, 0),
-	})
+	local height = label(readout, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 32, RichText = true, TextColor3 = UI.Fog, Size = UDim2.new(0.38, 0, 1, 0), Position = UDim2.fromScale(0.62, 0) })
 	stroke(height, 2, UI.Ink)
-	ui.top = { bar = bar, Home = home, Away = away, sHome = sHome, sAway = sAway, setLine = setLine, serveDot = serveDot, kmh = kmh, height = height, shownAt = -10, target = target, diamond = diamond }
+	ui.top = { bar = bar, Home = home, Away = away, sHome = sHome, sAway = sAway, setLine = setLine, serveDot = serveDot, readout = readout, kmh = kmh, height = height, shownAt = -10, target = target, diamond = vs, tag = tag }
 end
 
 local function refreshTopBar()
@@ -313,21 +262,22 @@ local function refreshTopBar()
 	if deuce then
 		t.setLine.Text = string.format("DEUCE, win by %d   set %d", Config.Match.WinBy, m.setNumber or 1)
 		t.setLine.TextColor3 = UI.Whistle
-		t.diamond.BackgroundColor3 = UI.Whistle
+		Gui.tint(t.diamond, UI.Whistle)
 	else
 		t.setLine.Text = string.format("Set %d   sets %d-%d", m.setNumber or 1, sets.Home or 0, sets.Away or 0)
 		t.setLine.TextColor3 = UI.Fog
-		t.diamond.BackgroundColor3 = UI.Spark
+		Gui.tint(t.diamond, Gui.SIGNAL)
 	end
 	if m.servingTeam == "Away" then
-		t.serveDot.Position = UDim2.fromOffset(232, 24)
+		t.serveDot.Position = UDim2.fromOffset(410 + 36 + 38, 59)
 	else
-		t.serveDot.Position = UDim2.fromOffset(-2, 24)
+		t.serveDot.Position = UDim2.fromOffset(410 - 36 - 38 - 20, 59)
 	end
 	-- someone else's match on this court stays out of the menus
 	local mine = m.inMatch == true and State.isPlaying
 	t.serveDot.Visible = mine
 	t.bar.Visible = mine
+	t.readout.Visible = mine -- the last attack stays off the menus (benched, or someone else's match)
 end
 
 local function updateStamina()
@@ -341,9 +291,9 @@ local function updateStamina()
 		local hit = block.hitAt and now - block.hitAt < 0.4
 		if hit then
 			local k = 1 - (now - block.hitAt) / 0.4
-			block.bar.Position = UDim2.fromOffset(8 + math.sin(now * 90) * 4 * k * block.hitSize, 32)
+			block.bar.Position = UDim2.fromOffset(block.barX + math.sin(now * 90) * 4 * k * block.hitSize, block.barY)
 		else
-			block.bar.Position = UDim2.fromOffset(8, 32)
+			block.bar.Position = UDim2.fromOffset(block.barX, block.barY)
 		end
 		local broken = s.value <= 0
 		block.broken.Visible = broken
@@ -376,10 +326,14 @@ local function showReadout(meta)
 	elseif (meta.kmh or 0) >= 120 then
 		color = HOT
 	end
-	t.kmh.Text = fmt2(meta.kmh) .. " km/h"
+	local function split(x, unit, small)
+		local whole, dec = string.match(fmt2(x), "^(%d+)%.(%d+)$")
+		return string.format('%s<font size="%d">.%s %s</font>', whole or "0", small, dec or "00", unit)
+	end
+	t.kmh.Text = split(meta.kmh, "km/h", 22)
 	t.kmh.TextColor3 = color
 	t.kmh.TextTransparency = 0
-	t.height.Text = meta.height and (fmt2(meta.height) .. " m") or ""
+	t.height.Text = meta.height and split(meta.height, "m", 20) or ""
 	t.height.TextColor3 = meta.thunder and THUNDER or UI.Fog
 	t.height.TextTransparency = 0
 	t.shownAt = os.clock()
@@ -421,42 +375,48 @@ local REASON = {
 	Point = "Point",
 }
 
+-- "Home (Riku) scored" on a dark bar with a gold edge, and the reason on a tag in the scorer's
+-- colour, like a broadcast lower third.
 local function buildBanner()
-	local f = panel(gui, {
+	local f = make("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 120),
-		Size = UDim2.fromOffset(0, 40),
+		Position = UDim2.new(0.5, 0, 0, 156),
+		Size = UDim2.fromOffset(0, 46),
 		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = Gui.CARD,
+		BackgroundTransparency = 0.1,
+		BorderSizePixel = 0,
 		Visible = false,
-	})
-	make("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 8) }, f)
+	}, gui)
+	edge(f, Gui.HAIRLINE, 0.1)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0, 8) }, f)
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
-		Padding = UDim.new(0, 8),
+		Padding = UDim.new(0, 12),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, f)
 	local text = make("TextLabel", {
 		BackgroundTransparency = 1,
 		AutomaticSize = Enum.AutomaticSize.X,
-		Size = UDim2.fromOffset(0, 40),
+		Size = UDim2.fromOffset(0, 46),
 		RichText = true,
-		Font = Enum.Font.GothamBlack,
-		TextSize = 18,
+		FontFace = Gui.display(Enum.FontWeight.Heavy),
+		TextSize = 24,
 		TextColor3 = UI.Chalk,
 		LayoutOrder = 1,
 	}, f)
 	local tag = make("TextLabel", {
 		AutomaticSize = Enum.AutomaticSize.X,
-		Size = UDim2.fromOffset(0, 26),
+		Size = UDim2.fromOffset(0, 30),
 		BackgroundColor3 = UI.Chalk,
+		BorderSizePixel = 0,
 		TextColor3 = UI.Ink,
-		Font = Enum.Font.GothamBlack,
-		TextSize = 13,
+		FontFace = Gui.display(Enum.FontWeight.Heavy),
+		TextSize = 18,
 		LayoutOrder = 2,
 	}, f)
-	corner(tag, 13)
-	make("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }, tag)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, tag)
 	ui.banner = { frame = f, text = text, tag = tag, token = 0 }
 end
 
@@ -477,8 +437,8 @@ local function showBanner(a)
 	b.tag.BackgroundColor3 = a.error and UI.Fog or teamColor(a.winner)
 	b.tag.TextColor3 = a.error and UI.Ink or UI.Chalk
 	b.frame.Visible = true
-	b.frame.Position = UDim2.new(0.5, 0, 0, 108)
-	TweenService:Create(b.frame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 120) }):Play()
+	b.frame.Position = UDim2.new(0.5, 0, 0, 144)
+	TweenService:Create(b.frame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 156) }):Play()
 	task.delay(Config.Match.PointPauseTime - 0.3, function()
 		if token == b.token then
 			b.frame.Visible = false
@@ -568,16 +528,17 @@ local function buildHint()
 	ui.hint = make("TextLabel", {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -150),
-		Size = UDim2.fromOffset(0, 30),
+		Size = UDim2.fromOffset(0, 36),
 		AutomaticSize = Enum.AutomaticSize.X,
-		BackgroundColor3 = UI.Ink,
+		BackgroundColor3 = Gui.CARD,
 		BackgroundTransparency = 0.15,
+		BorderSizePixel = 0,
 		TextColor3 = UI.Chalk,
-		Font = Enum.Font.GothamBold,
-		TextSize = 15,
+		FontFace = Gui.display(),
+		TextSize = 19,
 		Visible = false,
 	}, gui)
-	corner(ui.hint, 15)
+	corner(ui.hint, 6)
 end
 
 ------------------------------------------------------------------------------------------
@@ -621,18 +582,18 @@ local function tagFor(model)
 		Size = UDim2.fromOffset(28, 18),
 		BackgroundColor3 = UI.Chalk,
 		TextColor3 = UI.Ink,
-		Font = Enum.Font.GothamBlack,
-		TextSize = 12,
+		FontFace = Gui.display(Enum.FontWeight.Heavy),
+		TextSize = 14,
 		LayoutOrder = 1,
 	}, row)
-	corner(badge, 5)
+	corner(badge, 4)
 	local name = make("TextLabel", {
 		AutomaticSize = Enum.AutomaticSize.X,
 		Size = UDim2.fromOffset(0, 18),
 		BackgroundTransparency = 1,
 		TextColor3 = UI.Chalk,
-		Font = Enum.Font.GothamBlack,
-		TextSize = 13,
+		FontFace = Gui.display(Enum.FontWeight.Heavy),
+		TextSize = 16,
 		LayoutOrder = 2,
 	}, row)
 	stroke(name, 1.5, UI.Ink)
@@ -712,10 +673,12 @@ end
 
 local function buildAbility()
 	local f = panel(gui, {
+		Name = "Ability",
 		Position = UDim2.fromOffset(12, 12),
 		Size = UDim2.fromOffset(250, 66),
 		Visible = false,
 	})
+	edge(f)
 	local name = label(f, {
 		Text = "",
 		Font = Enum.Font.GothamBlack,
@@ -1016,49 +979,50 @@ local RAIL = {
 local function buildRail()
 	local rail = make("Frame", {
 		Name = "ControlRail",
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 12, 0.56, 0),
-		Size = UDim2.fromOffset(124, #RAIL * 34),
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 12, 1, -12),
+		Size = UDim2.fromOffset(150, #RAIL * 38),
 		BackgroundTransparency = 1,
 		Visible = false,
 	}, gui)
 	ui.railScale = make("UIScale", {}, rail)
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Vertical,
-		VerticalAlignment = Enum.VerticalAlignment.Center,
-		Padding = UDim.new(0, 4),
+		VerticalAlignment = Enum.VerticalAlignment.Bottom,
+		Padding = UDim.new(0, 5),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, rail)
 	local slots = {}
 	for i, def in ipairs(RAIL) do
 		-- a compact pill: key badge + action name
 		local b = make("TextButton", {
-			Size = UDim2.fromOffset(124, 30),
+			Name = def.action,
+			Size = UDim2.fromOffset(150, 33),
 			BackgroundColor3 = UI.Ink,
-			BackgroundTransparency = 0.25,
+			BackgroundTransparency = 0.3,
 			AutoButtonColor = false,
 			Text = "",
 			LayoutOrder = i,
 		}, rail)
-		corner(b, 8)
-		local ring = make("UIStroke", { Thickness = 1.5, Color = UI.Chalk, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+		corner(b, 6)
+		local ring = make("UIStroke", { Thickness = 1, Color = UI.Chalk, Transparency = 0.7, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
 		local badge = make("TextLabel", {
-			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.new(0, 4, 0.5, 0),
-			Size = UDim2.fromOffset(34, 22),
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -5, 0.5, 0),
+			Size = UDim2.fromOffset(36, 23),
 			BackgroundColor3 = UI.Chalk,
 			TextColor3 = UI.Ink,
-			Font = Enum.Font.GothamBlack,
-			TextSize = 11,
+			FontFace = Gui.display(Enum.FontWeight.Heavy),
+			TextSize = 14,
 			Text = def.key,
 		}, b)
-		corner(badge, 5)
+		corner(badge, 4)
 		local name = label(b, {
 			Text = def.action,
 			Font = Enum.Font.GothamBlack,
-			TextSize = 13,
-			Size = UDim2.new(1, -46, 1, 0),
-			Position = UDim2.fromOffset(44, 0),
+			TextSize = 17,
+			Size = UDim2.new(1, -52, 1, 0),
+			Position = UDim2.fromOffset(12, 0),
 		})
 		-- mouse users can click the rail too
 		b.MouseButton1Down:Connect(function()
@@ -1118,16 +1082,18 @@ local function updateRail()
 		sl.name.Text = namer and namer(ctx) or (action == "SlideFeint" and "Slide" or action)
 		if live[action] then
 			sl.ring.Color = def.color
-			sl.ring.Thickness = 2.5
+			sl.ring.Thickness = 2
 			sl.ring.Transparency = 0
-			sl.button.BackgroundColor3 = def.color:Lerp(UI.Ink, 0.55)
+			sl.button.BackgroundColor3 = def.color:Lerp(UI.Ink, 0.6)
 			sl.badge.BackgroundColor3 = def.color
+			sl.name.TextColor3 = UI.Chalk
 		else
 			sl.ring.Color = UI.Chalk
-			sl.ring.Thickness = 1.5
-			sl.ring.Transparency = 0.6
+			sl.ring.Thickness = 1
+			sl.ring.Transparency = 0.7
 			sl.button.BackgroundColor3 = UI.Ink
 			sl.badge.BackgroundColor3 = UI.Chalk
+			sl.name.TextColor3 = UI.Fog
 		end
 	end
 end
@@ -1137,8 +1103,8 @@ end
 ------------------------------------------------------------------------------------------
 
 local function buildContinue()
-	local f = panel(gui, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.58), Size = UDim2.fromOffset(520, 190), Visible = false })
-	stroke(f, 2, UI.Spark)
+	local f = panel(gui, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.58), Size = UDim2.fromOffset(540, 200), Visible = false })
+	edge(f, Gui.SIGNAL, 0.1)
 	ui.againScale = make("UIScale", {}, f)
 	local title = label(f, { Text = "Keep playing?", Font = Enum.Font.GothamBlack, TextSize = 24, Size = UDim2.new(1, -24, 0, 30), Position = UDim2.fromOffset(12, 10), TextXAlignment = Enum.TextXAlignment.Center })
 	local offer = label(f, { Text = "", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = UI.Fog, TextWrapped = true, RichText = true, Size = UDim2.new(1, -32, 0, 40), Position = UDim2.fromOffset(16, 44), TextXAlignment = Enum.TextXAlignment.Center })
@@ -1184,8 +1150,8 @@ end
 ------------------------------------------------------------------------------------------
 
 local function buildCoach()
-	local f = panel(gui, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 60), Size = UDim2.fromOffset(360, 196), Visible = false })
-	stroke(f, 2, UI.Spark)
+	local f = panel(gui, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 104), Size = UDim2.fromOffset(360, 196), Visible = false })
+	edge(f, Gui.SIGNAL, 0.1)
 	ui.coachScale = make("UIScale", {}, f)
 	local head = label(f, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 13, TextColor3 = UI.Spark, Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 10) })
 	local title = label(f, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 22, Size = UDim2.new(1, -24, 0, 28), Position = UDim2.fromOffset(12, 28) })
@@ -1263,29 +1229,37 @@ local SETTINGS = {
 	{ key = "shake", text = "Camera shake" },
 }
 
+-- A round button with a Toolbox icon and a caption under it, top right (The Spike's corner).
+local function roundButton(name, iconKey, x)
+	local b = make("TextButton", { Name = name, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, x, 0, 6), Size = UDim2.fromOffset(70, 80), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, gui)
+	local disc = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0), Size = UDim2.fromOffset(54, 54), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.25, BorderSizePixel = 0 }, b)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, disc)
+	local ring = make("UIStroke", { Color = UI.Chalk, Thickness = 2, Transparency = 0.15, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, disc)
+	Gui.iconImage(disc, iconKey, 28, UI.Chalk, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+	local cap = label(b, { Text = name, Font = Enum.Font.GothamBlack, TextSize = 15, Size = UDim2.new(1, 30, 0, 18), Position = UDim2.new(0, -15, 0, 58), TextXAlignment = Enum.TextXAlignment.Center })
+	stroke(cap, 1.5, UI.Ink)
+	b.MouseEnter:Connect(function()
+		ring.Color = Gui.SIGNAL
+		if Gui.onHover then
+			Gui.onHover()
+		end
+	end)
+	b.MouseLeave:Connect(function()
+		ring.Color = UI.Chalk
+	end)
+	return b, cap
+end
+
 local function buildCorner()
-	local timeout = button(gui, "Timeout", {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -60, 0, 12),
-		Size = UDim2.fromOffset(120, 36),
-		BackgroundColor3 = UI.Ink,
-		Visible = false,
-	})
-	stroke(timeout, 2, UI.InkSoft)
+	local timeout, timeoutCap = roundButton("Timeout", "IconTimeout", -84)
+	timeout.Visible = false
 	timeout.MouseButton1Click:Connect(function()
 		click()
 		mods.ActionController.press("Timeout")
 	end)
 	-- forfeit: tap once to arm, again within 3 seconds to give up the match
-	local forfeit = button(gui, "Forfeit", {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -188, 0, 12),
-		Size = UDim2.fromOffset(100, 36),
-		BackgroundColor3 = UI.Ink,
-		TextSize = 14,
-		Visible = false,
-	})
-	stroke(forfeit, 2, UI.InkSoft)
+	local forfeit, forfeitCap = roundButton("Forfeit", "IconForfeit", -156)
+	forfeit.Visible = false
 	forfeit.MouseButton1Click:Connect(function()
 		click()
 		if ui.forfeitArmed and os.clock() - ui.forfeitArmed < 3 then
@@ -1296,39 +1270,47 @@ local function buildCorner()
 		end
 	end)
 	ui.forfeit = forfeit
-	local gear = button(gui, "⚙", {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 12),
-		Size = UDim2.fromOffset(40, 36),
-		BackgroundColor3 = UI.Ink,
-		TextSize = 20,
-	})
-	stroke(gear, 2, UI.InkSoft)
+	ui.forfeitCap = forfeitCap
+	local gear = roundButton("Settings", "IconSettings", -12)
 
+	-- the settings panel: a dark hairline card, one switch per setting
 	local sp = panel(gui, {
+		Name = "Settings",
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 56),
-		Size = UDim2.fromOffset(300, 30 + #SETTINGS * 40),
+		Position = UDim2.new(1, -12, 0, 92),
+		Size = UDim2.fromOffset(360, 64 + #SETTINGS * 50),
 		Visible = false,
 		ZIndex = 5,
 	})
-	label(sp, { Text = "Settings", Font = Enum.Font.GothamBlack, TextSize = 16, Size = UDim2.new(1, -20, 0, 24), Position = UDim2.fromOffset(12, 6), ZIndex = 5 })
+	sp.BackgroundTransparency = 0.05
+	edge(sp, Gui.HAIRLINE, 0.3)
+	label(sp, { Text = "Settings", Font = Enum.Font.GothamBlack, TextSize = 26, Size = UDim2.new(1, -32, 0, 30), Position = UDim2.fromOffset(16, 10), ZIndex = 5 })
+	Gui.plate(sp, { Size = UDim2.fromOffset(56, 5), Position = UDim2.fromOffset(18, 44), ZIndex = 5 }, Gui.SIGNAL)
 	local toggles = {}
 	for i, s in ipairs(SETTINGS) do
-		local b = button(sp, "", {
-			Size = UDim2.new(1, -20, 0, 34),
-			Position = UDim2.fromOffset(10, 30 + (i - 1) * 40),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextSize = 14,
-			Font = Enum.Font.GothamBold,
+		local b = make("TextButton", {
+			Name = s.key,
+			Size = UDim2.new(1, -24, 0, 44),
+			Position = UDim2.fromOffset(12, 60 + (i - 1) * 50),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 0.95,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
 			ZIndex = 5,
-		})
-		make("UIPadding", { PaddingLeft = UDim.new(0, 10) }, b)
+		}, sp)
+		corner(b, 6)
+		label(b, { Text = s.text, Font = Enum.Font.GothamBlack, TextSize = 18, Size = UDim2.new(1, -90, 1, 0), Position = UDim2.fromOffset(12, 0), ZIndex = 5 })
+		-- a switch: signal yellow with the knob right when on
+		local track = make("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(54, 28), BorderSizePixel = 0, ZIndex = 5 }, b)
+		corner(track, 14)
+		local knob = make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Size = UDim2.fromOffset(22, 22), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 6 }, track)
+		corner(knob, 11)
 		local function refresh()
 			local v = State.settings[s.key]
 			local on = v == true or (type(v) == "number" and v > 0)
-			b.Text = s.text .. ": " .. (on and "on" or "off")
-			b.BackgroundColor3 = on and UI.InkSoft or Color3.fromRGB(28, 30, 50)
+			track.BackgroundColor3 = on and Gui.SIGNAL or Color3.fromRGB(64, 68, 86)
+			knob.Position = on and UDim2.new(1, -25, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)
 		end
 		b.MouseButton1Click:Connect(function()
 			click()
@@ -1346,10 +1328,11 @@ local function buildCorner()
 	gear.MouseButton1Click:Connect(function()
 		click()
 		sp.Visible = not sp.Visible
-		sp.Position = UDim2.new(1, -12, 0, 56)
+		sp.Position = UDim2.new(1, -12, 0, 92)
 		gui.DisplayOrder = 10
 	end)
 	ui.timeout = timeout
+	ui.timeoutCap = timeoutCap
 	ui.gear = gear
 	ui.settings = sp
 end
@@ -1383,21 +1366,21 @@ local function updateTimeout()
 	local f = ui.forfeit
 	f.Visible = show and State.phase() ~= "MatchEnd"
 	if ui.forfeitArmed and os.clock() - ui.forfeitArmed < 3 then
-		f.Text = "Sure?"
-		f.TextColor3 = UI.Whistle
+		ui.forfeitCap.Text = "Sure?"
+		ui.forfeitCap.TextColor3 = UI.Whistle
 	else
 		ui.forfeitArmed = nil
-		f.Text = "Forfeit"
-		f.TextColor3 = UI.Fog
+		ui.forfeitCap.Text = "Forfeit"
+		ui.forfeitCap.TextColor3 = UI.Chalk
 	end
 	if show then
 		local left = State.timeouts(State.myTeam)
 		if State.match.timeoutPending then
-			b.Text = "Timeout called"
-			b.TextColor3 = UI.Spark
+			ui.timeoutCap.Text = "Called"
+			ui.timeoutCap.TextColor3 = Gui.SIGNAL
 		else
-			b.Text = "Timeout (" .. left .. ")"
-			b.TextColor3 = left > 0 and UI.Chalk or UI.Fog
+			ui.timeoutCap.Text = "Timeout " .. left
+			ui.timeoutCap.TextColor3 = left > 0 and UI.Chalk or UI.Fog
 		end
 	end
 end
@@ -1417,57 +1400,70 @@ local COLS = {
 	{ "VP", 0.87, 0.12 },
 }
 
+-- The results: a dark hairline card with halftone, the winner on a slanted plate in their colour
+-- across its top edge, the MVP, a row per player and your rewards along the bottom.
 local function buildResults()
 	local f = panel(gui, {
+		Name = "Results",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.52),
-		Size = UDim2.fromOffset(720, 400),
+		Position = UDim2.fromScale(0.5, 0.55),
+		Size = UDim2.fromOffset(880, 460),
 		Visible = false,
 	})
-	stroke(f, 2, UI.InkSoft)
-	local title = label(f, {
+	f.BackgroundTransparency = 0.06
+	edge(f, Gui.HAIRLINE, 0.3)
+	Gui.halftone(f, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.55, 0, 0, 180), ImageColor3 = Gui.CHALK, ImageTransparency = 0.95 })
+	local plate = Gui.plate(f, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -30), Size = UDim2.fromOffset(480, 66), ZIndex = 2 }, Gui.SIGNAL)
+	local title = label(plate, {
 		Text = "",
-		Font = Enum.Font.Bangers,
-		TextSize = 46,
-		Size = UDim2.new(1, 0, 0, 56),
-		Position = UDim2.fromOffset(0, 8),
+		Font = Enum.Font.GothamBlack,
+		TextSize = 50,
+		TextColor3 = UI.Chalk,
+		Size = UDim2.fromScale(1, 1),
 		TextXAlignment = Enum.TextXAlignment.Center,
+		ZIndex = 3,
 	})
-	stroke(title, 3, UI.Ink)
+	stroke(title, 2.5, UI.Ink)
 	local mvp = label(f, {
 		Text = "",
 		Font = Enum.Font.GothamBlack,
-		TextSize = 15,
-		TextColor3 = UI.Spark,
-		Size = UDim2.new(1, 0, 0, 20),
-		Position = UDim2.fromOffset(0, 62),
+		TextSize = 20,
+		TextColor3 = Gui.SIGNAL,
+		Size = UDim2.new(1, 0, 0, 24),
+		Position = UDim2.fromOffset(0, 50),
 		TextXAlignment = Enum.TextXAlignment.Center,
 	})
 	local mine = label(f, {
 		Text = "",
-		Font = Enum.Font.GothamBold,
-		TextSize = 14,
+		Font = Enum.Font.GothamBlack,
+		TextSize = 19,
 		TextColor3 = UI.Mint,
 		RichText = true,
-		Size = UDim2.new(1, 0, 0, 18),
-		Position = UDim2.new(0, 0, 1, -28),
+		Size = UDim2.new(1, 0, 0, 24),
+		Position = UDim2.new(0, 0, 1, -38),
 		TextXAlignment = Enum.TextXAlignment.Center,
 	})
-	local list = make("Frame", { Size = UDim2.new(1, -40, 1, -136), Position = UDim2.fromOffset(20, 96), BackgroundTransparency = 1 }, f)
-	make("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, list)
-	ui.results = { frame = f, title = title, mvp = mvp, list = list, mine = mine }
+	local list = make("Frame", { Size = UDim2.new(1, -48, 1, -140), Position = UDim2.fromOffset(24, 86), BackgroundTransparency = 1 }, f)
+	make("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	ui.results = { frame = f, plate = plate, title = title, mvp = mvp, list = list, mine = mine }
 end
 
 local function resultRow(values, color, order, header)
-	local row = make("Frame", { Size = UDim2.new(1, 0, 0, 24), BackgroundTransparency = 1, LayoutOrder = order }, ui.results.list)
+	local row = make("Frame", { Size = UDim2.new(1, 0, 0, header and 22 or 32), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = header and 1 or 0.95, BorderSizePixel = 0, LayoutOrder = order }, ui.results.list)
+	if not header then
+		corner(row, 5)
+		-- a slim tab in the player's team colour
+		make("Frame", { Size = UDim2.new(0, 4, 1, 0), BackgroundColor3 = color, BorderSizePixel = 0 }, row)
+	end
 	for i, c in ipairs(COLS) do
 		label(row, {
 			Text = tostring(values[i] or ""),
 			Font = header and Enum.Font.GothamBold or Enum.Font.GothamBlack,
-			TextSize = header and 12 or 14,
+			TextSize = header and 14 or 19,
 			TextColor3 = header and UI.Fog or (i == 1 and color or UI.Chalk),
-			Size = UDim2.new(c[3], 0, 1, 0),
-			Position = UDim2.new(c[2], 0, 0, 0),
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Size = UDim2.new(c[3], i == 1 and -12 or 0, 1, 0),
+			Position = UDim2.new(c[2], i == 1 and 12 or 0, 0, 0),
 			TextXAlignment = i == 1 and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center,
 		})
 	end
@@ -1481,7 +1477,7 @@ local function showResults(a)
 		end
 	end
 	r.title.Text = teamName(a.winner) .. " win"
-	r.title.TextColor3 = teamColor(a.winner)
+	Gui.tint(r.plate, teamColor(a.winner))
 	r.mvp.Text = a.mvpName and ("MVP " .. a.mvpName) or ""
 	for _, e in ipairs(a.results or {}) do
 		if e.id == a.mvpId and e.mvpBonus then
@@ -1615,7 +1611,7 @@ local function buildRotation()
 		Size = UDim2.fromOffset(460, 64 + 3 * 46),
 		Visible = false,
 	})
-	stroke(f, 2, UI.InkSoft)
+	edge(f)
 	local title = label(f, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 16, Size = UDim2.new(1, -24, 0, 22), Position = UDim2.fromOffset(12, 8) })
 	label(f, {
 		Text = "Rotation order. Serve picks who serves next; Up and Down change the order.",
