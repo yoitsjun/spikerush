@@ -132,10 +132,10 @@ def room(x, wet=0.1):
 
 
 def bump():
-    # forearm pass: a dense "thock" with a little skin slap on top
-    body = thump(210, 110, 0.16, 1.0)
-    skin = clap(0.06, 1200, 5000, 2, 0.003) * 0.45
-    return room(drive(mix(body, skin, low(noise(0.05), 900) * env(0.05, 0.001) * 0.4), 1.6), 0.08)
+    # forearm pass: a deep, dull "thock" (the weight sits at 60-130 Hz) with a soft skin slap
+    body = mix(thump(150, 72, 0.2, 1.1), thump(80, 45, 0.16, 1.0))
+    skin = clap(0.06, 700, 7000, 2, 0.003) * 0.55
+    return room(drive(mix(body, skin, low(noise(0.06), 700) * env(0.06, 0.001) * 0.35), 1.7), 0.07)
 
 
 def receive_perfect():
@@ -203,9 +203,15 @@ def azure_release():
 
 
 def boom():
-    # the jump: a heavy whump and a gust of air
-    gust = band(noise(0.3), 200, 2500) * env(0.3, 0.004, 0.12) * 0.6
-    return room(drive(mix(thump(80, 32, 0.45, 1.4), gust), 2.0), 0.1)
+    # the jump: a tiny crack, then a deep sub whump (60-125 Hz carries it) that bounces once
+    # and rumbles out over half a second; only a whisper of air on top
+    crack = band(noise(0.03), 900, 7000) * env(0.03, 0.0003, 0.012) * 0.9
+    knock = thump(320, 170, 0.12, 0.7)
+    sub = thump(100, 42, 0.6, 1.5)
+    bounce = delay(thump(85, 45, 0.35, 0.6), 0.11)
+    rumble = low(noise(0.6), 160) * env(0.6, 0.02, 0.35, 4) * 0.5
+    gust = band(noise(0.35), 300, 4000) * env(0.35, 0.004, 0.14) * 0.7
+    return room(drive(mix(crack, knock, sub, bounce, rumble, gust), 2.2), 0.1)
 
 
 def impact_frame():
@@ -223,8 +229,11 @@ def whoosh():
 
 
 def block():
-    # hands on the ball at the net: a flat, hard slap
-    return room(drive(mix(clap(0.12, 700, 6000, 2, 0.003) * 1.2, thump(200, 110, 0.18, 0.9)), 1.8), 0.1)
+    # hands on the ball at the net: a wide, hard slap with air on top and weight underneath
+    slap = clap(0.14, 400, 9000, 3, 0.004) * 0.75
+    sizzle = band(noise(0.12), 7000, 18000) * env(0.12, 0.0005, 0.06, 6) * 0.6
+    knock = thump(620, 360, 0.06, 0.5)
+    return room(drive(mix(slap, sizzle, knock, thump(140, 78, 0.2, 1.0), thump(85, 48, 0.18, 0.9)), 1.8), 0.1)
 
 
 def stuff():
@@ -289,7 +298,36 @@ def timeout():
 
 
 def ui_click():
-    return ping(2100, 0.03, 1.0, 9)
+    # a crisp tap: a bright tick (about 3.9 kHz) with air above it and a light body under it
+    click = high(noise(0.025), 700) * env(0.025, 0.0002, 0.009, 7) * 1.5
+    tick = ping(3900, 0.03, 0.25, 9)
+    air = high(noise(0.015), 9000) * env(0.015, 0.0002, 0.006) * 1.0
+    body = thump(420, 260, 0.03, 0.12)
+    # 6 ms of lead-in: the export's 4 ms fade-in would otherwise eat the attack
+    return delay(mix(click, tick, air, body), 0.006)
+
+
+def ui_open():
+    # a panel or screen opening: a quick mid swish (500 Hz-4 kHz) that swells and fades
+    dur = 0.2
+    t = t_axis(dur)
+    shape = np.sin(np.pi * np.clip(t / dur, 0, 1)) ** 1.5
+    swish = mix(band(noise(dur), 450, 5000), high(noise(dur), 8000) * 0.12)
+    return mix(swish * shape * 0.8, delay(ping(1900, 0.08, 0.15, 6), 0.05))
+
+
+def ui_select():
+    # a tab or toggle: a clean two-note blip around 1.65 kHz
+    return mix(ui_click() * 0.35, ping(1650, 0.06, 0.8, 7), ping(1100, 0.04, 0.15, 8), delay(ping(2475, 0.05, 0.5, 8), 0.035))
+
+
+def ui_confirm():
+    # buy, equip, claim: a high sparkle chirp (6-8 kHz) over a soft tick
+    dur = 0.16
+    chirp = sweep_sine(5200, 8200, dur) * env(dur, 0.003, dur, 5) * 0.35
+    glint = high(noise(dur), 6500) * env(dur, 0.002, 0.06, 6) * 0.3
+    pop = mix(thump(260, 120, 0.09, 2.6), band(noise(0.07), 300, 1000) * env(0.07, 0.001, 0.03) * 1.6)
+    return mix(ui_click() * 0.6, pop, delay(mix(chirp, glint), 0.02))
 
 
 def point():
@@ -328,20 +366,28 @@ def rally_cry():
     return room(mix(thump(90, 40, 0.5, 1.3), clap(0.14, 600, 5000, 3, 0.006) * 0.7, horn), 0.16)
 
 
-def crowd_bed(dur, seed_shift=0.0):
+def crowd_bed(dur, seed_shift=0.0, body_gain=2.4):
+    """A warm arena crowd: many voices whose weight sits around 1 kHz with a body at 60-250 Hz
+    (a hall full of people), rolling off above 3-4 kHz. Each voice band has its own chatter."""
     t = t_axis(dur)
+    local = np.random.default_rng(int(7 + seed_shift * 13))
     y = np.zeros(len(t))
-    for i in range(10):
-        lo = 250 + i * 180
-        voice = band(noise(dur), lo, lo * 1.8, 2)
-        mod = 0.5 + 0.5 * np.sin(2 * np.pi * (0.2 + 0.13 * i) * t + i + seed_shift)
-        y += voice * mod
+    # vowel-ish formant bands, most energy 600-1500 Hz
+    for i, (lo, hi, g) in enumerate([(380, 560, 0.45), (480, 800, 0.9), (650, 1100, 1.0), (900, 1500, 1.0), (1300, 2200, 0.75), (1900, 3200, 0.45)]):
+        voice = band(noise(dur), lo, hi, 2)
+        rate = 3.0 + 1.1 * i  # syllable-rate chatter
+        chatter = 0.6 + 0.4 * np.sin(2 * np.pi * rate * t + local.uniform(0, 6.28))
+        swell = 0.75 + 0.25 * np.sin(2 * np.pi * (0.15 + 0.07 * i) * t + i + seed_shift)
+        y += voice * chatter * swell * g
+    body = band(noise(dur), 70, 170, 2) * body_gain  # the room and the stamping under the voices
+    air = band(noise(dur), 4000, 9000, 2) * 0.035  # breath and claps on top
+    y = low(y + body, 6000, 2) + air
     return y
 
 
 def crowd_loop():
     dur = 8.0
-    y = crowd_bed(dur + 1.0)
+    y = crowd_bed(dur + 1.0, 0.0, 1.2)
     # seamless: crossfade the extra second into the start
     n, f = int(dur * SR), int(1.0 * SR)
     head, tail = y[:n].copy(), y[n : n + f]
@@ -351,10 +397,12 @@ def crowd_loop():
 
 
 def crowd_cheer():
-    dur = 2.6
+    # a cheer: the crowd swells in (0.6 s), roars for about a second, then settles (1.8 s)
+    dur = 3.4
     t = t_axis(dur)
-    shape = np.clip(t / 0.25, 0, 1) * np.exp(-1.2 * np.clip(t - 0.4, 0, None))
-    whoo = sum(np.sin(2 * np.pi * (380 + 40 * i) * t + i) * 0.04 for i in range(6)) * shape
+    shape = np.clip(t / 0.6, 0, 1) ** 1.5 * np.where(t < 1.6, 1.0, np.exp(-1.7 * (t - 1.6)))
+    whoo = sum(np.sin(2 * np.pi * (330 + 55 * i) * t + i) * 0.05 for i in range(7))
+    whoo = low(whoo, 1500) * shape
     return crowd_bed(dur, 2.0) * shape + whoo
 
 
@@ -436,9 +484,12 @@ RECIPES = {
     "ImpactFrame": impact_frame,
     "Blades": blades,
     "RallyCry": rally_cry,
+    "UIOpen": ui_open,
+    "UISelect": ui_select,
+    "UIConfirm": ui_confirm,
 }
 
-PEAK = {"CrowdLoop": 0.5, "Music": 0.7, "UIClick": 0.5, "CrowdGasp": 0.6, "Timeout": 0.45, "Whistle": 0.6}
+PEAK = {"CrowdLoop": 0.5, "Music": 0.7, "UIClick": 0.5, "UIOpen": 0.4, "UISelect": 0.45, "UIConfirm": 0.5, "CrowdGasp": 0.6, "Timeout": 0.45, "Whistle": 0.6}
 
 
 def main():

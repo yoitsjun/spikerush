@@ -70,7 +70,7 @@ Particle textures for the built-in effects are in `Assets.Images` (`Spark`, `Smo
 
 ### Sounds: `Assets.Sounds.<Key>` or `ToolboxAssets.Sounds.<Key>`
 
-Since the 2022 audio privacy change, a sound only plays in your game if it's public on the Creator Store (Roblox's own sound library is) or you uploaded it yourself. The 26 original sounds in `assets/sfx` are the default plan; the Toolbox is good for the crowd and the music.
+Since the 2022 audio privacy change, a sound only plays in your game if it's public on the Creator Store (Roblox's own sound library is) or you uploaded it yourself. The 31 original sounds in `assets/sfx` are the default plan; the Toolbox is good for the crowd and the music.
 
 | Key | Search for |
 |---|---|

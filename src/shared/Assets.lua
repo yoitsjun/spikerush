@@ -70,6 +70,9 @@ Assets.Sounds = {
 	ImpactFrame = "",
 	Blades = "", -- Counter Edge: blades out and back in
 	RallyCry = "",
+	UIOpen = "", -- a panel or screen opening (a quick swish)
+	UISelect = "", -- a tab or toggle (a clean blip)
+	UIConfirm = "", -- buy, equip, claim (a sparkle over a soft pop)
 }
 
 -- Built-in client sounds (they ship with every Roblox install), pitched and distorted as stand-ins.
@@ -131,6 +134,12 @@ Assets.Fallback = {
 	RallyCry = {
 		{ id = PING, speed = 0.55, volume = 0.7 },
 		{ id = LAND, speed = 0.5, volume = 1.6, distort = 0.4 },
+	},
+	UIOpen = { id = LUNGE, speed = 1.8, volume = 0.3 },
+	UISelect = { id = PING, speed = 1.6, volume = 0.35 },
+	UIConfirm = {
+		{ id = PING, speed = 2.6, volume = 0.3 },
+		{ id = PING, speed = 3.4, volume = 0.2, delay = 0.04 },
 	},
 }
 
