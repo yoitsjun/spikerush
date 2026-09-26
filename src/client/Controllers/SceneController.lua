@@ -632,6 +632,8 @@ end
 
 local SHOTS = {
 	home = { from = HOME + Vector3.new(0.4, 4.2, -8.5), to = HOME + Vector3.new(2.2, 3.7, 7), fov = 42 },
+	-- the Players screens: the same room, turned so your avatar stands in the left third
+	roster = { from = HOME + Vector3.new(-1.6, 4.2, -8.5), to = HOME + Vector3.new(-1.2, 3.7, 7), fov = 42 },
 	recruit = { from = GYM + Vector3.new(1, 5.2, -30), to = GYM + Vector3.new(9.5, 4.8, -11), fov = 40 },
 	ceiling = { from = GYM + Vector3.new(0, 8, 8), to = GYM + Vector3.new(0, 50, 34), fov = 62 },
 	lineup = { from = GYM + Vector3.new(0, 9.5, 12), to = GYM + Vector3.new(0, 18, 88), fov = 58 },

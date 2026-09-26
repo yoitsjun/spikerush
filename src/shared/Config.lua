@@ -569,10 +569,10 @@ Config.Abilities = {
 Config.AbilityOrder = { "Thunder", "Azure", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter" }
 
 Config.Roles = {
-	WS = { Name = "Wing spiker", Short = "WS" },
-	SE = { Name = "Setter", Short = "SE" },
-	MB = { Name = "Middle blocker", Short = "MB" },
-	Solo = { Name = "Solo", Short = "SO" },
+	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },
+	SE = { Name = "Setter", Short = "SE", Blurb = "Runs the offence: quick feet and a solid defence, and every second touch goes up for a hitter." },
+	MB = { Name = "Middle blocker", Short = "MB", Blurb = "Guards the net: the tallest player, first to the block and fast on quick sets." },
+	Solo = { Name = "Solo", Short = "SO", Blurb = "Covers the whole court alone in 1v1." },
 }
 
 Config.Match = {

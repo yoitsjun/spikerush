@@ -13,6 +13,7 @@
 --   ("autoroll", banner) / ("stop")  -> spin x1 until a Legendary or better (or out of VP)
 --   ("autosell", rarity, on)         -> pulls of that rarity turn straight into VP
 --   ("equip", kind, key)             -> equip an unlocked style, colour, trail or score effect
+--   ("favorite", charId, on)         -> star or unstar a character (the Players screen's filter)
 --   ("buy", packIndex, "VP"|"Gold")  -> Studio only: grant a pack whose product id isn't set yet
 -- Your character locks while you're in a match, so prediction always matches the server.
 -- VP and Gold packs are Developer Products granted in MarketplaceService.ProcessReceipt.
@@ -83,7 +84,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false } }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false } }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -142,6 +143,13 @@ local function sanitizeProfile(data)
 	end
 	if type(data.char) == "string" and out.owned.Char[data.char] then
 		out.char = data.char
+	end
+	if type(data.fav) == "table" then
+		for id, v in pairs(data.fav) do
+			if v == true and Roster.get(id) then
+				out.fav[id] = true
+			end
+		end
 	end
 	out.freeSpins = math.clamp(math.floor(tonumber(data.freeSpins) or 0), 0, 1000)
 	out.winStreak = math.max(0, math.floor(tonumber(data.winStreak) or 0))
@@ -235,6 +243,7 @@ local function save(plr, force)
 		owned = profile.owned,
 		equip = profile.equip,
 		char = profile.char,
+		fav = profile.fav,
 		autoSell = profile.autoSell,
 		receipts = profile.receipts,
 	}
@@ -370,6 +379,7 @@ function ProfileService.snapshot(plr)
 		owned = owned,
 		equip = table.clone(profile.equip),
 		char = ProfileService.character(plr).Id,
+		fav = table.clone(profile.fav or {}),
 		autoSell = table.clone(profile.autoSell),
 		autoRolling = profile.autoRolling and profile.autoRolling.banner or nil,
 		dev = profile.dev or nil,
@@ -695,6 +705,14 @@ local function onRequest(plr, kind, a, b, c)
 			reg.TeamService.swapCharacter(plr) -- same spot and role, new character
 		else
 			ProfileService.applyActive(plr)
+		end
+		push(plr)
+	elseif kind == "favorite" then
+		local c = Roster.get(a)
+		if c then
+			profile.fav = profile.fav or {}
+			profile.fav[c.Id] = b == true or nil
+			dirty[plr] = true
 		end
 		push(plr)
 	elseif kind == "equip" then

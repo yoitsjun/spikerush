@@ -471,7 +471,11 @@ function Gui.cardButton(parent, props)
 	end
 	local edge = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.15, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
 	local scale = make("UIScale", { Scale = 1 }, b)
+	-- a button switched off (Gui.enable) stays dim under the pointer
 	b.MouseEnter:Connect(function()
+		if not b.Active then
+			return
+		end
 		edge.Thickness = 2
 		edge.Transparency = 0
 		b.BackgroundTransparency = 0.15
@@ -482,11 +486,13 @@ function Gui.cardButton(parent, props)
 	b.MouseLeave:Connect(function()
 		edge.Thickness = 1
 		edge.Transparency = 0.15
-		b.BackgroundTransparency = 0.3
+		b.BackgroundTransparency = b.Active and 0.3 or 0.65
 		scale.Scale = 1
 	end)
 	b.MouseButton1Down:Connect(function()
-		scale.Scale = 0.97
+		if b.Active then
+			scale.Scale = 0.97
+		end
 	end)
 	b.MouseButton1Up:Connect(function()
 		scale.Scale = 1
@@ -650,6 +656,162 @@ function Gui.halftone(parent, props)
 		im[k] = v
 	end
 	return im
+end
+
+------------------------------------------------------------------------------------------
+-- roster pieces: tier badges, square buttons, text tabs, filter chips
+------------------------------------------------------------------------------------------
+
+-- A tier badge: a dark disc ringed in the tier's colour with the tier in it, and "MAX" under it
+-- once a character is fully upgraded. Returns the frame and set(tier, color, maxed).
+function Gui.tierBadge(parent, size, props)
+	local f = make("Frame", { Size = UDim2.fromOffset(size, size), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.12, BorderSizePixel = 0 }, parent)
+	for k, v in pairs(props or {}) do
+		f[k] = v
+	end
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, f)
+	local ring = make("UIStroke", { Thickness = math.max(2, size * 0.065), ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, f)
+	local tier = Gui.label(f, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = math.floor(size * 0.46), Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = f.ZIndex })
+	local maxed = Gui.label(f, {
+		Text = "MAX",
+		display = true,
+		weight = Enum.FontWeight.Heavy,
+		TextSize = math.floor(size * 0.24),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, -math.floor(size * 0.12)),
+		Size = UDim2.new(1, 0, 0, math.floor(size * 0.28)),
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextStrokeTransparency = 0.4,
+		Visible = false,
+		ZIndex = f.ZIndex,
+	})
+	local function set(text, color, isMax)
+		tier.Text = text
+		tier.TextColor3 = color
+		ring.Color = color
+		maxed.TextColor3 = color
+		maxed.Visible = isMax == true
+		tier.Position = isMax and UDim2.fromOffset(0, -math.floor(size * 0.06)) or UDim2.new()
+	end
+	return f, set
+end
+
+-- A square hairline button with a big glyph ("+", "-"). Gui.enable dims it when it can't act.
+function Gui.squareButton(parent, glyph, props)
+	local b = Gui.cardButton(parent, props)
+	local l = Gui.label(b, { Text = glyph, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+	return b, l
+end
+
+function Gui.enable(button, label, on)
+	button.Active = on
+	button.AutoButtonColor = false
+	if label then
+		label.TextTransparency = on and 0 or 0.7
+	end
+	button.BackgroundTransparency = on and 0.3 or 0.65
+end
+
+-- Text tabs over a hairline: the active tab in signal yellow with a slanted bar under it.
+-- Returns the frame and set(activeKey); onPick(key) on a press.
+function Gui.tabs(parent, items, props, onPick)
+	local f = make("Frame", { BackgroundTransparency = 1 }, parent)
+	for k, v in pairs(props or {}) do
+		f[k] = v
+	end
+	make("Frame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.new(1, 0, 0, 1),
+		BackgroundColor3 = Gui.HAIRLINE,
+		BackgroundTransparency = 0.55,
+		BorderSizePixel = 0,
+	}, f)
+	local tabs = {}
+	for i, it in ipairs(items) do
+		local b = make("TextButton", {
+			Name = tostring(it.key),
+			BackgroundTransparency = 1,
+			Text = "",
+			AutoButtonColor = false,
+			Position = UDim2.fromScale((i - 1) / #items, 0),
+			Size = UDim2.new(1 / #items, 0, 1, 0),
+		}, f)
+		local l = Gui.label(b, { Text = it.text, display = true, TextSize = 24, Size = UDim2.new(1, 0, 1, -8), TextXAlignment = Enum.TextXAlignment.Center })
+		local bar = Gui.plate(b, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.new(0.62, 0, 0, 5) }, Gui.SIGNAL)
+		b.MouseEnter:Connect(function()
+			if not bar.Visible then
+				l.TextColor3 = Gui.CHALK
+				if Gui.onHover then
+					Gui.onHover()
+				end
+			end
+		end)
+		b.MouseLeave:Connect(function()
+			if not bar.Visible then
+				l.TextColor3 = Gui.DIM
+			end
+		end)
+		b.MouseButton1Click:Connect(function()
+			onPick(it.key)
+		end)
+		tabs[it.key] = { label = l, bar = bar }
+	end
+	local function set(active)
+		for key, t in pairs(tabs) do
+			local on = key == active
+			t.label.TextColor3 = on and Gui.SIGNAL or Gui.DIM
+			t.bar.Visible = on
+		end
+	end
+	return f, set
+end
+
+-- Filter chips in a row (widths per item, default 72): dark rounded pills, the active one
+-- filled signal yellow. Returns the frame and set(activeKey); onPick(key) on a press.
+function Gui.chips(parent, items, props, onPick)
+	local f = make("Frame", { BackgroundTransparency = 1 }, parent)
+	for k, v in pairs(props or {}) do
+		f[k] = v
+	end
+	make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 8),
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, f)
+	local chips = {}
+	for i, it in ipairs(items) do
+		local b = make("TextButton", {
+			Name = tostring(it.key),
+			Size = UDim2.new(0, it.width or 72, 1, 0),
+			BackgroundColor3 = Color3.fromRGB(38, 42, 58),
+			BackgroundTransparency = 0.15,
+			BorderSizePixel = 0,
+			Text = "",
+			AutoButtonColor = false,
+			LayoutOrder = i,
+		}, f)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, b)
+		local l = Gui.label(b, { Text = it.text, display = true, TextSize = 21, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+		b.MouseEnter:Connect(function()
+			if Gui.onHover then
+				Gui.onHover()
+			end
+		end)
+		b.MouseButton1Click:Connect(function()
+			onPick(it.key)
+		end)
+		chips[it.key] = { button = b, label = l }
+	end
+	local function set(active)
+		for key, c in pairs(chips) do
+			local on = key == active
+			c.button.BackgroundColor3 = on and Gui.SIGNAL or Color3.fromRGB(38, 42, 58)
+			c.label.TextColor3 = on and Gui.LINE or Gui.CHALK
+		end
+	end
+	return f, set
 end
 
 -- Number with thousands separators: 18435 -> "18,435".

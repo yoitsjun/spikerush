@@ -182,6 +182,13 @@ Assets.Images = {
 	IconLocker = "11955919597", -- decal 11955919656
 	IconHelp = "546164656", -- decal 546164659
 	IconBack = "116379345467715", -- decal 106533782606560
+	-- the four stats, favourites and locked characters (same filled style)
+	IconAttack = "132570476091718", -- decal 119691290898756 (flame)
+	IconDefense = "7461510428", -- decal 7461510456 (shield)
+	IconSpeed = "90651561026782", -- decal 135031436615807 (runner)
+	IconJump = "13751812696", -- decal 13751812742 (leap)
+	IconStar = "93992148478224", -- decal 109164246035556
+	IconLock = "18854796316", -- decal 18854796355
 	-- a right triangle (right angle bottom-left): mirrored, the slanted ends of every plate
 	Slant = "2288884279", -- decal 2288884281
 	Halftone = "102527515036737", -- decal 124271316176270: a halftone dot fade

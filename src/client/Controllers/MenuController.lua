@@ -382,6 +382,66 @@ local function goRecruit()
 	MenuController.go("recruit")
 end
 
+-- The currencies in a row: icon, amount, and a "+" to the Shop for V Points (Gold is earned).
+local function currencyStrip(parent, props)
+	local cur = make("Frame", { Size = UDim2.fromOffset(460, 40), BackgroundTransparency = 1 }, parent)
+	for k, v in pairs(props or {}) do
+		cur[k] = v
+	end
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, cur)
+	local function currency(order, iconFn)
+		iconFn(cur, 30).LayoutOrder = order
+		local amount = Gui.label(cur, { Text = "0", display = true, TextSize = 26, TextStrokeTransparency = 0.6, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 36), LayoutOrder = order + 1 })
+		local plus = make("TextButton", { Text = "+", FontFace = Gui.display(), TextSize = 32, TextColor3 = Gui.SIGNAL, BackgroundTransparency = 1, Size = UDim2.fromOffset(26, 36), LayoutOrder = order + 2 }, cur)
+		return amount, plus
+	end
+	local vp, vpPlus = currency(1, Gui.icon.vp)
+	make("Frame", { Size = UDim2.fromOffset(14, 1), BackgroundTransparency = 1, LayoutOrder = 4 }, cur)
+	local gold, goldPlus = currency(5, Gui.icon.gold)
+	goldPlus.Visible = false
+	onClick(vpPlus, function()
+		MenuController.go("shop")
+	end)
+	ui.currencies = ui.currencies or {}
+	table.insert(ui.currencies, { vp = vp, gold = gold })
+	return cur
+end
+
+-- The top of the main screens (Shop, Players, Locker, Ranks), as on Home: the currencies top
+-- left under Roblox's own buttons (placeHeaders moves them), the nav across the top with this
+-- screen lit (Ranks joins it here), and Settings and Help at the top right, in the nav's row so
+-- they stay clear of the panels below.
+local MAIN_TABS = { { "IconHome", "Home", "home" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" }, { "IconRanks", "Ranks", "ranks" } }
+
+local function mainChrome(p, active)
+	local strip = currencyStrip(p, { Position = UDim2.fromOffset(M, 24) })
+	ui.strips = ui.strips or {}
+	table.insert(ui.strips, strip)
+	local nav = make("Frame", { Name = "Nav", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 18), Size = UDim2.fromOffset(#MAIN_TABS * 96 + (#MAIN_TABS - 1) * 14, 74), BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), SortOrder = Enum.SortOrder.LayoutOrder }, nav)
+	for i, e in ipairs(MAIN_TABS) do
+		local b = navItem(nav, e[1], e[2], { LayoutOrder = i }, e[3] == active)
+		onClick(b, function()
+			if e[3] ~= active then
+				MenuController.go(e[3])
+			end
+		end)
+	end
+	local side = make("Frame", { Name = "Side", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 18), Size = UDim2.fromOffset(2 * 96 + 6, 74), BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Right, SortOrder = Enum.SortOrder.LayoutOrder }, side)
+	for i, e in ipairs({ { "IconHelp", "Help", "help" }, { "IconSettings", "Settings", "settings" } }) do
+		local b = navItem(side, e[1], e[2], { LayoutOrder = i })
+		onClick(b, function()
+			if e[3] == "settings" then
+				mods.UIController.toggleSettings(b.AbsolutePosition.Y + b.AbsoluteSize.Y + 6)
+			else
+				ui.help.root.Visible = true
+			end
+		end)
+	end
+	return nav, side
+end
+
 -- Home: the club room behind a match-day overlay. Profile and currencies top left, the nav
 -- across the top, shortcuts down the right, the featured recruit and your record on the left,
 -- a tip at the bottom, and Recruit Player and the big slanted Match plate bottom right.
@@ -468,7 +528,7 @@ local function buildHome()
 
 	-- the nav across the top
 	local tabs = { { "IconHome", "Home", "home" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" } }
-	local nav = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 18), Size = UDim2.fromOffset(#tabs * 96 + (#tabs - 1) * 14, 74), BackgroundTransparency = 1 }, p)
+	local nav = make("Frame", { Name = "Nav", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 18), Size = UDim2.fromOffset(#tabs * 96 + (#tabs - 1) * 14, 74), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), SortOrder = Enum.SortOrder.LayoutOrder }, nav)
 	for i, e in ipairs(tabs) do
 		local b = navItem(nav, e[1], e[2], { LayoutOrder = i }, e[3] == "home")
@@ -480,7 +540,7 @@ local function buildHome()
 	end
 
 	-- shortcuts down the right
-	local side = make("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 18), Size = UDim2.fromOffset(96, 3 * 80), BackgroundTransparency = 1 }, p)
+	local side = make("Frame", { Name = "Side", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 18), Size = UDim2.fromOffset(96, 3 * 80), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, side)
 	for i, e in ipairs({ { "IconSettings", "Settings", "settings" }, { "IconRanks", "Ranks", "ranks" }, { "IconHelp", "Help", "help" } }) do
 		local b = navItem(side, e[1], e[2], { LayoutOrder = i })
@@ -680,6 +740,11 @@ local function placeHeaders()
 	end
 	for _, back in ipairs(ui.headers or {}) do
 		back.Position = UDim2.fromOffset(x, 64)
+	end
+	-- the main screens' currencies (and a player page's back arrow) sit under Roblox's buttons
+	local top = math.max(24, GuiService:GetGuiInset().Y / s + 12)
+	for _, strip in ipairs(ui.strips or {}) do
+		strip.Position = UDim2.fromOffset(M, top)
 	end
 end
 
@@ -1618,18 +1683,50 @@ local function playSequence(reveal)
 end
 
 ------------------------------------------------------------------------------------------
--- Players: pick who you play and spend Gold on their stats
+-- Players: the roster as cards (filter by role, favourites only, sort by tier or name), and a
+-- page per player with its Growth (Gold on the four stats) and Information (its ability, its
+-- role and its build's numbers). Laid out like The Spike's player screens.
 ------------------------------------------------------------------------------------------
 
-local function sortedRoster(prof)
+local rosterRole = "All" -- All, WS, MB, SE
+local rosterFav = false -- favourites only
+local rosterSort = "Tier" -- Tier or Name
+local playerTab = "Growth" -- the player page's tab: Growth or Info
+local statStep = Config.Upgrades.Steps[1] -- the player page's + and - move a stat by this much
+
+local function favs(prof)
+	return prof.fav or {}
+end
+
+-- Points bought above each stat's starting value, and whether all four sit at their ceilings.
+local function upgradeState(c, levels)
+	local bought, maxed = 0, true
+	for _, stat in ipairs(Config.Stats.Order) do
+		local base = Characters.baseStat(c, stat)
+		local cur = levels and levels[stat] or base
+		bought = bought + math.max(0, cur - base)
+		if cur < c[stat] then
+			maxed = false
+		end
+	end
+	return bought, maxed
+end
+
+local function rosterList(prof)
+	local fav = favs(prof)
 	local list = {}
 	for _, c in ipairs(Roster) do
-		table.insert(list, c)
+		if (rosterRole == "All" or c.Role == rosterRole) and (not rosterFav or fav[c.Id]) then
+			table.insert(list, c)
+		end
 	end
 	table.sort(list, function(a, b)
 		local oa, ob = owns(prof, "Char", a.Id), owns(prof, "Char", b.Id)
 		if oa ~= ob then
 			return oa
+		end
+		if rosterSort == "Name" then
+			return a.Name < b.Name
 		end
 		local ta, tb = Characters.tierIndex(a.Tier) or 0, Characters.tierIndex(b.Tier) or 0
 		if ta ~= tb then
@@ -1640,190 +1737,487 @@ local function sortedRoster(prof)
 	return list
 end
 
-local function buildPlayers()
-	local p = page("players")
-	header(p, "Players")
+-- Card art: your own avatar in its role's pose (the bow-draw for wing spikers, a block for
+-- middles, a set for setters), lit from the side like a trading card, posed once per role and
+-- cloned into each card's ViewportFrame. You play every character as yourself, so the cards show
+-- you. They exist before your avatar has loaded, so the art comes in on a later refresh.
+local function angles(x, y, z)
+	return CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
+end
 
-	-- the roster grid
-	local gridPanel = Gui.glass(p, { Position = UDim2.fromOffset(M, 136), Size = UDim2.new(0.5, -M - 12, 1, -136 - M) }, 0.2)
-	local count = text(gridPanel, { Text = "", TextSize = 15, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -32, 0, 22), Position = UDim2.fromOffset(16, 10) })
-	local grid = make("ScrollingFrame", {
-		Position = UDim2.fromOffset(12, 40),
-		Size = UDim2.new(1, -24, 1, -52),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 6,
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		CanvasSize = UDim2.new(),
-	}, gridPanel)
-	make("UIGridLayout", { CellSize = UDim2.fromOffset(138, 150), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
-	local cards = {}
-	for _, c in ipairs(Roster) do
-		local b = make("TextButton", { BackgroundColor3 = Color3.fromRGB(22, 26, 42), BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false }, grid)
-		Gui.corner(b, 10)
-		local s = Gui.stroke(b, 2, tierColor(c.Tier), 0.2, true)
-		local band = make("Frame", { Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = tierColor(c.Tier) }, b)
-		Gui.corner(band, 3)
-		local tierL = text(b, { Text = c.Tier, Font = Gui.FONT_TITLE, TextSize = 38, TextColor3 = tierColor(c.Tier), Size = UDim2.new(1, -16, 0, 44), Position = UDim2.fromOffset(10, 12) })
-		Gui.stroke(tierL, 2, Gui.INK, 0)
-		text(b, { Text = c.Name, Font = Gui.FONT_HEAVY, TextSize = 18, Size = UDim2.new(1, -16, 0, 22), Position = UDim2.fromOffset(10, 64), TextTruncate = Enum.TextTruncate.AtEnd })
-		local def = c.Ability and Config.Abilities[c.Ability]
-		text(b, { Text = roleName(c.Role), TextSize = 13, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -16, 0, 16), Position = UDim2.fromOffset(10, 88) })
-		text(b, { Text = def and def.Name or "", TextSize = 12, TextColor3 = def and def.Color or Gui.MUTED, Size = UDim2.new(1, -16, 0, 16), Position = UDim2.fromOffset(10, 106), TextTruncate = Enum.TextTruncate.AtEnd })
-		local tag = text(b, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 12, TextColor3 = Gui.INK, BackgroundTransparency = 0, BackgroundColor3 = Gui.GOLD, Size = UDim2.fromOffset(62, 20), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 14), TextXAlignment = Enum.TextXAlignment.Center, Visible = false })
-		Gui.corner(tag, 4)
-		local lock = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, Visible = false, ZIndex = 3 }, b)
-		Gui.corner(lock, 10)
-		text(lock, { Text = "Not recruited", TextSize = 13, TextColor3 = Gui.MUTED, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.new(0, 0, 1, -24), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3 })
-		onClick(b, function()
-			selectedChar = c.Id
-			MenuController.refresh()
-		end)
-		cards[c.Id] = { button = b, stroke = s, tag = tag, lock = lock }
+local PORTRAIT = {
+	-- the loading screen's bow-draw: the chest open to a side camera, the left arm pointing up
+	WS = { pose = "Cock", joints = { Waist = angles(15, -30, 0), LeftShoulder = angles(150, 0, -10), LeftElbow = angles(4, 0, 0), RightShoulder = angles(120, 0, 70), RightElbow = angles(110, 0, 0) }, look = Vector3.new(1, 0.08, 0) },
+	MB = { pose = "Block", look = Vector3.new(0.45, 0.1, -1) },
+	SE = { pose = "SetCatch", look = Vector3.new(0.9, 0.1, -0.55) },
+	Solo = { pose = "ShowReady", look = Vector3.new(0.5, 0.1, -1) },
+}
+local portraits = nil -- role -> { model, focus }
+
+local function buildPortraits()
+	local AC, SC = mods.AnimationController, mods.SceneController
+	local char = player.Character
+	if not (AC and SC and char and char:FindFirstChild("HumanoidRootPart") and player:HasAppearanceLoaded()) then
+		return nil
 	end
+	local out = {}
+	for role, def in pairs(PORTRAIT) do
+		local rig = SC.cloneAvatar(false)
+		if not rig then
+			return nil
+		end
+		local joints = {}
+		for k, v in pairs(AC.poseJoints(def.pose) or {}) do
+			joints[k] = v
+		end
+		for k, v in pairs(def.joints or {}) do
+			joints[k] = v
+		end
+		local hum = rig.model:FindFirstChildOfClass("Humanoid")
+		local standY = (hum and hum.HipHeight or 2) + rig.root.Size.Y / 2
+		AC.poseModel(rig, joints, CFrame.new(0, standY, 0))
+		out[role] = { model = rig.model, focus = Vector3.new(0, standY + 0.7, 0), look = def.look.Unit }
+	end
+	return out
+end
 
-	-- the selected character
-	local d = Gui.glass(p, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 136), Size = UDim2.new(0.5, -M - 12, 1, -136 - M) }, 0.12)
-	local name = Gui.title(d, { Text = "", TextSize = 50, Size = UDim2.new(1, -200, 0, 58), Position = UDim2.fromOffset(22, 12) })
-	local tier = text(d, { Text = "", Font = Gui.FONT_TITLE, TextSize = 64, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 6), Size = UDim2.fromOffset(140, 72), TextXAlignment = Enum.TextXAlignment.Right })
-	Gui.stroke(tier, 3, Gui.INK, 0)
-	local line = text(d, { Text = "", TextSize = 17, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -44, 0, 22), Position = UDim2.fromOffset(24, 72) })
-	local ability = text(d, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 18, Size = UDim2.new(1, -44, 0, 22), Position = UDim2.fromOffset(24, 100) })
-	local blurb = text(d, { Text = "", TextSize = 14, TextColor3 = Gui.MUTED, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -44, 0, 40), Position = UDim2.fromOffset(24, 124) })
-	local select = Gui.primary(d, "", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 92), Size = UDim2.fromOffset(170, 44), TextSize = 18 })
-	onClick(select, function()
-		if selectedChar and owns(profile(), "Char", selectedChar) then
-			Net.get("Profile"):FireServer("select", selectedChar)
-		elseif selectedChar then
-			banner = "Char"
-			recruitTab = "Player"
-			MenuController.go("recruit")
+-- Put a role's silhouette into a card's viewport (upper body, framed from the role's side).
+local function fillPortrait(vp, role)
+	local art = portraits and (portraits[role] or portraits.WS)
+	if not art or vp:FindFirstChildWhichIsA("Model") then
+		return
+	end
+	local model = art.model:Clone()
+	model.Parent = vp
+	local cam = vp.CurrentCamera or make("Camera", { FieldOfView = 38 }, vp)
+	vp.CurrentCamera = cam
+	cam.CFrame = CFrame.lookAt(art.focus + art.look * 11, art.focus)
+end
+
+-- A character card: tier-coloured card stock with print grain and a glossy diagonal, the
+-- silhouette, the tier badge and role top right, the name at the bottom, a star for favourites,
+-- a lock over players you haven't recruited.
+local function characterCard(parent, c)
+	local color = tierColor(c.Tier)
+	local b = make("TextButton", { Name = c.Id, BackgroundColor3 = color:Lerp(Color3.new(0, 0, 0), 0.52), BorderSizePixel = 0, Text = "", AutoButtonColor = false, ClipsDescendants = true }, parent)
+	make("UICorner", { CornerRadius = UDim.new(0, 6) }, b)
+	Gui.halftone(b, { Size = UDim2.fromScale(1, 1), ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 0.78 })
+	make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.74, 0.12), Size = UDim2.new(0, 56, 1.7, 0), Rotation = 32, BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.9, BorderSizePixel = 0 }, b)
+	local vp = make("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Ambient = Color3.fromRGB(150, 146, 160), LightColor = Color3.fromRGB(255, 244, 228), LightDirection = Vector3.new(-0.7, -0.8, 0.4) }, b)
+	local shade = make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0.45), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0 }, b)
+	make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) }) }, shade)
+	local _, setBadge = Gui.tierBadge(b, 46, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 8) })
+	setBadge(c.Tier, color, false)
+	Gui.label(b, { Text = c.Role, display = true, TextSize = 21, TextStrokeTransparency = 0.35, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 58), Size = UDim2.fromOffset(70, 24), TextXAlignment = Enum.TextXAlignment.Right })
+	local plus = Gui.label(b, { Text = "", display = true, TextSize = 17, TextStrokeTransparency = 0.35, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 82), Size = UDim2.fromOffset(70, 20), TextXAlignment = Enum.TextXAlignment.Right })
+	local tag = Gui.label(b, { Text = "", display = true, TextSize = 17, TextStrokeTransparency = 0.35, Position = UDim2.new(0, 10, 1, -62), Size = UDim2.new(1, -20, 0, 20) })
+	Gui.label(b, { Text = c.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextStrokeTransparency = 0.35, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.new(0, 10, 1, -42), Size = UDim2.new(1, -20, 0, 34) })
+	local star = Gui.iconImage(b, "IconStar", 22, Gui.SIGNAL, { Position = UDim2.fromOffset(8, 8), Visible = false })
+	local lock = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.42, BorderSizePixel = 0, Visible = false, ZIndex = 3 }, b)
+	Gui.iconImage(lock, "IconLock", 34, Gui.CHALK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.4), ImageTransparency = 0.2, ZIndex = 3 })
+	local edge = make("UIStroke", { Thickness = 2, Color = color, Transparency = 0.55, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+	b.MouseEnter:Connect(function()
+		edge.Transparency = 0
+		if Gui.onHover then
+			Gui.onHover()
 		end
 	end)
+	b.MouseLeave:Connect(function()
+		edge.Transparency = b:GetAttribute("Playing") and 0 or 0.55
+	end)
+	return { button = b, vp = vp, edge = edge, tag = tag, plus = plus, star = star, lock = lock, color = color, role = c.Role }
+end
 
-	local rows = {}
-	local steps = Config.Upgrades.Steps
-	for i, stat in ipairs(Config.Stats.Order) do
-		local y = 176 + (i - 1) * 86
-		local row = make("Frame", { Position = UDim2.fromOffset(22, y), Size = UDim2.new(1, -44, 0, 78), BackgroundColor3 = Color3.fromRGB(20, 24, 40), BackgroundTransparency = 0.25 }, d)
-		Gui.corner(row, 8)
-		text(row, { Text = stat, Font = Gui.FONT_HEAVY, TextSize = 18, Size = UDim2.fromOffset(100, 24), Position = UDim2.fromOffset(14, 8) })
-		local value = text(row, { Text = "", Font = Gui.FONT_NUM, TextSize = 18, Size = UDim2.fromOffset(120, 24), Position = UDim2.fromOffset(110, 8) })
-		local track = make("Frame", { Size = UDim2.new(1, -250, 0, 10), Position = UDim2.fromOffset(14, 42), BackgroundColor3 = Color3.fromRGB(44, 48, 70) }, row)
-		Gui.round(track)
-		local cap = make("Frame", { Size = UDim2.fromScale(0.8, 1), BackgroundColor3 = Color3.fromRGB(80, 86, 116) }, track)
-		Gui.round(cap)
-		local fill = make("Frame", { Size = UDim2.fromScale(0.5, 1), BackgroundColor3 = Gui.GOLD }, track)
-		Gui.round(fill)
-		local cost = text(row, { Text = "", TextSize = 13, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -250, 0, 18), Position = UDim2.fromOffset(14, 56) })
-		local buttons = {}
-		local order = {}
-		for j = #steps, 1, -1 do
-			table.insert(order, -steps[j])
-		end
-		for _, n in ipairs(steps) do
-			table.insert(order, n)
-		end
-		for k, delta in ipairs(order) do
-			local b = Gui.flat(row, (delta > 0 and "+" or "") .. tostring(delta), {
-				AnchorPoint = Vector2.new(1, 0.5),
-				Position = UDim2.new(1, -10 - (#order - k) * 38, 0.5, 0),
-				Size = UDim2.fromOffset(34, 32),
-				TextSize = 14,
-				Font = Gui.FONT_HEAVY,
-			})
-			if delta > 0 then
-				b.TextColor3 = Gui.GOLD_LIGHT
-			end
-			b.MouseButton1Click:Connect(function()
-				if selectedChar then
-					sendProfile("upgrade", selectedChar, stat, delta)
-				end
-			end)
-			buttons[delta] = b
-		end
-		rows[stat] = { value = value, cap = cap, fill = fill, cost = cost, buttons = buttons }
+local function openPlayer(id)
+	selectedChar = id
+	playerTab = "Growth"
+	MenuController.go("player")
+end
+
+local function buildPlayers()
+	local p = page("players")
+	mainChrome(p, "players")
+
+	-- the roster panel on the right: sort, favourites, roles, then the cards
+	local panel = make("Frame", {
+		Name = "Roster",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -M, 0, 110),
+		Size = UDim2.new(0.5, 0, 1, -110 - M),
+		BackgroundColor3 = Gui.CARD,
+		BackgroundTransparency = 0.22,
+		BorderSizePixel = 0,
+	}, p)
+	make("UICorner", { CornerRadius = UDim.new(0, 8) }, panel)
+	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, panel)
+	local sortB, sortL = hairButton(panel, { Name = "Sort", Position = UDim2.fromOffset(16, 14), Size = UDim2.fromOffset(176, 46) }, "", 21)
+	onClick(sortB, function()
+		rosterSort = rosterSort == "Tier" and "Name" or "Tier"
+		MenuController.refresh()
+	end)
+	local favB = Gui.cardButton(panel, { Name = "Favorites", Position = UDim2.fromOffset(202, 14), Size = UDim2.fromOffset(46, 46) })
+	local favIcon = Gui.iconImage(favB, "IconStar", 26, Gui.DIM, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+	onClick(favB, function()
+		rosterFav = not rosterFav
+		MenuController.refresh()
+	end)
+	local roleItems = { { key = "All", text = "All", width = 76 } }
+	for _, r in ipairs({ "WS", "MB", "SE" }) do
+		table.insert(roleItems, { key = r, text = Config.Roles[r].Short, width = 76 })
 	end
-	local derived = text(d, { Text = "", TextSize = 15, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -44, 0, 96), Position = UDim2.new(0, 24, 1, -108) })
-	ui.players = { count = count, cards = cards, grid = grid, name = name, tier = tier, line = line, ability = ability, blurb = blurb, select = select, rows = rows, derived = derived }
+	local _, setRole = Gui.chips(panel, roleItems, { Name = "Roles", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 14), Size = UDim2.fromOffset(4 * 76 + 24, 46) }, function(key)
+		click()
+		rosterRole = key
+		MenuController.refresh()
+	end)
+	local count = Gui.label(panel, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(18, 68), Size = UDim2.new(1, -36, 0, 20) })
+	local grid = make("ScrollingFrame", {
+		Name = "Grid",
+		Position = UDim2.fromOffset(12, 96),
+		Size = UDim2.new(1, -24, 1, -108),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 5,
+		ScrollBarImageColor3 = Gui.HAIRLINE,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(),
+	}, panel)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 4), PaddingTop = UDim.new(0, 4) }, grid)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(172, 212), CellPadding = UDim2.fromOffset(12, 12), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	local cards = {}
+	for _, c in ipairs(Roster) do
+		local card = characterCard(grid, c)
+		onClick(card.button, function()
+			openPlayer(c.Id)
+		end)
+		cards[c.Id] = card
+	end
+	local empty = Gui.label(panel, { Text = "No favourites here yet. Open a player and press Favorite.", TextSize = 18, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(40, 140), Size = UDim2.new(1, -80, 0, 60), TextXAlignment = Enum.TextXAlignment.Center, Visible = false })
+
+	-- bottom left, under your avatar: who you play now, and a way into their page
+	local now = Gui.card(p, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, M, 1, -M), Size = UDim2.fromOffset(470, 132) })
+	Gui.label(now, { Text = "Playing now", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Position = UDim2.fromOffset(122, 12), Size = UDim2.fromOffset(200, 18) })
+	local _, setNowBadge = Gui.tierBadge(now, 88, { Position = UDim2.fromOffset(18, 22) })
+	local nowName = Gui.label(now, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(120, 30), Size = UDim2.fromOffset(200, 46) })
+	local nowLine = Gui.label(now, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, RichText = true, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(122, 80), Size = UDim2.fromOffset(200, 20) })
+	local open = actionPlate(now, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 0), Size = UDim2.fromOffset(128, 48) }, "Details", 22)
+	onClick(open, function()
+		openPlayer(profile().char or player:GetAttribute("CharId"))
+	end)
+
+	ui.players = {
+		cards = cards,
+		count = count,
+		sortL = sortL,
+		favIcon = favIcon,
+		setRole = setRole,
+		empty = empty,
+		setNowBadge = setNowBadge,
+		nowName = nowName,
+		nowLine = nowLine,
+	}
 end
 
 local function refreshPlayers(prof)
 	local pl = ui.players
-	local have, total = ownedCount(prof, "Char")
-	pl.count.Text = string.format("%d of %d recruited. Gold upgrades raise each stat up to the player's ceiling.", have, total)
+	if not portraits then
+		portraits = buildPortraits()
+	end
 	local current = prof.char or player:GetAttribute("CharId")
-	selectedChar = selectedChar or current
-	for i, c in ipairs(sortedRoster(prof)) do
-		local card = pl.cards[c.Id]
-		card.button.LayoutOrder = i
-		local mine = owns(prof, "Char", c.Id)
+	local fav = favs(prof)
+	local list = rosterList(prof)
+	local shownIds = {}
+	for i, c in ipairs(list) do
+		shownIds[c.Id] = i
+	end
+	local have, total = ownedCount(prof, "Char")
+	pl.count.Text = string.format("%d of %d recruited. Showing %d.", have, total, #list)
+	pl.sortL.Text = "Sort: " .. rosterSort
+	pl.favIcon.ImageColor3 = rosterFav and Gui.SIGNAL or Gui.DIM
+	pl.setRole(rosterRole)
+	pl.empty.Visible = #list == 0
+	for id, card in pairs(pl.cards) do
+		local c = Roster.get(id)
+		local order = shownIds[id]
+		card.button.Visible = order ~= nil
+		card.button.LayoutOrder = order or 999
+		if portraits then
+			fillPortrait(card.vp, card.role)
+		end
+		local mine = owns(prof, "Char", id)
+		local bought, maxed = upgradeState(c, mine and prof.levels and prof.levels[id] or nil)
 		card.lock.Visible = not mine
-		card.tag.Visible = c.Id == current
-		card.tag.Text = "Playing"
-		card.stroke.Thickness = c.Id == selectedChar and 3 or 1.5
-		card.stroke.Color = c.Id == selectedChar and Gui.WHITE or tierColor(c.Tier)
-		card.button.BackgroundColor3 = c.Id == selectedChar and Color3.fromRGB(40, 46, 74) or Color3.fromRGB(22, 26, 42)
+		card.plus.Text = (mine and maxed) and "MAX" or (bought > 0 and ("+" .. bought) or "")
+		local playing = id == current
+		card.button:SetAttribute("Playing", playing)
+		if playing then
+			card.tag.Text = "Playing"
+			card.tag.TextColor3 = Gui.SIGNAL
+		elseif table.find(Roster.Starters, id) then
+			card.tag.Text = "Starter"
+			card.tag.TextColor3 = Gui.CHALK
+		else
+			card.tag.Text = ""
+		end
+		card.edge.Color = playing and Gui.SIGNAL or card.color
+		card.edge.Thickness = playing and 3 or 2
+		card.edge.Transparency = playing and 0 or 0.55
+		card.star.Visible = fav[id] == true
 	end
-	local c = Roster.get(selectedChar) or Roster.get(Roster.Starters[1])
-	local mine = owns(prof, "Char", c.Id)
+	local c = Roster.get(current) or Roster.get(Roster.Starters[1])
 	local def = c.Ability and Config.Abilities[c.Ability]
-	pl.name.Text = c.Name
-	pl.tier.Text = c.Tier
-	pl.tier.TextColor3 = tierColor(c.Tier)
-	pl.line.Text = string.format("%s, %d cm", roleName(c.Role), c.Height)
-	pl.ability.Text = def and def.Name or "No ability"
-	pl.ability.TextColor3 = def and def.Color or Gui.MUTED
-	pl.blurb.Text = def and def.Blurb or "Abilities come with S and S+ players."
-	if not mine then
-		pl.select.Text = "Recruit"
-	elseif c.Id == current then
-		pl.select.Text = "Playing"
-	else
-		pl.select.Text = "Play as " .. c.Name
+	local _, maxed = upgradeState(c, prof.levels and prof.levels[c.Id] or nil)
+	pl.setNowBadge(c.Tier, tierColor(c.Tier), maxed)
+	pl.nowName.Text = c.Name
+	pl.nowLine.Text = string.format("%s / %d cm%s", c.Role, c.Height, def and string.format(' / <font color="#%s">%s</font>', def.Color:ToHex(), def.Name) or "")
+end
+
+-- A player's page: back to the roster top left, your avatar in the room, and the panel on the
+-- right with the badge, name, Play and Favorite, and the Growth and Information tabs.
+local function buildPlayer()
+	local p = page("player")
+	local top = make("Frame", { Size = UDim2.fromOffset(560, 56), Position = UDim2.fromOffset(M, 24), BackgroundTransparency = 1 }, p)
+	local back = make("TextButton", { Size = UDim2.fromOffset(56, 56), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, top)
+	local arrow = Gui.iconImage(back, "IconBack", 38, Gui.CHALK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+	back.MouseEnter:Connect(function()
+		arrow.ImageColor3 = Gui.SIGNAL
+	end)
+	back.MouseLeave:Connect(function()
+		arrow.ImageColor3 = Gui.CHALK
+	end)
+	onClick(back, function()
+		MenuController.go("players")
+	end)
+	currencyStrip(top, { Position = UDim2.fromOffset(72, 8) })
+	ui.strips = ui.strips or {}
+	table.insert(ui.strips, top)
+
+	local panel = make("Frame", {
+		Name = "Detail",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -M, 0, 24),
+		Size = UDim2.new(0.5, 0, 1, -24 - M),
+		BackgroundColor3 = Gui.CARD,
+		BackgroundTransparency = 0.16,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, p)
+	make("UICorner", { CornerRadius = UDim.new(0, 8) }, panel)
+	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, panel)
+	Gui.halftone(panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.6, 0, 0, 170), ImageColor3 = Gui.CHALK, ImageTransparency = 0.95 })
+
+	-- header: the badge, the name and its line, Play and Favorite
+	local _, setBadge = Gui.tierBadge(panel, 96, { Position = UDim2.fromOffset(22, 18) })
+	local name = Gui.label(panel, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 54, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(134, 16), Size = UDim2.new(1, -134 - 206, 0, 60) })
+	local line = Gui.label(panel, { Text = "", TextSize = 19, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, RichText = true, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(136, 78), Size = UDim2.new(1, -136 - 206, 0, 24) })
+	local function squareAction(x, iconKey, caption)
+		local b = Gui.cardButton(panel, { Name = caption, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, x, 0, 18), Size = UDim2.fromOffset(88, 88) })
+		local icon = Gui.iconImage(b, iconKey, 34, Gui.CHALK, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 12) })
+		local l = Gui.label(b, { Text = caption, display = true, TextSize = 18, Position = UDim2.new(0, 0, 1, -32), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center })
+		return b, icon, l
 	end
+	local play, playIcon, playL = squareAction(-112, "IconPlayers", "Play")
+	local fav, favIcon, favL = squareAction(-16, "IconStar", "Favorite")
+	onClick(play, function()
+		local prof = profile()
+		if not selectedChar then
+			return
+		end
+		if owns(prof, "Char", selectedChar) then
+			Net.get("Profile"):FireServer("select", selectedChar)
+		else
+			goRecruit()
+		end
+	end)
+	onClick(fav, function()
+		if selectedChar then
+			Net.get("Profile"):FireServer("favorite", selectedChar, not favs(profile())[selectedChar])
+		end
+	end)
+
+	local _, setTab = Gui.tabs(panel, { { key = "Growth", text = "Growth" }, { key = "Info", text = "Information" } }, { Name = "Tabs", Position = UDim2.fromOffset(16, 120), Size = UDim2.new(1, -32, 0, 52) }, function(key)
+		click()
+		playerTab = key
+		MenuController.refresh()
+	end)
+
+	-- Growth: the four stats with their bars, + and - by the chosen step, and the build's numbers
+	local growth = make("Frame", { Position = UDim2.fromOffset(0, 184), Size = UDim2.new(1, 0, 1, -184), BackgroundTransparency = 1 }, panel)
+	Gui.label(growth, { Text = "Gold raises each stat up to this player's ceiling.", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(22, 10), Size = UDim2.new(1, -250, 0, 20) })
+	local stepItems = {}
+	for _, n in ipairs(Config.Upgrades.Steps) do
+		table.insert(stepItems, { key = n, text = "x" .. n, width = 58 })
+	end
+	local _, setStep = Gui.chips(growth, stepItems, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 2), Size = UDim2.fromOffset(#stepItems * 66, 36) }, function(key)
+		click()
+		statStep = key
+		MenuController.refresh()
+	end)
+	local rows = {}
+	for i, stat in ipairs(Config.Stats.Order) do
+		local row = make("Frame", { Position = UDim2.fromOffset(16, 50 + (i - 1) * 76), Size = UDim2.new(1, -32, 0, 68), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0 }, growth)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, row)
+		Gui.iconImage(row, "Icon" .. stat, 34, Gui.CHALK, { Position = UDim2.fromOffset(12, 17) })
+		Gui.label(row, { Text = stat, display = true, TextSize = 24, Position = UDim2.fromOffset(58, 0), Size = UDim2.fromOffset(110, 68) })
+		local cost = Gui.label(row, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(170, 10), Size = UDim2.new(1, -170 - 250, 0, 16) })
+		local track = make("Frame", { Position = UDim2.fromOffset(170, 34), Size = UDim2.new(1, -170 - 250, 0, 10), BackgroundColor3 = Color3.fromRGB(44, 48, 64), BorderSizePixel = 0 }, row)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, track)
+		local cap = make("Frame", { Size = UDim2.fromScale(0.8, 1), BackgroundColor3 = Color3.fromRGB(78, 84, 106), BorderSizePixel = 0 }, track)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, cap)
+		local fill = make("Frame", { Size = UDim2.fromScale(0.5, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, track)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, fill)
+		make("UIGradient", { Color = ColorSequence.new(Gui.SIGNAL, Color3.fromRGB(255, 150, 30)) }, fill)
+		local value = Gui.label(row, { Text = "", display = true, TextSize = 22, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -124, 0.5, 0), Size = UDim2.fromOffset(116, 30), TextXAlignment = Enum.TextXAlignment.Right })
+		local plusB, plusL = Gui.squareButton(row, "+", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -62, 0.5, 0), Size = UDim2.fromOffset(52, 52) })
+		local minusB, minusL = Gui.squareButton(row, "-", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(52, 52) })
+		plusB.MouseButton1Click:Connect(function()
+			if selectedChar and plusB.Active then
+				sendProfile("upgrade", selectedChar, stat, statStep)
+			end
+		end)
+		minusB.MouseButton1Click:Connect(function()
+			if selectedChar and minusB.Active then
+				sendProfile("upgrade", selectedChar, stat, -statStep)
+			end
+		end)
+		rows[stat] = { cost = cost, cap = cap, fill = fill, value = value, plusB = plusB, plusL = plusL, minusB = minusB, minusL = minusL }
+	end
+	-- the build's numbers, like a stat line under the bars
+	local numbers = make("Frame", { Position = UDim2.fromOffset(16, 50 + 4 * 76 + 6), Size = UDim2.new(1, -32, 0, 84), BackgroundTransparency = 1 }, growth)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, numbers)
+	local cells = {}
+	for i, key in ipairs({ "Hitting point", "Spike speed", "Team stamina", "Run speed" }) do
+		local cell = make("Frame", { Size = UDim2.new(0.25, -8, 1, 0), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0, LayoutOrder = i }, numbers)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, cell)
+		local v = Gui.label(cell, { Text = "", display = true, TextSize = 26, Position = UDim2.fromOffset(14, 10), Size = UDim2.new(1, -20, 0, 32) })
+		Gui.label(cell, { Text = key, TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(14, 46), Size = UDim2.new(1, -20, 0, 18) })
+		local sub = Gui.label(cell, { Text = "", TextSize = 12, TextColor3 = Gui.DIM, TextTransparency = 0.3, Position = UDim2.fromOffset(14, 62), Size = UDim2.new(1, -20, 0, 16) })
+		cells[key] = { value = v, sub = sub }
+	end
+	local notes = Gui.label(growth, { Text = "", TextSize = 15, TextColor3 = Gui.CHALK, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(22, 50 + 4 * 76 + 100), Size = UDim2.new(1, -44, 0, 44) })
+
+	-- Information: the ability (for S and S+ players), the role, and the recruit facts
+	local info = make("Frame", { Position = UDim2.fromOffset(0, 184), Size = UDim2.new(1, 0, 1, -184), BackgroundTransparency = 1, Visible = false }, panel)
+	local ab = make("Frame", { Position = UDim2.fromOffset(16, 12), Size = UDim2.new(1, -32, 0, 196), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0 }, info)
+	make("UICorner", { CornerRadius = UDim.new(0, 6) }, ab)
+	Gui.label(ab, { Text = "Ability", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(200, 18) })
+	local gem = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(46, 72), Size = UDim2.fromOffset(40, 40), Rotation = 45, BorderSizePixel = 0 }, ab)
+	make("UIStroke", { Color = Color3.new(1, 1, 1), Transparency = 0.4, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, gem)
+	local abName = Gui.label(ab, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, Position = UDim2.fromOffset(84, 50), Size = UDim2.new(1, -250, 0, 42) })
+	local abKind = Gui.plate(ab, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 54), Size = UDim2.fromOffset(170, 34) }, Gui.SIGNAL)
+	local abKindL = Gui.label(abKind, { Text = "", display = true, TextSize = 18, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+	local abText = Gui.label(ab, { Text = "", TextSize = 18, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(18, 104), Size = UDim2.new(1, -36, 0, 84) })
+	local roleBox = make("Frame", { Position = UDim2.fromOffset(16, 220), Size = UDim2.new(1, -32, 0, 110), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0 }, info)
+	make("UICorner", { CornerRadius = UDim.new(0, 6) }, roleBox)
+	Gui.label(roleBox, { Text = "Role", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(200, 18) })
+	local roleName2 = Gui.label(roleBox, { Text = "", display = true, TextSize = 28, Position = UDim2.fromOffset(18, 32), Size = UDim2.new(1, -36, 0, 34) })
+	local roleText = Gui.label(roleBox, { Text = "", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(18, 68), Size = UDim2.new(1, -36, 0, 40) })
+	local facts = make("Frame", { Position = UDim2.fromOffset(16, 342), Size = UDim2.new(1, -32, 0, 84), BackgroundTransparency = 1 }, info)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, facts)
+	local factCells = {}
+	for i, key in ipairs({ "Height", "Rank", "Per recruit", "Status" }) do
+		local cell = make("Frame", { Size = UDim2.new(0.25, -8, 1, 0), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0, LayoutOrder = i }, facts)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, cell)
+		local v = Gui.label(cell, { Text = "", display = true, TextSize = 26, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(14, 12), Size = UDim2.new(1, -20, 0, 32) })
+		Gui.label(cell, { Text = key, TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(14, 50), Size = UDim2.new(1, -20, 0, 18) })
+		factCells[key] = v
+	end
+
+	ui.player = {
+		setBadge = setBadge,
+		name = name,
+		line = line,
+		playIcon = playIcon,
+		playL = playL,
+		favIcon = favIcon,
+		favL = favL,
+		setTab = setTab,
+		growth = growth,
+		info = info,
+		setStep = setStep,
+		rows = rows,
+		cells = cells,
+		notes = notes,
+		gem = gem,
+		abName = abName,
+		abKind = abKind,
+		abKindL = abKindL,
+		abText = abText,
+		roleName = roleName2,
+		roleText = roleText,
+		facts = factCells,
+	}
+end
+
+local function refreshPlayer(prof)
+	local d = ui.player
+	local current = prof.char or player:GetAttribute("CharId")
+	local c = Roster.get(selectedChar) or Roster.get(current) or Roster.get(Roster.Starters[1])
+	selectedChar = c.Id
+	local mine = owns(prof, "Char", c.Id)
 	local levels = mine and prof.levels and prof.levels[c.Id] or nil
+	local _, maxed = upgradeState(c, levels)
+	local color = tierColor(c.Tier)
+	local def = c.Ability and Config.Abilities[c.Ability]
+	d.setBadge(c.Tier, color, mine and maxed)
+	d.name.Text = c.Name
+	d.line.Text = string.format("%s / %d cm%s", c.Role, c.Height, def and string.format(' / <font color="#%s">%s</font>', def.Color:ToHex(), def.Name) or "")
+	if not mine then
+		d.playL.Text = "Recruit"
+		d.playIcon.ImageColor3 = Gui.CHALK
+	elseif c.Id == current then
+		d.playL.Text = "Playing"
+		d.playIcon.ImageColor3 = Gui.SIGNAL
+	else
+		d.playL.Text = "Play"
+		d.playIcon.ImageColor3 = Gui.CHALK
+	end
+	local isFav = favs(prof)[c.Id] == true
+	d.favIcon.ImageColor3 = isFav and Gui.SIGNAL or Gui.CHALK
+	d.favL.TextColor3 = isFav and Gui.SIGNAL or Gui.CHALK
+	d.setTab(playerTab)
+	d.growth.Visible = playerTab == "Growth"
+	d.info.Visible = playerTab == "Info"
+	d.setStep(statStep)
+
+	-- Growth
 	local gold = prof.gold or 0
 	local free = prof.dev == true
+	local span = Config.Stats.Ref - Config.Stats.Min
 	local built = {}
-	for stat, row in pairs(pl.rows) do
+	for stat, row in pairs(d.rows) do
 		local base = Characters.baseStat(c, stat)
 		local cur = levels and levels[stat] or base
 		local ceil = c[stat]
 		built[stat] = cur
-		local span = Config.Stats.Ref - Config.Stats.Min
-		row.value.Text = string.format("%d / %d", cur, ceil)
+		row.value.Text = cur >= ceil and string.format("MAX / %d", ceil) or string.format("%d / %d", cur, ceil)
+		row.value.TextColor3 = cur >= ceil and Gui.SIGNAL or Gui.CHALK
 		row.cap.Size = UDim2.fromScale(math.clamp((ceil - Config.Stats.Min) / span, 0, 1), 1)
 		row.fill.Size = UDim2.fromScale(math.clamp((cur - Config.Stats.Min) / span, 0, 1), 1)
-		row.fill.BackgroundColor3 = cur >= ceil and tierColor(c.Tier) or Gui.GOLD
 		if not mine then
-			row.cost.Text = "Recruit this player to upgrade them."
+			row.cost.Text = "Recruit this player to upgrade them"
 		elseif cur >= ceil then
-			row.cost.Text = "Maxed"
+			row.cost.Text = "At the ceiling"
 		elseif free then
 			row.cost.Text = "Free for developers"
 		else
-			row.cost.Text = string.format("Next point %s Gold    To max %s Gold", Gui.num(Characters.pointCost(c, cur)), Gui.num(Characters.upgradeCost(c, cur, ceil)))
+			row.cost.Text = string.format("Next point %s Gold. To max %s Gold", Gui.num(Characters.pointCost(c, cur)), Gui.num(Characters.upgradeCost(c, cur, ceil)))
 		end
-		for delta, b in pairs(row.buttons) do
-			local ok
-			if delta > 0 then
-				ok = mine and cur < ceil and (free or gold >= Characters.pointCost(c, cur))
-			else
-				ok = mine and cur > base
-			end
-			b.Active = ok
-			b.AutoButtonColor = false
-			b.TextTransparency = ok and 0 or 0.6
-			b.BackgroundTransparency = ok and 0.15 or 0.6
-		end
+		Gui.enable(row.plusB, row.plusL, mine and cur < ceil and (free or gold >= Characters.pointCost(c, cur)))
+		Gui.enable(row.minusB, row.minusL, mine and cur > base)
 	end
 	local s = Characters.derive(c.Tier, { Height = c.Height, Attack = built.Attack, Defense = built.Defense, Speed = built.Speed, Jump = built.Jump })
 	local maxS = Characters.derive(Characters.fromRoster(c, "max"))
 	local H = Config.Hits
+	d.cells["Hitting point"].value.Text = string.format("%.2f m", s.ContactMaxM)
+	d.cells["Hitting point"].sub.Text = string.format("maxed %.2f m", maxS.ContactMaxM)
+	d.cells["Spike speed"].value.Text = string.format("%d-%d", math.floor(H.SpikeKmhMin * s.Power), math.floor(H.SpikeKmhMax * s.Power))
+	d.cells["Spike speed"].sub.Text = "km/h"
+	d.cells["Team stamina"].value.Text = tostring(math.floor(s.StaminaPool + 0.5))
+	d.cells["Team stamina"].sub.Text = "guard pool"
+	d.cells["Run speed"].value.Text = string.format("%.1f", s.WalkSpeed)
+	d.cells["Run speed"].sub.Text = "studs a second"
 	local notes = {}
-	table.insert(notes, string.format("Hitting point <b>%.2f m</b> (maxed %.2f m)    Spike speed <b>%d to %d km/h</b>", s.ContactMaxM, maxS.ContactMaxM, math.floor(H.SpikeKmhMin * s.Power), math.floor(H.SpikeKmhMax * s.Power)))
-	table.insert(notes, string.format("Team stamina <b>%d</b>    Run speed <b>%.1f</b>", math.floor(s.StaminaPool + 0.5), s.WalkSpeed))
 	if c.Ability == "Thunder" then
 		table.insert(notes, s.ContactMaxM >= H.ThunderHeight and '<font color="#FFE14D">Thunder unlocked: spikes above 4.00 m turn into lightning.</font>' or "Thunder needs a 4.00 m hitting point: upgrade Jump.")
 	end
@@ -1832,7 +2226,41 @@ local function refreshPlayers(prof)
 	elseif c.Jump >= Config.Player.BoomJumpMin then
 		table.insert(notes, string.format("Boom jumps unlock at %d Jump.", Config.Player.BoomJumpMin))
 	end
-	pl.derived.Text = table.concat(notes, "\n")
+	d.notes.Text = table.concat(notes, "  ")
+
+	-- Information
+	if def then
+		d.gem.BackgroundColor3 = def.Color
+		d.gem.Visible = true
+		d.abName.Text = def.Name
+		d.abName.TextColor3 = def.Color
+		d.abKind.Visible = true
+		d.abKindL.Text = def.Active and string.format("Active: Q, %d s cooldown", def.Cooldown or 0) or "Passive"
+		d.abText.Text = def.Blurb or ""
+		d.abText.TextColor3 = Gui.CHALK
+	else
+		d.gem.Visible = false
+		d.abName.Text = "No ability"
+		d.abName.TextColor3 = Gui.DIM
+		d.abKind.Visible = false
+		d.abText.Text = "Abilities come with S and S+ players. Recruit one to see theirs here."
+		d.abText.TextColor3 = Gui.DIM
+	end
+	local role = Config.Roles[c.Role]
+	d.roleName.Text = role and role.Name or c.Role
+	d.roleText.Text = role and role.Blurb or ""
+	local odds = 0
+	for _, row in ipairs(Spins.table("Char")) do
+		if row.item.Key == c.Id then
+			odds = row.chance
+		end
+	end
+	d.facts.Height.Text = string.format("%d cm", c.Height)
+	d.facts.Rank.Text = c.Tier
+	d.facts.Rank.TextColor3 = color
+	d.facts["Per recruit"].Text = table.find(Roster.Starters, c.Id) and "Starter" or string.format("%.2f%%", odds * 100)
+	d.facts.Status.Text = mine and "Recruited" or "Not yet"
+	d.facts.Status.TextColor3 = mine and Gui.CHALK or Gui.DIM
 end
 
 ------------------------------------------------------------------------------------------
@@ -2758,7 +3186,7 @@ end
 -- screens, scenes, refresh
 ------------------------------------------------------------------------------------------
 
-local SCENE = { home = "home", players = "home", shop = "home", ranks = "home", recruit = "gym", locker = "gym" }
+local SCENE = { home = "home", players = "home", player = "home", shop = "home", ranks = "home", recruit = "gym", locker = "gym" }
 local autoLine = ""
 
 function MenuController.applyScene()
@@ -2774,6 +3202,8 @@ function MenuController.applyScene()
 		SC.setPractice(nil)
 		if screen == "recruit" then
 			SC.shot("recruit", 0.6)
+		elseif screen == "players" or screen == "player" then
+			SC.shot("roster", 0.6) -- your avatar in the left third, clear of the panel
 		else
 			SC.shot("home", 0.6)
 		end
@@ -2827,6 +3257,8 @@ local function doRefresh()
 		ui.recruit.status.Text = prof.autoRolling and autoLine or ""
 	elseif screen == "players" then
 		refreshPlayers(prof)
+	elseif screen == "player" then
+		refreshPlayer(prof)
 	elseif screen == "locker" then
 		refreshLocker(prof)
 	elseif screen == "shop" then
@@ -2934,7 +3366,7 @@ function MenuController.init(m)
 		DisplayOrder = 20,
 		Enabled = false,
 	}, player:WaitForChild("PlayerGui"))
-	canvas = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(1600, 900), BackgroundTransparency = 1 }, gui)
+	canvas = make("Frame", { Name = "Canvas", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(1600, 900), BackgroundTransparency = 1 }, gui)
 	canvasScale = make("UIScale", {}, canvas)
 	-- soft shade at the top and bottom so text reads over any scene
 	local top = make("Frame", { Size = UDim2.new(1, 0, 0, 220), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 0 }, canvas)
@@ -2946,6 +3378,7 @@ function MenuController.init(m)
 	buildHome()
 	buildRecruit()
 	buildPlayers()
+	buildPlayer()
 	buildLocker()
 	buildShop()
 	buildRanks()
