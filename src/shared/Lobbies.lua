@@ -6,6 +6,7 @@
 --     by the host's Roblox friends; Private lobbies are listed with a lock and need the password
 --   * with "fill with bots" the host can start any time (bots take the empty spots); without it
 --     both sides have to be full
+--   * a lobby plays on the court it picked, or on the next court in the rotation
 --   * Quick Match joins the fullest open public quick lobby of that mode, or opens one that
 --     starts on its own a few seconds later
 -- It also holds the AFK rule: idle time only counts while the ball is live.
@@ -42,6 +43,7 @@ function Lobbies.settings(raw)
 		privacy = PRIVACY[raw.privacy] and raw.privacy or "Public",
 		fill = raw.fill ~= false,
 		botTier = Characters.isTier(raw.botTier) and raw.botTier or Config.Match.DefaultBotTier,
+		court = Config.Courts.List[raw.court] and raw.court or Config.Courts.Rotate,
 	}
 	if s.privacy == "Private" then
 		local pw = Lobbies.cleanPassword(raw.password)
@@ -169,7 +171,7 @@ end
 -- moves to the other side if there's room, else is dropped; never the host). Returns the
 -- dropped players.
 function Lobbies.configure(l, s)
-	l.mode, l.privacy, l.password, l.fill, l.botTier = s.mode, s.privacy, s.password, s.fill, s.botTier
+	l.mode, l.privacy, l.password, l.fill, l.botTier, l.court = s.mode, s.privacy, s.password, s.fill, s.botTier, s.court
 	local out = {}
 	for _, side in ipairs(SIDES) do
 		local i = #l[side]
@@ -203,6 +205,22 @@ function Lobbies.canStart(l)
 	return true
 end
 
+-- The court a lobby plays on: its pick, or (Rotate, and every Quick Match) the court after
+-- `last` in Config.Courts.Rotation (the first when `last` isn't in it).
+function Lobbies.courtFor(l, last)
+	local C = Config.Courts
+	if not l.quick and C.List[l.court] then
+		return l.court
+	end
+	local n = #C.Rotation
+	for i, id in ipairs(C.Rotation) do
+		if id == last then
+			return C.Rotation[i % n + 1]
+		end
+	end
+	return C.Rotation[1]
+end
+
 -- The Quick Match lobby to join for a mode: the fullest open public quick lobby with room
 -- (oldest first on a tie), or nil.
 function Lobbies.pickQuick(list, mode)
@@ -228,6 +246,7 @@ function Lobbies.summary(l, viewerId)
 		locked = l.privacy == "Private",
 		fill = l.fill,
 		botTier = l.botTier,
+		court = l.court,
 		count = Lobbies.count(l),
 		capacity = Lobbies.capacity(l),
 		state = l.state,
@@ -238,7 +257,7 @@ end
 
 -- The lobby as plain data for a teleport to its own server.
 function Lobbies.export(l)
-	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, host = l.host, hostName = l.hostName, quick = l.quick == true, Home = {}, Away = {} }
+	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, host = l.host, hostName = l.hostName, quick = l.quick == true, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(out[side], u)
@@ -253,7 +272,7 @@ function Lobbies.import(data, id)
 	if type(data) ~= "table" then
 		return nil
 	end
-	local raw = { mode = data.mode, privacy = data.privacy, fill = data.fill, botTier = data.botTier, password = data.password }
+	local raw = { mode = data.mode, privacy = data.privacy, fill = data.fill, botTier = data.botTier, court = data.court, password = data.password }
 	local s = Lobbies.settings(raw)
 	if not s then
 		raw.privacy = "Public"

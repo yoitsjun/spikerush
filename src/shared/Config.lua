@@ -606,6 +606,51 @@ Config.Lobby = {
 	ReservedServers = true,
 }
 
+-- Courts: where a match is played. The play area is the same everywhere (Config.Court); a
+-- court changes the floor paint, the surroundings, the stands, the screens and the light
+-- (ArenaBuilder draws them, CrowdController seats their crowds). A lobby picks one, or
+-- "Rotate" for the next court in Rotation; Quick Match always rotates.
+--   Stands   overrides Court.Stands for this court (Rows, EndRows, RowRise); EndRows = 0 has
+--            no end stands
+--   Crowd    how full the stands are, times Graphics.CrowdDensity*
+Config.Courts = {
+	Default = "Arena",
+	Rotate = "Rotate",
+	Rotation = { "Arena", "Beach", "Colosseum", "Nationals", "Rooftop" },
+	List = {
+		Arena = {
+			Name = "Rush Arena",
+			Blurb = "The home hall: navy stands and warm lights.",
+			Stands = {},
+			Crowd = 1,
+		},
+		Beach = {
+			Name = "Sunset Beach",
+			Blurb = "Sand, sea and a few bleachers under the palms.",
+			Stands = { Rows = 4, EndRows = 0 },
+			Crowd = 0.9,
+		},
+		Colosseum = {
+			Name = "Colosseum",
+			Blurb = "Stone tiers, arches and braziers at dusk.",
+			Stands = { Rows = 14, EndRows = 9, RowRise = 1.9 },
+			Crowd = 0.8,
+		},
+		Nationals = {
+			Name = "Nationals",
+			Blurb = "The championship hall: packed stands, bright lights.",
+			Stands = { Rows = 14, EndRows = 10 },
+			Crowd = 0.85,
+		},
+		Rooftop = {
+			Name = "Night Rooftop",
+			Blurb = "A court on the roof, the city lit up behind it.",
+			Stands = { Rows = 3, EndRows = 0 },
+			Crowd = 0.9,
+		},
+	},
+}
+
 -- Leaderboards (the Leaderboards module ranks them): global OrderedDataStores, one per stat,
 -- written from each player's career counters; a server-only board when those can't be reached.
 Config.Leaderboards = {

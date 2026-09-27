@@ -14,12 +14,14 @@ local Court = require(Shared.Court)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local Rewards = require(Shared.Rewards)
+local Lobbies = require(Shared.Lobbies)
 
 local MatchService = {}
 local reg
 local M = Config.Match
 
 MatchService.phase = "Intermission"
+MatchService.court = Config.Courts.Default -- the court the arena shows (ArenaBuilder.setCourt)
 MatchService.phaseEnd = 0
 MatchService.mode = M.DefaultTeamSize
 MatchService.scores = { Home = 0, Away = 0 }
@@ -124,6 +126,7 @@ function MatchService.state()
 		continueVote = MatchService.continueVotes and { tallyContinue() } or nil,
 		timeoutReady = MatchService.timeoutReady and { tallyReady() } or nil,
 		tutorial = l and l.tutorial or nil,
+		court = MatchService.court,
 	}
 end
 
@@ -542,6 +545,9 @@ end
 function MatchService.playMatch()
 	local TS, BS = reg.TeamService, reg.BallService
 	local lobby = MatchService.lobby
+	-- dress the arena first: players are placed on the court right after
+	MatchService.court = Lobbies.courtFor(lobby, MatchService.court)
+	reg.ArenaBuilder.setCourt(MatchService.court)
 	TS.botTier = lobby.botTier
 	TS.assign(lobby.mode, reg.LobbyService.plan(lobby))
 	TS.resetStats()
@@ -557,7 +563,7 @@ function MatchService.playMatch()
 	TS.resetPositions(MatchService.servingTeam)
 	BS.hide()
 	MatchService.setPhase("PreMatch", M.PreMatchTime)
-	MatchService.announce({ kind = "MatchStart", mode = TS.teamSize })
+	MatchService.announce({ kind = "MatchStart", mode = TS.teamSize, court = MatchService.court })
 	waitUntil(MatchService.phaseEnd)
 
 	while true do

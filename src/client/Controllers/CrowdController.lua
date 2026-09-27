@@ -1,6 +1,7 @@
--- Atmosphere, all client-side: a crowd seated on the far-side and end stands (the backdrop of
--- the side view; density scales down on mobile) that sways, then erupts for the team that
--- scored; scrolling LED ribbon boards; and the jumbotron on the far wall with the live score.
+-- Atmosphere, all client-side: a crowd seated on the court's stands (the backdrop of the side
+-- view; density scales with the court and down on mobile) that sways, then erupts for the team
+-- that scored; scrolling LED ribbon boards; and the score screens with the live score. All of it
+-- is rebuilt when the server dresses the arena as another court (the Arena's "Court" attribute).
 -- Crowd motion uses one BulkMoveTo per update.
 
 local RunService = game:GetService("RunService")
@@ -19,6 +20,8 @@ local parts, cframes = {}, {}
 local hype = { Home = 0, Away = 0 }
 local ledLabels = {}
 local jumboLabels = {}
+local guis = {} -- the SurfaceGuis on the current court's boards and screens
+local crowdFolder = nil
 local ledOffset = 0
 
 local NEUTRAL = {
@@ -52,13 +55,20 @@ local function fanPart(shape, size, color, parent)
 	return p
 end
 
-local function buildCrowd()
+local function buildCrowd(courtId)
+	if crowdFolder then
+		crowdFolder:Destroy()
+	end
+	fans, parts, cframes = {}, {}, {}
 	local folder = Instance.new("Folder")
 	folder.Name = "SpikeRushCrowd"
 	folder.Parent = workspace
+	crowdFolder = folder
+	local court = Config.Courts.List[courtId] or Config.Courts.List[Config.Courts.Default]
 	local density = State.isMobile and Config.Graphics.CrowdDensityMobile or Config.Graphics.CrowdDensityDesktop
+	density = density * (court.Crowd or 1)
 	local rng = Random.new(7)
-	for _, row in ipairs(Court.standRows()) do
+	for _, row in ipairs(Court.standRows(courtId)) do
 		local count = math.floor(row.length / 2.2)
 		for i = 0, count - 1 do
 			if rng:NextNumber() < density then
@@ -132,16 +142,23 @@ local function surface(part, face, ppStud)
 	g.Adornee = part
 	g.ResetOnSpawn = false
 	g.Parent = State.player:WaitForChild("PlayerGui")
+	table.insert(guis, g)
 	return g
 end
 
-local function tickerText()
+local function tickerText(courtId)
 	local home, away = Config.Teams.Home.Name, Config.Teams.Away.Name
-	return string.rep("Spike Rush      " .. home .. " vs " .. away .. "      ", 4)
+	local court = Config.Courts.List[courtId]
+	local where = court and (court.Name .. "      ") or ""
+	return string.rep("Spike Rush      " .. home .. " vs " .. away .. "      " .. where, 4)
 end
 
-local function buildBoards(arena)
-	local led = arena:WaitForChild("LEDBoards", 20)
+local function buildBoards(scene, courtId)
+	for _, g in ipairs(guis) do
+		g:Destroy()
+	end
+	guis, ledLabels, jumboLabels = {}, {}, {}
+	local led = scene:FindFirstChild("LEDBoards")
 	if led then
 		for _, p in ipairs(led:GetChildren()) do
 			local faceName = p:GetAttribute("Face")
@@ -163,27 +180,19 @@ local function buildBoards(arena)
 				l.TextScaled = true
 				l.TextColor3 = UI.Spark
 				l.TextXAlignment = Enum.TextXAlignment.Left
-				l.Text = tickerText()
+				l.Text = tickerText(courtId)
 				l.Parent = clip
 				table.insert(ledLabels, l)
 			end
 		end
 	end
-	local jumbo = arena:WaitForChild("Jumbotron", 20)
-	local body = jumbo and jumbo:WaitForChild("Body", 10)
-	if body then
-		local faces = { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right }
-		local faceName = body:GetAttribute("Face")
-		if faceName then
-			local ok, face = pcall(function()
-				return Enum.NormalId[faceName]
-			end)
-			if ok and face then
-				faces = { face }
-			end
-		end
-		for _, face in ipairs(faces) do
-			local g = surface(body, face, 16)
+	local jumbo = scene:FindFirstChild("Jumbotron")
+	for _, screen in ipairs(jumbo and jumbo:GetChildren() or {}) do
+		local ok, face = pcall(function()
+			return Enum.NormalId[screen:GetAttribute("Face")]
+		end)
+		if screen:IsA("BasePart") and ok and face then
+			local g = surface(screen, face, 16)
 			local bg = Instance.new("Frame")
 			bg.BackgroundColor3 = Color3.fromRGB(8, 10, 22)
 			bg.BorderSizePixel = 0
@@ -243,9 +252,35 @@ function CrowdController.init()
 		if not arena then
 			return
 		end
-		buildCrowd()
-		buildBoards(arena)
-		refreshJumbo()
+		-- the server swaps Arena.Scene, then sets the Court attribute; wait for the scene that
+		-- matches before dressing (a newer change supersedes an older wait)
+		local dressed, generation = nil, 0
+		local function dress()
+			generation = generation + 1
+			local mine = generation
+			local id = arena:GetAttribute("Court") or Config.Courts.Default
+			local scene = arena:FindFirstChild("Scene")
+			local tries = 0
+			while (not scene or scene:GetAttribute("Court") ~= id) and tries < 100 do
+				task.wait(0.1)
+				if mine ~= generation then
+					return
+				end
+				scene = arena:FindFirstChild("Scene")
+				tries = tries + 1
+			end
+			if not scene or scene == dressed then
+				return
+			end
+			dressed = scene
+			buildCrowd(id)
+			buildBoards(scene, id)
+			refreshJumbo()
+		end
+		arena:GetAttributeChangedSignal("Court"):Connect(function()
+			task.spawn(dress)
+		end)
+		dress()
 	end)
 	State.signals.Match:Connect(function()
 		refreshJumbo()

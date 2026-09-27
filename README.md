@@ -153,7 +153,9 @@ Every visual and audio slot also takes a Toolbox (Creator Store) asset, with no 
 
 Nearly every number lives in `src/shared/Config.lua`. The sections you'll touch most are `Hits` (spike speeds, depths, thunder, sets, tosses), `Stamina`, `Timeout`, `RoleTemplates` and `TierScale` (bots and the roster generator), `Stats`, `StatCurve`, `Height`, `Progression` (VP rewards), `Spins` (costs, character rarity, sell values, auto-roll), `Rarity`, `Cosmetics`, `Shop` (VP and Gold packs), `Developers`, `Abilities`, `Player` (jumps, hang time, run-up, slides, blocks), `Bots` (skill by tier) and `Match` (set targets, deuce cap). Keep `Config.Player.Gravity` in step with the Workspace gravity in `default.project.json`.
 
-To bake the generated arena into the place for hand-editing, run this in the Studio command bar in edit mode and save the place; a baked arena is kept at runtime:
+Courts live in `Config.Courts` (names, the Quick Match rotation, each court's stands and crowd) and `ArenaBuilder` (their paint, scenery and lighting). The play area is the same on every court.
+
+To bake the generated arena into the place for hand-editing, run this in the Studio command bar in edit mode and save the place; a baked arena's core is kept at runtime and its court still changes per match:
 
 ```lua
 require(game.ServerScriptService.Server.Services.ArenaBuilder).build({ bake = true })

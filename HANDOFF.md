@@ -342,6 +342,27 @@ These are the spots most likely to need attention on the first playtest:
 | AFK | Stop pressing anything for 12 s during a rally: your AI (your avatar, "(AI)") takes over and Home shows Rejoin; Rejoin puts you back at the next serve with the same stat line. Leaving mid-match leaves your AI in |
 | Quicks | Watch bot setters call quicks off good passes (the middle is up as the set goes) and middles back up the wing spiker |
 | Serve | Holding toward the net at the line doesn't walk you in; the dotted guide matches the toss; a full forward toss lands about 2.4 m ahead |
+| Courts | Each court in Create Lobby plays on that court; Rotation and Quick Match move to the next court every match; the crowd, LED tickers and courtside screens follow the court; the screens never sit under the HUD's scoreboard |
+
+### Eleventh session: courts
+
+Five courts, picked per lobby. The play area (`Config.Court`) is the same on every one; a court changes the paint, the surroundings, the stands, the score screens and the light.
+
+- **Config.Courts**: `List` (name, blurb, `Stands` overrides for `Court.Stands`, `Crowd` density), `Rotation`, `Default` and the `Rotate` pick. `Court.stands(id)` / `Court.standRows(id)` give a court's rows; ArenaBuilder builds them and CrowdController seats the crowd on the same rows.
+- **Lobbies**: a `court` setting (a court id or `Rotate`, cleaned like the rest), carried through the summary and the teleport export. `Lobbies.courtFor(l, last)` returns the lobby's pick, or the court after `last` in the rotation (Rotate, and every Quick Match). Sims cover the pick, the rotation, the per-court stands and the teleport round trip.
+- **MatchService.playMatch** dresses the arena first (`reg.ArenaBuilder.setCourt`), then places the players. `state().court` and the MatchStart announce carry it, and the "Game on!" callout names it.
+- **ArenaBuilder**: the core (Floor, Net, NetBarrier, invisible `Bounds` walls, LobbySpawn) is built once. `setCourt(id)` swaps `Arena.Scene` (a Persistent-streaming Model, since the place streams), recolours the floor and the net pads, sets the lighting, and stamps `Court` on the Arena and the Scene. The lighting takes over the place template's Atmosphere, Bloom, Sun Rays and ColorCorrection at runtime (a second Atmosphere fought the court's); the Sky stays.
+  - **Rush Arena**: the old navy hall.
+  - **Nationals**: blue court, green free zone, crimson stands, gold trim, flags, trusses, a bright white rig.
+  - **Sunset Beach**: sand, blue rope lines, aluminium bleachers, Toolbox palms, part-built umbrellas, a lifeguard tower, the sea with islands, afternoon sun.
+  - **Colosseum**: a court chalked on sand, limestone tiers up to an arcade with red banners, columns and braziers, dusk.
+  - **Night Rooftop** (original): a green court behind a parapet, bleachers under string lights, floodlights, a water tank, and a lit skyline below.
+- **Score screens**: every court puts its two screens courtside, standing on the floor in front of the far stands (`screens()`). On the far wall they sat right under the HUD's scoreboard and rode up into it as the camera climbed. The client draws on every `Jumbotron` part with a `Face` attribute.
+- **CrowdController** re-dresses on the Arena's `Court` attribute: it waits for the matching Scene, then rebuilds the crowd (the court's rows and density), the LED tickers (which now name the court) and the screens.
+- **Create Lobby** has a Court stepper (Rotation, then each court) with the court's blurb. The lobby list and your lobby's info line show the court.
+- **Toolbox**: `Assets.Toolbox.Models.PalmTree` = "Palm Tree" (`12392856366`), installed into `ToolboxAssets.Models` in Studio. **The place must be saved to keep it.** `BeachUmbrella` and `Column` are empty slots (parts are drawn instead). ArenaBuilder's `toolboxProp` scales any upright model to height.
+- Verified in a Studio playtest: every court built and screenshotted from the match camera; a Colosseum and a Beach lobby started from the lobby remote; a Quick Match rotated Arena to Beach with the right boards, screens and crowd; no errors in Output. The picker's layout was screenshotted, but its buttons were not clicked in the test (the MCP mouse tool couldn't reach them).
+- The beach sea stops short of the menu rooms (SceneController builds them at x = 1600); an island hides the rooms from the court.
 
 ## Next steps
 
@@ -352,12 +373,12 @@ Work in this order:
    - Target feel, from the owner's references: a spike is a sharp crack, then the ball's landing thump about 0.22 s later (FloorHit covers the landing); the boom jump is a sharp hit into a low rumble fading over about 1.4 s; CrowdServe is a crowd that builds over about 2 s; CrowdCheer swells, roars and settles over 3 to 4 s.
    - Menu wiring (MenuController): `onClick` always plays UIClick. Tabs, chips and `segmented` should play UISelect; confirm buttons (equip, select, buy, Start, Create, Quick Match) UIConfirm; `modal()` opening UIOpen. The recruit sequence (`playSequence`, `cinematic`, `showCard`) borrows Whoosh, Thunder, Boom, SpikeHeavy, UIClick, Point and CrowdCheer; give it its own slots (RecruitOpen, RecruitOpenGold, RecruitFly, RecruitPop, RecruitCharge, RecruitSpike, RecruitReveal, RecruitRevealGold) that fall back to the sound used now while empty.
    - Or upload the originals in `assets/sfx` (`tools/generate_sfx.py`) through Asset Manager and paste the ids into `Assets.Sounds`.
-1. **Next: courts** (the PC Claude was mid-way when the tenth session ended). Usable free models are already found: colosseum models, palm trees, bleachers and beach umbrellas.
-   - Build Beach, Colosseum and Nationals courts, plus one or two original ones.
-   - Add a court picker to Create Lobby. Quick matches rotate courts.
-   - Rebuild the arena at match start, with lighting per court.
-   - Support the crowd and scoreboard in each court's stands.
-   - Move the jumbotron so it no longer overlaps the HUD.
+1. **Courts: what's left** (the eleventh session built them; see its status entry).
+   - The owner should save the place in Studio to keep the Toolbox palm in `ToolboxAssets.Models.PalmTree`.
+   - Get the owner's screenshots of each court and adjust from their feedback (colours, prop density, the rooftop's skyline, the size of the beach islands).
+   - Click through the Create Lobby court stepper by hand once; only its layout was checked.
+   - Menu rooms under an outdoor court's lighting: the club room keeps the last court's light after a match (a sunny afternoon after Beach, dusk after Colosseum). Check it looks right, or have SceneController set its own light while the menus are up.
+   - Optional: Toolbox models for `BeachUmbrella` and `Column` (TOOLBOX.md says what failed), and a court preview image in the picker.
 2. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`. Reserved servers only work in a published game: test lobbies that teleport with two or more players in a live server.
 3. Tune the feel:
    - in `Config.Player` and `Config.Scale.JumpScale`: the jump look, run-up, air control and hang;

@@ -2572,12 +2572,23 @@ end
 ------------------------------------------------------------------------------------------
 
 local LC = Config.Lobby
-local form = { mode = 3, privacy = "Public", password = "", fill = true, botTier = Config.Match.DefaultBotTier }
+local form = { mode = 3, privacy = "Public", password = "", fill = true, botTier = Config.Match.DefaultBotTier, court = Config.Courts.Rotate }
 local matchTab = "Quick"
 local editing = false -- the host is changing their lobby's settings
 local joinTarget = nil -- a private lobby waiting for its password
 
 local PRIVACY_TEXT = { Public = "Public", Friends = "Friends only", Private = "Private" }
+-- the court picker's choices: the rotation first, then every court in rotation order
+local COURT_CHOICES = { Config.Courts.Rotate }
+for _, id in ipairs(Config.Courts.Rotation) do
+	table.insert(COURT_CHOICES, id)
+end
+
+local function courtName(id)
+	local c = Config.Courts.List[id or ""]
+	return c and c.Name or "Rotation"
+end
+
 local STATE_TEXT = { Open = "Open", Queued = "Queued", Teleporting = "Starting", Arriving = "Starting", Playing = "Playing" }
 
 -- Broadcast tabs: slanted plates, the picked one signal yellow with dark type, the rest dark with
@@ -2793,10 +2804,23 @@ local function buildMatch()
 		form.botTier = Config.Tiers[math.clamp(i + d, 1, #Config.Tiers)]
 		MenuController.refresh()
 	end)
+	formRow(create, 340, "Court")
+	local courtValue = stepper(create, { Size = UDim2.fromOffset(330, 42), Position = UDim2.fromOffset(180, 340) }, function(d)
+		local i = 1
+		for k, id in ipairs(COURT_CHOICES) do
+			if id == form.court then
+				i = k
+			end
+		end
+		form.court = COURT_CHOICES[(i - 1 + d) % #COURT_CHOICES + 1]
+		MenuController.refresh()
+	end)
+	courtValue.TextSize = 24
+	local courtNote = Gui.label(create, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(400, 20), Position = UDim2.fromOffset(180, 388) })
 	local submit, submitLabel = actionPlate(create, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(250, 58) }, "Create Lobby", 24)
 	local cancelEdit = hairButton(create, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -266, 1, 0), Size = UDim2.fromOffset(180, 58), Visible = false }, "Back to lobby")
 	onClick(submit, function()
-		local s = { mode = form.mode, privacy = form.privacy, password = form.password, fill = form.fill, botTier = form.botTier }
+		local s = { mode = form.mode, privacy = form.privacy, password = form.password, fill = form.fill, botTier = form.botTier, court = form.court }
 		if editing then
 			Net.get("Lobby"):FireServer("settings", s)
 			editing = false
@@ -2848,7 +2872,7 @@ local function buildMatch()
 	onClick(settingsB, function()
 		local mine = lobbies.mine
 		if mine then
-			form.mode, form.privacy, form.fill, form.botTier = mine.mode, mine.privacy, mine.fill, mine.botTier
+			form.mode, form.privacy, form.fill, form.botTier, form.court = mine.mode, mine.privacy, mine.fill, mine.botTier, mine.court or Config.Courts.Rotate
 			form.password = mine.password or ""
 			cpw.Text = form.password
 			editing = true
@@ -2883,6 +2907,8 @@ local function buildMatch()
 		setFill = setFill,
 		fillNote = fillNote,
 		botValue = botValue,
+		courtValue = courtValue,
+		courtNote = courtNote,
 		submit = submit,
 		submitLabel = submitLabel,
 		cancelEdit = cancelEdit,
@@ -2968,7 +2994,7 @@ local function refreshMatch()
 		if l then
 			shownRows = shownRows + 1
 			row.host.Text = l.quick and ("Quick Match " .. l.mode .. "v" .. l.mode) or (l.hostName .. "'s Lobby")
-			row.detail.Text = string.format("%dv%d   %s   %s   Bots %s", l.mode, l.mode, PRIVACY_TEXT[l.privacy] or l.privacy, l.fill and "Bots fill" or "No bots", l.botTier)
+			row.detail.Text = string.format("%dv%d   %s   %s   Bots %s   %s", l.mode, l.mode, PRIVACY_TEXT[l.privacy] or l.privacy, l.fill and "Bots fill" or "No bots", l.botTier, l.quick and "Rotation" or courtName(l.court))
 			row.count.Text = string.format("%d/%d", l.count, l.capacity)
 			row.stateLabel.Text = STATE_TEXT[l.state] or l.state
 			Gui.tint(row.state, l.state == "Open" and Color3.fromRGB(34, 150, 96) or Gui.NAVY_LIGHT)
@@ -2992,6 +3018,9 @@ local function refreshMatch()
 	Mt.fillNote.Text = form.fill and "Start any time: bots take the empty spots." or "Both teams must be full before you can start."
 	Mt.botValue.Text = form.botTier
 	Mt.botValue.TextColor3 = tierColor(form.botTier)
+	Mt.courtValue.Text = courtName(form.court)
+	local pickedCourt = Config.Courts.List[form.court]
+	Mt.courtNote.Text = pickedCourt and pickedCourt.Blurb or "A different court every match."
 	Mt.submitLabel.Text = editing and "Save settings" or "Create Lobby"
 	Mt.cancelEdit.Visible = editing
 
@@ -3002,6 +3031,7 @@ local function refreshMatch()
 			table.insert(parts, "password <b>" .. mine.password .. "</b>")
 		end
 		table.insert(parts, mine.fill and ("bots fill empty spots (level " .. mine.botTier .. ")") or "no bots")
+		table.insert(parts, mine.quick and "court rotation" or courtName(mine.court))
 		if mine.reserved then
 			table.insert(parts, "your own server")
 		end

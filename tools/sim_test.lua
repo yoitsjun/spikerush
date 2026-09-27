@@ -795,7 +795,32 @@ do
 	Lobbies.seat(tl, 1)
 	local tOk, tWhy = Lobbies.canJoin(tl, 2, nil, true)
 	check(Lobbies.visible(tl, 1, false) and not Lobbies.visible(tl, 2, true) and not tOk and tWhy == "started", "a tutorial lobby is hidden and closed to everyone else")
+	-- courts: a lobby keeps its pick, Rotate and Quick Match take the next court in the rotation
+	local CC = Config.Courts
+	local picked = Lobbies.new(30, 1, "a", Lobbies.settings({ mode = 2, court = "Beach" }))
+	local rot = Lobbies.new(31, 1, "a", Lobbies.settings({ mode = 2, court = "Moon" }))
+	local qc = Lobbies.new(32, 1, "a", Lobbies.settings({ mode = 2, court = "Beach" })); qc.quick = true
+	local seen, cur = {}, nil
+	for _ = 1, #CC.Rotation do
+		cur = Lobbies.courtFor(rot, cur)
+		seen[cur] = true
+	end
+	local allSeen = true
+	for _, id in ipairs(CC.Rotation) do
+		allSeen = allSeen and seen[id] == true and CC.List[id] ~= nil
+	end
+	check(picked.court == "Beach" and Lobbies.courtFor(picked, "Beach") == "Beach" and rot.court == CC.Rotate and allSeen
+		and Lobbies.courtFor(qc, CC.Rotation[1]) == CC.Rotation[2] and Lobbies.courtFor(rot, "Nowhere") == CC.Rotation[1],
+		"courts: a picked court sticks; Rotate and Quick Match go round every court in turn")
+	local farRows, endRows = 0, 0
+	for _, row in ipairs(Court.standRows("Beach")) do
+		if row.axis == "X" then farRows = farRows + 1 else endRows = endRows + 1 end
+	end
+	check(farRows == CC.List.Beach.Stands.Rows and endRows == 0 and #Court.standRows() == #Court.standRows(CC.Default), "courts: each court seats its own stands", string.format("beach %d far, %d end", farRows, endRows))
 	-- the teleport round trip
+	picked.Home = { 5 }
+	local pb = Lobbies.import(Lobbies.export(picked), 98)
+	check(pb.court == "Beach", "a lobby's court survives the trip to its own server")
 	local back = Lobbies.import(Lobbies.export(l), 99)
 	check(back.mode == 2 and back.password == "spike99" and back.expected[100] == "Home" and back.expected[300] ~= nil and Lobbies.count(back) == 0 and Lobbies.import("junk") == nil, "a lobby survives the trip to its own server")
 	-- AFK: idle time only builds while the ball is live; input resets it

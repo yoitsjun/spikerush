@@ -25,6 +25,9 @@
 --   ToolboxAssets.Models.BallCart     -> the ball cart in the club room and the recruit gym; any
 --        balls in it are swapped for the volleyball. Menu props are scaled and placed by their
 --        bounding box; a number attribute "Yaw" (degrees) turns one that faces another way.
+--   ToolboxAssets.Models.PalmTree, BeachUmbrella, Column -> court scenery (Beach, Colosseum);
+--        scaled to height and stood on the ground by ArenaBuilder, which draws its own from
+--        parts when a slot is empty
 --   ToolboxAssets.VFX.<Name>          -> a Part, Model or Attachment holding ParticleEmitters.
 --        Impact names: SpikeImpact, PerfectImpact, ThunderImpact, AzureImpact, BlockImpact,
 --        FloorImpact, ReceiveImpact, NetImpact, JumpBoom, GuardBreak. Each emitter fires
@@ -262,6 +265,10 @@ Assets.Toolbox = {
 		Locker = "15868311397", -- "Locker School" (ZlatanCooler12): six blue lockers
 		Bench = "5110642461", -- "Modern Bench" (smartlegoman1): wood slats on metal legs
 		BallCart = "10807459912", -- "Basketball rack" (twoborn): a two-tier ball rack
+		-- court scenery (ArenaBuilder): an empty slot draws the prop from parts
+		PalmTree = "12392856366", -- "Palm Tree" (Leandre_0311): mesh trunk and fronds on a planter
+		BeachUmbrella = "",
+		Column = "",
 	},
 	-- an effect can be one piece of a pack: "<asset id>/<path inside it>"
 	VFX = {

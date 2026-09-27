@@ -1541,7 +1541,12 @@ local function onAnnounce(a)
 			UIController.callout("Set point", teamColor(a.setPoint), teamName(a.setPoint), 1.2)
 		end
 	elseif a.kind == "MatchStart" then
-		UIController.callout("Game on!", UI.Spark, string.format("%dv%d", a.mode or 3, a.mode or 3), 1.6)
+		local court = Config.Courts.List[a.court or ""]
+		local sub = string.format("%dv%d", a.mode or 3, a.mode or 3)
+		if court then
+			sub = sub .. "   " .. court.Name
+		end
+		UIController.callout("Game on!", UI.Spark, sub, 1.6)
 	elseif a.kind == "SetStart" then
 		if (a.setNumber or 1) > 1 then
 			UIController.callout("Set " .. tostring(a.setNumber), UI.Chalk, "First to " .. tostring(a.target), 1.4)

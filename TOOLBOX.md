@@ -44,6 +44,12 @@ The front of a prop is the -Z face of its bounding box, and a bench or cart shou
 
 Filled now with "Locker School" (`15868311397`, six blue lockers), "Modern Bench" (`5110642461`, wood slats on metal legs) and "Basketball rack" (`10807459912`, a two-tier ball rack). Search for "school lockers", "locker room bench" and "ball rack" or "ball cart" to swap them.
 
+### Court scenery: `ToolboxAssets.Models.PalmTree`, `BeachUmbrella`, `Column`
+
+Props on the courts (`ArenaBuilder`): palms along Sunset Beach, umbrellas at its ends, and the columns at the corners of the Colosseum's sand. Each copy is scaled to a height (palms 24 to 34 studs, umbrellas 8, columns 22), stood on the ground and turned at random (palms, umbrellas). An empty slot draws the prop from parts.
+
+`PalmTree` is filled with "Palm Tree" (`12392856366`, a mesh trunk and fronds on a small planter). Umbrellas and columns are built from parts: the free umbrellas tried fell apart when scaled, and the column results came from spam accounts. Any model that stands upright works.
+
 ### Effects: `ToolboxAssets.VFX.<Name>`
 
 Every effect in a match is a particle kit in `src/client/Controllers/Fx.lua`, drawn with hand-made anime textures from two free Creator Store packs, "Yona VFX Pack" (`18170940328`) and "BIG VFX PACK" (`17290956157`): comic hit stars, a ragged hit-ring flipbook, spark streaks, cel-shaded smoke, anime flames, lightning sprites and arcs, a spreading floor crack, a crater and rocks. Their image ids are in `Assets.Fx`; swap an id there to restyle every kit that uses it.

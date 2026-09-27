@@ -201,8 +201,24 @@ Court.Stands = {
 	EndLength = 2 * (C.HalfWidth + C.FreeZoneSide) + 10,
 }
 
-function Court.standRows()
-	local S = Court.Stands
+-- The stands of a court (Config.Courts.List[id]): Court.Stands with the court's overrides.
+function Court.stands(id)
+	local list = Config.Courts.List
+	local court = list[id or ""] or list[Config.Courts.Default]
+	local S = {}
+	for k, v in pairs(Court.Stands) do
+		S[k] = v
+	end
+	for k, v in pairs(court.Stands or {}) do
+		S[k] = v
+	end
+	return S
+end
+
+-- The row blocks of a court's stands (the default court when `id` is nil). The far stands'
+-- back edge is at FarStart + Rows * RowDepth.
+function Court.standRows(id)
+	local S = Court.stands(id)
 	local rows = {}
 	for i = 0, S.Rows - 1 do
 		local top = S.BaseTop + i * S.RowRise
