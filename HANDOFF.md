@@ -381,28 +381,64 @@ The owner now supplies every sound and asked to remove all the free ones ("from 
   - Nobody has listened to it yet; tune by ear with the owner.
 - **Menus**: `onClick` plays the button's `Sound` attribute: UIConfirm on action plates, UISelect on tabs, toggles and chips (UIClick otherwise), one sound per press. A modal opening plays UIOpen.
 
+### Thirteenth session: the owner's playtest feedback
+
+- **Equips kept** ("retain my equipped character and cosmetics"): a developer owns everything without it being in `owned`, and the profile load dropped any equip not in `owned` before it knew who the player was. Saved equips are kept when the item exists and are checked against ownership once the player is known (`keepOwned`). Verified across a restart.
+- **Loading screen**: the ball flew back over the figure's shoulder (`ballAt.X - 0.75`); it now goes down and forward. The ball is 1.5 times bigger, the pillar with it.
+- **Stamina**: the team that loses a point gets half its bar back (`RecoverLoser` 0.5, was 0.2).
+- **Point celebration**: score effects no longer fire on the client's predicted landing (a late dig could set one off mid-rally). On a point the scorer earned (`Config.Match.Celebrate`), after the server's call:
+  - the camera takes a three-quarter close-up of the scorer from the net side (`heroShot`);
+  - their equipped effect goes off behind them;
+  - their card slides in: a slanted plate in their team colour, their Roblox headshot (`AvatarUserId` on every character model), name, tier, character, role and ability, and the point's word.
+- **AI sets**:
+  - When the setter takes the first ball, the closest bot now sets. The middle was covering the human wing spiker and watched it drop.
+  - A set to a human is theirs: no backup middle.
+  - Quicks: 5 to 14% of good passes.
+  - A spike jump cuts the pose it took off from, so an early jump raises the arm.
+- **Your teams** ("allow yourself to make 3 teams", "you pick your ai team, and you control when they pop the ability"):
+  - The Players screen has a left panel with 3v3 / 2v2 / 1v1 tabs, the roles down the side, and a card per slot laid out after the owner's reference: stats, tier, ability, Pick/Swap/Clear, and Change on your own slot.
+  - Picks are saved per mode and role (`profile.teams`, `teamPick`). Bots filling the team's first player's side play them at that player's upgrade levels.
+  - Your AI teammates' active abilities are yours: keys 1 and 2 (D-pad left and right) or the strip under your ability card. Bots on a team with a player never fire their own.
+  - Verified: picks fill the team in a 3v3. **Not verified**: the 1 and 2 keys in a real match (the test player kept getting benched as idle and Studio's viewport was hidden). Try it once.
+- **Mobile controls** (the owner's references):
+  - Three big see-through round buttons bottom right that change with the moment: serve, Basic / Spike Serve / Approach; ground, Slide / Bump / Approach; air, Feint (the bump button) / Spike.
+  - Set and Block pop up when they apply, and a skill column on the left holds your ability and your AI teammates'.
+  - Roblox's dynamic thumbstick (`DevTouchMovementMode`, set in the project and in Studio's StarterPlayer; **save the place**).
+  - Not seen on a phone yet.
+- **Practice mode** ("rework the tutorial and add a proper practice mode... dont make them rallies"):
+  - `PracticeService` runs a hidden practice lobby on the court instead of a match: a 2v2, bots standing still.
+  - Each rep it launches the set or the attacker's spike itself (synthetic metas and touches), judges your real touch (`MatchService.onHit`) or the landing (`BallService.onDead`), and resets.
+  - Drills (shared/Tutorial): spike 3, block 3, serve 3 in a row, dig 3 in a row.
+  - The tutorial is the four in order. The top nav has a Practice tab (a card per drill, and the tutorial). The HUD coach shows the drill and its dots.
+  - Verified in a playtest: every drill feeds (the setter's sets to you, their attacker's spikes, the serve in your hands), misses count, and "Back to the menu" ends it. **Not verified**: a successful rep (the MCP keyboard input didn't reach the game). Play each drill once and tune `Config.Practice` (attack speeds, the block drill's target depth, the timings).
+
 ## Next steps
 
 Work in this order:
 
-0. **Sound pass: the owner supplies every sound** (see the twelfth session). The owner uploads sounds (from a free sound library) and sends ids with labels; nothing else plays. Empty slots are silent until the owner sends theirs. Still empty: Bump, ReceivePerfect, Set, SpikeHeavy (borrows Spike), Serve, Toss, Block, Stuff, NetHit, Slide, Whoosh, GuardBreak, Thunder, AzureCharge, AzureRelease, Blades, RallyCry, ImpactFrame, Whistle, Point, Timeout, CrowdLoop, CrowdCheer, CrowdGasp, Music, UIClick, UIHover, UISwipe, UISelect, UIConfirm, UIOpen, and the recruit slots except RecruitFly.
+0. **Check this session's work by hand** (the thirteenth session; Studio's viewport was hidden for most of it):
+   - Play each practice drill and the tutorial. Do successful reps count? Tune `Config.Practice`: the block drill's spike speed and where it lands, the dig drill's speed, and FeedDelay/PauseAfter.
+   - In a 3v3 with AI teammates, press 1 and 2 (Iron Wall, Turnabout, Rally Cry), and check your picks in the Players screen's team panel.
+   - The mobile controls on a phone (or Studio's device emulator), and the point celebration's close-up and card.
+   - Save the place: the palm Toolbox model and the dynamic thumbstick live in it.
+1. **Sound pass: the owner supplies every sound** (see the twelfth session). The owner uploads sounds (from a free sound library) and sends ids with labels; nothing else plays. Empty slots are silent until the owner sends theirs. Still empty: Bump, ReceivePerfect, Set, SpikeHeavy (borrows Spike), Serve, Toss, Block, Stuff, NetHit, Slide, Whoosh, GuardBreak, Thunder, AzureCharge, AzureRelease, Blades, RallyCry, ImpactFrame, Whistle, Point, Timeout, CrowdLoop, CrowdCheer, CrowdGasp, Music, UIClick, UIHover, UISwipe, UISelect, UIConfirm, UIOpen, and the recruit slots except RecruitFly.
    - For each new id: check it's the owner's (`MarketplaceService:GetProductInfo`). The place belongs to a group and the audio to the owner, so a new upload fails with "The experience doesn't have access permission ... Click to share access" in Output until the owner clicks it.
    - In a playtest, play it from a loaded Sound and read `TimePosition` and `PlaybackLoudness` every frame. Add `start` (a little before the sound begins) and `gain` (peak loudness to about 400 at Volume 0.5) to `Assets.SoundFiles`.
    - Tune by ear with the owner: per-call volumes in AudioController, the file gains, and the mix bus in `AudioController.init`.
-1. **Courts: what's left** (the eleventh session built them; see its status entry).
+2. **Courts: what's left** (the eleventh session built them; see its status entry).
    - The owner should save the place in Studio to keep the Toolbox palm in `ToolboxAssets.Models.PalmTree`.
    - Get the owner's screenshots of each court and adjust from their feedback (colours, prop density, the rooftop's skyline, the size of the beach islands).
    - Click through the Create Lobby court stepper by hand once; only its layout was checked.
    - Menu rooms under an outdoor court's lighting: the club room keeps the last court's light after a match (a sunny afternoon after Beach, dusk after Colosseum). Check it looks right, or have SceneController set its own light while the menus are up.
    - Optional: Toolbox models for `BeachUmbrella` and `Column` (TOOLBOX.md says what failed), and a court preview image in the picker.
-2. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`. Reserved servers only work in a published game: test lobbies that teleport with two or more players in a live server.
-3. Tune the feel:
+3. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`. Reserved servers only work in a published game: test lobbies that teleport with two or more players in a live server.
+4. Tune the feel:
    - in `Config.Player` and `Config.Scale.JumpScale`: the jump look, run-up, air control and hang;
    - in `CameraController`: the camera distances;
    - `Config.Bots` for bot skill by tier and `Config.Stamina` for drain;
    - `Config.Spins` and `Config.Rarity` for the spin economy.
-4. Create the VP and Gold Developer Products and paste their ids into `Config.Shop.Packs` and `Config.Shop.GoldPacks`; upload `assets/icon/GameIcon.png` and `Thumbnail.png`.
-5. Fill the Toolbox slots (TOOLBOX.md) and upload the `assets/sfx` files into `Assets.Sounds`.
-6. Lower `Config.Progression.StartingVP` (500, for testing) before launch if the economy needs it.
-7. More characters and abilities: add hand-set entries or slots in `tools/generate_roster.py` and re-run; a new ability needs a Config entry, its HitLogic effect (with a sim), and its HUD and VFX.
-8. Optional: more spike styles and score effects, uploaded action animations in `Assets.Animations`, substitutions and pause.
+5. Create the VP and Gold Developer Products and paste their ids into `Config.Shop.Packs` and `Config.Shop.GoldPacks`; upload `assets/icon/GameIcon.png` and `Thumbnail.png`.
+6. Fill the Toolbox model and VFX slots (TOOLBOX.md). Sounds are only the owner's uploads (step 1); the `assets/sfx` files aren't used.
+7. Lower `Config.Progression.StartingVP` (500, for testing) before launch if the economy needs it.
+8. More characters and abilities: add hand-set entries or slots in `tools/generate_roster.py` and re-run; a new ability needs a Config entry, its HitLogic effect (with a sim), and its HUD and VFX.
+9. Optional: more spike styles and score effects, uploaded action animations in `Assets.Animations`, substitutions and pause.
