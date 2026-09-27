@@ -43,10 +43,11 @@ Built: 37 characters and their abilities, bots, lobbies, four courts (Beach, Col
 
 Next, in HANDOFF.md's order:
 
-0. **Hands-on check** of the thirteenth session's work: practice drills, AI teammate abilities (keys 1 and 2), mobile controls, the point celebration.
+0. **Hands-on check** of the thirteenth session's work, which was built with Studio's viewport hidden. Items: practice drills and the tutorial, the Players screen's team panel, AI teammate abilities (keys 1 and 2), mobile controls, the point celebration, the loading screen's ball, the AI set fixes, and a listen to the sounds.
 1. **Sound:** the owner sends ids for the empty slots, and Claude sets each one's start and gain.
 2. **Courts:** polish from the owner's screenshots.
-3. **Before launch:**
+3. **Score card customization** (asked for "later"): card designs unlocked by challenges.
+4. **Before launch:**
    - create the VP and Gold Developer Products;
    - upload the game icon and thumbnail;
    - lower `StartingVP`.

@@ -416,11 +416,21 @@ The owner now supplies every sound and asked to remove all the free ones ("from 
 
 Work in this order:
 
-0. **Check this session's work by hand** (the thirteenth session; Studio's viewport was hidden for most of it):
-   - Play each practice drill and the tutorial. Do successful reps count? Tune `Config.Practice`: the block drill's spike speed and where it lands, the dig drill's speed, and FeedDelay/PauseAfter.
-   - In a 3v3 with AI teammates, press 1 and 2 (Iron Wall, Turnabout, Rally Cry), and check your picks in the Players screen's team panel.
-   - The mobile controls on a phone (or Studio's device emulator), and the point celebration's close-up and card.
-   - Save the place: the palm Toolbox model and the dynamic thumbstick live in it.
+0. **Check the thirteenth session's work by hand.** It's all built and pushed, but Studio's viewport was hidden for most of that session, so almost none of it was seen or played. Only the logic was tested through remotes. Save the place first (Ctrl+S): the Toolbox palm and the dynamic thumbstick exist only in the place.
+   - **Practice and the tutorial**: every drill was seen feeding its reps (the setter's sets, their attacker's spikes, the serve in your hands) and counting misses, and "Back to the menu" ends it. A *successful* rep was never made: the MCP keyboard input didn't reach the game. Play each drill and the tutorial; check hits count and the coach's dots fill. Tune `Config.Practice`:
+     - `BlockKmh` and `BlockTargetDepth` (can the block be reached?);
+     - `DigKmh` (can it be dug?);
+     - `AttackWindup`, `FeedDelay` and `PauseAfter`.
+   - **Your teams**: the Players screen's team panel (3v3 / 2v2 / 1v1 tabs, the role column, the card, Pick / Swap / Clear, Change on your slot, picking from the grid) was built but never seen on screen. Bots filling your team with your picks *was* verified in a 3v3. Keys 1 and 2 (and the strip under your ability card) for your AI teammates' Iron Wall, Turnabout and Rally Cry were never pressed in a real match.
+   - **Mobile controls**: never seen. Use a phone or Studio's device emulator. Check that the three buttons change for serve, ground and air, and that Bump feints in the air. Check the Set and Block pop-ups, the skill column and the floating thumbstick.
+   - **Point celebration**: the card was seen sliding in; the camera's close-up on the scorer and the effect behind them were not.
+   - **Loading screen**: the ball now flies down and forward, 1.5 times bigger, with the pillar wider to match. Not seen.
+   - **AI fixes**, none seen in a real rally:
+     - an early jump for a quick raises the arm;
+     - a bot sets when the setter took the first ball;
+     - the middle leaves your sets alone;
+     - quicks are rarer.
+   - **Sounds**: nobody has listened since the per-file start offsets, gains and the louder, punchier mix bus (the owner said "weak" and "doesn't match the power of the game" before them). Listen with the owner and tune the file gains in `Assets.SoundFiles`, the per-call volumes in AudioController and the bus in `AudioController.init`. Also check the recruit flight sound (RecruitFly).
 1. **Sound pass: the owner supplies every sound** (see the twelfth session). The owner uploads sounds (from a free sound library) and sends ids with labels; nothing else plays. Empty slots are silent until the owner sends theirs. Still empty: Bump, ReceivePerfect, Set, SpikeHeavy (borrows Spike), Serve, Toss, Block, Stuff, NetHit, Slide, Whoosh, GuardBreak, Thunder, AzureCharge, AzureRelease, Blades, RallyCry, ImpactFrame, Whistle, Point, Timeout, CrowdLoop, CrowdCheer, CrowdGasp, Music, UIClick, UIHover, UISwipe, UISelect, UIConfirm, UIOpen, and the recruit slots except RecruitFly.
    - For each new id: check it's the owner's (`MarketplaceService:GetProductInfo`). The place belongs to a group and the audio to the owner, so a new upload fails with "The experience doesn't have access permission ... Click to share access" in Output until the owner clicks it.
    - In a playtest, play it from a loaded Sound and read `TimePosition` and `PlaybackLoudness` every frame. Add `start` (a little before the sound begins) and `gain` (peak loudness to about 400 at Volume 0.5) to `Assets.SoundFiles`.
@@ -431,14 +441,23 @@ Work in this order:
    - Click through the Create Lobby court stepper by hand once; only its layout was checked.
    - Menu rooms under an outdoor court's lighting: the club room keeps the last court's light after a match (a sunny afternoon after Beach, dusk after Colosseum). Check it looks right, or have SceneController set its own light while the menus are up.
    - Optional: Toolbox models for `BeachUmbrella` and `Column` (TOOLBOX.md says what failed), and a court preview image in the picker.
-3. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`. Reserved servers only work in a published game: test lobbies that teleport with two or more players in a live server.
-4. Tune the feel:
+3. **Score card customization** (the owner: "customization on this comes later"). Every scorer's card now uses one default design: a slanted plate in the team colour with halftone and chevrons, the headshot, the name and the character. The owner's reference is a gallery of card designs, each locked behind a challenge ("Complete 800 Sets (565/800)"), with an equipped one. Build it in our own art:
+   - card designs as a cosmetic kind (`Config.Cosmetics`, the Locker);
+   - challenge progress from the career counters;
+   - `UIController`'s `showScoreCard` reads the equipped design.
+4. **Known limits of this session's features** (fix if the owner minds):
+   - A practice session takes the server's one court. If a match is on, it waits (Studio) or goes to its own reserved server (live).
+   - With more than one player on a team, only the first player's AI picks fill the bots.
+   - Players who finished the old tutorial checklist's serve, spike and block steps keep those; the tutorial then only asks for the dig drill.
+   - The reference's mobile "Highlight" (camera) button wasn't copied.
+5. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`. Reserved servers only work in a published game: test lobbies that teleport with two or more players in a live server.
+6. Tune the feel:
    - in `Config.Player` and `Config.Scale.JumpScale`: the jump look, run-up, air control and hang;
    - in `CameraController`: the camera distances;
    - `Config.Bots` for bot skill by tier and `Config.Stamina` for drain;
    - `Config.Spins` and `Config.Rarity` for the spin economy.
-5. Create the VP and Gold Developer Products and paste their ids into `Config.Shop.Packs` and `Config.Shop.GoldPacks`; upload `assets/icon/GameIcon.png` and `Thumbnail.png`.
-6. Fill the Toolbox model and VFX slots (TOOLBOX.md). Sounds are only the owner's uploads (step 1); the `assets/sfx` files aren't used.
-7. Lower `Config.Progression.StartingVP` (500, for testing) before launch if the economy needs it.
-8. More characters and abilities: add hand-set entries or slots in `tools/generate_roster.py` and re-run; a new ability needs a Config entry, its HitLogic effect (with a sim), and its HUD and VFX.
-9. Optional: more spike styles and score effects, uploaded action animations in `Assets.Animations`, substitutions and pause.
+7. Create the VP and Gold Developer Products and paste their ids into `Config.Shop.Packs` and `Config.Shop.GoldPacks`; upload `assets/icon/GameIcon.png` and `Thumbnail.png`.
+8. Fill the Toolbox model and VFX slots (TOOLBOX.md). Sounds are only the owner's uploads (step 1); the `assets/sfx` files aren't used.
+9. Lower `Config.Progression.StartingVP` (500, for testing) before launch if the economy needs it.
+10. More characters and abilities: add hand-set entries or slots in `tools/generate_roster.py` and re-run; a new ability needs a Config entry, its HitLogic effect (with a sim), and its HUD and VFX.
+11. Optional: more spike styles and score effects, uploaded action animations in `Assets.Animations`, substitutions and pause. `assets/sfx` and `tools/generate_sfx.py` are unused now that every sound is the owner's; delete them if the owner agrees.
