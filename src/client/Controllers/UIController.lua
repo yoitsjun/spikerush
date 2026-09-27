@@ -10,7 +10,7 @@
 -- Timeout, Forfeit and Settings buttons top right; the control pills bottom left, each with its
 -- key.
 -- Out of a match the menus (MenuController) take over; this controller only lends them the
--- settings panel.
+-- settings panel. The matchup intro and the showcase after a match are LineupController's.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -1448,144 +1448,6 @@ local function updateTimeout()
 end
 
 ------------------------------------------------------------------------------------------
--- results
-------------------------------------------------------------------------------------------
-
-local COLS = {
-	{ "Player", 0, 0.3 },
-	{ "Tier", 0.3, 0.08 },
-	{ "Kills", 0.38, 0.09 },
-	{ "Aces", 0.47, 0.09 },
-	{ "Blocks", 0.56, 0.1 },
-	{ "Digs", 0.66, 0.08 },
-	{ "Top km/h", 0.74, 0.13 },
-	{ "VP", 0.87, 0.12 },
-}
-
--- The results: a dark hairline card with halftone, the winner on a slanted plate in their colour
--- across its top edge, the MVP, a row per player and your rewards along the bottom.
-local function buildResults()
-	local f = panel(gui, {
-		Name = "Results",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.55),
-		Size = UDim2.fromOffset(880, 460),
-		Visible = false,
-	})
-	f.BackgroundTransparency = 0.06
-	edge(f, Gui.HAIRLINE, 0.3)
-	Gui.halftone(f, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.55, 0, 0, 180), ImageColor3 = Gui.CHALK, ImageTransparency = 0.95 })
-	local plate = Gui.plate(f, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -30), Size = UDim2.fromOffset(480, 66), ZIndex = 2 }, Gui.SIGNAL)
-	local title = label(plate, {
-		Text = "",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 50,
-		TextColor3 = UI.Chalk,
-		Size = UDim2.fromScale(1, 1),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		ZIndex = 3,
-	})
-	stroke(title, 2.5, UI.Ink)
-	local mvp = label(f, {
-		Text = "",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 20,
-		TextColor3 = Gui.SIGNAL,
-		Size = UDim2.new(1, 0, 0, 24),
-		Position = UDim2.fromOffset(0, 50),
-		TextXAlignment = Enum.TextXAlignment.Center,
-	})
-	local mine = label(f, {
-		Text = "",
-		Font = Enum.Font.GothamBlack,
-		TextSize = 19,
-		TextColor3 = UI.Mint,
-		RichText = true,
-		Size = UDim2.new(1, 0, 0, 24),
-		Position = UDim2.new(0, 0, 1, -38),
-		TextXAlignment = Enum.TextXAlignment.Center,
-	})
-	local list = make("Frame", { Size = UDim2.new(1, -48, 1, -140), Position = UDim2.fromOffset(24, 86), BackgroundTransparency = 1 }, f)
-	make("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, list)
-	ui.results = { frame = f, plate = plate, title = title, mvp = mvp, list = list, mine = mine }
-end
-
-local function resultRow(values, color, order, header)
-	local row = make("Frame", { Size = UDim2.new(1, 0, 0, header and 22 or 32), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = header and 1 or 0.95, BorderSizePixel = 0, LayoutOrder = order }, ui.results.list)
-	if not header then
-		corner(row, 5)
-		-- a slim tab in the player's team colour
-		make("Frame", { Size = UDim2.new(0, 4, 1, 0), BackgroundColor3 = color, BorderSizePixel = 0 }, row)
-	end
-	for i, c in ipairs(COLS) do
-		label(row, {
-			Text = tostring(values[i] or ""),
-			Font = header and Enum.Font.GothamBold or Enum.Font.GothamBlack,
-			TextSize = header and 14 or 19,
-			TextColor3 = header and UI.Fog or (i == 1 and color or UI.Chalk),
-			TextTruncate = Enum.TextTruncate.AtEnd,
-			Size = UDim2.new(c[3], i == 1 and -12 or 0, 1, 0),
-			Position = UDim2.new(c[2], i == 1 and 12 or 0, 0, 0),
-			TextXAlignment = i == 1 and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center,
-		})
-	end
-end
-
-local function showResults(a)
-	local r = ui.results
-	for _, c in ipairs(r.list:GetChildren()) do
-		if c:IsA("Frame") then
-			c:Destroy()
-		end
-	end
-	r.title.Text = teamName(a.winner) .. " win"
-	Gui.tint(r.plate, teamColor(a.winner))
-	r.mvp.Text = a.mvpName and ("MVP " .. a.mvpName) or ""
-	for _, e in ipairs(a.results or {}) do
-		if e.id == a.mvpId and e.mvpBonus then
-			r.mvp.Text = r.mvp.Text .. string.format("  (+%d VP bonus)", e.mvpBonus)
-		end
-	end
-	if a.forfeit then
-		r.mvp.Text = teamName(a.forfeit) .. " forfeited"
-	end
-	-- your own line: gold, extra sets and the win streak
-	r.mine.Text = ""
-	for _, e in ipairs(a.results or {}) do
-		if e.id == State.myId then
-			local parts = {}
-			if e.reward then
-				table.insert(parts, string.format("+%d VP  +%d Gold", e.reward, e.gold or 0))
-			end
-			if e.extraVP then
-				table.insert(parts, "extra sets included")
-			end
-			if e.streak and e.streak >= 2 then
-				local bonus = e.streakVP and string.format(" (+%d VP, +%d Gold)", e.streakVP, e.streakGold or 0) or ""
-				table.insert(parts, string.format("<b>Win streak %d</b>%s", e.streak, bonus))
-			elseif e.streak == 0 then
-				table.insert(parts, "win streak reset")
-			end
-			r.mine.Text = table.concat(parts, "     ")
-		end
-	end
-	local header = {}
-	for i, c in ipairs(COLS) do
-		header[i] = c[1]
-	end
-	resultRow(header, UI.Fog, 0, true)
-	for i, e in ipairs(a.results or {}) do
-		local reward = e.reward and ("+" .. e.reward) or ""
-		local top = (e.topKmh and e.topKmh > 0) and string.format("%.1f", e.topKmh) or "-"
-		resultRow({ e.name, e.tier or "", e.kills, e.aces, e.blocks, e.digs, top, reward }, teamColor(e.team), i, false)
-	end
-	r.frame.Visible = true
-	task.delay(Config.Match.MatchEndTime - 0.5, function()
-		r.frame.Visible = false
-	end)
-end
-
-------------------------------------------------------------------------------------------
 -- wiring
 ------------------------------------------------------------------------------------------
 
@@ -1719,13 +1581,6 @@ local function onAnnounce(a)
 		elseif a.success == false then
 			UIController.callout("Miss", UI.Fog, (d and d.inARow) and "Back to 0" or "Go again", 0.9)
 		end
-	elseif a.kind == "MatchStart" then
-		local court = Config.Courts.List[a.court or ""]
-		local sub = string.format("%dv%d", a.mode or 3, a.mode or 3)
-		if court then
-			sub = sub .. "   " .. court.Name
-		end
-		UIController.callout("Game on!", UI.Spark, sub, 1.6)
 	elseif a.kind == "SetStart" then
 		if (a.setNumber or 1) > 1 then
 			UIController.callout("Set " .. tostring(a.setNumber), UI.Chalk, "First to " .. tostring(a.target), 1.4)
@@ -1736,8 +1591,6 @@ local function onAnnounce(a)
 			ui.again.offer = a.offer
 			ui.again.voted = nil
 		end
-	elseif a.kind == "MatchEnd" then
-		showResults(a)
 	elseif a.kind == "Serve" then
 		if a.id == State.myId then
 			showHint("Your serve: F for an easy underhand serve, tap X for an overhand serve, hold X to toss for a jump serve (hold toward the net to toss it forward)")
@@ -1971,7 +1824,6 @@ function UIController.init(m)
 	buildTeamAbilities()
 	buildRail()
 	buildCorner()
-	buildResults()
 	buildRotation()
 	buildCoach()
 	buildContinue()

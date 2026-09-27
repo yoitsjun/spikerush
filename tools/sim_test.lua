@@ -1144,6 +1144,36 @@ do
 		"double approach: the run-up is faster than walking for everyone, and a full one covers 3 to 9 m", string.format("x%.2f walk at least; %.1f to %.1f m in %.1f s", minMul, shortest, longest, P.ApproachRunMax))
 end
 
+print("== matchup intro and showcase ==")
+do
+	local I, MT = Config.Match.Intro, Config.Match
+	local total = I.Open + I.TeamTime + I.Wipe + I.TeamTime + I.Wipe + I.VersusTime + I.Fade
+	check(total + 0.3 <= MT.PreMatchTime, "the matchup intro (both teams, then VS) ends before the first serve, with room for lag", string.format("%.2f s of %.1f s", total, MT.PreMatchTime))
+	local keys, dupes = {}, false
+	for _, item in ipairs(Config.Cosmetics.Pose) do
+		dupes = dupes or keys[item.Key] ~= nil
+		keys[item.Key] = true
+	end
+	check(not dupes and Spins.default("Pose") == "Ready" and Spins.isBanner("Pose") and Config.Cosmetics.Attribute.Pose == "IntroPose",
+		"intro poses are a cosmetic kind with their own banner; everyone starts with Ready")
+	-- the client poses each key as Intro_<Key> (and the losing side as Intro_Tired)
+	local f = io.open(ROOT .. "/src/client/Controllers/AnimationController.lua")
+	local src = f and f:read("*a") or ""
+	if f then
+		f:close()
+	end
+	local missing = {}
+	for _, item in ipairs(Config.Cosmetics.Pose) do
+		if not string.find(src, "\tIntro_" .. item.Key .. " = {", 1, true) then
+			table.insert(missing, item.Key)
+		end
+	end
+	if not string.find(src, "\tIntro_Tired = {", 1, true) then
+		table.insert(missing, "Tired")
+	end
+	check(#missing == 0, "every intro pose has its pose in AnimationController (Intro_<Key>)", table.concat(missing, ", "))
+end
+
 print("== leaderboards ==")
 do
 	local Leaderboards = require("Leaderboards")

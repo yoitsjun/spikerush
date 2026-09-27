@@ -169,6 +169,9 @@ Assets.Images = {
 	IconJump = "13751812696", -- decal 13751812742 (leap)
 	IconStar = "93992148478224", -- decal 109164246035556
 	IconLock = "18854796316", -- decal 18854796355
+	-- the team emblems (the matchup intro, the showcase): white line glyphs
+	TeamSunrise = "101573322846819", -- decal 108787768126626 (a sun)
+	TeamTidal = "18828405697", -- decal 18828405739 (three waves)
 	-- the match's corner buttons
 	IconTimeout = "132706456899814", -- decal 109363194447921 (sand timer)
 	IconForfeit = "9440647549", -- decal 9440647555 (flag)

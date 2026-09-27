@@ -918,7 +918,8 @@ local function launchFx(b, on)
 	end
 end
 
--- Start, restyle (opts = { style, color, trail, effect } keys) or stop (nil) the practice spike.
+-- Start, restyle (opts = { style, color, trail, effect, pose } keys; `posing` holds the intro
+-- pose instead of spiking) or stop (nil) the practice spike.
 function SceneController.setPractice(opts)
 	if not opts then
 		if practice then
@@ -945,6 +946,10 @@ function SceneController.setPractice(opts)
 	end
 	practice.opts = opts
 	styleBall(practice.ball, opts.color, opts.trail)
+	if opts.posing then
+		launchFx(practice.ball, false)
+		practice.ball.model:PivotTo(CFrame.new(PRACTICE + Vector3.new(0, -60, 0)))
+	end
 	for _, r in ipairs(showcase) do
 		r.model.Parent = nil -- the silhouettes stand where the practice ball lands
 	end
@@ -978,6 +983,15 @@ end
 local function updatePractice(now)
 	local p = practice
 	if not p or not p.rig or current ~= "gym" then
+		return
+	end
+	if p.opts.posing then
+		-- the Locker's Intro pose tab: your avatar holds the picked pose, turned to the camera
+		local AC = mods.AnimationController
+		local name = "Intro_" .. tostring(p.opts.pose)
+		local joints = AC.poseJoints(name) or AC.poseJoints("Intro_Ready")
+		local bob = math.sin(now * 2.1) * (name == "Intro_Air" and 0.16 or 0.035)
+		AC.poseModel(p.rig, joints, CFrame.new(PRACTICE + Vector3.new(0, groundOffset(p.rig) + bob, 0)) * CFrame.Angles(0, math.rad(118), 0))
 		return
 	end
 	local t = (now - p.t0) % LOOP

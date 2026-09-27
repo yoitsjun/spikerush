@@ -44,6 +44,7 @@ local order = {
 	"UIController",
 	"SceneController",
 	"MenuController",
+	"LineupController",
 	"MobileControls",
 	"CrowdController",
 }

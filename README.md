@@ -44,7 +44,7 @@ Outside a match you're in the menus, drawn over two small 3D sets built on your 
 - **Home**: your profile card (headshot, name, the character you play, V Points and Gold) top left, just under Roblox's own buttons whatever their size, the featured S+ recruit, tips, Players / Locker / Shop / Settings / Help, and the two big buttons, Recruit Player and Match. When your AI is standing in for you in a match, a Rejoin banner appears.
 - **Recruit Player**: the Player banner (Basic Recruit) and the Cosmetic banners, the Probability Table (every pull with its exact chance and whether you own it), auto-roll, auto-sell, and Recruit x1 (50 VP) / x10 (500 VP). A recruit plays out like *The Spike*'s: sparkles on black (gold when an S is inside, red when a Mythic is), the volleyballs sweep under the gym ceiling glowing in their rarity colours (a Mythic throbs red, and its cinematic and card burn red too), then line up over the stage ("Click to Continue") and open one by one. Before an S or S+ opens, a short cinematic plays: a yellow screen, a beam of light, and your own avatar's silhouette leaping and hammering a black ball down in your equipped spike style. Then the reveal card (your avatar in the character's role pose, tier, role, height, ability, stat ceilings) and the results. **Skip** jumps straight to the next S. During auto-roll a running line replaces the sequence, and the one that hits Legendary plays in full.
 - **Players**: every character (recruited ones first), who you play, and the Gold upgrades (below).
-- **Locker**: equip spike styles, colours, trails and score effects. Whatever you click previews live in the gym: your avatar spikes on a loop with that style, the ball flies with that colour and trail, and lands with that score effect.
+- **Locker**: equip spike styles, colours, trails, score effects and intro poses. Whatever you click previews live in the gym: your avatar spikes on a loop with that style, the ball flies with that colour and trail, and lands with that score effect; on the Intro pose tab your avatar holds the pose instead. Intro poses (Ready, Arms Crossed, Call Your Shot, Victory Fist, Double Flex, Sky Attack) come from their own Recruit banner.
 - **Shop**: V Point packs and Gold packs for Robux, and a big Recruit button that opens Recruit Player.
 
 Popups (Match, Help, the Probability Table) close only with their Close button or a click on the dark area around them; clicking anywhere inside one never closes it.
@@ -139,6 +139,8 @@ A lobby plays on this server's court when it's free. When the court is busy it g
 
 If a player leaves, or gives no input for 12 s while the ball is live, an AI takes their spot on the spot: the same character, build and ability in the player's own avatar, marked "(AI)". An AFK player gets a Rejoin banner on Home and takes the spot back at the next serve. A match with no humans left (and nobody who could rejoin) is called off. The MVP of a finished match earns 15 extra V Points.
 
+Every match opens with a **matchup intro** (about 7 s, before the first serve): each team in turn stands in a row facing you on pedestals in its colour, every player in their equipped **intro pose** with their name over their head, while a plate along the bottom shows the team's emblem and name, the mode and court, and a chip per character (tier, character, role, ability). A wipe in the other team's colour brings on the other side, then both names meet around a VS and the court comes back. At the end, the **showcase** lines up your team again: VICTORY in their poses with sparkles, or DEFEAT with hands on knees, and a card under each player with their tier, name and @username (AI for bots), their Spikes, Blocks and Aces, and their digs and top spike speed, the MVP tagged. Your VP, Gold and win streak run along the bottom; Continue closes it.
+
 ## Visuals and audio
 
 The loading screen (in ReplicatedFirst, all GUI shapes) is one held frame: a flat amber screen, a pillar of light with a black ball at its top, and the SPIKE RUSH logo top left (white heavy italic letters over an ink outline, an orange rim and an ink extrude, RUSH in an orange gradient with speed marks). While the game loads, a quiet "Loading" line with a thin bar sits on the right and a tip bottom left. Once the client has started and your avatar has loaded, its silhouette rises into the pillar and freezes in the bow-draw, the pointing hand just under the ball, with "Click to continue". A click, tap or key plays the swing: the ball blasts away under an impact flash and speed lines, and the screen fades into the game. `tools/generate_icon.py` draws the game icon and thumbnail (`assets/icon/GameIcon.png`, 512x512, and `Thumbnail.png`, 1920x1080) in the same style; upload them in the Creator Hub.
@@ -172,6 +174,7 @@ src/shared/            deterministic code used by both server and clients
   Characters.lua       tiers, builds, role templates, stat curves, jump heights
   Roster.lua           the named characters (generated by tools/generate_roster.py)
   Spins.lua            banners, odds, drop tables, sell values, colour and trail helpers
+  Settings.lua         cleans the settings a player saves (switches, the touch layout)
   Lobbies.lua          lobby rules: settings, privacy and passwords, seating, starting,
                        Quick Match, the teleport round trip, the AFK timer
   HitLogic.lua         every touch: zones, power, direction, stamina, sets, serves, blocks
@@ -191,7 +194,8 @@ src/client/Controllers/ State, Input, Movement, Action (touches and prediction),
                        BallRenderer, Camera, VFX, Animation, Audio, UI (the match HUD),
                        Gui (the menus' UI kit), Scene (the club room and gym sets, recruit
                        balls, the Locker preview), Menu (every menu screen and the recruit
-                       sequence), MobileControls, Crowd
+                       sequence), Lineup (the matchup intro and the showcase after a match),
+                       MobileControls (and the touch layout editor), Crowd
 tools/                 checkers, the simulation suite, the SFX, icon, avatar and roster generators
 assets/                volleyball mesh, the generated sound effects, the icon and thumbnail
 TOOLBOX.md             every Toolbox slot and how to fill it

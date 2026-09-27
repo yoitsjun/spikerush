@@ -362,13 +362,14 @@ Config.Rarity = {
 -- turns into VP (SellValue).
 Config.Spins = {
 	Costs = { [1] = 50, [10] = 500 },
-	Order = { "Char", "Style", "Color", "Trail", "Effect" },
+	Order = { "Char", "Style", "Color", "Trail", "Effect", "Pose" },
 	Banners = {
 		Char = { Name = "Characters", Blurb = "Named characters with their own role, stats, height and ability." },
 		Style = { Name = "Spike style", Blurb = "Unlocks spike animations." },
 		Color = { Name = "Spike color", Blurb = "Unlocks the colour of your spikes and their impact." },
 		Trail = { Name = "Trail", Blurb = "Unlocks the trail your spikes leave." },
 		Effect = { Name = "Score effect", Blurb = "Unlocks what happens where your attack lands for a point." },
+		Pose = { Name = "Intro pose", Blurb = "Unlocks how you pose when the teams line up, and after a win." },
 	},
 	-- a character's rarity comes from its tier; sub-tiers share it (minus most common)
 	TierRarity = { D = "Common", C = "Common", B = "Rare", A = "Epic", S = "Legendary", ["S+"] = "Mythic" },
@@ -390,8 +391,8 @@ Config.Developers = {
 
 -- Unlockables. The first item of each list is owned by everyone and equipped by default.
 Config.Cosmetics = {
-	Kinds = { "Style", "Color", "Trail", "Effect" },
-	Attribute = { Style = "SpikeStyle", Color = "SpikeColor", Trail = "SpikeTrail", Effect = "ScoreEffect" },
+	Kinds = { "Style", "Color", "Trail", "Effect", "Pose" },
+	Attribute = { Style = "SpikeStyle", Color = "SpikeColor", Trail = "SpikeTrail", Effect = "ScoreEffect", Pose = "IntroPose" },
 	Style = {
 		{ Key = "Classic", Name = "Classic", Rarity = "Common" },
 		{ Key = "Bow", Name = "Full Bow", Rarity = "Rare" },
@@ -424,6 +425,16 @@ Config.Cosmetics = {
 		{ Key = "Fire", Name = "Fire Explosion", Rarity = "Rare" },
 		{ Key = "Meteor", Name = "Meteor Strike", Rarity = "Epic" },
 		{ Key = "Thunderbolt", Name = "Thunderbolt", Rarity = "Legendary" },
+	},
+	-- how you pose in the matchup intro and, when your team wins, the showcase after the match
+	-- (AnimationController's Intro_<Key> poses)
+	Pose = {
+		{ Key = "Ready", Name = "Ready", Rarity = "Common" },
+		{ Key = "Arms", Name = "Arms Crossed", Rarity = "Common" },
+		{ Key = "Point", Name = "Call Your Shot", Rarity = "Rare" },
+		{ Key = "Fist", Name = "Victory Fist", Rarity = "Rare" },
+		{ Key = "Flex", Name = "Double Flex", Rarity = "Epic" },
+		{ Key = "Air", Name = "Sky Attack", Rarity = "Legendary" },
 	},
 }
 
@@ -590,12 +601,16 @@ Config.Match = {
 	Sets = 1,
 	MaxSets = 3,
 	ContinueTime = 12, -- seconds to vote Keep playing / End match
-	PreMatchTime = 3.2,
+	-- the matchup intro (LineupController): a wipe opens each team's turn (Open for the first,
+	-- Wipe after), each team lined up in its poses for TeamTime, then both names meet for
+	-- VersusTime and it fades to the court; the pre-match wait covers all of it
+	Intro = { Open = 0.3, Wipe = 0.25, TeamTime = 2.4, VersusTime = 1.1, Fade = 0.35 },
+	PreMatchTime = 7.6,
 	PreServeTime = 1.2,
 	ServeClock = 8,
 	PointPauseTime = 2.6,
 	SetEndTime = 3.5,
-	MatchEndTime = 9,
+	MatchEndTime = 11, -- the showcase (your team, their stats); Continue closes it sooner
 	DefaultBotTier = "A",
 	-- points the scorer earned: after the rally the camera closes on them, their score effect goes
 	-- off and their card slides in with this word (faults like outs and nets get none of it)
@@ -725,6 +740,7 @@ Config.Teams = {
 		Side = -1,
 		Color = Color3.fromRGB(240, 138, 36),
 		Dark = Color3.fromRGB(120, 56, 14),
+		Icon = "TeamSunrise", -- Assets.Images
 	},
 	Away = {
 		Name = "Tidal",
@@ -732,6 +748,7 @@ Config.Teams = {
 		Side = 1,
 		Color = Color3.fromRGB(47, 140, 255),
 		Dark = Color3.fromRGB(16, 52, 128),
+		Icon = "TeamTidal",
 	},
 }
 Config.TeamOrder = { "Home", "Away" }

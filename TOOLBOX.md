@@ -100,3 +100,7 @@ Bots already use Roblox's own default R15 idle, run, jump and fall animations (`
 ### UI icons: `Assets.Images.AbilityThunder`, `Assets.Images.AbilityAzure`
 
 Shown in the ability panel and on the lobby cards. Search for "lightning icon" and "dragon icon"; square, transparent PNG decals work best.
+
+### Team emblems: `Assets.Images.TeamSunrise`, `Assets.Images.TeamTidal`
+
+Filled: a white line sun (decal 108787768126626) and three white waves (decal 18828405739), from the Creator Store. They sit in a disc of the team's dark colour in the matchup intro and the showcase. A white glyph on a transparent background works best; the slot holds the image id (insert the decal and read its `Texture`), not the decal id.

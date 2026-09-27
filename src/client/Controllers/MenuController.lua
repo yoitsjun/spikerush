@@ -879,7 +879,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local PLAYER_BANNERS = { "Char" }
-local COSMETIC_BANNERS = { "Style", "Color", "Trail", "Effect" }
+local COSMETIC_BANNERS = { "Style", "Color", "Trail", "Effect", "Pose" }
 -- each banner's card stock (a flat colour under halftone and a gloss streak) and its icon
 local BANNER_ART = {
 	Char = { color = Color3.fromRGB(214, 138, 40), icon = "IconPlayers" },
@@ -887,6 +887,7 @@ local BANNER_ART = {
 	Color = { color = Color3.fromRGB(164, 70, 196), icon = "IconStar" },
 	Trail = { color = Color3.fromRGB(28, 150, 164), icon = "IconSpeed" },
 	Effect = { color = Color3.fromRGB(206, 62, 62), icon = "IconAttack" },
+	Pose = { color = Color3.fromRGB(58, 156, 88), icon = "IconRanks" },
 }
 
 -- Recruit, laid out like The Spike's: the Player / Cosmetic toggle and the banners down the left,
@@ -905,7 +906,7 @@ local function buildRecruit()
 	local list = make("Frame", { Name = "List", Position = UDim2.fromOffset(0, 64), Size = UDim2.new(1, 0, 1, -64), BackgroundTransparency = 1 }, left)
 	make("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local rows = {}
-	for i, kind in ipairs({ "Char", "Style", "Color", "Trail", "Effect" }) do
+	for i, kind in ipairs(SP.Order) do
 		local art = BANNER_ART[kind]
 		local b = make("TextButton", { Name = kind, Size = UDim2.new(1, 0, 0, 100), BackgroundColor3 = art.color:Lerp(Color3.new(0, 0, 0), 0.3), BorderSizePixel = 0, Text = "", AutoButtonColor = false, LayoutOrder = i, ClipsDescendants = true }, list)
 		make("UICorner", { CornerRadius = UDim.new(0, 8) }, b)
@@ -2537,8 +2538,9 @@ local function lockerOpts(prof)
 	return opts
 end
 
--- The Locker: the practice spike plays in the gym on the left with whatever you point at, and a
--- panel on the right holds the four kinds (tabs) and their items as square equip cards: a dark
+-- The Locker: the practice spike plays in the gym on the left with whatever you point at (on the
+-- Intro pose tab your avatar holds the pose instead), and a panel on the right holds the kinds
+-- (tabs) and their items as square equip cards: a dark
 -- glossy tile with a thick rarity border, the name in the middle and Equip, Equipped or Locked
 -- under it. The picked item's name and the Equip plate sit along the bottom.
 local function lockerCard(parent, kind, item)
@@ -2694,7 +2696,13 @@ local function refreshLocker(prof)
 		local it = Spins.item(kind, k)
 		return it and it.Name or k
 	end
-	L.caption.Text = string.format("<b>Preview</b>   %s  /  %s  /  %s  /  %s", nm("Style", o.style), nm("Color", o.color), nm("Trail", o.trail), nm("Effect", o.effect))
+	-- the Intro pose tab previews the pose: your avatar holds it instead of spiking
+	o.posing = lockerKind == "Pose"
+	if o.posing then
+		L.caption.Text = string.format("<b>Preview</b>   %s  (the matchup intro, and after a win)", nm("Pose", o.pose))
+	else
+		L.caption.Text = string.format("<b>Preview</b>   %s  /  %s  /  %s  /  %s", nm("Style", o.style), nm("Color", o.color), nm("Trail", o.trail), nm("Effect", o.effect))
+	end
 	if shown and screen == "locker" then
 		mods.SceneController.setPractice(o)
 	end
@@ -3619,7 +3627,9 @@ function MenuController.applyScene()
 	SC.show(SCENE[screen] or "home")
 	if screen == "locker" then
 		SC.shot("practice", 0.6)
-		SC.setPractice(lockerOpts(profile()))
+		local o = lockerOpts(profile())
+		o.posing = lockerKind == "Pose"
+		SC.setPractice(o)
 	else
 		SC.setPractice(nil)
 		if screen == "recruit" then

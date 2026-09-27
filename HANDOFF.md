@@ -95,8 +95,9 @@ The client boots from `src/client/Main.client.lua`, passing each controller the 
 9. UIController (the match HUD, results, the settings panel)
 10. SceneController (the menu sets; owns the camera while one is shown)
 11. MenuController (every menu screen)
-12. MobileControls
-13. CrowdController
+12. LineupController (the matchup intro and the showcase after a match)
+13. MobileControls
+14. CrowdController
 
 `State` holds shared client state and signals.
 
@@ -163,7 +164,7 @@ The active build is written as attributes (Tier, Height, Attack, Defense, Speed,
 | HitReject | rejection, triggers rollback |
 | ActionFX | Slide, Block, Whiff, Jump, Charge, ChargeEnd, Stance, Approach (a double approach's run-up) cosmetics; "Ability" from a client asks to start its active ability |
 | MatchState | match snapshot |
-| Announce | Point (with `playTo`, `deuce`), Serve, SetStart, SetEnd, MatchStart, MatchEnd (with `forfeit`, and `mvpBonus` on the MVP's row), MatchAbort, Break, Timeout, TimeoutCalled, Forfeit, StandIn (`name`, `char`, `reason` "afk"/"left", `userId`) |
+| Announce | Point (with `playTo`, `deuce`), Serve, SetStart, SetEnd, MatchStart (plays the intro), MatchEnd (with `forfeit`; each row has the stats, `role`, `pose`, and `mvpBonus` on the MVP's row; plays the showcase), MatchAbort, Break, Timeout, TimeoutCalled, Forfeit, StandIn (`name`, `char`, `reason` "afk"/"left", `userId`) |
 | ClientReady | client finished loading |
 | Lobby | client: `("create", settings)`, `"tutorial"`, `("quick", mode)`, `("join", id, password)`, `"leave"`, `"start"`, `"team"`, `("kick", userId)`, `("settings", settings)`, `"rejoin"`, `"list"` |
 | Lobbies | server: `{ list, mine, court, teleport }` per player, or `{ notice }` |
@@ -422,11 +423,21 @@ The owner asked for "some basic settings": movable and resizable touch buttons, 
 - **Fixed: touch buttons were off in the middle of the screen on phones.** The button frame's UIScale (0.7 on a phone) shrank the whole frame toward the top-left, so the "bottom right" buttons sat around 60% across. The frame is now sized 1/scale. Measured in Studio: the Approach button's centre is 73 px (104 x 0.7) from the right and bottom edges.
 - The settings panel shrinks to fit a short screen, and its switches follow changes from anywhere.
 
+Then, the owner: "matchup intro, showcases both teams at the start similar to game entrances showcasing a team. at the bottom, show team name, icon and show off what characters the team is using. make intro poses available and at the end of a game, show off the characters. instead of elims death assists, do spikes blocks aces." Their references (layout only): a Splatoon 3 team intro, and a Roblox results screen (VICTORY plate, the player posed with sparkles, a stat card, Rematch / Play Again / Leave).
+
+- **Intro poses**, a fifth cosmetic kind (`Config.Cosmetics.Pose`, attribute `IntroPose`, the "Intro pose" banner): Ready (everyone's), Arms Crossed, Call Your Shot, Victory Fist, Double Flex, Sky Attack (floats in a spike wind-up). AnimationController's `Intro_<Key>` poses, plus `Intro_Tired` (hands on knees) for the losing side. They were designed with an offline preview: Studio's server posed a clone of the owner's avatar and posted every part's box to a local receiver, and a small Python renderer drew front and side views (the scripts aren't in the repo; see the tools note below). The Locker's Intro pose tab previews the pose on your avatar in the gym (`SceneController.setPractice` with `posing`). Bots wear random ones like their other cosmetics. A sim checks every key has its pose.
+- **LineupController** (new): clones each entity's model on the court (`Util.modelOf`), rigs and poses it in a ViewportFrame (a row facing the camera, pedestals in the team colour; `newScene`, `showSlot`, `stepScene`), updated on Heartbeat.
+  - **Intro** on `MatchStart` (the roster entries now carry `pose`): a wipe in each team's colour, that team's row dropping in one by one with name tags, and a plate along the bottom (the team emblem, the name, the mode and court, YOUR TEAM on yours, a chip per character: tier, character, role, ability); then a signal-yellow wipe to both names meeting around VS, a fade, and the "Game on!" callout (moved here from UIController). `Config.Match.Intro` holds the timeline; `PreMatchTime` went 3.2 to 7.6 s and a sim checks the intro fits.
+  - **Showcase** on `MatchEnd` (the results rows now carry `role` and `pose`): your team, VICTORY in their poses with twinkling sparkles (images: particles don't draw in a viewport) or DEFEAT in the tired pose, the team name on a plate, a card under each (tier badge, name, @username or AI and the character, Spikes / Blocks / Aces, digs and top spike, MVP tag), your rewards line, Continue. `MatchEndTime` 9 to 11 s. UIController's old results table is gone.
+  - Team emblems: `Assets.Images.TeamSunrise` (a line sun) and `TeamTidal` (three waves), Creator Store decals, named by `Config.Teams[team].Icon`.
+- Verified in a Studio playtest through remotes: the intro ran on time (both teams' plates, chips and names right, VS, closed 7.6 s in as the set started), three clones per team posed in their poses (the bots' random ones included), ordered left to right and turned toward the middle; a forfeit showed DEFEAT with three cards and the right stats. **Not seen**: nothing was looked at on screen (Studio's window was covered, and RenderStepped doesn't run then, which is why LineupController uses Heartbeat). The owner needs to look at both.
+- Tools note: the pose preview loop was `receiver.py` (a localhost POST sink) and `pose_render.py` (boxes to PNG) in the session's scratchpad; recreate them if poses need more work (a Server-datamodel `execute_luau` can clone the player's character, inline the rig and pose functions, and `PostAsync` the part CFrames and sizes).
+
 ## Next steps
 
 Work in this order:
 
-0. **The owner's newest request (not started): a matchup intro and an end-of-game showcase.** Their words: "matchup intro, showcases both teams at the start similar to game entrances showcasing a team. at the bottom, show team name, icon and show off what characters the team is using. make intro poses available and at the end of a game, show off the characters. instead of elims death assists, do spikes blocks aces." Their references (layout only, never their art): a Splatoon 3 team intro (four players posing side by side on pedestals, each name floating above) and a Roblox results screen (a "VICTORY" plate with the team name at the top, the player posed in the middle with sparkles, a card under them with the name, @username and three big stat boxes, and Rematch / Play Again / Leave on the right). So: intro poses as a new cosmetic kind (Locker, recruits), a two-team intro at match start (each team posed in a row, the team name, an icon and the characters along the bottom), and the results screen reworked around the posed characters with Spikes, Blocks and Aces.
+0. **Look at the matchup intro and the showcase** (fourteenth session; built without seeing the screen). Play a match: the two team rows (poses, pedestals, name tags, the bottom plate and its chips), the wipes, VS, "Game on!"; then finish a match (a forfeit is quickest) and look at VICTORY and DEFEAT, the cards and the sparkles. Also the Locker's Intro pose tab and the new Recruit banner. Tune from the owner's screenshots: the camera (`newScene` aimY / dist, `FOV`), the spacing, the poses (`Intro_*`), the timings (`Config.Match.Intro`). Possible additions: Rematch / Play Again buttons like the reference, the other team's cards, animated poses.
 0. **Check the fourteenth session's settings by hand**: turn on Double approach and play a rally (does the run-up feel right? tune `ApproachRun` and `ApproachRunMax`); on a phone or Studio's device emulator, open Settings > Touch controls > Edit, move and size a few buttons, Save, and rejoin to see they stay. When the owner sends the floor squeak, fill `Assets.Sounds.Squeak` (start and gain as usual).
 0. **Check the thirteenth session's work by hand.** It's all built and pushed, but Studio's viewport was hidden for most of that session, so almost none of it was seen or played. Only the logic was tested through remotes. Save the place first (Ctrl+S): the Toolbox palm and the dynamic thumbstick exist only in the place.
    - **Practice and the tutorial**: every drill was seen feeding its reps (the setter's sets, their attacker's spikes, the serve in your hands) and counting misses, and "Back to the menu" ends it. A *successful* rep was never made: the MCP keyboard input didn't reach the game. Play each drill and the tutorial; check hits count and the coach's dots fill. Tune `Config.Practice`:

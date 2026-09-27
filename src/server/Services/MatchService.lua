@@ -483,6 +483,8 @@ local function results(winner, forfeitTeam)
 				team = team,
 				isBot = e.isBot,
 				tier = e.tier,
+				role = e.role,
+				pose = reg.TeamService.poseOf(e),
 				kills = st.kills,
 				aces = st.aces,
 				blocks = st.blocks,

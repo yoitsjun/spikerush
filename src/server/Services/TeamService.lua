@@ -124,6 +124,18 @@ function TeamService.getModel(e)
 	return e.player and e.player.Character
 end
 
+-- The intro pose this entity shows (a Pose unlock key, or nil for the default): a player's
+-- equipped one, or what its bot model was dressed in.
+function TeamService.poseOf(e)
+	local attr = Config.Cosmetics.Attribute.Pose
+	local value = e and e.player and e.player:GetAttribute(attr)
+	if value == nil then
+		local m = TeamService.getModel(e)
+		value = m and m:GetAttribute(attr)
+	end
+	return type(value) == "string" and value or nil
+end
+
 function TeamService.getRoot(e)
 	local m = TeamService.getModel(e)
 	return m and m:FindFirstChild("HumanoidRootPart")
@@ -570,6 +582,7 @@ function TeamService.roster()
 					height = e.build.Height,
 					rot = i,
 					standInFor = e.standInFor,
+					pose = TeamService.poseOf(e),
 				})
 			end
 		end
