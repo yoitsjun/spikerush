@@ -347,20 +347,25 @@ These are the spots most likely to need attention on the first playtest:
 
 Work in this order:
 
-0. **In progress: courts** (the PC Claude was mid-way when the tenth session ended). Usable free models are already found: colosseum models, palm trees, bleachers and beach umbrellas.
+0. **Sound pass (the owner wants this before the courts).** Every sound must be original, from the Creator Store, or recorded by the owner from real things (a ball, a whistle). Nothing recorded from The Spike or any other game, even by the owner: the owner sent screen recordings of The Spike several times and they were declined.
+   - Fill `ReplicatedStorage.ToolboxAssets.Sounds.<Key>` from the Creator Store (the PC Claude, in Studio). Put 2 or 3 candidates per slot (Whistle1, Whistle2...) for the owner to pick by ear, then rename the pick to the slot. Priority: Spike, SpikeHeavy, FloorHit, Bump, Set, Block, Boom, Whistle, CrowdCheer, CrowdServe, CrowdLoop, CrowdGasp, Point, Music.
+   - Target feel, from the owner's references: a spike is a sharp crack, then the ball's landing thump about 0.22 s later (FloorHit covers the landing); the boom jump is a sharp hit into a low rumble fading over about 1.4 s; CrowdServe is a crowd that builds over about 2 s; CrowdCheer swells, roars and settles over 3 to 4 s.
+   - Menu wiring (MenuController): `onClick` always plays UIClick. Tabs, chips and `segmented` should play UISelect; confirm buttons (equip, select, buy, Start, Create, Quick Match) UIConfirm; `modal()` opening UIOpen. The recruit sequence (`playSequence`, `cinematic`, `showCard`) borrows Whoosh, Thunder, Boom, SpikeHeavy, UIClick, Point and CrowdCheer; give it its own slots (RecruitOpen, RecruitOpenGold, RecruitFly, RecruitPop, RecruitCharge, RecruitSpike, RecruitReveal, RecruitRevealGold) that fall back to the sound used now while empty.
+   - Or upload the originals in `assets/sfx` (`tools/generate_sfx.py`) through Asset Manager and paste the ids into `Assets.Sounds`.
+1. **Next: courts** (the PC Claude was mid-way when the tenth session ended). Usable free models are already found: colosseum models, palm trees, bleachers and beach umbrellas.
    - Build Beach, Colosseum and Nationals courts, plus one or two original ones.
    - Add a court picker to Create Lobby. Quick matches rotate courts.
    - Rebuild the arena at match start, with lighting per court.
    - Support the crowd and scoreboard in each court's stands.
    - Move the jumbotron so it no longer overlaps the HUD.
-1. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`. Reserved servers only work in a published game: test lobbies that teleport with two or more players in a live server.
-2. Tune the feel:
+2. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`. Reserved servers only work in a published game: test lobbies that teleport with two or more players in a live server.
+3. Tune the feel:
    - in `Config.Player` and `Config.Scale.JumpScale`: the jump look, run-up, air control and hang;
    - in `CameraController`: the camera distances;
    - `Config.Bots` for bot skill by tier and `Config.Stamina` for drain;
    - `Config.Spins` and `Config.Rarity` for the spin economy.
-3. Create the VP and Gold Developer Products and paste their ids into `Config.Shop.Packs` and `Config.Shop.GoldPacks`; upload `assets/icon/GameIcon.png` and `Thumbnail.png`.
-4. Fill the Toolbox slots (TOOLBOX.md) and upload the `assets/sfx` files into `Assets.Sounds`.
-5. Lower `Config.Progression.StartingVP` (500, for testing) before launch if the economy needs it.
-6. More characters and abilities: add hand-set entries or slots in `tools/generate_roster.py` and re-run; a new ability needs a Config entry, its HitLogic effect (with a sim), and its HUD and VFX.
-7. Optional: more spike styles and score effects, uploaded action animations in `Assets.Animations`, substitutions and pause.
+4. Create the VP and Gold Developer Products and paste their ids into `Config.Shop.Packs` and `Config.Shop.GoldPacks`; upload `assets/icon/GameIcon.png` and `Thumbnail.png`.
+5. Fill the Toolbox slots (TOOLBOX.md) and upload the `assets/sfx` files into `Assets.Sounds`.
+6. Lower `Config.Progression.StartingVP` (500, for testing) before launch if the economy needs it.
+7. More characters and abilities: add hand-set entries or slots in `tools/generate_roster.py` and re-run; a new ability needs a Config entry, its HitLogic effect (with a sim), and its HUD and VFX.
+8. Optional: more spike styles and score effects, uploaded action animations in `Assets.Animations`, substitutions and pause.

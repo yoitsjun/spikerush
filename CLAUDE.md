@@ -1,6 +1,6 @@
 # Spike Rush: notes for Claude
 
-A Roblox volleyball game built with Rojo. Read HANDOFF.md first: what the owner wants, how the code fits together, and the next steps. README.md covers setup and mechanics. TOOLBOX.md covers the asset slots.
+A Roblox volleyball game built with Rojo. Moving to a new account? See CONTINUE.md. Read HANDOFF.md first: what the owner wants, how the code fits together, and the next steps. README.md covers setup and mechanics. TOOLBOX.md covers the asset slots.
 
 ## Two Claudes, one branch
 
