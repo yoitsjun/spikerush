@@ -13,6 +13,7 @@
 -- (Assets.image). No rounded corners, no glass, no soft gradients.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local Assets = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Assets"))
 
 local Gui = {}
@@ -597,6 +598,61 @@ end
 
 -- Hooks the menus set for hover and press sounds (Gui has no audio of its own).
 Gui.onHover = nil
+Gui.play = nil -- AudioController.play
+
+-- Press sounds. A click only fires as the finger or the mouse comes back up, which sounds late,
+-- so a button sounds as it goes down (Gui.pressSound) and the click that follows stays quiet:
+-- Gui.click, which click handlers call, skips once after a press has sounded. The skip lapses
+-- just after the release, so a press that slid off its button can't silence a later click.
+local lastClick = 0
+local pressed = false
+local pressGen = 0
+
+local function playPress(key)
+	if Gui.play then
+		Gui.play(key or "UIClick", { minGap = 0.05 })
+	end
+end
+
+function Gui.click(key)
+	local now = os.clock()
+	if pressed or now - lastClick < 0.08 then
+		pressed = false
+		lastClick = now
+		return
+	end
+	lastClick = now
+	playPress(key)
+end
+
+function Gui.press(key)
+	playPress(key)
+	pressed = true
+	pressGen = pressGen + 1
+	lastClick = os.clock()
+end
+
+-- Sound `button` as it goes down: `key`, else its Sound attribute, else UIClick. `canAct`, when
+-- given, says whether the press will do anything (a dimmed + stays quiet).
+function Gui.pressSound(button, key, canAct)
+	button.MouseButton1Down:Connect(function()
+		if canAct == nil or canAct() then
+			Gui.press(key or button:GetAttribute("Sound"))
+		end
+	end)
+end
+
+UserInputService.InputEnded:Connect(function(input)
+	local t = input.UserInputType
+	if pressed and (t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.Touch) then
+		local gen = pressGen
+		task.delay(0.1, function()
+			if pressGen == gen then
+				pressed = false
+			end
+		end)
+	end
+end)
 
 -- A plate that is a button: `color` at rest, `hot` under the pointer, pressed a touch smaller.
 function Gui.plateButton(parent, props, color, hot, opts)
@@ -752,6 +808,7 @@ function Gui.tabs(parent, items, props, onPick)
 				l.TextColor3 = Gui.DIM
 			end
 		end)
+		Gui.pressSound(b, "UISelect")
 		b.MouseButton1Click:Connect(function()
 			onPick(it.key)
 		end)
@@ -799,6 +856,7 @@ function Gui.chips(parent, items, props, onPick)
 				Gui.onHover()
 			end
 		end)
+		Gui.pressSound(b, "UISelect")
 		b.MouseButton1Click:Connect(function()
 			onPick(it.key)
 		end)

@@ -438,17 +438,14 @@ local function buildEditor()
 			end
 		end
 	end
-	local function tick()
-		if mods.AudioController then
-			mods.AudioController.play("UITick", { minGap = 0.05 })
-		end
-	end
+	Gui.pressSound(minus, "UITick")
+	Gui.pressSound(plus, "UITick")
 	minus.MouseButton1Click:Connect(function()
-		tick()
+		Gui.click("UITick")
 		resize(-TOUCH.SizeStep)
 	end)
 	plus.MouseButton1Click:Connect(function()
-		tick()
+		Gui.click("UITick")
 		resize(TOUCH.SizeStep)
 	end)
 	local chips, setAll = Gui.chips(bar, { { key = "All", text = "All", width = 64 } }, { Position = UDim2.fromOffset(350, 64), Size = UDim2.fromOffset(64, 52), ZIndex = 7 }, function()

@@ -648,10 +648,9 @@ function LineupController.showcase(a)
 	line.Visible = line.Text ~= ""
 	local cont = Gui.plateButton(stage, { Name = "Continue", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -28, 1, -64), Size = UDim2.fromOffset(220, 66), ZIndex = 14 }, Gui.SIGNAL, Gui.SIGNAL_HOT)
 	label(cont, { Text = "Continue", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 16 })
+	Gui.pressSound(cont, "UIConfirm")
 	cont.MouseButton1Click:Connect(function()
-		if mods.AudioController then
-			mods.AudioController.play("UIConfirm")
-		end
+		Gui.click("UIConfirm")
 		close()
 	end)
 	if mods.AudioController and won then

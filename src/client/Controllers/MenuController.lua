@@ -70,17 +70,10 @@ local TIPS = {
 ------------------------------------------------------------------------------------------
 
 -- The press sound: UIClick, or the button's own ("Sound" attribute: UIConfirm on action plates,
--- UISelect on tabs and toggles). One per press, however many layers of a handler call it.
-local lastPress = 0
+-- UISelect on tabs and toggles). One per press, however many layers of a handler call it, and
+-- none when the button already sounded as it went down (Gui.pressSound).
 local function click(key)
-	local now = os.clock()
-	if now - lastPress < 0.08 then
-		return
-	end
-	lastPress = now
-	if mods and mods.AudioController then
-		mods.AudioController.play(key or "UIClick", { minGap = 0.05 })
-	end
+	Gui.click(key)
 end
 
 local function profile()
@@ -137,6 +130,7 @@ local function bannerName(kind)
 end
 
 local function onClick(button, fn)
+	Gui.pressSound(button)
 	button.MouseButton1Click:Connect(function()
 		click(button:GetAttribute("Sound"))
 		fn()
@@ -1008,6 +1002,8 @@ local function buildRecruit()
 		lastSpin = os.clock()
 		sendProfile("spin", banner, n)
 	end
+	Gui.pressSound(x1, "UIConfirm")
+	Gui.pressSound(x10, "UIConfirm")
 	x1.MouseButton1Click:Connect(function()
 		spin(1)
 	end)
@@ -1992,6 +1988,9 @@ local function buildPlayers()
 		local roleL = Gui.label(b, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 18), TextXAlignment = Enum.TextXAlignment.Center })
 		local who = Gui.label(b, { Text = "", display = true, TextSize = 14, Size = UDim2.new(1, -8, 0, 18), Position = UDim2.fromOffset(4, 60), TextXAlignment = Enum.TextXAlignment.Center, TextTruncate = Enum.TextTruncate.AtEnd })
 		local rb = { button = b, bar = bar, role = roleL, who = who }
+		Gui.pressSound(b, "UISelect", function()
+			return rb.key ~= nil
+		end)
 		b.MouseButton1Click:Connect(function()
 			if rb.key then
 				click("UISelect")
@@ -2332,6 +2331,12 @@ local function buildPlayer()
 		local value = Gui.label(row, { Text = "", display = true, TextSize = 22, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -124, 0.5, 0), Size = UDim2.fromOffset(116, 30), TextXAlignment = Enum.TextXAlignment.Right })
 		local plusB, plusL = Gui.squareButton(row, "+", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -62, 0.5, 0), Size = UDim2.fromOffset(52, 52) })
 		local minusB, minusL = Gui.squareButton(row, "-", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(52, 52) })
+		Gui.pressSound(plusB, "UITick", function()
+			return selectedChar ~= nil and plusB.Active
+		end)
+		Gui.pressSound(minusB, "UITick", function()
+			return selectedChar ~= nil and minusB.Active
+		end)
 		plusB.MouseButton1Click:Connect(function()
 			if selectedChar and plusB.Active then
 				click("UITick")
@@ -3791,6 +3796,11 @@ end
 
 function MenuController.init(m)
 	mods = m
+	Gui.play = function(key, opts)
+		if mods.AudioController then
+			mods.AudioController.play(key, opts)
+		end
+	end
 	Gui.onHover = function()
 		if mods.AudioController then
 			mods.AudioController.play("UIHover", { minGap = 0.06, volume = 0.45 })

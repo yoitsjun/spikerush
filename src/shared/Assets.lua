@@ -101,12 +101,25 @@ Assets.Sounds = {
 --   start  seconds of silence at the front of the file, skipped so the sound lands on its moment
 --   gain   evens out how loud the files are: peak loudness brought to about 400 at Volume 0.5
 Assets.SoundFiles = {
-	["129991093083800"] = { start = 0.35, gain = 2.2 }, -- "boomp jump": 0.38 s silence, peak 183
-	["101487104093246"] = { start = 0.24 }, -- "spike sfx": 0.26 s silence, peak 410
-	["116030239767785"] = { start = 0.33, gain = 1.3 }, -- "spike land": 0.35 s silence, peak 306
-	["140530824120891"] = { start = 0.72, gain = 1.5 }, -- "crowd hype": 0.75 s silence, peak 172
+	["129991093083800"] = { start = 0.38, gain = 2.2 }, -- "boomp jump": 0.39 s silence, peak 183
+	["101487104093246"] = { start = 0.25 }, -- "spike sfx": 0.26 s silence, peak 410
+	["116030239767785"] = { start = 0.34, gain = 1.3 }, -- "spike land": 0.35 s silence, peak 306
+	["140530824120891"] = { start = 0.74, gain = 1.5 }, -- "crowd hype": 0.75 s silence, peak 172
 	["111844345256332"] = { start = 0.25, gain = 1.4 }, -- "RecruitBuild": swells from 0.26 s, peak 280
 	-- "heavy land" (94780477478667) starts at once and peaks at 492: as it is
+	["71996778404557"] = { start = 0.32, gain = 6.5 }, -- "set": 0.33 s silence, peak 48
+	["84316579472327"] = { start = 0.32, gain = 3.8 }, -- "feint sound": 0.33 s silence, peak 84
+	["115661994288749"] = { start = 0.32, gain = 3.7 }, -- "missed spike or swing": 0.33 s silence, peak 76
+	["93928767284165"] = { start = 0.02, gain = 3.4 }, -- "squeak 1": 0.03 s silence, peak 82
+	["121230189767569"] = { start = 0.085, gain = 3.3 }, -- "SQUEAK 2": 0.09 s silence, peak 85
+	["133064028732021"] = { start = 0.53, gain = 1.3 }, -- "end of rally cheer": 0.54 s silence, peak 273
+	-- the menu set starts at once; gains bring each to about 200
+	["101200067239382"] = { gain = 3 }, -- "UIClick": peak 65
+	["117000832074549"] = { gain = 1.1 }, -- "UITick": peak 180
+	["94544858772525"] = { gain = 1.8 }, -- "UIOpen": peak 108
+	["72734883374430"] = { gain = 1.8 }, -- "UIOpenLong": peak 108
+	["75496570740002"] = { gain = 0.85 }, -- "UISelect": peak 244
+	-- "UIConfirm" (140365614756879) peaks at 219: as it is
 }
 
 -- The per-upload entry for a sound value (an id in any form, or a Sound's SoundId), or nil.

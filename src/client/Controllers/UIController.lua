@@ -139,10 +139,9 @@ local function button(parent, text, props)
 	return b
 end
 
+-- The press sound (none when the button already sounded as it went down: Gui.pressSound).
 local function click()
-	if mods.AudioController then
-		mods.AudioController.play("UIClick")
-	end
+	Gui.click("UIClick")
 end
 
 local function teamColor(team)
@@ -1111,6 +1110,8 @@ local function buildContinue()
 	local keep = button(f, "Keep playing", { Size = UDim2.fromOffset(230, 46), Position = UDim2.new(0.5, -238, 0, 94), BackgroundColor3 = UI.Spark, TextColor3 = UI.Ink, TextSize = 17 })
 	local stop = button(f, "End match", { Size = UDim2.fromOffset(230, 46), Position = UDim2.new(0.5, 8, 0, 94), TextSize = 17 })
 	local status = label(f, { Text = "", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = UI.Fog, Size = UDim2.new(1, -24, 0, 18), Position = UDim2.new(0, 12, 1, -28), TextXAlignment = Enum.TextXAlignment.Center })
+	Gui.pressSound(keep)
+	Gui.pressSound(stop)
 	keep.MouseButton1Click:Connect(function()
 		click()
 		ui.again.voted = true
@@ -1169,6 +1170,7 @@ local function buildCoach()
 	end
 	local streak = label(row, { Text = "", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = UI.Fog, Size = UDim2.fromOffset(120, 20), LayoutOrder = 10 })
 	local leave = button(f, "Back to the menu", { Size = UDim2.new(1, -24, 0, 34), Position = UDim2.new(0, 12, 1, -44), BackgroundColor3 = UI.InkSoft, TextColor3 = UI.Chalk, TextSize = 15 })
+	Gui.pressSound(leave)
 	leave.MouseButton1Click:Connect(function()
 		click()
 		Net.get("Forfeit"):FireServer()
@@ -1283,6 +1285,7 @@ end
 local function buildCorner()
 	local timeout, timeoutCap = roundButton("Timeout", "IconTimeout", -84)
 	timeout.Visible = false
+	Gui.pressSound(timeout)
 	timeout.MouseButton1Click:Connect(function()
 		click()
 		mods.ActionController.press("Timeout")
@@ -1290,6 +1293,7 @@ local function buildCorner()
 	-- forfeit: tap once to arm, again within 3 seconds to give up the match
 	local forfeit, forfeitCap = roundButton("Forfeit", "IconForfeit", -156)
 	forfeit.Visible = false
+	Gui.pressSound(forfeit)
 	forfeit.MouseButton1Click:Connect(function()
 		click()
 		if ui.forfeitArmed and os.clock() - ui.forfeitArmed < 3 then
@@ -1349,6 +1353,7 @@ local function buildCorner()
 			-- a button row: a signal-yellow plate on the right
 			local plate = Gui.plate(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(78, 34), ZIndex = 5 }, Gui.SIGNAL)
 			label(plate, { Text = s.button, Font = Enum.Font.GothamBlack, TextSize = 18, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
+			Gui.pressSound(b)
 			b.MouseButton1Click:Connect(function()
 				click()
 				s.press()
@@ -1365,6 +1370,7 @@ local function buildCorner()
 				track.BackgroundColor3 = on and Gui.SIGNAL or Color3.fromRGB(64, 68, 86)
 				knob.Position = on and UDim2.new(1, -25, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)
 			end
+			Gui.pressSound(b)
 			b.MouseButton1Click:Connect(function()
 				click()
 				local v = State.settings[s.key]
@@ -1384,6 +1390,7 @@ local function buildCorner()
 			refresh()
 		end
 	end)
+	Gui.pressSound(gear)
 	gear.MouseButton1Click:Connect(function()
 		click()
 		sp.Visible = not sp.Visible
@@ -1677,18 +1684,26 @@ local function buildRotation()
 		r.serve = button(row, "Serve", { Size = UDim2.fromOffset(64, 30), Position = UDim2.new(1, -186, 0, 5), TextSize = 12 })
 		r.up = button(row, "Up", { Size = UDim2.fromOffset(54, 30), Position = UDim2.new(1, -118, 0, 5), TextSize = 12 })
 		r.down = button(row, "Down", { Size = UDim2.fromOffset(58, 30), Position = UDim2.new(1, -60, 0, 5), TextSize = 12 })
+		local function hasId()
+			return r.id ~= nil
+		end
+		Gui.pressSound(r.serve, nil, hasId)
+		Gui.pressSound(r.up, nil, hasId)
+		Gui.pressSound(r.down, nil, hasId)
 		r.serve.MouseButton1Click:Connect(op("serve"))
 		r.up.MouseButton1Click:Connect(op("up"))
 		r.down.MouseButton1Click:Connect(op("down"))
 		rows[i] = r
 	end
 	local ready = button(f, "Ready", { Size = UDim2.fromOffset(150, 34), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, -10), BackgroundColor3 = UI.Spark, TextColor3 = UI.Ink, TextSize = 14 })
+	Gui.pressSound(ready)
 	ready.MouseButton1Click:Connect(function()
 		click()
 		ui.rotation.ready = true
 		Net.get("Timeout"):FireServer("ready")
 	end)
 	local swap = button(f, "Character and look", { Size = UDim2.fromOffset(200, 34), AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -10), TextSize = 13 })
+	Gui.pressSound(swap)
 	swap.MouseButton1Click:Connect(function()
 		click()
 		mods.MenuController.openSwap()
