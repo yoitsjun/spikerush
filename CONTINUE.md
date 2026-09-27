@@ -1,49 +1,57 @@
-# Continue Spike Rush on a new account
+# Continue Spike Rush in a fresh conversation
 
-Everything is saved in GitHub, so a new Claude account can pick up with nothing lost.
+Use this when a conversation gets big (hundreds of thousands of tokens) or when you switch Claude accounts. Everything is saved in GitHub, so nothing is lost.
 
 - Repo: https://github.com/yoitsjun/spikerush (public)
 - Branch: `claude/spike-rush-continuation-uwunbo`
 
-## 1. Cloud Claude (claude.ai/code)
+## Before you clear (the old conversation)
 
-1. Sign in with the new account and connect GitHub. Use the same GitHub account that owns `yoitsjun/spikerush`, so Claude can push.
-2. Start a new session on the `yoitsjun/spikerush` repo.
-3. Paste this as the first message:
+1. **Save the place in Studio (Ctrl+S).** The palm model, the thumbstick and other Toolbox pieces live only in the place.
+2. Paste this into the old conversation:
 
-> Check out the branch claude/spike-rush-continuation-uwunbo and work on it. Read CLAUDE.md, CONTINUE.md and HANDOFF.md, then continue from "Next steps" in HANDOFF.md, starting with step 0, the sound pass. Run the four checks after every change, then commit and push to that branch.
+> Before I clear this conversation: commit and push everything, and make sure HANDOFF.md's "Next steps" has everything that's left, including anything half-done and anything I asked for that isn't done yet. Then tell me it's safe to clear.
 
-## 2. Claude Code on your PC (the one connected to Roblox Studio)
+3. When it says it's safe, type `/clear`. It's free.
 
-1. **Save the place in Studio first (Ctrl+S).** Things placed only in Studio, like the score effects in `ToolboxAssets.VFX`, are lost otherwise.
-2. Log in with the new account. In PowerShell:
-   ```
-   claude
-   ```
-   Then type `/login` and pick the new account.
-3. Reconnect Roblox Studio, if the new account doesn't see it:
-   ```
-   claude mcp add --scope user --transport stdio Roblox_Studio -- cmd.exe /c "cd /d %LOCALAPPDATA%\Roblox && .\mcp.bat"
-   ```
-   In Studio, go to Assistant, then Settings, then MCP Servers, and make sure "Claude Code CLI" is connected.
-4. Start Claude Code in the project's git folder and paste:
+## Claude Code on your PC (connected to Roblox Studio)
 
-> Find your git clone of this project, or clone https://github.com/yoitsjun/spikerush, and check out the branch claude/spike-rush-continuation-uwunbo. Pull the latest and tell me the folder path. Read CLAUDE.md and HANDOFF.md, then continue with step 0 in Next steps, the sound pass. Before you stop, write anything unfinished into HANDOFF.md and push.
+After `/clear`, or after `/login` with a new account, paste:
 
-5. Run `rojo serve` from that same folder so Studio shows the latest code.
+> Pull the latest from the branch claude/spike-rush-continuation-uwunbo. Read CLAUDE.md and HANDOFF.md, then continue from "Next steps" in HANDOFF.md, starting at the top. Before you stop, write anything unfinished into HANDOFF.md and push.
 
-## Where things stand
+On a new account, if Studio isn't connected:
 
-- **Game:** complete and playable, with 37 characters and all the abilities, bots, lobbies, recruit, locker, shop, ranks and tutorial. The UI has been overhauled in The Spike's layout with original art, and the VFX were redone with Creator Store textures. See HANDOFF.md for the details.
-- **Next up:**
-  1. **Sound**, which the owner wants before courts. See HANDOFF.md step 0. Sounds must come from the Creator Store, be original, or be recorded by the owner from real things. Nothing recorded from The Spike or any other game.
-  2. **Courts:** Beach, Colosseum, Nationals, plus a court picker.
-- **Still to do before launch:**
-  - Create the VP and Gold Developer Products and paste their ids into `Config.Shop`.
-  - Upload the game icon and thumbnail.
-  - Lower `StartingVP`.
+```
+claude mcp add --scope user --transport stdio Roblox_Studio -- cmd.exe /c "cd /d %LOCALAPPDATA%\Roblox && .\mcp.bat"
+```
+
+Then, in Studio, go to Assistant, then Settings, then MCP Servers, and make sure "Claude Code CLI" is connected.
+
+Keep `rojo serve` running from the same folder Claude works in.
+
+## Cloud Claude (claude.ai/code)
+
+1. Start a new session on `yoitsjun/spikerush`. On a new account, connect GitHub first, using the account that owns the repo.
+2. Paste:
+
+> Check out the branch claude/spike-rush-continuation-uwunbo and work on it. Read CLAUDE.md, CONTINUE.md and HANDOFF.md, then continue from "Next steps" in HANDOFF.md. Run the four checks after every change, then commit and push to that branch.
+
+## Where things stand (end of the thirteenth session)
+
+Built: 37 characters and their abilities, bots, lobbies, four courts (Beach, Colosseum, Nationals, Night Rooftop), recruit, locker, shop, ranks, practice drills, the tutorial, mobile controls, point celebrations and the owner's sounds.
+
+Next, in HANDOFF.md's order:
+
+0. **Hands-on check** of the thirteenth session's work: practice drills, AI teammate abilities (keys 1 and 2), mobile controls, the point celebration.
+1. **Sound:** the owner sends ids for the empty slots, and Claude sets each one's start and gain.
+2. **Courts:** polish from the owner's screenshots.
+3. **Before launch:**
+   - create the VP and Gold Developer Products;
+   - upload the game icon and thumbnail;
+   - lower `StartingVP`.
 
 ## Tips to save tokens
 
-- Use one conversation per task. Type `/clear` between tasks; it's free.
-- Before clearing, have Claude write anything unfinished into HANDOFF.md and push. A fresh conversation reads CLAUDE.md on its own and HANDOFF.md when asked.
+- Use one conversation per task, and `/clear` between tasks.
+- A fresh conversation reads CLAUDE.md on its own, and HANDOFF.md when you ask it to. Anything not written there is forgotten, so always have Claude update HANDOFF.md and push before you clear.
