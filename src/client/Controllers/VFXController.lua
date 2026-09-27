@@ -1244,8 +1244,6 @@ end
 -- score effects (V Points unlocks): where an attack lands for a point
 ------------------------------------------------------------------------------------------
 
-local SCORING = { Spike = true, JumpServe = true, Overhand = true, Feint = true, Block = true }
-
 -- The meteor: a burning rock drops out of the sky onto the spot, then the crater.
 local function meteorStrike(pos, dirZ, tint)
 	local rock = take(Enum.PartType.Ball)
@@ -1323,18 +1321,19 @@ local function playScore(effect, pos, tint, dirZ)
 	return true
 end
 
--- The attack (or stuff block) that just landed in: the scorer's effect at the spot.
-local function scoreEffect(pos, meta)
-	if not meta or not SCORING[meta.hitType] or not Court.inBounds(pos) then
-		return false
+-- After the rally (on the server's call, so a late dig never sets one off): the scorer's equipped
+-- score effect goes off just behind them as the camera closes in (CameraController's hero shot
+-- looks at them three-quarters on from the net side).
+local function celebrate(a)
+	local model = Util.modelOf(a.scorerId)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	local side = State.sideOfEntity(a.scorerId)
+	if not hrp or not side then
+		return
 	end
-	local side = State.sideOfEntity(meta.id)
-	if not side or pos.Z * side > 0 then
-		return false -- landed on the hitter's own side: not their point
-	end
-	local model = Util.modelOf(meta.id)
-	local effect = Spins.equipped(model, "Effect").Key
-	return playScore(effect, pos, Spins.tint(Spins.equipped(model, "Color")), -side)
+	local r = hrp.Position
+	local pos = Vector3.new(r.X + 5.5, 0.2, r.Z + side * 1.8)
+	playScore(Spins.equipped(model, "Effect").Key, pos, Spins.tint(Spins.equipped(model, "Color")), -side)
 end
 
 -- A score effect anywhere, outside a match (the Locker's preview): the effect's key, the spike
@@ -1351,7 +1350,6 @@ local function onBallEvent(kind, ev, meta)
 			return
 		end
 		local pos = Vector3.new(0, 0.2, ev.pos.Z)
-		scoreEffect(pos, meta)
 		local speed = ev.vel.Magnitude
 		local hard = speed > 45
 		local c = nil
@@ -1425,8 +1423,13 @@ function VFXController.init(m)
 	State.signals.Announce:Connect(function(a)
 		if a.kind == "Break" then
 			onBreak(a)
-		elseif a.kind == "Point" and a.landing and (a.reason == "Spike" or a.reason == "Ace" or a.reason == "Stuff" or a.reason == "Break") then
-			emit("Sparks", a.landing + Vector3.new(0, 1, 0), 24, teamColor(a.winner))
+		elseif a.kind == "Point" then
+			if a.landing and (a.reason == "Spike" or a.reason == "Ace" or a.reason == "Stuff" or a.reason == "Break") then
+				emit("Sparks", a.landing + Vector3.new(0, 1, 0), 24, teamColor(a.winner))
+			end
+			if a.scorerId and not a.error and Config.Match.Celebrate[a.reason] and State.isPlaying then
+				task.delay(0.35, celebrate, a)
+			end
 		end
 	end)
 	State.signals.Action:Connect(function(entityId, kind, extra)

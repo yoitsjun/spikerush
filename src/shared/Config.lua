@@ -231,7 +231,7 @@ Config.Stamina = {
 	BreakFailKmh = 90, -- with a broken guard, balls this fast cannot be received
 	LowQualityFloor = 0.55, -- receive quality multiplier at the bottom of the red zone
 	RecoverWinner = 0.1, -- fraction of max refilled after a rally
-	RecoverLoser = 0.2,
+	RecoverLoser = 0.5, -- the team that lost the point gets half its bar back
 	-- The drain above is what an S+ attacker's ball costs. Lower tiers hit the guard less and
 	-- less: Low for a D-, rising along ((tier - 1) / 14) ^ Exponent to 1 for S+ (B about half,
 	-- A about 0.7, S about 0.9).
@@ -592,6 +592,9 @@ Config.Match = {
 	SetEndTime = 3.5,
 	MatchEndTime = 9,
 	DefaultBotTier = "A",
+	-- points the scorer earned: after the rally the camera closes on them, their score effect goes
+	-- off and their card slides in with this word (faults like outs and nets get none of it)
+	Celebrate = { Spike = "SPIKE!", Feint = "FEINT!", Tooled = "TOOLED!", Break = "GUARD BREAK!", Ace = "ACE!", Stuff = "STUFF!", Block = "BLOCK!" },
 }
 
 -- Custom lobbies (the Lobbies module has the rules). A lobby plays on this server's court when

@@ -206,6 +206,8 @@ function TeamService.applyToModel(e)
 	model:SetAttribute("Ability", e.ability or "")
 	model:SetAttribute("CharName", e.charName or e.name)
 	model:SetAttribute("EntityId", e.id)
+	-- whose Roblox avatar it wears (a player, the player an AI stands in for, a bot's friend)
+	model:SetAttribute("AvatarUserId", e.player and e.player.UserId or e.avatarId or e.friendId or 0)
 	Characters.writeAttributes(model, e.tier, e.build)
 	if e.player then
 		-- the local client predicts its own hits from these

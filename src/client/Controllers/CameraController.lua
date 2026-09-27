@@ -71,7 +71,7 @@ local function desired(now)
 	local dist = DIST
 
 	-- dramatic angle on the landing spot right after a point
-	if pointCam and now < pointCam.untilT and State.settings.dramatic then
+	if pointCam and pointCam.focus and now < pointCam.untilT and State.settings.dramatic then
 		local e = 1 - (pointCam.untilT - now) / pointCam.duration
 		local f = pointCam.focus
 		local pos, look = side(f.Z, 6 + e * 3, 38 - e * 4, pointCam.yaw, 3)
@@ -121,6 +121,22 @@ local function desired(now)
 	return pos, look, BASE_FOV
 end
 
+-- After a point the scorer earned: close on them, three-quarters on from the net side, pushing in
+-- while their card is up. Nil once their character is gone.
+local function heroShot(now)
+	local model = Util.modelOf(pointCam.target)
+	local root = model and model:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return nil
+	end
+	local e = math.clamp(1 - (pointCam.untilT - now) / pointCam.duration, 0, 1)
+	e = 1 - (1 - e) * (1 - e)
+	local r = root.Position
+	local y = math.max(r.Y, 3)
+	local pos, look = side(r.Z, y + 2.2, 26 - e * 8, pointCam.yaw, y + 0.6)
+	return pos, Vector3.new(r.X, look.Y, look.Z), BASE_FOV
+end
+
 -- The fixed, fully zoomed-out shot: far enough back that the court fits both the screen's width
 -- and height, the lens a touch above the play looking slightly down so the floor lines read.
 local function wide()
@@ -150,11 +166,16 @@ local function update(dt)
 	local now = os.clock()
 	local pos, look, fov
 	local zoomedOut = State.isPlaying and not State.settings.followCam
-	if zoomedOut then
-		pos, look, fov = wide()
-		fovKick = 0 -- no punch-ins on the wide shot
-	else
-		pos, look, fov = desired(now)
+	if pointCam and pointCam.target and now < pointCam.untilT and State.isPlaying then
+		pos, look, fov = heroShot(now)
+	end
+	if not pos then
+		if zoomedOut then
+			pos, look, fov = wide()
+			fovKick = 0 -- no punch-ins on the wide shot
+		else
+			pos, look, fov = desired(now)
+		end
 	end
 	fov = fov or BASE_FOV
 	local speed = 4.5
@@ -191,7 +212,12 @@ end
 function CameraController.init(m)
 	mods = m
 	State.signals.Announce:Connect(function(a)
-		if a.kind == "Point" and a.landing and a.reason ~= "ServeClock" then
+		if a.kind == "Point" and a.scorerId and not a.error and Config.Match.Celebrate[a.reason] then
+			-- the hero shot: the camera holds on the player who scored while their card is up
+			local dur = Config.Match.PointPauseTime * 0.85
+			local sideOf = State.sideOfEntity(a.scorerId) or -1
+			pointCam = { target = a.scorerId, untilT = os.clock() + dur, duration = dur, yaw = 18 * sideOf }
+		elseif a.kind == "Point" and a.landing and a.reason ~= "ServeClock" then
 			local dur = Config.Match.PointPauseTime * 0.6
 			local yaw = a.landing.Z > 0 and -14 or 14
 			pointCam = { focus = a.landing, untilT = os.clock() + dur, duration = dur, yaw = yaw }
