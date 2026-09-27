@@ -33,9 +33,9 @@ local TIP_FACE = Font.new(MONTSERRAT, Enum.FontWeight.Medium, Enum.FontStyle.Nor
 
 -- The frame's layout, as fractions of the screen (sizes are fractions of its height).
 local HAND_AT = Vector2.new(0.63, 0.5) -- where the pointing hand sits
-local BALL_SIZE = 0.071
-local BALL_ABOVE = 0.056 -- the ball's centre above the hand
-local BEAM_WIDTH = 0.066
+local BALL_SIZE = 0.105
+local BALL_ABOVE = 0.073 -- the ball's centre above the hand
+local BEAM_WIDTH = 0.098
 local HAND_TO_FEET = 0.5 -- the hand-to-feet height on the screen (it sets the camera distance)
 local FOV = 30
 local TAN = math.tan(math.rad(FOV / 2))
@@ -471,7 +471,7 @@ local function strike(C, AC, rig, pose, standY)
 	local follow = pose and followPose(pose)
 	local CONTACT = 0.05
 	local from = ballAt
-	local to = Vector2.new(ballAt.X - 0.75, 1.25) -- down and away, off the screen
+	local to = Vector2.new(ballAt.X + 0.75, 1.25) -- down and forward (the figure faces right), off the screen
 	local start = os.clock()
 	local hit = false
 	while true do

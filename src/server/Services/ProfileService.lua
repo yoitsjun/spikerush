@@ -135,13 +135,15 @@ local function sanitizeProfile(data)
 			end
 		end
 	end
+	-- what's equipped is kept if it exists; whether it's owned is checked once the player is known
+	-- (keepOwned: a developer owns everything without it being in `owned`)
 	for _, kind in ipairs(COS.Kinds) do
 		local eq = type(data.equip) == "table" and data.equip[kind]
-		if eq and out.owned[kind][eq] then
+		if type(eq) == "string" and Spins.item(kind, eq) then
 			out.equip[kind] = eq
 		end
 	end
-	if type(data.char) == "string" and out.owned.Char[data.char] then
+	if type(data.char) == "string" and Spins.item("Char", data.char) then
 		out.char = data.char
 	end
 	if type(data.fav) == "table" then
@@ -192,6 +194,18 @@ local function owns(profile, kind, k)
 	return profile.owned[kind] ~= nil and profile.owned[kind][k] == true
 end
 
+-- Anything equipped that this player doesn't own goes back to the default.
+local function keepOwned(profile)
+	for _, kind in ipairs(COS.Kinds) do
+		if not owns(profile, kind, profile.equip[kind]) then
+			profile.equip[kind] = Spins.default(kind)
+		end
+	end
+	if not owns(profile, "Char", profile.char) then
+		profile.char = Roster.Starters[1]
+	end
+end
+
 local function load(plr)
 	local data, ok = nil, false
 	if store then
@@ -214,6 +228,7 @@ local function load(plr)
 	-- only a profile that loaded (or was confirmed new) may ever be written back
 	profile.canSave = ok
 	profile.dev = isDeveloper(plr)
+	keepOwned(profile)
 	-- a player who left while the DataStore answered must not be cached (nothing would clear it)
 	if plr.Parent then
 		profiles[plr] = profile
