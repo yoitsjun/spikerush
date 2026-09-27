@@ -133,6 +133,44 @@ function ActionController.abilityCooldown()
 	return math.max(0, readyAt - Util.now())
 end
 
+-- Your AI teammates with an active ability, in the team's order: keys 1 and 2 (D-pad left and
+-- right) pop theirs. Their AI never does it on its own.
+function ActionController.teamAbilities()
+	local list = {}
+	local rosters = State.match and State.match.rosters
+	for _, info in ipairs(rosters and rosters[State.myTeam or ""] or {}) do
+		local def = info.isBot and Config.Abilities[info.ability or ""]
+		if def and def.Active then
+			table.insert(list, info)
+		end
+	end
+	return list
+end
+
+-- 0 when an entity's ability is ready, else the seconds of cooldown left.
+function ActionController.cooldownOf(id)
+	local model = Util.modelOf(id)
+	local readyAt = model and model:GetAttribute("AbilityReadyAt") or 0
+	return math.max(0, readyAt - Util.now())
+end
+
+local function pressTeamAbility(i)
+	if not State.isPlaying or not State.match.inMatch then
+		return
+	end
+	local mate = ActionController.teamAbilities()[i]
+	if not mate then
+		return
+	end
+	local def = Config.Abilities[mate.ability]
+	local left = ActionController.cooldownOf(mate.id)
+	if left > 0 then
+		State.hint(string.format("%s's %s is ready in %d s", mate.char or mate.name, def.Name, math.ceil(left)))
+		return
+	end
+	Net.get("ActionFX"):FireServer("TeamAbility", mate.id)
+end
+
 local function pressAbility()
 	local def = Config.Abilities[State.myAbility() or ""]
 	if not def or not def.Active then
@@ -712,6 +750,10 @@ end
 function ActionController.press(action)
 	if action == "Ability" then
 		pressAbility()
+		return
+	end
+	if action == "Team1" or action == "Team2" then
+		pressTeamAbility(action == "Team1" and 1 or 2)
 		return
 	end
 	if action == "Timeout" then

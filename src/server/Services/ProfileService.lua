@@ -30,6 +30,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Characters = require(Shared.Characters)
 local Roster = require(Shared.Roster)
+local Court = require(Shared.Court)
 local Tutorial = require(Shared.Tutorial)
 local Rewards = require(Shared.Rewards)
 local Spins = require(Shared.Spins)
@@ -84,7 +85,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false } }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -146,6 +147,21 @@ local function sanitizeProfile(data)
 	if type(data.char) == "string" and Spins.item("Char", data.char) then
 		out.char = data.char
 	end
+	-- your AI teammates, per team ("3v3", "2v2"): a character of each slot's role
+	if type(data.teams) == "table" then
+		for mode, picks in pairs(data.teams) do
+			local size = Court.teamSize(mode)
+			if size and size >= 2 and type(picks) == "table" then
+				for _, role in ipairs(Court.roles(size)) do
+					local c = type(picks[role]) == "string" and Roster.get(picks[role])
+					if c and c.Role == role then
+						out.teams[mode] = out.teams[mode] or {}
+						out.teams[mode][role] = c.Id
+					end
+				end
+			end
+		end
+	end
 	if type(data.fav) == "table" then
 		for id, v in pairs(data.fav) do
 			if v == true and Roster.get(id) then
@@ -204,6 +220,13 @@ local function keepOwned(profile)
 	if not owns(profile, "Char", profile.char) then
 		profile.char = Roster.Starters[1]
 	end
+	for _, picks in pairs(profile.teams) do
+		for role, id in pairs(picks) do
+			if not owns(profile, "Char", id) then
+				picks[role] = nil
+			end
+		end
+	end
 end
 
 local function load(plr)
@@ -259,6 +282,7 @@ local function save(plr, force)
 		equip = profile.equip,
 		char = profile.char,
 		fav = profile.fav,
+		teams = profile.teams,
 		autoSell = profile.autoSell,
 		receipts = profile.receipts,
 	}
@@ -362,6 +386,27 @@ function ProfileService.applyActive(plr)
 	applyCosmetics(plr, ProfileService.get(plr))
 end
 
+local function teamsCopy(profile)
+	local out = {}
+	for mode, picks in pairs(profile.teams or {}) do
+		out[mode] = table.clone(picks)
+	end
+	return out
+end
+
+-- Your AI teammate for `role` in your `size` team: the character, its tier and your build of it
+-- (your upgrades), or nil when you haven't picked one (a random bot plays it).
+function ProfileService.teamPick(plr, size, role)
+	local profile = profiles[plr]
+	local picks = profile and profile.teams[size .. "v" .. size]
+	local c = picks and Roster.get(picks[role] or "")
+	if not c or not owns(profile, "Char", c.Id) then
+		return nil
+	end
+	local tier, build = Characters.fromRoster(c, profile.levels[c.Id])
+	return c, tier, build
+end
+
 function ProfileService.snapshot(plr)
 	local profile = ProfileService.get(plr)
 	local owned = {}
@@ -395,6 +440,7 @@ function ProfileService.snapshot(plr)
 		equip = table.clone(profile.equip),
 		char = ProfileService.character(plr).Id,
 		fav = table.clone(profile.fav or {}),
+		teams = teamsCopy(profile),
 		autoSell = table.clone(profile.autoSell),
 		autoRolling = profile.autoRolling and profile.autoRolling.banner or nil,
 		dev = profile.dev or nil,
@@ -721,6 +767,25 @@ local function onRequest(plr, kind, a, b, c)
 		else
 			ProfileService.applyActive(plr)
 		end
+		push(plr)
+	elseif kind == "teamPick" then
+		-- an AI teammate for one of your teams: (team "3v3" / "2v2", role, character id or "")
+		local size = Court.teamSize(a)
+		if not size or size < 2 or not table.find(Court.roles(size), b) then
+			return
+		end
+		local picks = profile.teams[a] or {}
+		if c == "" or c == nil then
+			picks[b] = nil
+		else
+			local ch = Roster.get(c)
+			if not ch or ch.Role ~= b or not owns(profile, "Char", ch.Id) then
+				return
+			end
+			picks[b] = ch.Id
+		end
+		profile.teams[a] = picks
+		dirty[plr] = true
 		push(plr)
 	elseif kind == "favorite" then
 		local c = Roster.get(a)

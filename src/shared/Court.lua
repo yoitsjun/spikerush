@@ -183,6 +183,22 @@ function Court.reorder(order, op, id, serving)
 	return true
 end
 
+-- Roles for a team of `size`, in the order humans claim them (the ace spot first).
+function Court.roles(size)
+	if size <= 1 then
+		return { "Solo" }
+	elseif size == 2 then
+		return { "WS", "SE" }
+	end
+	return { "WS", "MB", "SE" }
+end
+
+-- A player's team for a mode ("3v3", "2v2", "1v1"): its size, or nil.
+function Court.teamSize(mode)
+	local n = type(mode) == "string" and tonumber(string.match(mode, "^(%d)v%d$"))
+	return (n == 1 or n == 2 or n == 3) and n or nil
+end
+
 function Court.serveSpot(side, role)
 	return Court.spot(side, C.SideDepth + 1.1 * Config.Scale.StudsPerMeter, role)
 end

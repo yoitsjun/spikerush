@@ -26,6 +26,7 @@ local Config = require(Shared.Config)
 local Characters = require(Shared.Characters)
 local Spins = require(Shared.Spins)
 local Roster = require(Shared.Roster)
+local Court = require(Shared.Court)
 local Tutorial = require(Shared.Tutorial)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
@@ -1739,6 +1740,9 @@ end
 local rosterRole = "All" -- All, WS, MB, SE
 local rosterFav = false -- favourites only
 local rosterSort = "Tier" -- Tier or Name
+local teamMode = "3v3" -- the Players screen's team tab: 3v3, 2v2 or 1v1
+local teamRole = nil -- the slot shown on the team card (nil: the one you play)
+local picking = nil -- { mode, role, you } while a card click fills a team slot
 local playerTab = "Growth" -- the player page's tab: Growth or Info
 local statStep = Config.Upgrades.Steps[1] -- the player page's + and - move a stat by this much
 
@@ -1936,11 +1940,107 @@ local function buildPlayers()
 	for _, c in ipairs(Roster) do
 		local card = characterCard(grid, c)
 		onClick(card.button, function()
-			openPlayer(c.Id)
+			local pk = picking
+			if not pk then
+				openPlayer(c.Id)
+				return
+			end
+			if not owns(profile(), "Char", c.Id) then
+				toast("Recruit " .. c.Name .. " first")
+				return
+			end
+			if pk.you then
+				picking = nil
+				sendProfile("select", c.Id)
+			elseif c.Role ~= pk.role then
+				toast(string.format("That slot needs a %s", string.lower(Config.Roles[pk.role].Name)))
+			else
+				picking = nil
+				sendProfile("teamPick", pk.mode, pk.role, c.Id)
+			end
 		end)
 		cards[c.Id] = card
 	end
 	local empty = Gui.label(panel, { Text = "No favourites here yet. Open a player and press Favorite.", TextSize = 18, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(40, 140), Size = UDim2.new(1, -80, 0, 60), TextXAlignment = Enum.TextXAlignment.Center, Visible = false })
+
+	-- while a team slot is being filled: what's being picked, and a way out
+	local pickLine = Gui.label(panel, { Text = "", display = true, TextSize = 18, TextColor3 = Gui.SIGNAL, Position = UDim2.fromOffset(18, 64), Size = UDim2.new(1, -150, 0, 26), Visible = false })
+	local pickCancel = hairButton(panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 62), Size = UDim2.fromOffset(110, 30), Visible = false }, "Cancel", 16)
+	onClick(pickCancel, function()
+		picking = nil
+		MenuController.refresh()
+	end)
+
+	-- left: your teams, one per mode. The roles down the side (the one you play marked YOU), and
+	-- the chosen slot's card: the character, height, tier, the four stats and the ability. Your
+	-- AI teammates play the characters you pick here (a random roster player when you don't).
+	local teams = Gui.card(p, { Name = "Teams", Position = UDim2.fromOffset(M, 110), Size = UDim2.new(0, 560, 1, -110 - M - 132 - 16) })
+	Gui.label(teams, { Text = "Your teams", display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Position = UDim2.fromOffset(18, 10), Size = UDim2.fromOffset(220, 34) })
+	local _, setMode = Gui.tabs(teams, { { key = "3v3", text = "3v3" }, { key = "2v2", text = "2v2" }, { key = "1v1", text = "1v1" } }, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 8), Size = UDim2.fromOffset(300, 44) }, function(key)
+		click("UISelect")
+		teamMode = key
+		teamRole = nil
+		picking = nil
+		MenuController.refresh()
+	end)
+	local roleButtons = {}
+	for i = 1, 3 do
+		local b = make("TextButton", { Position = UDim2.fromOffset(12, 60 + (i - 1) * 104), Size = UDim2.fromOffset(92, 96), BackgroundColor3 = Gui.NAVY, BackgroundTransparency = 0.5, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, teams)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, b)
+		local bar = make("Frame", { Size = UDim2.new(0, 4, 1, -16), Position = UDim2.fromOffset(0, 8), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, Visible = false }, b)
+		local roleL = Gui.label(b, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 18), TextXAlignment = Enum.TextXAlignment.Center })
+		local who = Gui.label(b, { Text = "", display = true, TextSize = 14, Size = UDim2.new(1, -8, 0, 18), Position = UDim2.fromOffset(4, 60), TextXAlignment = Enum.TextXAlignment.Center, TextTruncate = Enum.TextTruncate.AtEnd })
+		local rb = { button = b, bar = bar, role = roleL, who = who }
+		b.MouseButton1Click:Connect(function()
+			if rb.key then
+				click("UISelect")
+				teamRole = rb.key
+				MenuController.refresh()
+			end
+		end)
+		roleButtons[i] = rb
+	end
+	local card = make("Frame", { Position = UDim2.fromOffset(116, 60), Size = UDim2.new(1, -130, 1, -72), BackgroundTransparency = 1 }, teams)
+	local cName = Gui.label(card, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, -96, 0, 46), TextTruncate = Enum.TextTruncate.AtEnd })
+	local cRole = Gui.label(card, { Text = "", display = true, TextSize = 18, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 4), Size = UDim2.fromOffset(60, 20) })
+	local cLine = Gui.label(card, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, RichText = true, Position = UDim2.fromOffset(2, 48), Size = UDim2.new(1, -96, 0, 20), TextTruncate = Enum.TextTruncate.AtEnd })
+	local cBadge, setCBadge = Gui.tierBadge(card, 76, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -6, 0, 0) })
+	local statRows = {}
+	for i, stat in ipairs(Config.Stats.Order) do
+		local row = make("Frame", { Position = UDim2.fromOffset(0, 92 + (i - 1) * 56), Size = UDim2.new(1, -6, 0, 50), BackgroundTransparency = 1 }, card)
+		Gui.iconImage(row, "Icon" .. stat, 28, Gui.CHALK, { Position = UDim2.fromOffset(0, 2) })
+		Gui.label(row, { Text = stat, display = true, TextSize = 21, Position = UDim2.fromOffset(38, 0), Size = UDim2.fromOffset(140, 30) })
+		local value = Gui.label(row, { Text = "", display = true, TextSize = 21, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(140, 30), TextXAlignment = Enum.TextXAlignment.Right })
+		local track = make("Frame", { Position = UDim2.fromOffset(38, 34), Size = UDim2.new(1, -38, 0, 8), BackgroundColor3 = Color3.fromRGB(44, 48, 64), BorderSizePixel = 0 }, row)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, track)
+		local cap = make("Frame", { Size = UDim2.fromScale(0.8, 1), BackgroundColor3 = Color3.fromRGB(78, 84, 106), BorderSizePixel = 0 }, track)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, cap)
+		local fill = make("Frame", { Size = UDim2.fromScale(0.5, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, track)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, fill)
+		make("UIGradient", { Color = ColorSequence.new(Gui.SIGNAL, Color3.fromRGB(255, 150, 30)) }, fill)
+		statRows[stat] = { row = row, value = value, cap = cap, fill = fill }
+	end
+	local cAbility = Gui.label(card, { Text = "", display = true, TextSize = 20, RichText = true, Position = UDim2.fromOffset(0, 92 + 4 * 56 + 4), Size = UDim2.new(1, -6, 0, 24), TextTruncate = Enum.TextTruncate.AtEnd })
+	local cNote = Gui.label(card, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(0, 92 + 4 * 56 + 30), Size = UDim2.new(1, -6, 0, 40) })
+	local pickB, pickL = actionPlate(card, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -4), Size = UDim2.fromOffset(170, 46) }, "Pick", 21)
+	local clearB = hairButton(card, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 184, 1, -4), Size = UDim2.fromOffset(110, 46) }, "Clear", 19)
+	onClick(pickB, function()
+		local slot = ui.players.slot
+		if not slot then
+			return
+		end
+		picking = { mode = teamMode, role = slot.role, you = slot.you }
+		rosterRole = slot.you and "All" or slot.role
+		rosterFav = false
+		MenuController.refresh()
+	end)
+	onClick(clearB, function()
+		local slot = ui.players.slot
+		if slot and not slot.you then
+			picking = nil
+			sendProfile("teamPick", teamMode, slot.role, "")
+		end
+	end)
 
 	-- bottom left, under your avatar: who you play now, and a way into their page
 	local now = Gui.card(p, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, M, 1, -M), Size = UDim2.fromOffset(470, 132) })
@@ -1954,6 +2054,21 @@ local function buildPlayers()
 	end)
 
 	ui.players = {
+		pickLine = pickLine,
+		pickCancel = pickCancel,
+		setMode = setMode,
+		roleButtons = roleButtons,
+		cName = cName,
+		cRole = cRole,
+		cLine = cLine,
+		cBadge = cBadge,
+		setCBadge = setCBadge,
+		statRows = statRows,
+		cAbility = cAbility,
+		cNote = cNote,
+		pickB = pickB,
+		pickL = pickL,
+		clearB = clearB,
 		cards = cards,
 		count = count,
 		sortL = sortL,
@@ -1966,8 +2081,106 @@ local function buildPlayers()
 	}
 end
 
+-- The role you play in a team of `mode`: your character's, if the team has it (else the first
+-- slot, the way players claim roles in a match).
+local function youRole(prof, mode)
+	local roles = Court.roles(Court.teamSize(mode) or 3)
+	local c = Roster.get(prof.char or "") or Roster.get(Roster.Starters[1])
+	if #roles == 1 then
+		return roles[1]
+	end
+	return table.find(roles, c.Role) and c.Role or roles[1]
+end
+
+local function refreshTeams(prof)
+	local pl = ui.players
+	local roles = Court.roles(Court.teamSize(teamMode) or 3)
+	local mine = youRole(prof, teamMode)
+	if not teamRole or not table.find(roles, teamRole) then
+		teamRole = mine
+	end
+	pl.setMode(teamMode)
+	local picks = (prof.teams and prof.teams[teamMode]) or {}
+	local you = Roster.get(prof.char or "") or Roster.get(Roster.Starters[1])
+	for i, rb in ipairs(pl.roleButtons) do
+		local role = roles[i]
+		rb.key = role
+		rb.button.Visible = role ~= nil
+		if role then
+			local on = role == teamRole
+			rb.role.Text = role == "Solo" and "1v1" or Config.Roles[role].Short
+			rb.role.TextColor3 = on and Gui.SIGNAL or Gui.CHALK
+			rb.bar.Visible = on
+			rb.button.BackgroundTransparency = on and 0.15 or 0.5
+			local pick = Roster.get(picks[role] or "")
+			if role == mine then
+				rb.who.Text = "YOU"
+				rb.who.TextColor3 = Gui.SIGNAL
+			else
+				rb.who.Text = pick and pick.Name or "Random"
+				rb.who.TextColor3 = pick and Gui.CHALK or Gui.DIM
+			end
+		end
+	end
+	-- the card
+	local isYou = teamRole == mine
+	local c = isYou and you or Roster.get(picks[teamRole] or "")
+	pl.slot = { role = teamRole, you = isYou }
+	for _, row in pairs(pl.statRows) do
+		row.row.Visible = c ~= nil
+	end
+	pl.cBadge.Visible = c ~= nil
+	pl.clearB.Visible = not isYou and c ~= nil
+	pl.pickL.Text = isYou and "Change" or (c and "Swap" or "Pick")
+	if not c then
+		pl.cName.Text = "Random AI"
+		pl.cRole.Visible = false
+		pl.cLine.Text = "A roster " .. string.lower(Config.Roles[teamRole].Name) .. " at the lobby's bot level"
+		pl.cAbility.Text = ""
+		pl.cNote.Text = "Pick one of your players and they take this spot whenever bots fill your " .. teamMode .. " team."
+		return
+	end
+	pl.cName.Text = c.Name
+	pl.cRole.Visible = true
+	pl.cRole.Text = c.Role
+	pl.cRole.Position = UDim2.fromOffset(math.min(pl.cName.TextBounds.X + 8, 330), 4)
+	local lv = prof.levels and prof.levels[c.Id]
+	local _, maxed = upgradeState(c, lv)
+	pl.setCBadge(c.Tier, tierColor(c.Tier), maxed)
+	pl.cLine.Text = string.format("%d cm   %s", c.Height, isYou and '<font color="#FFD21F">You</font>' or "AI teammate")
+	local span = Config.Stats.Ref - Config.Stats.Min
+	for stat, row in pairs(pl.statRows) do
+		local cur = lv and lv[stat] or Characters.baseStat(c, stat)
+		local ceil = c[stat]
+		row.value.Text = cur >= ceil and string.format("MAX / %d", ceil) or string.format("%d / %d", cur, ceil)
+		row.value.TextColor3 = cur >= ceil and Gui.SIGNAL or Gui.CHALK
+		row.cap.Size = UDim2.fromScale(math.clamp((ceil - Config.Stats.Min) / span, 0, 1), 1)
+		row.fill.Size = UDim2.fromScale(math.clamp((cur - Config.Stats.Min) / span, 0, 1), 1)
+	end
+	local def = c.Ability and Config.Abilities[c.Ability]
+	if def then
+		pl.cAbility.Text = string.format('<font color="#%s">%s</font>', def.Color:ToHex(), def.Name)
+		if isYou then
+			pl.cNote.Text = def.Active and "Active: press Q" or "Passive"
+		else
+			pl.cNote.Text = def.Active and "Active: you pop it with 1 or 2 in a match (your AI never does)" or "Passive: it works on its own"
+		end
+	else
+		pl.cAbility.Text = ""
+		pl.cNote.Text = ""
+	end
+end
+
 local function refreshPlayers(prof)
 	local pl = ui.players
+	refreshTeams(prof)
+	pl.pickLine.Visible = picking ~= nil
+	pl.pickCancel.Visible = picking ~= nil
+	pl.count.Visible = picking == nil
+	if picking then
+		local what = picking.you and "the player you play" or string.format("your %s %s", picking.mode, string.lower(Config.Roles[picking.role].Name))
+		pl.pickLine.Text = "Pick " .. what .. ": click a card"
+	end
 	if not portraits then
 		portraits = buildPortraits()
 	end

@@ -396,15 +396,28 @@ local function pickBotName()
 	return "Rookie " .. botCounter
 end
 
-local function addBot(team, index, role)
+-- `captain`: the player whose team this bot fills; it plays their pick for the role (their own
+-- build of that character) when they made one, else a roster character near the bot level.
+local function addBot(team, index, role, captain)
 	botCounter = botCounter + 1
 	local id = "B_" .. botCounter
 	role = role or "WS"
 	local e
-	local c = rosterFor(TeamService.botTier, role)
+	local c, tier, build = nil, nil, nil
+	if captain then
+		c, tier, build = reg.ProfileService.teamPick(captain, TeamService.teamSize, role)
+		if c and usedChars[c.Id] then
+			c = nil -- already on the court (the captain plays it themselves)
+		end
+	end
+	if not c then
+		c = rosterFor(TeamService.botTier, role)
+		if c then
+			tier, build = Characters.fromRoster(c, "max")
+		end
+	end
 	if c then
 		usedChars[c.Id] = true
-		local tier, build = Characters.fromRoster(c, "max")
 		e = newEntity(id, c.Name, true, nil, team, tier, c.Ability, build)
 		e.charId, e.charName = c.Id, c.Name
 	else
@@ -449,15 +462,7 @@ local function removeEntity(e)
 	return nil
 end
 
--- Roles for a team of `size`, in the order humans claim them (the ace spot first).
-local function roleList(size)
-	if size <= 1 then
-		return { "Solo" }
-	elseif size == 2 then
-		return { "WS", "SE" }
-	end
-	return { "WS", "MB", "SE" }
-end
+local roleList = Court.roles
 
 function TeamService.clear()
 	for _, e in pairs(TeamService.entities) do
@@ -481,9 +486,11 @@ function TeamService.assign(size, plan)
 	TeamService.clear()
 	TeamService.teamSize = size
 	local roles = roleList(size)
+	local captains = {} -- the first player on each team: bots fill it with their picks
 	for _, team in ipairs(Config.TeamOrder) do
 		for _, plr in ipairs((plan and plan[team]) or {}) do
 			if plr.Parent and #TeamService.teams[team].order < size and not TeamService.entityForPlayer(plr) then
+				captains[team] = captains[team] or plr
 				local e = playerEntity(plr, team)
 				e.role = freeRole(team, roles, e.prefRole)
 				TeamService.entities[e.id] = e
@@ -495,7 +502,7 @@ function TeamService.assign(size, plan)
 	end
 	for _, team in ipairs(Config.TeamOrder) do
 		while #TeamService.teams[team].order < size do
-			addBot(team, nil, freeRole(team, roles))
+			addBot(team, nil, freeRole(team, roles), captains[team])
 		end
 	end
 	TeamService.inMatch = true

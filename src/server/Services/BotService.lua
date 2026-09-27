@@ -408,6 +408,17 @@ local function planJumpSet(b, side, now)
 	return true
 end
 
+-- A team with a player on it: the players pop their AI teammates' active abilities (HitService's
+-- "TeamAbility"), so its bots never fire their own.
+local function playerLed(team)
+	for _, m in ipairs(reg.TeamService.members(team)) do
+		if not m.isBot then
+			return true
+		end
+	end
+	return false
+end
+
 local function planSet(team, now, exclude)
 	local BS = reg.BallService
 	local path = BS.path
@@ -489,7 +500,7 @@ local function planSet(team, now, exclude)
 	end
 	-- a jump set off a pass near the net; Turnabout is only armed for a ball it can jump for
 	-- (from the ground it would just be a dump)
-	local arm = not turn and e.ability == "Turnabout" and near and now >= (e.abilityReadyAt or 0) and b.rng:NextNumber() < tierPair(b, B.TurnaboutChance)
+	local arm = not turn and e.ability == "Turnabout" and not playerLed(team) and near and now >= (e.abilityReadyAt or 0) and b.rng:NextNumber() < tierPair(b, B.TurnaboutChance)
 	-- (a Vector setter always jumps for it: the higher her set, the steeper the spike)
 	if turn or arm or (near and e.role == "SE" and (e.ability == "Vector" or b.rng:NextNumber() < tierPair(b, B.JumpSetChance))) then
 		if planJumpSet(b, side, now) and arm then
@@ -818,7 +829,7 @@ end
 -- Rally Cry: once it's ready, a bot pops it at some serves (the boost covers the rally).
 local function rallyCry(b, now)
 	local e = b.entity
-	if e.ability ~= "RallyCry" or b.rallyRolled or now < (e.abilityReadyAt or 0) then
+	if e.ability ~= "RallyCry" or b.rallyRolled or now < (e.abilityReadyAt or 0) or playerLed(e.team) then
 		return
 	end
 	b.rallyRolled = true
@@ -947,7 +958,7 @@ local function updateBot(b, now)
 			elseif b.task == "Block" then
 				reg.HitService.fx(e.id, "Jump", "Block")
 				reg.HitService.fx(e.id, "Block")
-				if e.ability == "IronWall" then
+				if e.ability == "IronWall" and not playerLed(e.team) then
 					reg.HitService.activateAbility(e) -- whenever it's off cooldown
 				end
 			end

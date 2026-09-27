@@ -362,6 +362,16 @@ function HitService.init(r)
 			end
 			return
 		end
+		if kind == "TeamAbility" then
+			-- a player pops an AI teammate's active ability (bots on a player's team never do)
+			local e = reg.TeamService.entityForPlayer(plr)
+			local mate = type(extra) == "string" and reg.TeamService.getEntity(extra)
+			local phase = reg.MatchService.phase
+			if e and mate and mate.isBot and mate.team == e.team and (phase == "Rally" or phase == "Serving") and not rateLimited(plr) then
+				HitService.activateAbility(mate)
+			end
+			return
+		end
 		if type(kind) ~= "string" or not FX_KINDS[kind] or rateLimited(plr) then
 			return
 		end

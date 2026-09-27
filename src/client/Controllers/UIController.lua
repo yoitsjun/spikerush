@@ -1803,9 +1803,77 @@ local function updateRotation()
 	R.frame.Size = UDim2.fromOffset(460, 64 + #roster * 46 + 48)
 end
 
+-- Your AI teammates' active abilities under your own: the key, the ability and whose it is, the
+-- bar filling as it cools down (in the ability's colour once ready). Click or tap one to pop it.
+local function buildTeamAbilities()
+	local list = {}
+	for i = 1, 2 do
+		local b = make("TextButton", {
+			Name = "TeamAbility" .. i,
+			Position = UDim2.fromOffset(12, 84 + (i - 1) * 46),
+			Size = UDim2.fromOffset(250, 40),
+			BackgroundColor3 = Gui.CARD,
+			BackgroundTransparency = 0.15,
+			BorderSizePixel = 0,
+			Text = "",
+			AutoButtonColor = false,
+			ClipsDescendants = true,
+			Visible = false,
+		}, gui)
+		edge(b)
+		local fill = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = UI.Chalk, BackgroundTransparency = 0.82, BorderSizePixel = 0 }, b)
+		local cap = make("TextLabel", {
+			Position = UDim2.fromOffset(8, 8),
+			Size = UDim2.fromOffset(24, 24),
+			BackgroundColor3 = UI.Chalk,
+			BorderSizePixel = 0,
+			Text = tostring(i),
+			TextColor3 = UI.Ink,
+			TextSize = 15,
+			FontFace = Gui.display(Enum.FontWeight.Heavy),
+		}, b)
+		corner(cap, 4)
+		local name = make("TextLabel", {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(42, 0),
+			Size = UDim2.new(1, -50, 1, 0),
+			RichText = true,
+			Text = "",
+			TextColor3 = UI.Chalk,
+			TextSize = 15,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			FontFace = Gui.display(Enum.FontWeight.Bold),
+		}, b)
+		b.MouseButton1Click:Connect(function()
+			mods.ActionController.press("Team" .. i)
+		end)
+		list[i] = { button = b, fill = fill, name = name }
+	end
+	ui.teamAbilities = list
+end
+
+local function updateTeamAbilities()
+	local mates = (State.isPlaying and State.match.inMatch) and mods.ActionController.teamAbilities() or {}
+	for i, t in ipairs(ui.teamAbilities) do
+		local mate = mates[i]
+		t.button.Visible = mate ~= nil
+		if mate then
+			local def = Config.Abilities[mate.ability]
+			local left = mods.ActionController.cooldownOf(mate.id)
+			local ready = left <= 0
+			t.name.Text = string.format('%s  <font color="#%s">%s</font>', def.Name, ready and def.Color:ToHex() or "8A93AD", ready and "READY" or (math.ceil(left) .. " s"))
+			t.fill.Size = UDim2.fromScale(ready and 1 or math.clamp(1 - left / def.Cooldown, 0, 1), 1)
+			t.fill.BackgroundColor3 = ready and def.Color or UI.Chalk
+			t.fill.BackgroundTransparency = ready and 0.7 or 0.85
+		end
+	end
+end
+
 local function updateSlow()
 	updateStamina()
 	updateAbility()
+	updateTeamAbilities()
 	updateTimeout()
 	updateRotation()
 	updateCoach()
@@ -1827,6 +1895,7 @@ function UIController.init(m)
 	buildCallout()
 	buildHint()
 	buildAbility()
+	buildTeamAbilities()
 	buildRail()
 	buildCorner()
 	buildResults()
