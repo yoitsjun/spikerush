@@ -347,6 +347,12 @@ These are the spots most likely to need attention on the first playtest:
 
 Work in this order:
 
+0. **In progress: courts** (the PC Claude was mid-way when the tenth session ended). Usable free models are already found: colosseum models, palm trees, bleachers and beach umbrellas.
+   - Build Beach, Colosseum and Nationals courts, plus one or two original ones.
+   - Add a court picker to Create Lobby. Quick matches rotate courts.
+   - Rebuild the arena at match start, with lighting per court.
+   - Support the crowd and scoreboard in each court's stands.
+   - Move the jumbotron so it no longer overlaps the HUD.
 1. Playtest in Studio. Fix runtime errors; the game's own warnings in Output are prefixed `[SpikeRush]`. Reserved servers only work in a published game: test lobbies that teleport with two or more players in a live server.
 2. Tune the feel:
    - in `Config.Player` and `Config.Scale.JumpScale`: the jump look, run-up, air control and hang;
