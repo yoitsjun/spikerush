@@ -1,13 +1,13 @@
--- Touch controls, mirroring the keyboard layout:
---   SPIKE ........ ground: run-up jump / air: spike (hold to charge with Azure Dragon)
---   RECEIVE ...... arm the receive stance (press a little early)
---   SLIDE ........ ground: slide receive / air: feint
---   BLOCK ........ hold to charge, release to jump
---   SET .......... set the ball (lean the thumbstick toward the net for a quick, away for a back set)
---   SERVE ........ tap = overhand serve, hold = jump-serve toss (appears when you serve)
---   JUMP ......... a plain jump
--- The default thumbstick moves you along the court; its jump button is replaced by ours.
--- Holds release when the finger lifts anywhere on screen.
+-- Touch controls, laid out like a console volleyball game's: three big round buttons bottom right
+-- that change with the moment, a column of round skill buttons on the left, and Roblox's floating
+-- thumbstick bottom left (StarterPlayer.DevTouchMovementMode = DynamicThumbstick).
+--   holding the serve ... Basic Serve (underhand) | Spike Serve (tap: overhand, hold: toss) | Approach
+--   on the ground ....... Slide | Bump | Approach (a run-up jump)
+--   in the air .......... Slide (off) | Feint (the bump button) | Spike (Charge with Azure Dragon)
+-- Set pops up over Bump when you can set the ball, and Block over Approach near the net (hold to
+-- charge, release to jump). The skill column holds your active ability (Q) and your AI
+-- teammates' (1, 2). A button keeps the action it was pressed as until the finger lifts, and
+-- holds release when the finger lifts anywhere on screen.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -16,7 +16,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Assets = require(Shared.Assets)
 local State = require(script.Parent.State)
+local Gui = require(script.Parent.Gui)
 
 local MobileControls = {}
 local mods
@@ -27,60 +29,76 @@ local gui, root = nil, nil
 local buttons = {}
 local held = {}
 
-local function circle(name, text, size, x, y, color)
+local WHITE = Color3.new(1, 1, 1)
+local ORANGE = Color3.fromRGB(255, 150, 40)
+local REST, PRESSED, OFF = 0.8, 0.5, 0.92 -- disc fill transparency
+
+-- A round button: a see-through white disc with a ring, an icon and its label (inside at the
+-- bottom for the big buttons, under the disc for the skills).
+local function roundButton(name, size, pos, labelBelow)
 	local b = Instance.new("TextButton")
 	b.Name = name
-	b.Text = text
-	b.Font = Enum.Font.GothamBlack
-	b.TextSize = math.floor(size * 0.17)
-	b.TextColor3 = UI.Chalk
+	b.Text = ""
 	b.AutoButtonColor = false
 	b.AnchorPoint = Vector2.new(0.5, 0.5)
-	b.Position = UDim2.new(1, -x, 1, -y)
+	b.Position = pos
 	b.Size = UDim2.fromOffset(size, size)
-	b.BackgroundColor3 = color
-	b.BackgroundTransparency = 0.22
+	b.BackgroundColor3 = WHITE
+	b.BackgroundTransparency = REST
+	b.Visible = false
 	b.Parent = root
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0.5, 0)
 	c.Parent = b
-	local s = Instance.new("UIStroke")
-	s.Thickness = 3
-	s.Color = UI.Ink
-	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	s.Parent = b
-	buttons[name] = { button = b, stroke = s, base = color }
-	return b
-end
-
-local function isPress(input)
-	return input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1
-end
-
-local function bind(name, action)
-	local b = buttons[name].button
+	local ring = Instance.new("UIStroke")
+	ring.Thickness = 2
+	ring.Color = WHITE
+	ring.Transparency = 0.3
+	ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	ring.Parent = b
+	local icon = Instance.new("ImageLabel")
+	icon.BackgroundTransparency = 1
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Position = UDim2.fromScale(0.5, labelBelow and 0.5 or 0.42)
+	icon.Size = UDim2.fromScale(labelBelow and 0.56 or 0.44, labelBelow and 0.56 or 0.44)
+	icon.ScaleType = Enum.ScaleType.Fit
+	icon.ImageColor3 = WHITE
+	icon.ImageTransparency = 0.2
+	icon.Parent = b
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.AnchorPoint = Vector2.new(0.5, 0)
+	label.Position = labelBelow and UDim2.new(0.5, 0, 1, 4) or UDim2.fromScale(0.5, 0.7)
+	label.Size = UDim2.new(1.6, 0, 0, math.floor(size * (labelBelow and 0.2 or 0.17)))
+	label.FontFace = Gui.display(Enum.FontWeight.Heavy)
+	label.TextScaled = true
+	label.TextColor3 = WHITE
+	label.TextStrokeTransparency = 0.45
+	label.Text = ""
+	label.Parent = b
+	local entry = { button = b, ring = ring, icon = icon, label = label, action = nil, enabled = true }
+	buttons[name] = entry
 	b.InputBegan:Connect(function(input)
-		if not isPress(input) then
+		if input.UserInputType ~= Enum.UserInputType.Touch and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
 			return
 		end
-		b.BackgroundTransparency = 0.02
-		held[name] = { input = input, action = action }
-		if action == "Jump" then
-			mods.MovementController.jump("Jump")
-		else
-			mods.ActionController.press(action)
+		if not entry.action or not entry.enabled then
+			return
 		end
+		b.BackgroundTransparency = PRESSED
+		held[name] = { input = input, action = entry.action, t0 = os.clock() }
+		mods.ActionController.press(entry.action)
 	end)
+	return entry
 end
 
 local function releaseInput(input)
 	for name, h in pairs(held) do
 		if h.input == input then
 			held[name] = nil
-			buttons[name].button.BackgroundTransparency = 0.22
-			if h.action ~= "Jump" then
-				mods.ActionController.release(h.action)
-			end
+			local entry = buttons[name]
+			entry.button.BackgroundTransparency = entry.enabled and REST or OFF
+			mods.ActionController.release(h.action)
 		end
 	end
 end
@@ -118,34 +136,43 @@ local function build()
 		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 	end
 
-	circle("Spike", "Spike", 124, 110, 120, Color3.fromRGB(235, 70, 60))
-	circle("Receive", "Receive", 92, 240, 80, Color3.fromRGB(50, 130, 235))
-	circle("Slide", "Slide", 82, 205, 190, Color3.fromRGB(70, 180, 140))
-	circle("Block", "Block", 82, 95, 255, Color3.fromRGB(120, 110, 220))
-	circle("Set", "Set", 72, 320, 170, Color3.fromRGB(240, 170, 60))
-	circle("Serve", "Serve", 88, 300, 270, Color3.fromRGB(245, 200, 40))
-	circle("Jump", "Jump", 64, 350, 70, UI.InkSoft)
-	circle("EasyServe", "Easy serve", 76, 210, 300, Color3.fromRGB(230, 190, 90))
-	circle("Ability", "Ability", 64, 395, 250, Color3.fromRGB(150, 205, 255))
-
-	bind("Spike", "Spike")
-	bind("Receive", "Receive")
-	bind("Slide", "SlideFeint")
-	bind("Block", "Block")
-	bind("Set", "Set")
-	bind("Serve", "Serve")
-	bind("Jump", "Jump")
-	bind("EasyServe", "EasyServe")
-	bind("Ability", "Ability")
+	-- the three big buttons, bottom right, and the pop-ups over the middle and right ones
+	roundButton("A", 124, UDim2.new(1, -404, 1, -104))
+	roundButton("B", 124, UDim2.new(1, -254, 1, -104))
+	roundButton("C", 124, UDim2.new(1, -104, 1, -104))
+	roundButton("Set", 86, UDim2.new(1, -254, 1, -244))
+	roundButton("Block", 86, UDim2.new(1, -104, 1, -244))
+	-- the skill column, left
+	for i = 1, 3 do
+		roundButton("Skill" .. i, 76, UDim2.new(0, 70, 0.3, (i - 1) * 118), true)
+	end
 	UserInputService.InputEnded:Connect(releaseInput)
 end
 
-local function glow(name, on)
-	local b = buttons[name]
-	if b then
-		b.stroke.Color = on and UI.Spark or UI.Ink
-		b.stroke.Thickness = on and 5 or 3
+-- Point a button at an action (nil hides it) with its label and icon; `enabled` false shows it
+-- faded and dead (the Slide button in the air).
+local function set(name, action, text, iconKey, enabled)
+	local entry = buttons[name]
+	entry.action = action
+	entry.enabled = enabled ~= false
+	entry.button.Visible = action ~= nil
+	entry.label.Text = text or ""
+	if entry.iconKey ~= iconKey then
+		entry.iconKey = iconKey
+		entry.icon.Image = Assets.image(iconKey) or ""
 	end
+	if not held[name] then
+		entry.button.BackgroundTransparency = entry.enabled and REST or OFF
+	end
+	entry.icon.ImageTransparency = entry.enabled and 0.2 or 0.65
+	entry.label.TextTransparency = entry.enabled and 0 or 0.5
+end
+
+local function ring(name, color, strong)
+	local entry = buttons[name]
+	entry.ring.Color = color or WHITE
+	entry.ring.Thickness = strong and 4 or 2
+	entry.ring.Transparency = strong and 0 or 0.3
 end
 
 local function update()
@@ -156,19 +183,64 @@ local function update()
 	end
 	hideDefaultJump()
 	local ctx = State.context or {}
-	buttons.Spike.button.Text = ctx.spikeLabel or "Spike"
-	glow("Spike", ctx.inZone == true)
-	glow("Receive", ctx.incoming == true and ctx.grounded == true)
-	glow("Set", ctx.canSet == true)
-	buttons.Slide.button.Text = ctx.grounded == false and "Feint" or "Slide"
-	buttons.Block.button.BackgroundTransparency = (ctx.nearNet and not held.Block) and 0.22 or 0.55
-	buttons.Serve.button.Visible = ctx.serving == true
-	buttons.EasyServe.button.Visible = ctx.serving == true and ctx.spikeLabel == "Toss" -- still holding the ball
-	buttons.Set.button.Visible = State.teamSize() > 1 or ctx.canSet == true
-	-- only active abilities (Iron Wall) need a button
-	local def = Config.Abilities[State.myAbility() or ""]
-	buttons.Ability.button.Visible = def ~= nil and def.Active == true
-	glow("Ability", mods.ActionController.abilityCooldown() <= 0)
+	local air = ctx.grounded == false
+	if ctx.serving then
+		local holding = ctx.spikeLabel == "Toss"
+		set("A", holding and "EasyServe" or nil, "Basic Serve", "IconStar")
+		set("B", holding and "Serve" or nil, "Spike Serve", "IconAttack")
+		set("C", "Spike", air and "Spike" or "Approach", air and "IconAttack" or "IconJump")
+		set("Set", nil)
+		set("Block", nil)
+		-- the spike serve's toss charges while held: the ring warms to orange
+		local h = held.B
+		if h and h.action == "Serve" then
+			local k = math.clamp((os.clock() - h.t0 - Config.Player.ServeTapTime) / Config.Hits.TossChargeTime, 0, 1)
+			ring("B", WHITE:Lerp(ORANGE, k), k > 0)
+		else
+			ring("B", nil, false)
+		end
+		ring("C", UI.Spark, ctx.inZone == true)
+	else
+		set("A", "SlideFeint", "Slide", "IconSpeed", not air)
+		if air then
+			set("B", "SlideFeint", "Feint", "IconDefense")
+			set("C", "Spike", ctx.spikeLabel == "Charge" and "Charge" or "Spike", "IconAttack")
+		else
+			set("B", "Receive", "Bump", "IconDefense")
+			set("C", "Spike", "Approach", "IconJump")
+		end
+		set("Set", ctx.canSet == true and "Set" or nil, "Set", "IconStar")
+		set("Block", (ctx.nearNet == true and not air) and "Block" or nil, "Block", "IconDefense")
+		ring("A", nil, false)
+		ring("B", UI.Spark, ctx.incoming == true and not air)
+		ring("C", UI.Spark, ctx.inZone == true)
+		ring("Set", UI.Spark, ctx.canSet == true)
+		ring("Block", nil, false)
+	end
+
+	-- skills: your active ability, then your AI teammates'
+	local skills = {}
+	local mine = State.myAbility()
+	local def = Config.Abilities[mine or ""]
+	if def and def.Active then
+		table.insert(skills, { action = "Ability", ability = mine, left = mods.ActionController.abilityCooldown() })
+	end
+	for i, mate in ipairs(mods.ActionController.teamAbilities()) do
+		table.insert(skills, { action = "Team" .. i, ability = mate.ability, left = mods.ActionController.cooldownOf(mate.id) })
+	end
+	for i = 1, 3 do
+		local s = skills[i]
+		local name = "Skill" .. i
+		if s then
+			local d = Config.Abilities[s.ability]
+			local ready = s.left <= 0
+			set(name, s.action, ready and d.Name or string.format("%s  %ds", d.Name, math.ceil(s.left)), Assets.image("Ability" .. s.ability) and ("Ability" .. s.ability) or "IconStar")
+			buttons[name].icon.ImageColor3 = d.Color
+			ring(name, d.Color, ready)
+		else
+			set(name, nil)
+		end
+	end
 end
 
 function MobileControls.init(m)

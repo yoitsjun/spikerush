@@ -96,7 +96,8 @@
         "EnableMouseLockOption": false,
         "CharacterUseJumpPower": false,
         "CharacterJumpHeight": 6.5,
-        "CharacterWalkSpeed": 27
+        "CharacterWalkSpeed": 27,
+        "DevTouchMovementMode": "DynamicThumbstick"
       },
       "StarterPlayerScripts": {
         "Client": {
