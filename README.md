@@ -196,7 +196,8 @@ src/client/Controllers/ State, Input, Movement, Action (touches and prediction),
                        balls, the Locker preview), Menu (every menu screen and the recruit
                        sequence), Lineup (the matchup intro and the showcase after a match),
                        MobileControls (and the touch layout editor), Crowd
-tools/                 checkers, the simulation suite, the SFX, icon, avatar and roster generators
+tools/                 checkers, the simulation suite, the SFX, icon, avatar and roster generators,
+                       and pose_preview.py (draws Studio-posed avatars to check a pose)
 assets/                volleyball mesh, the generated sound effects, the icon and thumbnail
 TOOLBOX.md             every Toolbox slot and how to fill it
 reference/             local-only screenshots of The Spike (not synced, not committed)
