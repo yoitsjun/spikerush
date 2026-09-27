@@ -22,6 +22,7 @@ local M = Config.Match
 
 MatchService.phase = "Intermission"
 MatchService.court = Config.Courts.Default -- the court the arena shows (ArenaBuilder.setCourt)
+MatchService.practice = nil -- the drill on the court while a practice lobby plays (PracticeService)
 MatchService.phaseEnd = 0
 MatchService.mode = M.DefaultTeamSize
 MatchService.scores = { Home = 0, Away = 0 }
@@ -127,6 +128,7 @@ function MatchService.state()
 		timeoutReady = MatchService.timeoutReady and { tallyReady() } or nil,
 		tutorial = l and l.tutorial or nil,
 		court = MatchService.court,
+		practice = MatchService.practice, -- the drill in play (PracticeService), or nil
 	}
 end
 
@@ -230,6 +232,10 @@ function MatchService.onServeHit()
 end
 
 function MatchService.onHit(entity, meta, previous)
+	if MatchService.practice then
+		reg.PracticeService.onHit(entity, meta)
+		return
+	end
 	table.insert(MatchService.rallyHits, { id = entity.id, team = entity.team, hitType = meta.hitType })
 	-- a dig: the first touch that keeps an opponent attack alive
 	if previous and previous.team ~= entity.team and ATTACKS[previous.hitType or ""] then
@@ -280,13 +286,6 @@ function MatchService.awardPoint(res)
 			st.aces = st.aces + 1
 		elseif reason == "Stuff" or reason == "Block" then
 			st.blocks = st.blocks + 1
-		end
-	end
-
-	-- a won rally ticks the tutorial's last step for the winners
-	for _, e in ipairs(TS.members(winner)) do
-		if e.player then
-			reg.ProfileService.tutorialStep(e.player, { "point" })
 		end
 	end
 
@@ -645,7 +644,11 @@ function MatchService.start()
 		while true do
 			local ok, err = pcall(function()
 				MatchService.intermission()
-				MatchService.playMatch()
+				if MatchService.lobby.practice then
+					reg.PracticeService.run(MatchService.lobby)
+				else
+					MatchService.playMatch()
+				end
 			end)
 			if MatchService.lobby then
 				reg.LobbyService.finished(MatchService.lobby)

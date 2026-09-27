@@ -16,7 +16,6 @@ local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
-local Tutorial = require(Shared.Tutorial)
 
 local HitService = {}
 local reg
@@ -208,9 +207,6 @@ function HitService.process(entity, input, opts)
 	if action == "Serve" or action == "Underhand" then
 		MS.onServeHit(entity)
 	end
-	if entity.player then
-		reg.ProfileService.tutorialStep(entity.player, Tutorial.stepsFor(meta.hitType))
-	end
 	MS.onHit(entity, meta, previous)
 	return true
 end
@@ -384,9 +380,6 @@ function HitService.init(r)
 		end
 		if kind == "Whiff" then
 			missedAt[e.id] = os.clock()
-		end
-		if kind == "Block" then
-			reg.ProfileService.tutorialStep(plr, { "block" }) -- a block jump ticks the tutorial's block
 		end
 		if type(extra) ~= "string" or #extra > 16 then
 			extra = nil

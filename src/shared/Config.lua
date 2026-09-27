@@ -672,12 +672,29 @@ Config.Leaderboards = {
 
 -- The tutorial (the Tutorial module has the steps): a 1v1 against a weak bot; finishing every
 -- step pays this once.
+-- The tutorial: the four practice drills in order (shared/Tutorial), paid once.
 Config.Tutorial = {
 	RewardVP = 50,
 	RewardGold = 1000,
 	RewardSpins = 5, -- free x1 recruits (used before V Points)
-	BotTier = "D-",
-	Mode = 1,
+}
+
+-- Practice drills (PracticeService). The court is a 2v2: you and a setter on your side, their
+-- attacker on the other. Bots stand still; a drill moves only the one it needs.
+Config.Practice = {
+	Mode = 2,
+	BotTier = "S",
+	FeedDelay = 1.1, -- seconds from setting up a rep to the ball coming
+	RepTimeout = 7, -- a rep with no result by then is a miss
+	ServeTimeout = 45, -- the serve drill waits this long for your serve (then just offers it again)
+	PauseAfter = 1.3, -- seconds to watch the ball after a rep before the next one
+	AttackWindup = 0.5, -- the attacker's jump before it swings
+	AttackDepth = 1.2 * M, -- how far from the net the attacker hits
+	AttackAboveNet = 1.2 * M, -- the lowest the attack leaves the hand, above the net top
+	BlockKmh = { 90, 110 },
+	BlockTargetDepth = { 3 * M, 7 * M }, -- where a spike at your block lands if you miss it
+	DigKmh = { 70, 90 },
+	DigQuality = 0.35, -- a receive at least this clean counts as a dig
 }
 
 -- A player who stops giving input during live play is replaced by an AI playing their own

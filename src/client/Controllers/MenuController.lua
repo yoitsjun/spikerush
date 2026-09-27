@@ -400,7 +400,7 @@ end
 -- left under Roblox's own buttons (placeHeaders moves them), the nav across the top with this
 -- screen lit (Ranks joins it here), and Settings and Help at the top right, in the nav's row so
 -- they stay clear of the panels below.
-local MAIN_TABS = { { "IconHome", "Home", "home" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" }, { "IconRanks", "Ranks", "ranks" } }
+local MAIN_TABS = { { "IconHome", "Home", "home" }, { "IconJump", "Practice", "practice" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" }, { "IconRanks", "Ranks", "ranks" } }
 
 local function mainChrome(p, active)
 	local strip = currencyStrip(p, { Position = UDim2.fromOffset(M, 24) })
@@ -812,7 +812,7 @@ local function refreshHome(prof)
 	if tut and not tut.done then
 		local vp, gold, spins = Tutorial.reward()
 		local _, n, total = Tutorial.progress(tut.steps)
-		hm.tutLine.Text = string.format('Learn the basics in a practice match. Reward: <font color="#FFD35A"><b>%d VP, %s Gold and %d free recruits</b></font>', vp, Gui.num(gold), spins)
+		hm.tutLine.Text = string.format('Four quick drills: spike, block, serve, dig. Reward: <font color="#FFD35A"><b>%d VP, %s Gold and %d free recruits</b></font>', vp, Gui.num(gold), spins)
 		hm.tutProgress.Text = n > 0 and string.format("%d of %d done", n, total) or ""
 		hm.tutGoLabel.Text = n > 0 and "Continue tutorial" or "Start tutorial"
 	end
@@ -3318,6 +3318,71 @@ local function askBoards(force)
 	end
 end
 
+------------------------------------------------------------------------------------------
+-- Practice: a card per drill (the ball comes to you, no rallies) and the tutorial
+------------------------------------------------------------------------------------------
+
+local DRILL_ICON = { spike = "IconAttack", block = "IconDefense", serve = "IconStar", dig = "IconSpeed" }
+
+-- How to do a drill on the device you're using.
+local function drillHow(d)
+	if State.isMobile then
+		return d.touch
+	elseif mods and mods.InputController and mods.InputController.lastDevice() == "Gamepad" then
+		return d.pad
+	end
+	return d.key
+end
+
+local function buildPractice()
+	local p = page("practice")
+	mainChrome(p, "practice")
+	Gui.label(p, { Text = "Practice", display = true, weight = Enum.FontWeight.Heavy, TextSize = 56, Position = UDim2.fromOffset(M, 112), Size = UDim2.fromOffset(600, 64) })
+	Gui.label(p, { Text = "One ball at a time, no rallies: the court sets you up for each rep.", TextSize = 18, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(M + 4, 176), Size = UDim2.fromOffset(900, 24) })
+	local cards = {}
+	local w, gap = 358, 20
+	for i, d in ipairs(Tutorial.Drills) do
+		local card = Gui.card(p, { Position = UDim2.fromOffset(M + (i - 1) * (w + gap), 220), Size = UDim2.fromOffset(w, 420) })
+		Gui.plate(card, { Size = UDim2.fromOffset(64, 6), Position = UDim2.fromOffset(20, 20) }, Gui.SIGNAL)
+		Gui.iconImage(card, DRILL_ICON[d.id] or "IconStar", 54, Gui.CHALK, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 18) })
+		Gui.label(card, { Text = d.title, display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, Position = UDim2.fromOffset(20, 34), Size = UDim2.new(1, -90, 0, 52) })
+		Gui.label(card, { Text = d.inARow and string.format("%d in a row", d.goal) or string.format("%d to finish", d.goal), display = true, TextSize = 20, TextColor3 = Gui.SIGNAL, Position = UDim2.fromOffset(22, 88), Size = UDim2.new(1, -40, 0, 24) })
+		Gui.label(card, { Text = d.blurb, TextSize = 18, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(22, 124), Size = UDim2.new(1, -44, 0, 76) })
+		local how = Gui.label(card, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(22, 210), Size = UDim2.new(1, -44, 0, 110) })
+		local go = actionPlate(card, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -18), Size = UDim2.new(1, -32, 0, 52) }, "Start", 24)
+		onClick(go, function()
+			sendLobby("practice", d.id)
+		end)
+		cards[d.id] = { how = how }
+	end
+	-- the tutorial: the four drills in order, paid once
+	local tut = Gui.card(p, { Position = UDim2.fromOffset(M, 660), Size = UDim2.fromOffset(4 * w + 3 * gap, 150) })
+	Gui.label(tut, { Text = "Tutorial", display = true, weight = Enum.FontWeight.Heavy, TextSize = 38, Position = UDim2.fromOffset(22, 16), Size = UDim2.fromOffset(400, 46) })
+	local tutLine = Gui.label(tut, { Text = "", TextSize = 18, TextColor3 = Gui.DIM, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(24, 66), Size = UDim2.new(1, -340, 0, 60) })
+	local tutGo, tutGoLabel = actionPlate(tut, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -22, 0.5, 0), Size = UDim2.fromOffset(280, 58) }, "Start tutorial", 24)
+	onClick(tutGo, function()
+		sendLobby("tutorial")
+	end)
+	ui.practice = { cards = cards, tutLine = tutLine, tutGoLabel = tutGoLabel }
+end
+
+local function refreshPractice(prof)
+	local pr = ui.practice
+	for _, d in ipairs(Tutorial.Drills) do
+		pr.cards[d.id].how.Text = drillHow(d)
+	end
+	local tut = prof.tutorial or { steps = {} }
+	local vp, gold, spins = Tutorial.reward()
+	local _, n, total = Tutorial.progress(tut.steps)
+	if tut.done then
+		pr.tutLine.Text = "All four drills in order. You've finished it: run it again any time."
+		pr.tutGoLabel.Text = "Replay tutorial"
+	else
+		pr.tutLine.Text = string.format('All four drills in order%s. Reward: <font color="#FFD35A"><b>%d VP, %s Gold and %d free recruits</b></font>', n > 0 and string.format(" (%d of %d done)", n, total) or "", vp, Gui.num(gold), spins)
+		pr.tutGoLabel.Text = n > 0 and "Continue tutorial" or "Start tutorial"
+	end
+end
+
 local function buildRanks()
 	local p = page("ranks")
 	mainChrome(p, "ranks")
@@ -3543,7 +3608,7 @@ end
 -- screens, scenes, refresh
 ------------------------------------------------------------------------------------------
 
-local SCENE = { home = "home", players = "home", player = "home", shop = "home", ranks = "home", recruit = "gym", locker = "gym" }
+local SCENE = { home = "home", practice = "home", players = "home", player = "home", shop = "home", ranks = "home", recruit = "gym", locker = "gym" }
 local autoLine = ""
 
 function MenuController.applyScene()
@@ -3622,6 +3687,8 @@ local function doRefresh()
 		refreshShop(prof)
 	elseif screen == "ranks" then
 		refreshRanks(prof)
+	elseif screen == "practice" then
+		refreshPractice(prof)
 	end
 	refreshMatch()
 	if swapMode then
@@ -3739,6 +3806,7 @@ function MenuController.init(m)
 	buildLocker()
 	buildShop()
 	buildRanks()
+	buildPractice()
 	buildHelp()
 	buildTable()
 	buildMatch()
@@ -3790,7 +3858,7 @@ function MenuController.init(m)
 			lobbies = data
 			if not data.mine then
 				editing = false
-			elseif not had and shown and not data.mine.tutorial then
+			elseif not had and shown and not data.mine.tutorial and not data.mine.practice then
 				ui.match.modal.root.Visible = true -- you just joined or made one
 			end
 			MenuController.refresh()

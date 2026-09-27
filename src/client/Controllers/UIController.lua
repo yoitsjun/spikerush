@@ -1149,72 +1149,78 @@ end
 -- the tutorial coach: the current step, how to do it, and the checklist
 ------------------------------------------------------------------------------------------
 
+-- The coach, top right while you practise (a drill, or the tutorial's four): what the drill is,
+-- how to do it on your device, and a dot per rep of the goal (for an in-a-row drill a miss
+-- empties them). "Back to the menu" ends practice (the forfeit request).
 local function buildCoach()
-	local f = panel(gui, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 104), Size = UDim2.fromOffset(360, 196), Visible = false })
+	local f = panel(gui, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 104), Size = UDim2.fromOffset(360, 214), Visible = false })
 	edge(f, Gui.SIGNAL, 0.1)
 	ui.coachScale = make("UIScale", {}, f)
 	local head = label(f, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 13, TextColor3 = UI.Spark, Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 10) })
-	local title = label(f, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 22, Size = UDim2.new(1, -24, 0, 28), Position = UDim2.fromOffset(12, 28) })
-	local body = label(f, { Text = "", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = UI.Fog, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -24, 0, 54), Position = UDim2.fromOffset(12, 60) })
-	local list = make("Frame", { Size = UDim2.new(1, -24, 0, 50), Position = UDim2.fromOffset(12, 118), BackgroundTransparency = 1 }, f)
-	make("UIGridLayout", { CellSize = UDim2.fromOffset(110, 22), CellPadding = UDim2.fromOffset(4, 4), SortOrder = Enum.SortOrder.LayoutOrder }, list)
-	local chips = {}
-	for i, s in ipairs(Tutorial.Steps) do
-		local c = label(list, { Text = s.title, Font = Enum.Font.GothamBold, TextSize = 12, LayoutOrder = i, BackgroundTransparency = 0, BackgroundColor3 = UI.InkSoft, TextXAlignment = Enum.TextXAlignment.Center })
-		corner(c, 5)
-		chips[s.id] = c
+	local title = label(f, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 24, Size = UDim2.new(1, -24, 0, 30), Position = UDim2.fromOffset(12, 28) })
+	local body = label(f, { Text = "", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = UI.Fog, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -24, 0, 60), Position = UDim2.fromOffset(12, 60) })
+	local row = make("Frame", { Size = UDim2.new(1, -24, 0, 22), Position = UDim2.fromOffset(12, 128), BackgroundTransparency = 1 }, f)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, row)
+	local dots = {}
+	for i = 1, 5 do
+		local d = make("Frame", { Size = UDim2.fromOffset(20, 20), BackgroundColor3 = UI.InkSoft, BorderSizePixel = 0, LayoutOrder = i }, row)
+		corner(d, 10)
+		dots[i] = d
 	end
-	local leave = button(f, "Back to the menu", { Size = UDim2.new(1, -24, 0, 34), Position = UDim2.new(0, 12, 1, -44), BackgroundColor3 = UI.Spark, TextColor3 = UI.Ink, TextSize = 15, Visible = false })
+	local streak = label(row, { Text = "", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = UI.Fog, Size = UDim2.fromOffset(120, 20), LayoutOrder = 10 })
+	local leave = button(f, "Back to the menu", { Size = UDim2.new(1, -24, 0, 34), Position = UDim2.new(0, 12, 1, -44), BackgroundColor3 = UI.InkSoft, TextColor3 = UI.Chalk, TextSize = 15 })
 	leave.MouseButton1Click:Connect(function()
 		click()
 		Net.get("Forfeit"):FireServer()
 	end)
-	ui.coach = { frame = f, head = head, title = title, body = body, chips = chips, leave = leave, done = -1 }
+	ui.coach = { frame = f, head = head, title = title, body = body, dots = dots, streak = streak, leave = leave }
 end
 
 local function updateCoach()
 	local c = ui.coach
-	local prof = State.profile
-	local tut = prof and prof.tutorial
-	local show = State.isPlaying and State.match.tutorial == true and tut ~= nil
-	c.frame.Visible = show
-	if not show then
+	local pr = State.isPlaying and State.match.practice
+	c.frame.Visible = type(pr) == "table"
+	if type(pr) ~= "table" then
 		return
 	end
 	local cam = workspace.CurrentCamera
 	if cam then
 		ui.coachScale.Scale = math.clamp(cam.ViewportSize.Y / 760, 0.62, 1.1)
 	end
-	local nextStep, n, total = Tutorial.progress(tut.steps)
-	if n ~= c.done then
-		if c.done >= 0 and n > c.done and mods.AudioController then
-			mods.AudioController.play("Point", { volume = 0.8 })
+	local d = Tutorial.drill(pr.drill)
+	if pr.finished or not d then
+		c.head.Text = pr.tutorial and "TUTORIAL COMPLETE" or "DRILL COMPLETE"
+		c.title.Text = "Nice work!"
+		if pr.tutorial then
+			local vp, gold, spins = Tutorial.reward()
+			c.body.Text = string.format("The first time you finish it: +%d VP, +%d Gold and %d free recruits. Head back when you're ready.", vp, gold, spins)
+		else
+			c.body.Text = "Pick another drill from Practice, or run this one again."
 		end
-		c.done = n
-	end
-	for id, chip in pairs(c.chips) do
-		local ok = tut.steps[id] == true
-		chip.BackgroundColor3 = ok and UI.Mint or (nextStep and nextStep.id == id and UI.Spark or UI.InkSoft)
-		chip.TextColor3 = (ok or (nextStep and nextStep.id == id)) and UI.Ink or UI.Fog
-	end
-	if tut.done or not nextStep then
-		local vp, gold, spins = Tutorial.reward()
-		c.head.Text = "TUTORIAL COMPLETE"
-		c.title.Text = "You're ready!"
-		c.body.Text = string.format("+%d VP, +%d Gold and %d free recruits. Finish the match or head back to the menu.", vp, gold, spins)
-		c.leave.Visible = true
+		for _, dot in ipairs(c.dots) do
+			dot.Visible = false
+		end
+		c.streak.Text = ""
+		c.leave.BackgroundColor3 = UI.Spark
+		c.leave.TextColor3 = UI.Ink
 		return
 	end
-	c.leave.Visible = false
-	c.head.Text = string.format("TUTORIAL  %d / %d", n + 1, total)
-	c.title.Text = nextStep.title
-	local how = nextStep.key
+	c.leave.BackgroundColor3 = UI.InkSoft
+	c.leave.TextColor3 = UI.Chalk
+	c.head.Text = pr.tutorial and string.format("TUTORIAL  %d / %d", pr.index or 1, pr.total or #Tutorial.Drills) or "PRACTICE"
+	c.title.Text = d.title
+	local how = d.key
 	if State.isMobile then
-		how = nextStep.touch
+		how = d.touch
 	elseif mods.InputController.lastDevice() == "Gamepad" then
-		how = nextStep.pad
+		how = d.pad
 	end
-	c.body.Text = how
+	c.body.Text = d.blurb .. " " .. how
+	for i, dot in ipairs(c.dots) do
+		dot.Visible = i <= (pr.goal or d.goal)
+		dot.BackgroundColor3 = i <= (pr.count or 0) and UI.Mint or UI.InkSoft
+	end
+	c.streak.Text = d.inARow and "in a row" or ""
 end
 
 ------------------------------------------------------------------------------------------
@@ -1645,6 +1651,17 @@ local function onAnnounce(a)
 			UIController.callout("Match point", teamColor(a.setPoint), teamName(a.setPoint), 1.2)
 		elseif a.setPoint then
 			UIController.callout("Set point", teamColor(a.setPoint), teamName(a.setPoint), 1.2)
+		end
+	elseif a.kind == "Drill" then
+		local d = Tutorial.drill(a.drill)
+		if a.finished then
+			UIController.callout("Done!", UI.Spark, a.tutorial and "Tutorial complete" or "Drill complete", 2)
+		elseif a.start and d then
+			UIController.callout(d.title, UI.Spark, d.inARow and string.format("%d in a row", d.goal) or string.format("%d to finish", d.goal), 1.4)
+		elseif a.success == true then
+			UIController.callout("Nice!", UI.Mint, string.format("%d / %d", a.count or 0, a.goal or 3), 0.9)
+		elseif a.success == false then
+			UIController.callout("Miss", UI.Fog, (d and d.inARow) and "Back to 0" or "Go again", 0.9)
 		end
 	elseif a.kind == "MatchStart" then
 		local court = Config.Courts.List[a.court or ""]

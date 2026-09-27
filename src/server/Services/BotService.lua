@@ -1226,6 +1226,9 @@ function BotService.init(r)
 	RunService.Heartbeat:Connect(function()
 		local now = Util.now()
 		local BS, MS = reg.BallService, reg.MatchService
+		if MS.practice then
+			return -- the drills place and move the bots themselves
+		end
 		if BS.seq ~= planSeq or MS.phase ~= planPhase then
 			planSeq, planPhase = BS.seq, MS.phase
 			plan(now)

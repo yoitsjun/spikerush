@@ -16,6 +16,7 @@ local TeleportService = game:GetService("TeleportService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Lobbies = require(Shared.Lobbies)
+local Tutorial = require(Shared.Tutorial)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 
@@ -219,16 +220,26 @@ function LobbyService.join(plr, id, password)
 	return true
 end
 
--- The tutorial: a hidden 1v1 against the weakest bots, started at once.
-function LobbyService.tutorial(plr)
-	local T = Config.Tutorial
-	local l = LobbyService.create(plr, { mode = T.Mode, privacy = "Public", fill = true, botTier = T.BotTier }, false)
+-- Practice: a hidden lobby of your own that runs a drill on the court instead of a match
+-- (PracticeService); the tutorial is all four drills in order. Started at once.
+function LobbyService.practice(plr, drillId, tutorial)
+	local P = Config.Practice
+	if not tutorial and not Tutorial.drill(drillId) then
+		return
+	end
+	local l = LobbyService.create(plr, { mode = P.Mode, privacy = "Public", fill = true, botTier = P.BotTier }, false)
 	if not l then
 		return
 	end
 	l.hidden = true
-	l.tutorial = true
+	l.practice = true
+	l.tutorial = tutorial == true or nil
+	l.drill = not tutorial and drillId or nil
 	LobbyService.launch(l)
+end
+
+function LobbyService.tutorial(plr)
+	LobbyService.practice(plr, nil, true)
 end
 
 -- Quick Match: the fullest open public quick lobby of that mode, or a new one.
@@ -351,7 +362,7 @@ function LobbyService.finished(l)
 	if not lobbies[l.id] then
 		return
 	end
-	if l.quick or l.tutorial or #members(l) == 0 then
+	if l.quick or l.tutorial or l.practice or #members(l) == 0 then
 		dissolve(l)
 		return
 	end
@@ -443,6 +454,7 @@ local function payloadFor(plr)
 		mine.side = Lobbies.teamOf(l, plr.UserId)
 		mine.startsAt = l.startsAt
 		mine.tutorial = l.tutorial
+		mine.practice = l.practice
 		mine.arriveBy = l.arriveBy
 		mine.reserved = LobbyService.reserved
 		for i, id in ipairs(courtQueue) do
@@ -492,6 +504,8 @@ local function onRequest(plr, op, a, b)
 	end
 	if op == "create" then
 		LobbyService.create(plr, a, false)
+	elseif op == "practice" then
+		LobbyService.practice(plr, a)
 	elseif op == "tutorial" then
 		LobbyService.tutorial(plr)
 	elseif op == "quick" then

@@ -257,7 +257,7 @@ end
 
 -- The lobby as plain data for a teleport to its own server.
 function Lobbies.export(l)
-	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, host = l.host, hostName = l.hostName, quick = l.quick == true, Home = {}, Away = {} }
+	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, host = l.host, hostName = l.hostName, quick = l.quick == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(out[side], u)
@@ -280,6 +280,13 @@ function Lobbies.import(data, id)
 	end
 	local l = Lobbies.new(id, tonumber(data.host), type(data.hostName) == "string" and data.hostName:sub(1, 40) or "Host", s)
 	l.quick = data.quick == true
+	-- a practice lobby (a drill, or the tutorial's four) stays hidden on its own server too
+	if data.practice == true then
+		l.practice = true
+		l.hidden = true
+		l.tutorial = data.tutorial == true or nil
+		l.drill = type(data.drill) == "string" and data.drill:sub(1, 16) or nil
+	end
 	l.expected = {}
 	for _, side in ipairs(SIDES) do
 		local list = type(data[side]) == "table" and data[side] or {}

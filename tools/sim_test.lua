@@ -834,21 +834,37 @@ do
 	check(quiet == 0 and not before and afk and reset == 0 and Config.Afk.Timeout >= 10 and Config.Afk.Timeout <= 15, "AFK: 10 to 15 s without input while the ball is live (timeouts don't count)", string.format("%d s", Config.Afk.Timeout))
 end
 
-print("== tutorial ==")
+print("== tutorial and practice drills ==")
 do
 	local Tutorial = require("Tutorial")
 	local done = {}
 	local nextStep, n, total = Tutorial.progress(done)
-	check(nextStep.id == "serve" and n == 0 and total == 7 and not Tutorial.complete(done), "the tutorial starts at the serve with 7 steps")
-	for _, hit in ipairs({ "Underhand", "Bump", "Set", "Spike", "Block" }) do
-		for _, id in ipairs(Tutorial.stepsFor(hit)) do done[id] = true end
+	check(nextStep.id == "spike" and n == 0 and total == 4 and not Tutorial.complete(done), "the tutorial is the four drills, spike first")
+	-- a drill you finish in total keeps its count through a miss; an in-a-row drill starts again
+	local spike, serve = Tutorial.drill("spike"), Tutorial.drill("serve")
+	local c, fin = 0, false
+	for _, ok in ipairs({ true, false, true, false, true }) do
+		c, fin = Tutorial.tally(spike, c, ok)
 	end
-	local after = Tutorial.progress(done)
-	for _, id in ipairs(Tutorial.stepsFor("JumpServe")) do done[id] = true end
-	local beforePoint = Tutorial.complete(done)
-	done.point = true
+	local s1, sfin = 0, false
+	for _, ok in ipairs({ true, true, false, true, true }) do
+		s1, sfin = Tutorial.tally(serve, s1, ok)
+	end
+	local s2, s2fin = Tutorial.tally(serve, s1, true)
+	check(c == 3 and fin and s1 == 2 and not sfin and s2 == 3 and s2fin and Tutorial.drill("block").goal == 3 and Tutorial.drill("dig").inARow,
+		"drills: spikes and blocks count through a miss; serves and digs have to be 3 in a row", string.format("spike %d, serve streak %d then %d", c, s1, s2))
+	for _, d in ipairs(Tutorial.Drills) do
+		done[d.id] = true
+	end
 	local vp, gold, spins = Tutorial.reward()
-	check(after.id == "jumpserve" and not beforePoint and Tutorial.complete(done) and #Tutorial.stepsFor("Feint") == 0 and vp == 50 and gold == 1000 and spins == 5, "touches tick their steps, a won rally finishes it; the reward is 50 VP, 1,000 Gold and 5 free recruits")
+	check(Tutorial.complete(done) and Tutorial.isStep("dig") and not Tutorial.isStep("point") and vp == 50 and gold == 1000 and spins == 5,
+		"finishing the four drills completes the tutorial; the reward is 50 VP, 1,000 Gold and 5 free recruits")
+	-- a practice lobby that goes to its own server stays a hidden practice of the same drill
+	local pl = Lobbies.new(40, 7, "P", Lobbies.settings({ mode = 2 }))
+	Lobbies.seat(pl, 7)
+	pl.practice, pl.drill, pl.hidden = true, "dig", true
+	local back = Lobbies.import(Lobbies.export(pl), 41)
+	check(back.practice and back.hidden and back.drill == "dig" and not back.tutorial, "a practice lobby survives the trip to its own server as the same hidden drill")
 end
 
 print("== match rewards: extra sets and win streaks ==")

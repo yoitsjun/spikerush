@@ -802,7 +802,7 @@ end
 -- resets it. Past Config.Afk.Timeout the player's AI takes over.
 local AFK_STEP = 0.5
 local function afkTick()
-	if not TeamService.inMatch then
+	if not TeamService.inMatch or reg.MatchService.practice then
 		return
 	end
 	local phase = reg.MatchService.phase
