@@ -1,6 +1,7 @@
 -- ActionController: turns button presses into volleyball touches (The Spike's control scheme).
 --
---   Spike ........ ground: run-up jump / air: spike. Azure Dragon: hold in the air to gather
+--   Spike ........ ground: run-up jump (with the double approach setting: the first press runs
+--                  in, the second jumps) / air: spike. Azure Dragon: hold in the air to gather
 --                  energy (hover), release to swing. Holding past full overcharges it.
 --   Receive ...... arms a receive stance; the touch happens automatically when the ball arrives.
 --                  Pressed a little early (not too early) = perfect timing = almost no stamina lost.
@@ -1019,6 +1020,15 @@ end
 -- context for the HUD / mobile buttons
 ------------------------------------------------------------------------------------------
 
+-- What Spike does on the ground: a run-up jump, or with the double approach first the run-up,
+-- then the jump.
+local function groundSpikeLabel()
+	if State.settings.doubleApproach and not mods.MovementController.isRunning() then
+		return "Approach"
+	end
+	return "Jump"
+end
+
 local function evaluate(info, now)
 	local ctx = {}
 	if not info or not State.isPlaying then
@@ -1031,6 +1041,7 @@ local function evaluate(info, now)
 	ctx.grounded = info.grounded
 	ctx.nearNet = math.abs(info.root.Z) <= P.BlockReach
 	ctx.stance = stance ~= nil
+	ctx.running = mods.MovementController.isRunning()
 	if phase == "Serving" and State.isServer() then
 		ctx.serving = true
 		if BR.getState() == "Held" then
@@ -1039,13 +1050,13 @@ local function evaluate(info, now)
 				ctx.warn = "Step behind the end line"
 			end
 		elseif myToss() then
-			ctx.spikeLabel = info.grounded and "Jump" or "Serve"
+			ctx.spikeLabel = info.grounded and groundSpikeLabel() or "Serve"
 			ctx.inZone = not info.grounded and (HitLogic.spikeZone(info.root, BR.getPosition(now), side, stats, 1.1))
 		end
 		return ctx
 	end
 	if phase ~= "Rally" or not BR.isLive() then
-		ctx.spikeLabel = "Jump"
+		ctx.spikeLabel = groundSpikeLabel()
 		return ctx
 	end
 	local ok, why, third = HitLogic.canTouch(BR.getTouch(), State.myTeam, State.myId, "Bump", State.teamSize())
@@ -1053,7 +1064,7 @@ local function evaluate(info, now)
 	ctx.blockedReason = not ok and why or nil
 	local bp = BR.getPosition(now)
 	if info.grounded then
-		ctx.spikeLabel = "Jump"
+		ctx.spikeLabel = groundSpikeLabel()
 		ctx.canSet = ok and (HitLogic.setZone(info.root, bp, side, stats))
 	else
 		ctx.spikeLabel = isAzure() and "Charge" or "Spike"

@@ -61,6 +61,7 @@ Assets.Sounds = {
 	Toss = "",
 	Serve = "",
 	Slide = "",
+	Squeak = "", -- the owner's "floor squeak" (coming): a double approach's run-up starts
 	GuardBreak = "",
 	Whistle = "",
 	Timeout = "",

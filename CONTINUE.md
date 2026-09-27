@@ -37,13 +37,14 @@ Keep `rojo serve` running from the same folder Claude works in.
 
 > Check out the branch claude/spike-rush-continuation-uwunbo and work on it. Read CLAUDE.md, CONTINUE.md and HANDOFF.md, then continue from "Next steps" in HANDOFF.md. Run the four checks after every change, then commit and push to that branch.
 
-## Where things stand (end of the thirteenth session)
+## Where things stand (fourteenth session)
 
-Built: 37 characters and their abilities, bots, lobbies, four courts (Beach, Colosseum, Nationals, Night Rooftop), recruit, locker, shop, ranks, practice drills, the tutorial, mobile controls, point celebrations and the owner's sounds.
+Built: 37 characters and their abilities, bots, lobbies, four courts (Beach, Colosseum, Nationals, Night Rooftop), recruit, locker, shop, ranks, practice drills, the tutorial, mobile controls, point celebrations, the owner's sounds, and saved settings (Double approach, the touch button layout editor).
 
 Next, in HANDOFF.md's order:
 
-0. **Hands-on check** of the thirteenth session's work, which was built with Studio's viewport hidden. Items: practice drills and the tutorial, the Players screen's team panel, AI teammate abilities (keys 1 and 2), mobile controls, the point celebration, the loading screen's ball, the AI set fixes, and a listen to the sounds.
+0. **The matchup intro and end-of-game showcase** the owner asked for (intro poses, both teams at the start, Spikes / Blocks / Aces at the end).
+0. **Hands-on checks**: the fourteenth session's Double approach and touch layout editor, and the thirteenth session's work (built with Studio's viewport hidden): practice drills and the tutorial, the Players screen's team panel, AI teammate abilities (keys 1 and 2), mobile controls, the point celebration, the loading screen's ball, the AI set fixes, and a listen to the sounds.
 1. **Sound:** the owner sends ids for the empty slots, and Claude sets each one's start and gain.
 2. **Courts:** polish from the owner's screenshots.
 3. **Score card customization** (asked for "later"): card designs unlocked by challenges.

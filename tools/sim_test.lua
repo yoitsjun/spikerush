@@ -1106,6 +1106,44 @@ do
 		"boosts are shared tables (a humanoid is only re-tuned when a boost changes) and they stack", string.format("ATK %d, Lv1 %d, Lv2 %d, Lv2 + Rally %d", daon.Attack, b1.Attack, sun6.Attack, both.Attack))
 end
 
+print("== settings and the double approach ==")
+do
+	local Settings = require("Settings")
+	local P, T = Config.Player, Config.Settings.Touch
+	local clean = Settings.clean({
+		doubleApproach = true,
+		dramatic = "yes",
+		shake = 7,
+		bogus = 1,
+		touchLayout = {
+			A = { x = 0.2, y = 1.4, size = 9 },
+			B = { x = 0 / 0, y = 0.5, size = 1 },
+			C = { x = 0.5, y = 0.5 },
+			Set = { x = 0.123456, y = 0.5, size = 1.05 },
+			Zed = { x = 0.1, y = 0.1, size = 1 },
+		},
+	})
+	local L = clean.touchLayout
+	check(clean.doubleApproach == true and clean.dramatic == nil and clean.shake == 1 and clean.bogus == nil
+		and L.A.y == 1 and L.A.size == T.MaxSize and L.B == nil and L.C == nil and L.Zed == nil and L.Set.x == 0.123 and L.Set.size == 1.05,
+		"saved settings keep only known keys and sane values (no NaN; places and sizes clamped and rounded)")
+	check(next(Settings.clean(nil)) == nil and next(Settings.clean({ touchLayout = {} }).touchLayout) == nil and Settings.clean({ touchLayout = 5 }).touchLayout == nil,
+		"no settings, an empty layout (every button in its usual place) and junk all clean safely")
+	-- the run-up between the two presses, for every character fresh and maxed
+	local minMul, shortest, longest = math.huge, math.huge, 0
+	for _, c in ipairs(Roster) do
+		for _, lv in ipairs({ "max", false }) do
+			local s = Characters.derive(Characters.fromRoster(c, lv or nil))
+			minMul = math.min(minMul, P.ApproachRun * s.Approach)
+			local run = s.WalkSpeed * P.ApproachRun * s.Approach * P.ApproachRunMax / SPM
+			shortest = math.min(shortest, run)
+			longest = math.max(longest, run)
+		end
+	end
+	check(minMul > 1 and shortest >= 3 and longest <= 9,
+		"double approach: the run-up is faster than walking for everyone, and a full one covers 3 to 9 m", string.format("x%.2f walk at least; %.1f to %.1f m in %.1f s", minMul, shortest, longest, P.ApproachRunMax))
+end
+
 print("== leaderboards ==")
 do
 	local Leaderboards = require("Leaderboards")

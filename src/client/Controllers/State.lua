@@ -7,7 +7,9 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Characters = require(Shared.Characters)
+local Settings = require(Shared.Settings)
 local Util = require(Shared.Util)
+local Net = require(Shared.Net)
 
 local player = Players.LocalPlayer
 
@@ -37,12 +39,15 @@ State.context = {}
 State.profile = nil
 State.lastAttack = nil -- { kmh, height, thunder, ... } for the speed readout
 
+-- The defaults; the profile's saved settings replace them once it arrives (setProfile).
 State.settings = {
 	landingMarker = true,
 	shake = 1,
 	dramatic = true, -- impact frames, hit-stops, speed lines
 	assist = State.isMobile, -- auto-receive assist (capped quality) defaults on for touch
 	followCam = false, -- off: the fully zoomed-out wide shot during play
+	doubleApproach = false, -- Spike on the ground starts a run-up and a second press jumps
+	touchLayout = {}, -- touch buttons you moved or resized: name -> { x, y, size }
 }
 
 State.signals = {
@@ -77,8 +82,31 @@ function State.setMatch(m)
 	State.signals.Match:Fire(m)
 end
 
+-- Settings live in the profile: the saved ones are applied once, from the first snapshot, and
+-- every change is sent back SaveDelay seconds after the last one (the server cleans them).
+local SAVED = Config.Settings
+local settingsLoaded = false
+local saveToken = 0
+
+local function queueSettingsSave()
+	saveToken = saveToken + 1
+	local token = saveToken
+	task.delay(SAVED.SaveDelay, function()
+		if token == saveToken then
+			Net.get("Profile"):FireServer("settings", Settings.clean(State.settings))
+		end
+	end)
+end
+
 function State.setProfile(p)
 	State.profile = p
+	if not settingsLoaded then
+		settingsLoaded = true
+		for key, value in pairs(Settings.clean(p.settings)) do
+			State.settings[key] = value
+			State.signals.Settings:Fire(key, value)
+		end
+	end
 	State.signals.Profile:Fire(p)
 end
 
@@ -182,6 +210,7 @@ end
 function State.setSetting(key, value)
 	State.settings[key] = value
 	State.signals.Settings:Fire(key, value)
+	queueSettingsSave()
 end
 
 return State

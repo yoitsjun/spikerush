@@ -1064,7 +1064,7 @@ local function updateRail()
 	local ctx = State.context or {}
 	local pad = mods.InputController.lastDevice() == "Gamepad"
 	local live = {
-		Spike = ctx.inZone == true or (ctx.serving == true and ctx.spikeLabel ~= nil),
+		Spike = ctx.inZone == true or ctx.running == true or (ctx.serving == true and ctx.spikeLabel ~= nil),
 		Receive = ctx.incoming == true and ctx.grounded == true,
 		SlideFeint = (ctx.incoming == true and ctx.grounded == true) or (ctx.grounded == false and ctx.inZone == true),
 		Block = ctx.nearNet == true and ctx.grounded == true and not ctx.serving,
@@ -1227,12 +1227,26 @@ end
 -- timeout and settings buttons
 ------------------------------------------------------------------------------------------
 
+-- One row per setting: a switch (key), or a button (press) that opens something. `sub` is a
+-- line under the name; `touch` rows show on touch devices only.
 local SETTINGS = {
+	{ key = "doubleApproach", text = "Double approach", sub = "Spike once to run in, again to jump" },
 	{ key = "landingMarker", text = "Landing marker" },
 	{ key = "dramatic", text = "Impact frames and speed lines" },
 	{ key = "assist", text = "Receive assist" },
 	{ key = "followCam", text = "Follow camera (zoomed in)" },
 	{ key = "shake", text = "Camera shake" },
+	{
+		key = "touchLayout",
+		text = "Touch controls",
+		sub = "Move and resize your buttons",
+		touch = true,
+		button = "Edit",
+		press = function()
+			UIController.closeSettings()
+			mods.MobileControls.editLayout()
+		end,
+	},
 }
 
 -- A round button with a Toolbox icon and a caption under it, top right (The Spike's corner).
@@ -1254,6 +1268,16 @@ local function roundButton(name, iconKey, x)
 		ring.Color = UI.Chalk
 	end)
 	return b, cap
+end
+
+-- The settings panel shrinks to fit below wherever it opened (a phone held sideways is short).
+local function fitSettings()
+	local sp = ui.settings
+	if not sp or not ui.settingsScale then
+		return
+	end
+	local room = gui.AbsoluteSize.Y - sp.Position.Y.Offset - 8
+	ui.settingsScale.Scale = math.clamp(room / sp.Size.Y.Offset, 0.45, 1)
 end
 
 local function buildCorner()
@@ -1279,25 +1303,36 @@ local function buildCorner()
 	ui.forfeitCap = forfeitCap
 	local gear = roundButton("Settings", "IconSettings", -12)
 
-	-- the settings panel: a dark hairline card, one switch per setting
+	-- the settings panel: a dark hairline card, one row per setting
+	local rows, tops = {}, {}
+	local y = 60
+	for _, s in ipairs(SETTINGS) do
+		if not s.touch or State.isMobile then
+			table.insert(rows, s)
+			table.insert(tops, y)
+			y = y + (s.sub and 58 or 44) + 6
+		end
+	end
 	local sp = panel(gui, {
 		Name = "Settings",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -12, 0, 92),
-		Size = UDim2.fromOffset(360, 64 + #SETTINGS * 50),
+		Size = UDim2.fromOffset(360, y + 6),
 		Visible = false,
 		ZIndex = 5,
 	})
 	sp.BackgroundTransparency = 0.05
 	edge(sp, Gui.HAIRLINE, 0.3)
+	ui.settingsScale = make("UIScale", {}, sp)
 	label(sp, { Text = "Settings", Font = Enum.Font.GothamBlack, TextSize = 26, Size = UDim2.new(1, -32, 0, 30), Position = UDim2.fromOffset(16, 10), ZIndex = 5 })
 	Gui.plate(sp, { Size = UDim2.fromOffset(56, 5), Position = UDim2.fromOffset(18, 44), ZIndex = 5 }, Gui.SIGNAL)
 	local toggles = {}
-	for i, s in ipairs(SETTINGS) do
+	for i, s in ipairs(rows) do
+		local h = s.sub and 58 or 44
 		local b = make("TextButton", {
 			Name = s.key,
-			Size = UDim2.new(1, -24, 0, 44),
-			Position = UDim2.fromOffset(12, 60 + (i - 1) * 50),
+			Size = UDim2.new(1, -24, 0, h),
+			Position = UDim2.fromOffset(12, tops[i]),
 			BackgroundColor3 = Color3.new(1, 1, 1),
 			BackgroundTransparency = 0.95,
 			BorderSizePixel = 0,
@@ -1306,36 +1341,55 @@ local function buildCorner()
 			ZIndex = 5,
 		}, sp)
 		corner(b, 6)
-		label(b, { Text = s.text, Font = Enum.Font.GothamBlack, TextSize = 18, Size = UDim2.new(1, -90, 1, 0), Position = UDim2.fromOffset(12, 0), ZIndex = 5 })
-		-- a switch: signal yellow with the knob right when on
-		local track = make("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(54, 28), BorderSizePixel = 0, ZIndex = 5 }, b)
-		corner(track, 14)
-		local knob = make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Size = UDim2.fromOffset(22, 22), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 6 }, track)
-		corner(knob, 11)
-		local function refresh()
-			local v = State.settings[s.key]
-			local on = v == true or (type(v) == "number" and v > 0)
-			track.BackgroundColor3 = on and Gui.SIGNAL or Color3.fromRGB(64, 68, 86)
-			knob.Position = on and UDim2.new(1, -25, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)
+		label(b, { Text = s.text, Font = Enum.Font.GothamBlack, TextSize = 18, Size = UDim2.new(1, -96, 0, s.sub and 30 or h), Position = UDim2.fromOffset(12, s.sub and 4 or 0), ZIndex = 5 })
+		if s.sub then
+			label(b, { Text = s.sub, TextSize = 14, TextColor3 = UI.Fog, TextWrapped = true, Size = UDim2.new(1, -96, 0, 20), Position = UDim2.fromOffset(12, 32), ZIndex = 5 })
 		end
-		b.MouseButton1Click:Connect(function()
-			click()
-			local v = State.settings[s.key]
-			if type(v) == "number" then
-				State.setSetting(s.key, v > 0 and 0 or 1)
-			else
-				State.setSetting(s.key, not v)
+		if s.press then
+			-- a button row: a signal-yellow plate on the right
+			local plate = Gui.plate(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(78, 34), ZIndex = 5 }, Gui.SIGNAL)
+			label(plate, { Text = s.button, Font = Enum.Font.GothamBlack, TextSize = 18, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
+			b.MouseButton1Click:Connect(function()
+				click()
+				s.press()
+			end)
+		else
+			-- a switch: signal yellow with the knob right when on
+			local track = make("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(54, 28), BorderSizePixel = 0, ZIndex = 5 }, b)
+			corner(track, 14)
+			local knob = make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Size = UDim2.fromOffset(22, 22), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 6 }, track)
+			corner(knob, 11)
+			local function refresh()
+				local v = State.settings[s.key]
+				local on = v == true or (type(v) == "number" and v > 0)
+				track.BackgroundColor3 = on and Gui.SIGNAL or Color3.fromRGB(64, 68, 86)
+				knob.Position = on and UDim2.new(1, -25, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)
 			end
+			b.MouseButton1Click:Connect(function()
+				click()
+				local v = State.settings[s.key]
+				if type(v) == "number" then
+					State.setSetting(s.key, v > 0 and 0 or 1)
+				else
+					State.setSetting(s.key, not v)
+				end
+			end)
 			refresh()
-		end)
-		refresh()
-		table.insert(toggles, refresh)
+			table.insert(toggles, refresh)
+		end
 	end
+	-- a change from anywhere (a click here, or the saved settings arriving with the profile)
+	State.signals.Settings:Connect(function()
+		for _, refresh in ipairs(toggles) do
+			refresh()
+		end
+	end)
 	gear.MouseButton1Click:Connect(function()
 		click()
 		sp.Visible = not sp.Visible
 		sp.Position = UDim2.new(1, -12, 0, 92)
 		gui.DisplayOrder = 10
+		fitSettings()
 	end)
 	ui.timeout = timeout
 	ui.timeoutCap = timeoutCap
@@ -1346,6 +1400,7 @@ end
 function UIController.closeSettings()
 	if ui.settings then
 		ui.settings.Visible = false
+		gui.DisplayOrder = 10
 	end
 end
 
@@ -1362,6 +1417,7 @@ function UIController.toggleSettings(belowY)
 		local inset = GuiService:GetGuiInset()
 		sp.Position = UDim2.new(1, -12, 0, math.max(8, belowY - inset.Y))
 	end
+	fitSettings()
 end
 
 local function updateTimeout()

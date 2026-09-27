@@ -78,6 +78,11 @@ Config.Player = {
 	ApproachGather = 0.1, -- crouch before an approach jump
 	ApproachDash = 2.2, -- run-up speed (x walk speed x Approach) during the gather
 	ApproachBoost = 18, -- takeoff speed along the court for a run-up jump (x Approach)
+	-- Double approach (a setting, as in The Spike Cross): the first press starts a run-up, steered
+	-- with the stick, and the second plants and takes off; a run-up with no second press takes
+	-- off by itself after ApproachRunMax
+	ApproachRun = 1.25, -- run-up speed (x walk speed x Approach) between the two presses
+	ApproachRunMax = 0.9,
 	AirControl = 0.55, -- air drift speed as a fraction of walk speed
 	SlideSpeed = 50,
 	SlideTime = 0.42,
@@ -777,6 +782,21 @@ Config.Bots = {
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
 	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it
 	FriendsPerPlayer = 30, -- bots wear these players' friends' avatars and names
+}
+
+-- Settings saved in each player's profile (the Settings module cleans them; the client's
+-- State.settings holds the defaults and the live values).
+Config.Settings = {
+	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach" },
+	Numbers = { shake = { 0, 1 } },
+	-- touch buttons can be moved (x, y: the centre as a fraction of the screen) and resized
+	Touch = {
+		Buttons = { "A", "B", "C", "Set", "Block", "Skill1", "Skill2", "Skill3" },
+		MinSize = 0.6,
+		MaxSize = 1.6,
+		SizeStep = 0.1,
+	},
+	SaveDelay = 1, -- seconds after the last change before the client sends them
 }
 
 Config.Graphics = {

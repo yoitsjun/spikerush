@@ -1,6 +1,7 @@
 -- Local character movement for the side view, on top of the Humanoid:
 --  * lane lock: you only ever move along the court (left/right on screen)
---  * run-up jump: a short dash (longer with a higher Jump stat) then takeoff, with a boom
+--  * run-up jump: a short dash (longer with a higher Jump stat) then takeoff, with a boom; with
+--    the double approach setting the first press runs in and the second takes off
 --  * block jump: hold to charge a higher jump
 --  * slide: a receive dive along the court
 --  * air control: drift in the air to line up with the ball (that sets your spike angle)
@@ -28,6 +29,7 @@ local controls = nil
 local slide = nil
 local lastSlideAt = -10
 local gather = nil
+local run = nil -- the double approach's run-up: { t0, dir, kind }
 local charging = false
 local padAxis = 0
 local facing = 1
@@ -65,7 +67,7 @@ local function onCharacter(c)
 	char = c
 	hum = c:WaitForChild("Humanoid")
 	hrp = c:WaitForChild("HumanoidRootPart")
-	slide, gather, charging, queued = nil, nil, false, nil
+	slide, gather, run, charging, queued = nil, nil, nil, false, nil
 	hum.AutoRotate = false
 	-- state machine tweaks have to run on the client that owns the humanoid
 	hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
@@ -108,6 +110,11 @@ end
 
 function MovementController.isGathering()
 	return gather ~= nil
+end
+
+-- In a double approach's run-up (the next Spike press takes off).
+function MovementController.isRunning()
+	return run ~= nil
 end
 
 -- In the air from the very first frame of a jump: FloorMaterial still reports the floor for a
@@ -174,21 +181,43 @@ function MovementController.faceNet()
 end
 
 function MovementController.canJump()
-	return hum ~= nil and not slide and not gather and not queued and not inAir()
+	return hum ~= nil and not slide and not gather and not run and not queued and not inAir()
 end
 
--- Run-up jump: dash in the held direction (or jump in place), then take off.
+local function heldDir()
+	local dir = MovementController.axis()
+	if math.abs(dir) < 0.3 then
+		return 0
+	end
+	return dir > 0 and 1 or -1
+end
+
+-- The end of a run-up (the second press, or ApproachRunMax): it plants into the usual gather.
+local function plant()
+	gather = { t0 = os.clock(), dir = run.dir, kind = run.kind }
+	run = nil
+	mods.AnimationController.pose(State.myId, "Gather")
+end
+
+-- Run-up jump: dash in the held direction (or jump in place), then take off. With the double
+-- approach setting the first press starts a run-up instead (a floor squeak; the stick steers it)
+-- and the second press plants and takes off.
 function MovementController.approach(kind)
+	if run then
+		plant()
+		return true
+	end
 	if not MovementController.canJump() then
 		return false
 	end
-	local dir = MovementController.axis()
-	if math.abs(dir) < 0.3 then
-		dir = 0
-	else
-		dir = dir > 0 and 1 or -1
+	if State.settings.doubleApproach then
+		run = { t0 = os.clock(), dir = heldDir(), kind = kind or "Spike" }
+		mods.AnimationController.pose(State.myId, "Approach", P.ApproachRunMax + 0.2)
+		mods.AudioController.play("Squeak", { pos = hrp.Position })
+		Net.get("ActionFX"):FireServer("Approach")
+		return true
 	end
-	gather = { t0 = os.clock(), dir = dir, kind = kind or "Spike" }
+	gather = { t0 = os.clock(), dir = heldDir(), kind = kind or "Spike" }
 	mods.AnimationController.pose(State.myId, "Gather")
 	return true
 end
@@ -218,6 +247,7 @@ function MovementController.slide(dirZ)
 	if inAir() then
 		return false
 	end
+	run = nil -- a slide calls off a run-up
 	if math.abs(dirZ or 0) < 0.3 then
 		dirZ = facing
 	end
@@ -234,6 +264,7 @@ function MovementController.knockback(strength)
 	if not hum or not hrp or not strength or strength <= 0 or inAir() then
 		return
 	end
+	run = nil
 	knock = { t0 = os.clock(), speed = P.KnockbackSpeed * (0.4 + 0.6 * strength), dur = P.KnockbackTime * (0.6 + 0.4 * strength) }
 end
 
@@ -363,6 +394,32 @@ local function moveStep()
 		hum.JumpHeight = queued.height
 		hum.Jump = true
 		queued = nil
+	end
+
+	if run then
+		local phase = State.phase()
+		if airborne or not State.isPlaying or (phase ~= "Rally" and phase ~= "Serving") then
+			-- off the floor some other way, or the rally ended: no takeoff
+			run = nil
+			mods.AnimationController.clearStance(State.myId)
+		elseif now - run.t0 >= P.ApproachRunMax then
+			plant()
+		else
+			-- the stick steers the run-up; let go and it keeps going the way it was
+			local dir = heldDir()
+			if dir ~= 0 then
+				run.dir = dir
+			end
+			if run.dir ~= 0 then
+				hum.WalkSpeed = baseWalk() * P.ApproachRun * stats.Approach
+				hum:Move(Vector3.new(0, 0, run.dir), false)
+				face(run.dir)
+			else
+				hum:Move(Vector3.zero, false)
+				face(-State.mySide)
+			end
+			return
+		end
 	end
 
 	if gather then

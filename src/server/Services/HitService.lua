@@ -22,8 +22,8 @@ local reg
 
 local VALID = { Bump = true, Set = true, Spike = true, Feint = true, Block = true, Toss = true, Serve = true, Underhand = true }
 local SET_TYPES = { Open = true, Quick = true, Back = true }
-local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true }
-local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true }
+local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true, Approach = true }
+local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true, Approach = true }
 local requestLog = {}
 local intentAt = {} -- entityId -> os.clock() of the player's last attempt to play the ball
 local missedAt = {} -- entityId -> os.clock() of the player's last whiffed swing or dig

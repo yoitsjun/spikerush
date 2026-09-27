@@ -14,6 +14,7 @@
 --   ("autosell", rarity, on)         -> pulls of that rarity turn straight into VP
 --   ("equip", kind, key)             -> equip an unlocked style, colour, trail or score effect
 --   ("favorite", charId, on)         -> star or unstar a character (the Players screen's filter)
+--   ("settings", table)              -> your settings (switches, touch layout); no reply
 --   ("buy", packIndex, "VP"|"Gold")  -> Studio only: grant a pack whose product id isn't set yet
 -- Your character locks while you're in a match, so prediction always matches the server.
 -- VP and Gold packs are Developer Products granted in MarketplaceService.ProcessReceipt.
@@ -34,6 +35,7 @@ local Court = require(Shared.Court)
 local Tutorial = require(Shared.Tutorial)
 local Rewards = require(Shared.Rewards)
 local Spins = require(Shared.Spins)
+local Settings = require(Shared.Settings)
 local Net = require(Shared.Net)
 
 local ProfileService = {}
@@ -85,7 +87,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -192,6 +194,7 @@ local function sanitizeProfile(data)
 			out.autoSell[r] = data.autoSell[r] == true or nil
 		end
 	end
+	out.settings = Settings.clean(data.settings)
 	if type(data.receipts) == "table" then
 		for _, id in ipairs(data.receipts) do
 			if type(id) == "string" and #out.receipts < Config.Shop.ReceiptHistory then
@@ -284,6 +287,7 @@ local function save(plr, force)
 		fav = profile.fav,
 		teams = profile.teams,
 		autoSell = profile.autoSell,
+		settings = profile.settings,
 		receipts = profile.receipts,
 	}
 	local success = pcall(function()
@@ -442,6 +446,7 @@ function ProfileService.snapshot(plr)
 		fav = table.clone(profile.fav or {}),
 		teams = teamsCopy(profile),
 		autoSell = table.clone(profile.autoSell),
+		settings = profile.settings,
 		autoRolling = profile.autoRolling and profile.autoRolling.banner or nil,
 		dev = profile.dev or nil,
 		saving = profile.canSave and store ~= nil,
@@ -795,6 +800,10 @@ local function onRequest(plr, kind, a, b, c)
 			dirty[plr] = true
 		end
 		push(plr)
+	elseif kind == "settings" then
+		-- replaced whole (the client sends them all a second after its last change)
+		profile.settings = Settings.clean(a)
+		dirty[plr] = true
 	elseif kind == "equip" then
 		if Spins.isCosmetic(a) and owns(profile, a, b) then
 			profile.equip[a] = b

@@ -10,7 +10,7 @@ Install the toolchain once with `rokit install` or `aftman install` (both pin Ro
 
 To start from a place file instead, open `SpikeRush.rbxlx` (built with `rojo build -o SpikeRush.rbxlx`) and connect Rojo from there. Press Play: the server builds the arena at startup and you land on the Home screen. New players get a **tutorial** card there: the four practice drills in order (below). Finishing it pays 50 VP, 1,000 Gold and 5 free recruits, once. The **Practice** tab runs any drill on its own. Drills are never rallies: each rep the court sets you up and judges that one touch. Spike: your setter sets you and you spike 3 into their court. Block: their attacker hits from the net and you get your hands on 3. Serve: land 3 in their court in a row. Dig: their attacker spikes at you and you dig 3 in a row. Press Match, then Quick Match (or make a lobby with Fill with bots on) to play; bots fill every empty slot, so the game is fully playable solo.
 
-Player progress (V Points, Gold, the characters you own, their upgraded stats and the one you play, unlocked cosmetics, auto-sell choices) is saved with DataStoreService. In Studio this only works after enabling Game Settings > Security > "Enable Studio Access to API Services" on a published place. Without it the game still runs, profiles just last for the session, and the Home screen says so.
+Player progress (V Points, Gold, the characters you own, their upgraded stats and the one you play, unlocked cosmetics, auto-sell choices, and your settings, touch layout included) is saved with DataStoreService. In Studio this only works after enabling Game Settings > Security > "Enable Studio Access to API Services" on a published place. Without it the game still runs, profiles just last for the session, and the Home screen says so.
 
 The project file sets Workspace gravity to 45 (the server also enforces it at startup), turns off mouse lock, and uses JumpHeight rather than JumpPower.
 
@@ -21,7 +21,7 @@ The keyboard layout follows The Spike's, with WASD and mouse alternatives.
 | Action | Keyboard / mouse | Gamepad | What it does |
 |---|---|---|---|
 | Move | A / D or ← / → | Left stick | You only move along the court; your role sets your depth lane |
-| Spike | Z, J or left click | A or R2 | On the ground: run-up jump. In the air: spike. Azure Dragon: hold in the air to charge, release to swing |
+| Spike | Z, J or left click | A or R2 | On the ground: run-up jump (with **Double approach** on in Settings, the first press starts a run-up you steer with Move and the second jumps; a run-up takes off by itself after 0.9 s). In the air: spike. Azure Dragon: hold in the air to charge, release to swing |
 | Receive | ↓, S, K or right click | B | Arms a receive stance for 0.8 s; the touch happens by itself when the ball arrives |
 | Slide / feint | C, Shift or L | RB | On the ground: slide receive (never costs stamina). In the air: a soft roll shot |
 | Block | ↑ or W | Y | Hold to crouch and charge, release to jump; near the net (1.5 m) the ball that passes your hands is blocked |
@@ -33,7 +33,9 @@ The keyboard layout follows The Spike's, with WASD and mouse alternatives.
 | Timeout | T | Select | Two per set; takes effect at the next dead ball, refills stamina and opens the rotation editor, where you can also switch character or cosmetics; Ready ends it early once everyone is ready |
 | Forfeit | Forfeit button (top right) | | Tap twice within 3 s: your team concedes the match and gets no VP |
 
-On a keyboard or gamepad, the compact control rail on the left edge of the screen shows every action as a text pill with its key (the badges switch to gamepad buttons when you use one), lights up whichever action is live right now, and can be clicked. On touch devices a floating thumbstick moves you, and three big round buttons bottom right change with the moment: holding the serve, Basic Serve / Spike Serve (hold to toss) / Approach; on the ground, Slide / Bump / Approach; in the air, Feint (the bump button) / Spike. Set and Block pop up when they apply, and your ability and your AI teammates' sit in a column on the left. Receive assist is on by default for touch: it arms the stance for you, with the pass quality capped at 0.62 so manual timing is always better.
+On a keyboard or gamepad, the compact control rail on the left edge of the screen shows every action as a text pill with its key (the badges switch to gamepad buttons when you use one), lights up whichever action is live right now, and can be clicked. On touch devices a floating thumbstick moves you, and three big round buttons bottom right change with the moment: holding the serve, Basic Serve / Spike Serve (hold to toss) / Approach; on the ground, Slide / Bump / Approach; in the air, Feint (the bump button) / Spike. Set and Block pop up when they apply, and your ability and your AI teammates' sit in a column on the left. Receive assist is on by default for touch: it arms the stance for you, with the pass quality capped at 0.62 so manual timing is always better. Settings > Touch controls > Edit shows every button over a dimmed screen: drag one to move it, tap one (or All) and size it from 60% to 160% with - and +, then Save (Reset puts them all back).
+
+The Settings panel (the gear in a match, or Settings in the menus) holds Double approach, the landing marker, impact frames and speed lines, receive assist, the follow camera, camera shake and, on touch devices, the touch layout. Settings save with your profile.
 
 ## Menus
 

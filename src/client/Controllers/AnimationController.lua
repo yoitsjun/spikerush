@@ -20,6 +20,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
@@ -146,6 +147,15 @@ local POSE_DEFS = {
 		RightShoulder = { 164, 0, -12 },
 		LeftElbow = { 0, 0, 0 },
 		RightElbow = { 0, 0, 0 },
+	},
+	-- a double approach's run-up: leaning in, both arms swung back; the legs keep the run cycle
+	Approach = {
+		Waist = { -22, 0, 0 },
+		Neck = { 14, 0, 0 },
+		LeftShoulder = { -44, 0, -12 },
+		RightShoulder = { -44, 0, 12 },
+		LeftElbow = { 18, 0, 0 },
+		RightElbow = { 18, 0, 0 },
 	},
 	Gather = {
 		drop = 0.75,
@@ -1109,7 +1119,7 @@ end
 -- "Block" or "Jump". A jump set rises into the setter's catch; a block has its own pose; every
 -- other kind plays the rise and the spike wind-up in the air.
 -- Ground stances a spike jump leaves behind in the air.
-local GROUND_STANCES = { Stance = true, Crouch = true, Slide = true, Dive = true, TossReady = true }
+local GROUND_STANCES = { Stance = true, Crouch = true, Slide = true, Dive = true, TossReady = true, Approach = true }
 
 function AnimationController.jumped(entityId, kind)
 	local st = stateFor(entityId)
@@ -1163,7 +1173,7 @@ function AnimationController.setStance(entityId, pose, duration)
 	st.stance = { pose = pose, untilT = untilT, t0 = os.clock() }
 end
 
-local STANCES = { Stance = true, Slide = true, Crouch = true, Block = true, Charge = true, TossReady = true, Dive = true }
+local STANCES = { Stance = true, Slide = true, Crouch = true, Block = true, Charge = true, TossReady = true, Dive = true, Approach = true }
 
 -- One entry point: one-shot actions play once, stances hold for `duration`.
 function AnimationController.pose(entityId, kind, duration)
@@ -1577,6 +1587,8 @@ function AnimationController.init(m)
 			AnimationController.setStance(entityId, "Charge", 2.0)
 		elseif kind == "ChargeEnd" then
 			AnimationController.setStance(entityId, nil)
+		elseif kind == "Approach" then
+			AnimationController.setStance(entityId, "Approach", Config.Player.ApproachRunMax + 0.2)
 		elseif kind == "Whiff" and type(extra) == "string" then
 			AnimationController.playAction(entityId, extra)
 		elseif kind == "Jump" then
