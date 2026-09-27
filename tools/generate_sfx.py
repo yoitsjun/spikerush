@@ -152,12 +152,13 @@ def set_():
 
 
 def spike():
-    # the smack: palm on leather, a punchy body, a sub drop and the air tearing behind it
-    smack = clap(0.14, 1100, 9000, 3, 0.0035) * 1.4
-    body = thump(190, 85, 0.14, 0.9)
-    sub = thump(90, 40, 0.35, 0.9)
-    return room(drive(mix(smack, body, sub, delay(tear(0.22) * 0.5, 0.02)), 2.4), 0.1)
-
+    # the hit: a crack across the whole spectrum, a smack ringing at 700-1000 Hz, a punchy body
+    # at 60-250 Hz (where most of the weight sits) and a sub that hangs for about a second
+    crack = clap(0.12, 900, 12000, 3, 0.003) * 3.2
+    tone = band(noise(0.3), 650, 1050, 2) * env(0.3, 0.001, 0.2, 5) * 4.0
+    body = mix(thump(230, 120, 0.22, 1.0), band(noise(0.3), 120, 500, 2) * env(0.3, 0.001, 0.2, 5) * 2.2)
+    sub = mix(low(noise(1.1), 125) * env(1.1, 0.003, 1.1, 5) * 0.6, thump(80, 45, 0.8, 0.45))
+    return room(drive(mix(crack, tone, body, sub, delay(tear(0.18) * 0.8, 0.015)), 2.0), 0.12)
 
 def spike_heavy():
     # a strong spike hits like an explosion: a bigger smack, a long sub and a crackling blast
@@ -203,16 +204,18 @@ def azure_release():
 
 
 def boom():
-    # the jump: a tiny crack, then a deep sub whump (60-125 Hz carries it) that bounces once
-    # and rumbles out over half a second; only a whisper of air on top
-    crack = band(noise(0.03), 900, 7000) * env(0.03, 0.0003, 0.012) * 0.9
-    knock = thump(320, 170, 0.12, 0.7)
-    sub = thump(100, 42, 0.6, 1.5)
-    bounce = delay(thump(85, 45, 0.35, 0.6), 0.11)
-    rumble = low(noise(0.6), 160) * env(0.6, 0.02, 0.35, 4) * 0.5
-    gust = band(noise(0.35), 300, 4000) * env(0.35, 0.004, 0.14) * 0.7
-    return room(drive(mix(crack, knock, sub, bounce, rumble, gust), 2.2), 0.1)
-
+    # the boom jump: a sharp broadband hit (up to about 6 kHz) that turns into a dense rumble,
+    # heaviest at 250-1000 Hz with a sub underneath, fading about 15 dB over 1.4 s
+    dur = 1.6
+    t = t_axis(dur)
+    hit = band(noise(0.05), 600, 7000) * env(0.05, 0.0003, 0.03, 5) * 1.2
+    knock = mix(thump(330, 180, 0.14, 0.5), band(noise(0.12), 150, 4000, 2) * env(0.12, 0.0005, 0.08, 5) * 1.6)
+    sub = thump(95, 40, 0.8, 0.7)
+    rumble = low(mix(band(noise(dur), 220, 1000, 2), band(noise(dur), 1000, 2000, 2) * 0.15, low(noise(dur), 220) * 1.1), 1500)
+    grain = low(noise(dur), 30)
+    grain = 0.7 + 0.3 * grain / np.max(np.abs(grain))  # the rumble's crackle
+    fade = np.clip(t / 0.02, 0, 1) * np.exp(-0.95 * t) * np.clip((dur - t) / 0.25, 0, 1)
+    return room(drive(mix(hit, knock, sub, rumble * grain * fade * 1.7), 1.8), 0.1)
 
 def impact_frame():
     # the impact frame: a quick inhale (reversed swell) that slams into a hit
@@ -242,9 +245,14 @@ def stuff():
 
 
 def floor_hit():
-    # the ball slamming into the court, with the hall answering
-    return room(drive(mix(thump(120, 45, 0.4, 1.3), clap(0.08, 600, 5000, 2, 0.003) * 0.6, low(noise(0.15), 900) * env(0.15, 0.001) * 0.5), 1.8), 0.18)
-
+    # the ball slamming into the court: a deep boom (60-125 Hz carries it) with a knock at
+    # 500-1000 Hz, rolling out through the hall over about a second
+    boom_ = thump(110, 50, 1.2, 1.4)
+    rumble = band(noise(1.5), 45, 140, 2) * env(1.5, 0.004, 1.5, 5) * 1.6
+    knock = band(noise(0.3), 550, 1000, 2) * env(0.3, 0.001, 0.2, 5) * 2.6
+    slap = clap(0.08, 700, 3500, 2, 0.003) * 0.8
+    hall = band(noise(1.5), 400, 1400, 2) * env(1.5, 0.003, 1.5, 6) * 0.3
+    return room(drive(mix(boom_, rumble, knock, slap, hall), 1.8), 0.16)
 
 def net_hit():
     dur = 0.45
@@ -281,13 +289,14 @@ def guard_break():
 
 
 def whistle():
-    dur = 0.6
+    # the referee's short blast: about 0.15 s at 2.33 kHz with overtones at 4.66 and 7 kHz
+    # (-25 and -28 dB) and a breath of air, quick in and out
+    dur = 0.2
     t = t_axis(dur)
-    trem = 0.6 + 0.4 * np.sin(2 * np.pi * 32 * t)
-    tone = np.sin(2 * np.pi * 2850 * t) + 0.3 * np.sin(2 * np.pi * 5700 * t)
-    shape = np.clip(t / 0.02, 0, 1) * np.clip((dur - t) / 0.08, 0, 1)
-    return (tone * trem + band(noise(dur), 2500, 3500) * 0.2) * shape
-
+    phase = 2 * np.pi * np.cumsum(2330 * (1 + 0.004 * np.sin(2 * np.pi * 8 * t))) / SR
+    tone = np.sin(phase) + 0.056 * np.sin(2 * phase) + 0.04 * np.sin(3 * phase)
+    shape = np.clip(t / 0.008, 0, 1) * np.clip((0.16 - t) / 0.03, 0, 1)
+    return room((tone + band(noise(dur), 2000, 2700) * 0.08) * shape, 0.12)
 
 def timeout():
     dur = 0.7
@@ -396,15 +405,54 @@ def crowd_loop():
     return head * 0.5
 
 
-def crowd_cheer():
-    # a cheer: the crowd swells in (0.6 s), roars for about a second, then settles (1.8 s)
-    dur = 3.4
+def voices(dur, lo, hi, count, glide=None, seed=5):
+    """A chorus of held "whoo"s: each voice its own pitch in lo..hi with a slow wobble, a soft
+    second harmonic and a breathy edge. glide (0..1 per sample) raises every pitch up to 90%."""
     t = t_axis(dur)
-    shape = np.clip(t / 0.6, 0, 1) ** 1.5 * np.where(t < 1.6, 1.0, np.exp(-1.7 * (t - 1.6)))
-    whoo = sum(np.sin(2 * np.pi * (330 + 55 * i) * t + i) * 0.05 for i in range(7))
-    whoo = low(whoo, 1500) * shape
-    return crowd_bed(dur, 2.0) * shape + whoo
+    local = np.random.default_rng(seed)
+    g = np.zeros(len(t)) if glide is None else glide
+    y = np.zeros(len(t))
+    for _ in range(count):
+        f = local.uniform(lo, hi) * (1 + 0.9 * g) * (1 + 0.012 * np.sin(2 * np.pi * local.uniform(3, 6) * t + local.uniform(0, 6.28)))
+        ph = 2 * np.pi * np.cumsum(f) / SR + local.uniform(0, 6.28)
+        swell = 0.6 + 0.4 * np.sin(2 * np.pi * local.uniform(0.2, 0.6) * t + local.uniform(0, 6.28))
+        y += (np.sin(ph) + 0.25 * np.sin(2 * ph)) * swell
+    return low(y / count, 2500) + band(noise(dur), lo, hi * 2, 2) * 0.25
 
+
+def crowd_serve():
+    # the crowd leaning in as the server tosses: a rising "ooooh" whose vowel climbs from about
+    # 400 Hz to 800 Hz as it swells about 20 dB (most of it in the first second), then lets go
+    dur = 2.8
+    t = t_axis(dur)
+    glide = np.clip(t / 2.2, 0, 1)
+    level = 10 ** ((-20 + 20 * (1 - np.exp(-t / 0.55))) / 20) * np.clip(t / 0.05, 0, 1) * np.clip((dur - t) / 0.5, 0, 1)
+    ooh = voices(dur, 330, 440, 28, glide, 11)
+    bed = crowd_bed(dur, 4.0, 0.8) * 0.1
+    return (ooh + bed) * level
+
+
+def crowd_cheer():
+    # the end of a rally: the crowd erupts (0.6 s), dips, roars again at about 2 s, then
+    # settles about 14 dB a second while the applause outlasts the voices
+    dur = 6.5
+    t = t_axis(dur)
+    push = 1.0 - 0.45 * np.exp(-((t - 1.5) / 0.3) ** 2)
+    shape = np.clip(t / 0.6, 0, 1) ** 1.5 * push * np.where(t < 2.5, 1.0, np.exp(-1.6 * (t - 2.5)))
+    shape = shape * np.clip((dur - t) / 0.4, 0, 1)
+    whoo_shape = np.clip((t - 0.4) / 0.6, 0, 1) * np.where(t < 3.0, 1.0, np.exp(-2.2 * (t - 3.0)))
+    whoo = voices(dur, 640, 780, 18, None, 21) + voices(dur, 930, 1080, 12, None, 22) * 0.35
+    local = np.random.default_rng(77)
+    claps = np.zeros(len(t))
+    for _ in range(900):  # applause: short bright slaps, thickest while the crowd roars
+        at = local.uniform(0.2, dur - 0.1)
+        c = band(noise(0.03), 1000, 4000) * env(0.03, 0.0005, 0.012, 5) * local.uniform(0.3, 1.0)
+        i = int(at * SR)
+        claps[i : i + len(c)] += c[: len(claps) - i]
+    clap_shape = np.clip(t / 0.8, 0, 1) * np.where(t < 2.8, 1.0, np.exp(-0.9 * (t - 2.8))) * np.clip((dur - t) / 0.4, 0, 1)
+    stomp = band(noise(dur), 50, 125, 2) * 3.6
+    chest = band(noise(dur), 220, 480, 2) * 1.6  # the low half of the roar
+    return (low(crowd_bed(dur, 2.0, 2.6), 2500) + stomp + chest) * shape + whoo * whoo_shape * 0.9 + claps * clap_shape * 0.4
 
 def crowd_gasp():
     dur = 1.0
@@ -479,6 +527,7 @@ RECIPES = {
     "Point": point,
     "CrowdLoop": crowd_loop,
     "CrowdCheer": crowd_cheer,
+    "CrowdServe": crowd_serve,
     "CrowdGasp": crowd_gasp,
     "Music": music,
     "ImpactFrame": impact_frame,

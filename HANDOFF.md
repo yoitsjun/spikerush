@@ -364,13 +364,24 @@ Five courts, picked per lobby. The play area (`Config.Court`) is the same on eve
 - Verified in a Studio playtest: every court built and screenshotted from the match camera; a Colosseum and a Beach lobby started from the lobby remote; a Quick Match rotated Arena to Beach with the right boards, screens and crowd; no errors in Output. The picker's layout was screenshotted, but its buttons were not clicked in the test (the MCP mouse tool couldn't reach them).
 - The beach sea stops short of the menu rooms (SceneController builds them at x = 1600); an island hides the rooms from the court.
 
+### Twelfth session: five sounds matched to the owner's clips
+
+- The owner sent four short recordings of The Spike (a serve toss, four spikes, a boom jump, the end of a rally) and asked for those five sounds: serve toss crowd, spike, boom jump, end-of-rally crowd cheer, end-of-rally whistle. They asked for the clips to be used directly ("just sharpen or enhance them"); that was declined, because the audio is SUNCYAN's and a filtered copy is still their recording. The clips were used as a reference only and not kept in the repo. Instead each one was measured (energy per octave band, 0.1 s loudness envelope, pitch) and re-synthesized in `tools/generate_sfx.py` until the numbers lined up:
+  - `Spike`: a broadband crack, a smack ringing at 700-1000 Hz and the body at 60-500 Hz; its sub is lighter now, because the reference's long boom is the ball landing 0.25 s later. `FloorHit` took that part: a 60-125 Hz boom with a 500-1000 Hz knock that rings out over about 1.3 s.
+  - `Boom` (jump): a sharp broadband hit into a dense 250-1000 Hz rumble with a sub under it, fading about 12 dB over 1.4 s.
+  - `CrowdServe` (new recipe, the slot existed): a rising "ooooh" whose vowel climbs from about 400 to 800 Hz while it swells about 20 dB, most of that in the first second. New helper `voices()`: a chorus of held, wobbling voices with an optional glide.
+  - `CrowdCheer`: 6.5 s. It erupts in 0.6 s, dips, roars again at about 2 s, then settles about 14 dB a second while the applause outlasts the voices. Its "whoo" voices sit at 640-780 Hz and 930-1080 Hz over a 50-125 Hz stomp.
+  - `Whistle`: The Spike's is a short blast, not a trill. About 0.15 s at 2.33 kHz, with overtones at 4.66 and 7 kHz.
+- AudioController: every point now ends in `CrowdCheer`, at volume 1 for Spike/Ace/Stuff/Break/Tooled and 0.7 otherwise; Out and Net still add the gasp. Sounds are cleaned up after 8 s instead of 6, so the longer cheer isn't cut off.
+- **None of the `assets/sfx` files are uploaded yet**: every `Assets.Sounds` slot except the UI clicks is empty, so the game still plays the built-in stand-ins. `CrowdServe` has no stand-in and stays silent until it is uploaded.
+
 ## Next steps
 
 Work in this order:
 
 0. **Sound pass (the owner wants this before the courts).** Sounds can be original, from the Creator Store, recorded by the owner from real things (a ball, a whistle), or taken from The Spike (the owner has screen recordings of it and allows their audio).
    - Fill `ReplicatedStorage.ToolboxAssets.Sounds.<Key>` from the Creator Store (the PC Claude, in Studio). Put 2 or 3 candidates per slot (Whistle1, Whistle2...) for the owner to pick by ear, then rename the pick to the slot. Priority: Spike, SpikeHeavy, FloorHit, Bump, Set, Block, Boom, Whistle, CrowdCheer, CrowdServe, CrowdLoop, CrowdGasp, Point, Music.
-   - Target feel, from the owner's references: a spike is a sharp crack, then the ball's landing thump about 0.22 s later (FloorHit covers the landing); the boom jump is a sharp hit into a low rumble fading over about 1.4 s; CrowdServe is a crowd that builds over about 2 s; CrowdCheer swells, roars and settles over 3 to 4 s.
+   - Spike, FloorHit, Boom, CrowdServe, CrowdCheer and Whistle now match the owner's references (twelfth session). **Upload them first**: Studio's Asset Manager > Bulk Import on `assets/sfx`, then drop the imported Sounds into `ReplicatedStorage.ToolboxAssets.Sounds` (each keeps its file name, which is its key) and save the place. Then ask the owner how they sound in a match.
    - Menu wiring (MenuController): `onClick` always plays UIClick. Tabs, chips and `segmented` should play UISelect; confirm buttons (equip, select, buy, Start, Create, Quick Match) UIConfirm; `modal()` opening UIOpen. The recruit sequence (`playSequence`, `cinematic`, `showCard`) borrows Whoosh, Thunder, Boom, SpikeHeavy, UIClick, Point and CrowdCheer; give it its own slots (RecruitOpen, RecruitOpenGold, RecruitFly, RecruitPop, RecruitCharge, RecruitSpike, RecruitReveal, RecruitRevealGold) that fall back to the sound used now while empty.
    - Or upload the originals in `assets/sfx` (`tools/generate_sfx.py`) through Asset Manager and paste the ids into `Assets.Sounds`.
 1. **Courts: what's left** (the eleventh session built them; see its status entry).

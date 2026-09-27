@@ -75,13 +75,13 @@ local function spawnSound(info, opts)
 			table.insert(freeAttachments, att)
 		end
 		sound.Ended:Connect(finish)
-		task.delay(6, finish)
+		task.delay(8, finish)
 	else
 		sound.Parent = SoundService
 		sound.Ended:Connect(function()
 			sound:Destroy()
 		end)
-		task.delay(6, function()
+		task.delay(8, function()
 			if sound.Parent then
 				sound:Destroy()
 			end
@@ -262,9 +262,10 @@ function AudioController.init()
 			task.delay(0.12, function()
 				AudioController.play("Point", { volume = a.winner == State.myTeam and 1 or 0.6 })
 			end)
-			if a.reason == "Spike" or a.reason == "Ace" or a.reason == "Stuff" or a.reason == "Break" then
-				AudioController.play("CrowdCheer", { volume = 1 })
-			elseif a.reason == "Out" or a.reason == "Net" then
+			-- every rally ends in a cheer, loudest for the big finishes; an error gets a gasp too
+			local big = a.reason == "Spike" or a.reason == "Ace" or a.reason == "Stuff" or a.reason == "Break" or a.reason == "Tooled"
+			AudioController.play("CrowdCheer", { volume = big and 1 or 0.7 })
+			if a.reason == "Out" or a.reason == "Net" then
 				AudioController.play("CrowdGasp", { volume = 0.8 })
 			end
 			if crowd then
