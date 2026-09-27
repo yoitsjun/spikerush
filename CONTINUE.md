@@ -39,16 +39,16 @@ Keep `rojo serve` running from the same folder Claude works in.
 
 ## Where things stand (fourteenth session)
 
-Built: 37 characters and their abilities, bots, lobbies, four courts (Beach, Colosseum, Nationals, Night Rooftop), recruit, locker, shop, ranks, practice drills, the tutorial, mobile controls, point celebrations, the owner's sounds, saved settings (Double approach, the touch button layout editor), intro poses, the matchup intro and the showcase after a match.
+Built: 37 characters and their abilities, bots, lobbies, four courts (Beach, Colosseum, Nationals, Night Rooftop), recruit, locker, shop, ranks, practice drills, the tutorial, mobile controls, point celebrations, the owner's sounds, saved settings (Double approach, the touch button layout editor), intro poses, the matchup intro and the showcase after a match. `tools/pose_preview.py` checks a pose from Studio's real rig without needing a screenshot.
 
 Next, in HANDOFF.md's order:
 
-0. **Look at the matchup intro and the showcase** (built without seeing the screen) and tune them from the owner's screenshots.
-0. **Hands-on checks**: the fourteenth session's Double approach and touch layout editor, and the thirteenth session's work (built with Studio's viewport hidden): practice drills and the tutorial, the Players screen's team panel, AI teammate abilities (keys 1 and 2), mobile controls, the point celebration, the loading screen's ball, the AI set fixes, and a listen to the sounds.
-1. **Sound:** the owner sends ids for the empty slots, and Claude sets each one's start and gain.
-2. **Courts:** polish from the owner's screenshots.
-3. **Score card customization** (asked for "later"): card designs unlocked by challenges.
-4. **Before launch:**
+1. **Look at the matchup intro and the showcase** (built without seeing the screen) and tune them from the owner's screenshots.
+2. **Hands-on checks**: the fourteenth session's Double approach and touch layout editor, and the thirteenth session's work (built with Studio's viewport hidden): practice drills and the tutorial, the Players screen's team panel, AI teammate abilities (keys 1 and 2), mobile controls, the point celebration, the loading screen's ball, the AI set fixes, and a listen to the sounds.
+3. **Sound:** the owner sends ids for the empty slots, and Claude sets each one's start and gain.
+4. **Courts:** polish from the owner's screenshots.
+5. **Score card customization** (asked for "later"): card designs unlocked by challenges.
+6. **Before launch:**
    - create the VP and Gold Developer Products;
    - upload the game icon and thumbnail;
    - lower `StartingVP`.
