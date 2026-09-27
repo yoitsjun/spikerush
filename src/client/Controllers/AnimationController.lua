@@ -1108,14 +1108,30 @@ end
 -- A character left the ground. kind: "Spike" / "Serve" (run-up attack), "Set" (a jump set),
 -- "Block" or "Jump". A jump set rises into the setter's catch; a block has its own pose; every
 -- other kind plays the rise and the spike wind-up in the air.
+-- Ground stances a spike jump leaves behind in the air.
+local GROUND_STANCES = { Stance = true, Crouch = true, Slide = true, Dive = true, TossReady = true }
+
 function AnimationController.jumped(entityId, kind)
 	local st = stateFor(entityId)
 	if st then
 		st.jumpKind = kind
 		st.swung = false
-		-- a new jump cuts the last landing's crouch short so the wind-up starts right away
-		if st.action and st.action.pose == "Land" then
-			st.action = nil
+		if kind == "Block" or kind == "Set" then
+			-- a new jump cuts the last landing's crouch short so its pose starts right away
+			if st.action and st.action.pose == "Land" then
+				st.action = nil
+			end
+			return
+		end
+		-- a spike jump cuts whatever it took off from (a landing's crouch, a pass's follow-through,
+		-- an armed receive stance), so the wind-up starts right away: an early jump for a quick,
+		-- straight off a pass, still raises the hitting arm
+		st.action = nil
+		if st.stance and GROUND_STANCES[st.stance.pose] then
+			st.stance = nil
+		end
+		if st.stanceTrack then
+			stopStanceTrack(st)
 		end
 	end
 end

@@ -742,7 +742,7 @@ Config.Bots = {
 	CoverYield = 1.0,
 	-- the setter AI's quick to the middle: only off a pass that comes down near the net, with the
 	-- middle close enough to get there; better setters call it more ({worst, best} setter)
-	QuickChance = { 0.12, 0.35 },
+	QuickChance = { 0.05, 0.14 }, -- a setter's quick to the middle, off a good pass: most sets go to the wing
 	QuickHumanMul = 0.5, -- a human middle gets the quick half as often (they have to read it)
 	QuickPassDepth = 2.6 * M,
 	QuickReachDepth = 4.2 * M,

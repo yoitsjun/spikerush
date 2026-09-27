@@ -422,7 +422,10 @@ local function planSet(team, now, exclude)
 	if setter and setter.id ~= exclude then
 		who = setter
 	else
-		who = closestMember(team, p.Z, exclude)
+		-- the setter took the first ball: the closest bot sets instead (a human wing spiker is
+		-- getting ready to hit, and a bot covering them would only hold off and watch it drop)
+		local sub = coverBot(team, p.Z, exclude)
+		who = sub and sub.entity or closestMember(team, p.Z, exclude)
 	end
 	local b = who and bots[who.id]
 	if who and not b then
@@ -504,10 +507,9 @@ local function planAttack(team, now, exclude)
 		spiker = bots[last.targetId]
 		local human = not spiker and reg.TeamService.getEntity(last.targetId)
 		if human then
-			-- the set was meant for a human: the middle backs them up with a late jump, and a bot
-			-- waits underneath to send a free ball over if nobody gets it
-			local backup = planBackup(team, now, human, exclude)
-			local cover = coverBot(team, path.landing.pos.Z, exclude, backup and backup.entity.id)
+			-- the set was meant for a human: it's theirs (no middle jumping in behind them), and a
+			-- bot waits underneath to send a free ball over if nobody gets it
+			local cover = coverBot(team, path.landing.pos.Z, exclude)
 			if cover then
 				cover.coverFor = last.targetId
 				cover.task = "Free"
