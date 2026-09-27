@@ -51,6 +51,8 @@ end
 local BORROW = {
 	SpikeHeavy = { "Spike", 1.3, 0.9 },
 	FloorHitHeavy = { "FloorHit", 1.3, 0.9 },
+	Feint = { "Set", 0.7, 1.15 },
+	Whiff = { "Whoosh", 0.8 },
 	RecruitOpen = { "Whoosh" },
 	RecruitOpenGold = { "Thunder" },
 	RecruitOpenMythic = { "Boom" },
@@ -61,13 +63,21 @@ local BORROW = {
 	RecruitSpike = { "SpikeHeavy" },
 }
 
+-- A slot's upload: its id, or one of its variants at random.
+local function pick(value)
+	if type(value) == "table" then
+		return #value > 0 and value[math.random(#value)] or nil
+	end
+	return value
+end
+
 local function resolve(key)
 	local tb = Assets.toolbox("Sounds." .. key)
 	if tb and tb:IsA("Sound") then
 		local f = Assets.soundFile(tb.SoundId) or {}
 		return { template = tb, volume = f.gain, start = f.start }
 	end
-	local value = Assets.Sounds[key]
+	local value = pick(Assets.Sounds[key])
 	local id = Assets.id(value)
 	if id then
 		local f = Assets.soundFile(value) or {}
@@ -232,7 +242,7 @@ local function onHit(snap)
 	elseif ht == "Overhand" or ht == "Underhand" then
 		AudioController.play("Serve", { pos = pos, speed = ht == "Underhand" and 1.15 or 1 })
 	elseif ht == "Feint" then
-		AudioController.play("Set", { pos = pos, speed = 1.15, volume = 0.7 })
+		AudioController.play("Feint", { pos = pos })
 	else
 		if meta.fail or meta.breaks then
 			AudioController.play("GuardBreak", { pos = pos })
@@ -252,9 +262,11 @@ end
 local function preload()
 	local list = {}
 	for _, value in pairs(Assets.Sounds) do
-		local id = Assets.id(value)
-		if id then
-			table.insert(list, master(id))
+		for _, v in ipairs(type(value) == "table" and value or { value }) do
+			local id = Assets.id(v)
+			if id then
+				table.insert(list, master(id))
+			end
 		end
 	end
 	local folder = Assets.toolbox("Sounds")
@@ -370,7 +382,7 @@ function AudioController.init()
 		if kind == "Slide" then
 			AudioController.play("Slide", { volume = 0.7 })
 		elseif kind == "Whiff" then
-			AudioController.play("Whoosh", { volume = 0.35 })
+			AudioController.play("Whiff", { volume = 0.6 })
 		elseif kind == "Jump" then
 			local model = Util.modelOf(entityId)
 			if model and (model:GetAttribute("Jump") or 0) >= Config.Player.BoomJumpMin then

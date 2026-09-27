@@ -17,7 +17,7 @@ Tutorial.Drills = {
 		goal = 3,
 		inARow = false,
 		blurb = "A setter puts the ball up for you. Spike 3 into their court.",
-		key = "Run up as the set comes (Z or left click), then Z again in the air to hit it.",
+		key = "Run up as the set comes (Space, Z or left click), then press it again in the air to hit it.",
 		pad = "Run up as the set comes (A), then A again in the air to hit it.",
 		touch = "Tap Approach as the set comes, then Spike in the air.",
 	},
@@ -29,7 +29,7 @@ Tutorial.Drills = {
 		blurb = "Their attacker hits from the net. Get your hands on 3 of them.",
 		key = "Hold W at the net and let go to jump as they swing.",
 		pad = "Hold Y at the net and let go to jump as they swing.",
-		touch = "Hold Block at the net and let go to jump as they swing.",
+		touch = "At the net, hold Bump (it turns into Block) and let go to jump as they swing.",
 	},
 	{
 		id = "serve",

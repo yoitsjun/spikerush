@@ -41,10 +41,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Assets = {}
 
+-- A slot holds one upload's id, or a list of them (each play picks one: variants).
 Assets.Sounds = {
-	Bump = "",
+	Bump = "111670558415526", -- the owner's "real bump": a receive
 	ReceivePerfect = "",
-	Set = "",
+	Set = "71996778404557", -- "set"
+	Feint = "84316579472327", -- "feint sound": a roll shot over the block
 	-- the owner's uploads (from a free sound library): Spike, Boom, FloorHit, FloorHitHeavy, CrowdServe
 	Spike = "101487104093246", -- "spike sfx": a spike's crack (SpikeHeavy borrows it, deeper and louder)
 	SpikeHeavy = "",
@@ -53,6 +55,7 @@ Assets.Sounds = {
 	AzureRelease = "",
 	Boom = "129991093083800", -- "boomp jump": a hit into a low rumble on a boom jump (Jump 170+)
 	Whoosh = "",
+	Whiff = "115661994288749", -- "missed spike or swing": a swing or a dig that misses
 	Block = "",
 	Stuff = "",
 	FloorHit = "116030239767785", -- "spike land": the ball landing
@@ -61,25 +64,26 @@ Assets.Sounds = {
 	Toss = "",
 	Serve = "",
 	Slide = "",
-	Squeak = "", -- the owner's "floor squeak" (coming): a double approach's run-up starts
+	Squeak = { "93928767284165", "121230189767569" }, -- "squeak 1" / "SQUEAK 2": a double approach's run-up starts
 	GuardBreak = "",
 	Whistle = "",
 	Timeout = "",
-	UIClick = "", -- any button
+	UIClick = "101200067239382", -- "UIClick": any button
 	UIHover = "", -- the pointer over a button
-	UISwipe = "", -- a menu screen changes
+	UITick = "117000832074549", -- "UITick": a step (+ / -, the steppers)
 	Point = "",
 	CrowdLoop = "",
-	CrowdCheer = "",
+	CrowdCheer = "133064028732021", -- "end of rally cheer": a point won by a kill, ace, stuff or break
 	CrowdServe = "140530824120891", -- "crowd hype": the crowd swells as the server tosses
 	CrowdGasp = "",
 	Music = "",
 	ImpactFrame = "",
 	Blades = "", -- Counter Edge: blades out and back in
 	RallyCry = "",
-	UIOpen = "", -- a panel or screen opening (a quick swish)
-	UISelect = "", -- a tab or toggle (a clean blip)
-	UIConfirm = "", -- buy, equip, claim (a sparkle over a soft pop)
+	UIOpen = "94544858772525", -- "UIOpen": a popup opening
+	UIOpenLong = "72734883374430", -- "UIOpenLong": a menu screen changing, the matchup intro's wipes
+	UISelect = "75496570740002", -- "UISelect": a tab or toggle
+	UIConfirm = "140365614756879", -- "UIConfirm": buy, equip, claim
 	-- the recruit sequence (each borrows the sound it used before while its slot is empty)
 	RecruitOpen = "", -- the sparkle burst that opens a recruit (borrows Whoosh)
 	RecruitOpenGold = "", -- that burst with a Legendary inside (borrows Thunder)

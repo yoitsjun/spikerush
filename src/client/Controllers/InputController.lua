@@ -2,12 +2,12 @@
 -- Mirrors The Spike's keyboard layout, with WASD and mouse alternatives:
 --
 --   Move ............ Left/Right or A/D
---   Spike ........... Z, J or left click   (ground: run-up jump / air: spike;
---                                            Azure Dragon: hold in the air to charge, release to swing)
+--   Spike ........... Space, Z, J or left click (ground: run-up jump, or with the double approach
+--                                            the run-up then the jump / air: spike; Azure Dragon:
+--                                            hold in the air to charge, release to swing)
 --   Receive ......... Down, S, K or right click (press a little early; the stance stays armed)
 --   Slide / feint ... C, Shift or L         (ground: slide receive / air: roll shot)
 --   Block ........... Up or W               (hold to jump higher, release to jump)
---   Jump ............ Space
 --   Set ............. E or V                (hold toward the net for a quick, away for a back set)
 --   Serve ........... X                     (tap = overhand serve; hold = jump-serve toss, longer = higher)
 --   Easy serve ...... F                     (an underhand serve straight from the hand: slow, always in)
@@ -18,6 +18,7 @@
 -- R2 spike, L2 ability, Select timeout.
 
 local UserInputService = game:GetService("UserInputService")
+local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -104,6 +105,17 @@ end
 
 function InputController.init(m)
 	mods = m
+	-- Space is Spike too. It's taken above Roblox's own jump (sunk at a higher priority), so a
+	-- press never also hops: on the ground it's the run-up jump (twice with the double approach)
+	ContextActionService:BindActionAtPriority("SpikeRushSpace", function(_, inputState)
+		if inputState == Enum.UserInputState.Begin then
+			lastDevice = "Keyboard"
+			press("Spike")
+		elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+			release("Spike")
+		end
+		return Enum.ContextActionResult.Sink
+	end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.Space)
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then
 			return

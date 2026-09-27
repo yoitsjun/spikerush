@@ -311,7 +311,7 @@ local function whiff(info, pose, reason)
 	end
 	whiffUntil = os.clock() + P.WhiffCooldown
 	mods.AnimationController.pose(State.myId, pose or "Swing")
-	mods.AudioController.play("Whoosh", { volume = 0.45 })
+	mods.AudioController.play("Whiff", { volume = 0.8 })
 	Net.get("ActionFX"):FireServer("Whiff", pose or "Swing")
 end
 

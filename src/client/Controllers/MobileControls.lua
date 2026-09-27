@@ -2,12 +2,13 @@
 -- that change with the moment, a column of round skill buttons on the left, and Roblox's floating
 -- thumbstick bottom left (StarterPlayer.DevTouchMovementMode = DynamicThumbstick).
 --   holding the serve ... Basic Serve (underhand) | Spike Serve (tap: overhand, hold: toss) | Approach
---   on the ground ....... Slide | Bump | Approach (a run-up jump; "Jump" during a double approach)
+--   on the ground ....... Slide | Bump (Block at the net) | Approach (a run-up jump; "Jump" during
+--                         a double approach)
 --   in the air .......... Slide (off) | Feint (the bump button) | Spike (Charge with Azure Dragon)
--- Set pops up over Bump when you can set the ball, and Block over Approach near the net (hold to
--- charge, release to jump). The skill column holds your active ability (Q) and your AI
--- teammates' (1, 2). A button keeps the action it was pressed as until the finger lifts, and
--- holds release when the finger lifts anywhere on screen.
+-- At the net the Bump button blocks: hold to charge, let go to jump. Set pops up over it when you
+-- can set the ball. The skill column holds your active ability (Q) and your AI teammates' (1, 2).
+-- A button keeps the action it was pressed as until the finger lifts, and holds release when the
+-- finger lifts anywhere on screen.
 -- Every button can be moved and resized in the layout editor (Settings > Touch controls); the
 -- layout is saved with your settings (State.settings.touchLayout).
 
@@ -45,7 +46,6 @@ local DEFAULTS = {
 	B = { UDim2.new(1, -254, 1, -104), 124 },
 	C = { UDim2.new(1, -104, 1, -104), 124 },
 	Set = { UDim2.new(1, -254, 1, -244), 86 },
-	Block = { UDim2.new(1, -104, 1, -244), 86 },
 	Skill1 = { UDim2.new(0, 70, 0.3, 0), 76, true },
 	Skill2 = { UDim2.new(0, 70, 0.3, 118), 76, true },
 	Skill3 = { UDim2.new(0, 70, 0.3, 236), 76, true },
@@ -57,7 +57,6 @@ local EDIT_LOOK = {
 	B = { "Bump", "IconDefense" },
 	C = { "Approach", "IconJump" },
 	Set = { "Set", "IconStar" },
-	Block = { "Block", "IconDefense" },
 	Skill1 = { "Skill 1", "IconStar" },
 	Skill2 = { "Skill 2", "IconStar" },
 	Skill3 = { "Skill 3", "IconStar" },
@@ -128,20 +127,55 @@ local function roundButton(name)
 			return
 		end
 		b.BackgroundTransparency = PRESSED
-		held[name] = { input = input, action = entry.action, t0 = os.clock() }
+		held[name] = { input = input, kind = input.UserInputType, at = Vector2.new(input.Position.X, input.Position.Y), action = entry.action, t0 = os.clock() }
+		if RunService:IsStudio() then
+			print(string.format("[SpikeRush] touch %s -> %s (%s)", name, entry.action, input.UserInputType.Name))
+		end
 		mods.ActionController.press(entry.action)
 	end)
 	return entry
 end
 
+local function letGo(name, h)
+	held[name] = nil
+	local entry = buttons[name]
+	entry.button.BackgroundTransparency = entry.enabled and REST or OFF
+	if RunService:IsStudio() then
+		print(string.format("[SpikeRush] touch %s released after %.2f s", name, os.clock() - h.t0))
+	end
+	mods.ActionController.release(h.action)
+end
+
+-- A lifted finger releases the button it pressed. The input that ends is matched by object, or
+-- (should a device hand over a different object) by its kind and where it was, so a hold (the
+-- spike serve's toss, a block, the Azure charge) always lets go.
 local function releaseInput(input)
+	local t = input.UserInputType
+	if t ~= Enum.UserInputType.Touch and t ~= Enum.UserInputType.MouseButton1 then
+		return
+	end
+	local exact = nil
 	for name, h in pairs(held) do
 		if h.input == input then
-			held[name] = nil
-			local entry = buttons[name]
-			entry.button.BackgroundTransparency = entry.enabled and REST or OFF
-			mods.ActionController.release(h.action)
+			exact = name
 		end
+	end
+	if exact then
+		letGo(exact, held[exact])
+		return
+	end
+	local at = Vector2.new(input.Position.X, input.Position.Y)
+	local best, bestD = nil, 160
+	for name, h in pairs(held) do
+		if h.kind == t then
+			local d = (h.at - at).Magnitude
+			if t == Enum.UserInputType.MouseButton1 or d < bestD then
+				best, bestD = name, d
+			end
+		end
+	end
+	if best then
+		letGo(best, held[best])
 	end
 end
 
@@ -404,10 +438,17 @@ local function buildEditor()
 			end
 		end
 	end
+	local function tick()
+		if mods.AudioController then
+			mods.AudioController.play("UITick", { minGap = 0.05 })
+		end
+	end
 	minus.MouseButton1Click:Connect(function()
+		tick()
 		resize(-TOUCH.SizeStep)
 	end)
 	plus.MouseButton1Click:Connect(function()
+		tick()
 		resize(TOUCH.SizeStep)
 	end)
 	local chips, setAll = Gui.chips(bar, { { key = "All", text = "All", width = 64 } }, { Position = UDim2.fromOffset(350, 64), Size = UDim2.fromOffset(64, 52), ZIndex = 7 }, function()
@@ -473,6 +514,13 @@ local function update()
 	if editor then
 		return
 	end
+	-- a finger that has lifted lets go of its button, even if its end wasn't heard
+	for name, h in pairs(held) do
+		local s = h.input.UserInputState
+		if s == Enum.UserInputState.End or s == Enum.UserInputState.Cancel then
+			letGo(name, h)
+		end
+	end
 	local show = State.isMobile and State.isPlaying and State.match.inMatch == true
 	gui.Enabled = show
 	if not show then
@@ -488,7 +536,6 @@ local function update()
 		set("B", holding and "Serve" or nil, "Spike Serve", "IconAttack")
 		set("C", "Spike", air and "Spike" or approach, air and "IconAttack" or "IconJump")
 		set("Set", nil)
-		set("Block", nil)
 		-- the spike serve's toss charges while held: the ring warms to orange
 		local h = held.B
 		if h and h.action == "Serve" then
@@ -500,20 +547,28 @@ local function update()
 		ring("C", UI.Spark, ctx.inZone == true or ctx.running == true)
 	else
 		set("A", "SlideFeint", "Slide", "IconSpeed", not air)
+		local atNet = ctx.nearNet == true and not air
 		if air then
 			set("B", "SlideFeint", "Feint", "IconDefense")
 			set("C", "Spike", ctx.spikeLabel == "Charge" and "Charge" or "Spike", "IconAttack")
+		elseif atNet then
+			-- at the net the bump button blocks: hold to charge, let go to jump
+			set("B", "Block", "Block", "IconDefense")
+			set("C", "Spike", approach, "IconJump")
 		else
 			set("B", "Receive", "Bump", "IconDefense")
 			set("C", "Spike", approach, "IconJump")
 		end
 		set("Set", ctx.canSet == true and "Set" or nil, "Set", "IconStar")
-		set("Block", (ctx.nearNet == true and not air) and "Block" or nil, "Block", "IconDefense")
 		ring("A", nil, false)
-		ring("B", UI.Spark, ctx.incoming == true and not air)
+		local charge = mods.ActionController.blockCharge()
+		if charge then
+			ring("B", WHITE:Lerp(ORANGE, charge), true)
+		else
+			ring("B", UI.Spark, ctx.incoming == true and not air)
+		end
 		ring("C", UI.Spark, ctx.inZone == true or ctx.running == true)
 		ring("Set", UI.Spark, ctx.canSet == true)
-		ring("Block", nil, false)
 	end
 
 	-- skills: your active ability, then your AI teammates'

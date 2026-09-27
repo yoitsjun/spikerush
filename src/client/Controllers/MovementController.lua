@@ -211,7 +211,13 @@ function MovementController.approach(kind)
 		return false
 	end
 	if State.settings.doubleApproach then
-		run = { t0 = os.clock(), dir = heldDir(), kind = kind or "Spike" }
+		-- the run-up goes the way you hold, or at the net when you hold nothing (a phone player's
+		-- other thumb is on the button)
+		local dir = heldDir()
+		if dir == 0 and State.isPlaying then
+			dir = -State.mySide
+		end
+		run = { t0 = os.clock(), dir = dir, kind = kind or "Spike" }
 		mods.AnimationController.pose(State.myId, "Approach", P.ApproachRunMax + 0.2)
 		mods.AudioController.play("Squeak", { pos = hrp.Position })
 		Net.get("ActionFX"):FireServer("Approach")

@@ -834,7 +834,7 @@ end
 -- How to play: one row per action, its keys drawn as keycaps, and what it does.
 local HELP_ROWS = {
 	{ "Move", { "A", "D" }, "Or the arrow keys. You only ever move along the court." },
-	{ "Spike", { "Z", "J" }, "On the ground your run-up jump (Double approach in Settings: once to run in, again to jump), in the air the spike. Left click too." },
+	{ "Spike", { "Space", "Z" }, "On the ground your run-up jump (Double approach in Settings: once to run in, again to jump), in the air the spike. J and left click too." },
 	{ "Receive", { "S", "K" }, "Press a little before the ball arrives: early is perfect. Right click works too." },
 	{ "Slide / feint", { "C", "Shift" }, "On the ground a diving receive that never costs stamina, in the air a roll shot." },
 	{ "Block", { "W" }, "Hold near the net, then let go to jump. Longer holds jump higher." },
@@ -2334,11 +2334,13 @@ local function buildPlayer()
 		local minusB, minusL = Gui.squareButton(row, "-", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(52, 52) })
 		plusB.MouseButton1Click:Connect(function()
 			if selectedChar and plusB.Active then
+				click("UITick")
 				sendProfile("upgrade", selectedChar, stat, statStep)
 			end
 		end)
 		minusB.MouseButton1Click:Connect(function()
 			if selectedChar and minusB.Active then
+				click("UITick")
 				sendProfile("upgrade", selectedChar, stat, -statStep)
 			end
 		end)
@@ -2911,6 +2913,8 @@ local function stepper(parent, props, onStep)
 	local down = hairButton(f, { Size = UDim2.fromOffset(44, 42) }, "<", 24)
 	local value = Gui.label(f, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Size = UDim2.new(1, -96, 1, 0), Position = UDim2.fromOffset(48, 0), TextXAlignment = Enum.TextXAlignment.Center })
 	local up = hairButton(f, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromOffset(44, 42) }, ">", 24)
+	down:SetAttribute("Sound", "UITick")
+	up:SetAttribute("Sound", "UITick")
 	onClick(down, function()
 		onStep(-1)
 	end)
@@ -3661,7 +3665,7 @@ function MenuController.go(name)
 	MenuController.refresh()
 	if changed and shown then
 		if mods.AudioController then
-			mods.AudioController.play("UISwipe", { minGap = 0.1, volume = 0.6 })
+			mods.AudioController.play("UIOpenLong", { minGap = 0.1, volume = 0.6 })
 		end
 		if name == "home" then
 			-- the screen's one entrance: the Match plate slides back in

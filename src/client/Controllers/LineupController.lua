@@ -474,7 +474,7 @@ function LineupController.playIntro()
 				stage = teamStage(r, team)
 			end)
 			if mods.AudioController then
-				mods.AudioController.play("UIOpen")
+				mods.AudioController.play("UIOpenLong")
 			end
 			if not hold(r, (i == 1 and INTRO.Open or INTRO.Wipe) + INTRO.TeamTime) then
 				return

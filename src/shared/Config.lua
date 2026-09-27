@@ -808,7 +808,7 @@ Config.Settings = {
 	Numbers = { shake = { 0, 1 } },
 	-- touch buttons can be moved (x, y: the centre as a fraction of the screen) and resized
 	Touch = {
-		Buttons = { "A", "B", "C", "Set", "Block", "Skill1", "Skill2", "Skill3" },
+		Buttons = { "A", "B", "C", "Set", "Skill1", "Skill2", "Skill3" },
 		MinSize = 0.6,
 		MaxSize = 1.6,
 		SizeStep = 0.1,
