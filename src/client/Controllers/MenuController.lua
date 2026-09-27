@@ -68,9 +68,17 @@ local TIPS = {
 -- small helpers
 ------------------------------------------------------------------------------------------
 
-local function click()
+-- The press sound: UIClick, or the button's own ("Sound" attribute: UIConfirm on action plates,
+-- UISelect on tabs and toggles). One per press, however many layers of a handler call it.
+local lastPress = 0
+local function click(key)
+	local now = os.clock()
+	if now - lastPress < 0.08 then
+		return
+	end
+	lastPress = now
 	if mods and mods.AudioController then
-		mods.AudioController.play("UIClick", { minGap = 0.05 })
+		mods.AudioController.play(key or "UIClick", { minGap = 0.05 })
 	end
 end
 
@@ -129,7 +137,7 @@ end
 
 local function onClick(button, fn)
 	button.MouseButton1Click:Connect(function()
-		click()
+		click(button:GetAttribute("Sound"))
 		fn()
 	end)
 end
@@ -160,6 +168,7 @@ local function segmented(parent, items, props, onPick)
 			LayoutOrder = i,
 		}, f)
 		Gui.corner(b, 6)
+		b:SetAttribute("Sound", "UISelect")
 		onClick(b, function()
 			onPick(it.key)
 		end)
@@ -251,6 +260,7 @@ end
 -- A signal-yellow plate button and its label (returned so it can be renamed).
 local function actionPlate(parent, props, caption, textSize)
 	local b = Gui.plateButton(parent, props, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	b:SetAttribute("Sound", "UIConfirm")
 	local l = Gui.label(b, { Text = caption, display = true, TextSize = textSize or 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
 	return b, l
 end
@@ -294,6 +304,11 @@ local function modal(name, title, w, h, broadcast)
 	end
 	onClick(close, hide)
 	shade.MouseButton1Click:Connect(hide)
+	root:GetPropertyChangedSignal("Visible"):Connect(function()
+		if root.Visible and mods and mods.AudioController then
+			mods.AudioController.play("UIOpen", { minGap = 0.1 })
+		end
+	end)
 	return { root = root, panel = panel, title = t, hide = hide }
 end
 
@@ -1420,7 +1435,7 @@ local function cinematic(seq, mythic)
 	local t0 = os.clock()
 	local snapped = false
 	if mods.AudioController then
-		mods.AudioController.play("Boom", { volume = 0.8 })
+		mods.AudioController.play("RecruitCharge", { volume = 0.8 })
 	end
 	while os.clock() - t0 < DUR do
 		if not alive(seq) then
@@ -1462,7 +1477,7 @@ local function cinematic(seq, mythic)
 		if t >= CONTACT and not snapped then
 			snapped = true
 			if mods.AudioController then
-				mods.AudioController.play("SpikeHeavy", { volume = 1.2 })
+				mods.AudioController.play("RecruitSpike", { volume = 1.2 })
 			end
 			S.flash.BackgroundTransparency = 0.2
 			tween(S.flash, 0.35, { BackgroundTransparency = 1 })
@@ -1559,7 +1574,7 @@ local function showCard(kind, it)
 		K.cam.CFrame = CFrame.lookAt(Vector3.new(4.5, 4.2, -11), Vector3.new(0, 3.2, 0))
 	end
 	if mods.AudioController then
-		mods.AudioController.play(Spins.rarityRank(rarity) >= 4 and "CrowdCheer" or "Point", { volume = 0.9 })
+		mods.AudioController.play(Spins.rarityRank(rarity) >= 4 and "RecruitRevealGold" or "RecruitReveal", { volume = 0.9 })
 	end
 end
 
@@ -1632,9 +1647,9 @@ local function playSequence(reveal)
 	-- 1. sparkles on black (red when a Mythic is inside, gold for a Legendary)
 	sparkleBurst(tone)
 	if mods.AudioController then
-		mods.AudioController.play(gold and "Thunder" or "Whoosh", { volume = gold and 0.5 or 0.7 })
+		mods.AudioController.play(gold and "RecruitOpenGold" or "RecruitOpen", { volume = gold and 0.5 or 0.7 })
 		if tone == "mythic" then
-			mods.AudioController.play("Boom", { volume = 0.8 })
+			mods.AudioController.play("RecruitOpenMythic", { volume = 0.8 })
 		end
 	end
 	if not hold(seq, 1.15) then
@@ -1644,9 +1659,15 @@ local function playSequence(reveal)
 	mods.SceneController.show("gym")
 	mods.SceneController.shot("ceiling")
 	mods.SceneController.flyBalls(colors, strength, 1.5)
+	local flySound = mods.AudioController and mods.AudioController.play("RecruitFly")
 	tween(S.black, 0.35, { BackgroundTransparency = 1 })
 	S.sparks:ClearAllChildren()
-	if not hold(seq, 1.75) then
+	local flew = hold(seq, 1.75)
+	-- a skip, or the recruit closing, cuts the flight's sound short
+	if flySound and (not flew or seq.skipping) then
+		flySound:Destroy()
+	end
+	if not flew then
 		return
 	end
 	-- 3. lined up over the stage
@@ -1678,7 +1699,7 @@ local function playSequence(reveal)
 			hideCard()
 		elseif not seq.skipping then
 			if mods.AudioController then
-				mods.AudioController.play("UIClick", { minGap = 0 })
+				mods.AudioController.play("RecruitPop", { minGap = 0 })
 			end
 			if not hold(seq, 0.2) then
 				return
@@ -1893,7 +1914,7 @@ local function buildPlayers()
 		table.insert(roleItems, { key = r, text = Config.Roles[r].Short, width = 76 })
 	end
 	local _, setRole = Gui.chips(panel, roleItems, { Name = "Roles", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 14), Size = UDim2.fromOffset(4 * 76 + 24, 46) }, function(key)
-		click()
+		click("UISelect")
 		rosterRole = key
 		MenuController.refresh()
 	end)
@@ -2063,7 +2084,7 @@ local function buildPlayer()
 	end)
 
 	local _, setTab = Gui.tabs(panel, { { key = "Growth", text = "Growth" }, { key = "Info", text = "Information" } }, { Name = "Tabs", Position = UDim2.fromOffset(16, 120), Size = UDim2.new(1, -32, 0, 52) }, function(key)
-		click()
+		click("UISelect")
 		playerTab = key
 		MenuController.refresh()
 	end)
@@ -2076,7 +2097,7 @@ local function buildPlayer()
 		table.insert(stepItems, { key = n, text = "x" .. n, width = 58 })
 	end
 	local _, setStep = Gui.chips(growth, stepItems, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 2), Size = UDim2.fromOffset(#stepItems * 66, 36) }, function(key)
-		click()
+		click("UISelect")
 		statStep = key
 		MenuController.refresh()
 	end)
@@ -2370,7 +2391,7 @@ local function buildLocker()
 		table.insert(kinds, { key = kind, text = SP.Banners[kind].Name })
 	end
 	local _, setKind = Gui.tabs(panel, kinds, { Name = "Kinds", Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -32, 0, 52) }, function(key)
-		click()
+		click("UISelect")
 		lockerKind = key
 		MenuController.refresh()
 	end)
@@ -2610,6 +2631,7 @@ local function plateTabs(parent, items, props, onPick)
 		local label = Gui.label(b, { Text = it.text, display = true, TextSize = math.floor(h * 0.48), Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
 		local tab = { key = it.key, rest = rest, picked = picked, label = label, on = false }
 		tabs[i] = tab
+		b:SetAttribute("Sound", "UISelect")
 		onClick(b, function()
 			onPick(it.key)
 		end)

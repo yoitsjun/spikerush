@@ -364,15 +364,31 @@ Five courts, picked per lobby. The play area (`Config.Court`) is the same on eve
 - Verified in a Studio playtest: every court built and screenshotted from the match camera; a Colosseum and a Beach lobby started from the lobby remote; a Quick Match rotated Arena to Beach with the right boards, screens and crowd; no errors in Output. The picker's layout was screenshotted, but its buttons were not clicked in the test (the MCP mouse tool couldn't reach them).
 - The beach sea stops short of the menu rooms (SceneController builds them at x = 1600); an island hides the rooms from the court.
 
+### Twelfth session: the owner's sounds
+
+The owner now supplies every sound and asked to remove all the free ones ("from now on use mine").
+
+- **Filled** with the owner's uploads (a free sound library): Spike ("spike sfx"), Boom ("boomp jump"), FloorHit ("spike land"), FloorHitHeavy ("heavy land", a new slot: the landing after a hard spike, meaning Thunder or 130+ km/h), CrowdServe ("crowd hype") and RecruitFly ("RecruitBuild", a new slot: the balls flying under the gym ceiling; a skip cuts it).
+- **Removed**: `Assets.Fallback` (the pitched Roblox built-in stand-ins) and the Roblox library UI clicks. An empty slot plays nothing.
+- **AudioController**:
+  - `BORROW`: SpikeHeavy plays the Spike sound deeper and louder. The new recruit slots (RecruitOpen, RecruitOpenGold, RecruitOpenMythic, RecruitPop, RecruitReveal, RecruitRevealGold, RecruitCharge, RecruitSpike) play the sounds the sequence used before, while empty.
+  - The serve cheer stops (a 0.1 s fade) on the first touch after the toss.
+- **Timing**: most uploads had 0.25 to 0.75 s of silence at the front ("the boom jump sounds delayed"). `Assets.SoundFiles` skips it per file. A brand-new Sound given a start offset takes about 0.3 s to begin, so every play clones a loaded copy from `SoundService.SpikeRushSoundBank`, which also preloads them all. Measured: each sound starts within about 0.03 s of its moment.
+- **Loudness** ("the audio feels weak", "it doesn't match the power of the game"):
+  - Hits at the ball had RollOffMinDistance 20 with the camera about 70 studs away, so they played at about -11 dB. Now it's 140.
+  - Per-file gains even out the uploads (the boom x2.2).
+  - The bus: group volume 1, compressor attack 15 ms and +6 dB makeup, EQ +5 low / +3 high, hall wet -24.
+  - Nobody has listened to it yet; tune by ear with the owner.
+- **Menus**: `onClick` plays the button's `Sound` attribute: UIConfirm on action plates, UISelect on tabs, toggles and chips (UIClick otherwise), one sound per press. A modal opening plays UIOpen.
+
 ## Next steps
 
 Work in this order:
 
-0. **Sound pass (the owner wants this before the courts).** Every sound must be original, from the Creator Store, or recorded by the owner from real things (a ball, a whistle). Nothing recorded from The Spike or any other game, even by the owner: the owner sent screen recordings of The Spike several times and they were declined.
-   - Fill `ReplicatedStorage.ToolboxAssets.Sounds.<Key>` from the Creator Store (the PC Claude, in Studio). Put 2 or 3 candidates per slot (Whistle1, Whistle2...) for the owner to pick by ear, then rename the pick to the slot. Priority: Spike, SpikeHeavy, FloorHit, Bump, Set, Block, Boom, Whistle, CrowdCheer, CrowdServe, CrowdLoop, CrowdGasp, Point, Music.
-   - Target feel, from the owner's references: a spike is a sharp crack, then the ball's landing thump about 0.22 s later (FloorHit covers the landing); the boom jump is a sharp hit into a low rumble fading over about 1.4 s; CrowdServe is a crowd that builds over about 2 s; CrowdCheer swells, roars and settles over 3 to 4 s.
-   - Menu wiring (MenuController): `onClick` always plays UIClick. Tabs, chips and `segmented` should play UISelect; confirm buttons (equip, select, buy, Start, Create, Quick Match) UIConfirm; `modal()` opening UIOpen. The recruit sequence (`playSequence`, `cinematic`, `showCard`) borrows Whoosh, Thunder, Boom, SpikeHeavy, UIClick, Point and CrowdCheer; give it its own slots (RecruitOpen, RecruitOpenGold, RecruitFly, RecruitPop, RecruitCharge, RecruitSpike, RecruitReveal, RecruitRevealGold) that fall back to the sound used now while empty.
-   - Or upload the originals in `assets/sfx` (`tools/generate_sfx.py`) through Asset Manager and paste the ids into `Assets.Sounds`.
+0. **Sound pass: the owner supplies every sound** (see the twelfth session). The owner uploads sounds (from a free sound library) and sends ids with labels; nothing else plays. Empty slots are silent until the owner sends theirs. Still empty: Bump, ReceivePerfect, Set, SpikeHeavy (borrows Spike), Serve, Toss, Block, Stuff, NetHit, Slide, Whoosh, GuardBreak, Thunder, AzureCharge, AzureRelease, Blades, RallyCry, ImpactFrame, Whistle, Point, Timeout, CrowdLoop, CrowdCheer, CrowdGasp, Music, UIClick, UIHover, UISwipe, UISelect, UIConfirm, UIOpen, and the recruit slots except RecruitFly.
+   - For each new id: check it's the owner's (`MarketplaceService:GetProductInfo`). The place belongs to a group and the audio to the owner, so a new upload fails with "The experience doesn't have access permission ... Click to share access" in Output until the owner clicks it.
+   - In a playtest, play it from a loaded Sound and read `TimePosition` and `PlaybackLoudness` every frame. Add `start` (a little before the sound begins) and `gain` (peak loudness to about 400 at Volume 0.5) to `Assets.SoundFiles`.
+   - Tune by ear with the owner: per-call volumes in AudioController, the file gains, and the mix bus in `AudioController.init`.
 1. **Courts: what's left** (the eleventh session built them; see its status entry).
    - The owner should save the place in Studio to keep the Toolbox palm in `ToolboxAssets.Models.PalmTree`.
    - Get the owner's screenshots of each court and adjust from their feedback (colours, prop density, the rooftop's skyline, the size of the beach islands).

@@ -89,18 +89,7 @@ The side-view camera sits about 64 studs away with a long lens, so effects need 
 
 ### Sounds: `Assets.Sounds.<Key>` or `ToolboxAssets.Sounds.<Key>`
 
-Since the 2022 audio privacy change, a sound only plays in your game if it's public on the Creator Store (Roblox's own sound library is) or you uploaded it yourself. The 31 original sounds in `assets/sfx` are the default plan; the Toolbox is good for the crowd and the music.
-
-| Key | Search for |
-|---|---|
-| `CrowdLoop` | "stadium crowd ambience", "arena crowd loop" |
-| `CrowdCheer`, `CrowdGasp` | "crowd cheer", "crowd gasp" |
-| `CrowdServe` | "crowd cheer build up", "stadium crowd anticipation" (plays on every serve toss) |
-| `Music` | a loopable sports or anime track from Roblox's music library |
-| `Whistle` | "referee whistle" |
-| `Spike`, `SpikeHeavy`, `Bump`, `Set` | "volleyball hit", "ball smack" |
-| `Thunder` | "thunder crack", "lightning strike" |
-| `Boom`, `Whoosh` | "whoosh", "impact boom" |
+Not from the Toolbox: every sound is one of the owner's own uploads (see `Assets.Sounds` and CLAUDE.md). A Sound dropped into `ToolboxAssets.Sounds.<Key>` still overrides its slot, for the owner's own uploads only.
 
 ### Animations: `Assets.Animations.<Slot>`
 

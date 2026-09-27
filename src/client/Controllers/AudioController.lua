@@ -1,11 +1,17 @@
--- Audio. Every sound resolves in this order:
---   1. ReplicatedStorage.ToolboxAssets.Sounds.<Key> (a Sound you inserted from the Toolbox)
---   2. Assets.Sounds[Key] (an asset id you pasted)
---   3. Assets.Fallback[Key] (built-in client sounds, pitched and distorted as stand-ins)
--- Hit sounds scale with power: a perfect spike is lower, louder and crunchier.
+-- Audio: the owner's own sounds only. Every sound resolves in this order:
+--   1. ReplicatedStorage.ToolboxAssets.Sounds.<Key> (a Sound holding one of the owner's uploads)
+--   2. Assets.Sounds[Key] (the id of one of the owner's uploads)
+--   3. BORROW: another slot's sound (a heavy variant's normal sound, deeper and louder; the
+--      recruit sequence's old sounds)
+-- An empty slot plays nothing. Every sound is fetched at start, so none is late the first time,
+-- starts past the silence at the front of its file, and plays at its file's gain
+-- (Assets.SoundFiles). Hits at the ball are full volume anywhere on court, panned by position.
+-- Hit sounds scale with power: a harder spike is louder and a touch lower.
 
 local SoundService = game:GetService("SoundService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ContentProvider = game:GetService("ContentProvider")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -20,19 +26,57 @@ local holder
 local loops = {}
 local lastPlayed = {}
 local freeAttachments = {} -- positional sounds reuse their emitter attachments
+local hardSpike = false -- the ball in the air came off a hard spike: it lands with FloorHitHeavy
+local serveCheer = nil -- the crowd's swell on a serve toss, cut off when the serve is struck
+local bank -- a folder of loaded sounds, one per upload
+local masters = {}
+
+-- The loaded copy of an upload that every play clones: a clone starts at once, even from past the
+-- silence at the front of its file, where a brand-new Sound given a start offset takes about 0.3 s
+-- to begin.
+local function master(id)
+	local m = masters[id]
+	if not m then
+		m = Instance.new("Sound")
+		m.SoundId = id
+		m.Parent = bank or SoundService
+		masters[id] = m
+	end
+	return m
+end
+
+-- An empty slot borrows another slot's sound: { key, volume, speed }. A filled Spike covers hard
+-- spikes until SpikeHeavy gets its own; the recruit sequence keeps the sounds it used before it
+-- had slots.
+local BORROW = {
+	SpikeHeavy = { "Spike", 1.3, 0.9 },
+	FloorHitHeavy = { "FloorHit", 1.3, 0.9 },
+	RecruitOpen = { "Whoosh" },
+	RecruitOpenGold = { "Thunder" },
+	RecruitOpenMythic = { "Boom" },
+	RecruitPop = { "UIClick" },
+	RecruitReveal = { "Point" },
+	RecruitRevealGold = { "CrowdCheer" },
+	RecruitCharge = { "Boom" },
+	RecruitSpike = { "SpikeHeavy" },
+}
 
 local function resolve(key)
 	local tb = Assets.toolbox("Sounds." .. key)
 	if tb and tb:IsA("Sound") then
-		return { template = tb }
+		local f = Assets.soundFile(tb.SoundId) or {}
+		return { template = tb, volume = f.gain, start = f.start }
 	end
-	local id = Assets.id(Assets.Sounds[key])
+	local value = Assets.Sounds[key]
+	local id = Assets.id(value)
 	if id then
-		return { id = id, volume = 1, speed = 1 }
+		local f = Assets.soundFile(value) or {}
+		return { id = id, volume = f.gain or 1, speed = 1, start = f.start }
 	end
-	local fb = Assets.Fallback[key]
-	if fb then
-		return fb
+	local b = BORROW[key]
+	local base = b and resolve(b[1])
+	if base then
+		return { template = base.template, id = base.id, volume = (base.volume or 1) * (b[2] or 1), speed = (base.speed or 1) * (b[3] or 1), start = base.start }
 	end
 	return nil
 end
@@ -41,16 +85,12 @@ local function spawnSound(info, opts)
 	local sound
 	if info.template then
 		sound = Assets.sanitize(info.template:Clone())
+		sound.Volume = sound.Volume * (info.volume or 1)
+		sound.PlaybackSpeed = sound.PlaybackSpeed * (info.speed or 1)
 	else
-		sound = Instance.new("Sound")
-		sound.SoundId = info.id
+		sound = master(info.id):Clone()
 		sound.Volume = info.volume or 1
 		sound.PlaybackSpeed = info.speed or 1
-		if info.distort then
-			local d = Instance.new("DistortionSoundEffect")
-			d.Level = info.distort
-			d.Parent = sound
-		end
 	end
 	sound.Volume = sound.Volume * (opts.volume or 1)
 	sound.PlaybackSpeed = sound.PlaybackSpeed * (opts.speed or 1)
@@ -62,8 +102,9 @@ local function spawnSound(info, opts)
 			att.Parent = holder
 		end
 		att.WorldPosition = opts.pos
-		sound.RollOffMinDistance = 20
-		sound.RollOffMaxDistance = 260
+		-- full volume out to the camera (60 to 130 studs back), still panned by where it happened
+		sound.RollOffMinDistance = 140
+		sound.RollOffMaxDistance = 600
 		sound.Parent = att
 		local done = false
 		local function finish()
@@ -87,6 +128,9 @@ local function spawnSound(info, opts)
 			end
 		end)
 	end
+	if info.start then
+		sound.TimePosition = info.start
+	end
 	sound:Play()
 	return sound
 end
@@ -103,19 +147,21 @@ function AudioController.play(key, opts)
 		return nil
 	end
 	lastPlayed[key] = now
-	if info[1] then
-		-- a layered stand-in: every layer at once (or after its delay)
-		local first = nil
-		for _, layer in ipairs(info) do
-			if layer.delay then
-				task.delay(layer.delay, spawnSound, layer, opts)
-			else
-				first = first or spawnSound(layer, opts)
-			end
-		end
-		return first
-	end
 	return spawnSound(info, opts)
+end
+
+-- The serve is struck (any touch after the toss): the crowd's swell stops.
+local function stopServeCheer()
+	local s = serveCheer
+	serveCheer = nil
+	if s and s.Parent then
+		TweenService:Create(s, TweenInfo.new(0.1), { Volume = 0 }):Play()
+		task.delay(0.1, function()
+			if s.Parent then
+				s:Destroy()
+			end
+		end)
+	end
 end
 
 local function loop(key, volume)
@@ -150,6 +196,10 @@ local function onHit(snap)
 	local pos = snap.path.segs[1].p
 	local ht = meta.hitType
 	local kmh = meta.kmh or 0
+	if ht ~= "Toss" then
+		stopServeCheer()
+	end
+	hardSpike = (ht == "Spike" or ht == "JumpServe") and (meta.thunder == true or kmh >= 130)
 	if ht == "Spike" or ht == "JumpServe" then
 		if meta.thunder then
 			AudioController.play("Thunder", { pos = pos, volume = 1.2 })
@@ -163,7 +213,7 @@ local function onHit(snap)
 			AudioController.play("SpikeHeavy", { pos = pos })
 		else
 			local k = math.clamp(kmh / 140, 0, 1)
-			AudioController.play("Spike", { pos = pos, speed = 1.25 - k * 0.35, volume = 0.6 + k * 0.7 })
+			AudioController.play("Spike", { pos = pos, speed = 1.1 - k * 0.15, volume = 0.8 + k * 0.6 })
 		end
 		if kmh >= 110 then
 			AudioController.play("Whoosh", { pos = pos, speed = 0.8 })
@@ -178,7 +228,7 @@ local function onHit(snap)
 		AudioController.play("Set", { pos = pos })
 	elseif ht == "Toss" then
 		AudioController.play("Toss", { pos = pos })
-		AudioController.play("CrowdServe", { volume = 0.9, minGap = 1 })
+		serveCheer = AudioController.play("CrowdServe", { volume = 0.9, minGap = 1 }) or serveCheer
 	elseif ht == "Overhand" or ht == "Underhand" then
 		AudioController.play("Serve", { pos = pos, speed = ht == "Underhand" and 1.15 or 1 })
 	elseif ht == "Feint" then
@@ -198,24 +248,49 @@ local function onHit(snap)
 	end
 end
 
+-- Load every sound now (the bank's copies), so none is late the first time it plays.
+local function preload()
+	local list = {}
+	for _, value in pairs(Assets.Sounds) do
+		local id = Assets.id(value)
+		if id then
+			table.insert(list, master(id))
+		end
+	end
+	local folder = Assets.toolbox("Sounds")
+	for _, s in ipairs(folder and folder:GetChildren() or {}) do
+		if s:IsA("Sound") then
+			table.insert(list, s)
+		end
+	end
+	pcall(function()
+		ContentProvider:PreloadAsync(list)
+	end)
+end
+
 function AudioController.init()
+	bank = Instance.new("Folder")
+	bank.Name = "SpikeRushSoundBank"
+	bank.Parent = SoundService
+	task.spawn(preload)
 	group = Instance.new("SoundGroup")
 	group.Name = "SpikeRushSFX"
-	group.Volume = 0.8
+	group.Volume = 1
 	group.Parent = SoundService
-	-- mix bus: glue the hits together, lift the low end, and put the court in a hall
+	-- mix bus: each hit's attack gets through before the compressor clamps (the snap), then the
+	-- level comes up; weight in the lows, bite in the highs, and only a touch of hall
 	local comp = Instance.new("CompressorSoundEffect")
-	comp.Threshold = -20
-	comp.Ratio = 3
-	comp.Attack = 0.004
-	comp.Release = 0.15
-	comp.GainMakeup = 4
+	comp.Threshold = -22
+	comp.Ratio = 3.5
+	comp.Attack = 0.015
+	comp.Release = 0.12
+	comp.GainMakeup = 6
 	comp.Priority = 3
 	comp.Parent = group
 	local eq = Instance.new("EqualizerSoundEffect")
-	eq.LowGain = 3
-	eq.MidGain = 0
-	eq.HighGain = 1
+	eq.LowGain = 5
+	eq.MidGain = -1
+	eq.HighGain = 3
 	eq.Priority = 2
 	eq.Parent = group
 	local hall = Instance.new("ReverbSoundEffect")
@@ -223,7 +298,7 @@ function AudioController.init()
 	hall.Density = 0.8
 	hall.Diffusion = 0.8
 	hall.DryLevel = 0
-	hall.WetLevel = -17
+	hall.WetLevel = -24
 	hall.Priority = 1
 	hall.Parent = group
 	holder = Instance.new("Part")
@@ -249,7 +324,13 @@ function AudioController.init()
 	State.signals.BallEvent:Connect(function(kind, ev)
 		if kind == "Land" and ev.kind == "Floor" then
 			local speed = ev.vel.Magnitude
-			AudioController.play("FloorHit", { pos = ev.pos, volume = math.clamp(speed / 50, 0.4, 1.6), speed = speed > 45 and 0.8 or 1 })
+			-- a hard spike lands with its own, heavier thump
+			if hardSpike then
+				AudioController.play("FloorHitHeavy", { pos = ev.pos, volume = math.clamp(speed / 50, 1.2, 1.8) })
+			else
+				AudioController.play("FloorHit", { pos = ev.pos, volume = math.clamp(speed / 50, 0.5, 1.6) })
+			end
+			hardSpike = false
 		elseif kind == "Net" then
 			AudioController.play("NetHit", { pos = ev.pos })
 		end
