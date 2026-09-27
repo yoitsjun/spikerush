@@ -12,7 +12,7 @@ Don't swap in Toolbox gameplay code, even though the Toolbox has plenty of it:
 - **Movement systems.** Lane lock, the run-up jump, the anime hang force and the Azure hover are tuned so that the top of every jump lands exactly on the character's hitting point (`Characters.jumpHeight`). A sprint/dash kit would fight that.
 - **Scripts in general.** Free models are a common way to smuggle in backdoors (`require(<id>)` loaders). Every asset the game inserts is sanitized: scripts are deleted and parts are made non-colliding. The one gap is a model you drag in by hand while editing, because a `RunContext` script inside it could run before the server strips it. Check a model's Explorer tree for Scripts before dragging it in, or use route 2 below, which strips scripts before anything is parented.
 
-Also skip anything that looks ripped from *The Spike* (its sounds, sprites or UI). The project stays original.
+Also skip anything that looks ripped from *The Spike*'s visuals (its sprites or UI). Its sounds are allowed.
 
 ## Three ways to install
 

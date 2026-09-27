@@ -36,7 +36,7 @@ Everything is saved in GitHub, so a new Claude account can pick up with nothing 
 
 - **Game:** complete and playable, with 37 characters and all the abilities, bots, lobbies, recruit, locker, shop, ranks and tutorial. The UI has been overhauled in The Spike's layout with original art, and the VFX were redone with Creator Store textures. See HANDOFF.md for the details.
 - **Next up:**
-  1. **Sound**, which the owner wants before courts. See HANDOFF.md step 0. Sounds must come from the Creator Store, be original, or be recorded by the owner from real things. Nothing recorded from The Spike or any other game.
+  1. **Sound**, which the owner wants before courts. See HANDOFF.md step 0. Sounds can come from the Creator Store, be original, be recorded by the owner, or come from The Spike.
   2. **Courts:** Beach, Colosseum, Nationals, plus a court picker.
 - **Still to do before launch:**
   - Create the VP and Gold Developer Products and paste their ids into `Config.Shop`.
