@@ -113,6 +113,7 @@ Assets.SoundFiles = {
 	["93928767284165"] = { start = 0.02, gain = 3.4 }, -- "squeak 1": 0.03 s silence, peak 82
 	["121230189767569"] = { start = 0.085, gain = 3.3 }, -- "SQUEAK 2": 0.09 s silence, peak 85
 	["133064028732021"] = { start = 0.53, gain = 1.3 }, -- "end of rally cheer": 0.54 s silence, peak 273
+	["111670558415526"] = { start = 0.15, gain = 0.8 }, -- "real bump": 0.16 s silence, peak 452
 	-- the menu set starts at once; gains bring each to about 200
 	["101200067239382"] = { gain = 3 }, -- "UIClick": peak 65
 	["117000832074549"] = { gain = 1.1 }, -- "UITick": peak 180
