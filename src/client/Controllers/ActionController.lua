@@ -4,7 +4,8 @@
 --                  in, the second jumps) / air: spike. Azure Dragon: hold in the air to gather
 --                  energy (hover), release to swing. Holding past full overcharges it. Feral
 --                  Leap: hold on the ground to charge (he runs faster), let go to leap; the
---                  charge carries him along the court and powers the spike.
+--                  charge carries him along the court and powers the spike (or the jump serve:
+--                  the press that tosses keeps charging while held, as does one after the toss).
 --   Receive ...... arms a receive stance; the touch happens automatically when the ball arrives.
 --                  Pressed a little early (not too early) = perfect timing = almost no stamina lost.
 --   Slide/feint .. ground: slide receive (never costs stamina) / air: roll shot over the block.
@@ -276,7 +277,7 @@ local function execute(action, info, opts, t, ballPos)
 		aimDepth = opts.aimDepth,
 		aimHeight = opts.aimHeight,
 	}
-	if action == "Spike" and ctx.ability == "Feral" and leap.gauge > 0 then
+	if (action == "Spike" or action == "Serve") and ctx.ability == "Feral" and leap.gauge > 0 then
 		input.gauge, input.toward = leap.gauge, leap.toward
 	end
 	local ok, result = HitLogic.compute(input, ctx)
@@ -531,12 +532,13 @@ function ActionController.leapGauge()
 end
 
 -- Hold to charge: he drops low and runs faster as the arc fills; the leap comes on the release.
--- kind: the button held ("Spike", or touch's "Jump").
-local function startProwl(kind)
+-- kind: the button held ("Spike", or touch's "Jump"); serve: charging a jump serve (the toss is
+-- up, or went up with this press: tossed).
+local function startProwl(kind, serve, tossed)
 	if not mods.MovementController.canJump() then
 		return false
 	end
-	prowl = { t0 = os.clock(), kind = kind }
+	prowl = { t0 = os.clock(), kind = kind, serve = serve == true, tossed = tossed == true }
 	leap.gauge = 0
 	mods.MovementController.setProwl(prowl.t0)
 	mods.AnimationController.pose(State.myId, "Prowl", 10)
@@ -554,10 +556,31 @@ local function cancelProwl()
 	Net.get("ActionFX"):FireServer("ProwlEnd")
 end
 
+-- A jump serve's leap goes after his own toss: the carry that has the ball in front of his hand as
+-- it comes down through his hitting point (never more than the charge gives), with no run-in.
+local function serveLeapAim(info, gauge)
+	local path = mods.BallRenderer.getPath()
+	if not path or not myToss() then
+		return nil
+	end
+	local contactY = State.myStats().contactMaxStuds - 0.2
+	local now = Util.now()
+	local t, p = BallPhysics.findTime(path, now, function(pos, vel)
+		return vel.Y < 0 and pos.Y <= contactY
+	end)
+	if not t then
+		return nil
+	end
+	local side = State.mySide
+	local dz = p.Z + side * (Z.SpikeForward + Z.SpikeCenterDz) - info.root.Z
+	local airTime = math.max(t - now - P.ApproachGather, 0.3)
+	return { dir = dz >= 0 and 1 or -1, carry = math.min(math.abs(dz) / airTime, FERAL.CarryMax * gauge) }
+end
+
 -- Let go: a tap is the usual jump (Spike's run-up, or touch's Jump straight up); a hold leaps
--- the way you hold (at the net when you hold nothing), carried by the charge, and the gauge goes
--- with the spike.
-local function releaseProwl()
+-- the way you hold (at the net when you hold nothing; a serve's leap goes after the toss),
+-- carried by the charge, and the gauge goes with the spike or the serve.
+local function releaseProwl(info)
 	local p = prowl
 	if not p then
 		return
@@ -566,18 +589,22 @@ local function releaseProwl()
 	local MC = mods.MovementController
 	MC.setProwl(nil)
 	local held = os.clock() - p.t0
+	local jumpKind = p.serve and "Serve" or "Spike"
 	if held < FERAL.TapTime then
 		mods.AnimationController.clearStance(State.myId)
 		Net.get("ActionFX"):FireServer("ProwlEnd")
+		if p.tossed then
+			return -- the tap that tossed the ball: the next press jumps, as for everyone
+		end
 		if p.kind == "Jump" then
-			MC.jump("Spike")
+			MC.jump(jumpKind)
 		else
-			MC.approach("Spike")
+			MC.approach(jumpKind)
 		end
 		return
 	end
 	local gauge = math.clamp(held / FERAL.ChargeTime, 0, 1)
-	local dir = MC.leap(gauge)
+	local dir = MC.leap(gauge, jumpKind, p.serve and serveLeapAim(info, gauge) or nil)
 	if not dir then
 		mods.AnimationController.clearStance(State.myId)
 		Net.get("ActionFX"):FireServer("ProwlEnd")
@@ -592,14 +619,22 @@ local function pressSpike(info)
 	if serving() then
 		local BR = mods.BallRenderer
 		if BR.getState() == "Held" then
-			-- Spike on a held ball: a standard jump-serve toss
+			-- Spike on a held ball: a standard jump-serve toss (Feral Leap: kept held, it charges,
+			-- so his goes up high enough to charge in full and still meet it at the top)
 			local now = Util.now()
-			execute("Toss", info, { tossHeight = (H.TossHighMin + H.TossHighMax) / 2, tossForward = tossForward() }, now, info.root)
+			local height = isFeral() and H.TossHighMax or (H.TossHighMin + H.TossHighMax) / 2
+			local tossed = execute("Toss", info, { tossHeight = height, tossForward = tossForward() }, now, info.root)
 			autoOverhand = false
+			if tossed and isFeral() then
+				startProwl("Spike", true, true)
+			end
 			return
 		end
 		if myToss() then
 			if info.grounded then
+				if isFeral() and startProwl("Spike", true) then
+					return -- Feral Leap: charge the jump serve, let go to leap into the toss
+				end
 				MC.approach("Serve")
 			elseif isAzure() and charge.gauge > 0.05 then
 				charge.holding, charge.energy, charge.overT = true, 0, 0
@@ -637,7 +672,7 @@ end
 
 local function releaseSpike(info)
 	if prowl then
-		releaseProwl()
+		releaseProwl(info)
 		return
 	end
 	if not charge.holding then
@@ -883,6 +918,9 @@ local function pressJump(info)
 	end
 	if serving() then
 		if myToss() then
+			if isFeral() and startProwl("Jump", true) then
+				return -- Feral Leap: charge the jump serve
+			end
 			mods.MovementController.jump("Serve")
 		end
 		return
@@ -947,7 +985,7 @@ function ActionController.release(action)
 	if action == "Spike" then
 		releaseSpike(info)
 	elseif action == "Jump" then
-		releaseProwl()
+		releaseProwl(info)
 	elseif action == "Block" then
 		releaseBlock(info)
 	elseif action == "Serve" then
@@ -1154,11 +1192,19 @@ local function processCharge(info, dt)
 	State.signals.Charge:Fire(charge.energy, charge.gauge, st)
 end
 
--- Feral Leap: the charge ends if he leaves the ground some other way or the rally stops; a
--- leap's gauge is gone once he lands without spiking.
+-- Feral Leap: the charge ends if he leaves the ground some other way, or the rally stops (a
+-- serve's charge: the toss is gone); a leap's gauge is gone once he lands without hitting.
 local function processProwl(info)
-	if prowl and (not info.grounded or not isFeral() or State.phase() ~= "Rally") then
-		cancelProwl()
+	if prowl then
+		local live = false
+		if prowl.serve then
+			live = serving() and myToss()
+		else
+			live = State.phase() == "Rally"
+		end
+		if not info.grounded or not isFeral() or not live then
+			cancelProwl()
+		end
 	end
 	if leap.gauge > 0 and info.grounded and os.clock() - leap.at > 0.35 and not mods.MovementController.isGathering() then
 		leap.gauge = 0

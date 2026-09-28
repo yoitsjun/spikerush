@@ -397,6 +397,12 @@ local function ring(name, color, strong)
 	entry.ring.Transparency = strong and 0 or 0.3
 end
 
+-- Feral Leap's charge (0..1) on the Jump button: violet, magenta once full.
+local function prowlRing(charge)
+	local F = Config.Abilities.Feral
+	ring("C", charge >= F.FullAt and Color3.fromRGB(255, 80, 210) or F.Color, true)
+end
+
 ------------------------------------------------------------------------------------------
 -- the layout editor: drag a button to move it, pick one (or All) and size it
 ------------------------------------------------------------------------------------------
@@ -658,6 +664,8 @@ local function update()
 	hideDefaultJump()
 	local ctx = State.context or {}
 	local air = ctx.grounded == false
+	-- Feral Leap's charge: the Jump button reads Leap and its ring glows violet, magenta when full
+	local prowl = mods.ActionController.prowlCharge()
 	if ctx.serving then
 		local holding = ctx.spikeLabel == "Toss"
 		set("A", holding and "EasyServe" or nil, "Basic Serve", "IconStar")
@@ -665,7 +673,8 @@ local function update()
 		if holding then
 			set("C", "Spike", "Jump Serve", "IconJump") -- a standard jump-serve toss
 		else
-			set("C", air and "Spike" or "Jump", air and "Spike" or "Jump", air and "IconAttack" or "IconJump")
+			local label = air and "Spike" or (ctx.spikeLabel == "Leap" and "Leap" or "Jump")
+			set("C", air and "Spike" or "Jump", label, air and "IconAttack" or "IconJump")
 		end
 		set("Set", nil)
 		-- the spike serve's toss charges while held: the ring warms to orange
@@ -676,11 +685,14 @@ local function update()
 		else
 			ring("B", nil, false)
 		end
-		ring("C", UI.Spark, ctx.inZone == true or ctx.running == true)
+		if prowl then
+			prowlRing(prowl)
+		else
+			ring("C", UI.Spark, ctx.inZone == true or ctx.running == true)
+		end
 	else
 		set("A", "SlideFeint", "Slide", "IconSpeed", not air)
 		local atNet = ctx.nearNet == true and not air
-		-- Feral Leap: held, Jump charges (let go to leap)
 		local jumpLabel = ctx.spikeLabel == "Leap" and "Leap" or "Jump"
 		if air then
 			set("B", "SlideFeint", "Feint", "IconDefense")
@@ -704,10 +716,8 @@ local function update()
 		else
 			ring("B", UI.Spark, ctx.incoming == true and not air)
 		end
-		local prowl = mods.ActionController.prowlCharge()
 		if prowl then
-			local F = Config.Abilities.Feral
-			ring("C", prowl >= F.FullAt and Color3.fromRGB(255, 80, 210) or F.Color, true)
+			prowlRing(prowl)
 		else
 			ring("C", UI.Spark, ctx.inZone == true or ctx.running == true)
 		end

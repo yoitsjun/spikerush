@@ -667,12 +667,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		kmh = kmh * (1 + COUNTER.ReleaseBoost * c / 100)
 		meta.counterRelease = c
 	end
-	-- Feral Leap: the gauge his leap took off with powers the spike (input.gauge, 0..1). A full
-	-- one leaping at the net (input.toward) smashes through a block with less Attack than his
-	-- (meta.breakAtk, read by the blocker's touch), and his first full one of the match
-	-- (ctx.firstStrike: not used yet) hits harder still
+	-- Feral Leap: the gauge his leap took off with powers the spike or the jump serve (input.gauge,
+	-- 0..1). A full spike leaping at the net (input.toward) smashes through a block with less
+	-- Attack than his (meta.breakAtk, read by the blocker's touch; serves are never blocked), and
+	-- his first full one of the match (ctx.firstStrike: not used yet) hits harder still
 	local fullLeap = false
-	if kind == "Spike" and ctx.ability == "Feral" then
+	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Feral" then
 		local g = clamp(input.gauge or 0, 0, 1)
 		local bonus = ctx.auto and FERAL.AutoBoostMul or 1 -- the AI gets less out of it
 		if g > 0 then
@@ -682,7 +682,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		if g >= FERAL.FullAt then
 			fullLeap = true
 			meta.fullLeap = true
-			if input.toward then
+			if input.toward and kind == "Spike" then
 				meta.breakAtk = stats.Attack
 			end
 			if ctx.firstStrike then

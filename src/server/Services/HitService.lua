@@ -274,10 +274,10 @@ function HitService.onRequest(plr, req)
 		energy = num(req.energy, 0, 1.4, 0)
 	end
 	-- Feral Leap: no more gauge than the charge the server saw held before the leap, for the one
-	-- spike off that leap
+	-- spike (or jump serve) off that leap
 	local gauge, toward = 0, false
 	local cap = leapCap[entity.id]
-	if entity.ability == "Feral" and req.action == "Spike" and cap and os.clock() - cap.at <= LEAP_LIFE then
+	if entity.ability == "Feral" and (req.action == "Spike" or req.action == "Serve") and cap and os.clock() - cap.at <= LEAP_LIFE then
 		gauge = math.min(num(req.gauge, 0, 1, 0), cap.gauge)
 		toward = req.toward == true
 		leapCap[entity.id] = nil

@@ -255,17 +255,23 @@ function MovementController.leaping()
 end
 
 -- Feral Leap: the gather and takeoff of a run-up jump, the way you hold (at the net when you
--- hold nothing), and a carry for the whole flight from the charge (gauge 0..1). Returns the
--- direction along z, or nil when you can't jump now.
-function MovementController.leap(gauge)
+-- hold nothing), and a carry for the whole flight from the charge (gauge 0..1). kind: "Spike",
+-- or "Serve" into his toss. aim ({ dir, carry }, a jump serve after its own toss): no run-in,
+-- just that carry. Returns the direction along z, or nil when you can't jump now.
+function MovementController.leap(gauge, kind, aim)
 	if not MovementController.canJump() then
 		return nil
+	end
+	if aim then
+		gather = { t0 = os.clock(), dir = 0, kind = kind or "Spike", carry = aim.carry, leapDir = aim.dir }
+		mods.AnimationController.pose(State.myId, "Gather")
+		return aim.dir
 	end
 	local dir = heldDir()
 	if dir == 0 then
 		dir = State.isPlaying and -State.mySide or facing
 	end
-	gather = { t0 = os.clock(), dir = dir, kind = "Spike", carry = FERAL.CarryMax * math.clamp(gauge or 0, 0, 1) }
+	gather = { t0 = os.clock(), dir = dir, kind = kind or "Spike", carry = FERAL.CarryMax * math.clamp(gauge or 0, 0, 1) }
 	mods.AnimationController.pose(State.myId, "Gather")
 	return dir
 end
@@ -482,17 +488,20 @@ local function moveStep()
 		if e >= P.ApproachGather then
 			local dir = gather.dir
 			local carry = gather.carry
+			local leapDir = gather.leapDir
 			jumpKind = gather.kind
 			gather = nil
 			hum.WalkSpeed = baseWalk() * P.AirControl
 			hum.JumpHeight = baseJump()
 			hum.Jump = true
+			local v = hrp.AssemblyLinearVelocity
 			if dir ~= 0 then
-				local v = hrp.AssemblyLinearVelocity
 				hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, dir * (P.ApproachBoost * stats.Approach + (carry or 0)))
+			elseif leapDir then
+				hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, leapDir * carry) -- an aimed leap: just its carry
 			end
 			if carry then
-				leaping = { dir = dir, carry = carry, t0 = now }
+				leaping = { dir = leapDir or dir, carry = carry, t0 = now }
 			end
 		end
 		return

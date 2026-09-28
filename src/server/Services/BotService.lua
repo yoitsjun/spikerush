@@ -803,6 +803,11 @@ local function serveLogic(b, now, grounded, side)
 		if grounded then
 			b.hum.Jump = true
 			reg.HitService.fx(e.id, "Jump", "Serve")
+			if e.ability == "Feral" then
+				-- Feral Leap on auto: the jump serve's gauge fills in the air too
+				b.leapFrom = now
+				reg.HitService.fx(e.id, "Prowl", "auto")
+			end
 		end
 		s.jumpAt = nil
 	end
@@ -821,7 +826,14 @@ local function serveLogic(b, now, grounded, side)
 	if s.jump and not grounded then
 		local ok, _, _, dy = HitLogic.spikeZone(root, ball, side, e.charStats, 1.1)
 		if ok and dy <= Z.SpikeCenterDy + 0.3 then
-			act(b, "Serve", ball, extra)
+			if b.leapFrom then
+				extra.gauge = math.clamp((now - b.leapFrom) / FERAL.AutoChargeTime, 0, 1)
+				extra.toward = true
+			end
+			if act(b, "Serve", ball, extra) and b.leapFrom then
+				b.leapFrom = nil
+				reg.HitService.fx(e.id, "ProwlEnd")
+			end
 		end
 	elseif grounded then
 		-- an overhand from the hand (a jump serve that missed in the air lands in here too)
@@ -1049,13 +1061,14 @@ local function updateBot(b, now)
 				if b.leapFrom then
 					extra.gauge = math.clamp((t - b.leapFrom) / FERAL.AutoChargeTime, 0, 1)
 					extra.toward = true
-					b.leapFrom = nil
-					reg.HitService.fx(e.id, "ProwlEnd")
 				end
 				if b.rng:NextNumber() < tierPair(b, B.SpikeMishitChance) then
 					extra.quality = 0.2 + 0.3 * b.rng:NextNumber() -- framed it
 				end
-				act(b, b.feint and "Feint" or "Spike", p, extra)
+				if act(b, b.feint and "Feint" or "Spike", p, extra) and b.leapFrom then
+					b.leapFrom = nil -- the leap's one hit
+					reg.HitService.fx(e.id, "ProwlEnd")
+				end
 				b.chargeFrom = nil
 			end
 		end

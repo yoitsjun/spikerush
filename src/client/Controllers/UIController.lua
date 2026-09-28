@@ -907,11 +907,13 @@ local function updateAbility()
 		a.energy.BackgroundColor3 = full and Color3.fromRGB(255, 80, 210) or def.Color
 		a.energy.Size = UDim2.fromScale(math.clamp(v, 0, 1), 1)
 		local first = not player:GetAttribute("FirstStrikeUsed")
+		local serve = State.phase() == "Serving" -- a jump serve's leap: nothing to break through
 		if charging then
 			a.line.Text = full and "Full charge: let go to leap!" or string.format("Charging %d%%", math.floor(v * 100 + 0.5))
 			a.line.TextColor3 = def.Color
 		elseif gauge > 0 then
-			a.line.Text = full and (first and "Full leap: first strike ready!" or "Full leap: break through!") or string.format("Leap %d%%", math.floor(v * 100 + 0.5))
+			local fullText = first and "Full leap: first strike ready!" or (serve and "Full leap: max power!" or "Full leap: break through!")
+			a.line.Text = full and fullText or string.format("Leap %d%%", math.floor(v * 100 + 0.5))
 			a.line.TextColor3 = def.Color
 		else
 			a.line.Text = first and "Hold Jump to charge. First strike ready" or "Hold Jump to charge, let go to leap"

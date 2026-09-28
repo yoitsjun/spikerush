@@ -533,7 +533,8 @@ Config.Abilities = {
 	-- The owner: "hold his jump to charge it and the longer he charges it the further it goes",
 	-- "the highest attack character in the game". Hold Spike (Jump on touch) on the ground: a
 	-- violet arc fills over ChargeTime while he runs faster; let go and he leaps, carried along the
-	-- court by the charge. The gauge he took off with powers the spike.
+	-- court by the charge. The gauge he took off with powers the spike, or the jump serve (serving,
+	-- the press that tosses the ball starts the charge, and so does one after the toss).
 	Feral = {
 		Name = "Feral Leap",
 		Tier = "S+",
@@ -541,13 +542,13 @@ Config.Abilities = {
 		Kind = "Hold Jump on the ground",
 		AiNote = "Your AI charges it in the air on its own, at 85% Attack",
 		Color = Color3.fromRGB(165, 80, 255),
-		ChargeTime = 1.0, -- seconds of holding to fill the gauge
+		ChargeTime = 0.6, -- seconds of holding to fill the gauge (the owner: "buff charging times"; was 1)
 		TapTime = 0.15, -- let go sooner and it's the usual run-up jump
 		RunBoost = 0.45, -- run speed while charging: x (1 + this x the gauge)
 		CarryMax = 3.4 * M, -- a full leap carries him this fast (studs/s) the way he leapt, all flight
-		MaxBoost = 0.4, -- spike speed x (1 + this x gauge ^ 1.2)
+		MaxBoost = 0.4, -- spike and jump serve speed x (1 + this x gauge ^ 1.2)
 		FullAt = 0.97, -- the gauge counts as full from here
-		FirstBoost = 0.15, -- his first full-gauge spike of the match: x (1 + this) on top
+		FirstBoost = 0.15, -- his first full-gauge spike or jump serve of the match: x (1 + this) on top
 		BreakKeep = 0.85, -- a spike that smashes through a block keeps this much of its speed
 		ReachMul = 1.15, -- a wider spike reach
 		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front

@@ -354,7 +354,51 @@ do
 	until y <= 0 or t > 5
 	local fullM = FERAL.CarryMax * t / SPM
 	local tapM = FERAL.CarryMax * (FERAL.TapTime / FERAL.ChargeTime) * t / SPM
-	check(fullM >= 4.5 and fullM <= 8 and tapM < 1.2, "a full charge carries the leap 4.5 to 8 m further; a short one barely", string.format("full %.1f m, shortest leap %.1f m over %.2f s in the air", fullM, tapM, t))
+	check(fullM >= 4.5 and fullM <= 8 and tapM < 0.3 * fullM and FERAL.ChargeTime <= 0.7, "a full charge (0.7 s or less) carries the leap 4.5 to 8 m further; the shortest hold a fraction of that", string.format("full %.1f m in %.1f s of charge, shortest leap %.1f m, %.2f s in the air", fullM, FERAL.ChargeTime, tapM, t))
+
+	-- his jump serve takes the charge too (serves are never blocked: no block break)
+	local sroot = vec(0, GROUND + Characters.jumpHeight(dante, GROUND) + Characters.hangGain(), side * (C.SideDepth + 1))
+	local sball = ballAt(sroot, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local function jumpServe(g, extraCtx)
+		local c = ctx({ ability = "Feral", stats = dante })
+		for k, v in pairs(extraCtx or {}) do c[k] = v end
+		return HitLogic.compute({ action = "Serve", t = 0, root = sroot, ball = sball, vy = 0, grounded = false, gauge = g, toward = true }, c)
+	end
+	local okS0, s0 = jumpServe(0)
+	local okS1, s1 = jumpServe(1)
+	local okS2, s2 = jumpServe(1, { firstStrike = true })
+	local servePath = okS1 and BallPhysics.buildPath(s1.launch)
+	check(okS0 and okS1 and okS2 and s1.meta.hitType == "JumpServe" and math.abs(s1.meta.kmh / s0.meta.kmh - (1 + FERAL.MaxBoost)) < 0.005 and s1.meta.fullLeap and not s1.meta.breakAtk and s2.meta.firstStrike,
+		"his jump serve takes the charge too: x1.4 at full, a First Strike, no block break", string.format("%.0f -> %.0f km/h (first strike %.0f), %s", s0.meta.kmh, s1.meta.kmh, s2.meta.kmh, describe(servePath)))
+
+	-- Space on the held ball tosses and starts the charge: his toss goes up high, so a full
+	-- charge (then the leap's gather) still meets it at his hitting point, fresh or maxed
+	local function serveGap(st)
+		local r0 = vec(0, GROUND, side * (C.SideDepth + 1))
+		local tp, tv = HitLogic.tossLaunch(r0, side, H.TossHighMax, 0, HitLogic.tossReach("Feral"))
+		local tossPath = BallPhysics.buildPath(BallPhysics.newLaunch(tp, tv, vec(0, -Config.Ball.Gravity, 0), 0))
+		local takeoff = FERAL.ChargeTime + P.ApproachGather
+		local jv, jy, tt, gap, rise, peak = math.sqrt(2 * g * Characters.jumpHeight(st, GROUND)), 0, 0, math.huge, 0, 0
+		repeat
+			local acc = g
+			if math.abs(jv) < P.HangVelocityWindow then acc = g * (1 - P.HangGravityCancel) end
+			jv = jv - acc * dt
+			jy = jy + jv * dt
+			tt = tt + dt
+			peak = math.max(peak, jy)
+			local ball = BallPhysics.positionAt(tossPath, takeoff + tt)
+			local d = math.abs(ball.Y - (GROUND + jy + Z.SpikeUp + Z.SpikeCenterDy))
+			if d < gap then
+				gap, rise = d, jy
+			end
+		until jy < 0 or takeoff + tt >= tossPath.landing.t
+		return gap, peak - rise -- how close the ball comes to the hand, and how far below the top of the jump
+	end
+	local freshDante = Characters.derive(Characters.fromRoster(Roster.get("dante")))
+	local gapMax, belowMax = serveGap(dante)
+	local gapFresh, belowFresh = serveGap(freshDante)
+	check(gapMax < 1 and gapFresh < 1 and belowMax < 2 and belowFresh < 2, "a full charge off his toss meets the ball at the top of his jump, fresh or maxed",
+		string.format("maxed: the ball %.2f studs from the hand %.1f below the top; fresh: %.2f, %.1f below", gapMax, belowMax, gapFresh, belowFresh))
 end
 
 print("== tiers and builds ==")
