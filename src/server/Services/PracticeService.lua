@@ -199,6 +199,7 @@ local function runDrill(drill, plr, status, stillOn)
 		local attacker = mate(AWAY, nil)
 		BS.hide()
 		TS.fillStamina(HOME)
+		MS.serverId = nil
 		setUp(drill, me, setter, attacker)
 		rep = { drill = drill, playerId = me.id, outcome = nil }
 		MS.setPhase("PreServe", PR.FeedDelay)
@@ -214,6 +215,9 @@ local function runDrill(drill, plr, status, stillOn)
 			MS.setPhase("Rally", 0)
 			attack(attacker, Vector3.new(0, Config.Ball.Radius, Court.sideOf(HOME) * between(PR.BlockTargetDepth)), between(PR.BlockKmh))
 		elseif drill.id == "serve" then
+			-- you serve: clients only take serve input (the toss, X, F) from the match's server
+			MS.servingTeam = HOME
+			MS.serverId = me.id
 			BS.hold(me.id)
 			MS.setPhase("Serving", PR.ServeTimeout)
 			timeout = PR.ServeTimeout
