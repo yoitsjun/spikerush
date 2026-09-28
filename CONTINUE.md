@@ -37,21 +37,18 @@ Keep `rojo serve` running from the same folder Claude works in.
 
 > Check out the branch claude/spike-rush-continuation-uwunbo and work on it. Read CLAUDE.md, CONTINUE.md and HANDOFF.md, then continue from "Next steps" in HANDOFF.md. Run the four checks after every change, then commit and push to that branch.
 
-## Where things stand (fourteenth session)
+## Where things stand (fifteenth session)
 
-Built: 37 characters and their abilities, bots, lobbies, four courts (Beach, Colosseum, Nationals, Night Rooftop), recruit, locker, shop, ranks, practice drills, the tutorial, mobile controls, point celebrations, the owner's sounds, saved settings (Double approach, the touch button layout editor), intro poses, the matchup intro and the showcase after a match. `tools/pose_preview.py` checks a pose from Studio's real rig without needing a screenshot.
+Built: 37 characters and their abilities, bots, lobbies with custom rules (points 3 to 50, win by 2, best of 3 or 5, timeouts), five courts, recruit, locker, shop (VP and Gold packs live, and the custom score sound and image perks), ranks, practice drills, the tutorial, mobile controls, point celebrations, the owner's sounds, saved settings, the matchup intro and the showcase, the Match screen in The Spike's layout with our own court art, Daon's level-up beam, and setter mode (aim the set's height, charge its distance; your team sees the marker).
 
 Next, in HANDOFF.md's order:
 
-1. **Look at the matchup intro and the showcase** (built without seeing the screen) and tune them from the owner's screenshots.
-2. **Hands-on checks**: the fourteenth session's Double approach and touch layout editor, and the thirteenth session's work (built with Studio's viewport hidden): practice drills and the tutorial, the Players screen's team panel, AI teammate abilities (keys 1 and 2), mobile controls, the point celebration, the loading screen's ball, the AI set fixes, and a listen to the sounds.
-3. **Sound:** the owner sends ids for the empty slots, and Claude sets each one's start and gain.
+1. **Hands-on checks** of this session's work: setter mode (a real aimed set, two players for the teammate marker), the Shop's Perks column and a scored point with a custom sound and image, the Match screen at 16:9, a best-of-3 ending, and the older unchecked items (showcase, touch controls, drills).
+2. **Game passes:** create "Custom Score Sound" and "Custom Score Effect" (199 Robux each) and put their ids in `Config.Perks`.
+3. **Sound:** the owner sends ids for the empty slots (ReceivePerfect, Serve, Toss, Block, Stuff, Whistle, Point, the crowd loop and more); Claude sets each one's start and gain.
 4. **Courts:** polish from the owner's screenshots.
 5. **Score card customization** (asked for "later"): card designs unlocked by challenges.
-6. **Before launch:**
-   - create the VP and Gold Developer Products;
-   - upload the game icon and thumbnail;
-   - lower `StartingVP`.
+6. **Before launch:** upload the game icon and thumbnail; lower `StartingVP` (about 150).
 
 ## Tips to save tokens
 

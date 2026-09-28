@@ -556,7 +556,10 @@ local function update()
 			set("B", "Receive", "Bump", "IconDefense")
 			set("C", "Spike", approach, "IconJump")
 		end
-		set("Set", ctx.canSet == true and "Set" or nil, "Set", "IconStar")
+		-- with setter aim on the Set button stays up, so the distance can be charged as the pass
+		-- comes (hold, then let go when it's in reach)
+		local aiming = mods.SetterAim ~= nil and mods.SetterAim.on()
+		set("Set", (ctx.canSet == true or aiming) and "Set" or nil, "Set", "IconStar")
 		ring("A", nil, false)
 		local charge = mods.ActionController.blockCharge()
 		if charge then
