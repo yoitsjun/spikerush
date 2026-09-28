@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -34,7 +35,10 @@ State.myTeam = nil
 State.mySide = 1
 State.myRole = "Solo"
 State.isPlaying = false
-State.isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+-- A touch device. In Studio the workspace attribute ForceTouch pretends to be one, so the touch
+-- controls show and take mouse clicks (testing them without the device emulator).
+State.isMobile = (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+	or (RunService:IsStudio() and workspace:GetAttribute("ForceTouch") == true)
 State.context = {}
 State.profile = nil
 State.lastAttack = nil -- { kmh, height, thunder, ... } for the speed readout

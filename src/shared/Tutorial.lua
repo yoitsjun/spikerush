@@ -19,7 +19,7 @@ Tutorial.Drills = {
 		blurb = "A setter puts the ball up for you. Spike 3 into their court.",
 		key = "Run up as the set comes (Space, Z or left click), then press it again in the air to hit it.",
 		pad = "Run up as the set comes (A), then A again in the air to hit it.",
-		touch = "Tap Approach as the set comes, then Spike in the air.",
+		touch = "Tap Jump as the set comes, then Spike in the air.",
 	},
 	{
 		id = "block",

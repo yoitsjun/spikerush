@@ -765,6 +765,24 @@ function ActionController.chargeState()
 	return charge
 end
 
+-- The touch Jump button: straight up (the owner: "on mobile, make approach just make you
+-- jump"), winding up a spike, or a jump serve once the toss is up; in the air it's the spike.
+local function pressJump(info)
+	if not info.grounded then
+		pressSpike(info)
+		return
+	end
+	if serving() then
+		if myToss() then
+			mods.MovementController.jump("Serve")
+		end
+		return
+	end
+	if State.isPlaying and State.phase() == "Rally" then
+		mods.MovementController.jump("Spike")
+	end
+end
+
 function ActionController.press(action)
 	if action == "Ability" then
 		pressAbility()
@@ -788,6 +806,8 @@ function ActionController.press(action)
 	end
 	if action == "Spike" then
 		pressSpike(info)
+	elseif action == "Jump" then
+		pressJump(info)
 	elseif action == "Receive" then
 		pressReceive(info)
 	elseif action == "SlideFeint" then

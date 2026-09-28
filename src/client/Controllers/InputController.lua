@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Net = require(Shared.Net)
+local State = require(script.Parent.State)
 
 local InputController = {}
 local mods
@@ -123,6 +124,9 @@ function InputController.init(m)
 		local t = input.UserInputType
 		local action = MOUSE[t]
 		if action then
+			if State.isMobile then
+				return -- touch controls (Studio's ForceTouch): the mouse is the finger
+			end
 			lastDevice = "Keyboard"
 			press(action)
 			return
@@ -138,6 +142,9 @@ function InputController.init(m)
 		end
 	end)
 	UserInputService.InputEnded:Connect(function(input)
+		if State.isMobile and MOUSE[input.UserInputType] then
+			return
+		end
 		local action = MOUSE[input.UserInputType] or KEYS[input.KeyCode]
 		if action then
 			release(action)

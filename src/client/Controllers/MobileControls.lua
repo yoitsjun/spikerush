@@ -1,9 +1,11 @@
 -- Touch controls, laid out like a console volleyball game's: three big round buttons bottom right
--- that change with the moment, a column of round skill buttons on the left, and Roblox's floating
--- thumbstick bottom left (StarterPlayer.DevTouchMovementMode = DynamicThumbstick).
---   holding the serve ... Basic Serve (underhand) | Spike Serve (tap: overhand, hold: toss) | Approach
---   on the ground ....... Slide | Bump (Block at the net) | Approach (a run-up jump; "Jump" during
---                         a double approach)
+-- that change with the moment, a column of round skill buttons on the left, and a floating
+-- thumbstick of our own on the left (a touch there puts the stick under the finger). Roblox's own
+-- touch controls are off: this place has no PlayerModule to read their stick from.
+--   holding the serve ... Basic Serve (underhand) | Spike Serve (tap: overhand, hold: toss) |
+--                         Jump Serve (a standard jump-serve toss)
+--   on the ground ....... Slide | Bump (Block at the net) | Jump (straight up, a spike's wind-up;
+--                         the owner: "on mobile, make approach just make you jump")
 --   in the air .......... Slide (off) | Feint (the bump button) | Spike (Charge with Azure Dragon)
 -- At the net the Bump button blocks: hold to charge, let go to jump. Set pops up over it when you
 -- can set the ball. The skill column holds your active ability (Q) and your AI teammates' (1, 2).
@@ -14,6 +16,7 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -55,7 +58,7 @@ local DEFAULTS = {
 local EDIT_LOOK = {
 	A = { "Slide", "IconSpeed" },
 	B = { "Bump", "IconDefense" },
-	C = { "Approach", "IconJump" },
+	C = { "Jump", "IconJump" },
 	Set = { "Set", "IconStar" },
 	Skill1 = { "Skill 1", "IconStar" },
 	Skill2 = { "Skill 2", "IconStar" },
@@ -179,6 +182,125 @@ local function releaseInput(input)
 	end
 end
 
+------------------------------------------------------------------------------------------
+-- the thumbstick: a touch that starts on the left of the screen (not on a button) puts the
+-- stick under the finger, and dragging it left and right moves you along the court
+-- (MovementController.axis reads stickX). In Studio with ForceTouch the mouse drives it.
+------------------------------------------------------------------------------------------
+
+local STICK_ZONE = 0.45 -- the left share of the screen a stick can start in (below the top fifth)
+local STICK_R = 70 -- how far the knob reaches, in the touch gui's units
+local stick = { input = nil, origin = nil, x = 0 }
+local stickBase, stickKnob = nil, nil
+
+function MobileControls.stickX()
+	return stick.x
+end
+
+local function stickRest()
+	stickBase.Position = UDim2.fromScale(0.16, 0.74)
+	stickKnob.Position = UDim2.fromScale(0.5, 0.5)
+	stickBase.BackgroundTransparency = 0.92
+	stickKnob.BackgroundTransparency = 0.8
+end
+
+local function stickEnd()
+	stick.input, stick.origin, stick.x = nil, nil, 0
+	stickRest()
+end
+
+local function stickMove(pos)
+	local s = uiScale.Scale
+	local dx = (pos.X - stick.origin.X) / (STICK_R * s)
+	local dy = (pos.Y - stick.origin.Y) / (STICK_R * s)
+	local len = math.sqrt(dx * dx + dy * dy)
+	if len > 1 then
+		dx, dy = dx / len, dy / len
+	end
+	stick.x = math.abs(dx) > 0.15 and dx or 0
+	stickKnob.Position = UDim2.new(0.5, dx * STICK_R, 0.5, dy * STICK_R)
+end
+
+local function stickBegin(input)
+	if stick.input or editor or not gui.Enabled then
+		return
+	end
+	local size = gui.AbsoluteSize
+	local p = input.Position
+	if p.X > size.X * STICK_ZONE or p.Y < size.Y * 0.2 then
+		return
+	end
+	local s = uiScale.Scale
+	stick.input = input
+	stick.origin = Vector2.new(p.X, p.Y)
+	stickBase.Position = UDim2.fromOffset(p.X / s, p.Y / s)
+	stickBase.BackgroundTransparency = 0.82
+	stickKnob.BackgroundTransparency = 0.45
+	stickMove(stick.origin)
+end
+
+local function buildStick()
+	stickBase = Instance.new("Frame")
+	stickBase.Name = "Stick"
+	stickBase.AnchorPoint = Vector2.new(0.5, 0.5)
+	stickBase.Size = UDim2.fromOffset(STICK_R * 2, STICK_R * 2)
+	stickBase.BackgroundColor3 = WHITE
+	stickBase.ZIndex = 1
+	stickBase.Parent = root
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0.5, 0)
+	c.Parent = stickBase
+	local edge = Instance.new("UIStroke")
+	edge.Color = WHITE
+	edge.Thickness = 2
+	edge.Transparency = 0.5
+	edge.Parent = stickBase
+	stickKnob = Instance.new("Frame")
+	stickKnob.Name = "Knob"
+	stickKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+	stickKnob.Size = UDim2.fromOffset(64, 64)
+	stickKnob.BackgroundColor3 = WHITE
+	stickKnob.ZIndex = 1
+	stickKnob.Parent = stickBase
+	local kc = Instance.new("UICorner")
+	kc.CornerRadius = UDim.new(0.5, 0)
+	kc.Parent = stickKnob
+	stickRest()
+	UserInputService.TouchStarted:Connect(function(input, processed)
+		if not processed then
+			stickBegin(input)
+		end
+	end)
+	UserInputService.TouchMoved:Connect(function(input)
+		if input == stick.input then
+			stickMove(input.Position)
+		end
+	end)
+	UserInputService.TouchEnded:Connect(function(input)
+		if input == stick.input then
+			stickEnd()
+		end
+	end)
+	-- Studio's ForceTouch (no real touch screen): the mouse drives the stick
+	if not UserInputService.TouchEnabled then
+		UserInputService.InputBegan:Connect(function(input, processed)
+			if not processed and input.UserInputType == Enum.UserInputType.MouseButton1 then
+				stickBegin(input)
+			end
+		end)
+		UserInputService.InputChanged:Connect(function(input)
+			if stick.input and stick.input.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseMovement then
+				stickMove(input.Position)
+			end
+		end)
+		UserInputService.InputEnded:Connect(function(input)
+			if stick.input and input.UserInputType == Enum.UserInputType.MouseButton1 then
+				stickEnd()
+			end
+		end)
+	end
+end
+
 local function hideDefaultJump()
 	local pg = player:FindFirstChild("PlayerGui")
 	local tg = pg and pg:FindFirstChild("TouchGui")
@@ -245,6 +367,7 @@ local function build()
 		roundButton(name)
 	end
 	applyLayout()
+	buildStick()
 	UserInputService.InputEnded:Connect(releaseInput)
 end
 
@@ -511,27 +634,39 @@ local function update()
 	if editor then
 		return
 	end
-	-- a finger that has lifted lets go of its button, even if its end wasn't heard
+	-- a finger that has lifted lets go of its button (or the stick), even if its end wasn't heard
 	for name, h in pairs(held) do
 		local s = h.input.UserInputState
 		if s == Enum.UserInputState.End or s == Enum.UserInputState.Cancel then
 			letGo(name, h)
 		end
 	end
+	if stick.input then
+		local s = stick.input.UserInputState
+		if s == Enum.UserInputState.End or s == Enum.UserInputState.Cancel then
+			stickEnd()
+		end
+	end
 	local show = State.isMobile and State.isPlaying and State.match.inMatch == true
 	gui.Enabled = show
 	if not show then
+		if stick.input then
+			stickEnd()
+		end
 		return
 	end
 	hideDefaultJump()
 	local ctx = State.context or {}
 	local air = ctx.grounded == false
-	local approach = ctx.running == true and "Jump" or "Approach"
 	if ctx.serving then
 		local holding = ctx.spikeLabel == "Toss"
 		set("A", holding and "EasyServe" or nil, "Basic Serve", "IconStar")
 		set("B", holding and "Serve" or nil, "Spike Serve", "IconAttack")
-		set("C", "Spike", air and "Spike" or approach, air and "IconAttack" or "IconJump")
+		if holding then
+			set("C", "Spike", "Jump Serve", "IconJump") -- a standard jump-serve toss
+		else
+			set("C", air and "Spike" or "Jump", air and "Spike" or "Jump", air and "IconAttack" or "IconJump")
+		end
 		set("Set", nil)
 		-- the spike serve's toss charges while held: the ring warms to orange
 		local h = held.B
@@ -551,10 +686,10 @@ local function update()
 		elseif atNet then
 			-- at the net the bump button blocks: hold to charge, let go to jump
 			set("B", "Block", "Block", "IconDefense")
-			set("C", "Spike", approach, "IconJump")
+			set("C", "Jump", "Jump", "IconJump")
 		else
 			set("B", "Receive", "Bump", "IconDefense")
-			set("C", "Spike", approach, "IconJump")
+			set("C", "Jump", "Jump", "IconJump")
 		end
 		-- with setter aim on the Set button stays up, so the distance can be charged as the pass
 		-- comes (hold, then let go when it's in reach)
@@ -599,6 +734,13 @@ end
 function MobileControls.init(m)
 	mods = m
 	build()
+	-- Roblox's own touch controls: their stick can't be read here and their jump button sat on
+	-- top of ours, so the touch controls above replace them
+	if UserInputService.TouchEnabled then
+		pcall(function()
+			GuiService.TouchControlsEnabled = false
+		end)
+	end
 	-- the saved layout arrives with the profile (or changes in the editor)
 	State.signals.Settings:Connect(function(key)
 		if key == "touchLayout" and not editor then

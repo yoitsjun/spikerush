@@ -41,13 +41,20 @@ local knock = nil -- { t0, speed } after a heavy receive
 -- physics sees it; moveStep applies it after the control script instead.
 local queued = nil -- { height, kind }
 
+-- Roblox's control module, if the place has one in PlayerScripts. This place doesn't, and this
+-- must never wait for it: a WaitForChild here froze every touch action that asked for the stick
+-- (Slide, the run-up, the serve toss) and piled up a stuck thread every frame.
 local function getControls()
 	if controls then
 		return controls
 	end
+	local ps = player:FindFirstChild("PlayerScripts")
+	local pm = ps and ps:FindFirstChild("PlayerModule")
+	if not pm then
+		return nil
+	end
 	local ok, result = pcall(function()
-		local module = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"))
-		return module:GetControls()
+		return require(pm):GetControls()
 	end)
 	if ok then
 		controls = result
@@ -147,8 +154,12 @@ function MovementController.axis()
 		axis = padAxis
 	end
 	if axis == 0 and State.isMobile then
-		local c = getControls()
-		if c then
+		-- the touch controls' own thumbstick, else a control module's
+		local stick = mods.MobileControls and mods.MobileControls.stickX() or 0
+		local c = math.abs(stick) <= 0.15 and getControls() or nil
+		if math.abs(stick) > 0.15 then
+			axis = stick
+		elseif c then
 			local ok, mv = pcall(function()
 				return c:GetMoveVector()
 			end)
