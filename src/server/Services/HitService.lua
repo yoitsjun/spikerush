@@ -263,6 +263,7 @@ function HitService.onRequest(plr, req)
 		targetId = targetId,
 		tossHeight = num(req.tossHeight, H.TossLow, H.TossHighMax, H.TossLow),
 		tossForward = num(req.tossForward, 0, 1, 0),
+		aimDepth = req.action == "Set" and num(req.aimDepth, H.SetAimMin, H.SetAimMax, nil) or nil,
 	}
 	local ok, why = HitService.process(entity, input, { seq = seq, fromClient = true })
 	if not ok then
@@ -349,6 +350,31 @@ end
 function HitService.init(r)
 	reg = r
 	Net.get("HitRequest").OnServerEvent:Connect(HitService.onRequest)
+	-- a setter's aim goes to their teammates only (SetterAim); the other team never hears it
+	local aimAt = {}
+	Net.get("SetAim").OnServerEvent:Connect(function(plr, depth)
+		local now = os.clock()
+		if aimAt[plr] and now - aimAt[plr] < 0.08 then
+			return
+		end
+		aimAt[plr] = now
+		local TS = reg.TeamService
+		local entity = TS.entityForPlayer(plr)
+		if not entity or not TS.inMatch then
+			return
+		end
+		local H = Config.Hits
+		local d = num(depth, H.SetAimMin, H.SetAimMax, nil)
+		entity.aimDepth = d
+		for _, e in ipairs(TS.members(entity.team)) do
+			if e.player and e.player ~= plr then
+				Net.get("SetAim"):FireClient(e.player, entity.id, d or false)
+			end
+		end
+	end)
+	Players.PlayerRemoving:Connect(function(plr)
+		aimAt[plr] = nil
+	end)
 	Net.get("ActionFX").OnServerEvent:Connect(function(plr, kind, extra)
 		if kind == "Ability" then
 			local e = reg.TeamService.entityForPlayer(plr)

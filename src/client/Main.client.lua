@@ -41,6 +41,7 @@ local order = {
 	"MovementController",
 	"InputController",
 	"ActionController",
+	"SetterAim",
 	"UIController",
 	"SceneController",
 	"MenuController",

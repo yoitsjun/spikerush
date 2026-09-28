@@ -47,6 +47,7 @@ State.settings = {
 	assist = State.isMobile, -- auto-receive assist (capped quality) defaults on for touch
 	followCam = false, -- off: the fully zoomed-out wide shot during play
 	doubleApproach = false, -- Spike on the ground starts a run-up and a second press jumps
+	setterAim = true, -- as the setter, aim where your set goes (SetterAim)
 	touchLayout = {}, -- touch buttons you moved or resized: name -> { x, y, size }
 }
 

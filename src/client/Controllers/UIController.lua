@@ -1235,6 +1235,7 @@ end
 -- line under the name; `touch` rows show on touch devices only.
 local SETTINGS = {
 	{ key = "doubleApproach", text = "Double approach", sub = "Spike once to run in, again to jump" },
+	{ key = "setterAim", text = "Setter aim", sub = "As the setter, aim your sets (your team sees it)" },
 	{ key = "landingMarker", text = "Landing marker" },
 	{ key = "dramatic", text = "Impact frames and speed lines" },
 	{ key = "assist", text = "Receive assist" },

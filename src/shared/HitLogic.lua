@@ -695,7 +695,7 @@ end
 ------------------------------------------------------------------------------------------
 -- compute(input, ctx) -> ok, result | reason
 -- input: action, t, root, ball, vy, grounded, diving (slide), stanceAge, assist, energy,
---        setType, targetId, tossHeight, serveKind
+--        setType, targetId, tossHeight, serveKind, aimDepth (a human setter's aim, SetterAim)
 -- ctx:   side, team, teamSize, seq, ballVel, lastHit, thirdTouch, touchNumber, stats,
 --        ability, groundY, stamina = { value, max } (own team), forceQuality?, ironWall?,
 --        enemyPoints (Rising Sun), teamBoost (Rally Cry), counter (Counter Edge meter 0..100),
@@ -1050,12 +1050,19 @@ function HitLogic.compute(input, ctx)
 			if underhand then
 				accuracy = accuracy * 0.55
 			end
-			local depth = Court.attackDepth(setType) + jitter(rng, (1 - q) ^ 1.4 * H.SetError / accuracy)
+			-- a human setter's aim picks the spot (the same error as any set)
+			local aimed = type(input.aimDepth) == "number" and input.aimDepth == input.aimDepth
+			local base = Court.attackDepth(setType)
+			if aimed then
+				base = clamp(input.aimDepth, H.SetAimMin, H.SetAimMax)
+				meta.aimed = true
+			end
+			local depth = base + jitter(rng, (1 - q) ^ 1.4 * H.SetError / accuracy)
 			-- a jump set (taken above standing height) goes up higher too; quicks stay quick
 			local lift = 0
 			if setType ~= "Quick" then
 				lift = math.max(0, ball.Y - ((ctx.groundY or Config.Player.RootGround) + Z.SetIdealY))
-				if ctx.ability == "Vector" then
+				if ctx.ability == "Vector" and not aimed then
 					-- Vector Set: tight to the net and high, for the steepest spike
 					depth = depth * VECTOR.SetDepthMul
 					lift = lift + VECTOR.SetLift

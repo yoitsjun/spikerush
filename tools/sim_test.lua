@@ -622,6 +622,21 @@ do
 		local _, r = HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = sball, grounded = true, setType = kind }, ctx({ touchNumber = 2, lastHit = { team = "Away", hitType = "Bump" } }))
 		return BallPhysics.buildPath(r.launch), r.meta
 	end
+	-- setter aim: an aimed set comes down through the hitting height where it was aimed, and an
+	-- aim past the range is held to it
+	local function arrival(aimDepth)
+		local _, r = HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = sball, grounded = true, setType = "Open", aimDepth = aimDepth }, ctx({ touchNumber = 2, lastHit = { team = "Away", hitType = "Bump" } }))
+		local path = BallPhysics.buildPath(r.launch)
+		local tA = BallPhysics.findTime(path, 0, function(pos, vel) return vel.Y < 0 and pos.Y <= H.SetArriveY end)
+		return tA and BallPhysics.positionAt(path, tA).Z * side or -1, r.meta
+	end
+	local nearAim, farAim = H.SetAimMin + 2, H.SetAimMax - 2
+	local dNear, mNear = arrival(nearAim)
+	local dFar = arrival(farAim)
+	local dPast = arrival(H.SetAimMax * 3)
+	check(mNear.aimed and math.abs(dNear - nearAim) < 0.8 and math.abs(dFar - farAim) < 0.8 and math.abs(dPast - H.SetAimMax) < 0.8,
+		"setter aim: the set comes down where it was aimed, near or far, and no further than the range",
+		string.format("aimed %.1f -> %.1f, %.1f -> %.1f, past the range -> %.1f (max %.1f)", nearAim, dNear, farAim, dFar, dPast, H.SetAimMax))
 	-- quick: the middle is in the air before the set is even made
 	local qPath, qMeta = setPath("Quick")
 	local vq, gq = HitLogic.setArc(sball, side, "Quick")

@@ -24,6 +24,7 @@ Net.Names = {
 	"Profile",
 	"Forfeit",
 	"Rotation",
+	"SetAim", -- client -> server: a setter's aim (depth, or false); server -> teammates: (id, depth)
 }
 
 local cache = {}

@@ -63,6 +63,9 @@
         },
         "Rotation": {
           "$className": "RemoteEvent"
+        },
+        "SetAim": {
+          "$className": "RemoteEvent"
         }
       },
       "ToolboxAssets": {

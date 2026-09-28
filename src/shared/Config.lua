@@ -181,6 +181,9 @@ Config.Hits = {
 	SetArriveY = lift(3.75), -- comes down through a typical high-tier hitting point
 	SetError = 0.95 * M,
 	SetGravityScale = 1.0,
+	-- setter aim (SetterAim): how far from the net a human setter can place the set
+	SetAimMin = 0.6 * M,
+	SetAimMax = 4.2 * M,
 	OpenDepth = 2.3 * M, -- attack spots, distance from the net
 	QuickDepth = 1.2 * M,
 	BackDepth = 3.9 * M,
@@ -812,7 +815,7 @@ Config.Bots = {
 -- Settings saved in each player's profile (the Settings module cleans them; the client's
 -- State.settings holds the defaults and the live values).
 Config.Settings = {
-	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach" },
+	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach", "setterAim" },
 	Numbers = { shake = { 0, 1 } },
 	-- touch buttons can be moved (x, y: the centre as a fraction of the screen) and resized
 	Touch = {

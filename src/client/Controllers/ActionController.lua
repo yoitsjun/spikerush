@@ -265,6 +265,7 @@ local function execute(action, info, opts, t, ballPos)
 		targetId = opts.targetId,
 		tossHeight = opts.tossHeight,
 		tossForward = opts.tossForward,
+		aimDepth = opts.aimDepth,
 	}
 	local ok, result = HitLogic.compute(input, ctx)
 	if not ok then
@@ -299,6 +300,7 @@ local function execute(action, info, opts, t, ballPos)
 		targetId = input.targetId,
 		tossHeight = input.tossHeight,
 		tossForward = input.tossForward,
+		aimDepth = input.aimDepth,
 	})
 	lastActionAt = os.clock()
 	buffered = nil
@@ -629,7 +631,7 @@ local function pressSet(info)
 	elseif dir < 0 then
 		setType = "Back"
 	end
-	local opts = { setType = setType, targetId = setTarget() }
+	local opts = { setType = setType, targetId = setTarget(), aimDepth = mods.SetterAim and mods.SetterAim.depth() or nil }
 	local now, ball = ballNow()
 	local ok, why = execute("Set", info, opts, now, ball)
 	if ok then
