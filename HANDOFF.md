@@ -452,6 +452,8 @@ The owner sent a screenshot of the matchup intro (the Sunrise team on the Beach)
 Work in this order. The owner's list from 2026-09-27 comes first, in the order they gave it:
 
 0. **The real bump** (111670558415526): once the owner has shared access (Studio's Output: "Click to share access"), measure its `start` and `gain` and add them to `Assets.SoundFiles`.
+0. **"tossing in serve drill doesnt work"**: in the Serve practice drill, the toss doesn't happen. (Also check whether the earlier "on mobile holding serve toss doesnt work" was the same bug.)
+0. **Custom match settings** ("allow full customization on custom matches, such as what points you play to low as 3 and up to 50"): Create Lobby gets the points to play to (3 to 50) and the other match rules worth changing.
 0. **Daon's level-up beam**: when Rising Sun levels up ("Sunrise Lv n!"), a tall beam of light strikes Daon, like the owner's reference (a vertical orange-to-red pillar over the player on the court).
 0. **Setter mode**: playing as a setter, you aim where the set will go. Your team sees the spot, marked with a circle or a crosshair; the opponents don't.
 0. **Custom scoring sound**: a game pass, also buyable with VP. The owner of it enters their own sound id, which plays when they score.
