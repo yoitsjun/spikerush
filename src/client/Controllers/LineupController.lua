@@ -144,8 +144,11 @@ local function newScene(parent, entries, color, opts)
 			Anchored = true,
 			CanCollide = false,
 		}, vp)
-		-- each turned a little toward the middle (x * 2.35 degrees would face the camera square on)
-		local slot = { id = e.id, pose = poseName(e.pose), x = x, phase = i * 1.7, yaw = x * 3.2, lower = e.lower or 0 }
+		-- each turned a little toward the middle (x * 2.35 degrees would face the camera square on);
+		-- e.turn turns them further (the slumped losers, whose hunch doesn't read face on; positive
+		-- yaw faces screen right, the one in the middle turns that way)
+		local turn = (e.turn or 0) * (x < 0 and -1 or 1)
+		local slot = { id = e.id, pose = poseName(e.pose), x = x, phase = i * 1.7, yaw = x * 3.2 + turn, lower = e.lower or 0 }
 		if opts.tags then
 			slot.tag = label(names, {
 				Text = e.name or "",
@@ -621,7 +624,7 @@ function LineupController.showcase(a)
 	local entries = {}
 	for _, e in ipairs(rows) do
 		local pose = won and e.pose or "Tired"
-		table.insert(entries, { id = e.id, name = e.name, pose = pose, lower = (won and e.pose == "Air") and 1.6 or 0 })
+		table.insert(entries, { id = e.id, name = e.name, pose = pose, lower = (won and e.pose == "Air") and 1.6 or 0, turn = not won and 38 or nil })
 	end
 	local scene = newScene(stage, entries, color, { aimY = 2, dist = 30 })
 	r.scenes = { scene }
