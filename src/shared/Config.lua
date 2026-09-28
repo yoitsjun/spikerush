@@ -446,18 +446,18 @@ Config.Cosmetics = {
 -- as "soon"; in Studio it grants its VP or Gold for free so the flow can be tested.
 Config.Shop = {
 	Packs = {
-		{ Id = 0, VP = 500, Name = "Pouch" },
-		{ Id = 0, VP = 1200, Name = "Bag" },
-		{ Id = 0, VP = 2800, Name = "Crate" },
-		{ Id = 0, VP = 6500, Name = "Vault" },
+		{ Id = 3715199842, VP = 500, Name = "Pouch" }, -- 99 Robux
+		{ Id = 3715199863, VP = 1200, Name = "Bag" }, -- 199
+		{ Id = 3715199882, VP = 2800, Name = "Crate" }, -- 399
+		{ Id = 3715199894, VP = 6500, Name = "Vault" }, -- 799
 	},
 	-- Gold for stat upgrades: ten times the VP pack at the same step (a win pays 300 Gold, and
 	-- maxing one S+ stat from where a recruit starts costs about 8,000)
 	GoldPacks = {
-		{ Id = 0, Gold = 5000, Name = "Stack" },
-		{ Id = 0, Gold = 12000, Name = "Satchel" },
-		{ Id = 0, Gold = 28000, Name = "Chest" },
-		{ Id = 0, Gold = 65000, Name = "Treasury" },
+		{ Id = 3715199914, Gold = 5000, Name = "Stack" }, -- 99 Robux
+		{ Id = 3715199928, Gold = 12000, Name = "Satchel" }, -- 199
+		{ Id = 3715199946, Gold = 28000, Name = "Chest" }, -- 399
+		{ Id = 3715199999, Gold = 65000, Name = "Treasury" }, -- 799
 	},
 	ReceiptHistory = 50, -- purchase ids remembered per profile (duplicate receipts are ignored)
 }

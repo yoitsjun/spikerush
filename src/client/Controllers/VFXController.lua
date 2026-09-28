@@ -682,6 +682,77 @@ end
 local walls = {} -- entityId -> { part, untilT, side }
 local statusFx = {} -- model -> kind -> { att, aura, hl }
 local sunSeen = {} -- model -> the Sunrise level last shown
+
+-- Rising Sun levels up: a pillar of light strikes the player out of the sky (the owner's
+-- reference: a tall orange-to-red column over them). Two camera-facing beams, a wide hot column
+-- and a white core, drop from the top in a blink, hold with a flicker, then flare and fade.
+local BEAM_H = 140
+local function sunBeam(root)
+	local floorY = root.Y - 3
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Transparency = 1
+	part.Size = Vector3.new(0.2, 0.2, 0.2)
+	part.CFrame = CFrame.new(root.X, floorY, root.Z)
+	part.Parent = fxFolder
+	local top = Instance.new("Attachment")
+	top.Position = Vector3.new(0, BEAM_H, 0)
+	top.Parent = part
+	local bottom = Instance.new("Attachment")
+	bottom.Position = Vector3.new(0, BEAM_H, 0)
+	bottom.Parent = part
+	local function beam(width, colors, light)
+		local b = Instance.new("Beam")
+		b.Attachment0 = bottom
+		b.Attachment1 = top
+		b.FaceCamera = true
+		b.LightEmission = light
+		b.LightInfluence = 0
+		b.Segments = 1
+		b.Width0 = width
+		b.Width1 = width
+		b.Color = colors
+		b.Transparency = NumberSequence.new(0)
+		b.Parent = part
+		return b
+	end
+	-- the column keeps its colour against a bright sky (little additive light); the core glows
+	local outer = beam(7, ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 150, 30)),
+		ColorSequenceKeypoint.new(0.3, Color3.fromRGB(255, 95, 25)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(215, 25, 25)),
+	}), 0.1)
+	local core = beam(1.6, ColorSequence.new(Color3.fromRGB(255, 245, 200), Color3.fromRGB(255, 170, 80)), 1)
+	local t0 = os.clock()
+	local STRIKE, HOLD, FADE = 0.12, 0.7, 0.45
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - t0
+		if t < STRIKE then
+			-- the column falls from the sky onto them
+			bottom.Position = Vector3.new(0, BEAM_H * (1 - t / STRIKE), 0)
+		elseif t < STRIKE + HOLD then
+			bottom.Position = Vector3.zero
+			local f = 0.08 * math.sin(t * 60)
+			outer.Width0, outer.Width1 = 7 + f * 10, 7 + f * 10
+			outer.Transparency = NumberSequence.new(0.1 + math.abs(f))
+		elseif t < STRIKE + HOLD + FADE then
+			local k = (t - STRIKE - HOLD) / FADE
+			outer.Width0, outer.Width1 = 7 + 9 * k, 7 + 9 * k
+			core.Width0, core.Width1 = 1.6 * (1 - k), 1.6 * (1 - k)
+			outer.Transparency = NumberSequence.new(0.1 + 0.9 * k)
+			core.Transparency = NumberSequence.new(k)
+		else
+			conn:Disconnect()
+			part:Destroy()
+		end
+	end)
+	Fx.play("JumpBoom", Vector3.new(root.X, floorY + 0.2, root.Z), { color = Color3.fromRGB(255, 150, 40), scale = 1.4 })
+	Fx.play("Fire", Vector3.new(root.X, floorY + 1, root.Z), { color = Color3.fromRGB(255, 120, 40), scale = 1.2 })
+end
 local nextStatusScan = 0
 
 -- Auras for boosts the server flags on characters (and the team's Rally Cry): flame colours,
@@ -860,6 +931,7 @@ local function updateAbilityFx(dt)
 					local hrp = model:FindFirstChild("HumanoidRootPart")
 					if hrp then
 						local c = Config.Abilities.RisingSun.Color
+						sunBeam(hrp.Position)
 						burst(hrp.Position + Vector3.new(0, 1, 0), c, 3, 0.35)
 						ringFx(hrp.Position + Vector3.new(0, 1, 0), c, 2, 10, 0.4, 7)
 						VFXController.popup(hrp.Position + Vector3.new(0, 6, 0), "Sunrise Lv " .. sun .. "!", c, 1.1)
