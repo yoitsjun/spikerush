@@ -37,14 +37,14 @@ Keep `rojo serve` running from the same folder Claude works in.
 
 > Check out the branch claude/spike-rush-continuation-uwunbo and work on it. Read CLAUDE.md, CONTINUE.md and HANDOFF.md, then continue from "Next steps" in HANDOFF.md. Run the four checks after every change, then commit and push to that branch.
 
-## Where things stand (fifteenth session)
+## Where things stand (fifteenth session, last push 28 Sep 07:42)
 
-Built: 37 characters and their abilities, bots, lobbies with custom rules (points 3 to 50, win by 2, best of 3 or 5, timeouts), five courts, recruit, locker, shop (VP and Gold packs live, and the custom score sound and image perks), ranks, practice drills, the tutorial, mobile controls, point celebrations, the owner's sounds, saved settings, the matchup intro and the showcase, the Match screen in The Spike's layout with our own court art, Daon's level-up beam, and setter mode (aim the set's height, charge its distance; your team sees the marker).
+Built: 37 characters and their abilities, bots, lobbies with custom rules (points 3 to 50, win by 2, best of 3 or 5, timeouts), five courts, recruit, locker, shop (VP and Gold packs live, and the custom score sound and image perks), ranks, practice drills, the tutorial, mobile controls, point celebrations, the owner's sounds, saved settings, the matchup intro and the showcase, the Match screen in The Spike's layout with our own court art, Daon's level-up beam, and setter mode (aim the set's height, charge its distance; your team sees the marker). Touch controls now have their own floating thumbstick, and Slide, Jump (which replaced Approach on touch) and the serve toss work. Studio's `ForceTouch` workspace attribute fakes a touch device for testing with the mouse.
 
 Next, in HANDOFF.md's order:
 
-1. **Hands-on checks** of this session's work: setter mode (a real aimed set, two players for the teammate marker), the Shop's Perks column and a scored point with a custom sound and image, the Match screen at 16:9, a best-of-3 ending, and the older unchecked items (showcase, touch controls, drills).
-2. **Game passes:** create "Custom Score Sound" and "Custom Score Effect" (199 Robux each) and put their ids in `Config.Perks`.
+1. **Hands-on checks** of this session's work: setter mode (a real aimed set, two players for the teammate marker), the Shop's Perks column and a scored point with a custom sound and image, the Match screen at 16:9, a best-of-3 ending, and the older unchecked items (showcase, drills). Touch controls on a real phone: the stick's feel, Slide, Jump and the serve toss.
+2. **Game passes:** create "Custom Score Sound" and "Custom Score Effect" (199 Robux each) and put their ids in `Config.Perks` (both `PassId` are still 0). The VP and Gold Developer Products already have their ids.
 3. **Sound:** the owner sends ids for the empty slots (ReceivePerfect, Serve, Toss, Block, Stuff, Whistle, Point, the crowd loop and more); Claude sets each one's start and gain.
 4. **Courts:** polish from the owner's screenshots.
 5. **Score card customization** (asked for "later"): card designs unlocked by challenges.
