@@ -31,6 +31,34 @@ function Lobbies.cleanPassword(raw)
 	return (raw:gsub("[^%w]", "")):sub(1, L.PasswordMax)
 end
 
+-- A lobby's match rules, made safe (Config.Match.Custom): the points a set is played to, win
+-- by 2 or 1, the sets (1, or best of 3 or 5) and the timeouts per set. Anything missing or bad
+-- is the default Quick Match plays.
+function Lobbies.rules(raw)
+	raw = type(raw) == "table" and raw or {}
+	local M, MC = Config.Match, Config.Match.Custom
+	local points = tonumber(raw.points)
+	if not points or points ~= points then
+		points = M.PointsPerSet
+	end
+	local timeouts = tonumber(raw.timeouts)
+	if not timeouts or timeouts ~= timeouts then
+		timeouts = Config.Timeout.PerSet
+	end
+	local sets = 1
+	for _, n in ipairs(MC.Sets) do
+		if tonumber(raw.sets) == n then
+			sets = n
+		end
+	end
+	return {
+		points = math.clamp(math.floor(points), MC.PointsMin, MC.PointsMax),
+		winBy = tonumber(raw.winBy) == 1 and 1 or M.WinBy,
+		sets = sets,
+		timeouts = math.clamp(math.floor(timeouts), 0, MC.TimeoutsMax),
+	}
+end
+
 -- Settings from a client, made safe. Returns the settings, or nil and a reason ("password").
 function Lobbies.settings(raw)
 	raw = type(raw) == "table" and raw or {}
@@ -45,6 +73,8 @@ function Lobbies.settings(raw)
 		botTier = Characters.isTier(raw.botTier) and raw.botTier or Config.Match.DefaultBotTier,
 		court = Config.Courts.List[raw.court] and raw.court or Config.Courts.Rotate,
 	}
+	local rules = Lobbies.rules(raw)
+	s.points, s.winBy, s.sets, s.timeouts = rules.points, rules.winBy, rules.sets, rules.timeouts
 	if s.privacy == "Private" then
 		local pw = Lobbies.cleanPassword(raw.password)
 		if #pw < L.PasswordMin then
@@ -172,6 +202,7 @@ end
 -- dropped players.
 function Lobbies.configure(l, s)
 	l.mode, l.privacy, l.password, l.fill, l.botTier, l.court = s.mode, s.privacy, s.password, s.fill, s.botTier, s.court
+	l.points, l.winBy, l.sets, l.timeouts = s.points, s.winBy, s.sets, s.timeouts
 	local out = {}
 	for _, side in ipairs(SIDES) do
 		local i = #l[side]
@@ -247,6 +278,10 @@ function Lobbies.summary(l, viewerId)
 		fill = l.fill,
 		botTier = l.botTier,
 		court = l.court,
+		points = l.points,
+		winBy = l.winBy,
+		sets = l.sets,
+		timeouts = l.timeouts,
 		count = Lobbies.count(l),
 		capacity = Lobbies.capacity(l),
 		state = l.state,
@@ -257,7 +292,7 @@ end
 
 -- The lobby as plain data for a teleport to its own server.
 function Lobbies.export(l)
-	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, host = l.host, hostName = l.hostName, quick = l.quick == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, Home = {}, Away = {} }
+	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, host = l.host, hostName = l.hostName, quick = l.quick == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(out[side], u)
@@ -272,7 +307,7 @@ function Lobbies.import(data, id)
 	if type(data) ~= "table" then
 		return nil
 	end
-	local raw = { mode = data.mode, privacy = data.privacy, fill = data.fill, botTier = data.botTier, court = data.court, password = data.password }
+	local raw = { mode = data.mode, privacy = data.privacy, fill = data.fill, botTier = data.botTier, court = data.court, password = data.password, points = data.points, winBy = data.winBy, sets = data.sets, timeouts = data.timeouts }
 	local s = Lobbies.settings(raw)
 	if not s then
 		raw.privacy = "Public"

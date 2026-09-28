@@ -29,6 +29,7 @@ MatchService.scores = { Home = 0, Away = 0 }
 MatchService.sets = { Home = 0, Away = 0 }
 MatchService.setNumber = 1
 MatchService.target = M.PointsPerSet
+MatchService.rules = Lobbies.rules(nil) -- the match's rules: its lobby's (Lobbies.rules)
 MatchService.servingTeam = "Home"
 MatchService.serverId = nil
 MatchService.rallyResult = nil
@@ -117,7 +118,10 @@ function MatchService.state()
 		sets = MatchService.sets,
 		setNumber = MatchService.setNumber,
 		target = MatchService.target,
-		maxSets = M.MaxSets,
+		winBy = MatchService.rules.winBy,
+		timeouts = MatchService.rules.timeouts,
+		bestOf = MatchService.rules.sets > 1 and MatchService.rules.sets or nil,
+		maxSets = MatchService.rules.sets > 1 and MatchService.rules.sets or M.MaxSets,
 		servingTeam = MatchService.servingTeam,
 		serverId = MatchService.serverId,
 		rosters = TS.roster(),
@@ -301,18 +305,25 @@ function MatchService.awardPoint(res)
 
 	local s = MatchService.scores
 	local base = MatchService.target
-	local playTo, deuce = Court.playTo(s[winner], s[loser], base)
+	local R = MatchService.rules
+	local playTo, deuce = Court.playTo(s[winner], s[loser], base, R.winBy)
 	local setOver = s[winner] >= playTo
 	local setPoint = nil
 	if not setOver then
 		for _, team in ipairs(Config.TeamOrder) do
 			local mine, theirs = s[team] + 1, s[Court.other(team)]
-			if mine >= Court.playTo(mine, theirs, base) then
+			if mine >= Court.playTo(mine, theirs, base, R.winBy) then
 				setPoint = team
 			end
 		end
 	end
-	local matchPoint = setPoint ~= nil and MatchService.setNumber >= M.Sets -- any set from here may be the last
+	local matchPoint
+	if R.sets > 1 then
+		-- best of: the team on set point needs just this set
+		matchPoint = setPoint ~= nil and MatchService.sets[setPoint] + 1 >= math.floor(R.sets / 2) + 1
+	else
+		matchPoint = setPoint ~= nil and MatchService.setNumber >= M.Sets -- any set from here may be the last
+	end
 
 	MatchService.setPhase("Point", M.PointPauseTime)
 	MatchService.announce({
@@ -423,12 +434,12 @@ function MatchService.playSet()
 	if halted() then
 		return nil -- forfeited or called off between sets
 	end
-	MatchService.target = M.PointsPerSet
+	MatchService.target = MatchService.rules.points
 	TS.resetSetAbilities()
 	for _, team in ipairs(Config.TeamOrder) do
 		TS.fillStamina(team) -- also re-reads the boosts (Rising Sun starts the set at level 0)
 	end
-	TS.resetTimeouts()
+	TS.resetTimeouts(MatchService.rules.timeouts)
 	MatchService.announce({ kind = "SetStart", setNumber = MatchService.setNumber, target = MatchService.target })
 	while true do
 		local res = MatchService.playRally()
@@ -450,6 +461,11 @@ local function results(winner, forfeitTeam)
 	local mvp, mvpScore = nil, -math.huge
 	local P = Config.Progression
 	local tutorial = MatchService.lobby and MatchService.lobby.tutorial
+	-- a custom lobby's shorter sets pay less and don't count for your record (a 3-point match
+	-- against bots would farm them)
+	local points = MatchService.rules.points
+	local scale = Rewards.pointsScale(points)
+	local counts = not tutorial and points >= M.PointsPerSet
 	for _, team in ipairs(Config.TeamOrder) do
 		for _, e in ipairs(reg.TeamService.members(team)) do
 			local st = e.stats
@@ -460,7 +476,7 @@ local function results(winner, forfeitTeam)
 			local reward, gold, streak, streakVP, streakGold, extraVP = nil, nil, nil, nil, nil, nil
 			if e.player then
 				local won = team == winner
-				if not tutorial then
+				if counts then
 					streak = reg.ProfileService.recordResult(e.player, won, st)
 				end
 				if team ~= forfeitTeam then
@@ -472,6 +488,9 @@ local function results(winner, forfeitTeam)
 					if won and streak then
 						streakVP, streakGold = Rewards.streakBonus(streak)
 						reward, gold = reward + streakVP, gold + streakGold
+					end
+					if scale < 1 then
+						reward, gold = math.floor(reward * scale + 0.5), math.floor(gold * scale + 0.5)
 					end
 					reg.ProfileService.award(e.player, reward, gold)
 				end
@@ -548,6 +567,8 @@ function MatchService.playMatch()
 	local lobby = MatchService.lobby
 	-- dress the arena first: players are placed on the court right after
 	MatchService.court = Lobbies.courtFor(lobby, MatchService.court)
+	MatchService.rules = Lobbies.rules(lobby)
+	MatchService.target = MatchService.rules.points
 	reg.ArenaBuilder.setCourt(MatchService.court)
 	TS.botTier = lobby.botTier
 	TS.assign(lobby.mode, reg.LobbyService.plan(lobby))
@@ -580,9 +601,18 @@ function MatchService.playMatch()
 			table.insert(MatchService.setWinners, winner)
 		end
 		BS.hide()
-		-- keep playing? (the scheduled sets first, then a vote after each)
+		-- keep playing? Best of 3 or 5 plays on until a team has won most of them; otherwise the
+		-- scheduled sets first, then a vote after each
 		local more = false
-		if not MatchService.forfeitTeam and MatchService.setNumber < M.MaxSets then
+		local R = MatchService.rules
+		if not MatchService.forfeitTeam and R.sets > 1 then
+			if MatchService.sets[winner] < math.floor(R.sets / 2) + 1 then
+				MatchService.setPhase("SetEnd", M.SetEndTime)
+				MatchService.announce({ kind = "SetEnd", winner = winner, sets = MatchService.sets, scores = MatchService.scores, setNumber = MatchService.setNumber })
+				waitUntil(MatchService.phaseEnd)
+				more = true
+			end
+		elseif not MatchService.forfeitTeam and MatchService.setNumber < M.MaxSets then
 			if MatchService.setNumber < M.Sets then
 				MatchService.setPhase("SetEnd", M.SetEndTime)
 				MatchService.announce({ kind = "SetEnd", winner = winner, sets = MatchService.sets, scores = MatchService.scores, setNumber = MatchService.setNumber })
@@ -627,6 +657,8 @@ function MatchService.intermission()
 	BS.hide()
 	MatchService.lobby = nil
 	MatchService.serverId = nil
+	MatchService.rules = Lobbies.rules(nil) -- a custom match's rules end with it
+	MatchService.target = MatchService.rules.points
 	MatchService.scores = { Home = 0, Away = 0 }
 	MatchService.sets = { Home = 0, Away = 0 }
 	MatchService.setPhase("Intermission", 0)

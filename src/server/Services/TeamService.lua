@@ -375,9 +375,10 @@ local function publishTimeouts()
 	end
 end
 
-function TeamService.resetTimeouts()
+-- Each team's timeouts for a new set: `n` (the match's rules) or the usual Timeout.PerSet.
+function TeamService.resetTimeouts(n)
 	for _, team in ipairs(Config.TeamOrder) do
-		TeamService.timeouts[team] = Config.Timeout.PerSet
+		TeamService.timeouts[team] = n or Config.Timeout.PerSet
 	end
 	publishTimeouts()
 end

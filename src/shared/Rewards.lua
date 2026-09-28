@@ -14,6 +14,12 @@ function Rewards.match(won, plays)
 	return vp, gold
 end
 
+-- What a match's rewards are multiplied by: a custom lobby's shorter sets pay less (its points
+-- over Match.PointsPerSet, from Progression.ShortSetMin); a longer set pays the same as usual.
+function Rewards.pointsScale(points)
+	return math.clamp((points or Config.Match.PointsPerSet) / Config.Match.PointsPerSet, P.ShortSetMin, 1)
+end
+
 -- Every set past the first pays on its own: more for the sets `team` won. setWinners[i] is the
 -- team that won set i. Returns VP, Gold.
 function Rewards.extraSets(setWinners, team)

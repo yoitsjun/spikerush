@@ -330,6 +330,9 @@ Config.Progression = {
 	StreakVP = 5,
 	StreakGold = 50,
 	StreakMaxSteps = 5,
+	-- a custom lobby's shorter sets pay less: a match's rewards scale by its points over
+	-- Match.PointsPerSet (never above 1), down to this; such a match doesn't count for your record
+	ShortSetMin = 0.2,
 	-- Gold: the second currency, spent on stat upgrades
 	StartingGold = 3000,
 	WinGold = 300,
@@ -601,6 +604,11 @@ Config.Match = {
 	Sets = 1,
 	MaxSets = 3,
 	ContinueTime = 12, -- seconds to vote Keep playing / End match
+	-- a custom lobby's rules (Create Lobby, cleaned by Lobbies.rules): the points a set is played
+	-- to, win by 2 or 1, the sets (1: one set, then the vote to keep playing; 3 or 5: best of)
+	-- and the timeouts per set. Quick Match, practice and the tutorial play the defaults
+	-- (PointsPerSet, WinBy, one set, Timeout.PerSet).
+	Custom = { PointsMin = 3, PointsMax = 50, Sets = { 1, 3, 5 }, TimeoutsMax = 5 },
 	-- the matchup intro (LineupController): a wipe opens each team's turn (Open for the first,
 	-- Wipe after), each team lined up in its poses for TeamTime, then both names meet for
 	-- VersusTime and it fades to the court; the pre-match wait covers all of it

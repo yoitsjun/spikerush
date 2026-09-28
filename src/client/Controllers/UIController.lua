@@ -210,7 +210,7 @@ local function buildTeamBlock(parent, team, align)
 		Padding = UDim.new(0, 5),
 	}, pips)
 	local pipList = {}
-	for i = 1, Config.Timeout.PerSet do
+	for i = 1, math.max(Config.Timeout.PerSet, Config.Match.Custom.TimeoutsMax) do
 		table.insert(pipList, make("Frame", { Size = UDim2.fromOffset(18, 5), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 2 }, pips))
 	end
 	return { name = name, bar = bar, fill = fill, barStroke = barStroke, broken = broken, pips = pipList, barX = barX, barY = barY }
@@ -256,10 +256,10 @@ local function refreshTopBar()
 	t.sAway.Text = tostring(scores.Away or 0)
 	t.sHome.TextColor3 = teamColor("Home")
 	t.sAway.TextColor3 = teamColor("Away")
-	local playTo, deuce = Court.playTo(scores.Home or 0, scores.Away or 0, m.target or Config.Match.PointsPerSet)
+	local playTo, deuce = Court.playTo(scores.Home or 0, scores.Away or 0, m.target or Config.Match.PointsPerSet, m.winBy)
 	t.target.Text = tostring(playTo)
 	if deuce then
-		t.setLine.Text = string.format("DEUCE, win by %d   set %d", Config.Match.WinBy, m.setNumber or 1)
+		t.setLine.Text = string.format("DEUCE, win by %d   set %d", m.winBy or Config.Match.WinBy, m.setNumber or 1)
 		t.setLine.TextColor3 = UI.Whistle
 		Gui.tint(t.diamond, UI.Whistle)
 	else
@@ -309,7 +309,9 @@ local function updateStamina()
 			block.barStroke.Transparency = 0.4
 		end
 		local left = State.timeouts(team)
+		local allowed = State.match.timeouts or Config.Timeout.PerSet
 		for i, p in ipairs(block.pips) do
+			p.Visible = i <= allowed
 			p.BackgroundTransparency = i <= left and 0 or 0.8
 		end
 	end

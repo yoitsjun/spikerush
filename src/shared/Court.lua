@@ -11,20 +11,23 @@ local C = Config.Court
 local R = Config.Ball.Radius
 
 -- Points needed to win the set right now. The set is played to `base`, but once both teams
--- reach base - 1 it's deuce: you must win by Match.WinBy, so the target rises with every tie
--- (14-14 plays to 16, 15-15 to 17, ...). Match.PointCap ends it on a golden point.
--- Returns the target and whether it's deuce.
-function Court.playTo(a, b, base)
+-- reach base - 1 it's deuce: you must win by `winBy` (Match.WinBy unless a custom lobby says 1),
+-- so the target rises with every tie (14-14 plays to 16, 15-15 to 17, ...). A golden point ends
+-- it as far past the target as Match.PointCap is past PointsPerSet (25 for a set to 15). Win
+-- by 1 has no deuce. Returns the target and whether it's deuce.
+function Court.playTo(a, b, base, winBy)
 	local M = Config.Match
+	winBy = winBy or M.WinBy
 	local lo = math.min(a, b)
 	local target = base
 	local deuce = false
-	if lo >= base - M.WinBy + 1 then
-		target = math.max(base, lo + M.WinBy)
+	if winBy > 1 and lo >= base - winBy + 1 then
+		target = math.max(base, lo + winBy)
 		deuce = true
 	end
-	if target > M.PointCap then
-		target = M.PointCap
+	local cap = base + (M.PointCap - M.PointsPerSet)
+	if target > cap then
+		target = cap
 	end
 	return target, deuce
 end

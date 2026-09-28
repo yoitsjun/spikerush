@@ -360,6 +360,15 @@ do
 	local t5 = Court.playTo(24, 24, base)
 	local wins = 16 >= Court.playTo(16, 14, base) and not (15 >= Court.playTo(15, 14, base)) and 15 >= Court.playTo(15, 13, base)
 	check(t1 == base and not d1 and t2 == base + 1 and d2 and t3 == base + 1 and t4 == base + 2 and d4 and t5 == Config.Match.PointCap and wins, "deuce: 14-14 plays to 16, 15-15 to 17, capped at a golden point", string.format("13-12 to %d, 14-14 to %d, 15-14 to %d, 15-15 to %d, 24-24 to %d", t1, t2, t3, t4, t5))
+	-- a custom lobby's rules: a set to 3 still goes to deuce at 2-2 and ends on a golden point
+	-- 10 past its target (as 25 is for 15); win by 1 has no deuce; a set to 50 caps at 60
+	local s1, sd1 = Court.playTo(2, 2, 3)
+	local s2 = Court.playTo(12, 12, 3)
+	local w1, wd1 = Court.playTo(14, 14, 15, 1)
+	local w2 = Court.playTo(49, 49, 50, 1)
+	local b1 = Court.playTo(59, 59, 50)
+	check(s1 == 4 and sd1 and s2 == 13 and w1 == 15 and not wd1 and w2 == 50 and b1 == 60, "custom sets: to 3 has deuce at 2-2 and a golden point at 13; win by 1 has no deuce; to 50 caps at 60",
+		string.format("2-2 of 3 to %d, 12-12 to %d, 14-14 of 15 by 1 to %d, 49-49 of 50 by 1 to %d, 59-59 of 50 to %d", s1, s2, w1, w2, b1))
 end
 
 print("== rotation and formation ==")
@@ -760,6 +769,23 @@ do
 	local s2 = Lobbies.settings({ mode = 2, privacy = "Private", password = "spike 99!", fill = false, botTier = "S" })
 	check(s1.mode == Config.Match.DefaultTeamSize and s1.privacy == "Public" and s1.fill and s1.botTier == Config.Match.DefaultBotTier and bad == nil and s2.password == "spike99" and not s2.fill,
 		"settings are cleaned: bad mode/privacy/tier fall back, a private lobby needs a real password")
+	-- custom rules: points 3 to 50, win by 2 or 1, 1 set or best of 3 or 5, 0 to 5 timeouts
+	local MC = Config.Match.Custom
+	local r0 = Lobbies.rules(nil)
+	local rLow = Lobbies.rules({ points = 1, sets = 4, timeouts = -2, winBy = 0 })
+	local rHigh = Lobbies.rules({ points = 99.7, sets = 5, timeouts = 9, winBy = 1 })
+	local rJunk = Lobbies.rules({ points = 0 / 0, sets = "3", timeouts = "x" })
+	check(r0.points == Config.Match.PointsPerSet and r0.winBy == Config.Match.WinBy and r0.sets == 1 and r0.timeouts == Config.Timeout.PerSet
+		and rLow.points == MC.PointsMin and rLow.sets == 1 and rLow.timeouts == 0 and rLow.winBy == 2
+		and rHigh.points == MC.PointsMax and rHigh.sets == 5 and rHigh.timeouts == MC.TimeoutsMax and rHigh.winBy == 1
+		and rJunk.points == Config.Match.PointsPerSet and rJunk.sets == 3 and rJunk.timeouts == Config.Timeout.PerSet,
+		"a lobby's rules are cleaned: points 3 to 50, 1 or best of 3 or 5 sets, 0 to 5 timeouts, win by 2 unless 1; junk is the default")
+	local custom = Lobbies.new(40, 1, "a", Lobbies.settings({ mode = 2, points = 21, winBy = 1, sets = 3, timeouts = 4 }))
+	Lobbies.seat(custom, 1)
+	local back = Lobbies.import(Lobbies.export(custom), 41)
+	local sum = Lobbies.summary(custom, 1)
+	check(custom.points == 21 and custom.winBy == 1 and custom.sets == 3 and custom.timeouts == 4 and back.points == 21 and back.winBy == 1 and back.sets == 3 and back.timeouts == 4 and sum.points == 21 and sum.sets == 3,
+		"a custom lobby keeps its rules, shows them in its summary and takes them along to its own server")
 	local l = Lobbies.new(1, 100, "Host", s2)
 	Lobbies.seat(l, 100)
 	local okNo, whyNo = Lobbies.canJoin(l, 200, "wrong")
@@ -884,6 +910,8 @@ do
 	end
 	local afterLoss = Rewards.nextStreak(streak, false)
 	check(bonuses[1] == 0 and bonuses[2] == PR.StreakVP and bonuses[3] == 2 * PR.StreakVP and bonuses[8] == PR.StreakMaxSteps * PR.StreakVP and afterLoss == 0, "a win streak pays more with every straight win (capped), a loss resets it", string.format("bonus VP by streak: %d, %d, %d ... %d", bonuses[1], bonuses[2], bonuses[3], bonuses[8]))
+	local k3, k9, k15, k50 = Rewards.pointsScale(3), Rewards.pointsScale(9), Rewards.pointsScale(15), Rewards.pointsScale(50)
+	check(math.abs(k3 - Config.Progression.ShortSetMin) < 1e-9 and math.abs(k9 - 0.6) < 1e-9 and k15 == 1 and k50 == 1, "a custom lobby's shorter sets pay less: to 3 a fifth, to 9 three fifths; 15 and longer pay in full", string.format("%.2f %.2f %.2f %.2f", k3, k9, k15, k50))
 	check(Rewards.winner({ "Home", "Away", "Home" }, { Home = 40, Away = 44 }) == "Home" and Rewards.winner({ "Home", "Away" }, { Home = 30, Away = 32 }) == "Away" and Rewards.winner({ "Away", "Home" }, { Home = 30, Away = 30 }) == "Home",
 		"the match winner: most sets, then most points, then the last set")
 end

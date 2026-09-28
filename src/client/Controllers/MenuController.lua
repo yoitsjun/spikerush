@@ -17,6 +17,7 @@
 local Players = game:GetService("Players")
 local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -2810,7 +2811,8 @@ end
 ------------------------------------------------------------------------------------------
 
 local LC = Config.Lobby
-local form = { mode = 3, privacy = "Public", password = "", fill = true, botTier = Config.Match.DefaultBotTier, court = Config.Courts.Rotate }
+local MC = Config.Match.Custom
+local form = { mode = 3, privacy = "Public", password = "", fill = true, botTier = Config.Match.DefaultBotTier, court = Config.Courts.Rotate, points = Config.Match.PointsPerSet, winBy = Config.Match.WinBy, sets = 1, timeouts = Config.Timeout.PerSet }
 local matchTab = "Browse"
 local editing = false -- the host is changing their lobby's settings
 local joinTarget = nil -- a private lobby waiting for its password
@@ -2909,17 +2911,57 @@ local function stepper(parent, props, onStep)
 	local up = hairButton(f, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromOffset(44, 42) }, ">", 24)
 	down:SetAttribute("Sound", "UITick")
 	up:SetAttribute("Sound", "UITick")
-	onClick(down, function()
-		onStep(-1)
-	end)
-	onClick(up, function()
-		onStep(1)
-	end)
+	-- a click steps once; held down it keeps stepping (3 to 50 points is a long way)
+	local function repeater(b, dir)
+		local held, last = nil, nil
+		b.MouseButton1Down:Connect(function()
+			local token = { repeated = false }
+			held, last = token, token
+			task.delay(0.4, function()
+				while held == token and b.Parent do
+					token.repeated = true
+					onStep(dir)
+					if Gui.play then
+						Gui.play("UITick", { minGap = 0.05 })
+					end
+					task.wait(0.07)
+				end
+			end)
+		end)
+		local function stop()
+			held = nil
+		end
+		b.MouseButton1Up:Connect(stop)
+		b.MouseLeave:Connect(stop)
+		UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				stop()
+			end
+		end)
+		onClick(b, function()
+			if not (last and last.repeated) then
+				onStep(dir)
+			end
+			last = nil
+		end)
+	end
+	repeater(down, -1)
+	repeater(up, 1)
 	return value
 end
 
-local function formRow(parent, y, label)
-	return Gui.label(parent, { Text = label, display = true, TextSize = 21, Size = UDim2.fromOffset(170, 44), Position = UDim2.fromOffset(0, y) })
+local function formRow(parent, y, label, x)
+	return Gui.label(parent, { Text = label, display = true, TextSize = 21, Size = UDim2.fromOffset(170, 44), Position = UDim2.fromOffset(x or 0, y) })
+end
+
+-- A custom lobby's rules in a line: "to 21, win by 2, best of 3, 2 timeouts".
+local function rulesLine(r)
+	local parts = { string.format("to %d", r.points or Config.Match.PointsPerSet) }
+	table.insert(parts, (r.winBy or Config.Match.WinBy) > 1 and "win by 2" or "no deuce")
+	table.insert(parts, (r.sets or 1) > 1 and string.format("best of %d", r.sets) or "1 set")
+	local n = r.timeouts or Config.Timeout.PerSet
+	table.insert(parts, n == 1 and "1 timeout" or string.format("%d timeouts", n))
+	return table.concat(parts, ", ")
 end
 
 -- The lobby window, in Home's broadcast kit: plate tabs, hairline cards, the display face and a
@@ -2932,7 +2974,7 @@ local MODE_LINES = {
 }
 
 local function buildMatch()
-	local m = modal("Match", "Lobbies", 900, 620, true)
+	local m = modal("Match", "Lobbies", 1100, 620, true)
 	local P = m.panel
 	local tabs, setTab = plateTabs(P, { { key = "Browse", text = "Lobbies" }, { key = "Create", text = "Create Lobby" } }, { Size = UDim2.fromOffset(400, 46), Position = UDim2.fromOffset(24, 88) }, function(key)
 		matchTab = key
@@ -3034,10 +3076,36 @@ local function buildMatch()
 	end)
 	courtValue.TextSize = 24
 	local courtNote = Gui.label(create, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(400, 20), Position = UDim2.fromOffset(180, 388) })
+
+	-- the match rules, in a column of their own on the right
+	local RX = 650
+	formRow(create, 0, "Points", RX)
+	local pointsValue = stepper(create, { Size = UDim2.fromOffset(200, 42), Position = UDim2.fromOffset(RX + 150, 0) }, function(d)
+		form.points = math.clamp(form.points + d, MC.PointsMin, MC.PointsMax)
+		MenuController.refresh()
+	end)
+	local pointsNote = Gui.label(create, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.fromOffset(250, 38), Position = UDim2.fromOffset(RX + 150, 46) })
+	formRow(create, 96, "Win by 2", RX)
+	local _, setWinBy = plateTabs(create, { { key = 2, text = "On" }, { key = 1, text = "Off" } }, { Size = UDim2.fromOffset(250, 44), Position = UDim2.fromOffset(RX + 150, 96) }, function(k)
+		form.winBy = k
+		MenuController.refresh()
+	end)
+	formRow(create, 158, "Sets", RX)
+	local _, setSets = plateTabs(create, { { key = 1, text = "1" }, { key = 3, text = "Best of 3" }, { key = 5, text = "Best of 5" } }, { Size = UDim2.fromOffset(250, 44), Position = UDim2.fromOffset(RX + 150, 158) }, function(k)
+		form.sets = k
+		MenuController.refresh()
+	end)
+	local setsNote = Gui.label(create, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(250, 20), Position = UDim2.fromOffset(RX + 150, 206) })
+	formRow(create, 240, "Timeouts", RX)
+	local timeoutsValue = stepper(create, { Size = UDim2.fromOffset(200, 42), Position = UDim2.fromOffset(RX + 150, 240) }, function(d)
+		form.timeouts = math.clamp(form.timeouts + d, 0, MC.TimeoutsMax)
+		MenuController.refresh()
+	end)
+	Gui.label(create, { Text = "Per team, every set.", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(250, 20), Position = UDim2.fromOffset(RX + 150, 286) })
 	local submit, submitLabel = actionPlate(create, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(250, 58) }, "Create Lobby", 24)
 	local cancelEdit = hairButton(create, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -266, 1, 0), Size = UDim2.fromOffset(180, 58), Visible = false }, "Back to lobby")
 	onClick(submit, function()
-		local s = { mode = form.mode, privacy = form.privacy, password = form.password, fill = form.fill, botTier = form.botTier, court = form.court }
+		local s = { mode = form.mode, privacy = form.privacy, password = form.password, fill = form.fill, botTier = form.botTier, court = form.court, points = form.points, winBy = form.winBy, sets = form.sets, timeouts = form.timeouts }
 		if editing then
 			Net.get("Lobby"):FireServer("settings", s)
 			editing = false
@@ -3090,6 +3158,8 @@ local function buildMatch()
 		local mine = lobbies.mine
 		if mine then
 			form.mode, form.privacy, form.fill, form.botTier, form.court = mine.mode, mine.privacy, mine.fill, mine.botTier, mine.court or Config.Courts.Rotate
+			form.points, form.winBy = mine.points or Config.Match.PointsPerSet, mine.winBy or Config.Match.WinBy
+			form.sets, form.timeouts = mine.sets or 1, mine.timeouts or Config.Timeout.PerSet
 			form.password = mine.password or ""
 			cpw.Text = form.password
 			editing = true
@@ -3124,6 +3194,12 @@ local function buildMatch()
 		botValue = botValue,
 		courtValue = courtValue,
 		courtNote = courtNote,
+		pointsValue = pointsValue,
+		pointsNote = pointsNote,
+		setWinBy = setWinBy,
+		setSets = setSets,
+		setsNote = setsNote,
+		timeoutsValue = timeoutsValue,
 		submit = submit,
 		submitLabel = submitLabel,
 		cancelEdit = cancelEdit,
@@ -3197,7 +3273,7 @@ local function refreshMatch()
 		if l then
 			shownRows = shownRows + 1
 			row.host.Text = l.quick and ("Quick Match " .. l.mode .. "v" .. l.mode) or (l.hostName .. "'s Lobby")
-			row.detail.Text = string.format("%dv%d   %s   %s   Bots %s   %s", l.mode, l.mode, PRIVACY_TEXT[l.privacy] or l.privacy, l.fill and "Bots fill" or "No bots", l.botTier, l.quick and "Rotation" or courtName(l.court))
+			row.detail.Text = string.format("%dv%d   %s   %s   Bots %s   %s%s", l.mode, l.mode, PRIVACY_TEXT[l.privacy] or l.privacy, l.fill and "Bots fill" or "No bots", l.botTier, l.quick and "Rotation" or courtName(l.court), l.quick and "" or ("   " .. rulesLine(l)))
 			row.count.Text = string.format("%d/%d", l.count, l.capacity)
 			row.stateLabel.Text = STATE_TEXT[l.state] or l.state
 			Gui.tint(row.state, l.state == "Open" and Color3.fromRGB(34, 150, 96) or Gui.NAVY_LIGHT)
@@ -3224,6 +3300,12 @@ local function refreshMatch()
 	Mt.courtValue.Text = courtName(form.court)
 	local pickedCourt = Config.Courts.List[form.court]
 	Mt.courtNote.Text = pickedCourt and pickedCourt.Blurb or "A different court every match."
+	Mt.pointsValue.Text = tostring(form.points)
+	Mt.pointsNote.Text = form.points < Config.Match.PointsPerSet and string.format("Under %d pays less and doesn't count for your record.", Config.Match.PointsPerSet) or "The points a set is played to."
+	Mt.setWinBy(form.winBy)
+	Mt.setSets(form.sets)
+	Mt.timeoutsValue.Text = tostring(form.timeouts)
+	Mt.setsNote.Text = form.sets > 1 and string.format("First to %d sets wins.", math.floor(form.sets / 2) + 1) or "Then a vote to keep playing."
 	Mt.submitLabel.Text = editing and "Save settings" or "Create Lobby"
 	Mt.cancelEdit.Visible = editing
 
@@ -3235,6 +3317,9 @@ local function refreshMatch()
 		end
 		table.insert(parts, mine.fill and ("bots fill empty spots (level " .. mine.botTier .. ")") or "no bots")
 		table.insert(parts, mine.quick and "court rotation" or courtName(mine.court))
+		if not mine.quick then
+			table.insert(parts, rulesLine(mine))
+		end
 		if mine.reserved then
 			table.insert(parts, "your own server")
 		end
