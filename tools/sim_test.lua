@@ -259,6 +259,104 @@ do
 	check(over.meta.overcharge and not Court.inBounds(path.landing.pos), "overcharge flies out", describe(path))
 end
 
+print("== Feral Leap (Dante) ==")
+do
+	local FERAL = Config.Abilities.Feral
+	local dante = Characters.derive(Characters.fromRoster(Roster.get("dante"), "max"))
+	local seojin = Characters.derive(Characters.fromRoster(Roster.get("seojin"), "max"))
+	local root = apexRoot(dante, 3.5 * K)
+	local b = ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local function leapSpike(gauge, toward, extraCtx, stats)
+		local c = { ability = "Feral", stats = stats or dante }
+		for k, v in pairs(extraCtx or {}) do c[k] = v end
+		local r = apexRoot(c.stats, 3.5 * K)
+		return spike(r, ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy), c, { gauge = gauge, toward = toward })
+	end
+	local _, none = leapSpike(0, true)
+	local _, half = leapSpike(0.5, true)
+	local _, full = leapSpike(1, true)
+	local sr = apexRoot(seojin, 3.5 * K)
+	local _, azure = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy), { ability = "Azure", stats = seojin }, { energy = 1 })
+	check(none.meta.kmh > 141 and half.meta.kmh > none.meta.kmh + 15 and full.meta.kmh > half.meta.kmh + 25 and full.meta.kmh > azure.meta.kmh and full.meta.kmh <= 212,
+		"the longer the charge, the harder the spike; a full one tops a full Azure", string.format("0%%: %.0f  50%%: %.0f  100%%: %.0f km/h (full Azure %.0f)", none.meta.kmh, half.meta.kmh, full.meta.kmh, azure.meta.kmh))
+	local path = BallPhysics.buildPath(full.launch)
+	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "a full leap spike lands in", describe(path))
+	local _, away = leapSpike(1, false)
+	local _, most = leapSpike(0.9, true)
+	check(full.meta.fullLeap and full.meta.breakAtk == dante.Attack and away.meta.fullLeap and not away.meta.breakAtk and not most.meta.fullLeap and not most.meta.breakAtk,
+		"only a full charge leaping at the net carries the block break (with his Attack)", string.format("break Attack %s", tostring(full.meta.breakAtk)))
+	local _, first = leapSpike(1, true, { firstStrike = true })
+	local _, firstHalf = leapSpike(0.5, true, { firstStrike = true })
+	check(first.meta.firstStrike and math.abs(first.meta.kmh / full.meta.kmh - (1 + FERAL.FirstBoost)) < 0.005 and not full.meta.firstStrike and not firstHalf.meta.firstStrike,
+		"the match's first full charge hits harder still (a partial one doesn't spend it)", string.format("%.0f km/h", first.meta.kmh))
+
+	-- the block break: through a blocker with less Attack, not one with more, never Iron Wall;
+	-- blocked where the full leap spike reaches the net
+	local bside = -side
+	local mb = Characters.stats("S+", "MB")
+	local tNet = BallPhysics.findTime(path, 0, function(pos) return pos.Z * side <= 0.2 end)
+	local bball = BallPhysics.positionAt(path, tNet)
+	local inc = BallPhysics.velocityAt(path, tNet)
+	local broot = vec(0, bball.Y - Z.BlockReachUp + 1.0, bside * 1.2)
+	local function blockAgainst(meta, stats, wall)
+		local last = { team = "Away" }
+		for k, v in pairs(meta) do last[k] = v end
+		last.team = "Away"
+		return HitLogic.compute({ action = "Block", t = 0, root = broot, ball = bball, grounded = false },
+			{ side = bside, team = "Home", teamSize = 3, seq = 7, ballVel = inc, lastHit = last, stats = stats, groundY = GROUND, ironWall = wall })
+	end
+	local okB, smash = blockAgainst(full.meta, mb)
+	local spath = BallPhysics.buildPath(smash.launch)
+	check(okB and smash.meta.outcome == "Break" and smash.meta.breakThrough and spath.landing.pos.Z * bside > 0 and Court.inBounds(spath.landing.pos) and smash.meta.kmh >= 0.8 * HitLogic.kmh(inc.Magnitude) and HitLogic.isHeavy(smash.meta),
+		"a full leap at the net smashes through a middle's block and on into their court, still a spike to dig", string.format("%s at %.0f km/h, %s", smash.meta.outcome, smash.meta.kmh, describe(spath)))
+	local strong = Characters.boosted(mb, { Attack = dante.Attack - mb.Attack + 5 })
+	local _, held = blockAgainst(full.meta, strong)
+	local _, walled = blockAgainst(full.meta, mb, true)
+	local _, plain = blockAgainst(away.meta, mb)
+	check(held.meta.outcome ~= "Break" and walled.meta.outcome == "Stuff" and plain.meta.outcome ~= "Break",
+		"a blocker with more Attack holds, Iron Wall stuffs it, and a leap away from the net can't break", string.format("%s / %s / %s", held.meta.outcome, walled.meta.outcome, plain.meta.outcome))
+	local recRoot = vec(0, GROUND, bside * 18 * K)
+	local recBall = vec(0, recRoot.Y + Z.ReceiveIdealY, recRoot.Z - bside * Z.ReceiveForward)
+	local okD, dig = HitLogic.compute({ action = "Bump", t = 0, root = recRoot, ball = recBall, grounded = true, stanceAge = 0.6 },
+		{ side = bside, team = "Home", teamSize = 3, seq = 9, ballVel = vec(0, -30 * K, bside * 110 * K), lastHit = smash.meta, touchNumber = 1, stats = mb, groundY = GROUND, stamina = { value = 90, max = 90 } })
+	check(okD and (dig.meta.drain or 0) > 5, "digging the ball that broke through costs stamina like a spike", string.format("drain %.1f", dig.meta.drain or 0))
+
+	-- the AI playing him hits with less; his serve toss goes further forward; his reach is wider
+	local auto = HitLogic.effectiveStats(dante, "Feral", nil, { auto = true })
+	local _, autoNone = leapSpike(0, true, { auto = true })
+	local _, autoFull = leapSpike(1, true, { auto = true })
+	local autoBonus = autoFull.meta.kmh / autoNone.meta.kmh - 1
+	check(auto.Attack == math.floor(dante.Attack * FERAL.AutoAttackMul + 0.5) and math.abs(autoBonus - FERAL.MaxBoost * FERAL.AutoBoostMul) < 0.005 and autoFull.meta.kmh < full.meta.kmh - 20,
+		"played by the AI: 85% of the Attack and three quarters of the gauge's bonus", string.format("%d Attack, a full leap %.0f km/h (+%.0f%%)", auto.Attack, autoFull.meta.kmh, autoBonus * 100))
+	local tr = vec(0, GROUND, side * C.SideDepth + side * 2)
+	local _, v1 = HitLogic.tossLaunch(tr, side, H.TossHighMax, 1)
+	local _, v2 = HitLogic.tossLaunch(tr, side, H.TossHighMax, 1, HitLogic.tossReach("Feral"))
+	local T = 2 * v1.Y / Config.Ball.Gravity
+	local okT, toss = HitLogic.compute({ action = "Toss", t = 0, root = tr, ball = tr, grounded = true, tossHeight = H.TossHighMax, tossForward = 1 }, ctx({ ability = "Feral" }))
+	check(math.abs((math.abs(v2.Z) - math.abs(v1.Z)) * T - H.TossForwardMax * (FERAL.TossReachMul - 1)) < 1e-6 and okT and math.abs(toss.launch.v.Z - v2.Z) < 1e-9,
+		"his full forward toss comes down further in front", string.format("%.1f m further", (math.abs(v2.Z) - math.abs(v1.Z)) * T / SPM))
+	local wide = ballAt(root, Z.SpikeCenterDz + Z.SpikeRadiusZ * dante.Reach * 1.07, Z.SpikeCenterDy)
+	local okW = spike(root, wide, { ability = "Feral", stats = dante })
+	local okN = spike(root, wide, { stats = dante })
+	check(okW and not okN, "his spike reaches wider", string.format("x%.2f", FERAL.ReachMul))
+
+	-- how far the leap carries: the flight of his full jump (hang force included) at the carry
+	local P = Config.Player
+	local g = P.Gravity
+	local v = math.sqrt(2 * g * Characters.jumpHeight(dante, GROUND))
+	local y, t, dt = 0, 0, 1 / 240
+	repeat
+		local a = g
+		if math.abs(v) < P.HangVelocityWindow then a = g * (1 - P.HangGravityCancel) end
+		v = v - a * dt
+		y = y + v * dt
+		t = t + dt
+	until y <= 0 or t > 5
+	local fullM = FERAL.CarryMax * t / SPM
+	local tapM = FERAL.CarryMax * (FERAL.TapTime / FERAL.ChargeTime) * t / SPM
+	check(fullM >= 4.5 and fullM <= 8 and tapM < 1.2, "a full charge carries the leap 4.5 to 8 m further; a short one barely", string.format("full %.1f m, shortest leap %.1f m over %.2f s in the air", fullM, tapM, t))
+end
+
 print("== tiers and builds ==")
 do
 	local prev = 0
@@ -308,14 +406,15 @@ do
 			okLimits = okLimits and c[k] >= Config.Stats.Min and c[k] <= Config.Stats.Max
 		end
 		if c.Tier == "S+" then
-			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure")
+			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral")
 		elseif c.Tier == "S" then
 			okAbility = okAbility and want[c.Role][c.Ability or ""] == true and Config.Abilities[c.Ability].Role == c.Role
 		else
 			okAbility = okAbility and c.Ability == nil
 		end
 		if c.Role == "WS" then
-			okShape = okShape and c.Attack <= 210 and c.Jump <= 190 and c.Attack > c.Defense
+			-- 210 Attack tops the wing spikers' template; Dante (Feral Leap) is the one above it
+			okShape = okShape and (c.Attack <= 210 or c.Ability == "Feral") and c.Jump <= 190 and c.Attack > c.Defense
 		elseif c.Role == "SE" then
 			okShape = okShape and c.Speed > c.Attack and c.Defense > c.Jump
 			tallestSE = math.max(tallestSE, c.Height)
@@ -327,7 +426,16 @@ do
 		end
 	end
 	check(okLimits and #Roster >= 30, "every roster character is valid and unique", #Roster .. " characters")
-	check(okAbility, "abilities: S+ wing spikers have Thunder or Azure, S characters one of their role's abilities, the rest none")
+	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure or Feral Leap, S characters one of their role's abilities, the rest none")
+	local topId, topAtk, nextAtk = nil, 0, 0
+	for _, c in ipairs(Roster) do
+		if c.Attack > topAtk then
+			topId, nextAtk, topAtk = c.Id, topAtk, c.Attack
+		elseif c.Attack > nextAtk then
+			nextAtk = c.Attack
+		end
+	end
+	check(topId == "dante" and topAtk > nextAtk, "Dante (Feral Leap) has the highest Attack in the game", string.format("%s %d, next best %d", tostring(topId), topAtk, nextAtk))
 	check(okShape and shortestMB > tallestSE, "roles: wing spikers hit hardest, middles are the tallest, setters live on speed and defense", string.format("shortest MB %d cm, tallest SE %d cm", shortestMB, tallestSE))
 	local yejun = Roster.get("yejun")
 	local ys = Characters.derive(Characters.fromRoster(yejun, "max"))

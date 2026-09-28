@@ -680,16 +680,18 @@ local function update()
 	else
 		set("A", "SlideFeint", "Slide", "IconSpeed", not air)
 		local atNet = ctx.nearNet == true and not air
+		-- Feral Leap: held, Jump charges (let go to leap)
+		local jumpLabel = ctx.spikeLabel == "Leap" and "Leap" or "Jump"
 		if air then
 			set("B", "SlideFeint", "Feint", "IconDefense")
 			set("C", "Spike", ctx.spikeLabel == "Charge" and "Charge" or "Spike", "IconAttack")
 		elseif atNet then
 			-- at the net the bump button blocks: hold to charge, let go to jump
 			set("B", "Block", "Block", "IconDefense")
-			set("C", "Jump", "Jump", "IconJump")
+			set("C", "Jump", jumpLabel, "IconJump")
 		else
 			set("B", "Receive", "Bump", "IconDefense")
-			set("C", "Jump", "Jump", "IconJump")
+			set("C", "Jump", jumpLabel, "IconJump")
 		end
 		-- with setter aim on the Set button stays up, so the distance can be charged as the pass
 		-- comes (hold, then let go when it's in reach)
@@ -702,7 +704,13 @@ local function update()
 		else
 			ring("B", UI.Spark, ctx.incoming == true and not air)
 		end
-		ring("C", UI.Spark, ctx.inZone == true or ctx.running == true)
+		local prowl = mods.ActionController.prowlCharge()
+		if prowl then
+			local F = Config.Abilities.Feral
+			ring("C", prowl >= F.FullAt and Color3.fromRGB(255, 80, 210) or F.Color, true)
+		else
+			ring("C", UI.Spark, ctx.inZone == true or ctx.running == true)
+		end
 		ring("Set", UI.Spark, ctx.canSet == true)
 	end
 

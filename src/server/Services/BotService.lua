@@ -29,6 +29,7 @@ local Z, H, P, B = Config.Zones, Config.Hits, Config.Player, Config.Bots
 local C = Config.Court
 local SPM = Config.Scale.StudsPerMeter
 local AZURE = Config.Abilities.Azure
+local FERAL = Config.Abilities.Feral
 local VECTOR = Config.Abilities.Vector
 local SKIN = {
 	Color3.fromRGB(255, 219, 172),
@@ -217,6 +218,11 @@ local function resetTask(b)
 	b.backup = nil
 	b.notBefore = nil
 	b.setStandZ = nil
+	if b.leapFrom then
+		-- a Feral Leap's air charge that never got its spike
+		b.leapFrom = nil
+		reg.HitService.fx(b.entity.id, "ProwlEnd")
+	end
 end
 
 -- The nearest bot on `team` to z (skipping `excludeId` and `alsoExclude`), to cover a ball a
@@ -966,6 +972,11 @@ local function updateBot(b, now)
 				b.chargeFrom = now + 0.08
 				reg.HitService.fx(e.id, "Charge")
 			end
+			if e.ability == "Feral" and (b.task == "Spike" or b.task == "Quick") then
+				-- Feral Leap on auto: the gauge fills in the air (every client grows the arc)
+				b.leapFrom = now
+				reg.HitService.fx(e.id, "Prowl", "auto")
+			end
 		end
 		b.jumpAt = nil
 	end
@@ -1035,6 +1046,12 @@ local function updateBot(b, now)
 					reg.HitService.fx(e.id, "ChargeEnd")
 				end
 				local extra = { t = t, energy = energy }
+				if b.leapFrom then
+					extra.gauge = math.clamp((t - b.leapFrom) / FERAL.AutoChargeTime, 0, 1)
+					extra.toward = true
+					b.leapFrom = nil
+					reg.HitService.fx(e.id, "ProwlEnd")
+				end
 				if b.rng:NextNumber() < tierPair(b, B.SpikeMishitChance) then
 					extra.quality = 0.2 + 0.3 * b.rng:NextNumber() -- framed it
 				end

@@ -175,6 +175,13 @@ function MatchService.judge(landing, flags, last)
 		return r
 	end
 	local pos = landing.pos
+	if last.breakThrough and landing.kind == "Floor" then
+		-- a Feral Leap spike that smashed through the block and wasn't dug: the attacker's kill
+		-- (the block was the last touch, but it never stopped the ball)
+		r.winner = Court.other(last.team)
+		r.reason = Court.inBounds(pos) and "Spike" or "Tooled"
+		return r
+	end
 	if flags.underNet or landing.kind ~= "Floor" then
 		r.winner = Court.other(last.team)
 		r.error = true

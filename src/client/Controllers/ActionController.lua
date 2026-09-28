@@ -2,7 +2,9 @@
 --
 --   Spike ........ ground: run-up jump (with the double approach setting: the first press runs
 --                  in, the second jumps) / air: spike. Azure Dragon: hold in the air to gather
---                  energy (hover), release to swing. Holding past full overcharges it.
+--                  energy (hover), release to swing. Holding past full overcharges it. Feral
+--                  Leap: hold on the ground to charge (he runs faster), let go to leap; the
+--                  charge carries him along the court and powers the spike.
 --   Receive ...... arms a receive stance; the touch happens automatically when the ball arrives.
 --                  Pressed a little early (not too early) = perfect timing = almost no stamina lost.
 --   Slide/feint .. ground: slide receive (never costs stamina) / air: roll shot over the block.
@@ -35,6 +37,7 @@ local mods
 local player = Players.LocalPlayer
 local P, Z, H = Config.Player, Config.Zones, Config.Hits
 local AZURE = Config.Abilities.Azure
+local FERAL = Config.Abilities.Feral
 local BUFFER = 0.14 -- how long a set press waits for the ball
 -- A spike pressed in the air commits the swing: if the ball will reach your hand within this
 -- long (your jump and the ball both predicted), the swing waits for it instead of whiffing.
@@ -54,6 +57,10 @@ local block = { charging = false, t0 = 0, active = false, activeT0 = 0, lastT = 
 local serveHold = nil -- { t0 }
 local autoOverhand = false
 local charge = { holding = false, energy = 0, gauge = 1, overT = 0 }
+-- Feral Leap: the charge held on the ground, and what the current jump took off with (its one
+-- spike carries the gauge; spent by that spike or the landing)
+local prowl = nil -- { t0, kind } while Spike (Jump on touch) is held on the ground
+local leap = { gauge = 0, toward = false, at = -10 }
 
 local REASONS = {
 	count = "Three touches used. Send it over!",
@@ -114,6 +121,7 @@ local function buildCtx(info, action, t)
 		teamBoost = State.rallyOn(State.myTeam, t) or nil,
 		counter = ability == "Counter" and (player:GetAttribute("Counter") or 0) or nil,
 		turnabout = ability == "Turnabout" and ActionController.abilityActive() or nil,
+		firstStrike = ability == "Feral" and not player:GetAttribute("FirstStrikeUsed") or nil,
 	}, ok, why
 end
 
@@ -268,6 +276,9 @@ local function execute(action, info, opts, t, ballPos)
 		aimDepth = opts.aimDepth,
 		aimHeight = opts.aimHeight,
 	}
+	if action == "Spike" and ctx.ability == "Feral" and leap.gauge > 0 then
+		input.gauge, input.toward = leap.gauge, leap.toward
+	end
 	local ok, result = HitLogic.compute(input, ctx)
 	if not ok then
 		return false, result
@@ -275,6 +286,10 @@ local function execute(action, info, opts, t, ballPos)
 	local meta = result.meta
 	if meta.turnabout then
 		localAbilityUntil = -1 -- spent (the server clears its window too)
+	end
+	if input.gauge then
+		leap.gauge = 0 -- the leap's one spike (the server spends it too)
+		Net.get("ActionFX"):FireServer("ProwlEnd")
 	end
 	meta.id = State.myId
 	meta.name = player.DisplayName
@@ -303,6 +318,8 @@ local function execute(action, info, opts, t, ballPos)
 		tossForward = input.tossForward,
 		aimDepth = input.aimDepth,
 		aimHeight = input.aimHeight,
+		gauge = input.gauge,
+		toward = input.toward,
 	})
 	lastActionAt = os.clock()
 	buffered = nil
@@ -329,7 +346,8 @@ local function inPlay()
 end
 
 -- My root height `dt` seconds from now while airborne: gravity with the hang force near the
--- apex and the Azure hover while charging, the same forces MovementController applies.
+-- apex and the Azure hover while charging, the same forces MovementController applies. Also the
+-- speed along the court to assume: a Feral Leap's carry holds all flight (other jumps: none).
 local function rootPath(info, horizon)
 	local g = workspace.Gravity
 	local y, v = info.root.Y, info.vy
@@ -348,7 +366,11 @@ local function rootPath(info, horizon)
 		t = t + step
 		table.insert(out, y)
 	end
-	return out, step
+	local vz = 0
+	if mods.MovementController.leaping() then
+		vz = info.hrp.AssemblyLinearVelocity.Z
+	end
+	return out, step, vz
 end
 
 -- Normalised offset of the ball from the centre of my spike zone (|n| <= 1 is in reach).
@@ -366,11 +388,11 @@ end
 -- does (nil if never), plus the closest approach for explaining a miss.
 local function lookAhead(info, now, scale, horizon)
 	local BR = mods.BallRenderer
-	local ys, step = rootPath(info, horizon)
+	local ys, step, vz = rootPath(info, horizon)
 	local bestD, bestNz, bestNy = math.huge, 0, 0
 	for i = 2, #ys, 2 do
 		local t = i * step
-		local root = Vector3.new(info.root.X, ys[i], info.root.Z)
+		local root = Vector3.new(info.root.X, ys[i], info.root.Z + vz * t)
 		local nz, ny = zoneOffset(root, BR.getPosition(now + t), scale)
 		local d = math.sqrt(nz * nz + ny * ny)
 		if d <= 1 then
@@ -420,14 +442,17 @@ local function tryAttack(action, info, opts)
 		end
 	end
 	local scale = ATTACK_SCALE[action] or 1
+	if action == "Spike" then
+		scale = scale * HitLogic.spikeReach(State.myAbility()) -- Feral Leap reaches wider
+	end
 	local nz, ny = zoneOffset(info.root, ball, scale)
 	local d = math.sqrt(nz * nz + ny * ny)
 	local q = d <= 1 and (1 - d ^ 1.5) or 0
 	local swingNow = d <= 1 and q >= MIN_CONTACT
 	if d <= 1 and not swingNow then
 		-- barely in reach: swing now if the ball is on its way out, wait if it's coming in
-		local ys = rootPath(info, 1 / 60)
-		local nz2, ny2 = zoneOffset(Vector3.new(info.root.X, ys[#ys], info.root.Z), mods.BallRenderer.getPosition(now + 1 / 60), scale)
+		local ys, _, vz = rootPath(info, 1 / 60)
+		local nz2, ny2 = zoneOffset(Vector3.new(info.root.X, ys[#ys], info.root.Z + vz / 60), mods.BallRenderer.getPosition(now + 1 / 60), scale)
 		swingNow = math.sqrt(nz2 * nz2 + ny2 * ny2) >= d
 	end
 	if swingNow then
@@ -487,6 +512,81 @@ local function tossForward()
 	return 0
 end
 
+local function isFeral()
+	return State.myAbility() == "Feral"
+end
+
+-- Feral Leap: the charge held on the ground, 0..1 (nil when not charging).
+function ActionController.prowlCharge()
+	if not prowl then
+		return nil
+	end
+	return math.clamp((os.clock() - prowl.t0) / FERAL.ChargeTime, 0, 1)
+end
+
+-- The gauge the current jump took off with (0 unless it's a Feral Leap), and whether it went at
+-- the net.
+function ActionController.leapGauge()
+	return leap.gauge, leap.toward
+end
+
+-- Hold to charge: he drops low and runs faster as the arc fills; the leap comes on the release.
+-- kind: the button held ("Spike", or touch's "Jump").
+local function startProwl(kind)
+	if not mods.MovementController.canJump() then
+		return false
+	end
+	prowl = { t0 = os.clock(), kind = kind }
+	leap.gauge = 0
+	mods.MovementController.setProwl(prowl.t0)
+	mods.AnimationController.pose(State.myId, "Prowl", 10)
+	Net.get("ActionFX"):FireServer("Prowl")
+	return true
+end
+
+local function cancelProwl()
+	if not prowl then
+		return
+	end
+	prowl = nil
+	mods.MovementController.setProwl(nil)
+	mods.AnimationController.clearStance(State.myId)
+	Net.get("ActionFX"):FireServer("ProwlEnd")
+end
+
+-- Let go: a tap is the usual jump (Spike's run-up, or touch's Jump straight up); a hold leaps
+-- the way you hold (at the net when you hold nothing), carried by the charge, and the gauge goes
+-- with the spike.
+local function releaseProwl()
+	local p = prowl
+	if not p then
+		return
+	end
+	prowl = nil
+	local MC = mods.MovementController
+	MC.setProwl(nil)
+	local held = os.clock() - p.t0
+	if held < FERAL.TapTime then
+		mods.AnimationController.clearStance(State.myId)
+		Net.get("ActionFX"):FireServer("ProwlEnd")
+		if p.kind == "Jump" then
+			MC.jump("Spike")
+		else
+			MC.approach("Spike")
+		end
+		return
+	end
+	local gauge = math.clamp(held / FERAL.ChargeTime, 0, 1)
+	local dir = MC.leap(gauge)
+	if not dir then
+		mods.AnimationController.clearStance(State.myId)
+		Net.get("ActionFX"):FireServer("ProwlEnd")
+		return
+	end
+	leap.gauge, leap.toward, leap.at = gauge, dir == -State.mySide, os.clock()
+	Net.get("ActionFX"):FireServer("Leap", string.format("%.2f", gauge))
+end
+
 local function pressSpike(info)
 	local MC = mods.MovementController
 	if serving() then
@@ -515,6 +615,9 @@ local function pressSpike(info)
 		return
 	end
 	if info.grounded then
+		if isFeral() and startProwl("Spike") then
+			return
+		end
 		MC.approach("Spike")
 		return
 	end
@@ -533,6 +636,10 @@ local function pressSpike(info)
 end
 
 local function releaseSpike(info)
+	if prowl then
+		releaseProwl()
+		return
+	end
 	if not charge.holding then
 		return
 	end
@@ -576,6 +683,7 @@ local function pressSlideFeint(info)
 		if phase ~= "Rally" and phase ~= "Serving" then
 			return
 		end
+		cancelProwl() -- a slide calls off Feral Leap's charge
 		local dir = mods.MovementController.axis()
 		if math.abs(dir) < 0.3 and mods.BallRenderer.isLive() then
 			dir = mods.BallRenderer.getPath().landing.pos.Z - info.root.Z
@@ -713,7 +821,7 @@ local function tossGuide(info)
 			if held >= P.ServeTapTime then
 				local k = math.clamp((held - P.ServeTapTime) / H.TossChargeTime, 0, 1)
 				local height = H.TossHighMin + (H.TossHighMax - H.TossHighMin) * k
-				local p, v = HitLogic.tossLaunch(info.root, State.mySide, height, tossForward())
+				local p, v = HitLogic.tossLaunch(info.root, State.mySide, height, tossForward(), HitLogic.tossReach(State.myAbility()))
 				path = BallPhysics.buildPath(BallPhysics.newLaunch(p, v, Vector3.new(0, -Config.Ball.Gravity, 0), 0))
 			end
 		elseif myToss() then
@@ -767,6 +875,7 @@ end
 
 -- The touch Jump button: straight up (the owner: "on mobile, make approach just make you
 -- jump"), winding up a spike, or a jump serve once the toss is up; in the air it's the spike.
+-- Feral Leap: held on the ground it charges, and letting go leaps.
 local function pressJump(info)
 	if not info.grounded then
 		pressSpike(info)
@@ -779,6 +888,9 @@ local function pressJump(info)
 		return
 	end
 	if State.isPlaying and State.phase() == "Rally" then
+		if isFeral() and startProwl("Jump") then
+			return
+		end
 		mods.MovementController.jump("Spike")
 	end
 end
@@ -834,6 +946,8 @@ function ActionController.release(action)
 	end
 	if action == "Spike" then
 		releaseSpike(info)
+	elseif action == "Jump" then
+		releaseProwl()
 	elseif action == "Block" then
 		releaseBlock(info)
 	elseif action == "Serve" then
@@ -1040,6 +1154,18 @@ local function processCharge(info, dt)
 	State.signals.Charge:Fire(charge.energy, charge.gauge, st)
 end
 
+-- Feral Leap: the charge ends if he leaves the ground some other way or the rally stops; a
+-- leap's gauge is gone once he lands without spiking.
+local function processProwl(info)
+	if prowl and (not info.grounded or not isFeral() or State.phase() ~= "Rally") then
+		cancelProwl()
+	end
+	if leap.gauge > 0 and info.grounded and os.clock() - leap.at > 0.35 and not mods.MovementController.isGathering() then
+		leap.gauge = 0
+		Net.get("ActionFX"):FireServer("ProwlEnd")
+	end
+end
+
 -- Receive assist: arms the stance automatically for a ball heading at you.
 local function autoAssist(info, now)
 	if not State.settings.assist or stance or not info.grounded or not inPlay() then
@@ -1070,6 +1196,9 @@ end
 -- What Spike does on the ground: a run-up jump, or with the double approach first the run-up,
 -- then the jump.
 local function groundSpikeLabel()
+	if prowl then
+		return "Leap" -- Feral Leap's charge: let go to leap
+	end
 	if State.settings.doubleApproach and not mods.MovementController.isRunning() then
 		return "Approach"
 	end
@@ -1115,7 +1244,7 @@ local function evaluate(info, now)
 		ctx.canSet = ok and (HitLogic.setZone(info.root, bp, side, stats))
 	else
 		ctx.spikeLabel = isAzure() and "Charge" or "Spike"
-		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, 1))
+		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReach(State.myAbility())))
 	end
 	local meta = BR.getMeta()
 	ctx.incoming = meta ~= nil and meta.team ~= State.myTeam and bp.Z * side > -0.6 * Config.Scale.StudsPerMeter
@@ -1136,6 +1265,7 @@ function ActionController.init(m)
 		local now = Util.now()
 		State.context = evaluate(info, now)
 		if info and State.isPlaying then
+			processProwl(info)
 			processCharge(info, dt)
 			processBuffer(info, now)
 			processStance(info, now)
@@ -1144,9 +1274,15 @@ function ActionController.init(m)
 			processOverhand(info, now)
 			autoAssist(info, now)
 			tossGuide(info)
-		elseif guideOn then
-			mods.BallRenderer.guide(nil)
-			guideOn = false
+		else
+			if prowl then
+				cancelProwl()
+			end
+			leap.gauge = 0
+			if guideOn then
+				mods.BallRenderer.guide(nil)
+				guideOn = false
+			end
 		end
 	end)
 end

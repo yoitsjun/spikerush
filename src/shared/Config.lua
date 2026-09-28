@@ -507,7 +507,7 @@ Config.TierColors = {
 	S = Color3.fromRGB(255, 196, 60),
 }
 
--- Abilities come with a character (the Roster module). S+ wing spikers: Thunder Spiker or Azure Dragon.
+-- Abilities come with a character (the Roster module). S+ wing spikers: Thunder Spiker, Azure Dragon or Feral Leap.
 -- S characters have their role's ability. Everyone else has none.
 Config.Abilities = {
 	Thunder = {
@@ -520,6 +520,7 @@ Config.Abilities = {
 		Name = "Azure Dragon",
 		Tier = "S+",
 		Blurb = "Hold Spike in the air to gather energy under low gravity. A full bar hits hardest and pierces blocks. Hold too long and it flies out.",
+		Kind = "Hold Spike in the air", -- how it's used (the menus; Active abilities say Q)
 		Color = Color3.fromRGB(57, 213, 255),
 		ChargeTime = 0.8, -- seconds of holding to fill the bar
 		OverchargeGrace = 0.28, -- holding past full for this long overcharges
@@ -528,6 +529,34 @@ Config.Abilities = {
 		GaugeRechargeTime = 3.0, -- gauge refills on the ground
 		MaxBoost = 0.44, -- full energy multiplies spike speed by 1 + this
 		PierceAt = 0.97,
+	},
+	-- The owner: "hold his jump to charge it and the longer he charges it the further it goes",
+	-- "the highest attack character in the game". Hold Spike (Jump on touch) on the ground: a
+	-- violet arc fills over ChargeTime while he runs faster; let go and he leaps, carried along the
+	-- court by the charge. The gauge he took off with powers the spike.
+	Feral = {
+		Name = "Feral Leap",
+		Tier = "S+",
+		Blurb = "Hold Jump on the ground to charge: the arc fills and you run faster. Let go to leap. The longer the charge, the further you fly and the harder you hit. A full charge at the net smashes through a block with less Attack than yours, and your first full charge of a match hits harder still.",
+		Kind = "Hold Jump on the ground",
+		AiNote = "Your AI charges it in the air on its own, at 85% Attack",
+		Color = Color3.fromRGB(165, 80, 255),
+		ChargeTime = 1.0, -- seconds of holding to fill the gauge
+		TapTime = 0.15, -- let go sooner and it's the usual run-up jump
+		RunBoost = 0.45, -- run speed while charging: x (1 + this x the gauge)
+		CarryMax = 3.4 * M, -- a full leap carries him this fast (studs/s) the way he leapt, all flight
+		MaxBoost = 0.4, -- spike speed x (1 + this x gauge ^ 1.2)
+		FullAt = 0.97, -- the gauge counts as full from here
+		FirstBoost = 0.15, -- his first full-gauge spike of the match: x (1 + this) on top
+		BreakKeep = 0.85, -- a spike that smashes through a block keeps this much of its speed
+		ReachMul = 1.15, -- a wider spike reach
+		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front
+		-- played by the AI (a bot, or a stand-in for an idle player): the gauge fills in the air on
+		-- its own over AutoChargeTime, Attack is AutoAttackMul of the player's, and the gauge's and
+		-- first strike's speed bonuses are AutoBoostMul of a player's
+		AutoChargeTime = 1.0,
+		AutoAttackMul = 0.85,
+		AutoBoostMul = 0.75,
 	},
 	Adrenaline = {
 		Name = "Adrenaline",
@@ -622,7 +651,7 @@ Config.Abilities = {
 		LightGain = 30, -- any other ball of theirs she digs (serves, feints, free balls)
 	},
 }
-Config.AbilityOrder = { "Thunder", "Azure", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },

@@ -4,6 +4,7 @@
 -- ability (Config.Abilities). Starters are owned by everyone.
 
 local Roster = {
+	{ Id = "dante", Name = "Dante", Role = "WS", Tier = "S+", Height = 186, Attack = 222, Defense = 120, Speed = 152, Jump = 184, Ability = "Feral" },
 	{ Id = "seojin", Name = "Seojin", Role = "WS", Tier = "S+", Height = 184, Attack = 210, Defense = 128, Speed = 140, Jump = 175, Ability = "Azure" },
 	{ Id = "yejun", Name = "YeJun", Role = "WS", Tier = "S+", Height = 189, Attack = 210, Defense = 124, Speed = 146, Jump = 190, Ability = "Thunder" },
 	{ Id = "daon", Name = "Daon", Role = "WS", Tier = "S", Height = 186, Attack = 176, Defense = 115, Speed = 124, Jump = 160, Ability = "RisingSun" },

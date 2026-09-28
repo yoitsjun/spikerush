@@ -43,6 +43,8 @@ local chargedHl = nil -- red glow on a Chain Reaction (charged) ball
 local chargedOn = false
 local pulseRate = 14 -- how fast a glowing ball pulses (a Vector set breathes slower)
 local VECTOR = Config.Abilities.Vector.Color
+local FERAL = Config.Abilities.Feral.Color
+local FERAL_HOT = Color3.fromRGB(255, 80, 210) -- the head of a Feral Leap spike's magenta comet
 local SPARKLE_SIZE = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.2, 1.8), NumberSequenceKeypoint.new(1, 0) })
 local a0, a1, c0, c1
 local dots = {}
@@ -349,9 +351,12 @@ local function applyStyle(meta)
 	if meta and meta.team and Config.Teams[meta.team] then
 		teamColor = Config.Teams[meta.team].Color
 	end
-	local attack = ht == "Spike" or ht == "JumpServe"
-	-- the attacker's unlocks: spike colour and trail
-	local model = attack and meta.id and Util.modelOf(meta.id) or nil
+	-- a Feral Leap spike that smashed through the block keeps flying as the spike it was
+	local smashed = meta ~= nil and meta.breakThrough == true
+	local attack = ht == "Spike" or ht == "JumpServe" or smashed
+	local gauge = meta and (meta.gauge or (smashed and 1)) or nil
+	-- the attacker's unlocks: spike colour and trail (the ball that broke through wears none)
+	local model = attack and not smashed and meta.id and Util.modelOf(meta.id) or nil
 	local colorItem = Spins.equipped(model, "Color")
 	local tintSeq = attack and Spins.tintSequence(colorItem) or nil
 	local tint = attack and Spins.tint(colorItem) or nil
@@ -400,6 +405,21 @@ local function applyStyle(meta)
 		glow.Brightness = 2 + 3 * e
 		sparkleOn = true
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(200, 250, 255))
+	elseif attack and gauge then
+		-- Feral Leap: a magenta comet into violet, thicker and longer the fuller the charge (the
+		-- owner's reference: a pink streak behind the ball)
+		trail.Color = ColorSequence.new(FERAL_HOT, FERAL)
+		trail.Transparency = fade(0.08)
+		trail.Lifetime = 0.5 + 0.35 * gauge
+		trail.LightEmission = 1
+		setWidth(R * (2.6 + 1.8 * gauge), R * 0.9)
+		core.Lifetime = 0.35
+		aura.Color = ColorSequence.new(Color3.fromRGB(255, 200, 245), FERAL)
+		aura.Enabled = gauge > 0.5
+		glow.Color = Color3.fromRGB(230, 90, 255)
+		glow.Brightness = 2 + 3 * gauge
+		sparkleOn = true
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 225, 250))
 	elseif attack and kmh >= 120 then
 		-- hot pink into red, with stars, like The Spike's hardest normal spikes
 		trail.Color = tintSeq or ColorSequence.new(Color3.fromRGB(255, 40, 140), Color3.fromRGB(255, 90, 70))
@@ -470,7 +490,7 @@ local function applyStyle(meta)
 		sparkleOn = true
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 230, 210))
 	end
-	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or Color3.fromRGB(255, 90, 110)
+	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or Color3.fromRGB(255, 90, 110)
 	if trailKey ~= "Ribbon" then
 		-- the unlock's kit (flames, glints, stardust, arcs, a comet's glow) rides the ball; a
 		-- flame keeps its own orange unless the spike has a colour
@@ -687,6 +707,9 @@ local function update(dt)
 				rate = 0.06 -- a floater barely spins
 			elseif cur.meta and cur.meta.energy then
 				rate = 0.35 + 0.9 * cur.meta.energy -- Azure: heavy spin
+			elseif cur.meta and cur.meta.gauge then
+				-- Feral Leap: the spin grows with the charge, and more on his first full one
+				rate = (0.35 + 0.9 * cur.meta.gauge) * (cur.meta.firstStrike and 1.6 or 1)
 			end
 			spinCF = CFrame.fromAxisAngle(axis.Unit, speed * rate * dt) * spinCF
 			spinFrames = spinFrames + 1

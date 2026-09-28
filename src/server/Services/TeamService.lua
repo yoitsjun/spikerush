@@ -230,6 +230,7 @@ function TeamService.applyToModel(e)
 	for _, inst in ipairs({ model, e.player or false }) do
 		if inst then
 			inst:SetAttribute("Counter", e.ability == "Counter" and (e.counter or 0) or nil)
+			inst:SetAttribute("FirstStrikeUsed", e.ability == "Feral" and e.firstStrikeUsed or nil)
 			inst:SetAttribute("AbilityUntil", e.abilityUntil or -1)
 			inst:SetAttribute("AbilityReadyAt", e.abilityReadyAt or 0)
 		end
@@ -241,13 +242,14 @@ end
 ------------------------------------------------------------------------------------------
 
 -- What a character's stats depend on besides the team's stamina (HitLogic.effectiveStats'
--- `extra`): the other team's points this set (Rising Sun), the Counter Edge meter and its own
--- team's Rally Cry.
+-- `extra`): the other team's points this set (Rising Sun), the Counter Edge meter, whether the AI
+-- plays it (Feral Leap) and its own team's Rally Cry.
 function TeamService.boostCtx(e, t)
 	local scores = reg.MatchService.scores or {}
 	return {
 		enemyPoints = scores[Court.other(e.team)] or 0,
 		counter = e.counter or 0,
+		auto = e.isBot or nil,
 		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= (t or Util.now()),
 	}
 end
@@ -663,6 +665,7 @@ local function standIn(e, index)
 	bot.role = e.role
 	bot.stats = e.stats
 	bot.counter = e.counter
+	bot.firstStrikeUsed = e.firstStrikeUsed
 	bot.abilityUntil, bot.abilityReadyAt = e.abilityUntil, e.abilityReadyAt
 	bot.standInFor = plr and plr.UserId
 	local hum = plr and plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
@@ -789,6 +792,7 @@ function TeamService.hotJoin()
 			if bot.standInFor == plr.UserId then
 				e.stats = bot.stats -- carry on the same stat line
 				e.counter = bot.counter
+				e.firstStrikeUsed = bot.firstStrikeUsed
 				e.abilityUntil, e.abilityReadyAt = bot.abilityUntil, bot.abilityReadyAt
 			end
 			TeamService.entities[e.id] = e

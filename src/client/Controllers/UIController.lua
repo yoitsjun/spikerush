@@ -324,6 +324,8 @@ local function showReadout(meta)
 		color = THUNDER
 	elseif meta.energy then
 		color = AZURE
+	elseif meta.gauge then
+		color = Color3.fromRGB(255, 80, 210) -- Feral Leap
 	elseif (meta.kmh or 0) >= 120 then
 		color = HOT
 	end
@@ -891,6 +893,30 @@ local function updateAbility()
 			a.line.Text = string.format("Sunrise Lv %d/%d, next in %d point%s", lvl, def.MaxLevel, need, need == 1 and "" or "s")
 		end
 		a.line.TextColor3 = lvl > 0 and def.Color or UI.Fog
+	elseif ability == "Feral" then
+		-- Feral Leap: the charge while it's held, then the gauge the leap took off with
+		local AC = mods.ActionController
+		local charging = AC.prowlCharge()
+		local gauge = AC.leapGauge()
+		local v = charging or gauge
+		local full = v >= def.FullAt
+		a.bar.Visible = true
+		a.frame.Size = UDim2.fromOffset(250, 66)
+		a.gauge.BackgroundColor3 = def.Color:Lerp(UI.Ink, 0.75)
+		a.gauge.Size = UDim2.fromScale(1, 1)
+		a.energy.BackgroundColor3 = full and Color3.fromRGB(255, 80, 210) or def.Color
+		a.energy.Size = UDim2.fromScale(math.clamp(v, 0, 1), 1)
+		local first = not player:GetAttribute("FirstStrikeUsed")
+		if charging then
+			a.line.Text = full and "Full charge: let go to leap!" or string.format("Charging %d%%", math.floor(v * 100 + 0.5))
+			a.line.TextColor3 = def.Color
+		elseif gauge > 0 then
+			a.line.Text = full and (first and "Full leap: first strike ready!" or "Full leap: break through!") or string.format("Leap %d%%", math.floor(v * 100 + 0.5))
+			a.line.TextColor3 = def.Color
+		else
+			a.line.Text = first and "Hold Jump to charge. First strike ready" or "Hold Jump to charge, let go to leap"
+			a.line.TextColor3 = UI.Fog
+		end
 	elseif ability == "Counter" then
 		local c = player:GetAttribute("Counter") or 0
 		a.bar.Visible = true
@@ -939,12 +965,17 @@ local function updateOverhead()
 	local AC = mods.ActionController
 	local toss = AC.tossCharge()
 	local blockC = AC.blockCharge()
+	local prowlC = AC.prowlCharge()
 	local a = ui.ability
 	local value, text, color = nil, "", UI.Chalk
 	if toss then
 		value, text, color = toss, toss <= 0 and "Overhand" or "Toss height", UI.Spark
 	elseif blockC then
 		value, text, color = blockC, "Block", UI.Chalk
+	elseif prowlC then
+		local full = prowlC >= Config.Abilities.Feral.FullAt
+		value, text = prowlC, full and "Full!" or "Leap"
+		color = full and Color3.fromRGB(255, 80, 210) or Config.Abilities.Feral.Color
 	elseif a.st ~= "idle" then
 		value = a.e
 		text = a.st == "over" and "Over!" or (a.st == "full" and "Full" or "Energy")

@@ -6,6 +6,7 @@
 --  * slide: a receive dive along the court
 --  * air control: drift in the air to line up with the ball (that sets your spike angle)
 --  * anime hang near the top of every jump; Azure Dragon hovers while charging
+--  * Feral Leap: faster while the charge is held; the leap carries him along the court all flight
 -- Jump height and run speed come from your character's build (set by the server).
 
 local Players = game:GetService("Players")
@@ -23,6 +24,7 @@ local mods
 
 local P = Config.Player
 local AZURE = Config.Abilities.Azure
+local FERAL = Config.Abilities.Feral
 local player = Players.LocalPlayer
 local char, hum, hrp, hangForce
 local controls = nil
@@ -36,6 +38,8 @@ local facing = 1
 local jumpKind = nil
 local lastForce = nil
 local knock = nil -- { t0, speed } after a heavy receive
+local prowlT0 = nil -- Feral Leap: when the charge started (he runs faster as it fills)
+local leaping = nil -- { dir, carry, t0 } from a Feral Leap's takeoff until he lands
 -- A jump asked for from an input event. The default control script rewrites Humanoid.Jump every
 -- render step (from its own keys), so a jump set straight from an input handler is wiped before
 -- physics sees it; moveStep applies it after the control script instead.
@@ -75,6 +79,7 @@ local function onCharacter(c)
 	hum = c:WaitForChild("Humanoid")
 	hrp = c:WaitForChild("HumanoidRootPart")
 	slide, gather, run, charging, queued = nil, nil, nil, false, nil
+	prowlT0, leaping = nil, nil
 	hum.AutoRotate = false
 	-- state machine tweaks have to run on the client that owns the humanoid
 	hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
@@ -237,6 +242,32 @@ function MovementController.approach(kind)
 	gather = { t0 = os.clock(), dir = heldDir(), kind = kind or "Spike" }
 	mods.AnimationController.pose(State.myId, "Gather")
 	return true
+end
+
+-- Feral Leap: while the charge is held (t0: when it started, nil when it ends) he runs faster.
+function MovementController.setProwl(t0)
+	prowlT0 = t0
+end
+
+-- In the air on a Feral Leap (its carry takes him along the court until he lands).
+function MovementController.leaping()
+	return leaping ~= nil
+end
+
+-- Feral Leap: the gather and takeoff of a run-up jump, the way you hold (at the net when you
+-- hold nothing), and a carry for the whole flight from the charge (gauge 0..1). Returns the
+-- direction along z, or nil when you can't jump now.
+function MovementController.leap(gauge)
+	if not MovementController.canJump() then
+		return nil
+	end
+	local dir = heldDir()
+	if dir == 0 then
+		dir = State.isPlaying and -State.mySide or facing
+	end
+	gather = { t0 = os.clock(), dir = dir, kind = "Spike", carry = FERAL.CarryMax * math.clamp(gauge or 0, 0, 1) }
+	mods.AnimationController.pose(State.myId, "Gather")
+	return dir
 end
 
 -- Charged block jump: fraction 0..1 of the hold.
@@ -450,6 +481,7 @@ local function moveStep()
 		end
 		if e >= P.ApproachGather then
 			local dir = gather.dir
+			local carry = gather.carry
 			jumpKind = gather.kind
 			gather = nil
 			hum.WalkSpeed = baseWalk() * P.AirControl
@@ -457,10 +489,17 @@ local function moveStep()
 			hum.Jump = true
 			if dir ~= 0 then
 				local v = hrp.AssemblyLinearVelocity
-				hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, dir * P.ApproachBoost * stats.Approach)
+				hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, dir * (P.ApproachBoost * stats.Approach + (carry or 0)))
+			end
+			if carry then
+				leaping = { dir = dir, carry = carry, t0 = now }
 			end
 		end
 		return
+	end
+
+	if leaping and not airborne and now - leaping.t0 > 0.25 then
+		leaping = nil -- landed
 	end
 
 	local axis = MovementController.axis()
@@ -473,7 +512,18 @@ local function moveStep()
 		if State.myAbility() == "Azure" then
 			air = air * AZURE.AirSpeedBonus
 		end
+		if leaping then
+			-- a Feral Leap carries him the way he leapt; the stick still drifts on top of it
+			local vz = leaping.dir * leaping.carry + axis * baseWalk() * air
+			hum.WalkSpeed = math.abs(vz)
+			hum:Move(Vector3.new(0, 0, vz >= 0 and 1 or -1), false)
+			return
+		end
 		hum.WalkSpeed = baseWalk() * air
+	elseif prowlT0 then
+		-- Feral Leap's charge: faster as it fills
+		local k = math.clamp((now - prowlT0) / FERAL.ChargeTime, 0, 1)
+		hum.WalkSpeed = baseWalk() * (1 + FERAL.RunBoost * k)
 	else
 		hum.WalkSpeed = baseWalk()
 	end

@@ -10,6 +10,8 @@
 --   * how cleanly you meet it and how close you are to the top of your jump set the power.
 --   * Thunder Spiker: contact above 4.00 m becomes a lightning spike.
 --   * Azure Dragon: energy gathered in the air multiplies power; overcharging sends it out.
+--   * Feral Leap: the gauge charged on the ground before the leap multiplies power; a full one
+--     leaping at the net smashes through a block with less Attack.
 -- Receives drain the receiving team's stamina (a guard meter) depending on ball speed and the
 -- receiver's Defense. Low stamina makes receives unreliable; a broken guard can't stop strong
 -- spikes at all. Slides never drain stamina.
@@ -25,6 +27,7 @@ local C, Z, H, ST = Config.Court, Config.Zones, Config.Hits, Config.Stamina
 local R, G = Config.Ball.Radius, Config.Ball.Gravity
 local SPM = Config.Scale.StudsPerMeter
 local AZURE = Config.Abilities.Azure
+local FERAL = Config.Abilities.Feral
 local ADRENALINE = Config.Abilities.Adrenaline
 local CHAIN = Config.Abilities.ChainReaction
 local VECTOR = Config.Abilities.Vector
@@ -96,19 +99,36 @@ end
 -- Zones (2D: only z and y matter). Each returns (inZone, quality, ...).
 ------------------------------------------------------------------------------------------
 
--- Returns ok, contactQuality, dz (ball ahead of the hand, toward the net), dy.
+-- How far forward a character's serve toss can go (x TossForwardMax): Feral Leap's goes further.
+function HitLogic.tossReach(ability)
+	if ability == "Feral" then
+		return FERAL.TossReachMul
+	end
+	return 1
+end
+
+-- The spike zone's size for an ability (x the usual): Feral Leap reaches wider.
+function HitLogic.spikeReach(ability)
+	if ability == "Feral" then
+		return FERAL.ReachMul
+	end
+	return 1
+end
+
 -- The serve toss: release point and velocity for a toss `height` studs up. `forward` (0..1)
 -- throws it out in front so the server can run into it: at full it comes back to hand height
--- TossForwardMax closer to the net. Also draws the client's dotted toss guide.
-function HitLogic.tossLaunch(root, side, height, forward)
+-- TossForwardMax (x `reach`, HitLogic.tossReach) closer to the net. Also draws the client's
+-- dotted toss guide.
+function HitLogic.tossLaunch(root, side, height, forward, reach)
 	local h = clamp(height or H.TossLow, H.TossLow, H.TossHighMax)
 	local fwd = clamp(forward or 0, 0, 1)
 	local p = Vector3.new(0, root.Y + 2.0, root.Z - side * 0.8)
 	local vy = math.sqrt(2 * G * h)
-	local vz = H.TossForward + fwd * H.TossForwardMax / (2 * vy / G)
+	local vz = H.TossForward + fwd * H.TossForwardMax * (reach or 1) / (2 * vy / G)
 	return p, Vector3.new(0, vy, -side * vz), h, fwd
 end
 
+-- Returns ok, contactQuality, dz (ball ahead of the hand, toward the net), dy.
 function HitLogic.spikeZone(root, ball, side, stats, scale)
 	scale = (scale or 1) * ((stats and stats.Reach) or 1)
 	local handZ = root.Z - side * Z.SpikeForward
@@ -362,6 +382,9 @@ function HitLogic.isHeavy(lastHit)
 	if lastHit.reaction then
 		return true -- an exploding Chain Reaction ball, even a feint
 	end
+	if lastHit.breakThrough then
+		return true -- a Feral Leap spike that smashed through the block is still a spike to dig
+	end
 	if lastHit.noDrain then
 		return false
 	end
@@ -384,9 +407,10 @@ end
 
 -- The stats a touch is computed with. Adrenaline adds Attack and Jump while the team's stamina
 -- is low; Rising Sun adds its level's points; Counter Edge adds its meter's share of PerFull;
--- Rally Cry (extra.teamBoost) multiplies every stat of the team. extra: { enemyPoints, counter,
--- teamBoost } (a touch passes its ctx). The server raises the
--- humanoid's jump and run speed to match (TeamService), so the hitting point is real.
+-- Feral Leap played by the AI (extra.auto) loses Attack; Rally Cry (extra.teamBoost) multiplies
+-- every stat of the team. extra: { enemyPoints, counter, auto, teamBoost } (a touch passes its
+-- ctx). The server raises the humanoid's jump and run speed to match (TeamService), so the
+-- hitting point is real.
 function HitLogic.effectiveStats(stats, ability, stamina, extra)
 	local add = {}
 	local any = false
@@ -414,6 +438,11 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 			end
 			any = true
 		end
+	end
+	if ability == "Feral" and extra and extra.auto then
+		-- the AI playing him (a bot, or a stand-in for an idle player) hits with less
+		add.Attack = (add.Attack or 0) - math.floor(stats.Attack * (1 - FERAL.AutoAttackMul) + 0.5)
+		any = true
 	end
 	local mul = 1
 	if extra and extra.teamBoost then
@@ -561,6 +590,9 @@ end
 local function attack(kind, input, ctx, rng, stats, scale)
 	local side = ctx.side
 	local ball, root, t = input.ball, input.root, input.t
+	if kind == "Spike" then
+		scale = scale * HitLogic.spikeReach(ctx.ability)
+	end
 	local ok, qContact, dz = HitLogic.spikeZone(root, ball, side, stats, scale)
 	if not ok then
 		return false, "zone"
@@ -635,6 +667,30 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		kmh = kmh * (1 + COUNTER.ReleaseBoost * c / 100)
 		meta.counterRelease = c
 	end
+	-- Feral Leap: the gauge his leap took off with powers the spike (input.gauge, 0..1). A full
+	-- one leaping at the net (input.toward) smashes through a block with less Attack than his
+	-- (meta.breakAtk, read by the blocker's touch), and his first full one of the match
+	-- (ctx.firstStrike: not used yet) hits harder still
+	local fullLeap = false
+	if kind == "Spike" and ctx.ability == "Feral" then
+		local g = clamp(input.gauge or 0, 0, 1)
+		local bonus = ctx.auto and FERAL.AutoBoostMul or 1 -- the AI gets less out of it
+		if g > 0 then
+			kmh = kmh * (1 + FERAL.MaxBoost * bonus * g ^ 1.2)
+			meta.gauge = math.floor(g * 100 + 0.5) / 100
+		end
+		if g >= FERAL.FullAt then
+			fullLeap = true
+			meta.fullLeap = true
+			if input.toward then
+				meta.breakAtk = stats.Attack
+			end
+			if ctx.firstStrike then
+				kmh = kmh * (1 + FERAL.FirstBoost * bonus)
+				meta.firstStrike = true
+			end
+		end
+	end
 	local steps = 0
 	if q >= H.SpikeAssistQuality and not overcharge then
 		steps = H.NetAssistSteps
@@ -648,7 +704,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	end
 	local v = speedWithAssist(ball, target, speed, g, side, steps)
 	local hold = 0
-	if thunder or pierce then
+	if thunder or pierce or fullLeap then
 		hold = H.HitStopThunder
 	elseif q >= H.PerfectAt then
 		hold = H.HitStopPerfect
@@ -699,11 +755,13 @@ end
 -- compute(input, ctx) -> ok, result | reason
 -- input: action, t, root, ball, vy, grounded, diving (slide), stanceAge, assist, energy,
 --        setType, targetId, tossHeight, serveKind, aimDepth and aimHeight (a human setter's
---        aim, SetterAim)
+--        aim, SetterAim), gauge and toward (Feral Leap: the leap's gauge, and whether it went
+--        at the net)
 -- ctx:   side, team, teamSize, seq, ballVel, lastHit, thirdTouch, touchNumber, stats,
 --        ability, groundY, stamina = { value, max } (own team), forceQuality?, ironWall?,
 --        enemyPoints (Rising Sun), teamBoost (Rally Cry), counter (Counter Edge meter 0..100),
---        turnabout (Turnabout armed)
+--        turnabout (Turnabout armed), firstStrike (Feral Leap's first full charge not used yet),
+--        auto (played by the AI)
 ------------------------------------------------------------------------------------------
 
 function HitLogic.compute(input, ctx)
@@ -716,7 +774,7 @@ function HitLogic.compute(input, ctx)
 
 	-- Serve toss ------------------------------------------------------------------------
 	if action == "Toss" then
-		local p, v, h, fwd = HitLogic.tossLaunch(root, side, input.tossHeight, input.tossForward)
+		local p, v, h, fwd = HitLogic.tossLaunch(root, side, input.tossHeight, input.tossForward, HitLogic.tossReach(ctx.ability))
 		local meta = meta0("Toss", 1)
 		meta.grade = "TOSS"
 		meta.serveKind = h > H.TossLow + 0.5 and "Jump" or "Overhand"
@@ -832,17 +890,35 @@ function HitLogic.compute(input, ctx)
 		if last.pierce then
 			stuffScore = math.min(stuffScore, 0.3)
 		end
+		-- Feral Leap: a full-gauge spike leaping at the net smashes through a blocker with less
+		-- Attack than the attacker had
+		local smash = last.hitType == "Spike" and type(last.breakAtk) == "number" and last.breakAtk > stats.Attack
 		if ctx.ironWall then
 			-- Iron Wall: whatever reaches the hands is stuffed, pierce and thunder included
 			stuffScore = 1
 			q = math.max(q, 0.9)
+			smash = false
 		end
 		local atk = -side
 		local meta = meta0("Block", clamp(q, 0, 1))
 		meta.attackKmh = attackKmh
 		meta.ironWall = ctx.ironWall or nil
 		local p, v, a, hold = nil, nil, nil, 0
-		if stuffScore >= 0.45 then
+		if smash then
+			-- through the hands and on down into the blockers' court, barely slowed: still a spike
+			-- to dig (isHeavy), and the attacker's point if it lands (MatchService.judge)
+			meta.outcome = "Break"
+			meta.breakThrough = true
+			meta.tierDrain = last.tierDrain
+			p = Vector3.new(0, ball.Y, side * (R + 0.1))
+			local vin = planar(inc)
+			if vin.Z * side < 2.5 * SPM then
+				vin = Vector3.new(0, math.min(vin.Y, -2 * SPM), side * 18 * SPM)
+			end
+			v = vin * FERAL.BreakKeep
+			a = Vector3.new(0, -G * H.SpikeGravityScale, 0)
+			hold = 0.06
+		elseif stuffScore >= 0.45 then
 			meta.outcome = "Stuff"
 			p = Vector3.new(0, ball.Y, atk * (R + 0.1))
 			v = Vector3.new(0, -SPM * (4.4 + 5 * q), atk * SPM * (3.1 + 4.4 * q))

@@ -6,12 +6,12 @@ four stats and possibly an ability:
   * WS: the highest Attack and Jump (up to 210 / 190 at the very top).
   * MB: the tallest, with a big Jump (about 180) and less Attack (about 170).
   * SE: Speed and Defense (160 to 180 at the top), light on Attack and Jump.
-Abilities come with the character: S+ wing spikers have Thunder Spiker or Azure Dragon;
+Abilities come with the character: S+ wing spikers have Thunder Spiker, Azure Dragon or Feral Leap;
 S characters have one of their role's abilities (WS Adrenaline, Rising Sun or Counter Edge;
 MB Iron Wall or Rally Cry; SE Chain Reaction, Vector Set or Turnabout); everyone else has none.
 
-The top characters are hand-set (the owner named YeJun: Thunder, 190 Jump, and the top 210
-Attack; he is the only Thunder Spiker); the rest are generated from role templates scaled by
+The top characters are hand-set (the owner named YeJun: Thunder, 190 Jump and 210 Attack; he
+is the only Thunder Spiker. Dante, Feral Leap, has the top Attack, 222); the rest are generated from role templates scaled by
 tier with a fixed seed, so the file is stable and reviewable. Re-run after changing a template:  python3 tools/generate_roster.py
 """
 import random
@@ -40,6 +40,9 @@ NAMES = [
 FIXED = [
     {"Name": "YeJun", "Role": "WS", "Tier": "S+", "Height": 189, "Attack": 210, "Defense": 124, "Speed": 146, "Jump": 190, "Ability": "Thunder"},
     {"Name": "Seojin", "Role": "WS", "Tier": "S+", "Height": 184, "Attack": 210, "Defense": 128, "Speed": 140, "Jump": 175, "Ability": "Azure"},
+    # Feral Leap (the owner: "the highest attack character in the game"): the top Attack of the
+    # roster, fast on his feet for the charged run-up, a little less Jump than YeJun
+    {"Name": "Dante", "Role": "WS", "Tier": "S+", "Height": 186, "Attack": 222, "Defense": 120, "Speed": 152, "Jump": 184, "Ability": "Feral"},
     {"Name": "Hayun", "Role": "WS", "Tier": "S", "Height": 187, "Attack": 198, "Defense": 126, "Speed": 142, "Jump": 181, "Ability": "Adrenaline"},
     {"Name": "Shoyo", "Role": "WS", "Tier": "S", "Height": 181, "Attack": 190, "Defense": 118, "Speed": 150, "Jump": 186, "Ability": "Adrenaline"},
     {"Name": "Gaeul", "Role": "MB", "Tier": "S", "Height": 204, "Attack": 170, "Defense": 150, "Speed": 116, "Jump": 180, "Ability": "IronWall"},

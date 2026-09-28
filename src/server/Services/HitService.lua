@@ -22,11 +22,18 @@ local reg
 
 local VALID = { Bump = true, Set = true, Spike = true, Feint = true, Block = true, Toss = true, Serve = true, Underhand = true }
 local SET_TYPES = { Open = true, Quick = true, Back = true }
-local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true, Approach = true }
-local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true, Approach = true }
+local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true, Approach = true, Prowl = true, Leap = true, ProwlEnd = true }
+local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true, Approach = true, Prowl = true, Leap = true }
+local FERAL = Config.Abilities.Feral
+local LEAP_SLACK = 0.15 -- gauge a leap may claim over the charge the server saw (network jitter)
+local LEAP_LIFE = 3 -- seconds a leap's gauge stays good for its spike
 local requestLog = {}
 local intentAt = {} -- entityId -> os.clock() of the player's last attempt to play the ball
 local missedAt = {} -- entityId -> os.clock() of the player's last whiffed swing or dig
+-- Feral Leap: when the server heard a player start charging ("Prowl"), and the most gauge their
+-- leap can have ("Leap": the time held, for the one spike off that leap)
+local prowlAt = {} -- entityId -> os.clock()
+local leapCap = {} -- entityId -> { gauge, at }
 
 -- Seconds since this player last tried to play the ball (a receive stance, slide, jump, block,
 -- charge or any touch request). Bots covering a human's ball hold off while this is small.
@@ -74,6 +81,18 @@ local function num(n, lo, hi, default)
 		return math.clamp(n, lo, hi)
 	end
 	return default
+end
+
+-- Ability state on the character and the player (every client's HUD and effects, and the
+-- player's own prediction).
+local function writeAbility(entity, name, value)
+	local model = reg.TeamService.getModel(entity)
+	if model then
+		model:SetAttribute(name, value)
+	end
+	if entity.player then
+		entity.player:SetAttribute(name, value)
+	end
 end
 
 -- Core: used by both remote requests and bots. Returns ok, reason.
@@ -166,6 +185,8 @@ function HitService.process(entity, input, opts)
 		teamBoost = (TS.rallyUntil[team] or -1) >= input.t - 0.05 or nil,
 		counter = entity.ability == "Counter" and (entity.counter or 0) or nil,
 		turnabout = entity.ability == "Turnabout" and armed or nil,
+		firstStrike = entity.ability == "Feral" and not entity.firstStrikeUsed or nil,
+		auto = entity.isBot or nil,
 	}
 	local computed, result = HitLogic.compute(input, ctx)
 	if not computed then
@@ -199,6 +220,11 @@ function HitService.process(entity, input, opts)
 		TS.setCounter(entity, math.min(100, (entity.counter or 0) + meta.counterGain))
 	elseif meta.counterRelease then
 		TS.setCounter(entity, 0) -- her spike released it
+	end
+	if meta.firstStrike then
+		-- Feral Leap's first full charge of the match is spent (the client predicts from this too)
+		entity.firstStrikeUsed = true
+		writeAbility(entity, "FirstStrikeUsed", true)
 	end
 
 	if entity.isBot and meta.knock then
@@ -247,6 +273,15 @@ function HitService.onRequest(plr, req)
 	if entity.ability == "Azure" then
 		energy = num(req.energy, 0, 1.4, 0)
 	end
+	-- Feral Leap: no more gauge than the charge the server saw held before the leap, for the one
+	-- spike off that leap
+	local gauge, toward = 0, false
+	local cap = leapCap[entity.id]
+	if entity.ability == "Feral" and req.action == "Spike" and cap and os.clock() - cap.at <= LEAP_LIFE then
+		gauge = math.min(num(req.gauge, 0, 1, 0), cap.gauge)
+		toward = req.toward == true
+		leapCap[entity.id] = nil
+	end
 	local H = Config.Hits
 	local input = {
 		action = req.action,
@@ -265,6 +300,8 @@ function HitService.onRequest(plr, req)
 		tossForward = num(req.tossForward, 0, 1, 0),
 		aimDepth = req.action == "Set" and num(req.aimDepth, H.SetAimMin, H.SetAimMax, nil) or nil,
 		aimHeight = req.action == "Set" and num(req.aimHeight, H.SetAimLowY, H.SetAimHighY, nil) or nil,
+		gauge = gauge,
+		toward = toward,
 	}
 	local ok, why = HitService.process(entity, input, { seq = seq, fromClient = true })
 	if not ok then
@@ -296,6 +333,8 @@ function HitService.botAction(entity, action, extra)
 		targetId = extra.targetId,
 		tossHeight = extra.tossHeight,
 		tossForward = extra.tossForward,
+		gauge = extra.gauge or 0,
+		toward = extra.toward == true,
 	}
 	return (HitService.process(entity, input, { forceQuality = extra.quality }))
 end
@@ -306,16 +345,6 @@ function HitService.fx(entityId, kind, extra, exceptPlayer)
 		if p ~= exceptPlayer then
 			remote:FireClient(p, entityId, kind, extra)
 		end
-	end
-end
-
-local function writeAbility(entity, name, value)
-	local model = reg.TeamService.getModel(entity)
-	if model then
-		model:SetAttribute(name, value)
-	end
-	if entity.player then
-		entity.player:SetAttribute(name, value)
 	end
 end
 
@@ -409,15 +438,29 @@ function HitService.init(r)
 		if kind == "Whiff" then
 			missedAt[e.id] = os.clock()
 		end
+		if e.ability == "Feral" then
+			-- Feral Leap: the charge starts, then the leap goes with what was held
+			if kind == "Prowl" then
+				prowlAt[e.id] = os.clock()
+				leapCap[e.id] = nil
+			elseif kind == "Leap" then
+				local held = prowlAt[e.id] and os.clock() - prowlAt[e.id] or 0
+				leapCap[e.id] = { gauge = math.clamp(held / FERAL.ChargeTime + LEAP_SLACK, 0, 1), at = os.clock() }
+				prowlAt[e.id] = nil
+			end
+		end
 		if type(extra) ~= "string" or #extra > 16 then
 			extra = nil
 		end
 		HitService.fx(e.id, kind, extra, plr)
 	end)
 	Players.PlayerRemoving:Connect(function(plr)
+		local id = "P_" .. tostring(plr.UserId)
 		requestLog[plr] = nil
-		intentAt["P_" .. tostring(plr.UserId)] = nil
-		missedAt["P_" .. tostring(plr.UserId)] = nil
+		intentAt[id] = nil
+		missedAt[id] = nil
+		prowlAt[id] = nil
+		leapCap[id] = nil
 	end)
 end
 

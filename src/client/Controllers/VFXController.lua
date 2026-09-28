@@ -38,6 +38,9 @@ local AZURE = Color3.fromRGB(70, 210, 255)
 local HOT = Color3.fromRGB(255, 50, 90)
 local VECTOR = Config.Abilities.Vector.Color
 local COUNTER = Config.Abilities.Counter.Color
+local FERAL = Config.Abilities.Feral.Color
+local FERAL_HOT = Color3.fromRGB(255, 80, 210)
+local FERAL_LIGHT = Color3.fromRGB(225, 185, 255)
 
 local fxFolder
 local pool = {}
@@ -1003,7 +1006,258 @@ local function updateAbilityFx(dt)
 	end
 end
 
+------------------------------------------------------------------------------------------
+-- Feral Leap: the violet arc (the owner's reference: a thick purple crescent in front of the
+-- player as he charges and leaps, a thin light one outside it). A ring's stroke clipped to the
+-- side he faces; the charge fills it from the bottom up, and a full one flashes and throbs.
+------------------------------------------------------------------------------------------
+
+local ARC_STUDS = 13 -- the billboard, across (studs)
+local ARC_MAIN = 0.78 -- the main band's circle across, as a share of the billboard
+local ARC_OUTER = 0.92 -- the thin outer band's
+local ARC_CUT = 0.11 -- the bands show beyond this far from the centre, on the facing side
+local arcs = {} -- model -> the arc's parts and state
+
+-- One band: a ring's stroke inside a clip that only shows the facing side of the circle.
+local function arcBand(gui, size, color)
+	local clip = Instance.new("Frame")
+	clip.BackgroundTransparency = 1
+	clip.ClipsDescendants = true
+	clip.Parent = gui
+	local ring = Instance.new("Frame")
+	ring.BackgroundTransparency = 1
+	ring.AnchorPoint = Vector2.new(0.5, 0.5)
+	ring.Parent = clip
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = ring
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = color
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = ring
+	return { clip = clip, ring = ring, stroke = stroke, size = size }
+end
+
+-- Put a band on the side the player faces (dir +1: screen right, the camera looks along +x).
+local function layoutBand(b, dir)
+	local w = 0.5 - ARC_CUT
+	local x0 = dir > 0 and 0.5 + ARC_CUT or 0
+	b.clip.Position = UDim2.fromScale(x0, 0)
+	b.clip.Size = UDim2.fromScale(w, 1)
+	b.ring.Size = UDim2.fromScale(b.size / w, b.size)
+	b.ring.Position = UDim2.fromScale((0.5 - x0) / w, 0.5)
+end
+
+local function fadeEnds(parent)
+	local g = Instance.new("UIGradient")
+	g.Rotation = -90
+	g.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.22, 0),
+		NumberSequenceKeypoint.new(0.78, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	g.Parent = parent
+	return g
+end
+
+local function newArc(model, hrp)
+	local att = Instance.new("Attachment")
+	att.Name = "FeralArc"
+	att.Position = Vector3.new(0, 0.9, 0)
+	att.Parent = hrp
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(ARC_STUDS, 0, ARC_STUDS, 0)
+	gui.LightInfluence = 0
+	gui.AlwaysOnTop = false
+	gui.Adornee = att
+	gui.Parent = att
+	local glow = Instance.new("ImageLabel")
+	glow.AnchorPoint = Vector2.new(0.5, 0.5)
+	glow.Size = UDim2.fromScale(0.55, 0.9)
+	glow.BackgroundTransparency = 1
+	glow.Image = Assets.id(Assets.Fx.Glow) or ""
+	glow.ImageColor3 = FERAL
+	glow.Parent = gui
+	local track = arcBand(gui, ARC_MAIN, FERAL)
+	track.stroke.Transparency = 0.78
+	local main = arcBand(gui, ARC_MAIN, FERAL)
+	local fill = Instance.new("UIGradient")
+	fill.Rotation = -90 -- from the bottom up
+	fill.Parent = main.stroke
+	local outer = arcBand(gui, ARC_OUTER, FERAL_LIGHT)
+	fadeEnds(outer.stroke)
+	return {
+		att = att,
+		gui = gui,
+		glow = glow,
+		track = track,
+		main = main,
+		fill = fill,
+		outer = outer,
+		aura = Fx.attach("StatusAura", att),
+		dir = 0,
+		value = 0,
+		shown = -1,
+		full = false,
+	}
+end
+
+local function dropArc(model)
+	local a = arcs[model]
+	if not a then
+		return
+	end
+	arcs[model] = nil
+	a.aura.set(false)
+	-- the flames already out finish their life, then everything goes
+	TweenService:Create(a.gui, TweenInfo.new(0.18), { Size = UDim2.new(ARC_STUDS * 1.25, 0, ARC_STUDS * 1.25, 0) }):Play()
+	for _, b in ipairs({ a.track, a.main, a.outer }) do
+		TweenService:Create(b.stroke, TweenInfo.new(0.18), { Transparency = 1 }):Play()
+	end
+	TweenService:Create(a.glow, TweenInfo.new(0.18), { ImageTransparency = 1 }):Play()
+	task.delay(0.7, function()
+		a.aura.destroy()
+		a.att:Destroy()
+	end)
+end
+
+-- A remote charge (another player, or a bot's charge in the air) or a leap's fixed gauge.
+-- how: "prowl" (grows over `time`), "leap" (holds `value`), "end".
+local function remoteArc(model, how, value, time)
+	if how == "end" then
+		dropArc(model)
+		return
+	end
+	local hrp = model:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+	local a = arcs[model]
+	if not a then
+		a = newArc(model, hrp)
+		arcs[model] = a
+	end
+	a.remote = true
+	if how == "prowl" then
+		a.t0, a.rate, a.fixed = os.clock(), 1 / math.max(time or 1, 0.05), nil
+		a.untilT = os.clock() + 6
+	else
+		a.fixed = math.clamp(value or a.value, 0, 1)
+		a.untilT = os.clock() + 3
+	end
+end
+
+-- The leap: violet flames and a shock disc under his feet, bigger the fuller the charge.
+local function leapBurst(model, gauge)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not hrp or not near(hrp.Position) then
+		return
+	end
+	local p = hrp.Position
+	local foot = Vector3.new(p.X, 0.25, p.Z)
+	floorRing(foot, FERAL, 4 + 6 * gauge)
+	Fx.play("Fire", foot + Vector3.new(0, 1, 0), { color = FERAL, scale = 0.7 + 0.7 * gauge })
+	if gauge >= Config.Abilities.Feral.FullAt then
+		Fx.play("Ring", p + Vector3.new(0, 1, 0), { color = FERAL_HOT, scale = 1.1 })
+	end
+	if mods and mods.AudioController then
+		mods.AudioController.play("FeralLeap", { pos = p, volume = 0.6 + 0.4 * gauge })
+	end
+end
+
+local function updateArcs(dt)
+	local now = os.clock()
+	-- my own charge and leap come straight from ActionController
+	local mine = player.Character
+	local AC = mods and mods.ActionController
+	if mine and AC then
+		local charging = AC.prowlCharge()
+		local gauge = AC.leapGauge()
+		local v = charging or (gauge > 0 and gauge) or nil
+		local a = arcs[mine]
+		if v and not a then
+			local hrp = mine:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				a = newArc(mine, hrp)
+				arcs[mine] = a
+			end
+		elseif not v and a and not a.remote then
+			dropArc(mine)
+			a = nil
+		end
+		if a and v then
+			if a.charging and not charging then
+				leapBurst(mine, v) -- let go: the leap
+			end
+			a.charging = charging ~= nil
+			a.value = v
+		end
+	end
+	for model, a in pairs(arcs) do
+		local hrp = model.Parent and model:FindFirstChild("HumanoidRootPart")
+		if not hrp or (a.remote and now > (a.untilT or 0)) then
+			dropArc(model)
+		else
+			if a.remote then
+				a.value = a.fixed or math.min(1, (now - a.t0) * a.rate)
+			end
+			local v = a.value
+			local dir = hrp.CFrame.LookVector.Z >= 0 and 1 or -1
+			if dir ~= a.dir then
+				a.dir = dir
+				for _, b in ipairs({ a.track, a.main, a.outer }) do
+					layoutBand(b, dir)
+				end
+				a.glow.Position = UDim2.fromScale(0.5 + dir * 0.36, 0.5)
+			end
+			-- strokes are in pixels: keep them a share of the arc on any screen
+			local px = a.gui.AbsoluteSize.X
+			a.track.stroke.Thickness = px * 0.07
+			a.main.stroke.Thickness = px * 0.07
+			a.outer.stroke.Thickness = math.max(1, px * 0.016)
+			local full = v >= Config.Abilities.Feral.FullAt
+			if math.abs(v - a.shown) > 0.004 then
+				a.shown = v
+				if v >= 0.995 then
+					a.fill.Transparency = NumberSequence.new(0)
+				elseif v <= 0.005 then
+					a.fill.Transparency = NumberSequence.new(1)
+				else
+					a.fill.Transparency = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, 0),
+						NumberSequenceKeypoint.new(v, 0),
+						NumberSequenceKeypoint.new(math.min(v + 0.02, 0.999), 1),
+						NumberSequenceKeypoint.new(1, 1),
+					})
+				end
+			end
+			if full and not a.full then
+				-- full: a flash of light along the arc and a ring off him
+				a.full = true
+				Fx.play("Ring", hrp.Position + Vector3.new(0, 1, 0), { color = FERAL_HOT, scale = 0.8 })
+				if model == mine and mods and mods.AudioController then
+					mods.AudioController.play("FeralFull", { volume = 0.8 })
+				end
+			elseif not full then
+				a.full = false
+			end
+			local throb = full and (0.5 + 0.5 * math.sin(now * 14)) or 0
+			a.main.stroke.Color = full and FERAL:Lerp(FERAL_LIGHT, 0.35 + 0.4 * throb) or FERAL
+			a.outer.stroke.Transparency = full and 0.05 or 0.45
+			a.glow.ImageTransparency = 0.85 - 0.45 * v - 0.2 * throb
+			-- the flames at his feet burn harder as it fills (repainted only when that changes)
+			local step = full and 11 or math.floor(v * 10)
+			if step ~= a.auraStep then
+				a.auraStep = step
+				a.aura.set(true, full and FERAL_HOT or FERAL, 0.3 + 0.09 * step)
+			end
+		end
+	end
+end
+
 local function updateAuras(dt)
+	updateArcs(dt)
 	updateAbilityFx(dt)
 	for model, fx in pairs(auras) do
 		if not model.Parent then
@@ -1140,6 +1394,9 @@ local function onHit(snap)
 	local model = meta.id and Util.modelOf(meta.id)
 	if model then
 		setAura(model, false)
+		if meta.gauge and arcs[model] and arcs[model].remote then
+			dropArc(model) -- a Feral Leap's arc goes with its spike (mine goes when the gauge is spent)
+		end
 	end
 
 	local chain = Config.Abilities.ChainReaction.Color
@@ -1196,10 +1453,11 @@ local function onHit(snap)
 				mods.AudioController.play("Blades", { volume = 0.5 + 0.4 * c / 100, speed = 1.2 })
 			end
 		end
-		if heavy or meta.thunder or meta.energy then
-			boomRings(snap.path, meta.thunder and THUNDER or (meta.energy and AZURE or WHITE), meta.thunder and 3 or 2)
+		if heavy or meta.thunder or meta.energy or meta.gauge then
+			local ring = meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL) or WHITE
+			boomRings(snap.path, ring, (meta.thunder or meta.fullLeap) and 3 or 2)
 			if close then
-				VFXController.neonStreaks(pos, meta.thunder and THUNDER or (meta.energy and AZURE or HOT))
+				VFXController.neonStreaks(pos, meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL_HOT) or HOT)
 			end
 		end
 		if meta.thunder then
@@ -1234,6 +1492,28 @@ local function onHit(snap)
 			if close then
 				VFXController.speedLines(0.35 + 0.2 * e, Color3.fromRGB(190, 240, 255), dirZ)
 			end
+		elseif meta.gauge then
+			-- Feral Leap: a magenta burst that grows with the charge; a full one freezes the frame,
+			-- and his first full one of the match says so
+			local g = meta.gauge
+			Fx.play("PerfectImpact", pos, { color = FERAL_HOT, scale = 0.8 + 0.5 * g })
+			if meta.firstStrike then
+				Fx.play("Burst", pos, { color = FERAL, scale = 1.3 })
+				VFXController.popup(pos + Vector3.new(0, 2.6, 0), "First Strike!", FERAL_HOT, 1.4)
+			end
+			if close and (meta.fullLeap or g >= 0.9) then
+				VFXController.impactFrame(meta.id, FERAL)
+				shaker.shake(meta.firstStrike and 0.9 or 0.7)
+				shaker.kick(meta.firstStrike and -9 or -7)
+				if meta.firstStrike then
+					VFXController.flash(0.35, 0.25)
+				end
+			elseif close then
+				shaker.shake(0.35 + 0.2 * g)
+			end
+			if close then
+				VFXController.speedLines(0.3 + 0.25 * g, FERAL_LIGHT, dirZ)
+			end
 		else
 			-- the attacker's spike colour (a V Points unlock) replaces the default hot pink
 			local tint = Spins.tint(Spins.equipped(model, "Color"))
@@ -1255,6 +1535,18 @@ local function onHit(snap)
 
 	if ht == "Block" then
 		local outcome = meta.outcome
+		if outcome == "Break" then
+			-- a Feral Leap spike smashed through the hands: shards off the block, on it goes
+			Fx.play("BlockImpact", pos, { color = FERAL, scale = 1.3 })
+			shards(pos, FERAL_LIGHT, 14, 50)
+			VFXController.popup(pos + Vector3.new(0, 1.8, 0), "Break Through!", FERAL_HOT, 1.3)
+			if close then
+				shaker.shake(0.7)
+				shaker.kick(-6)
+				VFXController.flash(0.25, 0.2)
+			end
+			return
+		end
 		if meta.ironWall then
 			Fx.play("BlockImpact", pos, { color = Config.Abilities.IronWall.Color, scale = 1.35 })
 		end
@@ -1514,6 +1806,16 @@ function VFXController.init(m)
 			setAura(model, true, 0, true)
 		elseif kind == "ChargeEnd" and model then
 			setAura(model, false)
+		elseif kind == "Prowl" and model then
+			-- Feral Leap: a player's charge on the ground, or a bot's in the air ("auto")
+			local FL = Config.Abilities.Feral
+			remoteArc(model, "prowl", 0, extra == "auto" and FL.AutoChargeTime or FL.ChargeTime)
+		elseif kind == "Leap" and model then
+			local g = tonumber(extra) or 0
+			remoteArc(model, "leap", g)
+			leapBurst(model, g)
+		elseif kind == "ProwlEnd" and model then
+			remoteArc(model, "end")
 		elseif kind == "Slide" and model then
 			local hrp = model:FindFirstChild("HumanoidRootPart")
 			if hrp then

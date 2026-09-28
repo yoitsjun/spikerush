@@ -157,6 +157,18 @@ local POSE_DEFS = {
 		LeftElbow = { 18, 0, 0 },
 		RightElbow = { 18, 0, 0 },
 	},
+	-- Feral Leap's charge: low over the floor, head up, arms swept back like claws ready to pounce;
+	-- the legs keep the run cycle
+	Prowl = {
+		Waist = { -40, 0, 0 },
+		Neck = { 28, 0, 0 },
+		LeftShoulder = { -64, 0, -20 },
+		RightShoulder = { -64, 0, 20 },
+		LeftElbow = { 34, 0, 0 },
+		RightElbow = { 34, 0, 0 },
+		LeftWrist = { 24, 0, 0 },
+		RightWrist = { 24, 0, 0 },
+	},
 	Gather = {
 		drop = 0.75,
 		Waist = { -30, 0, 0 },
@@ -1209,7 +1221,7 @@ end
 -- "Block" or "Jump". A jump set rises into the setter's catch; a block has its own pose; every
 -- other kind plays the rise and the spike wind-up in the air.
 -- Ground stances a spike jump leaves behind in the air.
-local GROUND_STANCES = { Stance = true, Crouch = true, Slide = true, Dive = true, TossReady = true, Approach = true }
+local GROUND_STANCES = { Stance = true, Crouch = true, Slide = true, Dive = true, TossReady = true, Approach = true, Prowl = true }
 
 function AnimationController.jumped(entityId, kind)
 	local st = stateFor(entityId)
@@ -1263,7 +1275,7 @@ function AnimationController.setStance(entityId, pose, duration)
 	st.stance = { pose = pose, untilT = untilT, t0 = os.clock() }
 end
 
-local STANCES = { Stance = true, Slide = true, Crouch = true, Block = true, Charge = true, TossReady = true, Dive = true, Approach = true }
+local STANCES = { Stance = true, Slide = true, Crouch = true, Block = true, Charge = true, TossReady = true, Dive = true, Approach = true, Prowl = true }
 
 -- One entry point: one-shot actions play once, stances hold for `duration`.
 function AnimationController.pose(entityId, kind, duration)
@@ -1652,8 +1664,8 @@ function AnimationController.init(m)
 		if meta.turnabout and not meta.downBall then
 			pose = "Swing_Whirl" -- Turnabout: the set spins into a spike
 		end
-		if meta.fail or meta.breaks or meta.shank or (meta.knock and meta.knock >= 0.35) then
-			pose = "Knockback" -- a heavy ball staggers the receiver
+		if meta.fail or meta.breaks or meta.shank or meta.breakThrough or (meta.knock and meta.knock >= 0.35) then
+			pose = "Knockback" -- a heavy ball staggers the receiver (and a blocker it smashed through)
 		end
 		if pose and meta.id then
 			local st = stateFor(meta.id)
@@ -1679,6 +1691,13 @@ function AnimationController.init(m)
 			AnimationController.setStance(entityId, nil)
 		elseif kind == "Approach" then
 			AnimationController.setStance(entityId, "Approach", Config.Player.ApproachRunMax + 0.2)
+		elseif kind == "Prowl" and extra ~= "auto" then
+			AnimationController.setStance(entityId, "Prowl", 10) -- Feral Leap's charge, until the leap
+		elseif (kind == "Leap" or kind == "ProwlEnd") and extra ~= "auto" then
+			local st = stateFor(entityId)
+			if st and st.stance and st.stance.pose == "Prowl" then
+				AnimationController.setStance(entityId, nil)
+			end
 		elseif kind == "Whiff" and type(extra) == "string" then
 			AnimationController.playAction(entityId, extra)
 		elseif kind == "Jump" then

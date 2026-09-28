@@ -2150,9 +2150,9 @@ local function refreshTeams(prof)
 	if def then
 		pl.cAbility.Text = string.format('<font color="#%s">%s</font>', def.Color:ToHex(), def.Name)
 		if isYou then
-			pl.cNote.Text = def.Active and "Active: press Q" or "Passive"
+			pl.cNote.Text = def.Active and "Active: press Q" or def.Kind or "Passive"
 		else
-			pl.cNote.Text = def.Active and "Active: you pop it with 1 or 2 in a match (your AI never does)" or "Passive: it works on its own"
+			pl.cNote.Text = def.Active and "Active: you pop it with 1 or 2 in a match (your AI never does)" or def.AiNote or "Passive: it works on its own"
 		end
 	else
 		pl.cAbility.Text = ""
@@ -2493,7 +2493,7 @@ local function refreshPlayer(prof)
 		d.abName.Text = def.Name
 		d.abName.TextColor3 = def.Color
 		d.abKind.Visible = true
-		d.abKindL.Text = def.Active and string.format("Active: Q, %d s cooldown", def.Cooldown or 0) or "Passive"
+		d.abKindL.Text = def.Active and string.format("Active: Q, %d s cooldown", def.Cooldown or 0) or def.Kind or "Passive"
 		d.abText.Text = def.Blurb or ""
 		d.abText.TextColor3 = Gui.CHALK
 	else
