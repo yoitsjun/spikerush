@@ -52,6 +52,7 @@ local BORROW = {
 	SpikeHeavy = { "Spike", 1.3, 0.9 },
 	FloorHitHeavy = { "FloorHit", 1.3, 0.9 },
 	Feint = { "Set", 0.7, 1.15 },
+	ReceivePerfect = { "Bump", 1.15, 1.05 }, -- a perfect receive is still a bump (a serve's often is)
 	Whiff = { "Whoosh", 0.8 },
 	RecruitOpen = { "Whoosh" },
 	RecruitOpenGold = { "Thunder" },
@@ -245,6 +246,8 @@ local function onHit(snap)
 		AudioController.play("Feint", { pos = pos })
 	else
 		if meta.fail or meta.breaks then
+			-- the arms still meet the ball: a dull bump under the guard break
+			AudioController.play("Bump", { pos = pos, speed = 0.88 })
 			AudioController.play("GuardBreak", { pos = pos })
 		elseif meta.perfect then
 			AudioController.play("ReceivePerfect", { pos = pos })

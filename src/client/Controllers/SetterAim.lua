@@ -1,11 +1,14 @@
 -- Setter aim. The owner: "setter mode: play as a setter and aim where the ball is going to be
 -- set. the opponent cannot see but your team can. mark the location with a circle or
--- crosshair". While you set for your team (the setter, or alone in 1v1) and your team hasn't
--- set yet, a marker on your side shows where your set will come down: a ring on the floor, a
--- post up from it and a crosshair at the hitting height. Aim with the mouse over the court, the
--- right stick, or a tap on the court; Set sends the ball there (HitLogic's input.aimDepth, with
--- the usual accuracy error). The server passes your aim to your teammates only (the SetAim
--- remote), who see it in your team's colour. Settings > Setter aim turns it off.
+-- crosshair", then "up and down full control. you have to charge up the distance though".
+-- While you set for your team (the setter, or alone in 1v1) and your team hasn't set yet, a
+-- marker on your side shows where your set will come down: a ring on the floor, a post, and a
+-- crosshair at the height the set comes down through. The height is yours to aim at any time
+-- (the mouse up and down over the court, the right stick, or a tap); the distance from the net
+-- is charged: hold Set and the marker slides out from the net (ActionController.setCharge),
+-- let go and the set goes there (HitLogic's input.aimDepth and aimHeight, with the usual
+-- accuracy error). The server passes your aim to your teammates only (the SetAim remote), who
+-- see it in your team's colour. Settings > Setter aim turns it off.
 
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -24,8 +27,8 @@ local H = Config.Hits
 local STICK_SPEED = 22 -- studs a second at full right stick
 local EXPIRE = 3 -- a teammate's marker that hasn't been heard from for this long goes
 
-local aim = nil -- your aim: the set's distance from the net (studs)
-local stickX = 0
+local aimY = nil -- the height your set comes down through (world studs)
+local stickY = 0
 local sent, sentAt = nil, 0
 local marks = {} -- entityId -> { depth, team, seen }: your aim and your teammates'
 local drawn = {} -- entityId -> the marker's parts
@@ -33,6 +36,10 @@ local folder = nil
 
 local function clampDepth(d)
 	return math.clamp(d, H.SetAimMin, H.SetAimMax)
+end
+
+local function clampHeight(y)
+	return math.clamp(y, H.SetAimLowY, H.SetAimHighY)
 end
 
 -- Your aim is on while you set for your team, the rally is on and your team hasn't set yet.
@@ -51,9 +58,8 @@ local function on()
 	return not (touch and touch.team == State.myTeam and (touch.count or 0) >= 2)
 end
 
--- Where a ray from the camera meets the plane the ball flies in (x = 0), as a depth on your
--- side of the net.
-local function depthAt(ray)
+-- Where a ray from the camera meets the plane the ball flies in (x = 0): its height.
+local function heightAt(ray)
 	if math.abs(ray.Direction.X) < 1e-3 then
 		return nil
 	end
@@ -61,15 +67,21 @@ local function depthAt(ray)
 	if t <= 0 then
 		return nil
 	end
-	return clampDepth((ray.Origin.Z + ray.Direction.Z * t) * State.mySide)
+	return clampHeight(ray.Origin.Y + ray.Direction.Y * t)
 end
 
--- Your aim, while it's on (ActionController's Set sends the ball there).
-function SetterAim.depth()
-	if on() then
-		return aim
+function SetterAim.on()
+	return on()
+end
+
+-- Your aim right now: the height you picked and the distance charged so far (the near end
+-- until Set is held). ActionController sets there when Set is let go.
+function SetterAim.aim()
+	if not on() then
+		return nil
 	end
-	return nil
+	local charge = mods.ActionController.setCharge() or 0
+	return { depth = H.SetAimMin + (H.SetAimMax - H.SetAimMin) * charge, height = aimY or H.SetArriveY }
 end
 
 local function part(props)
@@ -99,9 +111,9 @@ local function build(color)
 	}
 end
 
-local function place(d, team, depth)
+local function place(d, team, depth, height)
 	local z = Court.sideOf(team) * depth
-	local top = H.SetArriveY
+	local top = height or H.SetArriveY
 	d.ring.CFrame = CFrame.new(0, 0.06, z) * CFrame.Angles(0, 0, math.pi / 2)
 	d.post.Size = Vector3.new(0.16, top, 0.16)
 	d.post.CFrame = CFrame.new(0, top / 2, z)
@@ -115,21 +127,25 @@ local function update(dt)
 	local now = os.clock()
 	local active = on()
 	if active then
-		aim = aim or Court.attackDepth("Open")
-		if math.abs(stickX) > 0.2 then
-			aim = clampDepth(aim + stickX * State.mySide * STICK_SPEED * dt)
+		aimY = aimY or H.SetArriveY
+		if math.abs(stickY) > 0.2 then
+			aimY = clampHeight(aimY + stickY * STICK_SPEED * dt)
 		end
 	end
 	-- tell your team: when it moves (at most 10 times a second), once a second while it holds,
 	-- and once when it stops
-	local want = active and aim or nil
-	local moved = (want == nil) ~= (sent == nil) or (want and sent and math.abs(want - sent) > 0.1)
-	if (moved and now - sentAt >= 0.1) or (want and now - sentAt >= 1) then
-		Net.get("SetAim"):FireServer(want or false)
-		sent, sentAt = want, now
+	local a = active and SetterAim.aim() or nil
+	local moved = (a == nil) ~= (sent == nil) or (a and sent and (math.abs(a.depth - sent.depth) > 0.1 or math.abs(a.height - sent.height) > 0.1))
+	if (moved and now - sentAt >= 0.1) or (a and now - sentAt >= 1) then
+		if a then
+			Net.get("SetAim"):FireServer(a.depth, a.height)
+		else
+			Net.get("SetAim"):FireServer(false)
+		end
+		sent, sentAt = a, now
 	end
-	if want then
-		marks[State.myId] = { depth = want, team = State.myTeam, seen = now }
+	if a then
+		marks[State.myId] = { depth = a.depth, height = a.height, team = State.myTeam, seen = now }
 	else
 		marks[State.myId] = nil
 	end
@@ -154,7 +170,7 @@ local function update(dt)
 			d = build(cfg and cfg.Color or Color3.new(1, 1, 1))
 			drawn[id] = d
 		end
-		place(d, m.team, m.depth)
+		place(d, m.team, m.depth, m.height)
 	end
 end
 
@@ -167,24 +183,25 @@ function SetterAim.init(m)
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			if on() and workspace.CurrentCamera then
 				local p = UserInputService:GetMouseLocation()
-				aim = depthAt(workspace.CurrentCamera:ViewportPointToRay(p.X, p.Y)) or aim
+				aimY = heightAt(workspace.CurrentCamera:ViewportPointToRay(p.X, p.Y)) or aimY
 			end
 		elseif input.KeyCode == Enum.KeyCode.Thumbstick2 then
-			stickX = input.Position.X
+			stickY = input.Position.Y
 		end
 	end)
 	UserInputService.TouchTapInWorld:Connect(function(pos, processedByUI)
 		if not processedByUI and on() and workspace.CurrentCamera then
-			aim = depthAt(workspace.CurrentCamera:ScreenPointToRay(pos.X, pos.Y)) or aim
+			aimY = heightAt(workspace.CurrentCamera:ScreenPointToRay(pos.X, pos.Y)) or aimY
 		end
 	end)
 	-- a teammate's aim (the server only sends your own team's)
-	Net.get("SetAim").OnClientEvent:Connect(function(id, depth)
+	Net.get("SetAim").OnClientEvent:Connect(function(id, depth, height)
 		if type(id) ~= "string" or id == State.myId then
 			return
 		end
 		if type(depth) == "number" and depth == depth then
-			marks[id] = { depth = clampDepth(depth), team = State.myTeam, seen = os.clock() }
+			local y = type(height) == "number" and height == height and clampHeight(height) or H.SetArriveY
+			marks[id] = { depth = clampDepth(depth), height = y, team = State.myTeam, seen = os.clock() }
 		else
 			marks[id] = nil
 		end

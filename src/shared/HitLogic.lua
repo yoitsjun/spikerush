@@ -302,8 +302,9 @@ local function ownSideArc(from, target, apex, g, side, minDepth)
 end
 
 -- A set from `ball` to the attack spot `depth` from the net (default: the set type's spot, no
--- error): its launch velocity and gravity. The setter AI also uses it to see a quick coming.
-function HitLogic.setArc(ball, side, setType, depth, underhand, lift)
+-- error), coming down through `arriveY` (default SetArriveY; a higher one lifts the whole arc):
+-- its launch velocity and gravity. The setter AI also uses it to see a quick coming.
+function HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY)
 	local apex = H.SetApexOpen
 	if setType == "Quick" then
 		apex = H.SetApexQuick
@@ -314,10 +315,12 @@ function HitLogic.setArc(ball, side, setType, depth, underhand, lift)
 		apex = apex * 0.92
 	end
 	apex = apex + (lift or 0) -- a jump set releases higher, so the set goes higher
-	apex = math.max(apex, ball.Y + 0.38 * SPM)
+	arriveY = arriveY or H.SetArriveY
+	apex = apex + (arriveY - H.SetArriveY)
+	apex = math.max(apex, ball.Y + 0.38 * SPM, arriveY + 0.5 * SPM)
 	depth = math.max(depth or Court.attackDepth(setType), 0.47 * SPM)
 	local g = G * H.SetGravityScale
-	return ownSideArc(ball, Vector3.new(0, H.SetArriveY, side * depth), apex, g, side, 0.38 * SPM), g
+	return ownSideArc(ball, Vector3.new(0, arriveY, side * depth), apex, g, side, 0.38 * SPM), g
 end
 
 local function jitter(rng, mag)
@@ -695,7 +698,8 @@ end
 ------------------------------------------------------------------------------------------
 -- compute(input, ctx) -> ok, result | reason
 -- input: action, t, root, ball, vy, grounded, diving (slide), stanceAge, assist, energy,
---        setType, targetId, tossHeight, serveKind, aimDepth (a human setter's aim, SetterAim)
+--        setType, targetId, tossHeight, serveKind, aimDepth and aimHeight (a human setter's
+--        aim, SetterAim)
 -- ctx:   side, team, teamSize, seq, ballVel, lastHit, thirdTouch, touchNumber, stats,
 --        ability, groundY, stamina = { value, max } (own team), forceQuality?, ironWall?,
 --        enemyPoints (Rising Sun), teamBoost (Rally Cry), counter (Counter Edge meter 0..100),
@@ -1068,7 +1072,11 @@ function HitLogic.compute(input, ctx)
 					lift = lift + VECTOR.SetLift
 				end
 			end
-			local v, g = HitLogic.setArc(ball, side, setType, depth, underhand, lift)
+			local arriveY = nil
+			if aimed and type(input.aimHeight) == "number" and input.aimHeight == input.aimHeight then
+				arriveY = clamp(input.aimHeight, H.SetAimLowY, H.SetAimHighY)
+			end
+			local v, g = HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY)
 			return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t)
 		end
 

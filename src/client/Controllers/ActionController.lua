@@ -266,6 +266,7 @@ local function execute(action, info, opts, t, ballPos)
 		tossHeight = opts.tossHeight,
 		tossForward = opts.tossForward,
 		aimDepth = opts.aimDepth,
+		aimHeight = opts.aimHeight,
 	}
 	local ok, result = HitLogic.compute(input, ctx)
 	if not ok then
@@ -301,6 +302,7 @@ local function execute(action, info, opts, t, ballPos)
 		tossHeight = input.tossHeight,
 		tossForward = input.tossForward,
 		aimDepth = input.aimDepth,
+		aimHeight = input.aimHeight,
 	})
 	lastActionAt = os.clock()
 	buffered = nil
@@ -620,7 +622,17 @@ local function releaseBlock(info)
 	end
 end
 
-local function pressSet(info)
+-- Setter aim: holding Set charges the set's distance (SetterAim draws it); letting go sets.
+local setCharge = nil -- { t0 } while Set is held with the aim on
+
+function ActionController.setCharge()
+	if not setCharge then
+		return nil
+	end
+	return math.clamp((os.clock() - setCharge.t0) / H.SetChargeTime, 0, 1)
+end
+
+local function doSet(info, aim)
 	if not inPlay() or os.clock() - lastActionAt < P.ActionCooldown then
 		return
 	end
@@ -631,7 +643,10 @@ local function pressSet(info)
 	elseif dir < 0 then
 		setType = "Back"
 	end
-	local opts = { setType = setType, targetId = setTarget(), aimDepth = mods.SetterAim and mods.SetterAim.depth() or nil }
+	local opts = { setType = setType, targetId = setTarget() }
+	if aim then
+		opts.aimDepth, opts.aimHeight = aim.depth, aim.height
+	end
 	local now, ball = ballNow()
 	local ok, why = execute("Set", info, opts, now, ball)
 	if ok then
@@ -780,7 +795,11 @@ function ActionController.press(action)
 	elseif action == "Block" then
 		pressBlock(info)
 	elseif action == "Set" then
-		pressSet(info)
+		if mods.SetterAim and mods.SetterAim.on() then
+			setCharge = { t0 = os.clock() } -- the set goes when Set is let go
+		else
+			doSet(info, nil)
+		end
 	elseif action == "Serve" then
 		pressServe(info)
 	elseif action == "EasyServe" then
@@ -799,6 +818,12 @@ function ActionController.release(action)
 		releaseBlock(info)
 	elseif action == "Serve" then
 		releaseServe(info)
+	elseif action == "Set" and setCharge then
+		local aim = mods.SetterAim and mods.SetterAim.aim()
+		setCharge = nil
+		if aim then
+			doSet(info, aim)
+		end
 	end
 end
 

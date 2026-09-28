@@ -181,9 +181,15 @@ Config.Hits = {
 	SetArriveY = lift(3.75), -- comes down through a typical high-tier hitting point
 	SetError = 0.95 * M,
 	SetGravityScale = 1.0,
-	-- setter aim (SetterAim): how far from the net a human setter can place the set
+	-- setter aim (SetterAim): a human setter picks the height the set comes down through (any,
+	-- from SetAimLowY to SetAimHighY: the hitting points of the shortest and tallest) and charges
+	-- its distance from the net by holding Set (SetAimMin, then out to SetAimMax over
+	-- SetChargeTime); letting go sets
 	SetAimMin = 0.6 * M,
 	SetAimMax = 4.2 * M,
+	SetAimLowY = lift(2.6),
+	SetAimHighY = lift(4.6),
+	SetChargeTime = 1.0,
 	OpenDepth = 2.3 * M, -- attack spots, distance from the net
 	QuickDepth = 1.2 * M,
 	BackDepth = 3.9 * M,

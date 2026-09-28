@@ -264,6 +264,7 @@ function HitService.onRequest(plr, req)
 		tossHeight = num(req.tossHeight, H.TossLow, H.TossHighMax, H.TossLow),
 		tossForward = num(req.tossForward, 0, 1, 0),
 		aimDepth = req.action == "Set" and num(req.aimDepth, H.SetAimMin, H.SetAimMax, nil) or nil,
+		aimHeight = req.action == "Set" and num(req.aimHeight, H.SetAimLowY, H.SetAimHighY, nil) or nil,
 	}
 	local ok, why = HitService.process(entity, input, { seq = seq, fromClient = true })
 	if not ok then
@@ -352,7 +353,7 @@ function HitService.init(r)
 	Net.get("HitRequest").OnServerEvent:Connect(HitService.onRequest)
 	-- a setter's aim goes to their teammates only (SetterAim); the other team never hears it
 	local aimAt = {}
-	Net.get("SetAim").OnServerEvent:Connect(function(plr, depth)
+	Net.get("SetAim").OnServerEvent:Connect(function(plr, depth, height)
 		local now = os.clock()
 		if aimAt[plr] and now - aimAt[plr] < 0.08 then
 			return
@@ -365,10 +366,11 @@ function HitService.init(r)
 		end
 		local H = Config.Hits
 		local d = num(depth, H.SetAimMin, H.SetAimMax, nil)
-		entity.aimDepth = d
+		local y = d and num(height, H.SetAimLowY, H.SetAimHighY, H.SetArriveY) or nil
+		entity.aimDepth, entity.aimHeight = d, y
 		for _, e in ipairs(TS.members(entity.team)) do
 			if e.player and e.player ~= plr then
-				Net.get("SetAim"):FireClient(e.player, entity.id, d or false)
+				Net.get("SetAim"):FireClient(e.player, entity.id, d or false, y)
 			end
 		end
 	end)
