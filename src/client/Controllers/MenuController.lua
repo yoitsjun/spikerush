@@ -18,6 +18,7 @@ local Players = game:GetService("Players")
 local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
 local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -28,6 +29,7 @@ local Spins = require(Shared.Spins)
 local Roster = require(Shared.Roster)
 local Court = require(Shared.Court)
 local Tutorial = require(Shared.Tutorial)
+local Assets = require(Shared.Assets)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
@@ -390,20 +392,16 @@ local function currencyStrip(parent, props)
 	return cur
 end
 
--- The top of the main screens (Shop, Players, Locker, Ranks), as on Home: the currencies top
--- left under Roblox's own buttons (placeHeaders moves them), the nav across the top with this
--- screen lit (Ranks joins it here), and Settings and Help at the top right, in the nav's row so
--- they stay clear of the panels below.
+-- The nav across the top of every main screen, Home's too: the screens with this one lit, and
+-- Help and Settings at the top right, in the nav's row so they stay clear of the panels below.
+-- `lit` lights another tab than the screen's own (the Match screen lights Home).
 local MAIN_TABS = { { "IconHome", "Home", "home" }, { "IconJump", "Practice", "practice" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" }, { "IconRanks", "Ranks", "ranks" } }
 
-local function mainChrome(p, active)
-	local strip = currencyStrip(p, { Position = UDim2.fromOffset(M, 24) })
-	ui.strips = ui.strips or {}
-	table.insert(ui.strips, strip)
+local function navBar(p, active, lit)
 	local nav = make("Frame", { Name = "Nav", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 18), Size = UDim2.fromOffset(#MAIN_TABS * 96 + (#MAIN_TABS - 1) * 14, 74), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), SortOrder = Enum.SortOrder.LayoutOrder }, nav)
 	for i, e in ipairs(MAIN_TABS) do
-		local b = navItem(nav, e[1], e[2], { LayoutOrder = i }, e[3] == active)
+		local b = navItem(nav, e[1], e[2], { LayoutOrder = i }, e[3] == (lit or active))
 		onClick(b, function()
 			if e[3] ~= active then
 				MenuController.go(e[3])
@@ -424,12 +422,22 @@ local function mainChrome(p, active)
 	end
 	return nav, side
 end
+
+-- The top of the main screens (Practice, Shop, Players, Locker, Ranks, Match): the currencies top
+-- left under Roblox's own buttons (placeHeaders moves them) and the nav.
+local function mainChrome(p, active, lit)
+	local strip = currencyStrip(p, { Position = UDim2.fromOffset(M, 24) })
+	ui.strips = ui.strips or {}
+	table.insert(ui.strips, strip)
+	return navBar(p, active, lit)
+end
 chrome.currencyStrip = currencyStrip
 chrome.navItem = navItem
 
 -- Home: the club room behind a match-day overlay. Profile and currencies top left, the nav
--- across the top, shortcuts down the right, the featured recruit and your record on the left,
--- a tip at the bottom, and Recruit Player and the big slanted Match plate bottom right.
+-- across the top (every main screen's), the featured recruit and your record on the left, a tip
+-- at the bottom, and Recruit Player and the big slanted Match plate (the Match screen) bottom
+-- right.
 local PROFILE_H = 152 -- the profile block: the headshot row and the currencies under it
 local NAV_BOTTOM = 92 -- where the nav across the top ends
 
@@ -511,34 +519,8 @@ local function buildHome()
 	ui.currencies = ui.currencies or {}
 	table.insert(ui.currencies, { vp = vp, gold = gold })
 
-	-- the nav across the top
-	local tabs = { { "IconHome", "Home", "home" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" } }
-	local nav = make("Frame", { Name = "Nav", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 18), Size = UDim2.fromOffset(#tabs * 96 + (#tabs - 1) * 14, 74), BackgroundTransparency = 1 }, p)
-	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), SortOrder = Enum.SortOrder.LayoutOrder }, nav)
-	for i, e in ipairs(tabs) do
-		local b = navItem(nav, e[1], e[2], { LayoutOrder = i }, e[3] == "home")
-		onClick(b, function()
-			if e[3] ~= "home" then
-				MenuController.go(e[3])
-			end
-		end)
-	end
-
-	-- shortcuts down the right
-	local side = make("Frame", { Name = "Side", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 18), Size = UDim2.fromOffset(96, 3 * 80), BackgroundTransparency = 1 }, p)
-	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, side)
-	for i, e in ipairs({ { "IconSettings", "Settings", "settings" }, { "IconRanks", "Ranks", "ranks" }, { "IconHelp", "Help", "help" } }) do
-		local b = navItem(side, e[1], e[2], { LayoutOrder = i })
-		onClick(b, function()
-			if e[3] == "settings" then
-				mods.UIController.toggleSettings(b.AbsolutePosition.Y + b.AbsoluteSize.Y + 6)
-			elseif e[3] == "help" then
-				ui.help.root.Visible = true
-			else
-				MenuController.go(e[3])
-			end
-		end)
-	end
+	-- the nav across the top, the same as every main screen's
+	local nav = navBar(p, "home")
 
 	-- the left column under the profile (placeHome moves the two together)
 	local column = make("Frame", { Name = "Column", Size = UDim2.fromOffset(470, 546), Position = UDim2.fromOffset(M, 24 + PROFILE_H + 20), BackgroundTransparency = 1 }, p)
@@ -639,7 +621,7 @@ local function buildHome()
 	Gui.label(match, { Text = "Match", display = true, weight = Enum.FontWeight.Heavy, TextSize = 64, TextColor3 = Gui.LINE, Size = UDim2.fromOffset(220, 70), Position = UDim2.fromOffset(inset + 66, 12) })
 	local matchSub = Gui.label(match, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, Size = UDim2.fromOffset(240, 20), Position = UDim2.fromOffset(inset + 70, 80) })
 	onClick(match, function()
-		MenuController.openMatch()
+		MenuController.go("match")
 	end)
 
 	-- Recruit Player: a square hairline button beside it
@@ -730,6 +712,12 @@ local function placeHeaders()
 	local top = math.max(24, GuiService:GetGuiInset().Y / s + 12)
 	for _, strip in ipairs(ui.strips or {}) do
 		strip.Position = UDim2.fromOffset(M, top)
+	end
+	-- the Match screen's title under the currencies, and its cards under the title
+	local ms = ui.matchScreen
+	if ms then
+		ms.back.Position = UDim2.fromOffset(M, top + 46)
+		ms.row.Position = UDim2.fromOffset(0, top + 46 + 70)
 	end
 end
 
@@ -2817,12 +2805,13 @@ local function refreshShop(prof)
 end
 
 ------------------------------------------------------------------------------------------
--- Match: Quick Match, the lobby list, Create Lobby and your lobby
+-- The lobby window: the lobby list, Create Lobby and your lobby (the Match screen's cards open
+-- it; Quick Match starts from the cards)
 ------------------------------------------------------------------------------------------
 
 local LC = Config.Lobby
 local form = { mode = 3, privacy = "Public", password = "", fill = true, botTier = Config.Match.DefaultBotTier, court = Config.Courts.Rotate }
-local matchTab = "Quick"
+local matchTab = "Browse"
 local editing = false -- the host is changing their lobby's settings
 local joinTarget = nil -- a private lobby waiting for its password
 
@@ -2933,8 +2922,9 @@ local function formRow(parent, y, label)
 	return Gui.label(parent, { Text = label, display = true, TextSize = 21, Size = UDim2.fromOffset(170, 44), Position = UDim2.fromOffset(0, y) })
 end
 
--- The Match window, in Home's broadcast kit: plate tabs, hairline cards, the display face and a
--- signal-yellow plate for the one action on each page.
+-- The lobby window, in Home's broadcast kit: plate tabs, hairline cards, the display face and a
+-- signal-yellow plate for the one action on each page. MODE_LINES name the modes (the Match
+-- screen's cards).
 local MODE_LINES = {
 	{ "Solo", "Spike, set and dig on your own" },
 	{ "Pairs", "A wing spiker and a setter" },
@@ -2942,39 +2932,14 @@ local MODE_LINES = {
 }
 
 local function buildMatch()
-	local m = modal("Match", "Match", 900, 620, true)
+	local m = modal("Match", "Lobbies", 900, 620, true)
 	local P = m.panel
-	local tabs, setTab = plateTabs(P, { { key = "Quick", text = "Quick Match" }, { key = "Browse", text = "Lobbies" }, { key = "Create", text = "Create Lobby" } }, { Size = UDim2.fromOffset(600, 46), Position = UDim2.fromOffset(24, 88) }, function(key)
+	local tabs, setTab = plateTabs(P, { { key = "Browse", text = "Lobbies" }, { key = "Create", text = "Create Lobby" } }, { Size = UDim2.fromOffset(400, 46), Position = UDim2.fromOffset(24, 88) }, function(key)
 		matchTab = key
 		joinTarget = nil
 		MenuController.refresh()
 	end)
 	local body = make("Frame", { Position = UDim2.fromOffset(26, 152), Size = UDim2.new(1, -52, 1, -172), BackgroundTransparency = 1 }, P)
-
-	-- Quick Match: a card per mode
-	local quick = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, body)
-	Gui.label(quick, { Text = "Jump into a public match with whoever is here. Bots take any empty spots when the countdown runs out.", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, 0, 0, 44) })
-	local modes = {}
-	for i, n in ipairs({ 1, 2, 3 }) do
-		local b = Gui.cardButton(quick, { Size = UDim2.fromOffset(268, 276), Position = UDim2.fromOffset((i - 1) * 280, 52), ClipsDescendants = true })
-		Gui.halftone(b, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.62, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.93 })
-		Gui.label(b, { Text = MODE_LINES[n][1], TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Size = UDim2.fromOffset(220, 18), Position = UDim2.fromOffset(18, 16) })
-		Gui.label(b, { Text = n .. "v" .. n, display = true, weight = Enum.FontWeight.Heavy, TextSize = 108, Size = UDim2.fromOffset(240, 112), Position = UDim2.fromOffset(14, 32) })
-		Gui.label(b, { Text = (n * 2) .. " players", display = true, TextSize = 21, Size = UDim2.fromOffset(220, 24), Position = UDim2.fromOffset(18, 144) })
-		Gui.label(b, { Text = MODE_LINES[n][2], TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(236, 18), Position = UDim2.fromOffset(18, 170) })
-		local go = Gui.plate(b, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 14, 1, -18), Size = UDim2.fromOffset(200, 46) }, Gui.SIGNAL)
-		local waiting = Gui.label(go, { Text = "", display = true, TextSize = 21, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
-		b.MouseEnter:Connect(function()
-			Gui.tint(go, Gui.SIGNAL_HOT)
-		end)
-		b.MouseLeave:Connect(function()
-			Gui.tint(go, Gui.SIGNAL)
-		end)
-		onClick(b, function()
-			Net.get("Lobby"):FireServer("quick", n)
-		end)
-		modes[n] = { button = b, waiting = waiting }
-	end
 
 	-- the lobby list
 	local browse = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, body)
@@ -3143,8 +3108,6 @@ local function buildMatch()
 		tabs = tabs,
 		setTab = setTab,
 		body = body,
-		quick = quick,
-		modes = modes,
 		browse = browse,
 		rows = rows,
 		empty = empty,
@@ -3216,25 +3179,13 @@ local function refreshMatch()
 	Mt.body.Position = UDim2.fromOffset(26, mine and 100 or 152)
 	Mt.body.Size = UDim2.new(1, -52, 1, mine and -120 or -172)
 	Mt.setTab(matchTab)
-	Mt.quick.Visible = mine == nil and matchTab == "Quick"
 	Mt.browse.Visible = mine == nil and matchTab == "Browse"
 	Mt.create.Visible = (mine == nil and matchTab == "Create") or (mine ~= nil and editing)
 	Mt.lobby.Visible = inLobby
 	if mine then
 		Mt.modal.title.Text = mine.quick and string.format("Quick Match %dv%d", mine.mode, mine.mode) or (mine.hostName .. "'s Lobby")
 	else
-		Mt.modal.title.Text = "Match"
-	end
-
-	-- Quick Match: who's waiting in each mode
-	local waiting = { 0, 0, 0 }
-	for _, l in ipairs(lobbies.list or {}) do
-		if l.quick and l.state == "Open" and l.privacy == "Public" then
-			waiting[l.mode] = waiting[l.mode] + l.count
-		end
-	end
-	for n, e in pairs(Mt.modes) do
-		e.waiting.Text = waiting[n] > 0 and string.format("%d waiting", waiting[n]) or "Start one"
+		Mt.modal.title.Text = "Lobbies"
 	end
 
 	-- the list
@@ -3315,6 +3266,227 @@ local function refreshMatch()
 		Mt.start.Visible = open and mine.isHost and not mine.quick
 		Mt.leave.Visible = open or mine.state == "Queued"
 		Mt.leaveLabel.Text = mine.quick and "Cancel queue" or "Leave lobby"
+	end
+end
+
+------------------------------------------------------------------------------------------
+-- The Match screen, laid out like The Spike's (our own art): a row of tall cards, one per way
+-- to play, each over one of our courts: an icon and the name on top, a strip under them, the
+-- court, and a status line along the bottom. The quick modes queue you at once (the lobby
+-- window opens with the countdown); Lobbies and Custom open the window on their tab; Practice
+-- goes to the drills. The row scrolls sideways when it's wider than the screen.
+------------------------------------------------------------------------------------------
+
+local MATCH_CARDS = {
+	{ key = "3", mode = 3, title = "3v3", icon = "IconPlayers", art = "MatchArena" },
+	{ key = "2", mode = 2, title = "2v2", icon = "IconPlayers", art = "MatchBeach" },
+	{ key = "1", mode = 1, title = "1v1", icon = "IconAttack", art = "MatchRooftop" },
+	{ key = "Lobbies", title = "Lobbies", icon = "IconHome", art = "MatchNationals", strip = "Public, friends and private" },
+	{ key = "Custom", title = "Custom", icon = "IconSettings", art = "MatchColosseum", strip = "Host your own lobby" },
+	{ key = "Practice", title = "Practice", icon = "IconJump", art = "MatchPractice", strip = "Drills and the tutorial" },
+}
+local CARD_W, CARD_H, CARD_GAP = 290, 490, 18
+
+-- A card's status line: short, for the lobby you're in.
+local function lobbyLine(mine)
+	if mine.state == "Queued" then
+		return "Waiting for the court"
+	elseif mine.state == "Teleporting" or mine.state == "Arriving" then
+		return "Joining..."
+	elseif mine.state == "Playing" then
+		return "Match in progress"
+	elseif mine.quick then
+		return string.format("Starting in %d", math.max(0, math.ceil((mine.startsAt or 0) - workspace:GetServerTimeNow())))
+	end
+	return string.format("%d/%d in the lobby", mine.count, mine.capacity)
+end
+
+local function pickMatchCard(c)
+	local mine = lobbies.mine
+	if mine and (mine.tutorial or mine.practice) then
+		mine = nil
+	end
+	if c.key == "Practice" then
+		MenuController.go("practice")
+	elseif c.mode then
+		if mine then
+			-- your lobby's window: its countdown, or Leave / Cancel queue before another mode
+			if not (mine.quick and mine.mode == c.mode) then
+				toast("You're already in a lobby: leave it first.")
+			end
+			MenuController.openMatch()
+		else
+			Net.get("Lobby"):FireServer("quick", c.mode)
+		end
+	else
+		if not mine then
+			matchTab = c.key == "Custom" and "Create" or "Browse"
+			joinTarget = nil
+		end
+		MenuController.openMatch()
+	end
+end
+
+local function buildMatchScreen()
+	local p = page("match")
+	-- the club room behind stays blurred (applyScene) and dimmed, as in the reference
+	make("Frame", { Name = "Dim", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.5, BorderSizePixel = 0 }, p)
+	mainChrome(p, "match", "home")
+	-- back to Home, and the title, under the currencies
+	local back = make("TextButton", { Name = "Back", Size = UDim2.fromOffset(360, 60), Position = UDim2.fromOffset(M, 112), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, p)
+	local arrow = Gui.iconImage(back, "IconBack", 40, Gui.SIGNAL, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 2, 0.5, 0) })
+	Gui.label(back, { Text = "Match", display = true, weight = Enum.FontWeight.Heavy, TextSize = 54, TextStrokeTransparency = 0.55, Size = UDim2.new(1, -64, 1, 0), Position = UDim2.fromOffset(62, 0) })
+	back.MouseEnter:Connect(function()
+		arrow.ImageColor3 = Gui.SIGNAL_HOT
+		if Gui.onHover then
+			Gui.onHover()
+		end
+	end)
+	back.MouseLeave:Connect(function()
+		arrow.ImageColor3 = Gui.SIGNAL
+	end)
+	onClick(back, function()
+		MenuController.go("home")
+	end)
+
+	local row = make("ScrollingFrame", {
+		Name = "Cards",
+		Position = UDim2.fromOffset(0, 196),
+		Size = UDim2.new(1, 0, 0, CARD_H + 24),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		ScrollBarThickness = 0,
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		CanvasSize = UDim2.new(),
+		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+	}, p)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, CARD_GAP), VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, row)
+	make("UIPadding", { PaddingLeft = UDim.new(0, M), PaddingRight = UDim.new(0, M) }, row)
+
+	local cards = {}
+	for i, c in ipairs(MATCH_CARDS) do
+		local b = make("TextButton", { Name = c.key, Size = UDim2.fromOffset(CARD_W, CARD_H), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, Text = "", AutoButtonColor = false, ClipsDescendants = true, LayoutOrder = i }, row)
+		-- the court (print grain over the card colour until the art loads)
+		Gui.halftone(b, { Size = UDim2.fromScale(1, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.9 })
+		make("ImageLabel", { Name = "Art", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = Assets.image(c.art) or "", ScaleType = Enum.ScaleType.Crop }, b)
+		-- dark behind the name and the status line, clear over the court
+		local shade = make("Frame", { Name = "Shade", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0 }, b)
+		make("UIGradient", {
+			Rotation = 90,
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.2),
+				NumberSequenceKeypoint.new(0.25, 0.62),
+				NumberSequenceKeypoint.new(0.45, 1),
+				NumberSequenceKeypoint.new(0.72, 0.88),
+				NumberSequenceKeypoint.new(1, 0.25),
+			}),
+		}, shade)
+		-- the icon and the name, centred
+		local head = make("Frame", { Name = "Head", Position = UDim2.fromOffset(0, 14), Size = UDim2.new(1, 0, 0, 54), BackgroundTransparency = 1 }, b)
+		make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, head)
+		Gui.iconImage(head, c.icon, 36, Gui.CHALK, { LayoutOrder = 1 })
+		Gui.label(head, { Text = c.title, display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, TextStrokeTransparency = 0.5, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 54), LayoutOrder = 2 })
+		-- the strip under it
+		local strip = make("Frame", { Name = "Strip", Position = UDim2.fromOffset(0, 76), Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, BorderSizePixel = 0 }, b)
+		local stripText = c.strip or string.format("%s   %d players", MODE_LINES[c.mode][1], c.mode * 2)
+		Gui.label(strip, { Text = stripText, TextSize = 17, weight = Enum.FontWeight.Medium, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+		-- the status line along the bottom
+		local foot = make("Frame", { Name = "Foot", AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 58), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.35, BorderSizePixel = 0 }, b)
+		local footL = Gui.label(foot, { Text = "", display = true, TextSize = 21, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.fromOffset(10, 0), TextXAlignment = Enum.TextXAlignment.Center })
+		local edge = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.45, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+		local scale = make("UIScale", { Scale = 1 }, b)
+		local e = { button = b, foot = foot, footL = footL, edge = edge, hot = false, over = false }
+		local function look()
+			edge.Color = (e.hot or e.over) and Gui.SIGNAL or Gui.HAIRLINE
+			edge.Thickness = e.hot and 3 or (e.over and 2 or 1)
+			edge.Transparency = (e.hot or e.over) and 0 or 0.45
+		end
+		e.look = look
+		b.MouseEnter:Connect(function()
+			e.over = true
+			look()
+			tween(scale, 0.12, { Scale = 1.02 })
+			if Gui.onHover then
+				Gui.onHover()
+			end
+		end)
+		b.MouseLeave:Connect(function()
+			e.over = false
+			look()
+			tween(scale, 0.12, { Scale = 1 })
+		end)
+		b.MouseButton1Down:Connect(function()
+			scale.Scale = 0.98
+		end)
+		b.MouseButton1Up:Connect(function()
+			scale.Scale = e.over and 1.02 or 1
+		end)
+		if c.mode then
+			b:SetAttribute("Sound", "UIConfirm")
+		end
+		onClick(b, function()
+			pickMatchCard(c)
+		end)
+		cards[c.key] = e
+	end
+	ui.matchScreen = { cards = cards, row = row, back = back }
+end
+
+local function refreshMatchScreen(prof)
+	local ms = ui.matchScreen
+	local mine = lobbies.mine
+	if mine and (mine.tutorial or mine.practice) then
+		mine = nil
+	end
+	local waiting, open = { 0, 0, 0 }, 0
+	for _, l in ipairs(lobbies.list or {}) do
+		if l.quick then
+			if l.state == "Open" and l.privacy == "Public" and waiting[l.mode] then
+				waiting[l.mode] = waiting[l.mode] + l.count
+			end
+		elseif l.state == "Open" and not l.mine then
+			open = open + 1
+		end
+	end
+	local tut = prof.tutorial or {}
+	for _, c in ipairs(MATCH_CARDS) do
+		local e = ms.cards[c.key]
+		local text, hot = "", false
+		if c.mode then
+			if mine and mine.quick and mine.mode == c.mode then
+				text, hot = lobbyLine(mine), true
+			elseif waiting[c.mode] > 0 then
+				text = string.format("%d waiting", waiting[c.mode])
+			else
+				text = "Bots fill empty spots"
+			end
+		elseif c.key == "Lobbies" then
+			if mine and not mine.quick and not mine.isHost then
+				text, hot = lobbyLine(mine), true
+			else
+				text = open == 0 and "None open yet" or (open == 1 and "1 open" or string.format("%d open", open))
+			end
+		elseif c.key == "Custom" then
+			if mine and not mine.quick and mine.isHost then
+				text, hot = lobbyLine(mine), true
+			else
+				text = "Your court, your bots"
+			end
+		else
+			if tut.done then
+				text = "Tutorial complete"
+			else
+				local vp, gold = Tutorial.reward()
+				text = string.format("Tutorial: %d VP, %s Gold", vp, Gui.num(gold))
+			end
+		end
+		e.footL.Text = text
+		e.footL.TextColor3 = hot and Gui.LINE or Gui.CHALK
+		e.foot.BackgroundColor3 = hot and Gui.SIGNAL or Color3.new(0, 0, 0)
+		e.foot.BackgroundTransparency = hot and 0.05 or 0.35
+		e.hot = hot
+		e.look()
 	end
 end
 
@@ -3625,13 +3797,29 @@ end
 -- screens, scenes, refresh
 ------------------------------------------------------------------------------------------
 
-local SCENE = { home = "home", practice = "home", players = "home", player = "home", shop = "home", ranks = "home", recruit = "gym", locker = "gym" }
+local SCENE = { home = "home", match = "home", practice = "home", players = "home", player = "home", shop = "home", ranks = "home", recruit = "gym", locker = "gym" }
 local autoLine = ""
+
+-- The Match screen blurs the room behind its cards.
+local menuBlur = nil
+local function setMenuBlur(on)
+	if not menuBlur then
+		if not on then
+			return
+		end
+		menuBlur = Instance.new("BlurEffect")
+		menuBlur.Name = "SpikeRushMenuBlur"
+		menuBlur.Size = 0
+		menuBlur.Parent = Lighting
+	end
+	tween(menuBlur, 0.25, { Size = on and 14 or 0 })
+end
 
 function MenuController.applyScene()
 	if not shown or seqActive then
 		return
 	end
+	setMenuBlur(screen == "match")
 	local SC = mods.SceneController
 	SC.show(SCENE[screen] or "home")
 	if screen == "locker" then
@@ -3708,6 +3896,8 @@ local function doRefresh()
 		refreshRanks(prof)
 	elseif screen == "practice" then
 		refreshPractice(prof)
+	elseif screen == "match" then
+		refreshMatchScreen(prof)
 	end
 	refreshMatch()
 	if swapMode then
@@ -3747,6 +3937,7 @@ local function setShown(on)
 		end
 		mods.SceneController.setPractice(nil)
 		mods.SceneController.show(nil)
+		setMenuBlur(false)
 		ui.match.modal.root.Visible = false
 		ui.odds.modal.root.Visible = false
 		ui.help.root.Visible = false
@@ -3834,6 +4025,7 @@ function MenuController.init(m)
 	buildHelp()
 	buildTable()
 	buildMatch()
+	buildMatchScreen()
 	buildSequence()
 	buildSwap()
 
@@ -3920,6 +4112,9 @@ function MenuController.init(m)
 		end
 		if ui.match.modal.root.Visible and lobbies.mine then
 			ui.match.status.Text = lobbyStatus(lobbies.mine)
+		end
+		if screen == "match" and lobbies.mine then
+			refreshMatchScreen(profile()) -- the countdown on your queue's card
 		end
 		if tick % 36 == 0 then
 			MenuController.refresh()

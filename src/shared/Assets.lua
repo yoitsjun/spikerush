@@ -195,6 +195,14 @@ Assets.Images = {
 	-- a right triangle (right angle bottom-left): mirrored, the slanted ends of every plate
 	Slant = "2288884279", -- decal 2288884281
 	Halftone = "102527515036737", -- decal 124271316176270: a halftone dot fade
+	-- the Match screen's card art: our own courts, rendered in Studio (assets/menu, uploaded to
+	-- the owner's account)
+	MatchArena = "127761392901061", -- Rush Arena
+	MatchBeach = "86703389225100", -- Sunset Beach
+	MatchRooftop = "116429204441166", -- Night Rooftop
+	MatchNationals = "109844305626417", -- Nationals
+	MatchColosseum = "108168199371323", -- Colosseum
+	MatchPractice = "127970476168767", -- the club room's ball cart
 }
 
 -- Effect textures (image ids) for the particle kits in Fx.lua: hand-drawn anime sprites and
