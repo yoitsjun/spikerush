@@ -9,6 +9,7 @@
 -- Hit sounds scale with power: a harder spike is louder and a touch lower.
 
 local SoundService = game:GetService("SoundService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ContentProvider = game:GetService("ContentProvider")
 local TweenService = game:GetService("TweenService")
@@ -159,6 +160,47 @@ function AudioController.play(key, opts)
 	end
 	lastPlayed[key] = now
 	return spawnSound(info, opts)
+end
+
+-- A player's own score sound (the Custom score sound perk): any audio id, cut off after
+-- Perks.SoundSeconds. preloadId loads it as soon as they pick it, so it starts on time.
+local function isId(id)
+	return type(id) == "string" and string.match(id, "^%d+$") ~= nil
+end
+
+function AudioController.preloadId(id)
+	if isId(id) then
+		local m = master("rbxassetid://" .. id)
+		task.spawn(function()
+			pcall(function()
+				ContentProvider:PreloadAsync({ m })
+			end)
+		end)
+	end
+end
+
+function AudioController.playId(id, opts)
+	if not isId(id) then
+		return nil
+	end
+	opts = opts or {}
+	local sound = master("rbxassetid://" .. id):Clone()
+	sound.Volume = opts.volume or 0.9
+	sound.SoundGroup = group
+	sound.Parent = SoundService
+	sound:Play()
+	sound.Ended:Connect(function()
+		sound:Destroy()
+	end)
+	task.delay(Config.Perks.SoundSeconds, function()
+		if sound.Parent then
+			TweenService:Create(sound, TweenInfo.new(0.25), { Volume = 0 }):Play()
+			task.delay(0.3, function()
+				sound:Destroy()
+			end)
+		end
+	end)
+	return sound
 end
 
 -- The serve is struck (any touch after the toss): the crowd's swell stops.
@@ -326,6 +368,18 @@ function AudioController.init()
 	holder.Size = Vector3.new(0.2, 0.2, 0.2)
 	holder.CFrame = CFrame.new(0, 0, 0)
 	holder.Parent = workspace
+
+	-- load each player's own score sound as soon as they pick it
+	local function watch(plr)
+		AudioController.preloadId(plr:GetAttribute("ScoreSound"))
+		plr:GetAttributeChangedSignal("ScoreSound"):Connect(function()
+			AudioController.preloadId(plr:GetAttribute("ScoreSound"))
+		end)
+	end
+	Players.PlayerAdded:Connect(watch)
+	for _, plr in ipairs(Players:GetPlayers()) do
+		watch(plr)
+	end
 
 	local crowd = loop("CrowdLoop", 0.35)
 	loop("Music", 0.18)

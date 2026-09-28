@@ -1566,6 +1566,67 @@ local function showScoreCard(a)
 	end)
 end
 
+-- A player's own score image (the Custom score effect perk): it pops up big over the court,
+-- holds, and fades away. Any image or decal id (its thumbnail, so decals work too).
+function UIController.showScoreImage(id)
+	if type(id) ~= "string" or not string.match(id, "^%d+$") then
+		return
+	end
+	local S = ui.scoreImage
+	if not S then
+		local img = make("ImageLabel", {
+			Name = "ScoreImage",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.42),
+			Size = UDim2.fromScale(0.3, 0.3),
+			BackgroundTransparency = 1,
+			ScaleType = Enum.ScaleType.Fit,
+			Visible = false,
+			ZIndex = 40,
+		}, gui)
+		make("UIAspectRatioConstraint", { AspectRatio = 1 }, img)
+		S = { img = img, scale = make("UIScale", { Scale = 1 }, img), token = 0 }
+		ui.scoreImage = S
+	end
+	S.token = S.token + 1
+	local token = S.token
+	S.img.Image = string.format("rbxthumb://type=Asset&id=%s&w=420&h=420", id)
+	S.img.ImageTransparency = 0
+	S.img.Visible = true
+	S.scale.Scale = 0.3
+	TweenService:Create(S.scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	task.delay(0.35 + Config.Perks.ImageSeconds, function()
+		if S.token ~= token then
+			return
+		end
+		TweenService:Create(S.img, TweenInfo.new(0.5), { ImageTransparency = 1 }):Play()
+		TweenService:Create(S.scale, TweenInfo.new(0.5), { Scale = 1.15 }):Play()
+		task.delay(0.5, function()
+			if S.token == token then
+				S.img.Visible = false
+			end
+		end)
+	end)
+end
+
+-- The scorer's own sound and image, if they have the perks (a point they earned).
+local function scorerPerks(a)
+	if a.error or not a.scorerId or not Config.Match.Celebrate[a.reason or ""] then
+		return
+	end
+	local m = Util.modelOf(a.scorerId)
+	if not m then
+		return
+	end
+	local sound, image = m:GetAttribute("ScoreSound"), m:GetAttribute("ScoreImage")
+	if type(sound) == "string" and sound ~= "" and mods.AudioController then
+		mods.AudioController.playId(sound)
+	end
+	if type(image) == "string" and image ~= "" then
+		UIController.showScoreImage(image)
+	end
+end
+
 local function onAnnounce(a)
 	if not State.isPlaying and a.kind ~= "StandIn" then
 		return -- a match you're not in (you're in the menus)
@@ -1573,6 +1634,7 @@ local function onAnnounce(a)
 	if a.kind == "Point" then
 		showBanner(a)
 		showScoreCard(a)
+		scorerPerks(a)
 		if a.deuce then
 			UIController.callout("Deuce!", UI.Whistle, "Play to " .. tostring(a.playTo), 1.2)
 		elseif a.matchPoint then

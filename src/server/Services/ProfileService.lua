@@ -87,7 +87,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -195,6 +195,16 @@ local function sanitizeProfile(data)
 		end
 	end
 	out.settings = Settings.clean(data.settings)
+	-- perks bought with VP, and the asset id chosen for each (digits only)
+	for _, key in ipairs(Config.Perks.Order) do
+		if type(data.perks) == "table" and data.perks[key] == true then
+			out.perks[key] = true
+		end
+		local id = type(data.perkIds) == "table" and data.perkIds[key]
+		if type(id) == "string" and string.match(id, "^%d+$") and #id <= 20 then
+			out.perkIds[key] = id
+		end
+	end
 	if type(data.receipts) == "table" then
 		for _, id in ipairs(data.receipts) do
 			if type(id) == "string" and #out.receipts < Config.Shop.ReceiptHistory then
@@ -288,6 +298,8 @@ local function save(plr, force)
 		teams = profile.teams,
 		autoSell = profile.autoSell,
 		settings = profile.settings,
+		perks = profile.perks,
+		perkIds = profile.perkIds,
 		receipts = profile.receipts,
 	}
 	local success = pcall(function()
@@ -365,6 +377,28 @@ local function applyCosmetics(plr, profile)
 	end
 end
 
+-- Perks: owned when bought with VP, when the player owns the game pass, or for a developer.
+local passes = {} -- plr -> { [perk] = true } for the game passes they own
+local lastPerkSet = {}
+
+local function hasPerk(plr, profile, key)
+	return profile.dev == true or profile.perks[key] == true or (passes[plr] ~= nil and passes[plr][key] == true)
+end
+
+-- Each owned perk's id as an attribute on the Player and its avatar ("" for none), so every
+-- client plays that player's sound and shows their image when they score.
+local function applyPerks(plr, profile)
+	local char = plr.Character
+	for _, key in ipairs(Config.Perks.Order) do
+		local def = Config.Perks[key]
+		local value = hasPerk(plr, profile, key) and profile.perkIds[key] or ""
+		plr:SetAttribute(def.Attribute, value)
+		if char then
+			char:SetAttribute(def.Attribute, value)
+		end
+	end
+end
+
 -- The tier and build this player plays: their character with its upgrades.
 function ProfileService.characterBuild(plr)
 	local c = ProfileService.character(plr)
@@ -388,6 +422,7 @@ function ProfileService.applyActive(plr)
 		reg.CharacterService.applyStats(char, Characters.derive(tier, build))
 	end
 	applyCosmetics(plr, ProfileService.get(plr))
+	applyPerks(plr, ProfileService.get(plr))
 end
 
 local function teamsCopy(profile)
@@ -447,6 +482,13 @@ function ProfileService.snapshot(plr)
 		teams = teamsCopy(profile),
 		autoSell = table.clone(profile.autoSell),
 		settings = profile.settings,
+		perks = (function()
+			local out = {}
+			for _, key in ipairs(Config.Perks.Order) do
+				out[key] = { owned = hasPerk(plr, profile, key), id = profile.perkIds[key] }
+			end
+			return out
+		end)(),
 		autoRolling = profile.autoRolling and profile.autoRolling.banner or nil,
 		dev = profile.dev or nil,
 		saving = profile.canSave and store ~= nil,
@@ -811,6 +853,64 @@ local function onRequest(plr, kind, a, b, c)
 			applyCosmetics(plr, profile)
 		end
 		push(plr)
+	elseif kind == "perkBuy" then
+		-- a perk for VP (the game pass is bought through Roblox's prompt)
+		local def = Config.Perks[a]
+		if not def or not table.find(Config.Perks.Order, a) or hasPerk(plr, profile, a) then
+			return
+		end
+		if profile.vp < def.VP then
+			push(plr, string.format("You need %d VP for that.", def.VP))
+			return
+		end
+		profile.vp = profile.vp - def.VP
+		profile.perks[a] = true
+		dirty[plr] = true
+		applyPerks(plr, profile)
+		push(plr, def.Name .. " unlocked: enter your id")
+	elseif kind == "perkSet" then
+		-- your id for a perk you own ("" clears it); its asset type is checked first
+		local def = Config.Perks[a]
+		if not def or not table.find(Config.Perks.Order, a) or not hasPerk(plr, profile, a) or type(b) ~= "string" then
+			return
+		end
+		local id = string.match(b, "^%s*(%d+)%s*$")
+		if b ~= "" and (not id or #id > 20) then
+			push(plr, "An id is a number: the digits from the asset's page.")
+			return
+		end
+		if lastPerkSet[plr] and now - lastPerkSet[plr] < Config.Perks.SetCooldown then
+			push(plr, "Give it a moment before changing it again.")
+			return
+		end
+		lastPerkSet[plr] = now
+		if b == "" then
+			profile.perkIds[a] = nil
+			dirty[plr] = true
+			applyPerks(plr, profile)
+			push(plr, def.Name .. " cleared")
+			return
+		end
+		task.spawn(function()
+			local ok, info = pcall(function()
+				return MarketplaceService:GetProductInfo(tonumber(id), Enum.InfoType.Asset)
+			end)
+			if not ok or type(info) ~= "table" then
+				push(plr, "That id couldn't be found.")
+				return
+			end
+			if not table.find(def.Types, info.AssetTypeId) then
+				push(plr, a == "ScoreSound" and "That id isn't a sound." or "That id isn't an image or a decal.")
+				return
+			end
+			if not profiles[plr] then
+				return
+			end
+			profile.perkIds[a] = id
+			dirty[plr] = true
+			applyPerks(plr, profile)
+			push(plr, string.format("Saved: %s", tostring(info.Name or id)))
+		end)
 	elseif kind == "buy" then
 		local list = b == "Gold" and Config.Shop.GoldPacks or Config.Shop.Packs
 		local pack = list[tonumber(a) or 0]
@@ -869,6 +969,21 @@ function ProfileService.init(r)
 			ProfileService.get(plr)
 			ProfileService.applyActive(plr)
 			push(plr)
+			-- the perks' game passes they own
+			for _, key in ipairs(Config.Perks.Order) do
+				local id = Config.Perks[key].PassId
+				if id ~= 0 then
+					local ok, owns = pcall(function()
+						return MarketplaceService:UserOwnsGamePassAsync(plr.UserId, id)
+					end)
+					if ok and owns and plr.Parent then
+						passes[plr] = passes[plr] or {}
+						passes[plr][key] = true
+						applyPerks(plr, ProfileService.get(plr))
+						push(plr)
+					end
+				end
+			end
 		end)
 		plr.CharacterAdded:Connect(function()
 			task.defer(ProfileService.applyActive, plr)
@@ -888,6 +1003,8 @@ function ProfileService.init(r)
 		dirty[plr] = nil
 		loading[plr] = nil
 		lastRequest[plr] = nil
+		passes[plr] = nil
+		lastPerkSet[plr] = nil
 	end)
 	game:BindToClose(function()
 		for _, plr in ipairs(Players:GetPlayers()) do
@@ -904,6 +1021,20 @@ function ProfileService.init(r)
 	end)
 
 	MarketplaceService.ProcessReceipt = processReceipt
+	-- a perk's game pass bought in game
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(plr, passId, purchased)
+		if not purchased then
+			return
+		end
+		for _, key in ipairs(Config.Perks.Order) do
+			if Config.Perks[key].PassId ~= 0 and Config.Perks[key].PassId == passId then
+				passes[plr] = passes[plr] or {}
+				passes[plr][key] = true
+				applyPerks(plr, ProfileService.get(plr))
+				push(plr, Config.Perks[key].Name .. " unlocked: enter your id")
+			end
+		end
+	end)
 	Net.get("Profile").OnServerEvent:Connect(onRequest)
 end
 

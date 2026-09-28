@@ -2787,10 +2787,101 @@ local function buildShop()
 		Position = UDim2.new(0, M, 1, -M - 6),
 		Size = UDim2.new(1, -(M * 2 + 440 + 40), 0, 48),
 	})
-	ui.shop = { prices = prices }
+	-- Perks, on the right: your own score sound and score image (VP, or a game pass)
+	local perkCol = make("Frame", { Name = "Perks", Position = UDim2.fromOffset(M + 4 * 214 + 30, 150), Size = UDim2.new(1, -(M + 4 * 214 + 30 + M), 0, 560), BackgroundTransparency = 1 }, p)
+	Gui.label(perkCol, { Text = "Perks", display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextStrokeTransparency = 0.6, Size = UDim2.new(1, 0, 0, 36) })
+	Gui.plate(perkCol, { Size = UDim2.fromOffset(60, 6), Position = UDim2.fromOffset(2, 40) }, Gui.SIGNAL)
+	local perks = {}
+	for i, key in ipairs(Config.Perks.Order) do
+		local def = Config.Perks[key]
+		local card = Gui.card(perkCol, { Position = UDim2.fromOffset(0, 56 + (i - 1) * 252), Size = UDim2.new(1, 0, 0, 236), ClipsDescendants = true })
+		Gui.label(card, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -32, 0, 30) })
+		Gui.label(card, { Text = def.Blurb, TextSize = 14, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 42), Size = UDim2.new(1, -32, 0, 54) })
+		-- not yours yet: buy it
+		local buyVP = actionPlate(card, { Position = UDim2.fromOffset(12, 104), Size = UDim2.new(0.5, -18, 0, 46) }, string.format("%s VP", Gui.num(def.VP)), 20)
+		local buyPass, buyPassLabel = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 104), Size = UDim2.new(0.5, -18, 0, 46) }, "Robux", 18)
+		-- yours: the id, Save and Test
+		local box = make("TextBox", {
+			Position = UDim2.fromOffset(16, 104),
+			Size = UDim2.new(1, -32 - 188, 0, 46),
+			BackgroundColor3 = Color3.fromRGB(6, 8, 16),
+			BackgroundTransparency = 0.1,
+			BorderSizePixel = 0,
+			TextColor3 = Gui.CHALK,
+			PlaceholderColor3 = Gui.DIM,
+			PlaceholderText = key == "ScoreSound" and "Sound id" or "Image or decal id",
+			Text = "",
+			FontFace = Gui.body(Enum.FontWeight.Medium),
+			TextSize = 18,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ClearTextOnFocus = false,
+		}, card)
+		make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.45, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, box)
+		make("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, box)
+		local save = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -104, 0, 104), Size = UDim2.fromOffset(84, 46) }, "Save", 18)
+		local test = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 104), Size = UDim2.fromOffset(84, 46) }, "Test", 18)
+		local status = Gui.label(card, { Text = "", TextSize = 14, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 160), Size = UDim2.new(1, -32, 0, 66) })
+		onClick(buyVP, function()
+			Net.get("Profile"):FireServer("perkBuy", key)
+		end)
+		onClick(buyPass, function()
+			if def.PassId ~= 0 then
+				pcall(function()
+					MarketplaceService:PromptGamePassPurchase(player, def.PassId)
+				end)
+			end
+		end)
+		onClick(save, function()
+			Net.get("Profile"):FireServer("perkSet", key, box.Text)
+		end)
+		onClick(test, function()
+			local id = string.match(box.Text, "%d+")
+			if not id then
+				return
+			end
+			if key == "ScoreSound" then
+				mods.AudioController.playId(id)
+			else
+				mods.UIController.showScoreImage(id)
+			end
+		end)
+		perks[key] = { buyVP = buyVP, buyPass = buyPass, buyPassLabel = buyPassLabel, box = box, save = save, test = test, status = status }
+		if def.PassId ~= 0 then
+			task.spawn(function()
+				local ok, info = pcall(function()
+					return MarketplaceService:GetProductInfo(def.PassId, Enum.InfoType.GamePass)
+				end)
+				if ok and info and info.PriceInRobux then
+					buyPassLabel.Text = "R$ " .. info.PriceInRobux
+				end
+			end)
+		end
+	end
+	ui.shop = { prices = prices, perks = perks }
+end
+
+local function refreshPerks(prof)
+	for key, e in pairs(ui.shop.perks) do
+		local def = Config.Perks[key]
+		local st = prof.perks and prof.perks[key] or {}
+		local owned = st.owned == true
+		e.buyVP.Visible = not owned
+		e.buyPass.Visible = not owned and def.PassId ~= 0
+		e.box.Visible, e.save.Visible, e.test.Visible = owned, owned, owned
+		if owned and not e.box:IsFocused() and e.shownId ~= (st.id or "") then
+			e.box.Text = st.id or ""
+			e.shownId = st.id or ""
+		end
+		if owned then
+			e.status.Text = st.id and (key == "ScoreSound" and "Plays when you score. Test it here." or "Pops up when you score. Test it here.") or "Paste an id and Save."
+		else
+			e.status.Text = def.PassId ~= 0 and "" or "The game pass comes soon; VP works now."
+		end
+	end
 end
 
 local function refreshShop(prof)
+	refreshPerks(prof)
 	for key, labels in pairs(ui.shop.prices) do
 		for i, pack in ipairs(shopPacks(key)) do
 			local label = labels[i]

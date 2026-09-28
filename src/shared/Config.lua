@@ -450,6 +450,34 @@ Config.Cosmetics = {
 	},
 }
 
+-- Perks: one-time unlocks, bought with VP or as a game pass (Creator Hub > your experience >
+-- Monetization > Passes; paste the pass id here, 0 while there isn't one). Whoever owns one
+-- enters their own asset id: a sound that plays when they score (a Creator Store sound, or
+-- their own upload shared with this experience), or an image that pops up and fades. The server
+-- checks the id's asset type (Types: 3 audio, 1 image, 13 decal) before it's kept.
+Config.Perks = {
+	Order = { "ScoreSound", "ScoreImage" },
+	ScoreSound = {
+		Name = "Custom score sound",
+		Blurb = "Your own sound plays when you score. Use a sound id from the Creator Store, or your own upload shared with Spike Rush.",
+		VP = 3000,
+		PassId = 0,
+		Attribute = "ScoreSound",
+		Types = { 3 },
+	},
+	ScoreImage = {
+		Name = "Custom score effect",
+		Blurb = "Your own image pops up and fades when you score. Use an image or decal id.",
+		VP = 3000,
+		PassId = 0,
+		Attribute = "ScoreImage",
+		Types = { 1, 13 },
+	},
+	SoundSeconds = 4, -- a custom score sound is cut off after this
+	ImageSeconds = 1.6, -- how long the image holds before it fades
+	SetCooldown = 3, -- seconds between id changes (each one is looked up)
+}
+
 -- VP and Gold packs, sold as Developer Products. Create each product (Creator Hub > your
 -- experience > Monetization > Developer Products) and paste its id here. A pack with Id 0 shows
 -- as "soon"; in Studio it grants its VP or Gold for free so the flow can be tested.
