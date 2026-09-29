@@ -561,6 +561,17 @@ local function rewardsText(rows)
 			if e.extraVP then
 				table.insert(parts, "extra sets included")
 			end
+			if e.boostVP or e.boostGold then
+				-- the admin panel's events
+				local on = {}
+				if e.boostVP then
+					table.insert(on, e.boostVP .. "x VP")
+				end
+				if e.boostGold then
+					table.insert(on, e.boostGold .. "x Gold")
+				end
+				table.insert(parts, '<font color="#FFD35A"><b>' .. table.concat(on, " and ") .. " event</b></font>")
+			end
 			if e.streak and e.streak >= 2 then
 				local bonus = e.streakVP and string.format(" (+%d VP, +%d Gold)", e.streakVP, e.streakGold or 0) or ""
 				table.insert(parts, string.format("<b>Win streak %d</b>%s", e.streak, bonus))

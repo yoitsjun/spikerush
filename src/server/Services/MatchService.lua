@@ -481,6 +481,7 @@ local function results(winner, forfeitTeam)
 				score = score + 0.5
 			end
 			local reward, gold, streak, streakVP, streakGold, extraVP = nil, nil, nil, nil, nil, nil
+			local boostVP, boostGold = 1, 1
 			if e.player then
 				local won = team == winner
 				if counts then
@@ -499,6 +500,9 @@ local function results(winner, forfeitTeam)
 					if scale < 1 then
 						reward, gold = math.floor(reward * scale + 0.5), math.floor(gold * scale + 0.5)
 					end
+					-- the admin panel's events (2x VP, 2x Gold)
+					boostVP, boostGold = reg.AdminService.multiplier("VP"), reg.AdminService.multiplier("Gold")
+					reward, gold = reward * boostVP, gold * boostGold
 					reg.ProfileService.award(e.player, reward, gold)
 				end
 			end
@@ -524,6 +528,8 @@ local function results(winner, forfeitTeam)
 				streak = streak,
 				streakVP = (streakVP or 0) > 0 and streakVP or nil,
 				streakGold = (streakGold or 0) > 0 and streakGold or nil,
+				boostVP = boostVP > 1 and boostVP or nil,
+				boostGold = boostGold > 1 and boostGold or nil,
 			})
 			if score > mvpScore then
 				mvp, mvpScore = e, score
@@ -532,11 +538,12 @@ local function results(winner, forfeitTeam)
 	end
 	-- the MVP's bonus V Points
 	if mvp and mvp.player and mvp.team ~= forfeitTeam then
-		reg.ProfileService.award(mvp.player, P.MvpVP, 0)
+		local bonus = P.MvpVP * reg.AdminService.multiplier("VP")
+		reg.ProfileService.award(mvp.player, bonus, 0)
 		for _, row in ipairs(list) do
 			if row.id == mvp.id then
-				row.reward = (row.reward or 0) + P.MvpVP
-				row.mvpBonus = P.MvpVP
+				row.reward = (row.reward or 0) + bonus
+				row.mvpBonus = bonus
 			end
 		end
 	end

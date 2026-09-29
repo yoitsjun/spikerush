@@ -29,6 +29,8 @@ function Leaderboards.valuesOf(profile)
 		kills = n(rec.kills),
 		aces = n(rec.aces),
 		blocks = n(rec.blocks),
+		robux = n(profile and profile.spent and profile.spent.robux),
+		gifts = n(profile and profile.spent and profile.spent.gifts),
 	}
 end
 

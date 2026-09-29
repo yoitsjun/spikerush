@@ -66,6 +66,12 @@
         },
         "SetAim": {
           "$className": "RemoteEvent"
+        },
+        "Admin": {
+          "$className": "RemoteEvent"
+        },
+        "Notice": {
+          "$className": "RemoteEvent"
         }
       },
       "ToolboxAssets": {

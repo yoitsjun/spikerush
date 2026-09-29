@@ -8,7 +8,11 @@
 --                  the reveal card and the results. Skip jumps straight to the next S.
 --   Players ...... your characters: pick who you play, spend Gold on their four stats.
 --   Locker ....... equip spike styles, colours, trails and score effects, with a live preview.
---   Shop ......... V Point and Gold packs, and a big Recruit button.
+--   Shop ......... V Point and Gold packs (each can be a gift), and a big Recruit button.
+--   Codes, Daily . Home's buttons down the right edge: codes and the daily reward, for members of
+--                  the group who liked the game (Roblox's join prompt; liking is their word).
+--   Admin ........ developers only: 2x VP and 2x Gold events in every server, announcements, and
+--                  VP, Gold, lucky spins and characters for anyone by username (AdminService).
 --   Match ........ Quick Match, the lobby list, Create Lobby (public, friends only or private
 --                  with a password, fill with bots, bot level) and your lobby.
 -- Layout is drawn on a 900-unit-tall canvas scaled to the screen, so it keeps its proportions
@@ -21,6 +25,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local MarketplaceService = game:GetService("MarketplaceService")
+local GroupService = game:GetService("GroupService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -31,6 +36,8 @@ local Roster = require(Shared.Roster)
 local Court = require(Shared.Court)
 local Tutorial = require(Shared.Tutorial)
 local Assets = require(Shared.Assets)
+local Economy = require(Shared.Economy)
+local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
@@ -56,6 +63,11 @@ local lockerPick = {} -- kind -> key being previewed
 local recruitTab = "Player"
 local banner = "Char"
 local refreshQueued = false
+-- Codes, the daily reward, gifts, the admin panel and the running events keep their pieces in
+-- this table rather than in locals: this chunk is close to Luau's 200 locals.
+local Extra = {}
+Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns count from then)
+local packPrices = { VP = {}, Gold = {}, Lucky = {} } -- product prices in Robux, looked up once per pack
 
 local TIPS = {
 	"Hold toward the net as you let go of a jump-serve toss to throw it forward, then run into it.",
@@ -138,6 +150,57 @@ local function onClick(button, fn)
 		click(button:GetAttribute("Sound"))
 		fn()
 	end)
+end
+
+-- An icon key (Assets.Images), or `fallback` while its slot is empty.
+function Extra.iconKey(key, fallback)
+	return Assets.image(key) and key or fallback
+end
+
+-- "5h 12m" (the daily reward's wait)
+function Extra.waitText(seconds)
+	seconds = math.max(0, math.floor(seconds))
+	local h = math.floor(seconds / 3600)
+	local m = math.floor(seconds % 3600 / 60)
+	if h > 0 then
+		return string.format("%dh %dm", h, m)
+	end
+	return string.format("%dm", math.max(1, m))
+end
+
+-- "14:32" (an event's time left)
+function Extra.clockText(seconds)
+	seconds = math.max(0, math.floor(seconds))
+	return string.format("%d:%02d", math.floor(seconds / 60), seconds % 60)
+end
+
+-- A running event's time left in seconds (the admin panel's; 0 when it's off).
+function Extra.eventLeft(kind)
+	return math.max(0, (ReplicatedStorage:GetAttribute("Event_" .. kind) or 0) - Util.now())
+end
+
+-- A text box in the Shop's style.
+function Extra.inputBox(parent, props, placeholder)
+	local box = make("TextBox", {
+		BackgroundColor3 = Color3.fromRGB(6, 8, 16),
+		BackgroundTransparency = 0.1,
+		BorderSizePixel = 0,
+		TextColor3 = Gui.CHALK,
+		PlaceholderColor3 = Gui.DIM,
+		PlaceholderText = placeholder or "",
+		Text = "",
+		FontFace = Gui.body(Enum.FontWeight.Medium),
+		TextSize = 18,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ClearTextOnFocus = false,
+		ZIndex = 22,
+	}, parent)
+	for k, v in pairs(props or {}) do
+		box[k] = v
+	end
+	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.45, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, box)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }, box)
+	return box
 end
 
 -- Segmented control, as The Spike's toggles: a dark rounded trough, the active segment filled
@@ -523,6 +586,36 @@ local function buildHome()
 	-- the nav across the top, the same as every main screen's
 	local nav = navBar(p, "home")
 
+	-- down the right edge (The Spike has its icons there): the daily reward (a dot when one's
+	-- waiting), codes, and the admin panel for developers
+	local extras = make("Frame", { Name = "Extras", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, NAV_BOTTOM + 22), Size = UDim2.fromOffset(96, 3 * 84), BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, extras)
+	local dailyBtn = navItem(extras, Extra.iconKey("IconDaily", "IconStar"), "Daily", { LayoutOrder = 1 })
+	local dailyDot = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 20, 0, 8), Size = UDim2.fromOffset(14, 14), BackgroundColor3 = Gui.ALERT, BorderSizePixel = 0, Visible = false, ZIndex = 3 }, dailyBtn)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, dailyDot)
+	onClick(dailyBtn, function()
+		ui.daily.modal.root.Visible = true
+		MenuController.refresh()
+	end)
+	onClick(navItem(extras, Extra.iconKey("IconCode", "IconShop"), "Codes", { LayoutOrder = 2 }), function()
+		ui.codes.modal.root.Visible = true
+		MenuController.refresh()
+	end)
+	local adminBtn = navItem(extras, Extra.iconKey("IconAdmin", "IconSettings"), "Admin", { LayoutOrder = 3, Visible = false })
+	onClick(adminBtn, function()
+		MenuController.openAdmin()
+	end)
+
+	-- the admin panel's running events (2x VP, 2x Gold) with their time left, under the nav
+	local chips = make("Frame", { Name = "Events", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 160), Size = UDim2.fromOffset(620, 40), BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 14), SortOrder = Enum.SortOrder.LayoutOrder }, chips)
+	local eventChips = {}
+	for i, kind in ipairs(Config.Admin.Events) do
+		local plate = Gui.plate(chips, { Size = UDim2.fromOffset(230, 38), LayoutOrder = i, Visible = false }, Gui.GOLD)
+		local l = Gui.label(plate, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 21, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+		eventChips[kind] = { plate = plate, label = l }
+	end
+
 	-- the left column under the profile (placeHome moves the two together)
 	local column = make("Frame", { Name = "Column", Size = UDim2.fromOffset(470, 546), Position = UDim2.fromOffset(M, 24 + PROFILE_H + 20), BackgroundTransparency = 1 }, p)
 
@@ -673,7 +766,26 @@ local function buildHome()
 		tutLine = tutLine,
 		tutProgress = tutProgress,
 		navWidth = nav.Size.X.Offset,
+		dailyDot = dailyDot,
+		adminBtn = adminBtn,
+		eventChips = eventChips,
 	}
+end
+
+-- Home's running-event chips, the daily reward's dot and the Admin button (every second while
+-- Home shows: the chips count down).
+function Extra.refreshHome(prof)
+	local hm = ui.home
+	for kind, chip in pairs(hm.eventChips) do
+		local left = Extra.eventLeft(kind)
+		chip.plate.Visible = left > 0
+		if left > 0 then
+			chip.label.Text = string.format("%dx %s  %s", Config.Admin.Multiplier, kind, Extra.clockText(left))
+		end
+	end
+	local d = prof.daily
+	hm.dailyDot.Visible = d ~= nil and (d.ready == true or (d.opensIn or 0) - (os.clock() - Extra.profileAt) <= 0)
+	hm.adminBtn.Visible = prof.admin == true
 end
 
 -- Home's profile sits under Roblox's own buttons at the top left, whatever size they are: the
@@ -808,6 +920,7 @@ local function refreshHome(prof)
 		hm.matchSub.Text = "Quick Match or lobbies"
 	end
 	hm.rejoin.Visible = myStandIn()
+	Extra.refreshHome(prof)
 end
 
 ------------------------------------------------------------------------------------------
@@ -984,12 +1097,12 @@ local function buildRecruit()
 	local freeTag = Gui.plate(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M - 330, 1, -M - 124), Size = UDim2.fromOffset(130, 30), Visible = false }, Gui.ALERT)
 	local freeL = Gui.label(freeTag, { Text = "", display = true, TextSize = 18, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
 	local lastSpin = 0
-	local function spin(n)
+	local function spin(n, lucky)
 		if os.clock() - lastSpin < 0.6 or seqActive then
 			return
 		end
 		lastSpin = os.clock()
-		sendProfile("spin", banner, n)
+		sendProfile("spin", banner, n, lucky and "lucky" or nil)
 	end
 	Gui.pressSound(x1, "UIConfirm")
 	Gui.pressSound(x10, "UIConfirm")
@@ -1000,7 +1113,65 @@ local function buildRecruit()
 		spin(10)
 	end)
 
-	ui.recruit = { setTab = setTab, rows = rows, title = title, desc = desc, odds = odds, autoL = autoL, sells = sells, status = status, x1 = x1, x10 = x10, x1Cost = x1Cost, x10Cost = x10Cost, x10Plate = x10Plate, freeTag = freeTag, freeL = freeL }
+
+	-- lucky spins (the owner: "like volleyball legends with enhanced rates"): a gold strip over the
+	-- recruit buttons. Each button spends lucky spins, or buys the pack with that many (Robux);
+	-- they also come from codes, daily rewards and gifts. Odds opens their table, Gift sends a pack.
+	local lucky = Gui.card(p, { Name = "Lucky", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 172), Size = UDim2.fromOffset(582, 110), ClipsDescendants = true }, Color3.fromRGB(120, 88, 14))
+	Gui.halftone(lucky, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.93 })
+	Gui.label(lucky, { Text = "Lucky spins", display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, TextStrokeTransparency = 0.6, Position = UDim2.fromOffset(16, 8), Size = UDim2.fromOffset(250, 32) })
+	local luckyHave = Gui.label(lucky, { Text = "", display = true, TextSize = 19, TextColor3 = Gui.GOLD_LIGHT, TextStrokeTransparency = 0.6, Position = UDim2.fromOffset(16, 42), Size = UDim2.fromOffset(250, 22) })
+	local luckyOdds = Gui.label(lucky, { Text = "", TextSize = 14, weight = Enum.FontWeight.Medium, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextStrokeTransparency = 0.6, Position = UDim2.fromOffset(16, 68), Size = UDim2.fromOffset(256, 36) })
+	local luckyButtons = {}
+	for i, n in ipairs({ 1, 10 }) do
+		local x = 282 + (i - 1) * 150
+		local b = Gui.plateButton(lucky, { Position = UDim2.fromOffset(x, 10), Size = UDim2.fromOffset(140, 58) }, Gui.GOLD, Gui.GOLD_LIGHT)
+		b:SetAttribute("Sound", "UIConfirm")
+		Gui.label(b, { Text = "Lucky x" .. n, display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Position = UDim2.fromOffset(0, 5), Size = UDim2.new(1, 0, 0, 26), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+		local sub = Gui.label(b, { Text = "", display = true, TextSize = 16, TextColor3 = Gui.LINE, Position = UDim2.fromOffset(0, 31), Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+		onClick(b, function()
+			local prof = profile()
+			if prof.dev or (prof.lucky or 0) >= n then
+				spin(n, true)
+				return
+			end
+			-- not enough: buy the pack with that many
+			local pack = Config.Lucky.Packs[i]
+			if pack and pack.Id ~= 0 then
+				pcall(function()
+					MarketplaceService:PromptProductPurchase(player, pack.Id)
+				end)
+			elseif pack and prof.studio then
+				Net.get("Profile"):FireServer("buy", i, "Lucky")
+			else
+				toast("Lucky spins go on sale soon.")
+			end
+		end)
+		luckyButtons[i] = { button = b, sub = sub, n = n }
+	end
+	local oddsL = hairButton(lucky, { Position = UDim2.fromOffset(282, 74), Size = UDim2.fromOffset(140, 28) }, "Lucky odds", 15)
+	onClick(oddsL, function()
+		MenuController.openTable(banner, true)
+	end)
+	local giftL = hairButton(lucky, { Position = UDim2.fromOffset(432, 74), Size = UDim2.fromOffset(140, 28) }, "Gift lucky spins", 15)
+	onClick(giftL, function()
+		MenuController.openGift("Lucky", 1)
+	end)
+	for i, pack in ipairs(Config.Lucky.Packs) do
+		if pack.Id ~= 0 then
+			task.spawn(function()
+				local ok, info = pcall(function()
+					return MarketplaceService:GetProductInfo(pack.Id, Enum.InfoType.Product)
+				end)
+				if ok and info and info.PriceInRobux then
+					packPrices.Lucky[i] = info.PriceInRobux
+					MenuController.refresh()
+				end
+			end)
+		end
+	end
+
+	ui.recruit = { setTab = setTab, rows = rows, title = title, desc = desc, odds = odds, autoL = autoL, sells = sells, status = status, x1 = x1, x10 = x10, x1Cost = x1Cost, x10Cost = x10Cost, x10Plate = x10Plate, freeTag = freeTag, freeL = freeL, luckyHave = luckyHave, luckyOdds = luckyOdds, luckyButtons = luckyButtons }
 end
 
 local function refreshRecruit(prof)
@@ -1053,6 +1224,27 @@ local function refreshRecruit(prof)
 	R.freeL.Text = string.format("%d free", freeSpins)
 	R.x1.BackgroundTransparency = (free or freeSpins > 0 or (prof.vp or 0) >= SP.Costs[1]) and 0 or 0.45
 	Gui.fade(R.x10Plate, (free or (prof.vp or 0) >= SP.Costs[10]) and 0 or 0.45)
+	-- lucky spins: how many, their odds on this banner, and each button's use or price
+	local have = prof.lucky or 0
+	R.luckyHave.Text = free and "Free for developers" or string.format("You have %d", have)
+	local lo = Spins.odds(banner, Spins.LuckyWeights)
+	local lparts = {}
+	for _, r in ipairs(Config.Rarity.Order) do
+		if lo[r] > 0 then
+			table.insert(lparts, string.format('<font color="#%s">%s %s%%</font>', Spins.rarityColor(r):ToHex(), r, string.format(lo[r] >= 0.1 and "%.0f" or "%.1f", lo[r] * 100)))
+		end
+	end
+	R.luckyOdds.Text = table.concat(lparts, "  ")
+	for i, lb in ipairs(R.luckyButtons) do
+		local pack = Config.Lucky.Packs[i]
+		if free or have >= lb.n then
+			lb.sub.Text = "Use " .. lb.n
+		elseif pack and pack.Id ~= 0 then
+			lb.sub.Text = packPrices.Lucky[i] and ("R$ " .. packPrices.Lucky[i]) or "..."
+		else
+			lb.sub.Text = prof.studio and "Free in Studio" or "Soon"
+		end
+	end
 end
 
 ------------------------------------------------------------------------------------------
@@ -1092,10 +1284,10 @@ local function buildTable()
 	ui.odds = { modal = m, sub = sub, rows = rows }
 end
 
-function MenuController.openTable(kind)
+function MenuController.openTable(kind, lucky)
 	local O = ui.odds
 	local prof = profile()
-	O.modal.title.Text = bannerName(kind) .. ": Probability Table"
+	O.modal.title.Text = bannerName(kind) .. (lucky and ": Lucky Spin Odds" or ": Probability Table")
 	O.sub.Text = string.format("Every pull is one of these. Duplicates turn into V Points (%s).", table.concat((function()
 		local parts = {}
 		for _, r in ipairs(Config.Rarity.Order) do
@@ -1103,7 +1295,7 @@ function MenuController.openTable(kind)
 		end
 		return parts
 	end)(), ", "))
-	local data = Spins.table(kind)
+	local data = Spins.table(kind, lucky and Spins.LuckyWeights or nil)
 	for i, row in ipairs(O.rows) do
 		local d = data[i]
 		row.frame.Visible = d ~= nil
@@ -2708,9 +2900,6 @@ end
 -- Shop: V Point and Gold packs for Robux, and a big way into Recruit
 ------------------------------------------------------------------------------------------
 
--- product prices in Robux, looked up once per pack
-local packPrices = { VP = {}, Gold = {} }
-
 -- the Shop's two rows: V Point packs and Gold packs (Config.Shop), each a Developer Product
 local SHOP_ROWS = {
 	{ key = "VP", title = "V Points", note = "Recruit players and looks", icon = Gui.icon.vp },
@@ -2740,6 +2929,11 @@ local function buildShop()
 			Gui.label(card, { Text = Gui.num(pack[row.key]), display = true, weight = Enum.FontWeight.Heavy, TextSize = 42, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center })
 			Gui.label(card, { Text = pack.Name, TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 128), TextXAlignment = Enum.TextXAlignment.Center })
 			local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(172, 44) }, "", 20)
+			-- buy it for someone else (the owner: "add a gifting system")
+			local gift = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 8), Size = UDim2.fromOffset(56, 28) }, "Gift", 15)
+			onClick(gift, function()
+				MenuController.openGift(row.key, i)
+			end)
 			onClick(buy, function()
 				if pack.Id ~= 0 then
 					pcall(function()
@@ -3784,14 +3978,14 @@ local function buildRanks()
 	local p = page("ranks")
 	mainChrome(p, "ranks")
 	-- the boards down the left, as hairline cards (the one shown edged in gold with a bar)
-	local list = make("Frame", { Name = "Boards", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(310, 480), BackgroundTransparency = 1 }, p)
-	make("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	local list = make("Frame", { Name = "Boards", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(310, 7 * 64 + 6 * 8), BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local tabs = {}
 	for i, b in ipairs(Leaderboards.Boards) do
-		local t = Gui.cardButton(list, { Name = b.Key, Size = UDim2.new(1, 0, 0, 80), LayoutOrder = i })
-		local bar = Gui.plate(t, { Position = UDim2.fromOffset(-2, 0), Size = UDim2.fromOffset(12, 80) }, Gui.SIGNAL, { flatLeft = true })
-		Gui.label(t, { Text = b.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Size = UDim2.new(1, -40, 0, 30), Position = UDim2.fromOffset(24, 12) })
-		local mine = Gui.label(t, { Text = "", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, -40, 0, 20), Position = UDim2.fromOffset(26, 46) })
+		local t = Gui.cardButton(list, { Name = b.Key, Size = UDim2.new(1, 0, 0, 64), LayoutOrder = i })
+		local bar = Gui.plate(t, { Position = UDim2.fromOffset(-2, 0), Size = UDim2.fromOffset(12, 64) }, Gui.SIGNAL, { flatLeft = true })
+		Gui.label(t, { Text = b.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Size = UDim2.new(1, -40, 0, 28), Position = UDim2.fromOffset(24, 7) })
+		local mine = Gui.label(t, { Text = "", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, -40, 0, 20), Position = UDim2.fromOffset(26, 36) })
 		onClick(t, function()
 			boardKey = b.Key
 			MenuController.refresh()
@@ -3836,6 +4030,7 @@ local function refreshRanks(prof)
 	askBoards(false)
 	local mineValues = Leaderboards.valuesOf(prof)
 	local unit = "wins"
+	local emptyText = "No scores yet. Win matches to get on the board."
 	for _, b in ipairs(Leaderboards.Boards) do
 		local tab = R.tabs[b.Key]
 		local on = b.Key == boardKey
@@ -3847,6 +4042,7 @@ local function refreshRanks(prof)
 		if on then
 			R.title.Text = b.Name
 			unit = b.Unit
+			emptyText = b.Empty or emptyText
 		end
 	end
 	local rows = boardData and boardData.boards and boardData.boards[boardKey] or {}
@@ -3878,6 +4074,7 @@ local function refreshRanks(prof)
 		end
 	end
 	R.empty.Visible = boardData ~= nil and #rows == 0
+	R.empty.Text = emptyText
 	local mine = mineValues[boardKey] or 0
 	if myRank then
 		R.you.Text = string.format("You: <b>#%d</b> with %s %s", myRank, Gui.num(mine), unit)
@@ -3886,6 +4083,397 @@ local function refreshRanks(prof)
 	else
 		R.you.Text = "You're not on this board yet."
 	end
+end
+
+------------------------------------------------------------------------------------------
+-- Codes, the daily reward, gifts and the admin panel
+------------------------------------------------------------------------------------------
+
+Extra.groupName = nil -- the group's name, looked up once ("" while it's being asked)
+
+function Extra.lookUpGroup()
+	local gid = profile().group or 0
+	if gid == 0 or Extra.groupName ~= nil then
+		return
+	end
+	Extra.groupName = ""
+	task.spawn(function()
+		local ok, info = pcall(function()
+			return GroupService:GetGroupInfoAsync(gid)
+		end)
+		if ok and type(info) == "table" and type(info.Name) == "string" then
+			Extra.groupName = info.Name
+			MenuController.refresh()
+		end
+	end)
+end
+
+function Extra.groupText()
+	return (Extra.groupName and Extra.groupName ~= "") and Extra.groupName or "our group"
+end
+
+-- Roblox's own join prompt for the group; the server checks again afterwards either way.
+function Extra.joinGroup()
+	local gid = profile().group or 0
+	if gid == 0 then
+		toast("There's no group to join yet.")
+		return
+	end
+	task.spawn(function()
+		local ok = pcall(function()
+			GroupService:PromptJoinAsync(gid)
+		end)
+		if not ok then
+			toast("Find " .. Extra.groupText() .. " on Roblox and join it.")
+		end
+		Net.get("Profile"):FireServer("group")
+	end)
+end
+
+-- The owner's rule for codes and daily rewards: in the group, and they liked the game. Two rows
+-- that tick off: Join (Roblox's prompt; the server checks) and "I liked it" (their word: Roblox
+-- can't tell a game who liked it).
+function Extra.requirements(parent, y)
+	local f = make("Frame", { Position = UDim2.fromOffset(26, y), Size = UDim2.new(1, -52, 0, 104), BackgroundTransparency = 1, ZIndex = 21 }, parent)
+	local rows = {}
+	for i, def in ipairs({ { "group", "Join" }, { "like", "I liked it" } }) do
+		local r = make("Frame", { Position = UDim2.fromOffset(0, (i - 1) * 56), Size = UDim2.new(1, 0, 0, 48), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 21 }, f)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
+		Gui.label(r, { Text = tostring(i), display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, TextColor3 = Gui.SIGNAL, Size = UDim2.fromOffset(36, 48), Position = UDim2.fromOffset(6, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
+		local t = Gui.label(r, { Text = "", TextSize = 17, weight = Enum.FontWeight.Medium, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -220, 1, 0), Position = UDim2.fromOffset(46, 0), ZIndex = 22 })
+		local b = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(150, 38), ZIndex = 22 }, def[2], 18)
+		local done = Gui.label(r, { Text = "Done", display = true, TextSize = 20, TextColor3 = Color3.fromRGB(110, 230, 150), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 0), Size = UDim2.fromOffset(120, 48), TextXAlignment = Enum.TextXAlignment.Right, Visible = false, ZIndex = 22 })
+		rows[def[1]] = { text = t, button = b, done = done }
+	end
+	onClick(rows.group.button, Extra.joinGroup)
+	onClick(rows.like.button, function()
+		Net.get("Profile"):FireServer("liked")
+	end)
+	return rows
+end
+
+-- Both met, as far as this client knows (the server asks Roblox about the group again).
+function Extra.meetsRequirements(prof)
+	return prof.member ~= false and prof.liked == true
+end
+
+function Extra.refreshRequirements(rows, prof)
+	Extra.lookUpGroup()
+	local member = prof.member == true
+	rows.group.text.Text = member and ("You're in " .. Extra.groupText()) or ("Join " .. Extra.groupText() .. " on Roblox")
+	rows.group.button.Visible = not member
+	rows.group.done.Visible = member
+	rows.like.text.Text = prof.liked and "You liked the game. Thanks!" or "Like the game: the thumbs up on its Roblox page"
+	rows.like.button.Visible = not prof.liked
+	rows.like.done.Visible = prof.liked == true
+end
+
+-- Codes (the owner: "add a codes system"): a box and Redeem, under the requirements.
+function Extra.buildCodes()
+	local m = modal("Codes", "Codes", 660, 420, true)
+	Gui.label(m.panel, { Text = "Codes are for members of the group who liked the game. Each works once.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
+	local req = Extra.requirements(m.panel, 116)
+	local box = Extra.inputBox(m.panel, { Position = UDim2.fromOffset(26, 246), Size = UDim2.new(1, -52 - 190, 0, 54), TextSize = 22 }, "Enter a code")
+	local go, goPlate = Gui.plateButton(m.panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -26, 0, 246), Size = UDim2.fromOffset(176, 54), ZIndex = 22 }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	go:SetAttribute("Sound", "UIConfirm")
+	Gui.label(go, { Text = "Redeem", display = true, TextSize = 24, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+	local function redeem()
+		if string.match(box.Text, "%w") then
+			Net.get("Profile"):FireServer("code", box.Text)
+		end
+	end
+	onClick(go, redeem)
+	box.FocusLost:Connect(function(enter)
+		if enter then
+			redeem()
+		end
+	end)
+	ui.codes = { modal = m, req = req, box = box, goPlate = goPlate }
+end
+
+function Extra.refreshCodes(prof)
+	local C = ui.codes
+	Extra.refreshRequirements(C.req, prof)
+	Gui.fade(C.goPlate, Extra.meetsRequirements(prof) and 0 or 0.45)
+end
+
+-- A daily reward's lines for its card: "+150 VP" over "1 lucky spin".
+function Extra.rewardLines(g)
+	local lines = {}
+	if g.VP > 0 then
+		table.insert(lines, "+" .. Gui.num(g.VP) .. " VP")
+	end
+	if g.Gold > 0 then
+		table.insert(lines, "+" .. Gui.num(g.Gold) .. " Gold")
+	end
+	if g.Lucky > 0 then
+		table.insert(lines, g.Lucky == 1 and "1 lucky spin" or (g.Lucky .. " lucky spins"))
+	end
+	return table.concat(lines, "\n")
+end
+
+-- The daily reward (the owner: "daily rewards for group members only"): the requirements, the
+-- week's seven days (claimed, today, next) and Claim.
+function Extra.buildDaily()
+	local m = modal("Daily", "Daily rewards", 960, 560, true)
+	Gui.label(m.panel, { Text = "One a day for members of the group who liked the game. Miss a day and the week starts over.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
+	local req = Extra.requirements(m.panel, 116)
+	local week = make("Frame", { Position = UDim2.fromOffset(26, 236), Size = UDim2.new(1, -52, 0, 150), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, week)
+	local cards = {}
+	local n = #Config.Daily.Rewards
+	for i, r in ipairs(Config.Daily.Rewards) do
+		local c = make("Frame", { Size = UDim2.new(1 / n, -10 * (n - 1) / n, 1, 0), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.1, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 21 }, week)
+		make("UICorner", { CornerRadius = UDim.new(0, 8) }, c)
+		local st = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, c)
+		Gui.label(c, { Text = "Day " .. i, display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 10), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
+		Gui.label(c, { Text = Extra.rewardLines(Economy.cleanGrant(r)), TextSize = 16, weight = Enum.FontWeight.Medium, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -12, 0, 64), Position = UDim2.fromOffset(6, 48), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
+		local state = Gui.label(c, { Text = "", display = true, TextSize = 17, TextColor3 = Gui.DIM, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -8), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
+		cards[i] = { frame = c, stroke = st, state = state }
+	end
+	local when = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL_HOT, Position = UDim2.fromOffset(28, 398), Size = UDim2.new(1, -56, 0, 22), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 21 })
+	local claim, claimPlate = Gui.plateButton(m.panel, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -28), Size = UDim2.fromOffset(340, 64), ZIndex = 22 }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	claim:SetAttribute("Sound", "UIConfirm")
+	local claimL = Gui.label(claim, { Text = "Claim", display = true, TextSize = 26, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+	onClick(claim, function()
+		Net.get("Profile"):FireServer("daily")
+	end)
+	ui.daily = { modal = m, req = req, cards = cards, when = when, claimPlate = claimPlate, claimL = claimL }
+end
+
+function Extra.refreshDaily(prof)
+	local Dy = ui.daily
+	Extra.refreshRequirements(Dy.req, prof)
+	local d = prof.daily or {}
+	local day = d.day or 1
+	local left = math.max(0, (d.opensIn or 0) - (os.clock() - Extra.profileAt))
+	-- a countdown that ran out since the last profile opens it (the server has the last word)
+	local ready = d.ready == true or left <= 0
+	for i, c in ipairs(Dy.cards) do
+		local claimed = i < day and not d.lapsed
+		local today = i == day
+		c.state.Text = claimed and "Claimed" or (today and (ready and "Today" or "Next") or "")
+		c.state.TextColor3 = today and Gui.SIGNAL or Gui.DIM
+		c.stroke.Color = today and Gui.SIGNAL or Gui.HAIRLINE
+		c.stroke.Thickness = today and 2 or 1
+		c.stroke.Transparency = today and 0 or 0.5
+		c.frame.BackgroundTransparency = claimed and 0.5 or 0.1
+	end
+	Dy.claimL.Text = ready and ("Claim day " .. day) or ("Back in " .. Extra.waitText(left))
+	Gui.fade(Dy.claimPlate, (ready and Extra.meetsRequirements(prof)) and 0 or 0.45)
+	if d.lapsed then
+		Dy.when.Text = "You missed a day, so the week starts over."
+	elseif ready then
+		Dy.when.Text = ""
+	else
+		Dy.when.Text = "Your next reward opens in " .. Extra.waitText(left) .. "."
+	end
+end
+
+-- Gifting (the owner: "add a gifting system"): a pack for someone else, by username or picked from
+-- the players here. The server looks them up and opens the purchase.
+Extra.giftPick = { kind = "VP", index = 1 }
+
+function Extra.buildGift()
+	local m = modal("Gift", "Send a gift", 660, 560, true)
+	local what = Gui.label(m.panel, { Text = "", display = true, TextSize = 26, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(28, 86), Size = UDim2.new(1, -56, 0, 30), ZIndex = 21 })
+	Gui.label(m.panel, { Text = "Who is it for? Their Roblox username, or someone here.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 124), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
+	local box = Extra.inputBox(m.panel, { Position = UDim2.fromOffset(26, 152), Size = UDim2.new(1, -52, 0, 52), TextSize = 22 }, "Username")
+	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(26, 216), Size = UDim2.new(1, -52, 0, 214), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 21 }, m.panel)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(192, 44), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	local nobody = Gui.label(m.panel, { Text = "Nobody else is in this server: type their username.", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 222), Size = UDim2.new(1, -56, 0, 20), Visible = false, ZIndex = 21 })
+	local send = Gui.plateButton(m.panel, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -26), Size = UDim2.fromOffset(360, 62), ZIndex = 22 }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	send:SetAttribute("Sound", "UIConfirm")
+	local sendL = Gui.label(send, { Text = "Buy as a gift", display = true, TextSize = 25, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+	onClick(send, function()
+		local name = string.match(box.Text, "^%s*([%w_]+)%s*$")
+		if not name then
+			toast("Type their username first.")
+			return
+		end
+		Net.get("Profile"):FireServer("gift", Extra.giftPick.kind, Extra.giftPick.index, name)
+		m.hide()
+	end)
+	ui.gift = { modal = m, what = what, box = box, list = list, nobody = nobody, sendL = sendL }
+end
+
+-- Opens the gift window for a pack: kind "VP", "Gold" or "Lucky", and its index.
+function MenuController.openGift(kind, index)
+	local entry = Economy.pack(kind, index)
+	if not entry then
+		return
+	end
+	Extra.giftPick.kind, Extra.giftPick.index = kind, index
+	local G = ui.gift
+	G.what.Text = string.format("%s: %s", entry.pack.Name, Economy.describe(Economy.packGrant(entry)))
+	local price = packPrices[kind] and packPrices[kind][index]
+	if entry.id == 0 then
+		G.sendL.Text = profile().studio and "Send (free in Studio)" or "Soon"
+	else
+		G.sendL.Text = price and string.format("Buy as a gift   R$ %d", price) or "Buy as a gift"
+	end
+	G.box.Text = ""
+	for _, c in ipairs(G.list:GetChildren()) do
+		if c:IsA("GuiButton") then
+			c:Destroy()
+		end
+	end
+	local others = 0
+	for i, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player then
+			others = others + 1
+			local b = hairButton(G.list, { LayoutOrder = i, ZIndex = 22 }, plr.DisplayName, 18)
+			onClick(b, function()
+				G.box.Text = plr.Name
+			end)
+		end
+	end
+	G.nobody.Visible = others == 0
+	G.modal.root.Visible = true
+end
+
+-- The admin panel (developers): the events' length, 2x VP and 2x Gold, the announcement, and a
+-- player's gift. AdminService answers every request with a line and the running events.
+Extra.adminMinutes = Config.Admin.Durations[1]
+Extra.adminChars = {} -- the characters picked to give
+
+function Extra.buildAdmin()
+	local m = modal("Admin", "Admin panel", 1080, 780, true)
+	local function heading(parent, t, y)
+		Gui.label(parent, { Text = t, display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Position = UDim2.fromOffset(0, y), Size = UDim2.new(1, 0, 0, 30), ZIndex = 22 })
+		Gui.plate(parent, { Size = UDim2.fromOffset(46, 5), Position = UDim2.fromOffset(2, y + 32), ZIndex = 22 }, Gui.SIGNAL)
+	end
+	-- left: the events in every server, then the announcement
+	local left = make("Frame", { Position = UDim2.fromOffset(28, 92), Size = UDim2.fromOffset(480, 600), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
+	heading(left, "Events in every server", 0)
+	local items = {}
+	for _, mins in ipairs(Config.Admin.Durations) do
+		table.insert(items, { key = mins, text = mins .. " min" })
+	end
+	local _, setLen = segmented(left, items, { Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 46), ZIndex = 22 }, function(key)
+		Extra.adminMinutes = key
+		MenuController.refresh()
+	end)
+	local evRows = {}
+	for i, kind in ipairs(Config.Admin.Events) do
+		local r = make("Frame", { Position = UDim2.fromOffset(0, 106 + (i - 1) * 64), Size = UDim2.new(1, 0, 0, 56), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 22 }, left)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
+		Gui.label(r, { Text = Config.Admin.Multiplier .. "x " .. kind, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(100, 56), ZIndex = 23 })
+		local status = Gui.label(r, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(112, 0), Size = UDim2.fromOffset(160, 56), ZIndex = 23 })
+		local start, startL = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -96, 0.5, 0), Size = UDim2.fromOffset(108, 40), ZIndex = 23 }, "Start", 18)
+		local stop = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(80, 40), ZIndex = 23 }, "Stop", 18)
+		onClick(start, function()
+			Net.get("Admin"):FireServer("event", kind, Extra.adminMinutes)
+		end)
+		onClick(stop, function()
+			Net.get("Admin"):FireServer("stop", kind)
+		end)
+		evRows[kind] = { status = status, startL = startL, stop = stop }
+	end
+	heading(left, "Announcement", 250)
+	local ann = Extra.inputBox(left, { Position = UDim2.fromOffset(0, 296), Size = UDim2.new(1, 0, 0, 112), TextWrapped = true, MultiLine = true, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 18 }, "Shown to every player in every server")
+	local annCount = Gui.label(left, { Text = "0 / " .. Config.Admin.AnnounceMax, TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 418), Size = UDim2.fromOffset(200, 18), ZIndex = 22 })
+	ann:GetPropertyChangedSignal("Text"):Connect(function()
+		if #ann.Text > Config.Admin.AnnounceMax then
+			ann.Text = string.sub(ann.Text, 1, Config.Admin.AnnounceMax)
+		end
+		annCount.Text = #ann.Text .. " / " .. Config.Admin.AnnounceMax
+	end)
+	local send = actionPlate(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 416), Size = UDim2.fromOffset(240, 48), ZIndex = 22 }, "Send to everyone", 20)
+	onClick(send, function()
+		if string.match(ann.Text, "%S") then
+			Net.get("Admin"):FireServer("announce", ann.Text)
+		end
+	end)
+	-- right: give a player VP, Gold, lucky spins and characters
+	local right = make("Frame", { Position = UDim2.fromOffset(544, 92), Size = UDim2.fromOffset(508, 600), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
+	heading(right, "Give a player", 0)
+	local user = Extra.inputBox(right, { Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 46) }, "Username")
+	local amounts = {}
+	for i, def in ipairs({ { "VP", "VP" }, { "Gold", "Gold" }, { "Lucky", "Lucky spins" } }) do
+		local x = (i - 1) * 172
+		Gui.label(right, { Text = def[2], TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(x, 104), Size = UDim2.fromOffset(160, 16), ZIndex = 22 })
+		amounts[def[1]] = Extra.inputBox(right, { Position = UDim2.fromOffset(x, 122), Size = UDim2.fromOffset(164, 44) }, "0")
+	end
+	Gui.label(right, { Text = "Characters (click to pick)", TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 178), Size = UDim2.fromOffset(300, 16), ZIndex = 22 })
+	local grid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 22 }, right)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(158, 36), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	-- best first: S+ down to D-
+	local order = {}
+	for _, c in ipairs(Roster) do
+		table.insert(order, c)
+	end
+	local rank = {}
+	for i, t in ipairs(Config.Tiers) do
+		rank[t] = i
+	end
+	table.sort(order, function(x, y)
+		if x.Tier ~= y.Tier then
+			return (rank[x.Tier] or 0) > (rank[y.Tier] or 0)
+		end
+		return x.Name < y.Name
+	end)
+	local charButtons = {}
+	for i, c in ipairs(order) do
+		local color = tierColor(c.Tier)
+		local b = make("TextButton", { Text = c.Name .. "  " .. c.Tier, FontFace = Gui.display(), TextSize = 17, TextColor3 = color, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.2, AutoButtonColor = false, LayoutOrder = i, ZIndex = 23 }, grid)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, b)
+		make("UIStroke", { Color = color, Thickness = 1, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+		b:SetAttribute("Sound", "UISelect")
+		onClick(b, function()
+			Extra.adminChars[c.Id] = not Extra.adminChars[c.Id] or nil
+			MenuController.refresh()
+		end)
+		charButtons[c.Id] = { button = b, color = color }
+	end
+	local picked = Gui.label(right, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 512), Size = UDim2.new(1, -220, 0, 48), ZIndex = 22 })
+	local give = actionPlate(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 512), Size = UDim2.fromOffset(200, 48), ZIndex = 22 }, "Give", 22)
+	onClick(give, function()
+		local chars = {}
+		for id in pairs(Extra.adminChars) do
+			table.insert(chars, id)
+		end
+		Net.get("Admin"):FireServer("give", user.Text, {
+			VP = tonumber(amounts.VP.Text) or 0,
+			Gold = tonumber(amounts.Gold.Text) or 0,
+			Lucky = tonumber(amounts.Lucky.Text) or 0,
+			Chars = chars,
+		})
+	end)
+	local status = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -20), Size = UDim2.new(1, -56, 0, 44), ZIndex = 21 })
+	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status }
+end
+
+function Extra.refreshAdmin()
+	local A = ui.admin
+	A.setLen(Extra.adminMinutes)
+	for kind, r in pairs(A.evRows) do
+		local left = Extra.eventLeft(kind)
+		r.status.Text = left > 0 and ("On, " .. Extra.clockText(left) .. " left") or "Off"
+		r.status.TextColor3 = left > 0 and Gui.SIGNAL or Gui.DIM
+		r.startL.Text = left > 0 and "Restart" or "Start"
+		r.stop.Visible = left > 0
+	end
+	local n = 0
+	for id, b in pairs(A.charButtons) do
+		local on = Extra.adminChars[id] == true
+		if on then
+			n = n + 1
+		end
+		b.button.BackgroundColor3 = on and b.color or Gui.CARD
+		b.button.BackgroundTransparency = on and 0.05 or 0.2
+		b.button.TextColor3 = on and Gui.LINE or b.color
+	end
+	A.picked.Text = n > 0 and string.format("%d character%s picked", n, n == 1 and "" or "s") or ""
+end
+
+function MenuController.openAdmin()
+	if not profile().admin then
+		return
+	end
+	ui.admin.modal.root.Visible = true
+	Net.get("Admin"):FireServer("state")
+	MenuController.refresh()
 end
 
 ------------------------------------------------------------------------------------------
@@ -4111,6 +4699,15 @@ local function doRefresh()
 	if swapMode then
 		refreshSwap(prof)
 	end
+	if ui.codes.modal.root.Visible then
+		Extra.refreshCodes(prof)
+	end
+	if ui.daily.modal.root.Visible then
+		Extra.refreshDaily(prof)
+	end
+	if ui.admin.modal.root.Visible then
+		Extra.refreshAdmin()
+	end
 end
 
 function MenuController.refresh()
@@ -4149,6 +4746,10 @@ local function setShown(on)
 		ui.match.modal.root.Visible = false
 		ui.odds.modal.root.Visible = false
 		ui.help.root.Visible = false
+		ui.codes.modal.root.Visible = false
+		ui.daily.modal.root.Visible = false
+		ui.gift.modal.root.Visible = false
+		ui.admin.modal.root.Visible = false
 	end
 end
 
@@ -4157,6 +4758,7 @@ function MenuController.shown()
 end
 
 local function onProfile(prof)
+	Extra.profileAt = os.clock()
 	local r = prof.reveal
 	if r and r ~= lastReveal and r.items and r.items[1] then
 		lastReveal = r
@@ -4236,6 +4838,10 @@ function MenuController.init(m)
 	buildMatchScreen()
 	buildSequence()
 	buildSwap()
+	Extra.buildCodes()
+	Extra.buildDaily()
+	Extra.buildGift()
+	Extra.buildAdmin()
 
 	-- the toast: a dark hairline card with a signal-yellow tab, under the nav
 	local tf = make("Frame", { Name = "Toast", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 100), Size = UDim2.fromOffset(660, 50), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.1, BorderSizePixel = 0, Visible = false, ZIndex = 40 }, canvas)
@@ -4295,6 +4901,17 @@ function MenuController.init(m)
 			MenuController.refresh()
 		end
 	end)
+	-- the admin panel's answers
+	Net.get("Admin").OnClientEvent:Connect(function(data)
+		if type(data) == "table" and type(data.msg) == "string" then
+			ui.admin.status.Text = data.msg
+		end
+		MenuController.refresh()
+	end)
+	-- an event starting or ending changes Home's chips
+	for _, kind in ipairs(Config.Admin.Events) do
+		ReplicatedStorage:GetAttributeChangedSignal("Event_" .. kind):Connect(MenuController.refresh)
+	end
 
 	MenuController.go("home")
 	setShown(not State.isPlaying)
@@ -4323,6 +4940,18 @@ function MenuController.init(m)
 		end
 		if screen == "match" and lobbies.mine then
 			refreshMatchScreen(profile()) -- the countdown on your queue's card
+		end
+		-- countdowns: the events on Home and in the admin panel, the daily reward's wait
+		if tick % 4 == 0 then
+			if screen == "home" then
+				Extra.refreshHome(profile())
+			end
+			if ui.daily.modal.root.Visible then
+				Extra.refreshDaily(profile())
+			end
+			if ui.admin.modal.root.Visible then
+				Extra.refreshAdmin()
+			end
 		end
 		if tick % 36 == 0 then
 			MenuController.refresh()

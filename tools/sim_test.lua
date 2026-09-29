@@ -1388,8 +1388,9 @@ end
 print("== leaderboards ==")
 do
 	local Leaderboards = require("Leaderboards")
-	local v = Leaderboards.valuesOf({ bestStreak = 4, record = { wins = 12, kills = 140, aces = 9, blocks = -3 } })
-	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and #Leaderboards.Boards == 5, "five boards (wins, best win streak, spike kills, aces, blocks) read from the career counters")
+	local v = Leaderboards.valuesOf({ bestStreak = 4, record = { wins = 12, kills = 140, aces = 9, blocks = -3 }, spent = { robux = 897, gifts = 399 } })
+	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and v.robux == 897 and v.gifts == 399 and #Leaderboards.Boards == 7,
+		"seven boards: wins, best win streak, spike kills, aces and blocks from the career counters, Robux spent and Robux gifted")
 	local ranked = Leaderboards.rank({ { userId = 5, value = 10 }, { userId = 2, value = 30 }, { userId = 9, value = 10 }, { userId = 1, value = 7 } }, 3)
 	check(#ranked == 3 and ranked[1].userId == 2 and ranked[1].rank == 1 and ranked[2].userId == 5 and ranked[2].rank == 2 and ranked[3].userId == 9 and ranked[3].rank == 2, "best first, ties share a rank, only the top N", string.format("%d:%d %d:%d %d:%d", ranked[1].rank, ranked[1].value, ranked[2].rank, ranked[2].value, ranked[3].rank, ranked[3].value))
 	local merged = Leaderboards.merge({ { userId = 1, value = 20, name = "A" }, { userId = 2, value = 15, name = "B" } }, { { userId = 2, value = 25, name = "B" }, { userId = 3, value = 5, name = "C" }, { userId = 4, value = 0, name = "D" } }, 10)
@@ -1411,6 +1412,61 @@ do
 	local S = Config.Perks.ScoreSound
 	check(unique and S.Slots[1].Key == "ScoreSound" and seen.SoundSpike and seen.SoundJump and seen.ScoreImage and S.PassId ~= 0 and Config.Perks.ScoreImage.PassId ~= 0,
 		"custom sounds: a unique slot per sound (scoring keeps its saved key; spike, jump and the rest), both game passes set", string.format("%d slots", #S.Slots))
+end
+
+print("== codes, lucky spins, daily rewards, gifts and events ==")
+do
+	local Economy = require("Economy")
+	-- codes: any case and spacing, RELEASE pays, unknown ones don't
+	local g, why, key = Economy.code("  ReLeAsE ", 100)
+	local none, noneWhy = Economy.code("nope", 100)
+	check(g ~= nil and key == "release" and g.VP > 0 and g.Gold > 0 and g.Lucky >= 1 and none == nil and noneWhy == "unknown",
+		"the RELEASE code works typed any way and pays VP, Gold and a lucky spin; an unknown code pays nothing", g and Economy.describe(g) or tostring(why))
+	-- a grant is made safe: no negatives, caps, real characters only, each once
+	local clean = Economy.cleanGrant({ VP = -50, Gold = 1e12, Lucky = 2.7, Chars = { "dante", "dante", "nobody", 5 } })
+	check(clean.VP == 0 and clean.Gold == Config.Admin.GiveMax.Gold and clean.Lucky == 2 and #clean.Chars == 1 and clean.Chars[1] == "dante",
+		"a grant is cleaned: whole amounts from 0 to the caps, real characters once each")
+	local prof = { vp = 10, gold = 0, owned = { Char = { dante = true } } }
+	local added = Economy.apply(prof, Economy.cleanGrant({ VP = 5, Lucky = 3, Chars = { "dante", "seojin" } }))
+	check(prof.vp == 15 and prof.lucky == 3 and prof.owned.Char.seojin and #added == 1 and added[1] == "seojin",
+		"a grant adds VP, lucky spins and the characters you didn't have")
+	-- lucky spins: no Commons, the top rarities several times likelier, and the rolls follow
+	local lucky, normal = Spins.odds("Char", Spins.LuckyWeights), Spins.odds("Char")
+	local rng = Random.new(5)
+	local counts, n = {}, 20000
+	for _ = 1, n do
+		local item = Spins.item("Char", Spins.rollItem("Char", rng, Spins.LuckyWeights))
+		counts[item.Rarity] = (counts[item.Rarity] or 0) + 1
+	end
+	check(lucky.Common == 0 and (counts.Common or 0) == 0 and lucky.Mythic >= 4 * normal.Mythic and lucky.Legendary >= 3 * normal.Legendary and math.abs((counts.Mythic or 0) / n - lucky.Mythic) < 0.005,
+		"a lucky spin never drops a Common; Mythic and Legendary come several times as often",
+		string.format("Mythic %.1f%% (usually %.1f%%), Legendary %.1f%% (usually %.1f%%)", lucky.Mythic * 100, normal.Mythic * 100, lucky.Legendary * 100, normal.Legendary * 100))
+	local luckyTotal = 0
+	for _, row in ipairs(Spins.table("Char", Spins.LuckyWeights)) do
+		luckyTotal = luckyTotal + row.chance
+	end
+	check(math.abs(luckyTotal - 1) < 1e-9, "the lucky drop table adds up to 100%")
+	-- daily rewards: one a day, the streak walks the week and starts over after a missed day
+	local D = Config.Daily
+	local first = Economy.daily(nil, 1000000)
+	local soon = Economy.daily({ last = 1000000, streak = 1 }, 1000000 + 3600)
+	local next = Economy.daily({ last = 1000000, streak = 1 }, 1000000 + D.Cooldown + 60)
+	local missed = Economy.daily({ last = 1000000, streak = 5 }, 1000000 + D.StreakHours * 3600 + 60)
+	local wrap = Economy.daily({ last = 1000000, streak = #D.Rewards }, 1000000 + D.Cooldown + 60)
+	check(first.ready and first.day == 1 and not soon.ready and soon.day == 2 and next.ready and next.day == 2 and next.streak == 2
+		and missed.ready and missed.day == 1 and missed.lapsed and wrap.day == 1 and wrap.streak == #D.Rewards + 1,
+		"daily rewards: one per day, the streak moves along the week, a missed day starts it over, after the last day it goes round")
+	-- the admin panel's events: 2x while on, never after
+	local ev = { VP = 5000 }
+	check(Economy.multiplier(ev, "VP", 4999) == Config.Admin.Multiplier and Economy.multiplier(ev, "VP", 5001) == 1 and Economy.multiplier(ev, "Gold", 4999) == 1
+		and Economy.isDuration(15) and not Economy.isDuration(7) and Economy.isEvent("Gold") and not Economy.isEvent("XP"),
+		"2x VP pays double while it runs and not after; only the panel's durations and events are accepted")
+	-- every pack sold for Robux can be looked up by its product and gifted as what it sells
+	local vp1, gold4, lucky2 = Economy.pack("VP", 1), Economy.pack("Gold", 4), Economy.pack("Lucky", 2)
+	local byId = Economy.packByProduct(Config.Shop.Packs[1].Id)
+	check(vp1 and gold4 and lucky2 and Economy.packGrant(vp1).VP == Config.Shop.Packs[1].VP and Economy.packGrant(gold4).Gold == Config.Shop.GoldPacks[4].Gold
+		and Economy.packGrant(lucky2).Lucky == Config.Lucky.Packs[2].Lucky and byId and byId.kind == "VP" and byId.index == 1 and Economy.pack("VP", 9) == nil,
+		"VP, Gold and lucky spin packs: found by product id, and each gives what it sells")
 end
 
 print("== determinism ==")

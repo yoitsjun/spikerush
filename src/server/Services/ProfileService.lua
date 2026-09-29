@@ -15,9 +15,21 @@
 --   ("equip", kind, key)             -> equip an unlocked style, colour, trail or score effect
 --   ("favorite", charId, on)         -> star or unstar a character (the Players screen's filter)
 --   ("settings", table)              -> your settings (switches, touch layout); no reply
---   ("buy", packIndex, "VP"|"Gold")  -> Studio only: grant a pack whose product id isn't set yet
+--   ("buy", packIndex, kind)        -> Studio only: grant a pack ("VP", "Gold", "Lucky") whose
+--                                       product id isn't set yet
+--   ("spin", banner, 1|10, "lucky")  -> spend lucky spins instead of VP (Config.Lucky's odds)
+--   ("code", text)                   -> redeem a code, once each
+--   ("daily")                        -> claim the daily reward
+--   ("liked")                        -> "I liked the game" (Roblox can't check it)
+--   ("group")                        -> check group membership again (after the join prompt)
+--   ("gift", kind, index, username)  -> buy a pack for someone else
+-- Codes and the daily reward are for members of the group who liked the game (the owner's rule;
+-- only the group can be checked, so liking is the player's word, asked once).
 -- Your character locks while you're in a match, so prediction always matches the server.
--- VP and Gold packs are Developer Products granted in MarketplaceService.ProcessReceipt.
+-- VP, Gold and lucky spin packs are Developer Products granted in MarketplaceService.
+-- ProcessReceipt; one bought as a gift goes to its recipient. What's spent in Robux (packs, gifts,
+-- the perks' passes) is counted for the leaderboards. Gifts and the admin panel's Give reach a
+-- player in another server, or offline, through their mail (a DataStore; giveUser, checkMail).
 -- Developers (Config.Developers: the place owner, Studio sessions, listed ids) own everything
 -- and spin for free.
 
@@ -26,6 +38,8 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local GroupService = game:GetService("GroupService")
+local HttpService = game:GetService("HttpService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -36,6 +50,7 @@ local Tutorial = require(Shared.Tutorial)
 local Rewards = require(Shared.Rewards)
 local Spins = require(Shared.Spins)
 local Settings = require(Shared.Settings)
+local Economy = require(Shared.Economy)
 local Net = require(Shared.Net)
 
 local ProfileService = {}
@@ -51,6 +66,12 @@ local loading = {}
 local store = nil
 local warned = false
 local lastRequest = {}
+local mailStore = nil -- gifts waiting for their player (Config.Admin.MailStore)
+local mailBusy = {}
+local pendingGift = {} -- plr -> the gift their prompted purchase is: { productId, userId, name, t }
+local groupMember = {} -- plr -> whether they're in the group (asked on join and on each claim)
+local lastClaim = {} -- plr -> when they last redeemed, claimed or started a gift (each is looked up)
+local passPrices = {} -- game pass id -> its price in Robux
 
 local function key(plr)
 	return "u_" .. tostring(plr.UserId)
@@ -83,6 +104,57 @@ local function isDeveloper(plr)
 end
 
 ------------------------------------------------------------------------------------------
+-- the group (daily rewards and codes are for its members)
+------------------------------------------------------------------------------------------
+
+-- Config.Daily.GroupId, or the group that owns the experience (0: none).
+local function groupId()
+	local id = Config.Daily.GroupId
+	if id and id ~= 0 then
+		return id
+	end
+	if game.CreatorType == Enum.CreatorType.Group then
+		return game.CreatorId
+	end
+	return 0
+end
+
+-- Whether a player is in the group. Studio test sessions count, so the flow can be tried. fresh:
+-- ask again (IsInGroup keeps its first answer all session, and a player may have just joined:
+-- the group list sees that at once).
+local function inGroup(plr, fresh)
+	if RunService:IsStudio() then
+		groupMember[plr] = true
+		return true
+	end
+	local gid = groupId()
+	if gid == 0 then
+		return false
+	end
+	if groupMember[plr] ~= nil and (groupMember[plr] or not fresh) then
+		return groupMember[plr]
+	end
+	local ok, member = pcall(function()
+		return plr:IsInGroup(gid)
+	end)
+	member = ok and member == true
+	if not member and fresh then
+		local okList, groups = pcall(function()
+			return GroupService:GetGroupsAsync(plr.UserId)
+		end)
+		if okList and type(groups) == "table" then
+			for _, g in ipairs(groups) do
+				if g.Id == gid then
+					member = true
+				end
+			end
+		end
+	end
+	groupMember[plr] = member
+	return member
+end
+
+------------------------------------------------------------------------------------------
 -- profile data
 ------------------------------------------------------------------------------------------
 
@@ -105,7 +177,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -232,6 +304,31 @@ local function sanitizeProfile(data)
 			end
 		end
 	end
+	-- lucky spins, the codes used, the daily streak, Robux spent, the gifts already delivered
+	out.lucky = math.clamp(math.floor(tonumber(data.lucky) or 0), 0, 1000000)
+	if type(data.codes) == "table" then
+		for k, v in pairs(data.codes) do
+			if v == true and type(k) == "string" and #k <= 40 then
+				out.codes[k] = true
+			end
+		end
+	end
+	if type(data.daily) == "table" then
+		out.daily.last = math.max(0, math.floor(tonumber(data.daily.last) or 0))
+		out.daily.streak = math.max(0, math.floor(tonumber(data.daily.streak) or 0))
+	end
+	if type(data.spent) == "table" then
+		out.spent.robux = math.max(0, math.floor(tonumber(data.spent.robux) or 0))
+		out.spent.gifts = math.max(0, math.floor(tonumber(data.spent.gifts) or 0))
+	end
+	if type(data.mailSeen) == "table" then
+		for _, id in ipairs(data.mailSeen) do
+			if type(id) == "string" and #id <= 80 and #out.mailSeen < Config.Gifts.MailSeen then
+				table.insert(out.mailSeen, id)
+			end
+		end
+	end
+	out.liked = data.liked == true
 	return out
 end
 
@@ -321,6 +418,12 @@ local function save(plr, force)
 		perks = profile.perks,
 		perkIds = profile.perkIds,
 		receipts = profile.receipts,
+		lucky = profile.lucky,
+		codes = profile.codes,
+		daily = profile.daily,
+		spent = profile.spent,
+		mailSeen = profile.mailSeen,
+		liked = profile.liked,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -518,6 +621,16 @@ function ProfileService.snapshot(plr)
 		end)(),
 		autoRolling = profile.autoRolling and profile.autoRolling.banner or nil,
 		dev = profile.dev or nil,
+		admin = profile.dev or nil, -- the admin panel (developers)
+		lucky = profile.lucky or 0,
+		liked = profile.liked == true,
+		group = groupId(),
+		member = groupMember[plr], -- nil until it's known
+		daily = (function()
+			local now = os.time()
+			local d = Economy.daily(profile.daily, now)
+			return { ready = d.ready, day = d.day, streak = d.streak, lapsed = d.lapsed, opensIn = math.max(0, d.opensAt - now) }
+		end)(),
 		saving = profile.canSave and store ~= nil,
 		studio = RunService:IsStudio(),
 	}
@@ -533,6 +646,251 @@ end
 local function inMatch(plr)
 	local TS = reg.TeamService
 	return TS.inMatch and TS.entityForPlayer(plr) ~= nil
+end
+
+------------------------------------------------------------------------------------------
+-- grants and mail (codes, daily rewards, gifts, the admin panel's Give)
+------------------------------------------------------------------------------------------
+
+-- Whether a player may use codes and claim daily rewards (the owner: in the group, and they liked
+-- the game). Returns nil, or what's missing. Asks Roblox about the group, so it can yield.
+local function claimBlocker(plr, profile)
+	if not inGroup(plr, true) then
+		return "Join the group first"
+	end
+	if not profile.liked then
+		return "Like the game first"
+	end
+	return nil
+end
+
+-- "5h 12m"
+local function waitText(seconds)
+	seconds = math.max(0, math.floor(seconds))
+	local h = math.floor(seconds / 3600)
+	local m = math.floor(seconds % 3600 / 60)
+	if h > 0 then
+		return string.format("%dh %dm", h, m)
+	end
+	return string.format("%dm", math.max(1, m))
+end
+
+local function mailKey(userId)
+	return "u_" .. tostring(userId)
+end
+
+local function seenMail(profile, id)
+	for _, s in ipairs(profile.mailSeen) do
+		if s == id then
+			return true
+		end
+	end
+	return false
+end
+
+-- Hands an online player a gift once (its id is remembered). Returns whether it was new.
+local function deliver(plr, profile, id, g, from, note)
+	if seenMail(profile, id) then
+		return false
+	end
+	local added = Economy.apply(profile, g)
+	table.insert(profile.mailSeen, 1, id)
+	while #profile.mailSeen > Config.Gifts.MailSeen do
+		table.remove(profile.mailSeen)
+	end
+	dirty[plr] = true
+	local what = Economy.describe(g, added)
+	local msg = from and string.format("%s sent you %s!", from, what) or string.format("You got %s!", what)
+	if note and note ~= "" then
+		msg = msg .. " " .. note
+	end
+	push(plr, msg)
+	return true
+end
+
+-- Gives a player in this server a clean grant (Economy.cleanGrant) with a notice. Returns the
+-- characters it added.
+function ProfileService.grant(plr, g, notice)
+	local profile = profiles[plr]
+	if not profile then
+		return nil
+	end
+	local added = Economy.apply(profile, g)
+	dirty[plr] = true
+	push(plr, notice)
+	return added
+end
+
+-- Sends a clean grant to any player by user id: at once if they're in this server, otherwise into
+-- their mail, and their server (if they're online in one) is told to open it. `id` makes it arrive
+-- once however often it's sent (a gift's purchase id). Returns true, or false and why.
+function ProfileService.giveUser(userId, g, from, note, id)
+	id = id or HttpService:GenerateGUID(false)
+	local plr = Players:GetPlayerByUserId(userId)
+	local profile = plr and profiles[plr]
+	if profile then
+		deliver(plr, profile, id, g, from, note)
+		save(plr, true)
+		return true
+	end
+	if not mailStore then
+		return false, "They aren't in this server, and sending to other servers needs DataStore access."
+	end
+	local ok, err = pcall(function()
+		mailStore:UpdateAsync(mailKey(userId), function(old)
+			local list = (type(old) == "table" and type(old.list) == "table") and old.list or {}
+			for _, m in ipairs(list) do
+				if type(m) == "table" and m.id == id then
+					return nil -- already sent
+				end
+			end
+			table.insert(list, { id = id, g = g, from = from, note = note, t = os.time() })
+			while #list > 100 do
+				table.remove(list, 1)
+			end
+			return { list = list }
+		end)
+	end)
+	if not ok then
+		return false, "It couldn't be sent: " .. tostring(err)
+	end
+	if reg.AdminService then
+		reg.AdminService.pingMail(userId)
+	end
+	return true
+end
+
+-- Opens a player's mail: every gift not delivered yet is, then the profile is saved, and only then
+-- are they cleared from the mail (so neither a crash nor a retry can repeat or lose one).
+function ProfileService.checkMail(plr)
+	local profile = profiles[plr]
+	if not profile or not mailStore or not profile.canSave or mailBusy[plr] then
+		return
+	end
+	mailBusy[plr] = true
+	local ok, data = pcall(function()
+		return mailStore:GetAsync(mailKey(plr.UserId))
+	end)
+	local list = ok and type(data) == "table" and type(data.list) == "table" and data.list or nil
+	if list and #list > 0 and profiles[plr] then
+		local ids = {}
+		for _, m in ipairs(list) do
+			if type(m) == "table" and type(m.id) == "string" then
+				ids[m.id] = true
+				deliver(plr, profile, m.id, Economy.cleanGrant(m.g), type(m.from) == "string" and m.from or nil, type(m.note) == "string" and m.note or nil)
+			end
+		end
+		if save(plr, true) then
+			pcall(function()
+				mailStore:UpdateAsync(mailKey(plr.UserId), function(old)
+					if type(old) ~= "table" or type(old.list) ~= "table" then
+						return nil
+					end
+					local keep = {}
+					for _, m in ipairs(old.list) do
+						if not (type(m) == "table" and ids[m.id]) then
+							table.insert(keep, m)
+						end
+					end
+					return { list = keep }
+				end)
+			end)
+		end
+	end
+	mailBusy[plr] = nil
+end
+
+-- A code: known, not used by this player yet, and they're in the group and liked the game.
+local function redeemCode(plr, profile, text)
+	local g, why, key = Economy.code(text, os.time())
+	if not g then
+		push(plr, why == "expired" and "That code has expired." or "That code doesn't exist.")
+		return
+	end
+	if profile.codes[key] then
+		push(plr, "You've already used that code.")
+		return
+	end
+	local blocker = claimBlocker(plr, profile)
+	if blocker then
+		push(plr, blocker .. ", then the code works.")
+		return
+	end
+	if not profiles[plr] or profile.codes[key] then
+		return
+	end
+	profile.codes[key] = true
+	local added = Economy.apply(profile, g)
+	dirty[plr] = true
+	save(plr, true)
+	push(plr, string.format("Code %s: %s!", string.upper(key), Economy.describe(g, added)))
+end
+
+-- The daily reward: once per Config.Daily.Cooldown, the streak's day, for group members who liked
+-- the game.
+local function claimDaily(plr, profile)
+	local blocker = claimBlocker(plr, profile)
+	if blocker then
+		push(plr, blocker .. ", then claim your daily reward.")
+		return
+	end
+	if not profiles[plr] then
+		return
+	end
+	local now = os.time()
+	local d = Economy.daily(profile.daily, now)
+	if not d.ready then
+		push(plr, "Your next daily reward opens in " .. waitText(d.opensAt - now) .. ".")
+		return
+	end
+	profile.daily = { last = now, streak = d.streak }
+	local added = Economy.apply(profile, d.grant)
+	dirty[plr] = true
+	save(plr, true)
+	push(plr, string.format("Day %d reward: %s!", d.day, Economy.describe(d.grant, added)))
+end
+
+-- A pack bought for someone else: (kind, index, username). The recipient is looked up, then the
+-- purchase is prompted; ProcessReceipt sends them the pack.
+local function giftStart(plr, kind, index, username)
+	local entry = Economy.pack(kind, index)
+	if not entry or type(username) ~= "string" then
+		return
+	end
+	local name = string.match(username, "^%s*([%w_]+)%s*$")
+	if not name or #name < 3 or #name > 20 then
+		push(plr, "That isn't a username.")
+		return
+	end
+	local ok, userId = pcall(function()
+		return Players:GetUserIdFromNameAsync(name)
+	end)
+	if not ok or type(userId) ~= "number" then
+		push(plr, "Nobody is called " .. name .. ".")
+		return
+	end
+	if userId == plr.UserId then
+		push(plr, "That's you: buy it without Gift.")
+		return
+	end
+	local okName, real = pcall(function()
+		return Players:GetNameFromUserIdAsync(userId)
+	end)
+	name = okName and type(real) == "string" and real or name
+	if entry.id == 0 then
+		-- no product yet: Studio sends it free, so gifting can be tried
+		if RunService:IsStudio() then
+			local sent, why = ProfileService.giveUser(userId, Economy.packGrant(entry), plr.DisplayName, nil, "studio:" .. HttpService:GenerateGUID(false))
+			push(plr, sent and string.format("Sent %s to %s (free in Studio).", entry.pack.Name, name) or why)
+		else
+			push(plr, "That pack isn't on sale yet.")
+		end
+		return
+	end
+	pendingGift[plr] = { productId = entry.id, userId = userId, name = name, t = os.clock() }
+	pcall(function()
+		MarketplaceService:PromptProductPurchase(plr, entry.id)
+	end)
 end
 
 function ProfileService.award(plr, vp, gold)
@@ -663,14 +1021,22 @@ end
 ------------------------------------------------------------------------------------------
 
 -- Spin `count` times on `banner`. Duplicates, and pulls of a rarity set to auto-sell, turn
--- into VP. Returns the reveal (or nil and a reason).
-local function spinOnce(plr, profile, banner, count)
+-- into VP. `lucky`: spend lucky spins (Config.Lucky's odds) instead of VP. Returns the reveal (or
+-- nil and a reason).
+local function spinOnce(plr, profile, banner, count, lucky)
 	local cost = Spins.cost(count)
 	if not Spins.isBanner(banner) or not cost then
 		return nil
 	end
 	local free = false
-	if not profile.dev then
+	if lucky then
+		if not profile.dev then
+			if (profile.lucky or 0) < count then
+				return nil, count == 1 and "You have no lucky spins: get some here, or from codes and daily rewards." or string.format("That takes %d lucky spins.", count)
+			end
+			profile.lucky = profile.lucky - count
+		end
+	elseif not profile.dev then
 		if count == 1 and (profile.freeSpins or 0) > 0 then
 			profile.freeSpins = profile.freeSpins - 1 -- free recruits go first
 			free = true
@@ -684,7 +1050,7 @@ local function spinOnce(plr, profile, banner, count)
 	local rng = Random.new()
 	local items, refund = {}, 0
 	for i = 1, count do
-		local k = Spins.rollItem(banner, rng)
+		local k = Spins.rollItem(banner, rng, lucky and Spins.LuckyWeights or nil)
 		local item = Spins.item(banner, k)
 		local dup = owns(profile, banner, k)
 		local sold = not dup and profile.autoSell[item.Rarity] == true
@@ -698,15 +1064,15 @@ local function spinOnce(plr, profile, banner, count)
 	if not profile.dev then
 		profile.vp = profile.vp + refund
 	end
-	return { banner = banner, count = count, items = items, refund = refund, free = free or nil }
+	return { banner = banner, count = count, items = items, refund = refund, free = free or nil, lucky = lucky or nil }
 end
 
-local function spin(plr, profile, banner, count)
+local function spin(plr, profile, banner, count, lucky)
 	if profile.autoRolling then
 		push(plr, "Stop the auto-roll first.")
 		return
 	end
-	local reveal, why = spinOnce(plr, profile, banner, tonumber(count))
+	local reveal, why = spinOnce(plr, profile, banner, tonumber(count), lucky)
 	if not reveal then
 		if why then
 			push(plr, why)
@@ -762,36 +1128,21 @@ local function autoRoll(plr, profile, banner)
 	end)
 end
 
--- A pack holds VP (Config.Shop.Packs) or Gold (Config.Shop.GoldPacks). `sign` -1 takes it back.
-local function applyPack(profile, pack, sign)
-	profile.vp = profile.vp + (pack.VP or 0) * sign
-	profile.gold = profile.gold + (pack.Gold or 0) * sign
+-- A pack's grant added to (sign 1) or taken back from (-1) a profile: VP, Gold, lucky spins.
+local function applyPack(profile, g, sign)
+	profile.vp = profile.vp + g.VP * sign
+	profile.gold = profile.gold + g.Gold * sign
+	profile.lucky = (profile.lucky or 0) + g.Lucky * sign
 end
 
-local function packText(pack)
-	if pack.Gold then
-		return string.format("+%d Gold", pack.Gold)
+-- What a player spent in Robux, for the leaderboards (gift: it was a gift).
+local function addSpent(plr, profile, robux, gift, sign)
+	robux = math.max(0, math.floor(tonumber(robux) or 0)) * (sign or 1)
+	profile.spent.robux = math.max(0, profile.spent.robux + robux)
+	if gift then
+		profile.spent.gifts = math.max(0, profile.spent.gifts + robux)
 	end
-	return string.format("+%d VP", pack.VP or 0)
-end
-
--- The pack a Developer Product sells, or nil.
-local function packFor(productId)
-	for _, list in ipairs({ Config.Shop.Packs, Config.Shop.GoldPacks }) do
-		for _, p in ipairs(list) do
-			if p.Id ~= 0 and p.Id == productId then
-				return p
-			end
-		end
-	end
-	return nil
-end
-
-local function grantPack(plr, pack)
-	local profile = ProfileService.get(plr)
-	applyPack(profile, pack, 1)
 	dirty[plr] = true
-	push(plr, packText(pack))
 end
 
 local function onRequest(plr, kind, a, b, c)
@@ -810,7 +1161,36 @@ local function onRequest(plr, kind, a, b, c)
 	if kind == "upgrade" then
 		upgrade(plr, profile, a, b, c)
 	elseif kind == "spin" then
-		spin(plr, profile, a, b)
+		spin(plr, profile, a, b, c == "lucky")
+	elseif kind == "code" or kind == "daily" or kind == "gift" or kind == "group" then
+		-- each asks Roblox (the group, a username), so they're spaced out and run on their own
+		if lastClaim[plr] and now - lastClaim[plr] < 1.5 then
+			push(plr, "One moment...")
+			return
+		end
+		lastClaim[plr] = now
+		task.spawn(function()
+			if kind == "code" then
+				if type(a) == "string" then
+					redeemCode(plr, profile, a)
+				end
+			elseif kind == "daily" then
+				claimDaily(plr, profile)
+			elseif kind == "group" then
+				-- after Roblox's join prompt: ask again, so the menus show it
+				inGroup(plr, true)
+				push(plr)
+			else
+				giftStart(plr, a, b, c)
+			end
+		end)
+	elseif kind == "liked" then
+		-- the player says they liked the game (Roblox has no way to check it)
+		if not profile.liked then
+			profile.liked = true
+			dirty[plr] = true
+		end
+		push(plr)
 	elseif kind == "autoroll" then
 		autoRoll(plr, profile, a)
 	elseif kind == "stop" then
@@ -943,23 +1323,28 @@ local function onRequest(plr, kind, a, b, c)
 			push(plr, string.format("Saved for %s: %s", def.Slots and slot.Name or def.Name, tostring(info.Name or id)))
 		end)
 	elseif kind == "buy" then
-		local list = b == "Gold" and Config.Shop.GoldPacks or Config.Shop.Packs
-		local pack = list[tonumber(a) or 0]
-		if pack and pack.Id == 0 and RunService:IsStudio() then
-			grantPack(plr, pack)
+		-- Studio: a pack whose product doesn't exist yet is free, so the flow can be tried
+		local entry = Economy.pack(b, a)
+		if entry and entry.id == 0 and RunService:IsStudio() then
+			local g = Economy.packGrant(entry)
+			applyPack(profile, g, 1)
+			dirty[plr] = true
+			push(plr, Economy.describe(g) .. " (free in Studio)")
 		end
 	end
 end
 
--- Developer Product purchases. Granted exactly once per PurchaseId, and only reported as
--- granted once the profile holding it is saved (Roblox retries until then).
+-- Developer Product purchases (VP, Gold and lucky spin packs). Granted exactly once per
+-- PurchaseId, and only reported as granted once the profile holding it is saved (Roblox retries
+-- until then). One bought as a gift (giftStart) goes to its recipient instead, once whatever the
+-- retries (the purchase id is the gift's id).
 local function processReceipt(info)
 	local plr = Players:GetPlayerByUserId(info.PlayerId)
 	if not plr then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	local pack = packFor(info.ProductId)
-	if not pack then
+	local entry = Economy.packByProduct(info.ProductId)
+	if not entry then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	local profile = ProfileService.get(plr)
@@ -969,7 +1354,20 @@ local function processReceipt(info)
 			return Enum.ProductPurchaseDecision.PurchaseGranted
 		end
 	end
-	applyPack(profile, pack, 1)
+	local g = Economy.packGrant(entry)
+	local gift = pendingGift[plr]
+	if gift and (gift.productId ~= info.ProductId or os.clock() - gift.t > Config.Gifts.PendingSeconds) then
+		gift = nil
+	end
+	if gift then
+		local sent = ProfileService.giveUser(gift.userId, g, plr.DisplayName, nil, "gift:" .. id)
+		if not sent then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+	else
+		applyPack(profile, g, 1)
+	end
+	addSpent(plr, profile, info.CurrencySpent, gift ~= nil, 1)
 	table.insert(profile.receipts, 1, id)
 	while #profile.receipts > Config.Shop.ReceiptHistory do
 		table.remove(profile.receipts)
@@ -977,12 +1375,23 @@ local function processReceipt(info)
 	dirty[plr] = true
 	local stored = save(plr, true)
 	if not stored and not RunService:IsStudio() then
-		-- not persisted: undo, and let Roblox retry later
-		applyPack(profile, pack, -1)
+		-- not persisted: undo, and let Roblox retry later (a gift already sent won't send twice)
+		if not gift then
+			applyPack(profile, g, -1)
+		end
+		addSpent(plr, profile, info.CurrencySpent, gift ~= nil, -1)
 		table.remove(profile.receipts, 1)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	push(plr, packText(pack) .. ". Thanks for the support!")
+	if gift then
+		pendingGift[plr] = nil
+	end
+	reg.LeaderboardService.track(plr, profile)
+	if gift then
+		push(plr, string.format("Gift sent: %s for %s. Thanks for the support!", entry.pack.Name, gift.name))
+	else
+		push(plr, Economy.describe(g) .. ". Thanks for the support!")
+	end
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
@@ -994,12 +1403,26 @@ function ProfileService.init(r)
 	if ok then
 		store = result
 	end
+	local okMail, mail = pcall(function()
+		return DataStoreService:GetDataStore(Config.Admin.MailStore)
+	end)
+	if okMail then
+		mailStore = mail
+	end
 
 	local function setup(plr)
 		task.spawn(function()
 			ProfileService.get(plr)
 			ProfileService.applyActive(plr)
 			push(plr)
+			-- in the group? (for daily rewards and codes); then any gifts waiting in their mail
+			task.spawn(function()
+				inGroup(plr, false)
+				if plr.Parent then
+					push(plr)
+				end
+			end)
+			task.spawn(ProfileService.checkMail, plr)
 			-- the perks' game passes they own
 			for _, key in ipairs(Config.Perks.Order) do
 				local id = Config.Perks[key].PassId
@@ -1036,6 +1459,10 @@ function ProfileService.init(r)
 		lastRequest[plr] = nil
 		passes[plr] = nil
 		lastPerkSet[plr] = nil
+		pendingGift[plr] = nil
+		groupMember[plr] = nil
+		lastClaim[plr] = nil
+		mailBusy[plr] = nil
 	end)
 	game:BindToClose(function()
 		for _, plr in ipairs(Players:GetPlayers()) do
@@ -1052,7 +1479,14 @@ function ProfileService.init(r)
 	end)
 
 	MarketplaceService.ProcessReceipt = processReceipt
-	-- a perk's game pass bought in game
+	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, purchased)
+		local plr = Players:GetPlayerByUserId(userId)
+		local gift = plr and pendingGift[plr]
+		if gift and gift.productId == productId and not purchased then
+			pendingGift[plr] = nil
+		end
+	end)
+	-- a perk's game pass bought in game (its price counts toward Robux spent)
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(plr, passId, purchased)
 		if not purchased then
 			return
@@ -1063,6 +1497,19 @@ function ProfileService.init(r)
 				passes[plr][key] = true
 				applyPerks(plr, ProfileService.get(plr))
 				push(plr, Config.Perks[key].Name .. " unlocked: enter your id")
+				task.spawn(function()
+					if not passPrices[passId] then
+						local okInfo, info = pcall(function()
+							return MarketplaceService:GetProductInfo(passId, Enum.InfoType.GamePass)
+						end)
+						passPrices[passId] = okInfo and type(info) == "table" and tonumber(info.PriceInRobux) or 0
+					end
+					local profile = profiles[plr]
+					if profile and passPrices[passId] > 0 then
+						addSpent(plr, profile, passPrices[passId], false, 1)
+						reg.LeaderboardService.track(plr, profile)
+					end
+				end)
 			end
 		end
 	end)

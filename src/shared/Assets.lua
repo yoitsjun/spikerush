@@ -206,6 +206,12 @@ Assets.Images = {
 	-- the match's corner buttons
 	IconTimeout = "132706456899814", -- decal 109363194447921 (sand timer)
 	IconForfeit = "9440647549", -- decal 9440647555 (flag)
+	-- Home's buttons down the right edge and the Shop's gifts; empty ones fall back to IconStar,
+	-- IconShop and IconSettings (MenuController's `icon`)
+	IconDaily = "", -- a calendar
+	IconCode = "", -- a ticket
+	IconAdmin = "", -- a crown or a wrench
+	IconGift = "", -- a gift box
 	-- a right triangle (right angle bottom-left): mirrored, the slanted ends of every plate
 	Slant = "2288884279", -- decal 2288884281
 	Halftone = "102527515036737", -- decal 124271316176270: a halftone dot fade

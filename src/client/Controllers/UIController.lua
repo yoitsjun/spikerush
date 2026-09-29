@@ -1994,6 +1994,97 @@ local function updateSlow()
 	updateContinue()
 end
 
+------------------------------------------------------------------------------------------
+-- notices: the admin panel's announcements and events, shown to everyone in every server, over
+-- the menus and the match alike (a ScreenGui of their own, above both)
+------------------------------------------------------------------------------------------
+
+local noticeQueue = {}
+local noticeBusy = false
+
+local function buildNotice()
+	local ng = make("ScreenGui", {
+		Name = "SpikeRushNotice",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = false,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		DisplayOrder = 45,
+	}, player:WaitForChild("PlayerGui"))
+	local f = make("Frame", {
+		Name = "Notice",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 0, -10),
+		Size = UDim2.fromOffset(760, 84),
+		BackgroundColor3 = Gui.CARD,
+		BackgroundTransparency = 0.06,
+		BorderSizePixel = 0,
+		Visible = false,
+	}, ng)
+	local edgeStroke = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1.5, Transparency = 0.1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, f)
+	local tab = make("Frame", { Size = UDim2.new(0, 8, 1, 0), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0 }, f)
+	local kind = label(f, {
+		Text = "",
+		FontFace = Gui.display(Enum.FontWeight.Heavy),
+		TextSize = 16,
+		TextColor3 = Gui.SIGNAL,
+		Position = UDim2.fromOffset(26, 8),
+		Size = UDim2.new(1, -40, 0, 18),
+	})
+	local text = label(f, {
+		Text = "",
+		FontFace = Gui.display(Enum.FontWeight.Bold),
+		TextSize = 24,
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Position = UDim2.fromOffset(26, 28),
+		Size = UDim2.new(1, -44, 1, -34),
+	})
+	local scale = make("UIScale", {}, f)
+	ui.notice = { frame = f, kind = kind, text = text, tab = tab, edge = edgeStroke, scale = scale }
+end
+
+local function nextNotice()
+	local n = table.remove(noticeQueue, 1)
+	if not n then
+		noticeBusy = false
+		return
+	end
+	noticeBusy = true
+	local N = ui.notice
+	local cam = workspace.CurrentCamera
+	N.scale.Scale = math.clamp((cam and cam.ViewportSize.Y or 720) / 760, 0.6, 1.1)
+	local event = n.kind == "event"
+	local accent = event and Gui.GOLD or Gui.SIGNAL
+	N.tab.BackgroundColor3 = accent
+	N.kind.TextColor3 = accent
+	N.kind.Text = event and "EVENT" or ("ANNOUNCEMENT" .. (n.from and ("  FROM " .. string.upper(n.from)) or ""))
+	N.text.Text = n.text
+	N.frame.Position = UDim2.new(0.5, 0, 0, -10)
+	N.frame.Visible = true
+	if mods and mods.AudioController then
+		mods.AudioController.play("UIOpenLong", { minGap = 0.2 })
+	end
+	TweenService:Create(N.frame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 100) }):Play()
+	task.delay(math.clamp(tonumber(n.seconds) or 10, 3, 30), function()
+		local out = TweenService:Create(N.frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Position = UDim2.new(0.5, 0, 0, -10) })
+		out:Play()
+		out.Completed:Wait()
+		N.frame.Visible = false
+		nextNotice()
+	end)
+end
+
+-- Queues a notice: { kind = "announce" | "event", text, from, seconds }.
+function UIController.notice(n)
+	if type(n) ~= "table" or type(n.text) ~= "string" or n.text == "" then
+		return
+	end
+	table.insert(noticeQueue, n)
+	if not noticeBusy then
+		nextNotice()
+	end
+end
+
 function UIController.init(m)
 	mods = m
 	gui = make("ScreenGui", {
@@ -2014,6 +2105,8 @@ function UIController.init(m)
 	buildRotation()
 	buildCoach()
 	buildContinue()
+	buildNotice()
+	Net.get("Notice").OnClientEvent:Connect(UIController.notice)
 
 	State.signals.Announce:Connect(function(a)
 		if a.kind == "Point" then

@@ -514,6 +514,70 @@ Config.Shop = {
 	ReceiptHistory = 50, -- purchase ids remembered per profile (duplicate receipts are ignored)
 }
 
+-- Lucky spins (the owner: "lucky spins like volleyball legends with enhanced rates, which you can
+-- buy with robux"): one lucky spin is one pull on any banner with these rarity weights in place
+-- of Rarity.Weights (no Commons; Legendary and Mythic several times likelier). Sold in Packs as
+-- Developer Products like the VP packs (Id 0 until the product exists: Studio grants it free so
+-- the flow can be tested), and they also come from codes, daily rewards, gifts and the admin
+-- panel.
+Config.Lucky = {
+	Weights = { Common = 0, Rare = 48, Epic = 34, Legendary = 15, Mythic = 3 },
+	Packs = {
+		{ Id = 0, Lucky = 1, Name = "Lucky Spin" }, -- suggested 49 Robux
+		{ Id = 0, Lucky = 10, Name = "Lucky Spin x10" }, -- suggested 399 Robux
+	},
+}
+
+-- Codes (the owner: "add a codes system... first code should be release, you decide the value
+-- they get"): typed in Home's Codes window, any case, spaces ignored; each works once per player.
+-- A code pays any of VP, Gold, Lucky (spins) and Chars (roster ids). Until: the unix time it
+-- stops working (none: it never does). Keys are the code in lower case, letters and digits only.
+Config.Codes = {
+	release = { VP = 500, Gold = 5000, Lucky = 1 },
+}
+
+-- Daily rewards (the owner: "daily rewards for group members only"): members of the group that
+-- owns the experience (GroupId 0), or of GroupId, claim one a day on Home. A claim within
+-- StreakHours of the last one continues the streak along Rewards (starting over after the last
+-- day); a later one starts again from day 1.
+Config.Daily = {
+	GroupId = 0,
+	Cooldown = 20 * 3600, -- seconds from one claim until the next opens
+	StreakHours = 48,
+	Rewards = {
+		{ VP = 50 },
+		{ Gold = 1000 },
+		{ VP = 75 },
+		{ Gold = 2000 },
+		{ VP = 100 },
+		{ Gold = 3000 },
+		{ VP = 150, Lucky = 1 },
+	},
+}
+
+-- The admin panel (Home's Admin button, for developers: Config.Developers). Events double the VP
+-- or Gold a match pays (Multiplier) for one of Durations (minutes), in every server; an
+-- announcement shows to every player in every server; and Give sends VP, Gold, lucky spins and
+-- characters to anyone by username (online in any server at once, otherwise on their next join).
+Config.Admin = {
+	Durations = { 5, 10, 15, 20, 30 },
+	Events = { "VP", "Gold" },
+	Multiplier = 2,
+	AnnounceMax = 200, -- characters
+	AnnounceSeconds = 10, -- how long an announcement shows
+	GiveMax = { VP = 1000000, Gold = 10000000, Lucky = 1000 },
+	LiveStore = "SpikeRushLive_v1", -- the running events (DataStore), for servers that start later
+	MailStore = "SpikeRushMail_v1", -- gifts waiting for their player (DataStore)
+	PollInterval = 60, -- seconds between a server's reads of the events and of its players' mail
+}
+
+-- Gifting (the owner: "add a gifting system"): any pack (VP, Gold or lucky spins) can be bought
+-- for someone else, by username; it reaches them at once wherever they are, or on their next join.
+Config.Gifts = {
+	PendingSeconds = 600, -- how long a gift's purchase prompt stays tied to its recipient
+	MailSeen = 100, -- delivered gift ids remembered per profile (so a gift never arrives twice)
+}
+
 Config.TierColors = {
 	D = Color3.fromRGB(150, 156, 176),
 	C = Color3.fromRGB(120, 200, 140),
@@ -773,6 +837,9 @@ Config.Leaderboards = {
 		{ Key = "kills", Name = "Spike kills", Unit = "kills" },
 		{ Key = "aces", Name = "Aces", Unit = "aces" },
 		{ Key = "blocks", Name = "Blocks", Unit = "blocks" },
+		-- the owner: "most robux spent, most gifts spent leaderboard"
+		{ Key = "robux", Name = "Robux spent", Unit = "Robux", Empty = "Nobody has bought anything yet." },
+		{ Key = "gifts", Name = "Gifts given", Unit = "Robux gifted", Empty = "Nobody has sent a gift yet." },
 	},
 	StorePrefix = "SpikeRushBoard_v1_",
 	Top = 50,

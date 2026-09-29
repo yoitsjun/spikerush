@@ -114,30 +114,35 @@ for kind, list in pairs(items) do
 	pools[kind] = byRarity
 end
 
--- Chance (0..1) of each rarity on this banner: the rarity weights over the rarities it has.
-function Spins.odds(kind)
+-- The rarity weights of a lucky spin (Config.Lucky), for odds, table and rollItem.
+Spins.LuckyWeights = Config.Lucky.Weights
+
+-- Chance (0..1) of each rarity on this banner: the rarity weights (Rarity.Weights, or a lucky
+-- spin's) over the rarities it has.
+function Spins.odds(kind, weights)
+	weights = weights or RAR.Weights
 	local p = pools[kind] or {}
 	local total = 0
 	for _, r in ipairs(RAR.Order) do
 		if p[r] then
-			total = total + RAR.Weights[r]
+			total = total + (weights[r] or 0)
 		end
 	end
 	local out = {}
 	for _, r in ipairs(RAR.Order) do
-		out[r] = (p[r] and total > 0) and RAR.Weights[r] / total or 0
+		out[r] = (p[r] and total > 0) and (weights[r] or 0) / total or 0
 	end
 	return out
 end
 
 -- Everything a banner can give, best first: { item, chance } (what you're rolling for).
-function Spins.table(kind)
-	local odds = Spins.odds(kind)
+function Spins.table(kind, weights)
+	local odds = Spins.odds(kind, weights)
 	local out = {}
 	for i = #RAR.Order, 1, -1 do
 		local r = RAR.Order[i]
 		local p = (pools[kind] or {})[r]
-		if p then
+		if p and odds[r] > 0 then
 			for _, item in ipairs(p.items) do
 				table.insert(out, { item = item, chance = odds[r] * (item.Weight or 1) / p.weight })
 			end
@@ -146,15 +151,16 @@ function Spins.table(kind)
 	return out
 end
 
--- One spin: a rarity by weight, then an item of that rarity by its weight.
-function Spins.rollItem(kind, rng)
+-- One spin: a rarity by weight, then an item of that rarity by its weight. `weights`: a lucky
+-- spin's (Spins.LuckyWeights), or nil for the usual ones.
+function Spins.rollItem(kind, rng, weights)
 	rng = rng or Random.new()
 	local p = pools[kind]
-	local odds = Spins.odds(kind)
+	local odds = Spins.odds(kind, weights)
 	local x = rng:NextNumber()
 	local pick = nil
 	for _, r in ipairs(RAR.Order) do
-		if p[r] then
+		if p[r] and odds[r] > 0 then
 			pick = r
 			if x < odds[r] then
 				break
