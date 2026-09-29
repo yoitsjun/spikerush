@@ -86,6 +86,24 @@ end
 -- profile data
 ------------------------------------------------------------------------------------------
 
+-- The ids a perk takes: its Slots, or one slot named after the perk itself.
+local function perkSlots(key)
+	local def = Config.Perks[key]
+	return (def and def.Slots) or { { Key = key, Name = def and def.Name or key } }
+end
+
+-- The perk (key and def) a slot key belongs to, and the slot.
+local function perkOfSlot(slotKey)
+	for _, key in ipairs(Config.Perks.Order) do
+		for _, slot in ipairs(perkSlots(key)) do
+			if slot.Key == slotKey then
+				return key, Config.Perks[key], slot
+			end
+		end
+	end
+	return nil
+end
+
 local function newProfile()
 	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {} }
 	for _, kind in ipairs(Spins.Kinds) do
@@ -195,14 +213,16 @@ local function sanitizeProfile(data)
 		end
 	end
 	out.settings = Settings.clean(data.settings)
-	-- perks bought with VP, and the asset id chosen for each (digits only)
+	-- perks bought with VP, and the asset id chosen for each of their slots (digits only)
 	for _, key in ipairs(Config.Perks.Order) do
 		if type(data.perks) == "table" and data.perks[key] == true then
 			out.perks[key] = true
 		end
-		local id = type(data.perkIds) == "table" and data.perkIds[key]
-		if type(id) == "string" and string.match(id, "^%d+$") and #id <= 20 then
-			out.perkIds[key] = id
+		for _, slot in ipairs(perkSlots(key)) do
+			local id = type(data.perkIds) == "table" and data.perkIds[slot.Key]
+			if type(id) == "string" and string.match(id, "^%d+$") and #id <= 20 then
+				out.perkIds[slot.Key] = id
+			end
 		end
 	end
 	if type(data.receipts) == "table" then
@@ -385,16 +405,19 @@ local function hasPerk(plr, profile, key)
 	return profile.dev == true or profile.perks[key] == true or (passes[plr] ~= nil and passes[plr][key] == true)
 end
 
--- Each owned perk's id as an attribute on the Player and its avatar ("" for none), so every
--- client plays that player's sound and shows their image when they score.
+-- Each owned perk's ids as attributes on the Player and its avatar ("" for none), one per slot,
+-- so every client plays that player's sounds (scoring, spikes, jumps...) and shows their image
+-- when they score.
 local function applyPerks(plr, profile)
 	local char = plr.Character
 	for _, key in ipairs(Config.Perks.Order) do
-		local def = Config.Perks[key]
-		local value = hasPerk(plr, profile, key) and profile.perkIds[key] or ""
-		plr:SetAttribute(def.Attribute, value)
-		if char then
-			char:SetAttribute(def.Attribute, value)
+		local owned = hasPerk(plr, profile, key)
+		for _, slot in ipairs(perkSlots(key)) do
+			local value = owned and profile.perkIds[slot.Key] or ""
+			plr:SetAttribute(slot.Key, value)
+			if char then
+				char:SetAttribute(slot.Key, value)
+			end
 		end
 	end
 end
@@ -485,7 +508,11 @@ function ProfileService.snapshot(plr)
 		perks = (function()
 			local out = {}
 			for _, key in ipairs(Config.Perks.Order) do
-				out[key] = { owned = hasPerk(plr, profile, key), id = profile.perkIds[key] }
+				local ids = {}
+				for _, slot in ipairs(perkSlots(key)) do
+					ids[slot.Key] = profile.perkIds[slot.Key]
+				end
+				out[key] = { owned = hasPerk(plr, profile, key), id = profile.perkIds[key], ids = ids }
 			end
 			return out
 		end)(),
@@ -869,9 +896,10 @@ local function onRequest(plr, kind, a, b, c)
 		applyPerks(plr, profile)
 		push(plr, def.Name .. " unlocked: enter your id")
 	elseif kind == "perkSet" then
-		-- your id for a perk you own ("" clears it); its asset type is checked first
-		local def = Config.Perks[a]
-		if not def or not table.find(Config.Perks.Order, a) or not hasPerk(plr, profile, a) or type(b) ~= "string" then
+		-- your id for one slot of a perk you own (a slot key, e.g. "SoundSpike"; a perk's own key
+		-- is its first slot; "" clears it); its asset type is checked first
+		local perk, def, slot = perkOfSlot(a)
+		if not perk or not hasPerk(plr, profile, perk) or type(b) ~= "string" then
 			return
 		end
 		local id = string.match(b, "^%s*(%d+)%s*$")
@@ -879,16 +907,19 @@ local function onRequest(plr, kind, a, b, c)
 			push(plr, "An id is a number: the digits from the asset's page.")
 			return
 		end
-		if lastPerkSet[plr] and now - lastPerkSet[plr] < Config.Perks.SetCooldown then
+		local last = lastPerkSet[plr] or {}
+		lastPerkSet[plr] = last
+		if last[a] and now - last[a] < Config.Perks.SetCooldown then
 			push(plr, "Give it a moment before changing it again.")
 			return
 		end
-		lastPerkSet[plr] = now
+		last[a] = now
+		local what = def.Slots and string.format("%s (%s)", def.Name, slot.Name) or def.Name
 		if b == "" then
 			profile.perkIds[a] = nil
 			dirty[plr] = true
 			applyPerks(plr, profile)
-			push(plr, def.Name .. " cleared")
+			push(plr, what .. " cleared")
 			return
 		end
 		task.spawn(function()
@@ -900,7 +931,7 @@ local function onRequest(plr, kind, a, b, c)
 				return
 			end
 			if not table.find(def.Types, info.AssetTypeId) then
-				push(plr, a == "ScoreSound" and "That id isn't a sound." or "That id isn't an image or a decal.")
+				push(plr, table.find(def.Types, 3) and "That id isn't a sound." or "That id isn't an image or a decal.")
 				return
 			end
 			if not profiles[plr] then
@@ -909,7 +940,7 @@ local function onRequest(plr, kind, a, b, c)
 			profile.perkIds[a] = id
 			dirty[plr] = true
 			applyPerks(plr, profile)
-			push(plr, string.format("Saved: %s", tostring(info.Name or id)))
+			push(plr, string.format("Saved for %s: %s", def.Slots and slot.Name or def.Name, tostring(info.Name or id)))
 		end)
 	elseif kind == "buy" then
 		local list = b == "Gold" and Config.Shop.GoldPacks or Config.Shop.Packs

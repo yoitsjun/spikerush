@@ -452,30 +452,45 @@ Config.Cosmetics = {
 
 -- Perks: one-time unlocks, bought with VP or as a game pass (Creator Hub > your experience >
 -- Monetization > Passes; paste the pass id here, 0 while there isn't one). Whoever owns one
--- enters their own asset id: a sound that plays when they score (a Creator Store sound, or
--- their own upload shared with this experience), or an image that pops up and fades. The server
--- checks the id's asset type (Types: 3 audio, 1 image, 13 decal) before it's kept.
+-- enters their own asset ids: sounds for their scoring and their touches (a Creator Store sound,
+-- or their own upload shared with this experience), or an image that pops up and fades when they
+-- score. The server checks each id's asset type (Types: 3 audio, 1 image, 13 decal) before it's
+-- kept. A perk's Slots are the ids it takes (one per sound it replaces); each is saved under its
+-- Key and written as the attribute of that name on the player and their character (a perk
+-- without Slots has one, its own key).
 Config.Perks = {
 	Order = { "ScoreSound", "ScoreImage" },
 	ScoreSound = {
-		Name = "Custom score sound",
-		Blurb = "Your own sound plays when you score. Use a sound id from the Creator Store, or your own upload shared with Spike Rush.",
+		-- the owner: "buff custom sound effects to be able to change spike sound, jump, and all that"
+		Name = "Custom sound effects",
+		Blurb = "Your own sounds when you score, spike, jump, serve, receive, set, block or feint. Use sound ids from the Creator Store, or your own uploads shared with Spike Rush.",
 		VP = 3000,
-		PassId = 0,
+		PassId = 1998447396, -- "Custom Sound Effects", 199 Robux
 		Attribute = "ScoreSound",
 		Types = { 3 },
+		Slots = {
+			{ Key = "ScoreSound", Name = "Scoring", Verb = "you score" },
+			{ Key = "SoundSpike", Name = "Spike", Verb = "you spike" },
+			{ Key = "SoundJump", Name = "Jump", Verb = "you jump" },
+			{ Key = "SoundServe", Name = "Serve", Verb = "you serve" },
+			{ Key = "SoundBump", Name = "Receive", Verb = "you receive" },
+			{ Key = "SoundSet", Name = "Set", Verb = "you set" },
+			{ Key = "SoundBlock", Name = "Block", Verb = "you block" },
+			{ Key = "SoundFeint", Name = "Feint", Verb = "you feint" },
+		},
 	},
 	ScoreImage = {
 		Name = "Custom score effect",
 		Blurb = "Your own image pops up and fades when you score. Use an image or decal id.",
 		VP = 3000,
-		PassId = 0,
+		PassId = 2001902276, -- "Custom Score Effect", 199 Robux
 		Attribute = "ScoreImage",
 		Types = { 1, 13 },
 	},
 	SoundSeconds = 4, -- a custom score sound is cut off after this
+	ActionSeconds = 2, -- a custom touch or jump sound after this
 	ImageSeconds = 1.6, -- how long the image holds before it fades
-	SetCooldown = 3, -- seconds between id changes (each one is looked up)
+	SetCooldown = 3, -- seconds between changes to one id (each one is looked up)
 }
 
 -- VP and Gold packs, sold as Developer Products. Create each product (Creator Hub > your

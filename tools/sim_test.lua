@@ -1385,6 +1385,23 @@ do
 	check(#merged == 3 and merged[1].userId == 2 and merged[1].value == 25 and merged[3].userId == 3, "players in the server show their fresh numbers at once; zeros stay off")
 end
 
+print("== perks ==")
+do
+	-- each slot's id is saved under its key and written as that attribute: keys are unique, the
+	-- scoring sound keeps the key saves already use, and every sound the owner named has a slot
+	local seen, unique = {}, true
+	for _, key in ipairs(Config.Perks.Order) do
+		local def = Config.Perks[key]
+		for _, slot in ipairs(def.Slots or { { Key = key } }) do
+			unique = unique and not seen[slot.Key]
+			seen[slot.Key] = true
+		end
+	end
+	local S = Config.Perks.ScoreSound
+	check(unique and S.Slots[1].Key == "ScoreSound" and seen.SoundSpike and seen.SoundJump and seen.ScoreImage and S.PassId ~= 0 and Config.Perks.ScoreImage.PassId ~= 0,
+		"custom sounds: a unique slot per sound (scoring keeps its saved key; spike, jump and the rest), both game passes set", string.format("%d slots", #S.Slots))
+end
+
 print("== determinism ==")
 do
 	local root = apexRoot(SP, 4 * K)

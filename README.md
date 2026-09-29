@@ -81,6 +81,8 @@ Rarity odds are Common 55%, Rare 28%, Epic 12.5%, Legendary 4% and Mythic 0.5%, 
 
 VP and Gold packs are Developer Products (the Shop screen): 500 / 1,200 / 2,800 / 6,500 VP and 5,000 / 12,000 / 28,000 / 65,000 Gold. Create a product for each (Creator Hub > your experience > Monetization > Developer Products) and set its id in `Config.Shop.Packs` or `Config.Shop.GoldPacks`; the Shop shows the price you set. Until then they show "Soon", and in Studio they grant their VP or Gold for free. Each purchase is granted once and only reported as done after the profile holding it has been saved.
 
+**Perks** (the Shop's Perks column) cost 3,000 VP or a 199 Robux game pass each. **Custom sound effects** takes your own sound ids for scoring, spikes, jumps, serves, receives, sets, blocks and feints (pick one with the arrows, paste the id, Save; everyone in the match hears them). **Custom score effect** pops your own image up when you score. A sound only plays if it's public or shared with the experience.
+
 **Developers** own every character and unlockable, recruit and upgrade for free: the place's owner (or the group's owner), anyone in a Studio test session, and any UserId listed in `Config.Developers.UserIds`.
 
 ## Abilities

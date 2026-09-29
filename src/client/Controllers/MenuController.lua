@@ -2787,7 +2787,7 @@ local function buildShop()
 		Position = UDim2.new(0, M, 1, -M - 6),
 		Size = UDim2.new(1, -(M * 2 + 440 + 40), 0, 48),
 	})
-	-- Perks, on the right: your own score sound and score image (VP, or a game pass)
+	-- Perks, on the right: your own sounds and score image (VP, or a game pass)
 	local perkCol = make("Frame", { Name = "Perks", Position = UDim2.fromOffset(M + 4 * 214 + 30, 150), Size = UDim2.new(1, -(M + 4 * 214 + 30 + M), 0, 560), BackgroundTransparency = 1 }, p)
 	Gui.label(perkCol, { Text = "Perks", display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextStrokeTransparency = 0.6, Size = UDim2.new(1, 0, 0, 36) })
 	Gui.plate(perkCol, { Size = UDim2.fromOffset(60, 6), Position = UDim2.fromOffset(2, 40) }, Gui.SIGNAL)
@@ -2800,9 +2800,33 @@ local function buildShop()
 		-- not yours yet: buy it
 		local buyVP = actionPlate(card, { Position = UDim2.fromOffset(12, 104), Size = UDim2.new(0.5, -18, 0, 46) }, string.format("%s VP", Gui.num(def.VP)), 20)
 		local buyPass, buyPassLabel = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 104), Size = UDim2.new(0.5, -18, 0, 46) }, "Robux", 18)
-		-- yours: the id, Save and Test
+		-- yours: which of its sounds you're setting (a perk with Slots), the id, Save and Test
+		local slots = def.Slots or { { Key = key, Name = def.Name, Verb = "you score" } }
+		local e = { slot = 1 }
+		local rowY = 104
+		if def.Slots then
+			local picker = make("Frame", { Name = "Slot", Position = UDim2.fromOffset(16, 100), Size = UDim2.new(1, -32, 0, 34), BackgroundTransparency = 1 }, card)
+			local prev = hairButton(picker, { Size = UDim2.fromOffset(40, 34) }, "<", 20)
+			local nxt = hairButton(picker, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromOffset(40, 34) }, ">", 20)
+			e.slotName = Gui.label(picker, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Position = UDim2.fromOffset(48, 0), Size = UDim2.new(1, -96, 1, 0), TextXAlignment = Enum.TextXAlignment.Center })
+			local function step(d)
+				e.slot = (e.slot - 1 + d) % #slots + 1
+				e.shownId = nil -- show the new slot's id
+				MenuController.refresh()
+			end
+			onClick(prev, function()
+				step(-1)
+			end)
+			onClick(nxt, function()
+				step(1)
+			end)
+			prev:SetAttribute("Sound", "UITick")
+			nxt:SetAttribute("Sound", "UITick")
+			e.picker = picker
+			rowY = 140
+		end
 		local box = make("TextBox", {
-			Position = UDim2.fromOffset(16, 104),
+			Position = UDim2.fromOffset(16, rowY),
 			Size = UDim2.new(1, -32 - 188, 0, 46),
 			BackgroundColor3 = Color3.fromRGB(6, 8, 16),
 			BackgroundTransparency = 0.1,
@@ -2818,9 +2842,9 @@ local function buildShop()
 		}, card)
 		make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.45, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, box)
 		make("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, box)
-		local save = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -104, 0, 104), Size = UDim2.fromOffset(84, 46) }, "Save", 18)
-		local test = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 104), Size = UDim2.fromOffset(84, 46) }, "Test", 18)
-		local status = Gui.label(card, { Text = "", TextSize = 14, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 160), Size = UDim2.new(1, -32, 0, 66) })
+		local save = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -104, 0, rowY), Size = UDim2.fromOffset(84, 46) }, "Save", 18)
+		local test = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, rowY), Size = UDim2.fromOffset(84, 46) }, "Test", 18)
+		local status = Gui.label(card, { Text = "", TextSize = 14, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, rowY + 56), Size = UDim2.new(1, -32, 0, 226 - rowY - 56) })
 		onClick(buyVP, function()
 			Net.get("Profile"):FireServer("perkBuy", key)
 		end)
@@ -2832,20 +2856,21 @@ local function buildShop()
 			end
 		end)
 		onClick(save, function()
-			Net.get("Profile"):FireServer("perkSet", key, box.Text)
+			Net.get("Profile"):FireServer("perkSet", slots[e.slot].Key, box.Text)
 		end)
 		onClick(test, function()
 			local id = string.match(box.Text, "%d+")
 			if not id then
 				return
 			end
-			if key == "ScoreSound" then
+			if table.find(def.Types, 3) then
 				mods.AudioController.playId(id)
 			else
 				mods.UIController.showScoreImage(id)
 			end
 		end)
-		perks[key] = { buyVP = buyVP, buyPass = buyPass, buyPassLabel = buyPassLabel, box = box, save = save, test = test, status = status }
+		e.slots, e.buyVP, e.buyPass, e.buyPassLabel, e.box, e.save, e.test, e.status = slots, buyVP, buyPass, buyPassLabel, box, save, test, status
+		perks[key] = e
 		if def.PassId ~= 0 then
 			task.spawn(function()
 				local ok, info = pcall(function()
@@ -2865,15 +2890,22 @@ local function refreshPerks(prof)
 		local def = Config.Perks[key]
 		local st = prof.perks and prof.perks[key] or {}
 		local owned = st.owned == true
+		local slot = e.slots[e.slot]
+		local id = (st.ids and st.ids[slot.Key]) or (slot.Key == key and st.id) or nil
 		e.buyVP.Visible = not owned
 		e.buyPass.Visible = not owned and def.PassId ~= 0
 		e.box.Visible, e.save.Visible, e.test.Visible = owned, owned, owned
-		if owned and not e.box:IsFocused() and e.shownId ~= (st.id or "") then
-			e.box.Text = st.id or ""
-			e.shownId = st.id or ""
+		if e.picker then
+			e.picker.Visible = owned
+			e.slotName.Text = slot.Name
+		end
+		if owned and not e.box:IsFocused() and e.shownId ~= (id or "") then
+			e.box.Text = id or ""
+			e.shownId = id or ""
 		end
 		if owned then
-			e.status.Text = st.id and (key == "ScoreSound" and "Plays when you score. Test it here." or "Pops up when you score. Test it here.") or "Paste an id and Save."
+			local sound = table.find(def.Types, 3) ~= nil
+			e.status.Text = id and (sound and string.format("Plays when %s. Test it here.", slot.Verb or "you score") or "Pops up when you score. Test it here.") or "Paste an id and Save."
 		else
 			e.status.Text = def.PassId ~= 0 and "" or "The game pass comes soon; VP works now."
 		end

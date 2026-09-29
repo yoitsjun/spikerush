@@ -162,8 +162,9 @@ function AudioController.play(key, opts)
 	return spawnSound(info, opts)
 end
 
--- A player's own score sound (the Custom score sound perk): any audio id, cut off after
--- Perks.SoundSeconds. preloadId loads it as soon as they pick it, so it starts on time.
+-- A player's own sounds (the Custom sound effects perk: scoring, spikes, jumps and their other
+-- touches): any audio id, cut off after Perks.SoundSeconds (ActionSeconds for a touch or a jump).
+-- preloadId loads each as soon as they pick it, so it starts on time.
 local function isId(id)
 	return type(id) == "string" and string.match(id, "^%d+$") ~= nil
 end
@@ -192,7 +193,7 @@ function AudioController.playId(id, opts)
 	sound.Ended:Connect(function()
 		sound:Destroy()
 	end)
-	task.delay(Config.Perks.SoundSeconds, function()
+	task.delay(opts.seconds or Config.Perks.SoundSeconds, function()
 		if sound.Parent then
 			TweenService:Create(sound, TweenInfo.new(0.25), { Volume = 0 }):Play()
 			task.delay(0.3, function()
@@ -201,6 +202,22 @@ function AudioController.playId(id, opts)
 		end
 	end)
 	return sound
+end
+
+-- The Custom sound effects perk's slots (attribute names on a player's character).
+local SOUND_SLOTS = Config.Perks.ScoreSound.Slots
+
+-- Plays an entity's own sound for a slot ("SoundSpike", "SoundJump", ...) when they've set one;
+-- true if it played (then the usual sound is skipped).
+function AudioController.custom(entityId, slotKey, opts)
+	local model = entityId and Util.modelOf(entityId)
+	local id = model and model:GetAttribute(slotKey)
+	if not isId(id) then
+		return false
+	end
+	opts = opts or {}
+	AudioController.playId(id, { volume = opts.volume or 0.85, seconds = Config.Perks.ActionSeconds })
+	return true
 end
 
 -- The serve is struck (any touch after the toss): the crowd's swell stops.
@@ -253,15 +270,23 @@ local function onHit(snap)
 		stopServeCheer()
 	end
 	hardSpike = (ht == "Spike" or ht == "JumpServe") and (meta.thunder == true or kmh >= 130)
+	local who = meta.id
 	if ht == "Spike" or ht == "JumpServe" then
+		-- the hitter's own spike sound (a jump serve: their serve sound first) replaces the crack;
+		-- the ability layers (thunder, Azure) and the whoosh stay
+		local own = (ht == "JumpServe" and AudioController.custom(who, "SoundServe")) or AudioController.custom(who, "SoundSpike")
 		if meta.thunder then
 			AudioController.play("Thunder", { pos = pos, volume = 1.2 })
-			AudioController.play("SpikeHeavy", { pos = pos })
+			if not own then
+				AudioController.play("SpikeHeavy", { pos = pos })
+			end
 		elseif meta.energy then
 			AudioController.play("AzureRelease", { pos = pos, speed = 1.1 - 0.35 * math.min(meta.energy, 1) })
-			if kmh >= 130 then
+			if kmh >= 130 and not own then
 				AudioController.play("SpikeHeavy", { pos = pos, volume = 0.8 })
 			end
+		elseif own then
+			-- theirs played
 		elseif kmh >= 130 then
 			AudioController.play("SpikeHeavy", { pos = pos })
 		else
@@ -272,25 +297,37 @@ local function onHit(snap)
 			AudioController.play("Whoosh", { pos = pos, speed = 0.8 })
 		end
 	elseif ht == "Block" then
-		if meta.outcome == "Stuff" then
+		if AudioController.custom(who, "SoundBlock") then
+			-- theirs played
+		elseif meta.outcome == "Stuff" then
 			AudioController.play("Stuff", { pos = pos })
 		else
 			AudioController.play("Block", { pos = pos, volume = 0.8 })
 		end
 	elseif ht == "Set" then
-		AudioController.play("Set", { pos = pos })
+		if not AudioController.custom(who, "SoundSet") then
+			AudioController.play("Set", { pos = pos })
+		end
 	elseif ht == "Toss" then
 		AudioController.play("Toss", { pos = pos })
 		serveCheer = AudioController.play("CrowdServe", { volume = 0.9, minGap = 1 }) or serveCheer
 	elseif ht == "Overhand" or ht == "Underhand" then
-		AudioController.play("Serve", { pos = pos, speed = ht == "Underhand" and 1.15 or 1 })
+		if not AudioController.custom(who, "SoundServe") then
+			AudioController.play("Serve", { pos = pos, speed = ht == "Underhand" and 1.15 or 1 })
+		end
 	elseif ht == "Feint" then
-		AudioController.play("Feint", { pos = pos })
+		if not AudioController.custom(who, "SoundFeint") then
+			AudioController.play("Feint", { pos = pos })
+		end
 	else
 		if meta.fail or meta.breaks then
 			-- the arms still meet the ball: a dull bump under the guard break
-			AudioController.play("Bump", { pos = pos, speed = 0.88 })
+			if not AudioController.custom(who, "SoundBump") then
+				AudioController.play("Bump", { pos = pos, speed = 0.88 })
+			end
 			AudioController.play("GuardBreak", { pos = pos })
+		elseif AudioController.custom(who, "SoundBump") then
+			-- theirs played
 		elseif meta.perfect then
 			AudioController.play("ReceivePerfect", { pos = pos })
 		else
@@ -369,12 +406,14 @@ function AudioController.init()
 	holder.CFrame = CFrame.new(0, 0, 0)
 	holder.Parent = workspace
 
-	-- load each player's own score sound as soon as they pick it
+	-- load each player's own sounds as soon as they pick them
 	local function watch(plr)
-		AudioController.preloadId(plr:GetAttribute("ScoreSound"))
-		plr:GetAttributeChangedSignal("ScoreSound"):Connect(function()
-			AudioController.preloadId(plr:GetAttribute("ScoreSound"))
-		end)
+		for _, slot in ipairs(SOUND_SLOTS) do
+			AudioController.preloadId(plr:GetAttribute(slot.Key))
+			plr:GetAttributeChangedSignal(slot.Key):Connect(function()
+				AudioController.preloadId(plr:GetAttribute(slot.Key))
+			end)
+		end
 	end
 	Players.PlayerAdded:Connect(watch)
 	for _, plr in ipairs(Players:GetPlayers()) do
@@ -443,7 +482,11 @@ function AudioController.init()
 		elseif kind == "Whiff" then
 			AudioController.play("Whiff", { volume = 0.6 })
 		elseif kind == "Jump" then
+			-- their own jump sound, or the boom of a big jumper
 			local model = Util.modelOf(entityId)
+			if AudioController.custom(entityId, "SoundJump", { volume = 0.7 }) then
+				return
+			end
 			if model and (model:GetAttribute("Jump") or 0) >= Config.Player.BoomJumpMin then
 				AudioController.play("Boom", { volume = extra == "Spike" and 0.8 or 0.45, minGap = 0.05 })
 			end

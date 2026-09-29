@@ -553,12 +553,14 @@ function VFXController.boom(entityId, kind)
 	end
 	local p = hrp.Position
 	local foot = Vector3.new(p.X, 0.25, p.Z)
+	-- your own jump sound (the Custom sound effects perk) on every jump; the boom's otherwise
+	local own = entityId == State.myId and mods ~= nil and mods.AudioController.custom(entityId, "SoundJump", { volume = 0.7 })
 	if not VFXController.hasBoom(model) then
 		Fx.play("Dust", foot, { n = 3, scale = 0.7 })
 		return
 	end
 	local big = kind == "Spike" or kind == "Serve"
-	if entityId == State.myId and mods then
+	if entityId == State.myId and mods and not own then
 		mods.AudioController.play("Boom", { volume = big and 0.8 or 0.45, minGap = 0.05 })
 	end
 	Fx.play("JumpBoom", foot, big and nil or { scale = 0.55, count = 0.5 })
