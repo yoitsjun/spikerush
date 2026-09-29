@@ -30,6 +30,7 @@ local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
+local Lobbies = require(Shared.Lobbies)
 local State = require(script.Parent.State)
 
 local ActionController = {}
@@ -185,6 +186,25 @@ local function pressTeamAbility(i)
 		return
 	end
 	Net.get("ActionFX"):FireServer("TeamAbility", mate.id)
+end
+
+-- Timeout (T, Select, the corner button): calls one for the next dead ball; pressed again before
+-- then it calls yours off (not used up); in the timeout it's Ready. The server decides the same
+-- way (Lobbies.timeoutPress), so a stale match state here only costs the hint.
+local function pressTimeout()
+	if not State.isPlaying then
+		return
+	end
+	local op, why = Lobbies.timeoutPress(State.match.timeoutPending, State.phase(), State.myId, State.timeouts(State.myTeam))
+	if op == "ready" then
+		mods.UIController.timeoutReady()
+	elseif op then
+		Net.get("Timeout"):FireServer()
+	elseif why == "taken" then
+		State.hint("A timeout is already called for the next dead ball")
+	elseif why == "none" then
+		State.hint("No timeouts left this set")
+	end
 end
 
 local function pressAbility()
@@ -949,11 +969,7 @@ function ActionController.press(action)
 		return
 	end
 	if action == "Timeout" then
-		if State.isPlaying and State.timeouts(State.myTeam) > 0 then
-			Net.get("Timeout"):FireServer()
-		elseif State.isPlaying then
-			State.hint("No timeouts left this set")
-		end
+		pressTimeout()
 		return
 	end
 	local info = charInfo()

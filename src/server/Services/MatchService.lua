@@ -708,9 +708,16 @@ function MatchService.init(r)
 	Net.get("Timeout").OnServerEvent:Connect(function(plr, op)
 		local TS = reg.TeamService
 		local e = TS.entityForPlayer(plr)
+		if not e or not TS.inMatch then
+			return
+		end
+		-- a press calls one, calls off your own before it starts, or in the timeout is Ready
+		if op ~= "ready" then
+			op = Lobbies.timeoutPress(MatchService.pendingTimeout, MatchService.phase, e.id, TS.timeouts[e.team] or 0)
+		end
 		if op == "ready" then
 			-- done with the timeout: once everyone on court is ready it ends early
-			if e and MatchService.phase == "Timeout" and MatchService.timeoutReady then
+			if MatchService.phase == "Timeout" and MatchService.timeoutReady then
 				MatchService.timeoutReady[plr.UserId] = true
 				local n, total = tallyReady()
 				if n >= total then
@@ -718,21 +725,17 @@ function MatchService.init(r)
 				end
 				MatchService.broadcast()
 			end
-			return
+		elseif op == "cancel" then
+			-- never started, so never used (runTimeout spends it)
+			local req = MatchService.pendingTimeout
+			MatchService.pendingTimeout = nil
+			MatchService.announce({ kind = "TimeoutCancelled", team = req.team, name = req.name, id = req.id })
+			MatchService.broadcast()
+		elseif op == "call" then
+			MatchService.pendingTimeout = { team = e.team, name = e.name, id = e.id }
+			MatchService.announce({ kind = "TimeoutCalled", team = e.team, name = e.name, id = e.id })
+			MatchService.broadcast()
 		end
-		if not e or not TS.inMatch or MatchService.pendingTimeout then
-			return
-		end
-		local phase = MatchService.phase
-		if phase == "Intermission" or phase == "PreMatch" or phase == "MatchEnd" then
-			return
-		end
-		if (TS.timeouts[e.team] or 0) <= 0 then
-			return
-		end
-		MatchService.pendingTimeout = { team = e.team, name = e.name }
-		MatchService.announce({ kind = "TimeoutCalled", team = e.team, name = e.name })
-		MatchService.broadcast()
 	end)
 	-- during a timeout, either team can rearrange its rotation and pick its next server
 	Net.get("Rotation").OnServerEvent:Connect(function(plr, op, id)

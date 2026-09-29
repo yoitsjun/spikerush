@@ -824,7 +824,7 @@ local HELP_ROWS = {
 	{ "Set", { "E", "V" }, "Hold toward the net for a quick, away for a back set, nothing for an open set." },
 	{ "Serve", { "F", "X" }, "F serves underhand and always goes in. Tap X to serve overhand, hold X to toss for a jump serve." },
 	{ "Ability", { "Q" }, "Iron Wall, Turnabout and Rally Cry. The rest work on their own." },
-	{ "Timeout", { "T" }, "Refills stamina and opens the rotation, where you can also change character." },
+	{ "Timeout", { "T" }, "At the next dead ball: refills stamina, opens the rotation and lets you change character. Press again before then to call it off." },
 }
 
 local function buildHelp()

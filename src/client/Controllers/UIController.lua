@@ -528,6 +528,14 @@ local function showHint(text)
 	end)
 end
 
+-- how you press Timeout on the device you're playing with, for hints
+local function timeoutKey()
+	if State.isMobile then
+		return "Tap Timeout"
+	end
+	return mods.InputController.lastDevice() == "Gamepad" and "Press Select" or "Press T"
+end
+
 local function buildHint()
 	ui.hint = make("TextLabel", {
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -1599,12 +1607,13 @@ local function updateTimeout()
 	end
 	if show then
 		local left = State.timeouts(State.myTeam)
-		if State.match.timeoutPending then
-			ui.timeoutCap.Text = "Called"
+		local pending = State.match.timeoutPending
+		if pending and pending.team == State.myTeam then
+			ui.timeoutCap.Text = "Called" -- the caller presses again to call it off
 			ui.timeoutCap.TextColor3 = Gui.SIGNAL
 		else
 			ui.timeoutCap.Text = "Timeout " .. left
-			ui.timeoutCap.TextColor3 = left > 0 and UI.Chalk or UI.Fog
+			ui.timeoutCap.TextColor3 = (left > 0 and not pending) and UI.Chalk or UI.Fog
 		end
 	end
 end
@@ -1822,7 +1831,13 @@ local function onAnnounce(a)
 	elseif a.kind == "Forfeit" then
 		UIController.callout("Forfeit", teamColor(a.team), teamName(a.team) .. " gave up the match", 1.6)
 	elseif a.kind == "TimeoutCalled" then
-		showHint(teamName(a.team) .. " called a timeout (next dead ball)")
+		if a.id == State.myId then
+			showHint("Timeout called for the next dead ball. " .. timeoutKey() .. " again to call it off")
+		else
+			showHint(teamName(a.team) .. " called a timeout (next dead ball)")
+		end
+	elseif a.kind == "TimeoutCancelled" then
+		showHint(a.id == State.myId and "Timeout called off" or (teamName(a.team) .. " called off their timeout"))
 	elseif a.kind == "Timeout" then
 		UIController.callout("Timeout", teamColor(a.team), "Stamina refilled. Rearrange your rotation", 1.6)
 	elseif a.kind == "Break" then
@@ -1863,6 +1878,14 @@ end
 ------------------------------------------------------------------------------------------
 
 local ROLE_NAME = { WS = "Wing spiker", MB = "Middle blocker", SE = "Setter", Solo = "Solo" }
+
+-- Ready (the panel's button, or Timeout pressed again): once everyone on court is, it ends early
+function UIController.timeoutReady()
+	if ui.rotation then
+		ui.rotation.ready = true
+	end
+	Net.get("Timeout"):FireServer("ready")
+end
 
 local function buildRotation()
 	local f = panel(gui, {
@@ -1916,8 +1939,7 @@ local function buildRotation()
 	Gui.pressSound(ready)
 	ready.MouseButton1Click:Connect(function()
 		click()
-		ui.rotation.ready = true
-		Net.get("Timeout"):FireServer("ready")
+		UIController.timeoutReady()
 	end)
 	local swap = button(f, "Character and look", { Size = UDim2.fromOffset(200, 34), AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -10), TextSize = 13 })
 	Gui.pressSound(swap)
@@ -1937,7 +1959,8 @@ local function updateRotation()
 		return
 	end
 	local tr = State.match.timeoutReady
-	R.readyButton.Text = R.ready and string.format("Ready %d/%d", tr and tr[1] or 1, tr and tr[2] or 1) or "Ready"
+	-- (you count at once: the server's tally catches up a moment later)
+	R.readyButton.Text = R.ready and string.format("Ready %d/%d", math.max(tr and tr[1] or 1, 1), tr and tr[2] or 1) or "Ready"
 	R.readyButton.BackgroundColor3 = R.ready and UI.Mint or UI.Spark
 	local left = math.max(0, math.ceil((State.match.phaseEnd or 0) - Util.now()))
 	R.title.Text = "Timeout " .. left .. "   " .. teamName(State.myTeam) .. " rotation"
@@ -1961,8 +1984,6 @@ local function updateRotation()
 	R.frame.Size = UDim2.fromOffset(460, 64 + #roster * 46 + 48)
 end
 
--- Your AI teammates' active abilities under your own: the key, the ability and whose it is, the
--- bar filling as it cools down (in the ability's colour once ready). Click or tap one to pop it.
 local function updateSlow()
 	updateStamina()
 	updateAbility()

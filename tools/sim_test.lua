@@ -1030,6 +1030,17 @@ do
 	idle, afk = Lobbies.idle(idle, 0.5, "Rally", false)
 	local reset = Lobbies.idle(idle, 0.5, "Rally", true)
 	check(quiet == 0 and not before and afk and reset == 0 and Config.Afk.Timeout >= 10 and Config.Afk.Timeout <= 15, "AFK: 10 to 15 s without input while the ball is live (timeouts don't count)", string.format("%d s", Config.Afk.Timeout))
+	-- Timeout pressed (the owner: "cancel a timeout by clicking t again")
+	local called = { team = "Home", name = "a", id = "P_1" }
+	local call = Lobbies.timeoutPress(nil, "Rally", "P_1", 2)
+	local none, noneWhy = Lobbies.timeoutPress(nil, "Point", "P_1", 0)
+	local cancel = Lobbies.timeoutPress(called, "Rally", "P_1", 2)
+	local cancelLate = Lobbies.timeoutPress(called, "Point", "P_1", 2)
+	local taken, takenWhy = Lobbies.timeoutPress(called, "Rally", "P_2", 2)
+	local inIt = Lobbies.timeoutPress(nil, "Timeout", "P_2", 0)
+	local early = Lobbies.timeoutPress(nil, "PreMatch", "P_1", 2)
+	check(call == "call" and cancel == "cancel" and cancelLate == "cancel" and taken == nil and takenWhy == "taken" and none == nil and noneWhy == "none" and inIt == "ready" and early == nil,
+		"timeout: a press calls one for the next dead ball, the caller's next press (up to the dead ball) calls it off, another's call waits, and in the timeout a press is Ready")
 end
 
 print("== tutorial and practice drills ==")

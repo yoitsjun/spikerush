@@ -472,7 +472,7 @@ function AudioController.init()
 		elseif a.kind == "Timeout" then
 			AudioController.play("Whistle", { speed = 1.1 })
 			AudioController.play("Timeout")
-		elseif a.kind == "TimeoutCalled" then
+		elseif a.kind == "TimeoutCalled" or a.kind == "TimeoutCancelled" then
 			AudioController.play("UIClick")
 		end
 	end)

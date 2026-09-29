@@ -348,4 +348,29 @@ function Lobbies.idle(idle, dt, phase, active)
 	return idle, idle >= Config.Afk.Timeout
 end
 
+-- Timeout pressed (T, Select or the corner button) by entity `id`, whose team has `left`
+-- timeouts this set; `pending` is the call waiting for the next dead ball ({ team, name, id }) or
+-- nil. Returns what the press does: "call" one for the next dead ball, "cancel" your own call
+-- (pressed again before it starts: called off, and not used up), or "ready" (in the timeout
+-- itself: the same as its Ready button); or nil and why not ("taken": someone else's call is
+-- waiting, "none": no timeouts left).
+function Lobbies.timeoutPress(pending, phase, id, left)
+	if phase == "Intermission" or phase == "PreMatch" or phase == "MatchEnd" then
+		return nil
+	end
+	if pending then
+		if pending.id == id then
+			return "cancel"
+		end
+		return nil, "taken"
+	end
+	if phase == "Timeout" then
+		return "ready"
+	end
+	if (left or 0) <= 0 then
+		return nil, "none"
+	end
+	return "call"
+end
+
 return Lobbies
