@@ -7,6 +7,9 @@
 -- starts past the silence at the front of its file, and plays at its file's gain
 -- (Assets.SoundFiles). Hits at the ball are full volume anywhere on court, panned by position.
 -- Hit sounds scale with power: a harder spike is louder and a touch lower.
+-- The match's sounds are only for the players in it (hearsMatch): the server sends every client
+-- its events, and a player in the menus, or away while their AI plays for them, hears none of it
+-- (the owner: "sound is global"). Menu sounds play anywhere.
 
 local SoundService = game:GetService("SoundService")
 local Players = game:GetService("Players")
@@ -162,6 +165,12 @@ function AudioController.play(key, opts)
 	return spawnSound(info, opts)
 end
 
+-- Whether this client hears the match: only while you're on its roster (State.isPlaying), the
+-- same test the HUD uses.
+function AudioController.hearsMatch()
+	return State.isPlaying == true
+end
+
 -- A player's own sounds (the Custom sound effects perk: scoring, spikes, jumps and their other
 -- touches): any audio id, cut off after Perks.SoundSeconds (ActionSeconds for a touch or a jump).
 -- preloadId loads each as soon as they pick it, so it starts on time.
@@ -210,6 +219,9 @@ local SOUND_SLOTS = Config.Perks.ScoreSound.Slots
 -- Plays an entity's own sound for a slot ("SoundSpike", "SoundJump", ...) when they've set one;
 -- true if it played (then the usual sound is skipped).
 function AudioController.custom(entityId, slotKey, opts)
+	if not AudioController.hearsMatch() then
+		return true -- nothing plays for you, the usual sound included
+	end
 	local model = entityId and Util.modelOf(entityId)
 	local id = model and model:GetAttribute(slotKey)
 	if not isId(id) then
@@ -260,7 +272,7 @@ end
 
 local function onHit(snap)
 	local meta = snap.meta
-	if not meta or not snap.path then
+	if not meta or not snap.path or not AudioController.hearsMatch() then
 		return
 	end
 	local pos = snap.path.segs[1].p
@@ -420,8 +432,16 @@ function AudioController.init()
 		watch(plr)
 	end
 
-	local crowd = loop("CrowdLoop", 0.35)
+	-- the crowd is the arena's: silent in the menus
+	local crowd = loop("CrowdLoop", 0)
 	loop("Music", 0.18)
+	local function crowdLevel()
+		if crowd then
+			crowd.Volume = AudioController.hearsMatch() and 0.35 or 0
+		end
+	end
+	crowdLevel()
+	State.signals.Match:Connect(crowdLevel)
 
 	State.signals.Ball:Connect(function(snap, isEcho)
 		if isEcho or snap.state ~= "Flight" then
@@ -430,6 +450,9 @@ function AudioController.init()
 		onHit(snap)
 	end)
 	State.signals.BallEvent:Connect(function(kind, ev)
+		if not AudioController.hearsMatch() then
+			return
+		end
 		if kind == "Land" and ev.kind == "Floor" then
 			local speed = ev.vel.Magnitude
 			-- a hard spike lands with its own, heavier thump
@@ -444,6 +467,9 @@ function AudioController.init()
 		end
 	end)
 	State.signals.Announce:Connect(function(a)
+		if not AudioController.hearsMatch() then
+			return
+		end
 		if a.kind == "Serve" then
 			AudioController.play("Whistle", { minGap = 0.5 })
 		elseif a.kind == "Point" then
@@ -460,9 +486,7 @@ function AudioController.init()
 			end
 			if crowd then
 				crowd.Volume = 0.65
-				task.delay(1.5, function()
-					crowd.Volume = 0.35
-				end)
+				task.delay(1.5, crowdLevel)
 			end
 		elseif a.kind == "SetEnd" or a.kind == "MatchEnd" then
 			AudioController.play("CrowdCheer", { volume = 1.2 })
@@ -477,6 +501,9 @@ function AudioController.init()
 		end
 	end)
 	State.signals.Action:Connect(function(entityId, kind, extra)
+		if not AudioController.hearsMatch() then
+			return
+		end
 		if kind == "Slide" then
 			AudioController.play("Slide", { volume = 0.7 })
 		elseif kind == "Whiff" then

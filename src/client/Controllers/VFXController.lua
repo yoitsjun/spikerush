@@ -817,7 +817,7 @@ function VFXController.ability(entityId, ability)
 		ringFx(top, def.Color, 2, 12, 0.35, 7)
 		shards(top, def.Color, 10, 40)
 		VFXController.popup(top + Vector3.new(0, 2, 0), "Iron Wall!", def.Color, 1.2)
-		if mods and mods.AudioController then
+		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("Block", { volume = 0.7 })
 		end
 	elseif ability == "Turnabout" then
@@ -826,7 +826,7 @@ function VFXController.ability(entityId, ability)
 		floorRing(pos, def.Color, 4.5, 0.45)
 		ringFx(pos + Vector3.new(0, 1, 0), def.Color, 2, 9, 0.35, 6)
 		VFXController.popup(pos + Vector3.new(0, 6, 0), "Turnabout!", def.Color, 1.1)
-		if mods and mods.AudioController then
+		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("Whoosh", { volume = 0.6, speed = 0.8 })
 		end
 	elseif ability == "RallyCry" then
@@ -844,7 +844,7 @@ function VFXController.ability(entityId, ability)
 				burst(r.Position + Vector3.new(0, 1.5, 0), def.Color, 2.2, 0.3)
 			end
 		end
-		if mods and mods.AudioController then
+		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("RallyCry", { volume = 0.8 })
 		end
 	end
@@ -1602,9 +1602,11 @@ local function onHit(snap)
 		if outcome == "Stuff" then
 			Fx.play("BlockImpact", pos, { color = tc })
 			VFXController.popup(pos, "Stuff!", tc, 1.2)
-			VFXController.impactFrame(meta.id, tc)
-			shaker.shake(0.5)
-			shaker.kick(-5)
+			if close then
+				VFXController.impactFrame(meta.id, tc)
+				shaker.shake(0.5)
+				shaker.kick(-5)
+			end
 		else
 			Fx.play("ReceiveImpact", pos, { color = tc })
 			emit("Sparks", pos, 8, tc)
