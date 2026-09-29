@@ -1305,12 +1305,19 @@ local function holdsBall(st)
 	return st.model:GetAttribute("EntityId") == BR.getHolder()
 end
 
+-- A spike jump's arms swing up for this long off the floor, then the hitting arm draws back (the
+-- owner: the spike pose from the jump on, "one arm in the air", not only once you swing).
+local RISE_TIME = 0.12
+
 -- What the character should look like this frame: a key that changes when the pose changes, the
 -- target joints (a pose table or a sampled clip) and a weight.
 local function pick(st, hum, hrp, now)
 	local groundY = hum.HipHeight + hrp.Size.Y / 2
 	local airborne = hrp.Position.Y > groundY + 0.9
 	if airborne then
+		if not st.wasAirborne then
+			st.airT = now
+		end
 		st.wasAirborne = true
 	elseif st.wasAirborne then
 		-- just landed: a short crouch unless something else is playing
@@ -1345,9 +1352,11 @@ local function pick(st, hum, hrp, now)
 		if st.jumpKind == "Set" then
 			return "SetCatch", POSES.SetCatch, 1
 		end
-		-- every other jump but a block gets the spike wind-up (rise, then the style's bow-draw)
+		-- every other jump but a block gets the spike wind-up: the arms swing up off the floor, then
+		-- the style's bow-draw for the rest of the flight (it used to wait for the rise to slow, so a
+		-- spike on the way up, and every Feral Leap, showed both arms up until the swing)
 		if st.jumpKind ~= "Block" then
-			if hrp.AssemblyLinearVelocity.Y > 5 then
+			if now - st.airT < RISE_TIME then
 				return "Rise", POSES.Rise, 1
 			end
 			local style = styleOf(st)

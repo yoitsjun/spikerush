@@ -1017,7 +1017,8 @@ local function updateAbility()
 	local B = ui.badges
 	local playing = State.isPlaying and State.match.inMatch == true
 	B.left.Visible = playing
-	B.right.Visible = playing
+	-- (a drill's coach card sits top right, and the other side is only there to feed you)
+	B.right.Visible = playing and type(State.match.practice) ~= "table"
 	if not playing then
 		return
 	end
