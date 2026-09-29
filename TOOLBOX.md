@@ -97,9 +97,25 @@ Roblox only plays animations owned by the place's owner (or group) or by Roblox.
 
 Bots already use Roblox's own default R15 idle, run, jump and fall animations (`Assets.BotAnimations`), which any game may play.
 
-### UI icons: `Assets.Images.AbilityThunder`, `Assets.Images.AbilityAzure`
+### Ability icons: `Assets.Images.Ability<Name>`
 
-Shown in the ability panel and on the lobby cards. Search for "lightning icon" and "dragon icon"; square, transparent PNG decals work best.
+One per ability, in the round badges at the sides of the match HUD and on the touch skill buttons. All filled, from the Creator Store, white on a clear background:
+
+| Slot | Image id | What it is |
+|---|---|---|
+| `AbilityFeral` | 7486991621 | claw marks |
+| `AbilityThunder` | 2522353714 | a lightning bolt |
+| `AbilityAzure` | 137420198235206 | a dragon's head |
+| `AbilityAdrenaline` | 132570476091718 | a flame (the same as `IconAttack`) |
+| `AbilityCounter` | 12902637748 | crossed swords |
+| `AbilityRisingSun` | 82174181192946 | a sun |
+| `AbilityRallyCry` | 11874376205 | a megaphone |
+| `AbilityIronWall` | 7461510428 | a shield (the same as `IconDefense`) |
+| `AbilityChainReaction` | 10601266774 | a burst |
+| `AbilityVector` | 12614416478 | a crosshair |
+| `AbilityTurnabout` | 232203094 | circling arrows |
+
+The owner's reference icons were The Spike's own art, so they can't go in (CLAUDE.md); these stand in for them. To swap one, insert the decal in Studio, read its `Texture` (the image id, not the decal id) and paste it into the slot. A white glyph on a transparent square works best: a picture with its own background shows as a square inside the round badge. A glyph that already has padding can be drawn larger with `ICON_FILL` in UIController.
 
 ### Team emblems: `Assets.Images.TeamSunrise`, `Assets.Images.TeamTidal`
 

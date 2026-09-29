@@ -50,6 +50,10 @@ local linesUntil, linesDir = 0, 1
 local impactGui
 local auras = {}
 local streaks = {}
+-- the charge arcs (Feral Leap's, Azure Dragon's): model -> the arc's parts and state; made and
+-- dropped by the functions further down, which the Azure aura uses too
+local arcs = {}
+local newArc, dropArc
 
 -- the HUD's display face: heavy italic
 local DISPLAY = Font.new(Assets.Fonts.Display, Enum.FontWeight.Heavy, Enum.FontStyle.Italic)
@@ -644,6 +648,12 @@ local function applyEnergy(fx, e)
 	h.light.Brightness = 1 + 3 * math.min(e, 1)
 	h.sparks.Rate = 30 + 120 * math.min(e, 1)
 	h.sparks.Color = ColorSequence.new(Color3.fromRGB(230, 250, 255), color)
+	-- the curved gauge behind them fills with it (red once it's held too long)
+	local arc = fx.model and arcs[fx.model]
+	if arc and arc.kind == "azure" then
+		arc.value = math.min(e, 1)
+		arc.over = over or nil
+	end
 end
 
 -- remote: other players' and bots' charges grow on this client's clock
@@ -656,11 +666,17 @@ local function setAura(model, on, energy, remote)
 			fx.hand.att:Destroy()
 			auras[model] = nil
 		end
+		if arcs[model] and arcs[model].kind == "azure" then
+			dropArc(model)
+		end
 		return
 	end
 	local hrp = model:FindFirstChild("HumanoidRootPart")
 	if not hrp then
 		return
+	end
+	if not arcs[model] then
+		arcs[model] = newArc(model, hrp, "azure")
 	end
 	if not fx then
 		local att = Instance.new("Attachment")
@@ -673,7 +689,7 @@ local function setAura(model, on, energy, remote)
 		hl.OutlineTransparency = 0.2
 		hl.DepthMode = Enum.HighlightDepthMode.Occluded
 		hl.Parent = model
-		fx = { att = att, aura = Fx.attach("AzureAura", att), hl = hl, hand = handFx(model, hrp), t0 = os.clock(), remote = remote }
+		fx = { model = model, att = att, aura = Fx.attach("AzureAura", att), hl = hl, hand = handFx(model, hrp), t0 = os.clock(), remote = remote }
 		auras[model] = fx
 	end
 	applyEnergy(fx, energy or 0)
@@ -1009,16 +1025,22 @@ local function updateAbilityFx(dt)
 end
 
 ------------------------------------------------------------------------------------------
--- Feral Leap: the violet arc (the owner's reference: a thick purple crescent in front of the
--- player as he charges and leaps, a thin light one outside it). A ring's stroke clipped to the
--- side he faces; the charge fills it from the bottom up, and a full one flashes and throbs.
+-- charge arcs (the owner's references: The Spike's curved gauges). Feral Leap: a violet crescent
+-- on the side he faces as he charges and leaps, a thin light one outside it, flames at his feet.
+-- Azure Dragon ("make ryuhyeon's charge the curved thing"): a white-blue one behind the charging
+-- spiker. A ring's stroke clipped to one side; the charge fills it from the bottom up, and a full
+-- one flashes and throbs.
 ------------------------------------------------------------------------------------------
 
 local ARC_STUDS = 13 -- the billboard, across (studs)
 local ARC_MAIN = 0.78 -- the main band's circle across, as a share of the billboard
 local ARC_OUTER = 0.92 -- the thin outer band's
-local ARC_CUT = 0.11 -- the bands show beyond this far from the centre, on the facing side
-local arcs = {} -- model -> the arc's parts and state
+local ARC_CUT = 0.11 -- the bands show beyond this far from the centre, on the arc's side
+local ARC_STYLE = {
+	feral = { main = FERAL, light = FERAL_LIGHT, hot = FERAL_HOT, back = false, flames = true },
+	azure = { main = Color3.fromRGB(225, 245, 255), light = AZURE, hot = WHITE, back = true, flames = false },
+}
+local NO_AURA = { set = function() end, destroy = function() end }
 
 -- One band: a ring's stroke inside a clip that only shows the facing side of the circle.
 local function arcBand(gui, size, color)
@@ -1063,9 +1085,12 @@ local function fadeEnds(parent)
 	return g
 end
 
-local function newArc(model, hrp)
+-- kind: "feral" (the default) or "azure" (ARC_STYLE)
+function newArc(model, hrp, kind)
+	kind = ARC_STYLE[kind or ""] and kind or "feral"
+	local st = ARC_STYLE[kind]
 	local att = Instance.new("Attachment")
-	att.Name = "FeralArc"
+	att.Name = "ChargeArc"
 	att.Position = Vector3.new(0, 0.9, 0)
 	att.Parent = hrp
 	local gui = Instance.new("BillboardGui")
@@ -1079,17 +1104,19 @@ local function newArc(model, hrp)
 	glow.Size = UDim2.fromScale(0.55, 0.9)
 	glow.BackgroundTransparency = 1
 	glow.Image = Assets.id(Assets.Fx.Glow) or ""
-	glow.ImageColor3 = FERAL
+	glow.ImageColor3 = st.light
 	glow.Parent = gui
-	local track = arcBand(gui, ARC_MAIN, FERAL)
+	local track = arcBand(gui, ARC_MAIN, st.main)
 	track.stroke.Transparency = 0.78
-	local main = arcBand(gui, ARC_MAIN, FERAL)
+	local main = arcBand(gui, ARC_MAIN, st.main)
 	local fill = Instance.new("UIGradient")
 	fill.Rotation = -90 -- from the bottom up
 	fill.Parent = main.stroke
-	local outer = arcBand(gui, ARC_OUTER, FERAL_LIGHT)
+	local outer = arcBand(gui, ARC_OUTER, st.light)
 	fadeEnds(outer.stroke)
 	return {
+		kind = kind,
+		style = st,
 		att = att,
 		gui = gui,
 		glow = glow,
@@ -1097,7 +1124,7 @@ local function newArc(model, hrp)
 		main = main,
 		fill = fill,
 		outer = outer,
-		aura = Fx.attach("StatusAura", att),
+		aura = st.flames and Fx.attach("StatusAura", att) or NO_AURA,
 		dir = 0,
 		value = 0,
 		shown = -1,
@@ -1105,7 +1132,7 @@ local function newArc(model, hrp)
 	}
 end
 
-local function dropArc(model)
+function dropArc(model)
 	local a = arcs[model]
 	if not a then
 		return
@@ -1173,7 +1200,7 @@ local function updateArcs(dt)
 	-- my own charge and leap come straight from ActionController
 	local mine = player.Character
 	local AC = mods and mods.ActionController
-	if mine and AC then
+	if mine and AC and not (arcs[mine] and arcs[mine].kind == "azure") then
 		local charging = AC.prowlCharge()
 		local gauge = AC.leapGauge()
 		local v = charging or (gauge > 0 and gauge) or nil
@@ -1205,7 +1232,12 @@ local function updateArcs(dt)
 				a.value = a.fixed or math.min(1, (now - a.t0) * a.rate)
 			end
 			local v = a.value
+			local st = a.style
+			-- Feral Leap's on the side he faces, Azure's behind
 			local dir = hrp.CFrame.LookVector.Z >= 0 and 1 or -1
+			if st.back then
+				dir = -dir
+			end
 			if dir ~= a.dir then
 				a.dir = dir
 				for _, b in ipairs({ a.track, a.main, a.outer }) do
@@ -1218,7 +1250,7 @@ local function updateArcs(dt)
 			a.track.stroke.Thickness = px * 0.07
 			a.main.stroke.Thickness = px * 0.07
 			a.outer.stroke.Thickness = math.max(1, px * 0.016)
-			local full = v >= Config.Abilities.Feral.FullAt
+			local full = v >= (a.kind == "azure" and 0.995 or Config.Abilities.Feral.FullAt)
 			if math.abs(v - a.shown) > 0.004 then
 				a.shown = v
 				if v >= 0.995 then
@@ -1237,25 +1269,40 @@ local function updateArcs(dt)
 			if full and not a.full then
 				-- full: a flash of light along the arc and a ring off him
 				a.full = true
-				Fx.play("Ring", hrp.Position + Vector3.new(0, 1, 0), { color = FERAL_HOT, scale = 0.8 })
-				if model == mine and mods and mods.AudioController then
+				Fx.play("Ring", hrp.Position + Vector3.new(0, 1, 0), { color = st.hot, scale = 0.8 })
+				if model == mine and a.kind == "feral" and mods and mods.AudioController then
 					mods.AudioController.play("FeralFull", { volume = 0.8 })
 				end
 			elseif not full then
 				a.full = false
 			end
 			local throb = full and (0.5 + 0.5 * math.sin(now * 14)) or 0
-			a.main.stroke.Color = full and FERAL:Lerp(FERAL_LIGHT, 0.35 + 0.4 * throb) or FERAL
+			local main = full and st.main:Lerp(st.light, 0.35 + 0.4 * throb) or st.main
+			if a.over then
+				main = HOT -- Azure held too long: it'll fly out
+			end
+			a.main.stroke.Color = main
 			a.outer.stroke.Transparency = full and 0.05 or 0.45
 			a.glow.ImageTransparency = 0.85 - 0.45 * v - 0.2 * throb
 			-- the flames at his feet burn harder as it fills (repainted only when that changes)
 			local step = full and 11 or math.floor(v * 10)
 			if step ~= a.auraStep then
 				a.auraStep = step
-				a.aura.set(true, full and FERAL_HOT or FERAL, 0.3 + 0.09 * step)
+				a.aura.set(true, full and st.hot or st.main, 0.3 + 0.09 * step)
 			end
 		end
 	end
+end
+
+-- The charge showing on a model right now (a Feral Leap arc's, or an Azure Dragon's energy), for
+-- the HUD's badges; nil when there's none.
+function VFXController.chargeOf(model)
+	local a = arcs[model]
+	if a then
+		return a.value
+	end
+	local fx = auras[model]
+	return fx and math.min(fx.energy or 0, 1) or nil
 end
 
 local function updateAuras(dt)

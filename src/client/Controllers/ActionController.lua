@@ -143,8 +143,13 @@ function ActionController.abilityCooldown()
 	return math.max(0, readyAt - Util.now())
 end
 
--- Your AI teammates with an active ability, in the team's order: keys 1 and 2 (D-pad left and
--- right) pop theirs. Their AI never does it on its own.
+-- Your AI teammates with an active ability, in a fixed order (by id: the roster is in rotation
+-- order, so a side-out would swap them): keys 1 and 2 (D-pad left and right) pop theirs. Their
+-- AI never does it on its own.
+local function byId(a, b)
+	return a.id < b.id
+end
+
 function ActionController.teamAbilities()
 	local list = {}
 	local rosters = State.match and State.match.rosters
@@ -154,6 +159,7 @@ function ActionController.teamAbilities()
 			table.insert(list, info)
 		end
 	end
+	table.sort(list, byId)
 	return list
 end
 

@@ -171,8 +171,19 @@ Assets.Images = {
 	Spark = "rbxasset://textures/particles/sparkles_main.dds",
 	Smoke = "rbxasset://textures/particles/smoke_main.dds",
 	Fire = "rbxasset://textures/particles/fire_main.dds",
-	AbilityThunder = "",
-	AbilityAzure = "",
+	-- each ability's icon, on the HUD's round badges and the touch skill buttons (the owner's
+	-- reference was The Spike's own icons; these are Creator Store ones, white on clear)
+	AbilityThunder = "2522353714", -- decal 2522353721 (a bolt)
+	AbilityAzure = "137420198235206", -- decal 114282842219079 (a dragon's head)
+	AbilityFeral = "7486991621", -- decal 7486991661 (claw marks)
+	AbilityAdrenaline = "132570476091718", -- IconAttack's flame
+	AbilityIronWall = "7461510428", -- IconDefense's shield
+	AbilityChainReaction = "10601266774", -- decal 10601266786 (a burst)
+	AbilityVector = "12614416478", -- decal 12614416526 (a crosshair)
+	AbilityTurnabout = "232203094", -- decal 232203095 (circling arrows)
+	AbilityRisingSun = "82174181192946", -- decal 134410622522060 (a sun)
+	AbilityRallyCry = "11874376205", -- decal 11874376247 (a megaphone)
+	AbilityCounter = "12902637748", -- decal 12902637801 (crossed swords)
 	-- menu icons: one filled white glyph style (Toolbox decals)
 	IconHome = "13300916613", -- decal 13300916690 (Fluent "home")
 	IconSettings = "13300915301", -- decal 13300915335 (Fluent "settings")

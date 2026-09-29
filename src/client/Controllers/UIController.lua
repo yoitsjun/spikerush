@@ -6,9 +6,10 @@
 -- its stamina bar and timeout ticks, a signal-yellow VS plate with the points played to over it
 -- and a white score box under each side); the attack readout under it (the km/h with small
 -- decimals, and the hitting height); a point banner with gold edges and the reason; name tags
--- with tier badges and a marker over the player you control; the ability card top left; round
--- Timeout, Forfeit and Settings buttons top right; the control pills bottom left, each with its
--- key.
+-- with tier badges and a marker over the player you control; the abilities as round badges at
+-- the sides (your team's on the left, the other team's on the right, a ring
+-- around each filling with its charge or cooldown); round Timeout, Forfeit and Settings buttons
+-- top right; the control pills bottom left, each with its key.
 -- Out of a match the menus (MenuController) take over; this controller only lends them the
 -- settings panel. The matchup intro and the showcase after a match are LineupController's.
 
@@ -671,78 +672,195 @@ local function refreshTags()
 end
 
 ------------------------------------------------------------------------------------------
--- ability panel and charge bars
+-- ability badges (the owner's reference: The Spike's layout): each ability a round icon at the
+-- side of the screen, named underneath. Your team's on the left: yours, then your teammates'
+-- beside it (1 and 2 on your AI teammates' actives, a key or a click); the other team's on the
+-- right. A ring around the icon fills clockwise with the ability's charge, meter, level or
+-- cooldown (the owner: "with charged up abilities, they wrap around in a circle"), and throbs
+-- when it's full or ready.
 ------------------------------------------------------------------------------------------
 
-local function buildAbility()
-	local f = panel(gui, {
-		Name = "Ability",
-		Position = UDim2.fromOffset(12, 12),
-		Size = UDim2.fromOffset(250, 66),
+local FERAL = Config.Abilities.Feral
+local ICON_FILL = { RisingSun = 0.92 } -- icons drawn with padding of their own get more room
+local BADGE_BIG, BADGE_MATE, BADGE_FOE = 100, 70, 80
+
+-- the badges keep their places (a roster is in rotation order, so a side-out would shuffle them)
+local function byId(a, b)
+	return a.id < b.id
+end
+
+local function circle(parent, inset)
+	local c = make("Frame", {
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(inset, inset),
+		Size = UDim2.new(1, -2 * inset, 1, -2 * inset),
+	}, parent)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, c)
+	return c
+end
+
+-- A progress ring `t` px thick: two halves, each clipping a whole circle (inset by the stroke so
+-- none of it pokes past the clip) whose stroke a gradient cuts at the fill's angle, clockwise
+-- from the top. ring.set(p, color).
+local CUT = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0),
+	NumberSequenceKeypoint.new(0.5, 0),
+	NumberSequenceKeypoint.new(0.501, 1),
+	NumberSequenceKeypoint.new(1, 1),
+})
+local function progressRing(parent, t)
+	local r = { strokes = {}, p = -1 }
+	local grads = {}
+	for _, side in ipairs({ "R", "L" }) do
+		local clip = make("Frame", {
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			Size = UDim2.fromScale(0.5, 1),
+			Position = UDim2.fromScale(side == "R" and 0.5 or 0, 0),
+		}, parent)
+		local circ = make("Frame", {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(2, -2 * t, 1, -2 * t),
+			Position = UDim2.new(side == "R" and -1 or 0, t, 0, t),
+		}, clip)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, circ)
+		local st = make("UIStroke", { Color = UI.Chalk, Thickness = t }, circ)
+		grads[side] = make("UIGradient", { Transparency = CUT }, st)
+		table.insert(r.strokes, st)
+	end
+	function r.set(p, color)
+		p = math.clamp(p, 0, 1)
+		if math.abs(p - r.p) > 0.002 then
+			r.p = p
+			local deg = p * 360
+			grads.R.Rotation = math.min(deg, 180)
+			grads.L.Rotation = math.max(deg, 180)
+		end
+		if color ~= r.color then
+			r.color = color
+			for _, st in ipairs(r.strokes) do
+				st.Color = color
+			end
+		end
+	end
+	return r
+end
+
+-- A badge `size` px across: the dim track and the ring, a dark disc with the icon, a count over
+-- it (a cooldown's seconds), the name and a line under it, and a key tag for actives.
+local function newBadge(parent, size, clickable)
+	local t = math.max(3, math.floor(size * 0.06 + 0.5))
+	local f = make(clickable and "TextButton" or "Frame", {
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromOffset(size, size),
 		Visible = false,
+	}, parent)
+	if clickable then
+		f.Text = ""
+		f.AutoButtonColor = false
+	end
+	local track = circle(f, t)
+	make("UIStroke", { Color = UI.Chalk, Thickness = t, Transparency = 0.72 }, track)
+	local ring = progressRing(make("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1) }, f), t)
+	local disc = circle(f, t + math.max(2, math.floor(size * 0.04)))
+	disc.BackgroundColor3 = UI.Ink
+	disc.BackgroundTransparency = 0.18
+	local icon = make("ImageLabel", {
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.62, 0.62),
+		ScaleType = Enum.ScaleType.Fit,
+	}, disc)
+	local count = label(f, {
+		Text = "",
+		Font = Enum.Font.GothamBlack,
+		TextSize = math.floor(size * 0.36),
+		Size = UDim2.fromScale(1, 1),
+		TextXAlignment = Enum.TextXAlignment.Center,
+		ZIndex = 3,
 	})
-	edge(f)
+	stroke(count, 2, UI.Ink)
 	local name = label(f, {
 		Text = "",
 		Font = Enum.Font.GothamBlack,
-		TextSize = 15,
-		Size = UDim2.new(1, -20, 0, 20),
-		Position = UDim2.fromOffset(10, 6),
+		TextSize = math.max(13, math.floor(size * 0.2)),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 2),
+		Size = UDim2.fromOffset(220, 18),
+		TextXAlignment = Enum.TextXAlignment.Center,
 	})
-	local line = label(f, {
+	stroke(name, 1.5, UI.Ink)
+	local sub = label(f, {
 		Text = "",
-		Font = Enum.Font.GothamBold,
-		TextSize = 12,
+		Font = Enum.Font.GothamBlack,
+		TextSize = math.max(11, math.floor(size * 0.15)),
 		TextColor3 = UI.Fog,
-		Size = UDim2.new(1, -20, 0, 16),
-		Position = UDim2.fromOffset(10, 26),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 20),
+		Size = UDim2.fromOffset(220, 14),
+		TextXAlignment = Enum.TextXAlignment.Center,
 	})
-	local bar = make("Frame", {
-		Size = UDim2.new(1, -20, 0, 10),
-		Position = UDim2.fromOffset(10, 46),
-		BackgroundColor3 = Color3.fromRGB(10, 12, 26),
+	stroke(sub, 1.5, UI.Ink)
+	local key = make("TextLabel", {
+		BackgroundColor3 = UI.Chalk,
 		BorderSizePixel = 0,
-	}, f)
-	corner(bar, 5)
-	local gauge = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(40, 110, 255), BorderSizePixel = 0 }, bar)
-	corner(gauge, 5)
-	local energy = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = AZURE, BorderSizePixel = 0 }, bar)
-	corner(energy, 5)
-	-- level notches (Rising Sun's Sunrise levels)
-	local ticks = {}
-	for i = 1, 3 do
-		table.insert(ticks, make("Frame", {
-			Size = UDim2.new(0, 2, 1, 0),
-			Position = UDim2.fromScale(i / 4, 0),
-			AnchorPoint = Vector2.new(0.5, 0),
-			BackgroundColor3 = UI.Ink,
-			BorderSizePixel = 0,
-			ZIndex = 3,
-			Visible = false,
-		}, bar))
-	end
-	-- optional Toolbox icon (Assets.Images.Ability<Name>) to the left of the text
-	local icon = make("ImageLabel", {
-		Size = UDim2.fromOffset(36, 36),
-		Position = UDim2.fromOffset(8, 6),
-		BackgroundTransparency = 1,
-		ScaleType = Enum.ScaleType.Fit,
+		Position = UDim2.fromOffset(-2, -2),
+		Size = UDim2.fromOffset(22, 22),
+		Text = "",
+		TextColor3 = UI.Ink,
+		TextSize = 14,
+		FontFace = Gui.display(Enum.FontWeight.Heavy),
+		ZIndex = 4,
 		Visible = false,
 	}, f)
-	-- a teammate's (or your own) Rally Cry: a gold tag under the panel while it lasts
-	local rally = label(f, {
+	corner(key, 4)
+	return { frame = f, ring = ring, icon = icon, count = count, name = name, sub = sub, key = key, ability = nil }
+end
+
+local function buildAbility()
+	-- the two sides; each scales with the screen's height (UIScale)
+	local left = make("Frame", { Name = "AbilitiesOurs", BackgroundTransparency = 1, Size = UDim2.fromOffset(BADGE_BIG + 30 + 2 * (BADGE_MATE + 26) + 20, BADGE_BIG + 60), Visible = false }, gui)
+	local right = make("Frame", { Name = "AbilitiesTheirs", BackgroundTransparency = 1, Size = UDim2.fromOffset(BADGE_FOE + 40, 3 * (BADGE_FOE + 44)), Visible = false }, gui)
+	local leftScale = make("UIScale", {}, left)
+	local rightScale = make("UIScale", {}, right)
+	local mine = newBadge(left, BADGE_BIG, false)
+	mine.frame.Position = UDim2.fromOffset(0, 0)
+	local mates = {}
+	for i = 1, 2 do
+		local b = newBadge(left, BADGE_MATE, true) -- placed by updateAbility
+		b.frame.MouseButton1Click:Connect(function()
+			if b.press then
+				mods.ActionController.press("Team" .. b.press)
+			end
+		end)
+		mates[i] = b
+	end
+	local foes = {}
+	for i = 1, 3 do
+		local b = newBadge(right, BADGE_FOE, false)
+		b.frame.AnchorPoint = Vector2.new(1, 0)
+		b.frame.Position = UDim2.new(1, -8, 0, (i - 1) * (BADGE_FOE + 44))
+		foes[i] = b
+	end
+	-- a Rally Cry on your team: a gold tag under your badges while it lasts
+	local rally = label(left, {
 		Text = "",
 		Font = Enum.Font.GothamBlack,
 		TextSize = 13,
 		TextColor3 = Config.Abilities.RallyCry.Color,
-		Size = UDim2.new(1, 0, 0, 18),
-		Position = UDim2.new(0, 4, 1, 4),
+		Size = UDim2.fromOffset(360, 18),
+		Position = UDim2.fromOffset(0, BADGE_BIG + 38),
 		Visible = false,
 	})
 	stroke(rally, 1.5, UI.Ink)
-	ui.ability = { frame = f, name = name, line = line, bar = bar, gauge = gauge, energy = energy, icon = icon, ticks = ticks, rally = rally, e = 0, g = 1, st = "idle" }
+	ui.badges = { left = left, right = right, leftScale = leftScale, rightScale = rightScale, mine = mine, mates = mates, foes = foes, rally = rally }
+	-- Azure Dragon's charge, from ActionController (the arc shows it on the court too)
+	ui.charge = { e = 0, g = 1, st = "idle" }
 
-	-- overhead bar for toss height, block charge and Azure energy
+	-- overhead bar for the serve toss's height and the block's charge
 	-- a BillboardGui only renders straight under PlayerGui (or in the world), never inside a ScreenGui
 	ui.overhead = make("BillboardGui", {
 		Name = "SpikeRushCharge",
@@ -773,191 +891,201 @@ local function buildAbility()
 	stroke(ui.overText, 1.5, UI.Ink)
 end
 
-local ACTIVE_TEXT = {
-	IronWall = "Wall up: everything at your hands is stuffed",
-	Turnabout = "Armed: jump for your next set, it spins over",
-	RallyCry = "Rally Cry: your whole team is fired up",
-}
-local READY_TEXT = {
-	IronWall = "Ready: press Q (L2) before you block",
-	Turnabout = "Ready: press Q (L2) before your set",
-	RallyCry = "Ready: press Q (L2) to fire up your team",
-}
+-- What a badge shows for an ability: the ring's fill (0..1), the count over the icon (a
+-- cooldown's seconds, or ""), the line under the name, whether it throbs (full, ready, on) and
+-- whether it's dimmed (cooling down, or not charged). `id` / `model` are the entity's; `mine` is
+-- your own character (its exact local state).
+local function badgeState(ability, id, model, team, mine)
+	local def = Config.Abilities[ability]
+	local now = Util.now()
+	local p, count, sub, hot, dim = 0, "", "", false, false
+	local AC = mods.ActionController
+	if def.Active then
+		local untilT = (model and model:GetAttribute("AbilityUntil")) or -1
+		local readyAt = (model and model:GetAttribute("AbilityReadyAt")) or 0
+		local on = untilT >= now
+		local left = math.max(0, readyAt - now)
+		if mine then
+			on = AC.abilityActive()
+			left = AC.abilityCooldown()
+		end
+		if on then
+			p, hot, sub = math.clamp((untilT - now) / def.Duration, 0.05, 1), true, "ON"
+			if mine and untilT < now then
+				p = 1 -- pressed, the server's window on its way
+			end
+		elseif left > 0 then
+			p, count, dim = 1 - left / def.Cooldown, tostring(math.ceil(left)), true
+		else
+			p, hot, sub = 1, true, "READY"
+		end
+	elseif ability == "Feral" then
+		local v = 0
+		if mine then
+			v = AC.prowlCharge() or AC.leapGauge()
+		else
+			v = model and mods.VFXController.chargeOf(model) or 0
+		end
+		p, hot = v, v >= FERAL.FullAt
+		if mine and not player:GetAttribute("FirstStrikeUsed") then
+			sub = "FIRST STRIKE"
+		end
+	elseif ability == "Azure" then
+		if mine then
+			local c = ui.charge
+			if c.st ~= "idle" then
+				p, hot = c.e, c.st == "full" or c.st == "over"
+				sub = c.st == "over" and "RELEASE!" or (c.st == "full" and "FULL" or "")
+			else
+				p, dim = c.g, c.g < 1 -- the gauge refilling on the ground
+			end
+		else
+			p = model and mods.VFXController.chargeOf(model) or 0
+			hot = p >= 1
+		end
+	elseif ability == "Thunder" then
+		local stats = mine and State.myStats() or (model and Characters.fromAttributes(model))
+		local m = stats and stats.ContactMaxM or 0
+		p, hot = math.clamp(m / Config.Hits.ThunderHeight, 0, 1), m >= Config.Hits.ThunderHeight
+		sub = string.format("%.2f m", m)
+	elseif ability == "Adrenaline" then
+		local s = State.stamina(team)
+		local pct = (s and s.max and s.max > 0) and s.value / s.max or 1
+		local on = model and model:GetAttribute("Adrenaline")
+		p = on and 1 or math.clamp((1 - pct) / (1 - def.StaminaBelow), 0, 1)
+		hot = on == true
+		sub = on and "ON" or ""
+	elseif ability == "RisingSun" then
+		local lvl = model and model:GetAttribute("SunLevel") or 0
+		if mine then
+			local pts = State.enemyPoints(State.myTeam)
+			lvl = HitLogic.sunLevel(pts)
+			p = math.min(pts, def.Every * def.MaxLevel) / (def.Every * def.MaxLevel)
+		else
+			p = lvl / def.MaxLevel
+		end
+		hot = lvl >= def.MaxLevel
+		sub = "LV " .. lvl
+	elseif ability == "Counter" then
+		local c = (mine and player:GetAttribute("Counter")) or (model and model:GetAttribute("Counter")) or 0
+		p, hot = math.clamp(c / 100, 0, 1), c >= 100
+		sub = c > 0 and (math.floor(c + 0.5) .. "%") or ""
+	else
+		-- always on (Chain Reaction, Vector Set)
+		p = 1
+	end
+	return p, count, sub, hot, dim
+end
 
-local function updateAbility()
-	local a = ui.ability
-	local playing = State.isPlaying and State.match.inMatch
-	local ability = State.myAbility()
+local function showBadge(b, ability, id, model, team, mine)
 	local def = ability and Config.Abilities[ability]
-	a.frame.Visible = playing == true
-	local stats = State.myStats()
-	local charName = player:GetAttribute("CharName") or ""
-	for _, tick in ipairs(a.ticks) do
-		tick.Visible = false
-	end
-	local rallyLeft = (ReplicatedStorage:GetAttribute("RallyUntil_" .. tostring(State.myTeam)) or -1) - Util.now()
-	a.rally.Visible = playing == true and rallyLeft > 0
-	if a.rally.Visible then
-		a.rally.Text = string.format("RALLY CRY  +%d%% all stats  %d s", Config.Abilities.RallyCry.Boost * 100, math.ceil(rallyLeft))
-	end
+	b.frame.Visible = def ~= nil
 	if not def then
-		-- no ability (below S tier): just who you're playing and your hitting point
-		a.name.Text = charName
-		a.name.TextColor3 = Characters.color(player:GetAttribute("Tier"))
-		a.line.Text = string.format("%s, hitting point %s m", tostring(player:GetAttribute("Tier") or ""), fmt2(stats.ContactMaxM))
-		a.line.TextColor3 = UI.Fog
-		a.icon.Visible = false
-		a.bar.Visible = false
-		a.frame.Size = UDim2.fromOffset(250, 48)
-		a.name.Position = UDim2.fromOffset(10, 6)
-		a.line.Position = UDim2.fromOffset(10, 26)
 		return
 	end
-	a.name.Text = def.Name .. "  " .. charName
-	a.name.TextColor3 = def.Color
-	local iconId = Assets.id(Assets.Images["Ability" .. ability])
-	a.icon.Visible = iconId ~= nil
-	if iconId then
-		a.icon.Image = iconId
+	if b.ability ~= ability then
+		b.ability = ability
+		b.icon.Image = Assets.image("Ability" .. ability) or ""
+		local fill = ICON_FILL[ability] or 0.62
+		b.icon.Size = UDim2.fromScale(fill, fill)
+		b.name.Text = def.Name
 	end
-	local textX = iconId and 52 or 10
-	a.name.Position = UDim2.fromOffset(textX, 6)
-	a.name.Size = UDim2.new(1, -textX - 10, 0, 20)
-	a.line.Position = UDim2.fromOffset(textX, 26)
-	a.line.Size = UDim2.new(1, -textX - 10, 0, 16)
-	a.bar.Visible = false
-	a.frame.Size = UDim2.fromOffset(250, 48)
-	if ability == "Thunder" then
-		if stats.ContactMaxM >= Config.Hits.ThunderHeight then
-			a.line.Text = "Hitting point " .. fmt2(stats.ContactMaxM) .. " m, thunder in reach"
-			a.line.TextColor3 = THUNDER
-		else
-			a.line.Text = "Hitting point " .. fmt2(stats.ContactMaxM) .. " m, needs 4.00 m"
-			a.line.TextColor3 = UI.Fog
-		end
-	elseif ability == "Adrenaline" then
-		local on = player.Character and player.Character:GetAttribute("Adrenaline")
-		if on then
-			a.line.Text = "Active: more Attack and Jump"
-			a.line.TextColor3 = def.Color
-		else
-			a.line.Text = string.format("Wakes up below %d%% stamina", def.StaminaBelow * 100)
-			a.line.TextColor3 = UI.Fog
-		end
-	elseif def.Active then
-		-- Iron Wall, Turnabout, Rally Cry: a key press, a window, a cooldown
-		local AC = mods.ActionController
-		a.bar.Visible = true
-		a.frame.Size = UDim2.fromOffset(250, 66)
-		a.gauge.BackgroundColor3 = def.Color:Lerp(UI.Ink, 0.75)
-		a.energy.BackgroundColor3 = def.Color
-		local left = AC.abilityCooldown()
-		if AC.abilityActive() then
-			a.line.Text = ACTIVE_TEXT[ability] or (def.Name .. " is on")
-			a.line.TextColor3 = def.Color
-			a.energy.Size = UDim2.fromScale(1, 1)
-		elseif left > 0 then
-			a.line.Text = string.format("Ready in %d s", math.ceil(left))
-			a.line.TextColor3 = UI.Fog
-			a.energy.Size = UDim2.fromScale(1 - left / def.Cooldown, 1)
-		else
-			a.line.Text = READY_TEXT[ability] or "Ready: press Q (L2)"
-			a.line.TextColor3 = def.Color
-			a.energy.Size = UDim2.fromScale(1, 1)
-		end
-		a.gauge.Size = UDim2.fromScale(1, 1)
-	elseif ability == "ChainReaction" then
-		a.line.Text = "Your sets are charged: the next spike explodes"
-		a.line.TextColor3 = def.Color
-	elseif ability == "Vector" then
-		a.line.Text = string.format("Your sets pulse: steep spikes off them, up to +%d%%", def.MaxBoost * 100)
-		a.line.TextColor3 = def.Color
-	elseif ability == "RisingSun" then
-		-- the Sunrise meter: every Every points the other team scores is a level
-		local pts = State.enemyPoints(State.myTeam)
-		local lvl = HitLogic.sunLevel(pts)
-		local cap = def.Every * def.MaxLevel
-		a.bar.Visible = true
-		a.frame.Size = UDim2.fromOffset(250, 66)
-		a.gauge.BackgroundColor3 = def.Color:Lerp(UI.Ink, 0.55)
-		a.gauge.Size = UDim2.fromScale(math.min(pts, cap) / cap, 1)
-		a.energy.BackgroundColor3 = def.Color
-		a.energy.Size = UDim2.fromScale(lvl / def.MaxLevel, 1)
-		for _, tick in ipairs(a.ticks) do
-			tick.Visible = true
-		end
-		if lvl >= def.MaxLevel then
-			a.line.Text = string.format("Sunrise Lv %d/%d: full blaze", lvl, def.MaxLevel)
-		else
-			local need = (lvl + 1) * def.Every - pts
-			a.line.Text = string.format("Sunrise Lv %d/%d, next in %d point%s", lvl, def.MaxLevel, need, need == 1 and "" or "s")
-		end
-		a.line.TextColor3 = lvl > 0 and def.Color or UI.Fog
-	elseif ability == "Feral" then
-		-- Feral Leap: the charge while it's held, then the gauge the leap took off with
-		local AC = mods.ActionController
-		local charging = AC.prowlCharge()
-		local gauge = AC.leapGauge()
-		local v = charging or gauge
-		local full = v >= def.FullAt
-		a.bar.Visible = true
-		a.frame.Size = UDim2.fromOffset(250, 66)
-		a.gauge.BackgroundColor3 = def.Color:Lerp(UI.Ink, 0.75)
-		a.gauge.Size = UDim2.fromScale(1, 1)
-		a.energy.BackgroundColor3 = full and Color3.fromRGB(255, 80, 210) or def.Color
-		a.energy.Size = UDim2.fromScale(math.clamp(v, 0, 1), 1)
-		local first = not player:GetAttribute("FirstStrikeUsed")
-		local serve = State.phase() == "Serving" -- a jump serve's leap: nothing to break through
-		if charging then
-			a.line.Text = full and "Full charge: let go to leap!" or string.format("Charging %d%%", math.floor(v * 100 + 0.5))
-			a.line.TextColor3 = def.Color
-		elseif gauge > 0 then
-			local fullText = first and "Full leap: first strike ready!" or (serve and "Full leap: max power!" or "Full leap: break through!")
-			a.line.Text = full and fullText or string.format("Leap %d%%", math.floor(v * 100 + 0.5))
-			a.line.TextColor3 = def.Color
-		else
-			a.line.Text = first and "Hold Jump to charge. First strike ready" or "Hold Jump to charge, let go to leap"
-			a.line.TextColor3 = UI.Fog
-		end
-	elseif ability == "Counter" then
-		local c = player:GetAttribute("Counter") or 0
-		a.bar.Visible = true
-		a.frame.Size = UDim2.fromOffset(250, 66)
-		a.gauge.BackgroundColor3 = def.Color:Lerp(UI.Ink, 0.8)
-		a.gauge.Size = UDim2.fromScale(1, 1)
-		a.energy.BackgroundColor3 = def.Color
-		a.energy.Size = UDim2.fromScale(math.clamp(c / 100, 0, 1), 1)
-		if c > 0 then
-			local k = math.clamp(c, 0, 100) / 100
-			a.line.Text = string.format("Counter %d%%: spike +%d%%, +%d ATK", c, math.floor(def.ReleaseBoost * 100 * k + 0.5), math.floor(def.PerFull.Attack * k + 0.5))
-			a.line.TextColor3 = def.Color
-		else
-			a.line.Text = "Dig their balls to fill it (spikes cost no stamina)"
-			a.line.TextColor3 = UI.Fog
-		end
+	local p, count, sub, hot, dim = badgeState(ability, id, model, team, mine)
+	local color = def.Color
+	if hot then
+		color = def.Color:Lerp(UI.Chalk, 0.25 + 0.25 * math.sin(os.clock() * 9))
+	elseif dim then
+		color = def.Color:Lerp(UI.Fog, 0.55)
+	end
+	b.ring.set(p, color)
+	b.count.Text = count
+	b.sub.Text = sub
+	b.sub.TextColor3 = hot and def.Color or UI.Fog
+	b.icon.ImageTransparency = count ~= "" and 0.55 or 0
+	b.name.TextColor3 = hot and def.Color or UI.Chalk
+end
+
+local function updateAbility()
+	local B = ui.badges
+	local playing = State.isPlaying and State.match.inMatch == true
+	B.left.Visible = playing
+	B.right.Visible = playing
+	if not playing then
+		return
+	end
+	-- where the sides go: halfway down each edge (The Spike's), or on touch, clear of the skill
+	-- column and the big buttons: yours top left (the skill buttons hold your AI teammates'),
+	-- theirs top right under the corner buttons
+	local cam = workspace.CurrentCamera
+	local h = cam and cam.ViewportSize.Y or 720
+	local k = math.clamp(h / 760, 0.6, 1.2)
+	B.leftScale.Scale, B.rightScale.Scale = k, k
+	local touch = State.isMobile == true
+	if touch then
+		B.left.AnchorPoint, B.left.Position = Vector2.new(0, 0), UDim2.fromOffset(12, 6)
+		B.right.AnchorPoint, B.right.Position = Vector2.new(1, 0), UDim2.new(1, -8, 0, 120)
 	else
-		a.bar.Visible = true
-		a.frame.Size = UDim2.fromOffset(250, 66)
-		a.gauge.BackgroundColor3 = Color3.fromRGB(40, 110, 255)
-		a.gauge.Size = UDim2.fromScale(math.clamp(a.g, 0, 1), 1)
-		a.energy.Size = UDim2.fromScale(math.clamp(a.e, 0, 1), 1)
-		if a.st == "over" then
-			a.line.Text = "Overcharged, release!"
-			a.line.TextColor3 = HOT
-			a.energy.BackgroundColor3 = HOT
-		elseif a.st == "full" then
-			a.line.Text = "Full energy"
-			a.line.TextColor3 = AZURE
-			a.energy.BackgroundColor3 = Color3.fromRGB(190, 250, 255)
-		elseif a.st == "charging" then
-			a.line.Text = "Gathering energy " .. math.floor(a.e * 100 + 0.5) .. "%"
-			a.line.TextColor3 = AZURE
-			a.energy.BackgroundColor3 = AZURE
-		else
-			a.line.Text = "Hold Spike in the air to charge"
-			a.line.TextColor3 = UI.Fog
-			a.energy.BackgroundColor3 = AZURE
+		B.left.AnchorPoint, B.left.Position = Vector2.new(0, 0.5), UDim2.new(0, 18, 0.44, 0)
+		B.right.AnchorPoint, B.right.Position = Vector2.new(1, 0.5), UDim2.new(1, -10, 0.5, 0)
+	end
+	if B.touch ~= touch then
+		-- theirs: a column down the right edge, or on touch a row (the big buttons are below)
+		B.touch = touch
+		B.right.Size = touch and UDim2.fromOffset(3 * (BADGE_FOE + 40), BADGE_FOE + 40) or UDim2.fromOffset(BADGE_FOE + 40, 3 * (BADGE_FOE + 44))
+		for i, b in ipairs(B.foes) do
+			if touch then
+				b.frame.Position = UDim2.new(1, -8 - (i - 1) * (BADGE_FOE + 40), 0, 0)
+			else
+				b.frame.Position = UDim2.new(1, -8, 0, (i - 1) * (BADGE_FOE + 44))
+			end
 		end
+	end
+	-- yours (with Q on the badge for an ability you press)
+	local myModel = player.Character
+	local myDef = Config.Abilities[State.myAbility() or ""]
+	B.mine.key.Visible = myDef ~= nil and myDef.Active == true and not touch
+	B.mine.key.Text = "Q"
+	showBadge(B.mine, State.myAbility(), State.myId, myModel, State.myTeam, true)
+	-- your teammates', with 1 and 2 on your AI teammates' actives (the keys, or a click); not on
+	-- touch, where the skill buttons hold those
+	local keys = {}
+	for j, m in ipairs(mods.ActionController.teamAbilities()) do
+		keys[m.id] = j
+	end
+	local mates = {}
+	for _, e in ipairs(State.myTeam and State.roster(State.myTeam) or {}) do
+		if e.id ~= State.myId and e.ability and Config.Abilities[e.ability] then
+			table.insert(mates, e)
+		end
+	end
+	table.sort(mates, byId)
+	local x0 = B.mine.frame.Visible and BADGE_BIG + 30 or 0 -- with no ability of your own, theirs start at the edge
+	for i, b in ipairs(B.mates) do
+		local m = not touch and mates[i] or nil
+		b.frame.Position = UDim2.fromOffset(x0 + (i - 1) * (BADGE_MATE + 26), (BADGE_BIG - BADGE_MATE) / 2)
+		b.press = m and keys[m.id] or nil
+		b.key.Visible = b.press ~= nil
+		b.key.Text = tostring(b.press or "")
+		showBadge(b, m and m.ability or nil, m and m.id, m and Util.modelOf(m.id), State.myTeam, false)
+	end
+	-- the other team's, top to bottom
+	local list = {}
+	local other = State.myTeam and Court.other(State.myTeam)
+	for _, e in ipairs(other and State.roster(other) or {}) do
+		if e.ability and Config.Abilities[e.ability] then
+			table.insert(list, e)
+		end
+	end
+	table.sort(list, byId)
+	for i, b in ipairs(B.foes) do
+		local e = list[i]
+		showBadge(b, e and e.ability or nil, e and e.id, e and Util.modelOf(e.id), other, false)
+	end
+	-- your team's Rally Cry
+	local rallyLeft = (ReplicatedStorage:GetAttribute("RallyUntil_" .. tostring(State.myTeam)) or -1) - Util.now()
+	B.rally.Visible = rallyLeft > 0
+	if B.rally.Visible then
+		B.rally.Text = string.format("RALLY CRY  +%d%% all stats  %d s", Config.Abilities.RallyCry.Boost * 100, math.ceil(rallyLeft))
 	end
 end
 
@@ -967,21 +1095,12 @@ local function updateOverhead()
 	local AC = mods.ActionController
 	local toss = AC.tossCharge()
 	local blockC = AC.blockCharge()
-	local prowlC = AC.prowlCharge()
-	local a = ui.ability
 	local value, text, color = nil, "", UI.Chalk
+	-- (the Azure and Feral Leap charges show as their arcs on the court and on the badge)
 	if toss then
 		value, text, color = toss, toss <= 0 and "Overhand" or "Toss height", UI.Spark
 	elseif blockC then
 		value, text, color = blockC, "Block", UI.Chalk
-	elseif prowlC then
-		local full = prowlC >= Config.Abilities.Feral.FullAt
-		value, text = prowlC, full and "Full!" or "Leap"
-		color = full and Color3.fromRGB(255, 80, 210) or Config.Abilities.Feral.Color
-	elseif a.st ~= "idle" then
-		value = a.e
-		text = a.st == "over" and "Over!" or (a.st == "full" and "Full" or "Energy")
-		color = a.st == "over" and HOT or AZURE
 	end
 	if value and hrp then
 		ui.overhead.Adornee = hrp
@@ -1844,75 +1963,9 @@ end
 
 -- Your AI teammates' active abilities under your own: the key, the ability and whose it is, the
 -- bar filling as it cools down (in the ability's colour once ready). Click or tap one to pop it.
-local function buildTeamAbilities()
-	local list = {}
-	for i = 1, 2 do
-		local b = make("TextButton", {
-			Name = "TeamAbility" .. i,
-			Position = UDim2.fromOffset(12, 84 + (i - 1) * 46),
-			Size = UDim2.fromOffset(250, 40),
-			BackgroundColor3 = Gui.CARD,
-			BackgroundTransparency = 0.15,
-			BorderSizePixel = 0,
-			Text = "",
-			AutoButtonColor = false,
-			ClipsDescendants = true,
-			Visible = false,
-		}, gui)
-		edge(b)
-		local fill = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = UI.Chalk, BackgroundTransparency = 0.82, BorderSizePixel = 0 }, b)
-		local cap = make("TextLabel", {
-			Position = UDim2.fromOffset(8, 8),
-			Size = UDim2.fromOffset(24, 24),
-			BackgroundColor3 = UI.Chalk,
-			BorderSizePixel = 0,
-			Text = tostring(i),
-			TextColor3 = UI.Ink,
-			TextSize = 15,
-			FontFace = Gui.display(Enum.FontWeight.Heavy),
-		}, b)
-		corner(cap, 4)
-		local name = make("TextLabel", {
-			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(42, 0),
-			Size = UDim2.new(1, -50, 1, 0),
-			RichText = true,
-			Text = "",
-			TextColor3 = UI.Chalk,
-			TextSize = 15,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextTruncate = Enum.TextTruncate.AtEnd,
-			FontFace = Gui.display(Enum.FontWeight.Bold),
-		}, b)
-		b.MouseButton1Click:Connect(function()
-			mods.ActionController.press("Team" .. i)
-		end)
-		list[i] = { button = b, fill = fill, name = name }
-	end
-	ui.teamAbilities = list
-end
-
-local function updateTeamAbilities()
-	local mates = (State.isPlaying and State.match.inMatch) and mods.ActionController.teamAbilities() or {}
-	for i, t in ipairs(ui.teamAbilities) do
-		local mate = mates[i]
-		t.button.Visible = mate ~= nil
-		if mate then
-			local def = Config.Abilities[mate.ability]
-			local left = mods.ActionController.cooldownOf(mate.id)
-			local ready = left <= 0
-			t.name.Text = string.format('%s  <font color="#%s">%s</font>', def.Name, ready and def.Color:ToHex() or "8A93AD", ready and "READY" or (math.ceil(left) .. " s"))
-			t.fill.Size = UDim2.fromScale(ready and 1 or math.clamp(1 - left / def.Cooldown, 0, 1), 1)
-			t.fill.BackgroundColor3 = ready and def.Color or UI.Chalk
-			t.fill.BackgroundTransparency = ready and 0.7 or 0.85
-		end
-	end
-end
-
 local function updateSlow()
 	updateStamina()
 	updateAbility()
-	updateTeamAbilities()
 	updateTimeout()
 	updateRotation()
 	updateCoach()
@@ -1934,7 +1987,6 @@ function UIController.init(m)
 	buildCallout()
 	buildHint()
 	buildAbility()
-	buildTeamAbilities()
 	buildRail()
 	buildCorner()
 	buildRotation()
@@ -1953,9 +2005,9 @@ function UIController.init(m)
 		refreshTopBar()
 	end)
 	State.signals.Charge:Connect(function(energy, gauge, st)
-		ui.ability.e = energy
-		ui.ability.g = gauge
-		ui.ability.st = st
+		ui.charge.e = energy
+		ui.charge.g = gauge
+		ui.charge.st = st
 	end)
 	refreshTopBar()
 	pcall(updateSlow)
