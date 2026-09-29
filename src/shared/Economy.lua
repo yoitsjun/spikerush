@@ -1,7 +1,7 @@
 -- The economy's rules outside a match: codes, what a grant gives (a code, a daily reward, a
--- gift, the admin panel's Give), daily reward streaks, the admin panel's events, and the packs
--- sold for Robux (VP, Gold, lucky spins), which gifting buys for someone else. Pure, shared so
--- the server and the headless tests agree.
+-- gift, the admin panel's Give), daily reward streaks, 2x VP boost timers, the admin panel's
+-- events, and the packs sold for Robux (VP, Gold, lucky spins, boosts), which gifting buys for
+-- someone else. Pure, shared so the server and the headless tests agree.
 
 local Config = require(script.Parent.Config)
 local Roster = require(script.Parent.Roster)
@@ -33,15 +33,15 @@ end
 -- grants
 ------------------------------------------------------------------------------------------
 
--- A grant, made safe: whole amounts from 0 to Admin.GiveMax, and roster characters only (each
--- once). { VP, Gold, Lucky, Chars = { ids } }.
+-- A grant, made safe: whole amounts from 0 to Admin.GiveMax (a boost's seconds to
+-- Boosts.MaxHold), and roster characters only (each once). { VP, Gold, Lucky, BoostVP, Chars }.
 function Economy.cleanGrant(g)
 	g = type(g) == "table" and g or {}
 	local cap = Config.Admin.GiveMax
 	local function amount(v, max)
 		return math.max(0, math.min(whole(v), max))
 	end
-	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), Chars = {} }
+	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), Chars = {} }
 	if type(g.Chars) == "table" then
 		local seen = {}
 		for _, id in ipairs(g.Chars) do
@@ -55,15 +55,36 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and #g.Chars == 0
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and #g.Chars == 0
 end
 
--- Adds a clean grant to a profile table (vp, gold, lucky, owned.Char); a character already owned
--- is skipped. Returns the characters it added.
-function Economy.apply(profile, g)
+-- A boost timer (unix end) after adding `seconds` at `now`: from now if it had run out, on top
+-- if it hadn't, never more than Boosts.MaxHold ahead.
+function Economy.extendBoost(untilT, seconds, now)
+	local from = math.max(whole(untilT), now)
+	return math.min(from + seconds, now + Config.Boosts.MaxHold)
+end
+
+-- What a profile's boost timers multiply `kind` ("VP") by at `now`.
+function Economy.boost(profile, kind, now)
+	local b = type(profile) == "table" and type(profile.boosts) == "table" and tonumber(profile.boosts[kind]) or nil
+	if b and now < b then
+		return Config.Boosts.Multiplier
+	end
+	return 1
+end
+
+-- Adds a clean grant to a profile table (vp, gold, lucky, boosts, owned.Char) at `now` (a boost
+-- starts when it's received); a character already owned is skipped. Returns the characters it
+-- added.
+function Economy.apply(profile, g, now)
 	profile.vp = whole(profile.vp) + g.VP
 	profile.gold = whole(profile.gold) + g.Gold
 	profile.lucky = whole(profile.lucky) + g.Lucky
+	if g.BoostVP > 0 then
+		profile.boosts = type(profile.boosts) == "table" and profile.boosts or {}
+		profile.boosts.VP = Economy.extendBoost(profile.boosts.VP, g.BoostVP, now or 0)
+	end
 	profile.owned = profile.owned or {}
 	profile.owned.Char = profile.owned.Char or {}
 	local added = {}
@@ -89,6 +110,9 @@ function Economy.describe(g, chars)
 	if g.Lucky > 0 then
 		table.insert(parts, g.Lucky == 1 and "1 lucky spin" or (Economy.commas(g.Lucky) .. " lucky spins"))
 	end
+	if g.BoostVP > 0 then
+		table.insert(parts, string.format("%dx VP for %s", Config.Boosts.Multiplier, Economy.duration(g.BoostVP)))
+	end
 	for _, id in ipairs(chars or g.Chars) do
 		local c = Roster.get(id)
 		table.insert(parts, c and c.Name or id)
@@ -100,6 +124,22 @@ function Economy.describe(g, chars)
 		return parts[1]
 	end
 	return table.concat(parts, ", ", 1, #parts - 1) .. " and " .. parts[#parts]
+end
+
+-- 900 -> "15 minutes", 3600 -> "1 hour", 5400 -> "1 hour 30 minutes"
+function Economy.duration(seconds)
+	local m = math.floor(whole(seconds) / 60 + 0.5)
+	local h, rest = math.floor(m / 60), m % 60
+	local function unit(n, word)
+		return n .. " " .. word .. (n == 1 and "" or "s")
+	end
+	if h == 0 then
+		return unit(rest, "minute")
+	end
+	if rest == 0 then
+		return unit(h, "hour")
+	end
+	return unit(h, "hour") .. " " .. unit(rest, "minute")
 end
 
 ------------------------------------------------------------------------------------------
@@ -209,6 +249,7 @@ local PACK_LISTS = {
 	{ kind = "VP", list = Config.Shop.Packs },
 	{ kind = "Gold", list = Config.Shop.GoldPacks },
 	{ kind = "Lucky", list = Config.Lucky.Packs },
+	{ kind = "Boost", list = Config.Boosts.Packs },
 }
 
 -- A pack by its kind ("VP", "Gold", "Lucky") and index: { kind, index, pack, id }.
@@ -237,7 +278,7 @@ end
 -- What a pack gives.
 function Economy.packGrant(entry)
 	local p = entry.pack
-	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky })
+	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky, BoostVP = p.BoostVP })
 end
 
 return Economy

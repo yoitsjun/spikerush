@@ -45,7 +45,7 @@ Built: 38 characters and their abilities, bots, lobbies with custom rules (point
 
 Next, in HANDOFF.md's order:
 
-0. **The economy features** (codes with RELEASE, daily rewards and codes for group members who liked the game, lucky spins for Robux, gifting, the Robux leaderboards, the admin panel with 2x VP / 2x Gold events, announcements and Give by username): built but not yet run in Studio. Test them, and the owner creates the two lucky spin Developer Products (ids into `Config.Lucky.Packs`).
+0. **The economy features** (codes with RELEASE, daily rewards and codes for group members who liked the game, lucky spins for Robux, gifting, the Robux leaderboards, the admin panel with 2x VP / 2x Gold events, announcements and Give by username): run in Studio and working. The owner creates the Developer Products (lucky spins 1, 3, 5, 10 and 2x VP boosts 15 min, 30 min, 1 h, 3 h; ids into `Config.Lucky.Packs` and `Config.Boosts.Packs`).
 0. **Dante:** the owner plays him and says how the charge, the leap's distance and the arc feel; tune `Config.Abilities.Feral`. Sounds for `FeralFull` and `FeralLeap` are empty.
 0. **The badges:** the owner looks at them and at Azure's arc, and says whether the stand-in icons, sizes and places are right.
 1. **Hands-on checks** of the fifteenth session's work: setter mode (a real aimed set, two players for the teammate marker), the Shop's Perks column and a scored point with a custom sound and image, the Match screen at 16:9, a best-of-3 ending, and the older unchecked items (showcase, drills). Touch controls on a real phone: the stick's feel, Slide, Jump and the serve toss.

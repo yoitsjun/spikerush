@@ -177,7 +177,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, boosts = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -329,6 +329,10 @@ local function sanitizeProfile(data)
 		end
 	end
 	out.liked = data.liked == true
+	-- boost timers: the unix time each ends (Config.Boosts)
+	if type(data.boosts) == "table" and tonumber(data.boosts.VP) then
+		out.boosts.VP = math.max(0, math.floor(tonumber(data.boosts.VP)))
+	end
 	return out
 end
 
@@ -424,6 +428,7 @@ local function save(plr, force)
 		spent = profile.spent,
 		mailSeen = profile.mailSeen,
 		liked = profile.liked,
+		boosts = profile.boosts,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -624,6 +629,7 @@ function ProfileService.snapshot(plr)
 		admin = profile.dev or nil, -- the admin panel (developers)
 		lucky = profile.lucky or 0,
 		liked = profile.liked == true,
+		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP
 		group = groupId(),
 		member = groupMember[plr], -- nil until it's known
 		daily = (function()
@@ -693,7 +699,7 @@ local function deliver(plr, profile, id, g, from, note)
 	if seenMail(profile, id) then
 		return false
 	end
-	local added = Economy.apply(profile, g)
+	local added = Economy.apply(profile, g, os.time())
 	table.insert(profile.mailSeen, 1, id)
 	while #profile.mailSeen > Config.Gifts.MailSeen do
 		table.remove(profile.mailSeen)
@@ -715,7 +721,7 @@ function ProfileService.grant(plr, g, notice)
 	if not profile then
 		return nil
 	end
-	local added = Economy.apply(profile, g)
+	local added = Economy.apply(profile, g, os.time())
 	dirty[plr] = true
 	push(plr, notice)
 	return added
@@ -820,7 +826,7 @@ local function redeemCode(plr, profile, text)
 		return
 	end
 	profile.codes[key] = true
-	local added = Economy.apply(profile, g)
+	local added = Economy.apply(profile, g, os.time())
 	dirty[plr] = true
 	save(plr, true)
 	push(plr, string.format("Code %s: %s!", string.upper(key), Economy.describe(g, added)))
@@ -844,10 +850,30 @@ local function claimDaily(plr, profile)
 		return
 	end
 	profile.daily = { last = now, streak = d.streak }
-	local added = Economy.apply(profile, d.grant)
+	local added = Economy.apply(profile, d.grant, os.time())
 	dirty[plr] = true
 	save(plr, true)
 	push(plr, string.format("Day %d reward: %s!", d.day, Economy.describe(d.grant, added)))
+end
+
+-- A player's user id from what was typed: a username, or a user id. Returns the id, or nil and
+-- why. Asks Roblox, so it yields.
+function ProfileService.findUser(text)
+	local id = type(text) == "string" and tonumber(string.match(text, "^%s*(%d+)%s*$")) or nil
+	if id then
+		return id
+	end
+	local name = type(text) == "string" and string.match(text, "^%s*([%w_]+)%s*$") or nil
+	if not name or #name < 3 or #name > 20 then
+		return nil, "That isn't a username or a user id."
+	end
+	local ok, userId = pcall(function()
+		return Players:GetUserIdFromNameAsync(name)
+	end)
+	if not ok or type(userId) ~= "number" then
+		return nil, "Nobody is called " .. name .. "."
+	end
+	return userId
 end
 
 -- A pack bought for someone else: (kind, index, username). The recipient is looked up, then the
@@ -857,18 +883,12 @@ local function giftStart(plr, kind, index, username)
 	if not entry or type(username) ~= "string" then
 		return
 	end
-	local name = string.match(username, "^%s*([%w_]+)%s*$")
-	if not name or #name < 3 or #name > 20 then
-		push(plr, "That isn't a username.")
+	local userId, why = ProfileService.findUser(username)
+	if not userId then
+		push(plr, why)
 		return
 	end
-	local ok, userId = pcall(function()
-		return Players:GetUserIdFromNameAsync(name)
-	end)
-	if not ok or type(userId) ~= "number" then
-		push(plr, "Nobody is called " .. name .. ".")
-		return
-	end
+	local name = username
 	if userId == plr.UserId then
 		push(plr, "That's you: buy it without Gift.")
 		return
@@ -891,6 +911,12 @@ local function giftStart(plr, kind, index, username)
 	pcall(function()
 		MarketplaceService:PromptProductPurchase(plr, entry.id)
 	end)
+end
+
+-- What a player's own boost timers multiply `kind` ("VP") by right now (MatchService's rewards).
+function ProfileService.boost(plr, kind)
+	local profile = profiles[plr]
+	return profile and Economy.boost(profile, kind, os.time()) or 1
 end
 
 function ProfileService.award(plr, vp, gold)
@@ -1128,11 +1154,16 @@ local function autoRoll(plr, profile, banner)
 	end)
 end
 
--- A pack's grant added to (sign 1) or taken back from (-1) a profile: VP, Gold, lucky spins.
-local function applyPack(profile, g, sign)
-	profile.vp = profile.vp + g.VP * sign
-	profile.gold = profile.gold + g.Gold * sign
-	profile.lucky = (profile.lucky or 0) + g.Lucky * sign
+-- A pack's grant added to a profile (VP, Gold, lucky spins, a boost's time). Returns what it was
+-- before, for `unapplyPack`.
+local function applyPack(profile, g)
+	local before = { vp = profile.vp, gold = profile.gold, lucky = profile.lucky, boostVP = profile.boosts.VP }
+	Economy.apply(profile, g, os.time())
+	return before
+end
+
+local function unapplyPack(profile, before)
+	profile.vp, profile.gold, profile.lucky, profile.boosts.VP = before.vp, before.gold, before.lucky, before.boostVP
 end
 
 -- What a player spent in Robux, for the leaderboards (gift: it was a gift).
@@ -1327,7 +1358,7 @@ local function onRequest(plr, kind, a, b, c)
 		local entry = Economy.pack(b, a)
 		if entry and entry.id == 0 and RunService:IsStudio() then
 			local g = Economy.packGrant(entry)
-			applyPack(profile, g, 1)
+			applyPack(profile, g)
 			dirty[plr] = true
 			push(plr, Economy.describe(g) .. " (free in Studio)")
 		end
@@ -1364,9 +1395,8 @@ local function processReceipt(info)
 		if not sent then
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
-	else
-		applyPack(profile, g, 1)
 	end
+	local before = not gift and applyPack(profile, g) or nil
 	addSpent(plr, profile, info.CurrencySpent, gift ~= nil, 1)
 	table.insert(profile.receipts, 1, id)
 	while #profile.receipts > Config.Shop.ReceiptHistory do
@@ -1376,8 +1406,8 @@ local function processReceipt(info)
 	local stored = save(plr, true)
 	if not stored and not RunService:IsStudio() then
 		-- not persisted: undo, and let Roblox retry later (a gift already sent won't send twice)
-		if not gift then
-			applyPack(profile, g, -1)
+		if before then
+			unapplyPack(profile, before)
 		end
 		addSpent(plr, profile, info.CurrencySpent, gift ~= nil, -1)
 		table.remove(profile.receipts, 1)

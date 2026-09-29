@@ -4,7 +4,8 @@
 --   ("event", kind, minutes)   -> 2x VP or 2x Gold (Config.Admin) in every server for that long
 --   ("stop", kind)             -> end it everywhere
 --   ("announce", text)         -> through Roblox's text filter, then to every player in every server
---   ("give", username, grant)  -> VP, Gold, lucky spins and characters to anyone by username
+--   ("give", username, grant)  -> VP, Gold, lucky spins and characters to anyone by username (or
+--                                 user id)
 --                                 (ProfileService.giveUser: now, or through their mail)
 -- Events are kept in a DataStore (a server that starts later reads them, and every server reads
 -- them again each PollInterval) and pushed at once over MessagingService, as are announcements
@@ -192,15 +193,13 @@ local function onAdmin(plr, op, a, b)
 		local name = type(a) == "string" and string.match(a, "^%s*([%w_]+)%s*$") or nil
 		local g = Economy.cleanGrant(b)
 		if not name or Economy.isEmpty(g) then
-			reply(plr, "Enter a username and something to give.")
+			reply(plr, "Enter a username (or a user id) and something to give.")
 			return
 		end
 		task.spawn(function()
-			local ok, userId = pcall(function()
-				return Players:GetUserIdFromNameAsync(name)
-			end)
-			if not ok or type(userId) ~= "number" then
-				reply(plr, "Nobody is called " .. name .. ".")
+			local userId, why = reg.ProfileService.findUser(name)
+			if not userId then
+				reply(plr, why)
 				return
 			end
 			local sent, why = reg.ProfileService.giveUser(userId, g, nil, "A gift from the developers.")

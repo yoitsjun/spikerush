@@ -67,7 +67,8 @@ local refreshQueued = false
 -- this table rather than in locals: this chunk is close to Luau's 200 locals.
 local Extra = {}
 Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns count from then)
-local packPrices = { VP = {}, Gold = {}, Lucky = {} } -- product prices in Robux, looked up once per pack
+Extra.shopTab = "Currency" -- the Shop's tab: "Currency" (VP and Gold) or "Lucky" (lucky spins and boosts)
+local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {} } -- product prices in Robux, looked up once per pack
 
 local TIPS = {
 	"Hold toward the net as you let go of a jump-serve toss to throw it forward, then run into it.",
@@ -171,6 +172,9 @@ end
 -- "14:32" (an event's time left)
 function Extra.clockText(seconds)
 	seconds = math.max(0, math.floor(seconds))
+	if seconds >= 3600 then
+		return string.format("%d:%02d:%02d", math.floor(seconds / 3600), math.floor(seconds % 3600 / 60), seconds % 60)
+	end
 	return string.format("%d:%02d", math.floor(seconds / 60), seconds % 60)
 end
 
@@ -615,6 +619,9 @@ local function buildHome()
 		local l = Gui.label(plate, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 21, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
 		eventChips[kind] = { plate = plate, label = l }
 	end
+	-- your own 2x VP boost (Config.Boosts), in the Shop's signal yellow
+	local boostPlate = Gui.plate(chips, { Size = UDim2.fromOffset(260, 38), LayoutOrder = 9, Visible = false }, Gui.SIGNAL)
+	local boostChip = { plate = boostPlate, label = Gui.label(boostPlate, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 21, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 }) }
 
 	-- the left column under the profile (placeHome moves the two together)
 	local column = make("Frame", { Name = "Column", Size = UDim2.fromOffset(470, 546), Position = UDim2.fromOffset(M, 24 + PROFILE_H + 20), BackgroundTransparency = 1 }, p)
@@ -769,6 +776,7 @@ local function buildHome()
 		dailyDot = dailyDot,
 		adminBtn = adminBtn,
 		eventChips = eventChips,
+		boostChip = boostChip,
 	}
 end
 
@@ -782,6 +790,11 @@ function Extra.refreshHome(prof)
 		if left > 0 then
 			chip.label.Text = string.format("%dx %s  %s", Config.Admin.Multiplier, kind, Extra.clockText(left))
 		end
+	end
+	local boostLeft = (prof.boostVP or 0) - (os.clock() - Extra.profileAt)
+	hm.boostChip.plate.Visible = boostLeft > 0
+	if boostLeft > 0 then
+		hm.boostChip.label.Text = string.format("Your %dx VP  %s", Config.Boosts.Multiplier, Extra.clockText(boostLeft))
 	end
 	local d = prof.daily
 	hm.dailyDot.Visible = d ~= nil and (d.ready == true or (d.opensIn or 0) - (os.clock() - Extra.profileAt) <= 0)
@@ -1129,6 +1142,13 @@ local function buildRecruit()
 		b:SetAttribute("Sound", "UIConfirm")
 		Gui.label(b, { Text = "Lucky x" .. n, display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Position = UDim2.fromOffset(0, 5), Size = UDim2.new(1, 0, 0, 26), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
 		local sub = Gui.label(b, { Text = "", display = true, TextSize = 16, TextColor3 = Gui.LINE, Position = UDim2.fromOffset(0, 31), Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+		-- the pack with exactly that many (Config.Lucky.Packs)
+		local packIndex = nil
+		for j, pk in ipairs(Config.Lucky.Packs) do
+			if pk.Lucky == n then
+				packIndex = j
+			end
+		end
 		onClick(b, function()
 			local prof = profile()
 			if prof.dev or (prof.lucky or 0) >= n then
@@ -1136,26 +1156,27 @@ local function buildRecruit()
 				return
 			end
 			-- not enough: buy the pack with that many
-			local pack = Config.Lucky.Packs[i]
+			local pack = packIndex and Config.Lucky.Packs[packIndex]
 			if pack and pack.Id ~= 0 then
 				pcall(function()
 					MarketplaceService:PromptProductPurchase(player, pack.Id)
 				end)
 			elseif pack and prof.studio then
-				Net.get("Profile"):FireServer("buy", i, "Lucky")
+				Net.get("Profile"):FireServer("buy", packIndex, "Lucky")
 			else
 				toast("Lucky spins go on sale soon.")
 			end
 		end)
-		luckyButtons[i] = { button = b, sub = sub, n = n }
+		luckyButtons[i] = { button = b, sub = sub, n = n, packIndex = packIndex }
 	end
 	local oddsL = hairButton(lucky, { Position = UDim2.fromOffset(282, 74), Size = UDim2.fromOffset(140, 28) }, "Lucky odds", 15)
 	onClick(oddsL, function()
 		MenuController.openTable(banner, true)
 	end)
-	local giftL = hairButton(lucky, { Position = UDim2.fromOffset(432, 74), Size = UDim2.fromOffset(140, 28) }, "Gift lucky spins", 15)
-	onClick(giftL, function()
-		MenuController.openGift("Lucky", 1)
+	local moreL = hairButton(lucky, { Position = UDim2.fromOffset(432, 74), Size = UDim2.fromOffset(140, 28) }, "More lucky spins", 15)
+	onClick(moreL, function()
+		Extra.shopTab = "Lucky"
+		MenuController.go("shop")
 	end)
 	for i, pack in ipairs(Config.Lucky.Packs) do
 		if pack.Id ~= 0 then
@@ -1235,12 +1256,12 @@ local function refreshRecruit(prof)
 		end
 	end
 	R.luckyOdds.Text = table.concat(lparts, "  ")
-	for i, lb in ipairs(R.luckyButtons) do
-		local pack = Config.Lucky.Packs[i]
+	for _, lb in ipairs(R.luckyButtons) do
+		local pack = lb.packIndex and Config.Lucky.Packs[lb.packIndex]
 		if free or have >= lb.n then
 			lb.sub.Text = "Use " .. lb.n
 		elseif pack and pack.Id ~= 0 then
-			lb.sub.Text = packPrices.Lucky[i] and ("R$ " .. packPrices.Lucky[i]) or "..."
+			lb.sub.Text = packPrices.Lucky[lb.packIndex] and ("R$ " .. packPrices.Lucky[lb.packIndex]) or "..."
 		else
 			lb.sub.Text = prof.studio and "Free in Studio" or "Soon"
 		end
@@ -2900,33 +2921,60 @@ end
 -- Shop: V Point and Gold packs for Robux, and a big way into Recruit
 ------------------------------------------------------------------------------------------
 
--- the Shop's two rows: V Point packs and Gold packs (Config.Shop), each a Developer Product
+-- the Shop's rows, two to a tab, each pack a Developer Product: V Points and Gold (Config.Shop),
+-- then lucky spins (Config.Lucky) and 2x VP boosts (Config.Boosts). `amount` is what a card shows.
 local SHOP_ROWS = {
-	{ key = "VP", title = "V Points", note = "Recruit players and looks", icon = Gui.icon.vp },
-	{ key = "Gold", title = "Gold", note = "Upgrade your players' stats", icon = Gui.icon.gold },
+	{ key = "VP", tab = "Currency", title = "V Points", note = "Recruit players and looks", icon = Gui.icon.vp },
+	{ key = "Gold", tab = "Currency", title = "Gold", note = "Upgrade your players' stats", icon = Gui.icon.gold },
+	{ key = "Lucky", tab = "Lucky", title = "Lucky spins", note = "Better odds on any banner, no Commons", icon = function(parent, size)
+		return Gui.sparkle(parent, size, Gui.GOLD)
+	end, amount = function(pack)
+		return "x" .. pack.Lucky
+	end },
+	{ key = "Boost", tab = "Lucky", title = "2x V Points", note = "Every match pays double VP while it runs", icon = Gui.icon.vp, amount = function(pack)
+		local m = math.floor(pack.BoostVP / 60 + 0.5)
+		if m < 60 then
+			return m .. " min"
+		end
+		return (m % 60 == 0 and tostring(m / 60) or string.format("%.1f", m / 60)) .. " hr"
+	end },
 }
 
 local function shopPacks(key)
-	return key == "Gold" and Config.Shop.GoldPacks or Config.Shop.Packs
+	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs }
+	return lists[key] or {}
 end
 
 local function buildShop()
 	local p = page("shop")
 	mainChrome(p, "shop")
-	local packs = make("Frame", { Name = "Packs", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(4 * 200 + 3 * 14, 560), BackgroundTransparency = 1 }, p)
-	local prices = { VP = {}, Gold = {} }
-	for r, row in ipairs(SHOP_ROWS) do
-		local y = (r - 1) * 284
-		Gui.label(packs, { Text = row.title, display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextStrokeTransparency = 0.6, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 36), Position = UDim2.fromOffset(0, y) })
-		Gui.label(packs, { Text = row.note, TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextStrokeTransparency = 0.6, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(420, 20), Position = UDim2.new(1, 0, 0, y + 12) })
-		Gui.plate(packs, { Size = UDim2.fromOffset(60, 6), Position = UDim2.fromOffset(2, y + 40) }, Gui.SIGNAL)
+	-- two tabs (the owner added lucky spins and 2x VP boosts to sell), two rows each
+	local _, setTab = segmented(p, { { key = "Currency", text = "V Points & Gold" }, { key = "Lucky", text = "Lucky spins & boosts" } }, { Name = "ShopTabs", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(520, 46) }, function(key)
+		Extra.shopTab = key
+		MenuController.refresh()
+	end)
+	local packs = make("Frame", { Name = "Packs", Position = UDim2.fromOffset(M, 210), Size = UDim2.fromOffset(4 * 200 + 3 * 14, 560), BackgroundTransparency = 1 }, p)
+	local tabs = {}
+	for _, key in ipairs({ "Currency", "Lucky" }) do
+		tabs[key] = make("Frame", { Name = key, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, packs)
+	end
+	local prices = { VP = {}, Gold = {}, Lucky = {}, Boost = {} }
+	local notes = {}
+	local rowsIn = { Currency = 0, Lucky = 0 }
+	for _, row in ipairs(SHOP_ROWS) do
+		rowsIn[row.tab] = rowsIn[row.tab] + 1
+		local y = (rowsIn[row.tab] - 1) * 284
+		local holder = tabs[row.tab]
+		Gui.label(holder, { Text = row.title, display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextStrokeTransparency = 0.6, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 36), Position = UDim2.fromOffset(0, y) })
+		notes[row.key] = Gui.label(holder, { Text = row.note, TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextStrokeTransparency = 0.6, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(420, 20), Position = UDim2.new(1, 0, 0, y + 12) })
+		Gui.plate(holder, { Size = UDim2.fromOffset(60, 6), Position = UDim2.fromOffset(2, y + 40) }, Gui.SIGNAL)
 		for i, pack in ipairs(shopPacks(row.key)) do
-			local card = Gui.card(packs, { Size = UDim2.fromOffset(200, 224), Position = UDim2.fromOffset((i - 1) * 214, y + 56), ClipsDescendants = true })
+			local card = Gui.card(holder, { Size = UDim2.fromOffset(200, 224), Position = UDim2.fromOffset((i - 1) * 214, y + 56), ClipsDescendants = true })
 			Gui.halftone(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.94 })
 			local icon = row.icon(card, 58)
 			icon.AnchorPoint = Vector2.new(0.5, 0)
 			icon.Position = UDim2.new(0.5, 0, 0, 16)
-			Gui.label(card, { Text = Gui.num(pack[row.key]), display = true, weight = Enum.FontWeight.Heavy, TextSize = 42, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center })
+			Gui.label(card, { Text = row.amount and row.amount(pack) or Gui.num(pack[row.key]), display = true, weight = Enum.FontWeight.Heavy, TextSize = 42, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center })
 			Gui.label(card, { Text = pack.Name, TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 128), TextXAlignment = Enum.TextXAlignment.Center })
 			local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(172, 44) }, "", 20)
 			-- buy it for someone else (the owner: "add a gifting system")
@@ -3076,7 +3124,7 @@ local function buildShop()
 			end)
 		end
 	end
-	ui.shop = { prices = prices, perks = perks }
+	ui.shop = { prices = prices, perks = perks, tabs = tabs, setTab = setTab, notes = notes }
 end
 
 local function refreshPerks(prof)
@@ -3108,6 +3156,13 @@ end
 
 local function refreshShop(prof)
 	refreshPerks(prof)
+	ui.shop.setTab(Extra.shopTab)
+	for key, f in pairs(ui.shop.tabs) do
+		f.Visible = key == Extra.shopTab
+	end
+	-- the boost row says how long yours has left
+	local boostLeft = (prof.boostVP or 0) - (os.clock() - Extra.profileAt)
+	ui.shop.notes.Boost.Text = boostLeft > 0 and string.format("Yours: %s left (more adds on top)", Extra.clockText(boostLeft)) or SHOP_ROWS[4].note
 	for key, labels in pairs(ui.shop.prices) do
 		for i, pack in ipairs(shopPacks(key)) do
 			local label = labels[i]
@@ -4170,7 +4225,7 @@ end
 
 -- Codes (the owner: "add a codes system"): a box and Redeem, under the requirements.
 function Extra.buildCodes()
-	local m = modal("Codes", "Codes", 660, 420, true)
+	local m = modal("Codes", "Codes", 660, 336, true)
 	Gui.label(m.panel, { Text = "Codes are for members of the group who liked the game. Each works once.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
 	local req = Extra.requirements(m.panel, 116)
 	local box = Extra.inputBox(m.panel, { Position = UDim2.fromOffset(26, 246), Size = UDim2.new(1, -52 - 190, 0, 54), TextSize = 22 }, "Enter a code")
@@ -4379,7 +4434,7 @@ function Extra.buildAdmin()
 		end
 		annCount.Text = #ann.Text .. " / " .. Config.Admin.AnnounceMax
 	end)
-	local send = actionPlate(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 416), Size = UDim2.fromOffset(240, 48), ZIndex = 22 }, "Send to everyone", 20)
+	local send = actionPlate(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 416), Size = UDim2.fromOffset(240, 48) }, "Send to everyone", 20)
 	onClick(send, function()
 		if string.match(ann.Text, "%S") then
 			Net.get("Admin"):FireServer("announce", ann.Text)
@@ -4427,7 +4482,7 @@ function Extra.buildAdmin()
 		charButtons[c.Id] = { button = b, color = color }
 	end
 	local picked = Gui.label(right, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 512), Size = UDim2.new(1, -220, 0, 48), ZIndex = 22 })
-	local give = actionPlate(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 512), Size = UDim2.fromOffset(200, 48), ZIndex = 22 }, "Give", 22)
+	local give = actionPlate(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 512), Size = UDim2.fromOffset(200, 48) }, "Give", 22)
 	onClick(give, function()
 		local chars = {}
 		for id in pairs(Extra.adminChars) do

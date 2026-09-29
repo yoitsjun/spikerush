@@ -501,7 +501,9 @@ local function results(winner, forfeitTeam)
 						reward, gold = math.floor(reward * scale + 0.5), math.floor(gold * scale + 0.5)
 					end
 					-- the admin panel's events (2x VP, 2x Gold)
-					boostVP, boostGold = reg.AdminService.multiplier("VP"), reg.AdminService.multiplier("Gold")
+					-- and the player's own 2x VP boost (Config.Boosts): they multiply
+					boostVP = reg.AdminService.multiplier("VP") * reg.ProfileService.boost(e.player, "VP")
+					boostGold = reg.AdminService.multiplier("Gold")
 					reward, gold = reward * boostVP, gold * boostGold
 					reg.ProfileService.award(e.player, reward, gold)
 				end
@@ -538,7 +540,7 @@ local function results(winner, forfeitTeam)
 	end
 	-- the MVP's bonus V Points
 	if mvp and mvp.player and mvp.team ~= forfeitTeam then
-		local bonus = P.MvpVP * reg.AdminService.multiplier("VP")
+		local bonus = P.MvpVP * reg.AdminService.multiplier("VP") * reg.ProfileService.boost(mvp.player, "VP")
 		reg.ProfileService.award(mvp.player, bonus, 0)
 		for _, row in ipairs(list) do
 			if row.id == mvp.id then

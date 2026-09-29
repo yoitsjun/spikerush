@@ -1467,6 +1467,27 @@ do
 	check(vp1 and gold4 and lucky2 and Economy.packGrant(vp1).VP == Config.Shop.Packs[1].VP and Economy.packGrant(gold4).Gold == Config.Shop.GoldPacks[4].Gold
 		and Economy.packGrant(lucky2).Lucky == Config.Lucky.Packs[2].Lucky and byId and byId.kind == "VP" and byId.index == 1 and Economy.pack("VP", 9) == nil,
 		"VP, Gold and lucky spin packs: found by product id, and each gives what it sells")
+	-- the owner's products: lucky spins in 1, 3, 5 and 10, and 2x VP boosts on timers
+	local counts = {}
+	for _, p in ipairs(Config.Lucky.Packs) do
+		table.insert(counts, p.Lucky)
+	end
+	local boostPack = Economy.pack("Boost", 2)
+	check(table.concat(counts, ",") == "1,3,5,10" and boostPack and Economy.packGrant(boostPack).BoostVP == Config.Boosts.Packs[2].BoostVP,
+		"lucky spins sell in 1, 3, 5 and 10; boosts sell by time", Economy.describe(Economy.packGrant(boostPack)))
+	-- a boost starts when it's received, stacks on top of one that's running, and caps at MaxHold
+	local B = Config.Boosts
+	local t0 = 1000000
+	local fresh = { boosts = {} }
+	Economy.apply(fresh, Economy.cleanGrant({ BoostVP = 1800 }), t0)
+	local stacked = fresh.boosts.VP
+	Economy.apply(fresh, Economy.cleanGrant({ BoostVP = 1800 }), t0 + 600)
+	local afterStack = fresh.boosts.VP
+	local capped = Economy.extendBoost(t0 + B.MaxHold - 60, 3600, t0)
+	local expired = Economy.extendBoost(t0 - 5000, 900, t0)
+	check(stacked == t0 + 1800 and afterStack == t0 + 3600 and capped == t0 + B.MaxHold and expired == t0 + 900
+		and Economy.boost(fresh, "VP", t0 + 3599) == B.Multiplier and Economy.boost(fresh, "VP", t0 + 3600) == 1,
+		"2x VP boosts: start when received, stack on a running one, never hold more than a day, and end on time")
 end
 
 print("== determinism ==")

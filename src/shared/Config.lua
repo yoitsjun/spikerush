@@ -522,9 +522,28 @@ Config.Shop = {
 -- panel.
 Config.Lucky = {
 	Weights = { Common = 0, Rare = 48, Epic = 34, Legendary = 15, Mythic = 3 },
+	-- the owner: "1 lucky spin 3 lucky spin 5 lucky 10 lucky spin" (Recruit's Lucky x1 and x10 buy
+	-- the pack with that many when you have fewer)
 	Packs = {
 		{ Id = 0, Lucky = 1, Name = "Lucky Spin" }, -- suggested 49 Robux
-		{ Id = 0, Lucky = 10, Name = "Lucky Spin x10" }, -- suggested 399 Robux
+		{ Id = 0, Lucky = 3, Name = "3 Lucky Spins" }, -- suggested 129
+		{ Id = 0, Lucky = 5, Name = "5 Lucky Spins" }, -- suggested 199
+		{ Id = 0, Lucky = 10, Name = "10 Lucky Spins" }, -- suggested 379
+	},
+}
+
+-- Boosts (the owner: "developer products for 2x vpoints on timers"): a pack doubles the VP your
+-- matches pay (the MVP bonus too) for its time, counted in real time from when you get it. Another
+-- adds its time on top, up to MaxHold. It multiplies with the admin panel's 2x VP event. Sold as
+-- Developer Products (Id 0 until the product exists: free in Studio), and can be gifted.
+Config.Boosts = {
+	Multiplier = 2,
+	MaxHold = 24 * 3600, -- the most time a boost can hold (seconds)
+	Packs = {
+		{ Id = 0, BoostVP = 15 * 60, Name = "2x VP, 15 minutes" }, -- suggested 49 Robux
+		{ Id = 0, BoostVP = 30 * 60, Name = "2x VP, 30 minutes" }, -- suggested 79
+		{ Id = 0, BoostVP = 60 * 60, Name = "2x VP, 1 hour" }, -- suggested 129
+		{ Id = 0, BoostVP = 3 * 3600, Name = "2x VP, 3 hours" }, -- suggested 299
 	},
 }
 
