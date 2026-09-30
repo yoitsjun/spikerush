@@ -22,6 +22,10 @@
 --   ("daily")                        -> claim the daily reward
 --   ("liked")                        -> "I liked the game" (Roblox can't check it)
 --   ("group")                        -> check group membership again (after the join prompt)
+--   ("equip", "Card", key)           -> wear a player card you've unlocked (Config.Cards)
+-- Player cards are unlocked for good by achievements (Cards.met: the career counters, the MVP
+-- count, the best leaderboard place, the players recruited); checkCards runs after every match,
+-- recruit and leaderboard read.
 --   ("gift", kind, index, username)  -> buy a pack for someone else
 -- Codes and the daily reward are for members of the group who liked the game (the owner's rule;
 -- only the group can be checked, so liking is the player's word, asked once).
@@ -51,6 +55,8 @@ local Rewards = require(Shared.Rewards)
 local Spins = require(Shared.Spins)
 local Settings = require(Shared.Settings)
 local Economy = require(Shared.Economy)
+local Cards = require(Shared.Cards)
+local Leaderboards = require(Shared.Leaderboards)
 local Net = require(Shared.Net)
 
 local ProfileService = {}
@@ -177,7 +183,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, boosts = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, boosts = {}, cards = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -329,6 +335,23 @@ local function sanitizeProfile(data)
 		end
 	end
 	out.liked = data.liked == true
+	-- player cards unlocked, the one worn, and the best leaderboard place reached
+	if type(data.cards) == "table" then
+		for k, v in pairs(data.cards) do
+			if v == true and Cards.get(k) then
+				out.cards[k] = true
+			end
+		end
+	end
+	if type(data.equip) == "table" and Cards.get(data.equip.Card) then
+		out.equip.Card = data.equip.Card
+	end
+	if type(data.bestRank) == "table" and Leaderboards.isBoard(data.bestRank.board) then
+		local r = math.floor(tonumber(data.bestRank.rank) or 0)
+		if r >= 1 and r <= Config.Leaderboards.Top then
+			out.bestRank = { rank = r, board = data.bestRank.board }
+		end
+	end
 	-- boost timers: the unix time each ends (Config.Boosts)
 	if type(data.boosts) == "table" and tonumber(data.boosts.VP) then
 		out.boosts.VP = math.max(0, math.floor(tonumber(data.boosts.VP)))
@@ -353,6 +376,10 @@ local function keepOwned(profile)
 	end
 	if not owns(profile, "Char", profile.char) then
 		profile.char = Roster.Starters[1]
+	end
+	local card = profile.equip.Card
+	if card and not (profile.dev or card == Cards.default() or profile.cards[card]) then
+		profile.equip.Card = nil
 	end
 	for _, picks in pairs(profile.teams) do
 		for role, id in pairs(picks) do
@@ -429,6 +456,8 @@ local function save(plr, force)
 		mailSeen = profile.mailSeen,
 		liked = profile.liked,
 		boosts = profile.boosts,
+		cards = profile.cards,
+		bestRank = profile.bestRank,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -530,6 +559,47 @@ local function applyPerks(plr, profile)
 	end
 end
 
+------------------------------------------------------------------------------------------
+-- player cards (Config.Cards)
+------------------------------------------------------------------------------------------
+
+-- How many characters a profile has recruited (a developer has them all).
+local function ownedCount(profile)
+	if profile.dev then
+		return #Roster
+	end
+	local n = 0
+	for _ in pairs(profile.owned.Char or {}) do
+		n = n + 1
+	end
+	return n
+end
+
+local function cardUnlocked(profile, key)
+	return profile.dev == true or key == Cards.default() or profile.cards[key] == true
+end
+
+local function cardStats(profile)
+	return Cards.stats(profile, ownedCount(profile))
+end
+
+-- The card a player wears, and what it shows, as attributes on the Player and its avatar
+-- (PlayerCard, CardValue, CardLabel, CardRank), so every client draws their card when they score.
+local function applyCard(plr, profile)
+	local key = profile.equip.Card
+	if not (Cards.get(key) and cardUnlocked(profile, key)) then
+		key = Cards.default()
+	end
+	local stats = cardStats(profile)
+	local value, label = Cards.display(Cards.get(key), stats)
+	for _, inst in ipairs({ plr, plr.Character or plr }) do
+		inst:SetAttribute("PlayerCard", key)
+		inst:SetAttribute("CardValue", value)
+		inst:SetAttribute("CardLabel", label)
+		inst:SetAttribute("CardRank", stats.rank or 0)
+	end
+end
+
 -- The tier and build this player plays: their character with its upgrades.
 function ProfileService.characterBuild(plr)
 	local c = ProfileService.character(plr)
@@ -554,6 +624,7 @@ function ProfileService.applyActive(plr)
 	end
 	applyCosmetics(plr, ProfileService.get(plr))
 	applyPerks(plr, ProfileService.get(plr))
+	applyCard(plr, ProfileService.get(plr))
 end
 
 local function teamsCopy(profile)
@@ -627,6 +698,15 @@ function ProfileService.snapshot(plr)
 		autoRolling = profile.autoRolling and profile.autoRolling.banner or nil,
 		dev = profile.dev or nil,
 		admin = profile.dev or nil, -- the admin panel (developers)
+		cards = (function()
+			local unlocked = {}
+			for _, card in ipairs(Cards.list()) do
+				if cardUnlocked(profile, card.Key) then
+					unlocked[card.Key] = true
+				end
+			end
+			return { unlocked = unlocked, stats = cardStats(profile) }
+		end)(),
 		lucky = profile.lucky or 0,
 		liked = profile.liked == true,
 		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP
@@ -653,6 +733,59 @@ local function inMatch(plr)
 	local TS = reg.TeamService
 	return TS.inMatch and TS.entityForPlayer(plr) ~= nil
 end
+
+-- Unlocks every card whose achievement is now met (for good), and tells the player unless
+-- `quiet` (their first load). Refreshes what their card shows either way.
+function ProfileService.checkCards(plr, quiet)
+	local profile = profiles[plr]
+	if not profile then
+		return
+	end
+	local stats = cardStats(profile)
+	local new = {}
+	for _, card in ipairs(Cards.list()) do
+		if card.Stat and not profile.cards[card.Key] and Cards.met(card, stats) then
+			profile.cards[card.Key] = true
+			table.insert(new, card.Name)
+		end
+	end
+	if #new > 0 then
+		dirty[plr] = true
+	end
+	applyCard(plr, profile)
+	if #new > 0 and not quiet and not profile.dev then
+		push(plr, string.format("New player card%s: %s! Wear it from the Locker.", #new > 1 and "s" or "", table.concat(new, ", ")))
+	end
+end
+
+-- The match MVP (MatchService): the MVP count goes up (the MVP card).
+function ProfileService.addMvp(plr)
+	local profile = profiles[plr]
+	if not profile then
+		return
+	end
+	profile.record.mvps = (profile.record.mvps or 0) + 1
+	dirty[plr] = true
+	ProfileService.checkCards(plr)
+end
+
+-- A place in a leaderboard's top 3 (LeaderboardService): kept if it's their best yet (the Top 3
+-- and Number One cards show it).
+function ProfileService.topRank(plr, rank, board)
+	local profile = profiles[plr]
+	if not profile or not Leaderboards.isBoard(board) then
+		return
+	end
+	local best = profile.bestRank
+	if best and best.rank <= rank then
+		return
+	end
+	profile.bestRank = { rank = rank, board = board }
+	dirty[plr] = true
+	ProfileService.checkCards(plr)
+end
+
+
 
 ------------------------------------------------------------------------------------------
 -- grants and mail (codes, daily rewards, gifts, the admin panel's Give)
@@ -950,6 +1083,7 @@ function ProfileService.recordResult(plr, won, st)
 	end
 	dirty[plr] = true
 	reg.LeaderboardService.track(plr, profile)
+	ProfileService.checkCards(plr)
 	return profile.winStreak
 end
 
@@ -1110,6 +1244,7 @@ local function spin(plr, profile, banner, count, lucky)
 		notice = string.format("+%d VP from duplicates and auto-sell.", reveal.refund)
 	end
 	push(plr, notice, reveal)
+	ProfileService.checkCards(plr)
 end
 
 -- Keep spinning x1 until a pull of AutoRollTarget rarity or better, the VP run out, the cap is
@@ -1284,6 +1419,14 @@ local function onRequest(plr, kind, a, b, c)
 		-- replaced whole (the client sends them all a second after its last change)
 		profile.settings = Settings.clean(a)
 		dirty[plr] = true
+	elseif kind == "equip" and a == "Card" then
+		-- a player card you've unlocked (Config.Cards)
+		if Cards.get(b) and cardUnlocked(profile, b) then
+			profile.equip.Card = b
+			dirty[plr] = true
+			applyCard(plr, profile)
+		end
+		push(plr)
 	elseif kind == "equip" then
 		if Spins.isCosmetic(a) and owns(profile, a, b) then
 			profile.equip[a] = b
@@ -1443,6 +1586,7 @@ function ProfileService.init(r)
 	local function setup(plr)
 		task.spawn(function()
 			ProfileService.get(plr)
+			ProfileService.checkCards(plr, true)
 			ProfileService.applyActive(plr)
 			push(plr)
 			-- in the group? (for daily rewards and codes); then any gifts waiting in their mail

@@ -542,6 +542,9 @@ local function results(winner, forfeitTeam)
 	if mvp and mvp.player and mvp.team ~= forfeitTeam then
 		local bonus = P.MvpVP * reg.AdminService.multiplier("VP") * reg.ProfileService.boost(mvp.player, "VP")
 		reg.ProfileService.award(mvp.player, bonus, 0)
+		if counts then
+			reg.ProfileService.addMvp(mvp.player) -- the MVP player card counts these
+		end
 		for _, row in ipairs(list) do
 			if row.id == mvp.id then
 				row.reward = (row.reward or 0) + bonus

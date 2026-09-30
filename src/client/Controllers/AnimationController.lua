@@ -500,6 +500,208 @@ local POSE_DEFS = {
 		LeftKnee = { -60, 0, 0 },
 		RightKnee = { -60, 0, 0 },
 	},
+	-- Tornado 360 (the owner: "a 360 jump"): on the way up the spiker tucks and spins a full turn
+	-- (Air_Tornado: keys 120 degrees apart, so every blend turns the same way), opens into the
+	-- bow-draw facing the net, and whips through the ball with a twist.
+	Tuck_T0 = {
+		Root = { 0, 0, 0 },
+		Waist = { 10, 0, 0 },
+		Neck = { 6, 0, 0 },
+		LeftShoulder = { 40, 0, -20 },
+		LeftElbow = { 115, 0, 0 },
+		RightShoulder = { 40, 0, 20 },
+		RightElbow = { 115, 0, 0 },
+		LeftHip = { 55, 0, -4 },
+		RightHip = { 55, 0, 4 },
+		LeftKnee = { -105, 0, 0 },
+		RightKnee = { -105, 0, 0 },
+		LeftAnkle = { -20, 0, 0 },
+		RightAnkle = { -20, 0, 0 },
+	},
+	Tuck_T120 = {
+		Root = { 0, -120, 0 },
+		Waist = { 10, 0, 0 },
+		Neck = { 6, 0, 0 },
+		LeftShoulder = { 40, 0, -20 },
+		LeftElbow = { 115, 0, 0 },
+		RightShoulder = { 40, 0, 20 },
+		RightElbow = { 115, 0, 0 },
+		LeftHip = { 55, 0, -4 },
+		RightHip = { 55, 0, 4 },
+		LeftKnee = { -105, 0, 0 },
+		RightKnee = { -105, 0, 0 },
+		LeftAnkle = { -20, 0, 0 },
+		RightAnkle = { -20, 0, 0 },
+	},
+	Tuck_T240 = {
+		Root = { 0, -240, 0 },
+		Waist = { 12, 10, 0 },
+		Neck = { 8, -6, 0 },
+		LeftShoulder = { 70, 0, -20 },
+		LeftElbow = { 80, 0, 0 },
+		RightShoulder = { 90, 0, 30 },
+		RightElbow = { 100, 0, 0 },
+		LeftHip = { 30, 0, -4 },
+		RightHip = { 20, 0, 4 },
+		LeftKnee = { -90, 0, 0 },
+		RightKnee = { -100, 0, 0 },
+		LeftAnkle = { -20, 0, 0 },
+		RightAnkle = { -20, 0, 0 },
+	},
+	Cock_Tornado = {
+		Root = { 0, -360, 0 },
+		Waist = { 24, 36, 0 },
+		Neck = { 14, -20, 0 },
+		LeftShoulder = { 155, 0, -16 },
+		LeftElbow = { 10, 0, 0 },
+		RightShoulder = { 180, -35, 50 },
+		RightElbow = { 130, 0, 0 },
+		RightWrist = { -20, 0, 0 },
+		LeftHip = { -10, 0, -8 },
+		RightHip = { -30, 0, 10 },
+		LeftKnee = { -80, 0, 0 },
+		RightKnee = { -105, 0, 0 },
+		LeftAnkle = { -25, 0, 0 },
+		RightAnkle = { -25, 0, 0 },
+	},
+	Snap_Tornado = {
+		Root = { -14, -40, 0 },
+		Waist = { -40, -30, 0 },
+		Neck = { -10, 12, 0 },
+		LeftShoulder = { 15, 0, -35 },
+		LeftElbow = { 50, 0, 0 },
+		RightShoulder = { 50, 0, 12 },
+		RightElbow = { 5, 0, 0 },
+		RightWrist = { -40, 0, 0 },
+		LeftHip = { 50, 0, -6 },
+		RightHip = { 42, 0, 6 },
+		LeftKnee = { -40, 0, 0 },
+		RightKnee = { -30, 0, 0 },
+	},
+	-- Bicycle Kick (the owner: "a bicycle kick"): back to the net on the way up (a half turn), then
+	-- a backflip; at the contact the kicking leg snaps straight over the head (so the ball goes
+	-- toward the net), the flip comes round and the spiker turns back to the net as they fall.
+	-- Once turned round the root is Rx(180 - p) * Rz(180): p is the flip, backward from their new
+	-- facing; keys stay under 180 degrees apart, so every blend goes the right way round.
+	Bike_Start = {
+		Root = { 0, 0, 0 },
+		Waist = { 8, 0, 0 },
+		Neck = { 12, 0, 0 },
+		LeftShoulder = { 150, 0, -20 },
+		RightShoulder = { 150, 0, 20 },
+		LeftElbow = { 10, 0, 0 },
+		RightElbow = { 10, 0, 0 },
+		LeftHip = { -6, 0, -4 },
+		RightHip = { -14, 0, 4 },
+		LeftKnee = { -50, 0, 0 },
+		RightKnee = { -70, 0, 0 },
+	},
+	Bike_Turn90 = {
+		Root = { 0, 90, 0 },
+		Waist = { 6, 0, 0 },
+		Neck = { 10, 0, 0 },
+		LeftShoulder = { 60, 0, -30 },
+		LeftElbow = { 40, 0, 0 },
+		RightShoulder = { 60, 0, 30 },
+		RightElbow = { 40, 0, 0 },
+		LeftHip = { 40, 0, -6 },
+		RightHip = { 20, 0, 6 },
+		LeftKnee = { -80, 0, 0 },
+		RightKnee = { -60, 0, 0 },
+	},
+	Bike_Turn180 = {
+		Root = { 0, 180, 0 },
+		Waist = { 12, 0, 0 },
+		Neck = { 16, 0, 0 },
+		LeftShoulder = { 70, 0, -50 },
+		LeftElbow = { 30, 0, 0 },
+		RightShoulder = { 70, 0, 50 },
+		RightElbow = { 30, 0, 0 },
+		LeftHip = { 80, 0, -6 },
+		RightHip = { 10, 0, 6 },
+		LeftKnee = { -60, 0, 0 },
+		RightKnee = { -50, 0, 0 },
+	},
+	Bike_Lean = {
+		Root = { 90, 0, 180 },
+		Waist = { 16, 0, 0 },
+		Neck = { 24, 0, 0 },
+		LeftShoulder = { 80, 0, -75 },
+		LeftElbow = { 20, 0, 0 },
+		RightShoulder = { 80, 0, 75 },
+		RightElbow = { 20, 0, 0 },
+		LeftHip = { 115, 0, -6 },
+		LeftKnee = { -20, 0, 0 },
+		RightHip = { 10, 0, 6 },
+		RightKnee = { -70, 0, 0 },
+	},
+	Cock_Bicycle = {
+		Root = { 30, 0, 180 },
+		Waist = { 18, 0, 0 },
+		Neck = { 28, 0, 0 },
+		LeftShoulder = { 90, 0, -80 },
+		LeftElbow = { 15, 0, 0 },
+		RightShoulder = { 90, 0, 80 },
+		RightElbow = { 15, 0, 0 },
+		LeftHip = { 20, 0, -6 },
+		LeftKnee = { -40, 0, 0 },
+		RightHip = { 105, 0, 6 },
+		RightKnee = { -105, 0, 0 },
+		RightAnkle = { -20, 0, 0 },
+	},
+	Kick_Bicycle = {
+		Root = { -30, 0, 180 },
+		Waist = { 20, 0, 0 },
+		Neck = { 30, 0, 0 },
+		LeftShoulder = { 70, 0, -95 },
+		LeftElbow = { 10, 0, 0 },
+		RightShoulder = { 70, 0, 95 },
+		RightElbow = { 10, 0, 0 },
+		LeftHip = { -35, 0, -6 },
+		LeftKnee = { -25, 0, 0 },
+		RightHip = { 160, 0, 6 },
+		RightKnee = { 0, 0, 0 },
+		RightAnkle = { 20, 0, 0 },
+	},
+	Bike_Over = {
+		Root = { -120, 0, 180 },
+		Waist = { 10, 0, 0 },
+		Neck = { 16, 0, 0 },
+		LeftShoulder = { 60, 0, -60 },
+		LeftElbow = { 30, 0, 0 },
+		RightShoulder = { 60, 0, 60 },
+		RightElbow = { 30, 0, 0 },
+		LeftHip = { 60, 0, -6 },
+		LeftKnee = { -90, 0, 0 },
+		RightHip = { 70, 0, 6 },
+		RightKnee = { -90, 0, 0 },
+	},
+	Bike_Up = {
+		Root = { -180, 0, 180 },
+		Waist = { 0, 0, 0 },
+		Neck = { 6, 0, 0 },
+		LeftShoulder = { 40, 0, -40 },
+		LeftElbow = { 30, 0, 0 },
+		RightShoulder = { 40, 0, 40 },
+		RightElbow = { 30, 0, 0 },
+		LeftHip = { 30, 0, -6 },
+		LeftKnee = { -60, 0, 0 },
+		RightHip = { 30, 0, 6 },
+		RightKnee = { -60, 0, 0 },
+	},
+	Bike_Back = {
+		Root = { 0, 270, 0 },
+		Waist = { -10, 0, 0 },
+		Neck = { 4, 0, 0 },
+		LeftShoulder = { 30, 0, -30 },
+		LeftElbow = { 30, 0, 0 },
+		RightShoulder = { 30, 0, 30 },
+		RightElbow = { 30, 0, 0 },
+		LeftHip = { 35, 0, -6 },
+		LeftKnee = { -60, 0, 0 },
+		RightHip = { 35, 0, 6 },
+		RightKnee = { -60, 0, 0 },
+	},
 	Air = {
 		Neck = { 8, 0, 0 },
 		LeftShoulder = { 60, 0, -20 },
@@ -766,6 +968,9 @@ local EASE = {
 	smooth = function(a)
 		return a * a * (3 - 2 * a)
 	end,
+	linear = function(a)
+		return a
+	end,
 }
 
 local CLIP_DEFS = {
@@ -789,6 +994,26 @@ local CLIP_DEFS = {
 	Swing_Whirl = {
 		dur = 0.6,
 		keys = { { 0, "SpikeReach" }, { 0.06, "Snap_Whirl", "out" }, { 0.16, "Spin_Whirl", "smooth" }, { 0.34, "SpikeFollow", "smooth" } },
+	},
+	-- Tornado 360: the spin on the way up (Air_: pick plays it after the rise, then holds its last
+	-- key, the bow-draw, until the swing), and the whip through the ball
+	Air_Tornado = {
+		dur = 0.34,
+		keys = { { 0, "Tuck_T0" }, { 0.1, "Tuck_T120", "linear" }, { 0.2, "Tuck_T240", "linear" }, { 0.34, "Cock_Tornado", "out" } },
+	},
+	Swing_Tornado = {
+		dur = 0.5,
+		keys = { { 0, "Cock_Tornado" }, { 0.05, "Snap_Tornado", "out" }, { 0.26, "SpikeFollow", "smooth" } },
+	},
+	-- Bicycle Kick: the half turn and the lean back on the way up, then the kick at the contact and
+	-- the rest of the backflip, turning back to the net
+	Air_Bicycle = {
+		dur = 0.44,
+		keys = { { 0, "Bike_Start" }, { 0.1, "Bike_Turn90", "linear" }, { 0.2, "Bike_Turn180", "linear" }, { 0.32, "Bike_Lean", "smooth" }, { 0.44, "Cock_Bicycle", "smooth" } },
+	},
+	Swing_Bicycle = {
+		dur = 0.64,
+		keys = { { 0, "Cock_Bicycle" }, { 0.06, "Kick_Bicycle", "out" }, { 0.18, "Bike_Over", "linear" }, { 0.3, "Bike_Up", "linear" }, { 0.44, "Bike_Back", "smooth" }, { 0.64, "SpikeFollow", "smooth" } },
 	},
 	Bump = {
 		dur = 0.45,
@@ -1360,6 +1585,12 @@ local function pick(st, hum, hrp, now)
 				return "Rise", POSES.Rise, 1
 			end
 			local style = styleOf(st)
+			-- a style with a move of its own on the way up (Tornado's spin, the Bicycle's flip)
+			-- plays it, then holds its last key until the swing
+			local air = CLIPS["Air_" .. style]
+			if air then
+				return "air" .. style .. st.airT, sampleClip(air, math.min(now - st.airT - RISE_TIME, air.dur), st.clipBuf), 1
+			end
 			if style ~= "Classic" then
 				return "Cock_" .. style, POSES["Cock_" .. style], 1
 			end

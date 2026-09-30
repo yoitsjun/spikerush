@@ -68,6 +68,7 @@ local refreshQueued = false
 local Extra = {}
 Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns count from then)
 Extra.shopTab = "Currency" -- the Shop's tab: "Currency" (VP and Gold) or "Lucky" (lucky spins and boosts)
+Extra.Cards = require(Shared.Cards) -- player cards (the Locker's Cards tab)
 local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {} } -- product prices in Robux, looked up once per pack
 
 local TIPS = {
@@ -2810,10 +2811,13 @@ local function buildLocker()
 	}, p)
 	make("UICorner", { CornerRadius = UDim.new(0, 8) }, panel)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, panel)
+	-- short names, so a sixth tab fits: the player cards (unlocked by achievements, not spins)
+	local short = { Style = "Style", Color = "Color", Trail = "Trail", Effect = "Effect", Pose = "Pose" }
 	local kinds = {}
 	for _, kind in ipairs(COS.Kinds) do
-		table.insert(kinds, { key = kind, text = SP.Banners[kind].Name })
+		table.insert(kinds, { key = kind, text = short[kind] or SP.Banners[kind].Name })
 	end
+	table.insert(kinds, { key = "Card", text = "Cards" })
 	local _, setKind = Gui.tabs(panel, kinds, { Name = "Kinds", Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -32, 0, 52) }, function(key)
 		click("UISelect")
 		lockerKind = key
@@ -2841,6 +2845,40 @@ local function buildLocker()
 			chips[kind][item.Key] = card
 		end
 	end
+	-- the Cards tab: a list of player cards (each a small copy of the real card, with your numbers)
+	local cardList = make("ScrollingFrame", {
+		Name = "Cards",
+		Position = UDim2.fromOffset(14, 76),
+		Size = UDim2.new(1, -28, 1, -76 - 110),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 5,
+		ScrollBarImageColor3 = Gui.HAIRLINE,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(),
+		Visible = false,
+	}, panel)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 18), PaddingRight = UDim.new(0, 12), PaddingBottom = UDim.new(0, 10) }, cardList)
+	make("UIListLayout", { Padding = UDim.new(0, 22), SortOrder = Enum.SortOrder.LayoutOrder }, cardList)
+	local cardRows = {}
+	for i, def in ipairs(Extra.Cards.list()) do
+		local row = make("TextButton", { Name = def.Key, Size = UDim2.new(1, 0, 0, 64), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, LayoutOrder = i }, cardList)
+		local mini = Gui.playerCard(row, { Position = UDim2.fromOffset(6, 4) })
+		make("UIScale", { Scale = 0.55 }, mini.root)
+		local lock = make("Frame", { Position = UDim2.fromOffset(2, 0), Size = UDim2.fromOffset(274, 64), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.4, BorderSizePixel = 0, ZIndex = 20 }, row)
+		local edge = make("UIStroke", { Color = Gui.SIGNAL, Thickness = 2, Transparency = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, lock)
+		local nm = Gui.label(row, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, Position = UDim2.fromOffset(292, 2), Size = UDim2.new(1, -300, 0, 26) })
+		Gui.label(row, { Text = def.Goal, TextSize = 14, TextColor3 = Gui.DIM, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(292, 28), Size = UDim2.new(1, -300, 0, 18) })
+		local state = Gui.label(row, { Text = "", display = true, TextSize = 16, Position = UDim2.fromOffset(292, 46), Size = UDim2.new(1, -300, 0, 20) })
+		onClick(row, function()
+			lockerPick.Card = def.Key
+			MenuController.refresh()
+		end)
+		cardRows[def.Key] = { row = row, mini = mini, lock = lock, edge = edge, name = nm, state = state }
+	end
+	-- the picked card, big over the gym (with a spike's word, as when you score)
+	local cardPreview = Gui.playerCard(p, { Position = UDim2.fromOffset(M + 20, 160), Visible = false })
+	make("UIScale", { Scale = 1.15 }, cardPreview.root)
 	-- the picked item along the bottom, and Equip
 	make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -102), Size = UDim2.new(1, -32, 0, 1), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.6, BorderSizePixel = 0 }, panel)
 	local pickName = Gui.label(panel, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, TextTruncate = Enum.TextTruncate.AtEnd, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 20, 1, -46), Size = UDim2.new(1, -260, 0, 40) })
@@ -2852,6 +2890,16 @@ local function buildLocker()
 		if not key then
 			return
 		end
+		if lockerKind == "Card" then
+			local unlocked = prof.cards and prof.cards.unlocked or {}
+			local def = Extra.Cards.get(key)
+			if unlocked[key] then
+				Net.get("Profile"):FireServer("equip", "Card", key)
+			elseif def then
+				toast(def.Goal .. " to wear this card.")
+			end
+			return
+		end
 		if owns(prof, lockerKind, key) then
 			Net.get("Profile"):FireServer("equip", lockerKind, key)
 		else
@@ -2861,12 +2909,84 @@ local function buildLocker()
 		end
 	end)
 	local caption = Gui.label(p, { Text = "", TextSize = 18, weight = Enum.FontWeight.Medium, RichText = true, TextStrokeTransparency = 0.5, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, M, 1, -M), Size = UDim2.new(0.5, -M, 0, 24) })
-	ui.locker = { setKind = setKind, chips = chips, pickName = pickName, pickSub = pickSub, equipL = equipL, caption = caption }
+	ui.locker = { setKind = setKind, chips = chips, pickName = pickName, pickSub = pickSub, equipL = equipL, caption = caption, grid = grid, cardList = cardList, cardRows = cardRows, cardPreview = cardPreview }
+end
+
+-- The Locker's Cards tab: every player card with your own numbers on it (locked ones dimmed, with
+-- how far along you are), the picked one big over the gym, and Equip.
+function Extra.refreshCards(prof)
+	local L = ui.locker
+	local C = Extra.Cards
+	local cs = prof.cards or {}
+	local stats = cs.stats or {}
+	local unlocked = cs.unlocked or {}
+	local equipped = prof.equip and prof.equip.Card or C.default()
+	if not C.get(equipped) or not unlocked[equipped] then
+		equipped = C.default()
+	end
+	local picked = C.get(lockerPick.Card) and lockerPick.Card or equipped
+	lockerPick.Card = picked
+	local char = Roster.get(prof.char or "")
+	local tier = char and char.Tier or ""
+	local line = char and (char.Name .. "  /  " .. roleName(char.Role)) or ""
+	local team = Config.Teams.Home.Color
+	local function data(def, withWord)
+		local value, label = C.display(def, stats)
+		return {
+			userId = player.UserId,
+			name = player.DisplayName,
+			tier = tier,
+			tierColor = tierColor(tier),
+			line = line,
+			value = value,
+			label = label,
+			word = withWord and (Config.Match.Celebrate.Spike or "KILL!") or nil,
+			title = def.Key ~= C.default() and string.upper(def.Name) or nil,
+		}
+	end
+	for key, r in pairs(L.cardRows) do
+		local def = C.get(key)
+		r.mini.set(C.look(def, team, stats.rank), data(def, false))
+		local have = unlocked[key] == true
+		r.lock.Visible = not have
+		local got, need = C.progress(def, stats)
+		if key == equipped then
+			r.state.Text = "EQUIPPED"
+			r.state.TextColor3 = Gui.SIGNAL
+		elseif have then
+			r.state.Text = "EQUIP"
+			r.state.TextColor3 = Gui.CHALK
+		elseif def.Stat == "rank" then
+			r.state.Text = "LOCKED"
+			r.state.TextColor3 = Gui.DIM
+		else
+			r.state.Text = string.format("LOCKED   %s / %s", Gui.num(got), Gui.num(need))
+			r.state.TextColor3 = Gui.DIM
+		end
+		r.name.TextColor3 = key == picked and Gui.SIGNAL or Gui.CHALK
+		r.edge.Transparency = key == picked and 0 or 1
+	end
+	local def = C.get(picked)
+	L.cardPreview.set(C.look(def, team, stats.rank), data(def, true))
+	L.pickName.Text = def.Name
+	local got, need = C.progress(def, stats)
+	if unlocked[picked] then
+		L.pickSub.Text = def.Goal
+	elseif def.Stat == "rank" then
+		L.pickSub.Text = def.Goal .. " to unlock it"
+	else
+		L.pickSub.Text = string.format("%s to unlock it (%s / %s)", def.Goal, Gui.num(got), Gui.num(need))
+	end
+	L.equipL.Text = unlocked[picked] and (picked == equipped and "Equipped" or "Equip") or "Locked"
 end
 
 local function refreshLocker(prof)
 	local L = ui.locker
 	L.setKind(lockerKind)
+	local isCard = lockerKind == "Card"
+	L.grid.Visible = not isCard
+	L.cardList.Visible = isCard
+	L.cardPreview.root.Visible = isCard
 	for kind, list in pairs(L.chips) do
 		local equipped = prof.equip and prof.equip[kind] or Spins.default(kind)
 		local picked = lockerPick[kind] or equipped
@@ -2888,6 +3008,17 @@ local function refreshLocker(prof)
 			card.edge.Transparency = have and 0 or 0.45
 			card.button.BackgroundColor3 = key == picked and Color3.fromRGB(52, 56, 70) or Color3.fromRGB(34, 36, 46)
 		end
+	end
+	if isCard then
+		-- the Cards tab: your avatar holds its pose behind the big card
+		Extra.refreshCards(prof)
+		local o = lockerOpts(prof)
+		o.posing = true
+		L.caption.Text = "<b>Player card</b>   what everyone sees when you score"
+		if shown and screen == "locker" then
+			mods.SceneController.setPractice(o)
+		end
+		return
 	end
 	local key = lockerPick[lockerKind] or (prof.equip and prof.equip[lockerKind]) or Spins.default(lockerKind)
 	lockerPick[lockerKind] = key

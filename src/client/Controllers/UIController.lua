@@ -27,6 +27,7 @@ local Court = require(Shared.Court)
 local Util = require(Shared.Util)
 local Tutorial = require(Shared.Tutorial)
 local HitLogic = require(Shared.HitLogic)
+local Cards = require(Shared.Cards)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
@@ -1623,10 +1624,11 @@ end
 -- wiring
 ------------------------------------------------------------------------------------------
 
--- The scorer's card: a slanted plate, ink with the scorer's team colour sweeping in from the
--- left, print grain and speed chevrons; their Roblox headshot, their name and the character they
--- play (tier, role, ability), with the point's word on a tag. It slides in while the camera holds
--- on them after a point they earned (Config.Match.Celebrate). Card designs to pick come later.
+-- The scorer's card: the player card they wear (Config.Cards, unlocked by achievements; Gui.
+-- playerCard draws it): their Roblox headshot, their name and the character they play (tier, role,
+-- ability), the card's number (their wins, win streak, spike kills, leaderboard place...) and the
+-- point's word on a tag. It slides in while the camera holds on them after a point they earned
+-- (Config.Match.Celebrate). Bots, and players who wear none, show the Rookie card.
 local CARD_W, CARD_H = 480, 104
 local CARD_Y = 0.6
 local ROLE_NAME = {}
@@ -1635,49 +1637,16 @@ for key, r in pairs(Config.Roles) do
 end
 
 local function buildScoreCard()
-	local root = make("Frame", {
+	local card = Gui.playerCard(gui, {
 		Name = "ScoreCard",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, -CARD_W - 60, CARD_Y, 0),
-		Size = UDim2.fromOffset(CARD_W, CARD_H),
-		BackgroundTransparency = 1,
+		W = CARD_W,
+		H = CARD_H,
 		Visible = false,
-		ZIndex = 5,
-	}, gui)
-	Gui.plate(root, { Size = UDim2.fromOffset(CARD_W, CARD_H), ZIndex = 1 }, Gui.CARD)
-	-- the team colour, solid at the left and gone by the middle
-	local sweep = Gui.plate(root, { Size = UDim2.fromOffset(CARD_W, CARD_H), ZIndex = 2 }, UI.Chalk)
-	local body = sweep:FindFirstChild("Body")
-	if body then
-		make("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.45, 0.6), NumberSequenceKeypoint.new(1, 1) }) }, body)
-	end
-	local capR = sweep:FindFirstChild("CapR")
-	if capR then
-		capR.ImageTransparency = 1
-	end
-	Gui.halftone(root, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.55, 0, 1, 0), ImageColor3 = UI.Chalk, ImageTransparency = 0.9, ZIndex = 3 })
-	for i = 1, 3 do
-		local chevron = Gui.plate(root, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -30 - (3 - i) * 26, 0.5, 8), Size = UDim2.fromOffset(16, CARD_H - 44), ZIndex = 3 }, Gui.SIGNAL)
-		Gui.fade(chevron, 0.2 + (3 - i) * 0.25)
-	end
-	local shotSize = CARD_H - 20
-	local shot = make("ImageLabel", {
-		Position = UDim2.fromOffset(28, 10),
-		Size = UDim2.fromOffset(shotSize, shotSize),
-		BackgroundColor3 = Gui.LINE,
-		BackgroundTransparency = 0.25,
-		BorderSizePixel = 0,
-		ScaleType = Enum.ScaleType.Crop,
-		ZIndex = 4,
-	}, root)
-	make("UIStroke", { Color = UI.Chalk, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, shot)
-	local x = 28 + shotSize + 16
-	local name = Gui.label(root, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(x, 12), Size = UDim2.new(1, -x - 120, 0, 38), ZIndex = 5 })
-	local _, setBadge = Gui.tierBadge(root, 30, { Position = UDim2.fromOffset(x, 58), ZIndex = 5 })
-	local line = Gui.label(root, { TextSize = 18, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(x + 38, 58), Size = UDim2.new(1, -x - 60, 0, 30), ZIndex = 5 })
-	local tag = Gui.plate(root, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, -16), Size = UDim2.fromOffset(150, 34), ZIndex = 6 }, Gui.SIGNAL)
-	local word = Gui.label(tag, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
-	ui.scoreCard = { root = root, sweep = sweep, shot = shot, name = name, setBadge = setBadge, line = line, word = word, token = 0 }
+		ZIndex = 1,
+	})
+	ui.scoreCard = { root = card.root, card = card, token = 0 }
 end
 
 local function showScoreCard(a)
@@ -1690,10 +1659,7 @@ local function showScoreCard(a)
 	local token = C.token
 	local m = Util.modelOf(a.scorerId)
 	local userId = m and tonumber(m:GetAttribute("AvatarUserId")) or 0
-	C.shot.Image = userId > 0 and string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", userId) or ""
-	C.name.Text = a.scorerName or ""
 	local tier = m and m:GetAttribute("Tier") or ""
-	C.setBadge(tier, Characters.color(tier), false)
 	local parts = {}
 	local charName = m and m:GetAttribute("CharName")
 	if charName and charName ~= "" then
@@ -1707,9 +1673,20 @@ local function showScoreCard(a)
 	if ability then
 		table.insert(parts, ability.Name)
 	end
-	C.line.Text = table.concat(parts, "  /  ")
-	C.word.Text = word
-	Gui.tint(C.sweep, teamColor(a.winner))
+	-- the card they wear, and the number it shows (the server keeps these on their character)
+	local def = Cards.get(m and m:GetAttribute("PlayerCard")) or Cards.get(Cards.default())
+	local rank = m and tonumber(m:GetAttribute("CardRank")) or 0
+	C.card.set(Cards.look(def, teamColor(a.winner), rank > 0 and rank or nil), {
+		userId = userId,
+		name = a.scorerName or "",
+		tier = tier,
+		tierColor = Characters.color(tier),
+		line = table.concat(parts, "  /  "),
+		value = m and m:GetAttribute("CardValue") or "",
+		label = m and m:GetAttribute("CardLabel") or "",
+		word = word,
+		title = def.Key ~= Cards.default() and string.upper(def.Name) or nil,
+	})
 	local away = UDim2.new(0, -CARD_W - 60, CARD_Y, 0)
 	C.root.Visible = true
 	C.root.Position = away

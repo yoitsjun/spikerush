@@ -1490,6 +1490,41 @@ do
 		"2x VP boosts: start when received, stack on a running one, never hold more than a day, and end on time")
 end
 
+print("== player cards ==")
+do
+	local Cards = require("Cards")
+	-- every card: a unique key, a goal, a known pattern, and an achievement it can be unlocked by
+	local seen, ok = {}, true
+	local patterns = { halftone = true, stripes = true, rays = true, stars = true }
+	local stats0 = Cards.stats({ record = {} }, 0)
+	for _, c in ipairs(Cards.list()) do
+		ok = ok and not seen[c.Key] and type(c.Goal) == "string" and patterns[c.Look.Pattern] ~= nil and c.Look.Base ~= nil
+		ok = ok and (c.Stat == nil or c.Stat == "rank" or stats0[c.Stat] ~= nil) and (c.Show == nil or c.Show == "rank" or stats0[c.Show] ~= nil)
+		seen[c.Key] = true
+	end
+	local default = Cards.get(Cards.default())
+	check(ok and default and not default.Stat and #Cards.list() >= 10, "player cards: each has its own look, goal and achievement; the default needs nothing", #Cards.list() .. " cards")
+	-- they unlock by achievement: a streak, wins, spikes, MVPs, recruits, a leaderboard place
+	local prof = { record = { wins = 120, kills = 40, aces = 3, blocks = 0, matches = 150, mvps = 30 }, winStreak = 2, bestStreak = 6, bestRank = { rank = 2, board = "kills" } }
+	local st = Cards.stats(prof, 22)
+	local function met(key)
+		return Cards.met(Cards.get(key), st)
+	end
+	check(met("OnFire") and not met("Unstoppable") and met("Winner") and met("Champion") and not met("SpikeMachine") and met("MVP") and met("Collector") and not met("Veteran") and met("Top3") and not met("Number1"),
+		"cards unlock by achievement: best streak 6 (not 10), 120 wins, 30 MVPs, 22 recruits, #2 on a board (not #1)")
+	local have, need = Cards.progress(Cards.get("SpikeMachine"), st)
+	local v1, l1 = Cards.display(Cards.get("OnFire"), st)
+	local v2, l2 = Cards.display(Cards.get("Champion"), st)
+	local v3, l3 = Cards.display(Cards.get("Top3"), st)
+	check(have == 40 and need == 250 and v1 == "2" and l1 == "WIN STREAK" and v2 == "120" and l2 == "WINS" and v3 == "#2" and l3 == "SPIKE KILLS",
+		"a card shows your number: the current win streak, the wins, or your place and the board", string.format("%s %s / %s %s / %s %s", v1, l1, v2, l2, v3, l3))
+	local gold = Cards.look(Cards.get("Top3"), Color3.fromRGB(1, 2, 3), 1)
+	local bronze = Cards.look(Cards.get("Top3"), Color3.fromRGB(1, 2, 3), 3)
+	local team = Cards.look(Cards.get("Rookie"), Color3.fromRGB(1, 2, 3), nil)
+	check(gold.Sweep == Config.Cards.RankColors[1] and bronze.Edge == Config.Cards.RankColors[3] and team.Sweep[1] == 1,
+		"the Top 3 card is gold, silver or bronze by the place; the Rookie card takes the team colour")
+end
+
 print("== determinism ==")
 do
 	local root = apexRoot(SP, 4 * K)

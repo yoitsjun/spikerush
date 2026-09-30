@@ -411,6 +411,9 @@ Config.Cosmetics = {
 		{ Key = "Scissor", Name = "Scissor Kick", Rarity = "Rare" },
 		{ Key = "Hammer", Name = "Double Hammer", Rarity = "Epic" },
 		{ Key = "Whirl", Name = "Whirlwind", Rarity = "Legendary" },
+		-- the owner: "a 360 jump or a bicycle kick" (AnimationController's Air_ and Swing_ clips)
+		{ Key = "Tornado", Name = "Tornado 360", Rarity = "Legendary" },
+		{ Key = "Bicycle", Name = "Bicycle Kick", Rarity = "Mythic" },
 	},
 	Color = {
 		{ Key = "Default", Name = "Classic", Rarity = "Common" },
@@ -491,6 +494,47 @@ Config.Perks = {
 	ActionSeconds = 2, -- a custom touch or jump sound after this
 	ImageSeconds = 1.6, -- how long the image holds before it fades
 	SetCooldown = 3, -- seconds between changes to one id (each one is looked up)
+}
+
+-- Player cards (the owner: "more diverse playercards, that are unlocked through achievements rather
+-- than spinning. for example, a top 3 leaderboard playercard, or a playercard displaying your
+-- winstreak, your wins, your spikes"): the card that slides in when you score, equipped in the
+-- Locker. Each is unlocked for good when its Stat reaches Need ("rank": a place in the top Need of
+-- any leaderboard), shows one of your numbers in big type (Show, with Label under it; "rank"
+-- shows "#2" and the board), and has its own Look: Base (the plate), Sweep (the colour from the
+-- left: "team" is the scorer's team, "rank" gold, silver or bronze), Accent (trim, chevrons, the
+-- title), Edge (a border, or none), Pattern ("halftone", "stripes", "rays", "stars").
+Config.Cards = {
+	Default = "Rookie",
+	RankColors = { Color3.fromRGB(255, 200, 40), Color3.fromRGB(205, 214, 228), Color3.fromRGB(215, 140, 70) },
+	List = {
+		{ Key = "Rookie", Name = "Rookie", Goal = "Everyone's first card",
+			Look = { Base = Color3.fromRGB(12, 14, 22), Sweep = "team", Accent = Color3.fromRGB(255, 210, 31), Pattern = "halftone" } },
+		{ Key = "OnFire", Name = "On Fire", Stat = "bestStreak", Need = 5, Show = "winStreak", Label = "WIN STREAK", Goal = "Win 5 matches in a row",
+			Look = { Base = Color3.fromRGB(40, 10, 6), Sweep = Color3.fromRGB(255, 90, 20), Accent = Color3.fromRGB(255, 190, 60), Edge = Color3.fromRGB(255, 120, 30), Pattern = "stripes" } },
+		{ Key = "Unstoppable", Name = "Unstoppable", Stat = "bestStreak", Need = 10, Show = "bestStreak", Label = "BEST STREAK", Goal = "Win 10 matches in a row",
+			Look = { Base = Color3.fromRGB(30, 0, 8), Sweep = Color3.fromRGB(220, 20, 60), Accent = Color3.fromRGB(255, 215, 90), Edge = Color3.fromRGB(255, 205, 80), Pattern = "rays" } },
+		{ Key = "Winner", Name = "Winner", Stat = "wins", Need = 25, Show = "wins", Label = "WINS", Goal = "Win 25 matches",
+			Look = { Base = Color3.fromRGB(10, 22, 48), Sweep = Color3.fromRGB(60, 140, 255), Accent = Color3.fromRGB(200, 225, 255), Edge = Color3.fromRGB(170, 190, 220), Pattern = "stripes" } },
+		{ Key = "Champion", Name = "Champion", Stat = "wins", Need = 100, Show = "wins", Label = "WINS", Goal = "Win 100 matches",
+			Look = { Base = Color3.fromRGB(34, 26, 6), Sweep = Color3.fromRGB(255, 196, 40), Accent = Color3.fromRGB(255, 240, 170), Edge = Color3.fromRGB(255, 214, 90), Pattern = "rays" } },
+		{ Key = "SpikeMachine", Name = "Spike Machine", Stat = "kills", Need = 250, Show = "kills", Label = "SPIKE KILLS", Goal = "Score 250 spike kills",
+			Look = { Base = Color3.fromRGB(36, 6, 28), Sweep = Color3.fromRGB(255, 60, 160), Accent = Color3.fromRGB(255, 150, 210), Edge = Color3.fromRGB(255, 90, 180), Pattern = "stripes" } },
+		{ Key = "AceServer", Name = "Ace Server", Stat = "aces", Need = 50, Show = "aces", Label = "ACES", Goal = "Serve 50 aces",
+			Look = { Base = Color3.fromRGB(4, 28, 34), Sweep = Color3.fromRGB(40, 220, 230), Accent = Color3.fromRGB(180, 250, 255), Edge = Color3.fromRGB(60, 230, 240), Pattern = "halftone" } },
+		{ Key = "TheWall", Name = "The Wall", Stat = "blocks", Need = 100, Show = "blocks", Label = "BLOCKS", Goal = "Block 100 spikes",
+			Look = { Base = Color3.fromRGB(22, 22, 34), Sweep = Color3.fromRGB(130, 110, 255), Accent = Color3.fromRGB(200, 190, 255), Edge = Color3.fromRGB(150, 140, 255), Pattern = "stripes" } },
+		{ Key = "MVP", Name = "MVP", Stat = "mvps", Need = 25, Show = "mvps", Label = "MVP AWARDS", Goal = "Be the match MVP 25 times",
+			Look = { Base = Color3.fromRGB(30, 24, 4), Sweep = Color3.fromRGB(255, 215, 60), Accent = Color3.fromRGB(255, 255, 255), Edge = Color3.fromRGB(255, 225, 110), Pattern = "stars" } },
+		{ Key = "Veteran", Name = "Veteran", Stat = "matches", Need = 200, Show = "matches", Label = "MATCHES", Goal = "Play 200 matches",
+			Look = { Base = Color3.fromRGB(20, 26, 16), Sweep = Color3.fromRGB(120, 170, 80), Accent = Color3.fromRGB(220, 235, 170), Edge = Color3.fromRGB(160, 190, 110), Pattern = "halftone" } },
+		{ Key = "Collector", Name = "Collector", Stat = "owned", Need = 20, Show = "owned", Label = "PLAYERS", Goal = "Recruit 20 players",
+			Look = { Base = Color3.fromRGB(14, 20, 40), Sweep = Color3.fromRGB(80, 170, 255), Accent = Color3.fromRGB(255, 120, 220), Edge = Color3.fromRGB(190, 110, 255), Pattern = "stars" } },
+		{ Key = "Top3", Name = "Top 3", Stat = "rank", Need = 3, Show = "rank", Goal = "Reach the top 3 of any leaderboard",
+			Look = { Base = Color3.fromRGB(24, 24, 30), Sweep = "rank", Accent = Color3.fromRGB(255, 255, 255), Edge = "rank", Pattern = "rays" } },
+		{ Key = "Number1", Name = "Number One", Stat = "rank", Need = 1, Show = "rank", Goal = "Reach #1 on any leaderboard",
+			Look = { Base = Color3.fromRGB(28, 20, 2), Sweep = Color3.fromRGB(255, 200, 40), Accent = Color3.fromRGB(255, 255, 255), Edge = Color3.fromRGB(255, 230, 120), Pattern = "stars" } },
+	},
 }
 
 -- VP and Gold packs, sold as Developer Products. Create each product (Creator Hub > your

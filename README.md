@@ -74,7 +74,7 @@ The world is built at *The Spike*'s scale (4.6 studs to the metre, a real 9 m ha
 | Banner | What it gives |
 |---|---|
 | Basic Recruit | a roster character. D and C tiers are Common, B Rare, A Epic, S Legendary, S+ Mythic (0.5%) |
-| Spike style | Full Bow, Scissor Kick, Double Hammer, Whirlwind |
+| Spike style | Full Bow, Scissor Kick, Double Hammer, Whirlwind, Tornado 360 (Legendary: a full spin on the way up, then the whip) and Bicycle Kick (Mythic: back to the net, a backflip, and the ball kicked over the head at the contact) |
 | Spike color | the colour of your spike ribbon and impact: Crimson to Prism |
 | Trail | Comet, Sparkle, Flame, Lightning or Stardust behind your spikes |
 | Score effect | where your attack lands for a point: Shockwave, Fire Explosion, Meteor Strike, Thunderbolt |
@@ -84,6 +84,8 @@ Rarity odds are Common 55%, Rare 28%, Epic 12.5%, Legendary 4% and Mythic 0.5%, 
 VP and Gold packs are Developer Products (the Shop screen): 500 / 1,200 / 2,800 / 6,500 VP and 5,000 / 12,000 / 28,000 / 65,000 Gold. Create a product for each (Creator Hub > your experience > Monetization > Developer Products) and set its id in `Config.Shop.Packs` or `Config.Shop.GoldPacks`; the Shop shows the price you set. Until then they show "Soon", and in Studio they grant their VP or Gold for free. Each purchase is granted once and only reported as done after the profile holding it has been saved.
 
 **Perks** (the Shop's Perks column) cost 3,000 VP or a 199 Robux game pass each. **Custom sound effects** takes your own sound ids for scoring, spikes, jumps, serves, receives, sets, blocks and feints (pick one with the arrows, paste the id, Save; everyone in the match hears them). **Custom score effect** pops your own image up when you score. A sound only plays if it's public or shared with the experience.
+
+**Player cards** (the Locker's Cards tab) are what everyone sees when you score a point: your headshot, name and character on a card with its own colours, border and pattern, and a number of yours in big type. They're unlocked by playing, not by recruiting, and stay unlocked: Rookie (everyone), On Fire (a 5-match win streak; shows your current streak), Unstoppable (10 in a row; your best streak), Winner and Champion (25 and 100 wins; your wins), Spike Machine (250 spike kills), Ace Server (50 aces), The Wall (100 blocks), MVP (25 match MVPs), Veteran (200 matches), Collector (20 players recruited), Top 3 (a top-3 place on any leaderboard, in gold, silver or bronze; shows the place and the board) and Number One (#1 on any board). Locked cards show your progress ("40 / 250").
 
 **Codes** (Home's Codes button) pay VP, Gold, lucky spins or characters, once per player. The first is **RELEASE**: 500 VP, 5,000 Gold and a lucky spin. Codes live in `Config.Codes` (the key is the code in lower case; `Until` makes one expire).
 

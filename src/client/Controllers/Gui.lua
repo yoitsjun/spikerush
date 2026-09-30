@@ -882,4 +882,133 @@ function Gui.num(n)
 	return out
 end
 
+-- A player card (the scorer's card after a point, the Locker's cards), w x h (480 x 104 by
+-- default) in `props` (Position, AnchorPoint, Visible, ZIndex...). A slanted plate: a border
+-- (optional), the base, the colour sweeping in from the left, a pattern (halftone, stripes, rays or
+-- stars), the headshot, the card's title on a small tag, the name, tier and a line, a number in big
+-- type at the right with its label (else speed chevrons), and the point's word on a tag.
+-- card.set(look, data): look = { Base, Sweep, Accent, Edge (or nil), Pattern }; data = { userId,
+-- name, tier, tierColor, line, value, label, word, title }.
+function Gui.playerCard(parent, props)
+	props = props or {}
+	local W = props.W or 480
+	local H = props.H or 104
+	local z = props.ZIndex or 1
+	local root = make("Frame", { Size = UDim2.fromOffset(W, H), BackgroundTransparency = 1 }, parent)
+	for k, v in pairs(props) do
+		if k ~= "W" and k ~= "H" then
+			root[k] = v
+		end
+	end
+	local edge = Gui.plate(root, { Position = UDim2.fromOffset(-5, -5), Size = UDim2.fromOffset(W + 10, H + 10), ZIndex = z }, Gui.CHALK)
+	local base = Gui.plate(root, { Size = UDim2.fromOffset(W, H), ZIndex = z + 1 }, Gui.CARD)
+	local sweep = Gui.plate(root, { Size = UDim2.fromOffset(W, H), ZIndex = z + 2 }, Gui.CHALK)
+	local body = sweep:FindFirstChild("Body")
+	if body then
+		make("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.45, 0.6), NumberSequenceKeypoint.new(1, 1) }) }, body)
+	end
+	local capR = sweep:FindFirstChild("CapR")
+	if capR then
+		capR.ImageTransparency = 1
+	end
+	-- the patterns, over the right of the card; one shows at a time
+	local patterns = {}
+	patterns.halftone = Gui.halftone(root, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.55, 0, 1, 0), ImageColor3 = Gui.CHALK, ImageTransparency = 0.9, ZIndex = z + 3 })
+	local function clipBox()
+		return make("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -math.floor(H * 0.22), 0, 0), Size = UDim2.new(0.62, 0, 1, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = z + 3 }, root)
+	end
+	local tinted = {}
+	patterns.stripes = clipBox()
+	for i = 1, 8 do
+		table.insert(tinted, make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new((i - 1) / 7, 0, 0.5, 0), Size = UDim2.new(0, 12, 2.4, 0), Rotation = 24, BackgroundColor3 = Gui.CHALK, BackgroundTransparency = 0.86, BorderSizePixel = 0, ZIndex = z + 3 }, patterns.stripes))
+	end
+	patterns.rays = clipBox()
+	for i = 1, 12 do
+		table.insert(tinted, make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.72, 0.5), Size = UDim2.new(0, 6, 0, W), Rotation = (i - 1) * 15, BackgroundColor3 = Gui.CHALK, BackgroundTransparency = 0.84, BorderSizePixel = 0, ZIndex = z + 3 }, patterns.rays))
+	end
+	patterns.stars = clipBox()
+	for _, spot in ipairs({ { 0.2, 0.3, 26 }, { 0.42, 0.72, 18 }, { 0.6, 0.22, 22 }, { 0.8, 0.62, 30 }, { 0.95, 0.25, 16 } }) do
+		local sp = Gui.sparkle(patterns.stars, spot[3], Gui.CHALK)
+		sp.Position = UDim2.fromScale(spot[1], spot[2])
+		sp.ZIndex = z + 3
+		-- its arms take the accent (the white dot in the middle stays)
+		for _, d in ipairs(sp:GetChildren()) do
+			if d:IsA("Frame") and d.BackgroundColor3 == Gui.CHALK then
+				table.insert(tinted, d)
+			end
+		end
+	end
+	local chevrons = {}
+	for i = 1, 3 do
+		local chevron = Gui.plate(root, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -30 - (3 - i) * 26, 0.5, 8), Size = UDim2.fromOffset(16, H - 44), ZIndex = z + 3 }, Gui.SIGNAL)
+		Gui.fade(chevron, 0.2 + (3 - i) * 0.25)
+		chevrons[i] = chevron
+	end
+	local shotSize = H - 20
+	local shot = make("ImageLabel", {
+		Position = UDim2.fromOffset(28, 10),
+		Size = UDim2.fromOffset(shotSize, shotSize),
+		BackgroundColor3 = Gui.LINE,
+		BackgroundTransparency = 0.25,
+		BorderSizePixel = 0,
+		ScaleType = Enum.ScaleType.Crop,
+		ZIndex = z + 4,
+	}, root)
+	local shotEdge = make("UIStroke", { Color = Gui.CHALK, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, shot)
+	local x = 28 + shotSize + 16
+	local name = Gui.label(root, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(x, 12), Size = UDim2.new(1, -x - 120, 0, 38), ZIndex = z + 5 })
+	local _, setBadge = Gui.tierBadge(root, 30, { Position = UDim2.fromOffset(x, 58), ZIndex = z + 5 })
+	local line = Gui.label(root, { TextSize = 18, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(x + 38, 58), Size = UDim2.new(1, -x - 60, 0, 30), ZIndex = z + 5 })
+	-- the number the card shows, big at the right, and its label
+	local value = Gui.label(root, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -26, 0, 10), Size = UDim2.fromOffset(170, 48), ZIndex = z + 5 })
+	local valueLabel = Gui.label(root, { display = true, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 58), Size = UDim2.fromOffset(170, 18), ZIndex = z + 5 })
+	-- the card's title, on a small tag over the top left
+	local title = Gui.plate(root, { Position = UDim2.fromOffset(18, -14), Size = UDim2.fromOffset(150, 26), ZIndex = z + 6 }, Gui.SIGNAL)
+	local titleText = Gui.label(title, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 16, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = z + 7 })
+	-- the point's word ("KILL!"), on a tag over the top right
+	local tag = Gui.plate(root, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, -16), Size = UDim2.fromOffset(150, 34), ZIndex = z + 6 }, Gui.SIGNAL)
+	local word = Gui.label(tag, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = z + 7 })
+
+	local card = { root = root }
+	function card.set(look, data)
+		data = data or {}
+		local accent = look.Accent or Gui.SIGNAL
+		edge.Visible = look.Edge ~= nil
+		if look.Edge then
+			Gui.tint(edge, look.Edge)
+		end
+		Gui.tint(base, look.Base or Gui.CARD)
+		Gui.tint(sweep, look.Sweep or Gui.CHALK)
+		for key, f in pairs(patterns) do
+			f.Visible = key == (look.Pattern or "halftone")
+		end
+		for _, f in ipairs(tinted) do
+			f.BackgroundColor3 = accent
+		end
+		local hasValue = type(data.value) == "string" and data.value ~= ""
+		for _, c in ipairs(chevrons) do
+			c.Visible = not hasValue
+			Gui.tint(c, accent)
+		end
+		value.Visible, valueLabel.Visible = hasValue, hasValue
+		value.Text = hasValue and data.value or ""
+		valueLabel.Text = data.label or ""
+		valueLabel.TextColor3 = accent
+		name.Size = UDim2.new(1, -x - (hasValue and 200 or 120), 0, 38)
+		line.Size = UDim2.new(1, -x - (hasValue and 230 or 60), 0, 30)
+		shot.Image = (data.userId or 0) > 0 and string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", data.userId) or ""
+		shotEdge.Color = accent
+		name.Text = data.name or ""
+		setBadge(data.tier or "", data.tierColor or Gui.CHALK, false)
+		line.Text = data.line or ""
+		title.Visible = data.title ~= nil
+		titleText.Text = data.title or ""
+		Gui.tint(title, accent)
+		tag.Visible = data.word ~= nil and data.word ~= ""
+		word.Text = data.word or ""
+		Gui.tint(tag, accent)
+	end
+	return card
+end
+
 return Gui

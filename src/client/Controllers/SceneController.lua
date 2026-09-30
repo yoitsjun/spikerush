@@ -960,13 +960,17 @@ local function practicePose(p, t)
 	local style = p.opts.style or "Classic"
 	local cock = AC.poseJoints("Cock_" .. style) or AC.poseJoints("Cock")
 	local swing = AC.clipDuration("Swing_" .. style) and ("Swing_" .. style) or "Swing"
+	local air = AC.clipDuration("Air_" .. style) and ("Air_" .. style) or nil
 	if t < TAKEOFF then
 		return AC.blendJoints(AC.poseJoints("Ready"), AC.poseJoints("Gather"), t / TAKEOFF), 0
 	end
 	if t < TAKEOFF + AIR then
 		local a = (t - TAKEOFF) / AIR
 		local up = 4 * 8 * a * (1 - a)
-		if t < TAKEOFF + 0.2 then
+		if air and t >= TAKEOFF + 0.1 and t < CONTACT then
+			-- a style with a move on the way up (Tornado's spin, the Bicycle's flip), as in a match
+			return AC.clipJoints(air, t - TAKEOFF - 0.1), up
+		elseif t < TAKEOFF + 0.2 then
 			return AC.poseJoints("Rise"), up
 		elseif t < CONTACT then
 			return AC.blendJoints(AC.poseJoints("Rise"), cock, math.clamp((t - TAKEOFF - 0.2) / 0.22, 0, 1)), up

@@ -137,8 +137,8 @@ local function read()
 	reading = false
 end
 
--- Every board as the client shows it: stored rows merged with this server's players.
-local function snapshot()
+-- Every board ranked: the stored rows merged with this server's players (their fresh numbers).
+local function mergedBoards()
 	local live = {}
 	for _, plr in ipairs(Players:GetPlayers()) do
 		local profile = reg.ProfileService.peek(plr)
@@ -158,7 +158,31 @@ local function snapshot()
 		end
 		boards[b.Key] = rows
 	end
-	return { boards = boards, global = global, updated = lastRead, refresh = LB.RefreshInterval }
+	return boards
+end
+
+-- Every board as the client shows it.
+local function snapshot()
+	return { boards = mergedBoards(), global = global, updated = lastRead, refresh = LB.RefreshInterval }
+end
+
+-- Players here in the top 3 of any board: their best place is kept (the Top 3 and Number One
+-- player cards).
+local function checkRanks()
+	local boards = mergedBoards()
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local best, bestBoard = nil, nil
+		for _, b in ipairs(LB.Boards) do
+			for _, r in ipairs(boards[b.Key] or {}) do
+				if r.userId == plr.UserId and r.rank <= 3 and (not best or r.rank < best) then
+					best, bestBoard = r.rank, b.Key
+				end
+			end
+		end
+		if best then
+			reg.ProfileService.topRank(plr, best, bestBoard)
+		end
+	end
 end
 
 function LeaderboardService.init(r)
@@ -195,12 +219,14 @@ function LeaderboardService.init(r)
 	game:BindToClose(flush)
 	task.spawn(function()
 		read()
+		checkRanks()
 		while true do
 			task.wait(LB.FlushInterval)
 			flush()
 			if Util.now() - lastRead >= LB.RefreshInterval then
 				read()
 			end
+			checkRanks()
 		end
 	end)
 end
