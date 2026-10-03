@@ -99,7 +99,7 @@ The Shop's packs are Developer Products: 500 / 1,200 / 2,800 / 6,500 VP, 5,000 /
 
 **Boost and Lower** (the Characters banner's Probability Table): Boost up to 3 characters (x1.5) and Lower up to 3 (x0.5) to change your odds of each within its rarity; the rarity's own chance stays the same (boosting an S+ makes it the likelier S+, not S+ likelier). The table shows your odds with them, and they count for pity's random picks too.
 
-**2x Luck boosts** (the Shop's Boosts tab, beside 2x VP): 15 minutes, 30 minutes, 1 hour or 3 hours in which your own recruits on the Characters banner use 2x Luck's odds (A- and up twice as likely); more adds on top, Home shows yours counting down, and with the admin panel's 2x Luck on too it's the same odds, not more. Their Developer Products are still to be made (they show Soon until then).
+**2x Luck boosts** (the Shop's Boosts tab, beside 2x VP): 15 minutes, 30 minutes, 1 hour or 3 hours in which your own recruits on the Characters banner use 2x Luck's odds (A- and up twice as likely); more adds on top, and Home shows yours counting down. With the admin panel's 2x Luck on too they stack: 4x (Common 4%, Epic 50%, Legendary 16%, Mythic 2%); Recruit's odds line says "4x Luck (your 2x + the event's 2x)" and Home's chip "Your 4x Luck". Their Developer Products are still to be made (they show Soon until then).
 
 **2x V Points boosts** (the Shop's Boosts tab): 15 minutes, 30 minutes, 1 hour or 3 hours of double VP from your matches (the MVP bonus too), in real time from when you get it; another adds on top, up to a day. Home shows yours counting down, and it multiplies with the admin panel's 2x VP event.
 

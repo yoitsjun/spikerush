@@ -117,21 +117,33 @@ end
 -- The rarity weights of a lucky spin (Config.Lucky), for odds, table and rollItem.
 Spins.LuckyWeights = Config.Lucky.Weights
 
--- The rarity weights while the admin panel's 2x Luck runs (Config.Spins.LuckEvent): A- and up
--- doubled, what that adds taken from the Commons.
-Spins.LuckEventWeights = (function()
-	local out, added = {}, 0
-	for r, w in pairs(RAR.Weights) do
-		out[r] = w
+-- The rarity weights at `mult` times the luck (Config.Spins.LuckEvent): 2 for the admin panel's
+-- 2x Luck or your own boost, 4 for both (they stack): A- and up times mult, what that adds taken
+-- from the Commons (never below none). nil at 1 (the usual weights).
+local luckWeights = {}
+function Spins.luckWeights(mult)
+	mult = math.floor(tonumber(mult) or 1)
+	if mult <= 1 then
+		return nil
 	end
-	for _, r in ipairs(SP.LuckEvent.Double) do
-		added = added + (out[r] or 0)
-		out[r] = (out[r] or 0) * 2
+	if not luckWeights[mult] then
+		local out, added = {}, 0
+		for r, w in pairs(RAR.Weights) do
+			out[r] = w
+		end
+		for _, r in ipairs(SP.LuckEvent.Double) do
+			added = added + (out[r] or 0) * (mult - 1)
+			out[r] = (out[r] or 0) * mult
+		end
+		local from = SP.LuckEvent.From
+		out[from] = math.max(0, (out[from] or 0) - added)
+		luckWeights[mult] = out
 	end
-	local from = SP.LuckEvent.From
-	out[from] = math.max(0, (out[from] or 0) - added)
-	return out
-end)()
+	return luckWeights[mult]
+end
+
+-- 2x Luck's weights (the event, or your boost, alone).
+Spins.LuckEventWeights = Spins.luckWeights(2)
 
 -- Chance (0..1) of each rarity on this banner: the rarity weights (Rarity.Weights, or a lucky
 -- spin's) over the rarities it has.

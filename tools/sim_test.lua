@@ -1681,6 +1681,19 @@ do
 			base.Common * 100, luck.Common * 100, base.Epic * 100, luck.Epic * 100, base.Legendary * 100, luck.Legendary * 100, base.Mythic * 100, luck.Mythic * 100))
 end
 
+print("== 2x luck stacks ==")
+do
+	local base = Spins.odds("Char")
+	local four = Spins.odds("Char", Spins.luckWeights(4))
+	local sum = 0
+	for _, r in ipairs(Config.Rarity.Order) do
+		sum = sum + four[r]
+	end
+	check(Spins.luckWeights(1) == nil and Spins.luckWeights(2) == Spins.LuckEventWeights and math.abs(four.Mythic - 4 * base.Mythic) < 1e-9 and math.abs(four.Legendary - 4 * base.Legendary) < 1e-9
+		and math.abs(four.Rare - base.Rare) < 1e-9 and four.Common >= 0 and four.Common < base.Common and math.abs(sum - 1) < 1e-9,
+		"the event's 2x Luck and your own stack: 4x (A- and up four times as likely, the Commons pay)", string.format("Common %.1f%%, Epic %.1f%%, Legendary %.1f%%, Mythic %.1f%%", four.Common * 100, four.Epic * 100, four.Legendary * 100, four.Mythic * 100))
+end
+
 print("== 2x luck boosts ==")
 do
 	local Economy = require("Economy")

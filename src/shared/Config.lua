@@ -400,9 +400,11 @@ Config.Spins = {
 	-- recruits also count toward an S+ (Top, the owner: "add a normal spin S+ pity but it has to be
 	-- 350 pulls"): an S+ is a 0.5% pull, so most players see one long before it (the average wait
 	-- is 200), and about one in six reach it. When Top and Normal land on the same recruit, Top wins.
-	-- 2x Luck (Config.Admin's event): these rarities' weights double on the Characters banner (A-
-	-- and up: Epic, Legendary, Mythic), and the weight they add is taken from From (D and C:
-	-- Common), so Rare stays as it is. Lucky spins aren't changed.
+	-- 2x Luck (Config.Admin's event, or your own boost: Config.Boosts.LuckPacks): these rarities'
+	-- weights double on the Characters banner (A- and up: Epic, Legendary, Mythic), and the weight
+	-- they add is taken from From (D and C: Common), so Rare stays as it is. The event and your
+	-- boost stack (the owner: "make it so if there is an admin 2x it stacks and make that clear"):
+	-- both on is 4x (Spins.luckWeights). Lucky spins aren't changed.
 	LuckEvent = { Double = { "Epic", "Legendary", "Mythic" }, From = "Common" },
 	Pity = {
 		Normal = { Every = 200, Tiers = { "S-", "S" }, ResetTiers = { "S-", "S", "S+" } },
@@ -622,8 +624,8 @@ Config.Boosts = {
 		{ Id = 3715530842, BoostVP = 3 * 3600, Name = "2x VP, 3 hours" }, -- 299
 	},
 	-- 2x Luck for yourself (the owner asked for "the 2x luck developer products"): for its time your
-	-- usual recruits on the Characters banner use the admin event's odds (Config.Spins.LuckEvent:
-	-- A- and up twice as likely); with the event on too it's the same, not more. Id 0 until the
+	-- usual recruits on the Characters banner are twice as lucky (Config.Spins.LuckEvent: A- and
+	-- up twice as likely), and with the admin panel's 2x Luck on too they stack: 4x. Id 0 until the
 	-- product exists (free in Studio); suggested names and prices on each line.
 	LuckPacks = {
 		{ Id = 0, BoostLuck = 15 * 60, Name = "2x Luck, 15 minutes" }, -- suggested "2x Luck, 15 Minutes", 79 Robux
@@ -674,7 +676,7 @@ Config.Admin = {
 	-- banner: Config.Spins.LuckEvent
 	Events = { "VP", "Gold", "Luck" },
 	EventNames = { VP = "V Points", Gold = "Gold", Luck = "Luck" },
-	EventLines = { VP = "Every match pays double.", Gold = "Every match pays double.", Luck = "Recruits are twice as likely to be A- or better." },
+	EventLines = { VP = "Every match pays double.", Gold = "Every match pays double.", Luck = "Recruits are twice as likely to be A- or better, and it stacks with your own 2x Luck for 4x." },
 	Multiplier = 2,
 	AnnounceMax = 200, -- characters
 	AnnounceSeconds = 10, -- how long an announcement shows

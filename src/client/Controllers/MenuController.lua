@@ -187,12 +187,19 @@ end
 -- The rarity weights a usual recruit on `kind` uses right now (2x Luck's on Characters, while it
 -- runs; nil: the usual ones).
 function Extra.recruitWeights(kind)
-	local prof = profile()
-	local mine = (prof.boostLuck or 0) - (os.clock() - (Extra.profileAt or 0)) > 0
-	if kind == "Char" and (Extra.eventLeft("Luck") > 0 or mine) then
-		return Spins.LuckEventWeights
+	if kind == "Char" then
+		return Spins.luckWeights(Extra.luckMult())
 	end
 	return nil
+end
+
+-- How lucky your usual recruits are right now: the admin panel's 2x Luck and your own 2x Luck each
+-- double it, and they stack (4x); and whether each is on.
+function Extra.luckMult()
+	local prof = profile()
+	local event = Extra.eventLeft("Luck") > 0
+	local mine = (prof.boostLuck or 0) - (os.clock() - (Extra.profileAt or 0)) > 0
+	return (event and 2 or 1) * (mine and 2 or 1), event, mine
 end
 
 -- A text box in the Shop's style.
@@ -644,7 +651,7 @@ local function buildHome()
 	local boostPlate = Gui.plate(chips, { Size = UDim2.fromOffset(260, 38), LayoutOrder = 9, Visible = false }, Gui.SIGNAL)
 	local boostChip = { plate = boostPlate, label = Gui.label(boostPlate, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 21, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 }) }
 	-- and your own 2x Luck
-	local luckPlate = Gui.plate(chips, { Size = UDim2.fromOffset(260, 38), LayoutOrder = 10, Visible = false }, Color3.fromRGB(190, 110, 255))
+	local luckPlate = Gui.plate(chips, { Size = UDim2.fromOffset(290, 38), LayoutOrder = 10, Visible = false }, Color3.fromRGB(190, 110, 255))
 	Extra.luckChip = { plate = luckPlate, label = Gui.label(luckPlate, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 21, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 }) }
 
 	-- the left column under the profile (placeHome moves the two together)
@@ -823,7 +830,9 @@ function Extra.refreshHome(prof)
 	local luckLeft = (prof.boostLuck or 0) - (os.clock() - Extra.profileAt)
 	Extra.luckChip.plate.Visible = luckLeft > 0
 	if luckLeft > 0 then
-		Extra.luckChip.label.Text = string.format("Your %dx Luck  %s", Config.Boosts.Multiplier, Extra.clockText(luckLeft))
+		-- with the event on too they stack: say 4x
+		local stacked = Extra.eventLeft("Luck") > 0
+		Extra.luckChip.label.Text = string.format("Your %dx Luck  %s", stacked and 4 or Config.Boosts.Multiplier, Extra.clockText(luckLeft))
 	end
 	local d = prof.daily
 	hm.dailyDot.Visible = d ~= nil and (d.ready == true or (d.opensIn or 0) - (os.clock() - Extra.profileAt) <= 0)
@@ -1255,12 +1264,18 @@ local function refreshRecruit(prof)
 	R.desc.Text = banner == "Char" and "Recruit named players: each has a role, a height, stat ceilings and (S and S+) an ability. Upgrade them with Gold in Players." or SP.Banners[banner].Blurb
 	local o = Spins.odds(banner, Extra.recruitWeights(banner))
 	local parts = {}
+	-- 2x Luck in front, and when your own and the event's are both on, that they stack
+	local mult, event, mine = Extra.luckMult()
+	if banner == "Char" and mult > 1 then
+		local why = (event and mine) and "your 2x + the event's 2x" or (event and "the event" or "your boost")
+		table.insert(parts, string.format('<font color="#BE6EFF"><b>%dx Luck</b> (%s)</font>', mult, why))
+	end
 	for _, r in ipairs(Config.Rarity.Order) do
 		if o[r] > 0 then
 			table.insert(parts, string.format('<font color="#%s">%s %.1f%%</font>', Spins.rarityColor(r):ToHex(), r, o[r] * 100))
 		end
 	end
-	R.odds.Text = table.concat(parts, "     ")
+	R.odds.Text = table.concat(parts, (banner == "Char" and mult > 1) and "   " or "     ")
 	if prof.autoRolling then
 		local n = prof.reveal and prof.reveal.auto or 0
 		R.autoL.Text = string.format("Stop auto-roll (%d)", n)
@@ -3338,7 +3353,7 @@ local SHOP_ROWS = {
 	{ key = "Boost", tab = "Boosts", title = "2x V Points", note = "Every match pays double VP while it runs", icon = Gui.icon.vp, amount = function(pack)
 		return Extra.boostLength(pack.BoostVP)
 	end },
-	{ key = "LuckBoost", tab = "Boosts", title = "2x Luck", note = "Your recruits: A- and up twice as likely", icon = function(parent, size)
+	{ key = "LuckBoost", tab = "Boosts", title = "2x Luck", note = "A- and up twice as likely; with a 2x Luck event, 4x", icon = function(parent, size)
 		return Gui.sparkle(parent, size, Color3.fromRGB(190, 110, 255))
 	end, amount = function(pack)
 		return Extra.boostLength(pack.BoostLuck)

@@ -1312,14 +1312,20 @@ local function spinOnce(plr, profile, banner, count, lucky)
 	dirty[plr] = true
 	local rng = Random.new()
 	local items, refund = {}, 0
-	-- 2x Luck (the admin panel's event, or your own boost): usual recruits on the Characters banner
-	-- are likelier to be A- and up
-	local luckOn = (reg.AdminService and reg.AdminService.multiplier("Luck") > 1) or Economy.boost(profile, "Luck", os.time()) > 1
-	local luck = not lucky and banner == "Char" and luckOn
+	-- 2x Luck: the admin panel's event and your own boost each double the luck of usual recruits on
+	-- the Characters banner, and they stack (both: 4x)
+	local mult = 1
+	if reg.AdminService and reg.AdminService.multiplier("Luck") > 1 then
+		mult = mult * 2
+	end
+	if Economy.boost(profile, "Luck", os.time()) > 1 then
+		mult = mult * 2
+	end
+	local luckWeights = (not lucky and banner == "Char") and Spins.luckWeights(mult) or nil
 	for i = 1, count do
 		local k, how = nil, nil
 		if banner == "Char" then
-			k, how = Spins.pityRoll(profile.pity, rng, lucky, profile.favor, luck and Spins.LuckEventWeights or nil) -- counts toward pity, and pays it
+			k, how = Spins.pityRoll(profile.pity, rng, lucky, profile.favor, luckWeights) -- counts toward pity, and pays it
 		else
 			k = Spins.rollItem(banner, rng, lucky and Spins.LuckyWeights or nil)
 		end
