@@ -370,6 +370,9 @@ local function sanitizeProfile(data)
 	if type(data.boosts) == "table" and tonumber(data.boosts.VP) then
 		out.boosts.VP = math.max(0, math.floor(tonumber(data.boosts.VP)))
 	end
+	if type(data.boosts) == "table" and tonumber(data.boosts.Luck) then
+		out.boosts.Luck = math.max(0, math.floor(tonumber(data.boosts.Luck)))
+	end
 	return out
 end
 
@@ -808,6 +811,7 @@ function ProfileService.snapshot(plr)
 		favor = profile.favor, -- boosted ("up") and lowered ("down") characters
 		favorited = profile.favorited == true or RunService:IsStudio(), -- codes and daily rewards need it
 		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP
+		boostLuck = math.max(0, (profile.boosts.Luck or 0) - os.time()), -- and on their 2x Luck
 		group = groupId(),
 		member = groupMember[plr], -- nil until it's known
 		daily = (function()
@@ -1308,8 +1312,10 @@ local function spinOnce(plr, profile, banner, count, lucky)
 	dirty[plr] = true
 	local rng = Random.new()
 	local items, refund = {}, 0
-	-- the admin panel's 2x Luck: usual recruits on the Characters banner are likelier to be A- and up
-	local luck = not lucky and banner == "Char" and reg.AdminService and reg.AdminService.multiplier("Luck") > 1
+	-- 2x Luck (the admin panel's event, or your own boost): usual recruits on the Characters banner
+	-- are likelier to be A- and up
+	local luckOn = (reg.AdminService and reg.AdminService.multiplier("Luck") > 1) or Economy.boost(profile, "Luck", os.time()) > 1
+	local luck = not lucky and banner == "Char" and luckOn
 	for i = 1, count do
 		local k, how = nil, nil
 		if banner == "Char" then
@@ -1398,13 +1404,14 @@ end
 -- A pack's grant added to a profile (VP, Gold, lucky spins, a boost's time). Returns what it was
 -- before, for `unapplyPack`.
 local function applyPack(profile, g)
-	local before = { vp = profile.vp, gold = profile.gold, lucky = profile.lucky, boostVP = profile.boosts.VP }
+	local before = { vp = profile.vp, gold = profile.gold, lucky = profile.lucky, boostVP = profile.boosts.VP, boostLuck = profile.boosts.Luck }
 	Economy.apply(profile, g, os.time())
 	return before
 end
 
 local function unapplyPack(profile, before)
 	profile.vp, profile.gold, profile.lucky, profile.boosts.VP = before.vp, before.gold, before.lucky, before.boostVP
+	profile.boosts.Luck = before.boostLuck
 end
 
 -- What a player spent in Robux, for the leaderboards (gift: it was a gift).

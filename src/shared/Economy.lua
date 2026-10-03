@@ -41,7 +41,7 @@ function Economy.cleanGrant(g)
 	local function amount(v, max)
 		return math.max(0, math.min(whole(v), max))
 	end
-	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), Chars = {}, Cards = {} }
+	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {} }
 	-- player cards that are given, never earned (the Content Creator card)
 	if type(g.Cards) == "table" then
 		local seen = {}
@@ -69,7 +69,7 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0
 end
 
 -- A boost timer (unix end) after adding `seconds` at `now`: from now if it had run out, on top
@@ -98,6 +98,10 @@ function Economy.apply(profile, g, now)
 	if g.BoostVP > 0 then
 		profile.boosts = type(profile.boosts) == "table" and profile.boosts or {}
 		profile.boosts.VP = Economy.extendBoost(profile.boosts.VP, g.BoostVP, now or 0)
+	end
+	if (g.BoostLuck or 0) > 0 then
+		profile.boosts = type(profile.boosts) == "table" and profile.boosts or {}
+		profile.boosts.Luck = Economy.extendBoost(profile.boosts.Luck, g.BoostLuck, now or 0)
 	end
 	profile.owned = profile.owned or {}
 	profile.owned.Char = profile.owned.Char or {}
@@ -130,6 +134,9 @@ function Economy.describe(g, chars)
 	end
 	if g.BoostVP > 0 then
 		table.insert(parts, string.format("%dx VP for %s", Config.Boosts.Multiplier, Economy.duration(g.BoostVP)))
+	end
+	if (g.BoostLuck or 0) > 0 then
+		table.insert(parts, string.format("%dx Luck for %s", Config.Boosts.Multiplier, Economy.duration(g.BoostLuck)))
 	end
 	for _, id in ipairs(chars or g.Chars) do
 		local c = Roster.get(id)
@@ -275,6 +282,7 @@ local PACK_LISTS = {
 	{ kind = "Gold", list = Config.Shop.GoldPacks },
 	{ kind = "Lucky", list = Config.Lucky.Packs },
 	{ kind = "Boost", list = Config.Boosts.Packs },
+	{ kind = "LuckBoost", list = Config.Boosts.LuckPacks },
 }
 
 -- A pack by its kind ("VP", "Gold", "Lucky") and index: { kind, index, pack, id }.
@@ -303,7 +311,7 @@ end
 -- What a pack gives.
 function Economy.packGrant(entry)
 	local p = entry.pack
-	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky, BoostVP = p.BoostVP })
+	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky, BoostVP = p.BoostVP, BoostLuck = p.BoostLuck })
 end
 
 return Economy

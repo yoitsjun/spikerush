@@ -69,7 +69,7 @@ local Extra = {}
 Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns count from then)
 Extra.shopTab = "Currency" -- the Shop's tab: "Currency" (VP and Gold) or "Lucky" (lucky spins and boosts)
 Extra.Cards = require(Shared.Cards) -- player cards (the Locker's Cards tab)
-local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {} } -- product prices in Robux, looked up once per pack
+local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {} } -- product prices in Robux, looked up once per pack
 
 local TIPS = {
 	"Hold toward the net as you let go of a jump-serve toss to throw it forward, then run into it.",
@@ -187,7 +187,9 @@ end
 -- The rarity weights a usual recruit on `kind` uses right now (2x Luck's on Characters, while it
 -- runs; nil: the usual ones).
 function Extra.recruitWeights(kind)
-	if kind == "Char" and Extra.eventLeft("Luck") > 0 then
+	local prof = profile()
+	local mine = (prof.boostLuck or 0) - (os.clock() - (Extra.profileAt or 0)) > 0
+	if kind == "Char" and (Extra.eventLeft("Luck") > 0 or mine) then
 		return Spins.LuckEventWeights
 	end
 	return nil
@@ -641,6 +643,9 @@ local function buildHome()
 	-- your own 2x VP boost (Config.Boosts), in the Shop's signal yellow
 	local boostPlate = Gui.plate(chips, { Size = UDim2.fromOffset(260, 38), LayoutOrder = 9, Visible = false }, Gui.SIGNAL)
 	local boostChip = { plate = boostPlate, label = Gui.label(boostPlate, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 21, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 }) }
+	-- and your own 2x Luck
+	local luckPlate = Gui.plate(chips, { Size = UDim2.fromOffset(260, 38), LayoutOrder = 10, Visible = false }, Color3.fromRGB(190, 110, 255))
+	Extra.luckChip = { plate = luckPlate, label = Gui.label(luckPlate, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 21, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 }) }
 
 	-- the left column under the profile (placeHome moves the two together)
 	local column = make("Frame", { Name = "Column", Size = UDim2.fromOffset(470, 546), Position = UDim2.fromOffset(M, 24 + PROFILE_H + 20), BackgroundTransparency = 1 }, p)
@@ -814,6 +819,11 @@ function Extra.refreshHome(prof)
 	hm.boostChip.plate.Visible = boostLeft > 0
 	if boostLeft > 0 then
 		hm.boostChip.label.Text = string.format("Your %dx VP  %s", Config.Boosts.Multiplier, Extra.clockText(boostLeft))
+	end
+	local luckLeft = (prof.boostLuck or 0) - (os.clock() - Extra.profileAt)
+	Extra.luckChip.plate.Visible = luckLeft > 0
+	if luckLeft > 0 then
+		Extra.luckChip.label.Text = string.format("Your %dx Luck  %s", Config.Boosts.Multiplier, Extra.clockText(luckLeft))
 	end
 	local d = prof.daily
 	hm.dailyDot.Visible = d ~= nil and (d.ready == true or (d.opensIn or 0) - (os.clock() - Extra.profileAt) <= 0)
@@ -3315,8 +3325,8 @@ end
 -- Shop: V Point and Gold packs for Robux, and a big way into Recruit
 ------------------------------------------------------------------------------------------
 
--- the Shop's rows, two to a tab, each pack a Developer Product: V Points and Gold (Config.Shop),
--- then lucky spins (Config.Lucky) and 2x VP boosts (Config.Boosts). `amount` is what a card shows.
+-- the Shop's rows, each pack a Developer Product: V Points and Gold (Config.Shop), lucky spins
+-- (Config.Lucky), then the boosts: 2x VP and 2x Luck (Config.Boosts). `amount` is what a card shows.
 local SHOP_ROWS = {
 	{ key = "VP", tab = "Currency", title = "V Points", note = "Recruit players and looks", icon = Gui.icon.vp },
 	{ key = "Gold", tab = "Currency", title = "Gold", note = "Upgrade your players' stats", icon = Gui.icon.gold },
@@ -3325,17 +3335,27 @@ local SHOP_ROWS = {
 	end, amount = function(pack)
 		return "x" .. pack.Lucky
 	end },
-	{ key = "Boost", tab = "Lucky", title = "2x V Points", note = "Every match pays double VP while it runs", icon = Gui.icon.vp, amount = function(pack)
-		local m = math.floor(pack.BoostVP / 60 + 0.5)
-		if m < 60 then
-			return m .. " min"
-		end
-		return (m % 60 == 0 and tostring(m / 60) or string.format("%.1f", m / 60)) .. " hr"
+	{ key = "Boost", tab = "Boosts", title = "2x V Points", note = "Every match pays double VP while it runs", icon = Gui.icon.vp, amount = function(pack)
+		return Extra.boostLength(pack.BoostVP)
+	end },
+	{ key = "LuckBoost", tab = "Boosts", title = "2x Luck", note = "Your recruits: A- and up twice as likely", icon = function(parent, size)
+		return Gui.sparkle(parent, size, Color3.fromRGB(190, 110, 255))
+	end, amount = function(pack)
+		return Extra.boostLength(pack.BoostLuck)
 	end },
 }
 
+-- 900 -> "15 min", 3600 -> "1 hr", 5400 -> "1.5 hr"
+function Extra.boostLength(seconds)
+	local m = math.floor((seconds or 0) / 60 + 0.5)
+	if m < 60 then
+		return m .. " min"
+	end
+	return (m % 60 == 0 and tostring(m / 60) or string.format("%.1f", m / 60)) .. " hr"
+end
+
 local function shopPacks(key)
-	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs }
+	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs, LuckBoost = Config.Boosts.LuckPacks }
 	return lists[key] or {}
 end
 
@@ -3343,18 +3363,18 @@ local function buildShop()
 	local p = page("shop")
 	mainChrome(p, "shop")
 	-- two tabs (the owner added lucky spins and 2x VP boosts to sell), two rows each
-	local _, setTab = segmented(p, { { key = "Currency", text = "V Points & Gold" }, { key = "Lucky", text = "Lucky spins & boosts" } }, { Name = "ShopTabs", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(520, 46) }, function(key)
+	local _, setTab = segmented(p, { { key = "Currency", text = "V Points & Gold" }, { key = "Lucky", text = "Lucky spins" }, { key = "Boosts", text = "Boosts" } }, { Name = "ShopTabs", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(640, 46) }, function(key)
 		Extra.shopTab = key
 		MenuController.refresh()
 	end)
 	local packs = make("Frame", { Name = "Packs", Position = UDim2.fromOffset(M, 210), Size = UDim2.fromOffset(4 * 200 + 3 * 14, 560), BackgroundTransparency = 1 }, p)
 	local tabs = {}
-	for _, key in ipairs({ "Currency", "Lucky" }) do
+	for _, key in ipairs({ "Currency", "Lucky", "Boosts" }) do
 		tabs[key] = make("Frame", { Name = key, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, packs)
 	end
-	local prices = { VP = {}, Gold = {}, Lucky = {}, Boost = {} }
+	local prices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {} }
 	local notes = {}
-	local rowsIn = { Currency = 0, Lucky = 0 }
+	local rowsIn = { Currency = 0, Lucky = 0, Boosts = 0 }
 	for _, row in ipairs(SHOP_ROWS) do
 		rowsIn[row.tab] = rowsIn[row.tab] + 1
 		local y = (rowsIn[row.tab] - 1) * 284
@@ -3557,6 +3577,8 @@ local function refreshShop(prof)
 	-- the boost row says how long yours has left
 	local boostLeft = (prof.boostVP or 0) - (os.clock() - Extra.profileAt)
 	ui.shop.notes.Boost.Text = boostLeft > 0 and string.format("Yours: %s left (more adds on top)", Extra.clockText(boostLeft)) or SHOP_ROWS[4].note
+	local luckLeft = (prof.boostLuck or 0) - (os.clock() - Extra.profileAt)
+	ui.shop.notes.LuckBoost.Text = luckLeft > 0 and string.format("Yours: %s left (more adds on top)", Extra.clockText(luckLeft)) or SHOP_ROWS[5].note
 	for key, labels in pairs(ui.shop.prices) do
 		for i, pack in ipairs(shopPacks(key)) do
 			local label = labels[i]

@@ -621,6 +621,16 @@ Config.Boosts = {
 		{ Id = 3715530800, BoostVP = 60 * 60, Name = "2x VP, 1 hour" }, -- 129
 		{ Id = 3715530842, BoostVP = 3 * 3600, Name = "2x VP, 3 hours" }, -- 299
 	},
+	-- 2x Luck for yourself (the owner asked for "the 2x luck developer products"): for its time your
+	-- usual recruits on the Characters banner use the admin event's odds (Config.Spins.LuckEvent:
+	-- A- and up twice as likely); with the event on too it's the same, not more. Id 0 until the
+	-- product exists (free in Studio); suggested names and prices on each line.
+	LuckPacks = {
+		{ Id = 0, BoostLuck = 15 * 60, Name = "2x Luck, 15 minutes" }, -- suggested "2x Luck, 15 Minutes", 79 Robux
+		{ Id = 0, BoostLuck = 30 * 60, Name = "2x Luck, 30 minutes" }, -- "2x Luck, 30 Minutes", 129
+		{ Id = 0, BoostLuck = 60 * 60, Name = "2x Luck, 1 hour" }, -- "2x Luck, 1 Hour", 199
+		{ Id = 0, BoostLuck = 3 * 3600, Name = "2x Luck, 3 hours" }, -- "2x Luck, 3 Hours", 449
+	},
 }
 
 -- Codes (the owner: "add a codes system... first code should be release, you decide the value

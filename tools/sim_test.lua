@@ -1681,6 +1681,19 @@ do
 			base.Common * 100, luck.Common * 100, base.Epic * 100, luck.Epic * 100, base.Legendary * 100, luck.Legendary * 100, base.Mythic * 100, luck.Mythic * 100))
 end
 
+print("== 2x luck boosts ==")
+do
+	local Economy = require("Economy")
+	local entry = Economy.pack("LuckBoost", 2)
+	local g = Economy.packGrant(entry)
+	local prof = { boosts = {} }
+	Economy.apply(prof, g, 1000)
+	local again = Economy.cleanGrant({ BoostLuck = 15 * 60 })
+	Economy.apply(prof, again, 1000)
+	check(entry and #Config.Boosts.LuckPacks == 4 and g.BoostLuck == 30 * 60 and prof.boosts.Luck == 1000 + 45 * 60 and Economy.boost(prof, "Luck", 1000 + 60) == 2 and Economy.boost(prof, "Luck", 1000 + 46 * 60) == 1 and not Economy.isEmpty(again) and Economy.describe(again) == "2x Luck for 15 minutes",
+		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
+end
+
 print("== one swing a jump ==")
 do
 	local yj = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))
