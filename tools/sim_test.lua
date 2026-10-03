@@ -1663,7 +1663,7 @@ do
 	local Economy = require("Economy")
 	local g1 = Economy.code(" Update1 ")
 	local g0 = Economy.code("RELEASE")
-	check(g1 and g1.VP == 250 and g1.Gold == 5000 and g1.Lucky == 1 and g0 and g0.VP == 500 and Economy.code("update 1") ~= nil,
+	check(g1 and g1.VP == 350 and g1.Gold == 6000 and g1.Lucky == 3 and g0 and g0.VP == 500 and Economy.code("update 1") ~= nil,
 		"the codes RELEASE and UPDATE1 work in any case, spaces ignored")
 end
 
