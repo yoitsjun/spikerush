@@ -3,7 +3,7 @@
 --
 --   Move ............ Left/Right or A/D
 --   Spike ........... Space, Z, J or left click (ground: run-up jump, or with the double approach
---                                            the run-up then the jump / air: spike; Azure Dragon:
+--                                            a squeak then the jump / air: spike; Azure Dragon:
 --                                            hold in the air to charge, release to swing)
 --   Receive ......... Down, S, K or right click (press a little early; the stance stays armed)
 --   Slide / feint ... C, Shift or L         (ground: slide receive / air: roll shot)
@@ -107,7 +107,7 @@ end
 function InputController.init(m)
 	mods = m
 	-- Space is Spike too. It's taken above Roblox's own jump (sunk at a higher priority), so a
-	-- press never also hops: on the ground it's the run-up jump (twice with the double approach)
+	-- press never also hops: on the ground it's the run-up jump (pressed twice with the double approach)
 	ContextActionService:BindActionAtPriority("SpikeRushSpace", function(_, inputState)
 		if inputState == Enum.UserInputState.Begin then
 			lastDevice = "Keyboard"

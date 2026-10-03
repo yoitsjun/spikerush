@@ -78,11 +78,12 @@ Config.Player = {
 	ApproachGather = 0.1, -- crouch before an approach jump
 	ApproachDash = 2.2, -- run-up speed (x walk speed x Approach) during the gather
 	ApproachBoost = 18, -- takeoff speed along the court for a run-up jump (x Approach)
-	-- Double approach (a setting, as in The Spike Cross): the first press starts a run-up, steered
-	-- with the stick, and the second plants and takes off; a run-up with no second press takes
-	-- off by itself after ApproachRunMax
-	ApproachRun = 1.25, -- run-up speed (x walk speed x Approach) between the two presses
-	ApproachRunMax = 0.9,
+	-- Double approach (a setting): the first press squeaks on the floor and readies the jump (you
+	-- don't move; the stick walks as usual), the second takes off as one press would without the
+	-- setting (the owner: "double approach shouldn't make you move, only you have to hit jump twice
+	-- in order to actually jump, and it should play a floor squeak audio"). With no second press
+	-- inside ApproachArmTime it's let go.
+	ApproachArmTime = 1.0,
 	AirControl = 0.55, -- air drift speed as a fraction of walk speed
 	SlideSpeed = 50,
 	SlideTime = 0.42,

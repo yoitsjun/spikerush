@@ -1,7 +1,7 @@
 -- ActionController: turns button presses into volleyball touches (The Spike's control scheme).
 --
---   Spike ........ ground: run-up jump (with the double approach setting: the first press runs
---                  in, the second jumps) / air: spike. Azure Dragon: hold in the air to gather
+--   Spike ........ ground: run-up jump (with the double approach setting: the first press squeaks
+--                  and readies it, the second jumps) / air: spike. Azure Dragon: hold in the air to gather
 --                  energy (hover), release to swing. Holding past full overcharges it. Feral
 --                  Leap: hold on the ground to charge (he runs faster), let go to leap; the
 --                  charge carries him along the court and powers the spike (or the jump serve:
@@ -711,11 +711,7 @@ local function pressSpike(info)
 		if State.isPlaying and State.phase() == "Rally" and isFeral() and startProwl("Spike") then
 			return
 		end
-		if not (State.isPlaying and State.phase() == "Rally") and State.settings.doubleApproach then
-			MC.jump("Spike") -- the double approach's run-up only runs in a rally
-		else
-			MC.approach("Spike")
-		end
+		MC.approach("Spike")
 		return
 	end
 	if not State.isPlaying or State.phase() ~= "Rally" then
@@ -1309,8 +1305,8 @@ end
 -- context for the HUD / mobile buttons
 ------------------------------------------------------------------------------------------
 
--- What Spike does on the ground: a run-up jump, or with the double approach first the run-up,
--- then the jump.
+-- What Spike does on the ground: a run-up jump, or with the double approach first the squeak
+-- that readies it, then the jump.
 local function groundSpikeLabel()
 	if prowl then
 		return "Leap" -- Feral Leap's charge: let go to leap

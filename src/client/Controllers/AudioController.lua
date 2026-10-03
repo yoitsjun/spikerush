@@ -520,7 +520,7 @@ function AudioController.init()
 		elseif kind == "Charge" then
 			AudioController.play("AzureCharge", { volume = 0.5 })
 		elseif kind == "Approach" then
-			-- another player's double approach: the squeak where they start their run-up
+			-- another player's double approach: the squeak where they ready it
 			local model = Util.modelOf(entityId)
 			local root = model and model:FindFirstChild("HumanoidRootPart")
 			AudioController.play("Squeak", { pos = root and root.Position or nil })

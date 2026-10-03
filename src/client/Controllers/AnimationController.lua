@@ -148,7 +148,8 @@ local POSE_DEFS = {
 		LeftElbow = { 0, 0, 0 },
 		RightElbow = { 0, 0, 0 },
 	},
-	-- a double approach's run-up: leaning in, both arms swung back; the legs keep the run cycle
+	-- a run-in: leaning in, both arms swung back; the legs keep the run cycle (no longer the double
+	-- approach's: it doesn't move you any more)
 	Approach = {
 		Waist = { -22, 0, 0 },
 		Neck = { 14, 0, 0 },
@@ -1929,8 +1930,6 @@ function AnimationController.init(m)
 			AnimationController.setStance(entityId, "Charge", 2.0)
 		elseif kind == "ChargeEnd" then
 			AnimationController.setStance(entityId, nil)
-		elseif kind == "Approach" then
-			AnimationController.setStance(entityId, "Approach", Config.Player.ApproachRunMax + 0.2)
 		elseif kind == "Prowl" and extra ~= "auto" then
 			AnimationController.setStance(entityId, "Prowl", 10) -- Feral Leap's charge, until the leap
 		elseif (kind == "Leap" or kind == "ProwlEnd") and extra ~= "auto" then

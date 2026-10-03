@@ -1,7 +1,7 @@
 -- Local character movement for the side view, on top of the Humanoid:
 --  * lane lock: you only ever move along the court (left/right on screen)
 --  * run-up jump: a short dash (longer with a higher Jump stat) then takeoff, with a boom; with
---    the double approach setting the first press runs in and the second takes off
+--    the double approach setting the first press squeaks and readies it, the second takes off
 --  * block jump: hold to charge a higher jump
 --  * slide: a receive dive along the court
 --  * air control: drift in the air to line up with the ball (that sets your spike angle)
@@ -31,7 +31,7 @@ local controls = nil
 local slide = nil
 local lastSlideAt = -10
 local gather = nil
-local run = nil -- the double approach's run-up: { t0, dir, kind }
+local run = nil -- the double approach, readied by its first press: { t0, kind }
 local charging = false
 local padAxis = 0
 local facing = 1
@@ -124,7 +124,7 @@ function MovementController.isGathering()
 	return gather ~= nil
 end
 
--- In a double approach's run-up (the next Spike press takes off).
+-- A double approach readied (the next Spike press takes off).
 function MovementController.isRunning()
 	return run ~= nil
 end
@@ -213,16 +213,17 @@ local function heldDir()
 	return dir > 0 and 1 or -1
 end
 
--- The end of a run-up (the second press, or ApproachRunMax): it plants into the usual gather.
+-- A readied double approach's second press: the usual gather and takeoff (a dash the way you
+-- hold, or straight up).
 local function plant()
-	gather = { t0 = os.clock(), dir = run.dir, kind = run.kind }
+	gather = { t0 = os.clock(), dir = heldDir(), kind = run.kind }
 	run = nil
 	mods.AnimationController.pose(State.myId, "Gather")
 end
 
 -- Run-up jump: dash in the held direction (or jump in place), then take off. With the double
--- approach setting the first press starts a run-up instead (a floor squeak; the stick steers it)
--- and the second press plants and takes off.
+-- approach setting the first press only readies it, with a floor squeak (you don't move), and the
+-- second takes off.
 function MovementController.approach(kind)
 	if run then
 		plant()
@@ -232,16 +233,9 @@ function MovementController.approach(kind)
 		return false
 	end
 	if State.settings.doubleApproach then
-		-- the run-up goes the way you hold, or at the net when you hold nothing (a phone player's
-		-- other thumb is on the button)
-		local dir = heldDir()
-		if dir == 0 and State.isPlaying then
-			dir = -State.mySide
-		end
-		run = { t0 = os.clock(), dir = dir, kind = kind or "Spike" }
-		mods.AnimationController.pose(State.myId, "Approach", P.ApproachRunMax + 0.2)
+		run = { t0 = os.clock(), kind = kind or "Spike" }
 		mods.AudioController.play("Squeak", { pos = hrp.Position })
-		Net.get("ActionFX"):FireServer("Approach")
+		Net.get("ActionFX"):FireServer("Approach") -- the others hear the squeak
 		return true
 	end
 	gather = { t0 = os.clock(), dir = heldDir(), kind = kind or "Spike" }
@@ -459,30 +453,8 @@ local function moveStep()
 		queued = nil
 	end
 
-	if run then
-		local phase = State.phase()
-		if airborne or not State.isPlaying or (phase ~= "Rally" and phase ~= "Serving") then
-			-- off the floor some other way, or the rally ended: no takeoff
-			run = nil
-			mods.AnimationController.clearStance(State.myId)
-		elseif now - run.t0 >= P.ApproachRunMax then
-			plant()
-		else
-			-- the stick steers the run-up; let go and it keeps going the way it was
-			local dir = heldDir()
-			if dir ~= 0 then
-				run.dir = dir
-			end
-			if run.dir ~= 0 then
-				hum.WalkSpeed = baseWalk() * P.ApproachRun * stats.Approach
-				hum:Move(Vector3.new(0, 0, run.dir), false)
-				face(run.dir)
-			else
-				hum:Move(Vector3.zero, false)
-				face(-State.mySide)
-			end
-			return
-		end
+	if run and (airborne or now - run.t0 >= P.ApproachArmTime) then
+		run = nil -- a readied double approach that wasn't taken (or off the floor some other way)
 	end
 
 	if gather then

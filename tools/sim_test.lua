@@ -1340,19 +1340,10 @@ do
 		"saved settings keep only known keys and sane values (no NaN; places and sizes clamped and rounded)")
 	check(next(Settings.clean(nil)) == nil and next(Settings.clean({ touchLayout = {} }).touchLayout) == nil and Settings.clean({ touchLayout = 5 }).touchLayout == nil,
 		"no settings, an empty layout (every button in its usual place) and junk all clean safely")
-	-- the run-up between the two presses, for every character fresh and maxed
-	local minMul, shortest, longest = math.huge, math.huge, 0
-	for _, c in ipairs(Roster) do
-		for _, lv in ipairs({ "max", false }) do
-			local s = Characters.derive(Characters.fromRoster(c, lv or nil))
-			minMul = math.min(minMul, P.ApproachRun * s.Approach)
-			local run = s.WalkSpeed * P.ApproachRun * s.Approach * P.ApproachRunMax / SPM
-			shortest = math.min(shortest, run)
-			longest = math.max(longest, run)
-		end
-	end
-	check(minMul > 1 and shortest >= 3 and longest <= 9,
-		"double approach: the run-up is faster than walking for everyone, and a full one covers 3 to 9 m", string.format("x%.2f walk at least; %.1f to %.1f m in %.1f s", minMul, shortest, longest, P.ApproachRunMax))
+	-- double approach: no run-up any more (the owner: "shouldn't make you move"); the first press
+	-- readies the jump and the second has a moment to come
+	check(P.ApproachRun == nil and P.ApproachRunMax == nil and P.ApproachArmTime >= 0.5 and P.ApproachArmTime <= 2,
+		"double approach: no run-up; the second press has a moment to come", string.format("%.1f s", P.ApproachArmTime))
 end
 
 print("== matchup intro and showcase ==")
