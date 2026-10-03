@@ -628,10 +628,10 @@ Config.Boosts = {
 	-- up twice as likely), and with the admin panel's 2x Luck on too they stack: 4x. Id 0 until the
 	-- product exists (free in Studio); suggested names and prices on each line.
 	LuckPacks = {
-		{ Id = 0, BoostLuck = 15 * 60, Name = "2x Luck, 15 minutes" }, -- suggested "2x Luck, 15 Minutes", 79 Robux
-		{ Id = 0, BoostLuck = 30 * 60, Name = "2x Luck, 30 minutes" }, -- "2x Luck, 30 Minutes", 129
-		{ Id = 0, BoostLuck = 60 * 60, Name = "2x Luck, 1 hour" }, -- "2x Luck, 1 Hour", 199
-		{ Id = 0, BoostLuck = 3 * 3600, Name = "2x Luck, 3 hours" }, -- "2x Luck, 3 Hours", 449
+		{ Id = 3716309041, BoostLuck = 15 * 60, Name = "2x Luck, 15 minutes" }, -- 79 Robux
+		{ Id = 3716309076, BoostLuck = 30 * 60, Name = "2x Luck, 30 minutes" }, -- 129
+		{ Id = 3716309109, BoostLuck = 60 * 60, Name = "2x Luck, 1 hour" }, -- 199
+		{ Id = 3716309176, BoostLuck = 3 * 3600, Name = "2x Luck, 3 hours" }, -- 449
 	},
 }
 
