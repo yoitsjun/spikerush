@@ -629,6 +629,9 @@ Config.Boosts = {
 -- stops working (none: it never does). Keys are the code in lower case, letters and digits only.
 Config.Codes = {
 	release = { VP = 500, Gold = 5000, Lucky = 1 },
+	-- the owner: "new code Update1 you decide the rewards": for the update with the new characters,
+	-- pity and player cards: 20 recruits' worth of VP, Gold for upgrades, and 3 lucky spins
+	update1 = { VP = 1000, Gold = 10000, Lucky = 3 },
 }
 
 -- Daily rewards (the owner: "daily rewards for group members only"): members of the group that

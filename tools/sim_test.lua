@@ -1658,6 +1658,15 @@ do
 	check(worst > 0 and PRc.BotTier == "D", "practice bots are D tier, and the block drill's spike is reachable by every character, fresh", string.format("least room %.2f studs (%s)", worst, worstName))
 end
 
+print("== codes ==")
+do
+	local Economy = require("Economy")
+	local g1 = Economy.code(" Update1 ")
+	local g0 = Economy.code("RELEASE")
+	check(g1 and g1.VP == 1000 and g1.Gold == 10000 and g1.Lucky == 3 and g0 and g0.VP == 500 and Economy.code("update 1") ~= nil,
+		"the codes RELEASE and UPDATE1 work in any case, spaces ignored")
+end
+
 print("== 2x luck ==")
 local Economy = require("Economy")
 do
