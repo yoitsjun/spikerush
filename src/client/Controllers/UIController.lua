@@ -1386,7 +1386,9 @@ local function updateCoach()
 	c.body.Size = UDim2.new(1, -24, 0, 60)
 	c.head.Text = pr.tutorial and string.format("TUTORIAL  %d / %d", pr.index or 1, pr.total or #Tutorial.Drills) or "PRACTICE"
 	c.title.Text = d.title
-	local how = d.key
+	local how = Tutorial.fill(d.key, function(action)
+		return mods.InputController.keysText(action, " or ")
+	end)
 	if State.isMobile then
 		how = d.touch
 	elseif mods.InputController.lastDevice() == "Gamepad" then

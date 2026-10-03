@@ -697,7 +697,7 @@ local function buildHome()
 	local tutGoLabel = Gui.label(tutGo, { Text = "Start tutorial", display = true, TextSize = 18, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
 	local tutProgress = Gui.label(tut, { Text = "", display = true, TextSize = 16, TextColor3 = Gui.SIGNAL_HOT, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 76), Size = UDim2.fromOffset(160, 24) })
 	onClick(tutGo, function()
-		Net.get("Lobby"):FireServer("tutorial")
+		Extra.openHowTo(Extra.mustTutorial())
 	end)
 
 	-- tip, bottom left: plain text over the room
@@ -1353,6 +1353,113 @@ function MenuController.openPityPick()
 		Extra.refreshPityPick(profile())
 		ui.pityPick.modal.root.Visible = true
 	end
+end
+
+-- How to play (the owner: "introduce all the controls in the tutorial, and also let them know
+-- they can change them at any time in the settings... force new players in to the tutorial"):
+-- every control on this device (a keyboard's with your own keys), and Start the tutorial. It
+-- opens before every tutorial; a new player (no tutorial finished, no match played, not a
+-- developer) gets it by itself and can't close it, and the match modes send them to it.
+function Extra.mustTutorial(prof)
+	prof = prof or profile()
+	return prof.tutorial ~= nil and prof.tutorial.done ~= true and not prof.dev and ((prof.record and prof.record.matches) or 0) == 0
+end
+
+function Extra.buildHowTo()
+	local m = modal("HowTo", "How to play", 960, 660, true)
+	local sub = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL, TextWrapped = true, Size = UDim2.new(1, -56, 0, 22), Position = UDim2.fromOffset(28, 84), ZIndex = 21 })
+	local rows = {}
+	for i = 1, 14 do
+		local col = (i - 1) % 2
+		local line = math.floor((i - 1) / 2)
+		local r = make("Frame", { Position = UDim2.fromOffset(28 + col * 458, 120 + line * 58), Size = UDim2.fromOffset(446, 52), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, Visible = false, ZIndex = 21 }, m.panel)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
+		local name = Gui.label(r, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 19, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(12, 4), Size = UDim2.new(0.48, -12, 0, 24), ZIndex = 22 })
+		local keys = Gui.label(r, { Text = "", display = true, TextSize = 17, TextColor3 = Gui.SIGNAL, TextXAlignment = Enum.TextXAlignment.Right, TextTruncate = Enum.TextTruncate.AtEnd, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 4), Size = UDim2.new(0.52, -12, 0, 24), ZIndex = 22 })
+		local help = Gui.label(r, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(12, 28), Size = UDim2.new(1, -24, 0, 18), ZIndex = 22 })
+		rows[i] = { frame = r, name = name, keys = keys, help = help }
+	end
+	local note = Gui.label(m.panel, { Text = "", TextSize = 16, TextWrapped = true, Position = UDim2.fromOffset(28, 534), Size = UDim2.new(1, -330, 0, 44), ZIndex = 21 })
+	local go = actionPlate(m.panel, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -28, 1, -24), Size = UDim2.fromOffset(270, 56) }, "Start the tutorial", 22)
+	onClick(go, function()
+		Extra.howToLocked = false
+		m.hide()
+		sendLobby("tutorial")
+	end)
+	local edit = hairButton(m.panel, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -314, 1, -30), Size = UDim2.fromOffset(170, 44) }, "Change keys", 18)
+	onClick(edit, function()
+		if mods.UIController.openControls then
+			mods.UIController.openControls()
+		end
+	end)
+	-- a new player can't close it (the shade or Close just open it again)
+	m.root:GetPropertyChangedSignal("Visible"):Connect(function()
+		if not m.root.Visible and Extra.howToLocked then
+			task.defer(function()
+				if Extra.howToLocked and shown then
+					m.root.Visible = true
+				end
+			end)
+		end
+	end)
+	ui.howTo = { modal = m, sub = sub, rows = rows, note = note, edit = edit }
+end
+
+function Extra.refreshHowTo()
+	local HT = ui.howTo
+	local list = {}
+	local CT = Config.Controls
+	if State.isMobile then
+		for _, e in ipairs(CT.Touch) do
+			table.insert(list, { e[1], "", e[2] })
+		end
+		HT.note.Text = "Move and resize your buttons any time: Settings > Touch controls."
+		HT.edit.Visible = false
+	elseif mods.InputController.lastDevice() == "Gamepad" then
+		for _, e in ipairs(CT.Pad) do
+			table.insert(list, { e[1], e[2], "" })
+		end
+		HT.note.Text = "On a keyboard you can change any key in Settings > Controls, any time."
+		HT.edit.Visible = false
+	else
+		for _, action in ipairs(CT.Order) do
+			if action ~= "MoveRight" then
+				local name = action == "MoveLeft" and "Move" or CT.Names[action]
+				local keys = mods.InputController.keysText(action, " / ")
+				if action == "MoveLeft" then
+					keys = keys .. "  |  " .. mods.InputController.keysText("MoveRight", " / ")
+				elseif action == "Spike" then
+					keys = keys .. " / Left click"
+				elseif action == "Receive" then
+					keys = keys .. " / Right click"
+				end
+				table.insert(list, { name, keys, CT.Help[action] or "" })
+			end
+		end
+		table.insert(list, { "Teammates' abilities", "1 / 2", "Your AI teammates' active abilities" })
+		HT.note.Text = "Change any key in Settings > Controls, any time."
+		HT.edit.Visible = true
+	end
+	for i, r in ipairs(HT.rows) do
+		local e = list[i]
+		r.frame.Visible = e ~= nil
+		if e then
+			r.name.Text = e[1]
+			r.keys.Text = e[2]
+			r.help.Text = e[3]
+		end
+	end
+	HT.sub.Text = Extra.mustTutorial() and "Welcome to Spike Rush! Here are the controls; the tutorial teaches them one at a time (a couple of minutes, with a reward)." or "The controls; the tutorial teaches them one at a time."
+end
+
+-- forced: a new player's (no closing it).
+function Extra.openHowTo(forced)
+	if not ui.howTo then
+		return
+	end
+	Extra.howToLocked = forced == true
+	Extra.refreshHowTo()
+	ui.howTo.modal.root.Visible = true
 end
 
 local function buildTable()
@@ -4024,6 +4131,11 @@ local function pickMatchCard(c)
 	if mine and (mine.tutorial or mine.practice) then
 		mine = nil
 	end
+	if c.key ~= "Practice" and Extra.mustTutorial() then
+		toast("Play the tutorial first: it's quick, and it pays.")
+		Extra.openHowTo(true)
+		return
+	end
 	if c.key == "Practice" then
 		MenuController.go("practice")
 	elseif c.mode then
@@ -4238,7 +4350,9 @@ local function drillHow(d)
 	elseif mods and mods.InputController and mods.InputController.lastDevice() == "Gamepad" then
 		return d.pad
 	end
-	return d.key
+	return Tutorial.fill(d.key, function(action)
+		return mods and mods.InputController and mods.InputController.keysText(action, " or ") or action
+	end)
 end
 
 local function buildPractice()
@@ -4268,7 +4382,7 @@ local function buildPractice()
 	local tutLine = Gui.label(tut, { Text = "", TextSize = 18, TextColor3 = Gui.DIM, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(24, 66), Size = UDim2.new(1, -340, 0, 60) })
 	local tutGo, tutGoLabel = actionPlate(tut, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -22, 0.5, 0), Size = UDim2.fromOffset(280, 58) }, "Start tutorial", 24)
 	onClick(tutGo, function()
-		sendLobby("tutorial")
+		Extra.openHowTo(Extra.mustTutorial())
 	end)
 	ui.practice = { cards = cards, tutLine = tutLine, tutGoLabel = tutGoLabel }
 end
@@ -5069,6 +5183,12 @@ local function doRefresh()
 	if ui.admin.modal.root.Visible then
 		Extra.refreshAdmin()
 	end
+	if shown and not Extra.howToShown and Extra.mustTutorial(prof) then
+		Extra.howToShown = true
+		Extra.openHowTo(true)
+	elseif Extra.howToLocked and not Extra.mustTutorial(prof) then
+		Extra.howToLocked = false -- the tutorial's done (or a match played): free to close
+	end
 	if ui.odds and ui.odds.kind and ui.odds.modal.root.Visible then
 		MenuController.openTable(ui.odds.kind, ui.odds.lucky) -- Boost and Lower change the odds
 	end
@@ -5199,6 +5319,7 @@ function MenuController.init(m)
 	buildHelp()
 	buildTable()
 	Extra.buildPityPick()
+	Extra.buildHowTo()
 	buildMatch()
 	buildMatchScreen()
 	buildSequence()

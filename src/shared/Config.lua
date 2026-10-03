@@ -1157,6 +1157,32 @@ Config.Controls = {
 		"Up", "Down", "Left", "Right", "Return", "Backspace", "CapsLock",
 		"Comma", "Period", "Semicolon", "Quote", "LeftBracket", "RightBracket", "Minus", "Equals", "BackSlash",
 	},
+	-- what each does, for the How to play card (the owner: "introduce all the controls in the
+	-- tutorial, and also let them know they can change them at any time in the settings")
+	Help = {
+		MoveLeft = "Walk along the court",
+		MoveRight = "Walk along the court",
+		Spike = "On the floor a run-up jump; in the air, the spike",
+		Receive = "Press a little before the ball reaches you",
+		SlideFeint = "A diving receive; in the air, a soft roll shot",
+		Block = "Hold at the net, let go to jump",
+		Set = "Toward the net: quick; away: back",
+		Serve = "Tap: overhand; hold: a jump-serve toss",
+		EasyServe = "A slow underhand serve that lands in",
+		Ability = "Your character's active ability",
+		Timeout = "In a match: refills stamina, change who serves",
+	},
+	-- a controller's buttons and the touch buttons, for the same card
+	Pad = {
+		{ "Move", "Left stick" }, { "Jump and spike", "A or R2" }, { "Receive", "B" }, { "Slide and roll shot", "RB" },
+		{ "Block", "Y" }, { "Set", "LB" }, { "Serve", "X" }, { "Easy serve", "D-pad up" }, { "Ability", "L2" }, { "Timeout", "Select" },
+	},
+	Touch = {
+		{ "Move", "The stick, bottom left" }, { "Jump and spike", "Jump: jump, then Jump again in the air to spike" },
+		{ "Receive and block", "Bump: tap it a little early; at the net hold it to block" }, { "Slide and roll shot", "Slide" },
+		{ "Set", "Set" }, { "Serve", "Basic Serve, or hold Spike Serve for a jump serve" }, { "Ability", "Its round button" },
+		{ "Timeout", "The hourglass, top right" },
+	},
 	-- how a key reads on screen (the rest read as their name)
 	Labels = {
 		Space = "Space", LeftShift = "L Shift", RightShift = "R Shift", LeftControl = "L Ctrl", RightControl = "R Ctrl",

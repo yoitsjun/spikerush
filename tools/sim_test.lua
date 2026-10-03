@@ -1674,6 +1674,17 @@ do
 	check(map.G == "Spike" and map.Space == "Block" and map.Z == nil and map.J == nil and map.W == nil and map.Up == nil and map.E == "Set" and map.A == "MoveLeft",
 		"your key replaces that action's defaults and wins over another action's default on it")
 	local spikeKeys, blockKeys = Settings.keysText({ Spike = "G" }, "Spike"), Settings.keysText({}, "Block")
+	local Tut = require("Tutorial")
+	local line = Tut.fill(Tut.drill("block").key, function(action)
+		return Settings.keysText({ Block = "G" }, action, " or ")
+	end)
+	local all = true
+	for _, d in ipairs(Tut.Drills) do
+		all = all and not string.find(Tut.fill(d.key, function(action)
+			return Settings.keysText({}, action, " or ")
+		end), "[{}]")
+	end
+	check(line == "Hold G at the net and let go to jump as they swing." and all, "the tutorial's keyboard lines show your keys", line)
 	check(spikeKeys == "G" and blockKeys == "W / Up" and Settings.keysText({}, "SlideFeint") == "C / L Shift / R Shift / L", "the keys an action is on read as text", spikeKeys .. " | " .. blockKeys)
 end
 

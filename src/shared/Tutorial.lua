@@ -17,7 +17,7 @@ Tutorial.Drills = {
 		goal = 3,
 		inARow = false,
 		blurb = "A setter puts the ball up for you. Spike 3 into their court.",
-		key = "Run up as the set comes (Space, Z or left click), then press it again in the air to hit it.",
+		key = "Run up as the set comes ({Spike} or left click), then press it again in the air to hit it.",
 		pad = "Run up as the set comes (A), then A again in the air to hit it.",
 		touch = "Tap Jump as the set comes, then Spike in the air.",
 	},
@@ -27,7 +27,7 @@ Tutorial.Drills = {
 		goal = 3,
 		inARow = false,
 		blurb = "Their attacker hits from the net. Get your hands on 3 of them.",
-		key = "Hold W at the net and let go to jump as they swing.",
+		key = "Hold {Block} at the net and let go to jump as they swing.",
 		pad = "Hold Y at the net and let go to jump as they swing.",
 		touch = "At the net, hold Bump (it turns into Block) and let go to jump as they swing.",
 	},
@@ -37,7 +37,7 @@ Tutorial.Drills = {
 		goal = 3,
 		inARow = true,
 		blurb = "Land 3 serves in their court in a row.",
-		key = "F for an easy underhand serve, tap X for an overhand, hold X to toss for a jump serve.",
+		key = "{EasyServe} for an easy underhand serve, tap {Serve} for an overhand, hold {Serve} to toss for a jump serve.",
 		pad = "D-pad up for an easy serve, tap X for an overhand, hold X to toss for a jump serve.",
 		touch = "Basic Serve, or Spike Serve (hold it to toss for a jump serve).",
 	},
@@ -47,7 +47,7 @@ Tutorial.Drills = {
 		goal = 3,
 		inARow = true,
 		blurb = "Their attacker spikes at you. Dig 3 in a row.",
-		key = "Press S (or right click) a little before the ball reaches you.",
+		key = "Press {Receive} (or right click) a little before the ball reaches you.",
 		pad = "Press B a little before the ball reaches you.",
 		touch = "Tap Bump a little before the ball reaches you.",
 	},
@@ -57,6 +57,14 @@ Tutorial.Steps = Tutorial.Drills -- the tutorial's steps are the drills, in this
 local BY_ID = {}
 for _, d in ipairs(Tutorial.Drills) do
 	BY_ID[d.id] = d
+end
+
+-- A drill's keyboard line with your keys in it: {Action} becomes keysText(action) (Settings >
+-- Controls can move them).
+function Tutorial.fill(text, keysText)
+	return (string.gsub(text or "", "{(%a+)}", function(action)
+		return keysText(action)
+	end))
 end
 
 function Tutorial.drill(id)
