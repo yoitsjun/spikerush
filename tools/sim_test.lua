@@ -1621,6 +1621,21 @@ do
 	check(ups == F.MaxBoost and downs == 1 and clean.riku == nil and clean.aoi == nil, "saved choices are made safe: no starters, no more than the limit", ups .. " boosted, " .. downs .. " lowered")
 end
 
+print("== the block drill fits every blocker ==")
+do
+	local PRc = Config.Practice
+	local worst, worstName = math.huge, ""
+	for _, c in ipairs(Roster) do
+		local st = Characters.derive(Characters.fromRoster(c, nil))
+		local top = GROUND + Characters.jumpHeight(st, GROUND) + Characters.hangGain() + Z.BlockReachUp
+		local room = top - PRc.BlockReachMargin - (Config.Court.NetTop + PRc.BlockAboveNet)
+		if room < worst then
+			worst, worstName = room, c.Name
+		end
+	end
+	check(worst > 0 and PRc.BotTier == "D", "practice bots are D tier, and the block drill's spike is reachable by every character, fresh", string.format("least room %.2f studs (%s)", worst, worstName))
+end
+
 print("== 2x luck ==")
 local Economy = require("Economy")
 do

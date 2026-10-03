@@ -18,6 +18,7 @@ local Court = require(Shared.Court)
 local Util = require(Shared.Util)
 local HitLogic = require(Shared.HitLogic)
 local BallPhysics = require(Shared.BallPhysics)
+local Characters = require(Shared.Characters)
 local Tutorial = require(Shared.Tutorial)
 
 local PracticeService = {}
@@ -87,9 +88,20 @@ local function feedSet(setter, target)
 	}, touch)
 end
 
+-- The top of your full block (hands up at the top of the jump): the block drill's spike never
+-- leaves the attacker's hand above it, so a block in time always gets there.
+local function blockTop(me)
+	local TS = reg.TeamService
+	if not me or not me.charStats then
+		return nil
+	end
+	local g = TS.groundY(me)
+	return g + Characters.jumpHeight(me.charStats, g) + Characters.hangGain() + Config.Zones.BlockReachUp
+end
+
 -- Their attacker's spike: a jump at the net, then the ball off its hand at `kmh` onto `target`
--- (a spot on your floor).
-local function attack(attacker, target, kmh)
+-- (a spot on your floor). maxY: the highest it may leave the hand (the block drill).
+local function attack(attacker, target, kmh, maxY)
 	local TS = reg.TeamService
 	local model = TS.getModel(attacker)
 	local hum = model and model:FindFirstChildOfClass("Humanoid")
@@ -101,6 +113,9 @@ local function attack(attacker, target, kmh)
 	local root = TS.getRoot(attacker)
 	local side = Court.sideOf(attacker.team)
 	local y = math.max(root and root.Position.Y + 3.4 or 0, C.NetTop + PR.AttackAboveNet)
+	if maxY then
+		y = math.max(math.min(y, maxY - PR.BlockReachMargin), C.NetTop + PR.BlockAboveNet)
+	end
 	local p = Vector3.new(0, y, side * PR.AttackDepth)
 	local g = Config.Ball.Gravity
 	local T = (target - p).Magnitude / (kmh / 3.6 * SPM)
@@ -213,7 +228,7 @@ local function runDrill(drill, plr, status, stillOn)
 			feedSet(setter, me)
 		elseif drill.id == "block" and attacker then
 			MS.setPhase("Rally", 0)
-			attack(attacker, Vector3.new(0, Config.Ball.Radius, Court.sideOf(HOME) * between(PR.BlockTargetDepth)), between(PR.BlockKmh))
+			attack(attacker, Vector3.new(0, Config.Ball.Radius, Court.sideOf(HOME) * between(PR.BlockTargetDepth)), between(PR.BlockKmh), blockTop(me))
 		elseif drill.id == "serve" then
 			-- you serve: clients only take serve input (the toss, X, F) from the match's server
 			MS.servingTeam = HOME

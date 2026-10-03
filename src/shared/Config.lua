@@ -997,7 +997,10 @@ Config.Tutorial = {
 -- attacker on the other. Bots stand still; a drill moves only the one it needs.
 Config.Practice = {
 	Mode = 2,
-	BotTier = "S",
+	-- the practice partners (their sets and spikes are scripted, so the tier is mostly the look;
+	-- a higher attacker jumps higher): D, like a new player's starters (the owner: "nerf the
+	-- tutorial to not put a s tier spiker against a d tier blocker")
+	BotTier = "D",
 	FeedDelay = 1.1, -- seconds from setting up a rep to the ball coming
 	RepTimeout = 7, -- a rep with no result by then is a miss
 	ServeTimeout = 45, -- the serve drill waits this long for your serve (then just offers it again)
@@ -1006,6 +1009,8 @@ Config.Practice = {
 	AttackDepth = 1.2 * M, -- how far from the net the attacker hits
 	AttackAboveNet = 1.2 * M, -- the lowest the attack leaves the hand, above the net top
 	BlockKmh = { 90, 110 },
+	BlockReachMargin = 0.8, -- the block drill's spike leaves the hand this far (studs) under the top of your full block
+	BlockAboveNet = 0.35 * M, -- and never lower than this over the tape
 	BlockTargetDepth = { 3 * M, 7 * M }, -- where a spike at your block lands if you miss it
 	DigKmh = { 70, 90 },
 	DigQuality = 0.35, -- a receive at least this clean counts as a dig
