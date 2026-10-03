@@ -1609,6 +1609,12 @@ do
 	check(ups == F.MaxBoost and downs == 1 and clean.riku == nil and clean.aoi == nil, "saved choices are made safe: no starters, no more than the limit", ups .. " boosted, " .. downs .. " lowered")
 end
 
+print("== tier colours ==")
+do
+	check(Characters.color("S-") == Config.TierColors["S-"] and Characters.color("S") == Config.TierColors.S and Characters.color("S-") ~= Characters.color("S") and Characters.color("A+") == Config.TierColors.A,
+		"S- has its own colour (green), apart from the S tier's gold; other tiers keep their letter's")
+end
+
 print("== four touches ==")
 do
 	local touch = { team = "Away", count = 3, lastId = "a" }

@@ -1317,9 +1317,12 @@ end
 
 -- The coach, top right while you practise (a drill, or the tutorial's four): what the drill is,
 -- how to do it on your device, and a dot per rep of the goal (for an in-a-row drill a miss
--- empties them). "Back to the menu" ends practice (the forfeit request).
+-- empties them). "Back to the menu" ends practice (the forfeit request). It sits in the corner
+-- where Forfeit and Timeout go in a match (the owner: "the tutorial window is completely in the
+-- way... make towards where forfeit is"); practice has neither, so it stays clear of the touch
+-- buttons below.
 local function buildCoach()
-	local f = panel(gui, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 104), Size = UDim2.fromOffset(360, 214), Visible = false })
+	local f = panel(gui, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -88, 0, 6), Size = UDim2.fromOffset(360, 214), Visible = false })
 	edge(f, Gui.SIGNAL, 0.1)
 	ui.coachScale = make("UIScale", {}, f)
 	local head = label(f, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 13, TextColor3 = UI.Spark, Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 10) })
@@ -1359,11 +1362,16 @@ local function updateCoach()
 		c.head.Text = pr.tutorial and "TUTORIAL COMPLETE" or "DRILL COMPLETE"
 		c.title.Text = "Nice work!"
 		if pr.tutorial then
+			-- and the last lesson, for matches: what a timeout does (the owner: "add a short tutorial
+			-- on what the timeout does")
 			local vp, gold, spins = Tutorial.reward()
-			c.body.Text = string.format("The first time you finish it: +%d VP, +%d Gold and %d free recruits. Head back when you're ready.", vp, gold, spins)
+			local key = State.isMobile and "the hourglass" or "T or the hourglass"
+			c.body.Text = string.format("+%d VP, +%d Gold and %d free recruits the first time.\nOne last thing, for matches: a timeout (%s) pauses play for %d s, refills both teams' stamina and lets you change who serves next. %d per set; press it again to call it off.",
+				vp, gold, spins, key, Config.Timeout.Duration, Config.Timeout.PerSet)
 		else
 			c.body.Text = "Pick another drill from Practice, or run this one again."
 		end
+		c.body.Size = UDim2.new(1, -24, 0, 112)
 		for _, dot in ipairs(c.dots) do
 			dot.Visible = false
 		end
@@ -1374,6 +1382,7 @@ local function updateCoach()
 	end
 	c.leave.BackgroundColor3 = UI.InkSoft
 	c.leave.TextColor3 = UI.Chalk
+	c.body.Size = UDim2.new(1, -24, 0, 60)
 	c.head.Text = pr.tutorial and string.format("TUTORIAL  %d / %d", pr.index or 1, pr.total or #Tutorial.Drills) or "PRACTICE"
 	c.title.Text = d.title
 	local how = d.key
@@ -1595,7 +1604,8 @@ end
 
 local function updateTimeout()
 	local b = ui.timeout
-	local show = State.isPlaying and State.match.inMatch == true
+	-- practice has no timeouts, and the coach's "Back to the menu" leaves it (the coach sits here)
+	local show = State.isPlaying and State.match.inMatch == true and type(State.match.practice) ~= "table"
 	ui.gear.Visible = State.isPlaying
 	b.Visible = show
 	local f = ui.forfeit

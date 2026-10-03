@@ -1670,11 +1670,17 @@ local function sparkleBurst(tone)
 	end)
 end
 
--- A pull's item, rarity, rank and the colour it glows in the recruit (Mythic: red).
+-- A pull's item, rarity, rank and the colour it glows in the recruit (Mythic: red; an S-
+-- character: its tier's green, so it reads apart from the S tier's gold).
 local function pullInfo(kind, it)
 	local item = Spins.item(kind, it.key)
 	local rarity = item and item.Rarity or "Common"
-	return item, rarity, Spins.rarityRank(rarity), Config.Rarity.PullGlow[rarity] or Spins.rarityColor(rarity)
+	local glow = Config.Rarity.PullGlow[rarity] or Spins.rarityColor(rarity)
+	local tier = kind == "Char" and item and item.Char and item.Char.Tier
+	if tier and tier ~= Characters.group(tier) and Config.TierColors[tier] then
+		glow = Config.TierColors[tier]
+	end
+	return item, rarity, Spins.rarityRank(rarity), glow
 end
 
 local function fillTray(i, kind, it)

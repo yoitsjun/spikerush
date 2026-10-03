@@ -661,6 +661,10 @@ Config.TierColors = {
 	B = Color3.fromRGB(90, 160, 255),
 	A = Color3.fromRGB(190, 120, 255),
 	S = Color3.fromRGB(255, 196, 60),
+	-- a whole tier can have its own (the owner: "make the s - a lighter color then the s tiers...
+	-- or maybe a different color altogether like green"): S- is a bright green, brighter than C's,
+	-- on its badges and in the recruit when you pull one
+	["S-"] = Color3.fromRGB(70, 240, 130),
 }
 
 -- Abilities come with a character (the Roster module). S+ wing spikers: Thunder Spiker, Azure Dragon or Feral Leap.

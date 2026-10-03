@@ -81,8 +81,9 @@ function Characters.group(tier)
 	return string.sub(tier or "D", 1, 1)
 end
 
+-- A tier's colour: its own (Config.TierColors["S-"]), else its letter's.
 function Characters.color(tier)
-	return Config.TierColors[Characters.group(tier)] or Config.UI.Chalk
+	return Config.TierColors[tier or ""] or Config.TierColors[Characters.group(tier)] or Config.UI.Chalk
 end
 
 function Characters.ability(name)
