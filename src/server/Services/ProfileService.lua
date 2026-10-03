@@ -20,7 +20,8 @@
 --   ("spin", banner, 1|10, "lucky")  -> spend lucky spins instead of VP (Config.Lucky's odds)
 --   ("code", text)                   -> redeem a code, once each
 --   ("daily")                        -> claim the daily reward
---   ("liked")                        -> "I liked the game" (Roblox can't check it)
+--   ("favorited", bool)              -> what Roblox told the client: they favorited the game (its prompt
+--                                       said so), or no longer have (GetFavoriteAsync, with permission)
 --   ("group")                        -> check group membership again (after the join prompt)
 --   ("equip", "Card", key)           -> wear a player card you've unlocked (Config.Cards)
 -- Player cards are unlocked for good by achievements (Cards.met: the career counters, the MVP
@@ -29,8 +30,9 @@
 --   ("gift", kind, index, username)  -> buy a pack for someone else
 --   ("pityPick", charId)             -> the S+ your lucky pity owes you (Config.Spins.Pity)
 --   ("favor", charId, "up"|"down"|nil) -> boost, lower or reset a character's odds (Config.Spins.Favor)
--- Codes and the daily reward are for members of the group who liked the game (the owner's rule;
--- only the group can be checked, so liking is the player's word, asked once).
+-- Codes and the daily reward are for members of the group who favorited the game (the owner:
+-- "actually check"; Roblox can't tell a game who liked it, but its favorite prompt tells the
+-- client when they favorite it). Kept in the profile, so it's done once.
 -- Your character locks while you're in a match, so prediction always matches the server.
 -- VP, Gold and lucky spin packs are Developer Products granted in MarketplaceService.
 -- ProcessReceipt; one bought as a gift goes to its recipient. What's spent in Robux (packs, gifts,
@@ -185,7 +187,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -339,6 +341,7 @@ local function sanitizeProfile(data)
 		end
 	end
 	out.liked = data.liked == true
+	out.favorited = data.favorited == true -- Roblox's favorite prompt said they favorited the game
 	-- player cards unlocked, the one worn, and the best leaderboard place reached
 	if type(data.cards) == "table" then
 		for k, v in pairs(data.cards) do
@@ -459,6 +462,7 @@ local function save(plr, force)
 		spent = profile.spent,
 		mailSeen = profile.mailSeen,
 		liked = profile.liked,
+		favorited = profile.favorited,
 		boosts = profile.boosts,
 		cards = profile.cards,
 		bestRank = profile.bestRank,
@@ -718,7 +722,7 @@ function ProfileService.snapshot(plr)
 		-- your pick, and the pick
 		pity = { normal = profile.pity.normal, lucky = profile.pity.lucky, owed = profile.pity.owed, pick = profile.pity.pick },
 		favor = profile.favor, -- boosted ("up") and lowered ("down") characters
-		liked = profile.liked == true,
+		favorited = profile.favorited == true or RunService:IsStudio(), -- codes and daily rewards need it
 		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP
 		group = groupId(),
 		member = groupMember[plr], -- nil until it's known
@@ -801,14 +805,15 @@ end
 -- grants and mail (codes, daily rewards, gifts, the admin panel's Give)
 ------------------------------------------------------------------------------------------
 
--- Whether a player may use codes and claim daily rewards (the owner: in the group, and they liked
--- the game). Returns nil, or what's missing. Asks Roblox about the group, so it can yield.
+-- Whether a player may use codes and claim daily rewards (the owner: in the group, and they've
+-- favorited the game; Studio counts as both). Returns nil, or what's missing. Asks Roblox about
+-- the group, so it can yield.
 local function claimBlocker(plr, profile)
 	if not inGroup(plr, true) then
 		return "Join the group first"
 	end
-	if not profile.liked then
-		return "Like the game first"
+	if not profile.favorited and not RunService:IsStudio() then
+		return "Favorite the game first"
 	end
 	return nil
 end
@@ -949,7 +954,7 @@ function ProfileService.checkMail(plr)
 	mailBusy[plr] = nil
 end
 
--- A code: known, not used by this player yet, and they're in the group and liked the game.
+-- A code: known, not used by this player yet, and they're in the group and favorited the game.
 local function redeemCode(plr, profile, text)
 	local g, why, key = Economy.code(text, os.time())
 	if not g then
@@ -975,7 +980,7 @@ local function redeemCode(plr, profile, text)
 	push(plr, string.format("Code %s: %s!", string.upper(key), Economy.describe(g, added)))
 end
 
--- The daily reward: once per Config.Daily.Cooldown, the streak's day, for group members who liked
+-- The daily reward: once per Config.Daily.Cooldown, the streak's day, for group members who favorited
 -- the game.
 local function claimDaily(plr, profile)
 	local blocker = claimBlocker(plr, profile)
@@ -1395,10 +1400,11 @@ local function onRequest(plr, kind, a, b, c)
 				giftStart(plr, a, b, c)
 			end
 		end)
-	elseif kind == "liked" then
-		-- the player says they liked the game (Roblox has no way to check it)
-		if not profile.liked then
-			profile.liked = true
+	elseif kind == "favorited" then
+		-- the client asked Roblox whether they've favorited the game (after its favorite prompt,
+		-- and whenever Codes or Daily opens)
+		if profile.favorited ~= (a == true) then
+			profile.favorited = a == true
 			dirty[plr] = true
 		end
 		push(plr)

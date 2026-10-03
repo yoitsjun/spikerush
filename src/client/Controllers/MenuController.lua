@@ -10,7 +10,7 @@
 --   Locker ....... equip spike styles, colours, trails and score effects, with a live preview.
 --   Shop ......... V Point and Gold packs (each can be a gift), and a big Recruit button.
 --   Codes, Daily . Home's buttons down the right edge: codes and the daily reward, for members of
---                  the group who liked the game (Roblox's join prompt; liking is their word).
+--                  the group who favorited the game (Roblox's join and favorite prompts).
 --   Admin ........ developers only: 2x VP and 2x Gold events in every server, announcements, and
 --                  VP, Gold, lucky spins and characters for anyone by username (AdminService).
 --   Match ........ Quick Match, the lobby list, Create Lobby (public, friends only or private
@@ -600,10 +600,12 @@ local function buildHome()
 	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, dailyDot)
 	onClick(dailyBtn, function()
 		ui.daily.modal.root.Visible = true
+		Extra.onRequirementsOpen(profile())
 		MenuController.refresh()
 	end)
 	onClick(navItem(extras, Extra.iconKey("IconCode", "IconShop"), "Codes", { LayoutOrder = 2 }), function()
 		ui.codes.modal.root.Visible = true
+		Extra.onRequirementsOpen(profile())
 		MenuController.refresh()
 	end)
 	local adminBtn = navItem(extras, Extra.iconKey("IconAdmin", "IconSettings"), "Admin", { LayoutOrder = 3, Visible = false })
@@ -4428,13 +4430,60 @@ function Extra.joinGroup()
 	end)
 end
 
--- The owner's rule for codes and daily rewards: in the group, and they liked the game. Two rows
--- that tick off: Join (Roblox's prompt; the server checks) and "I liked it" (their word: Roblox
--- can't tell a game who liked it).
+-- The favorite (the owner: "it doesn't check if you actually liked the game... have a like the
+-- game popup and actually check"). Roblox never tells a game who liked it (and doesn't allow
+-- trying), so the check is the favorite: Roblox's own prompt, whose result says whether they
+-- favorited it (sent to the server, which keeps it). GetFavoriteAsync can check again, but only
+-- once a player has allowed inventory access, which isn't asked for; without it, it quietly fails.
+-- The window asks for a like too.
+Extra.AES = game:GetService("AvatarEditorService")
+function Extra.checkFavorite()
+	task.spawn(function()
+		local ok, fav = pcall(function()
+			return Extra.AES:GetFavoriteAsync(game.PlaceId, Enum.AvatarItemType.Asset)
+		end)
+		if ok then
+			Net.get("Profile"):FireServer("favorited", fav == true)
+		end
+	end)
+end
+function Extra.promptFavorite()
+	if not Extra.favHooked then
+		Extra.favHooked = true
+		-- Roblox's prompt says whether it went through
+		Extra.AES.PromptSetFavoriteCompleted:Connect(function(result)
+			if result == Enum.AvatarPromptResult.Success then
+				Net.get("Profile"):FireServer("favorited", true)
+				toast("Thanks for the favorite! Give it a like too.")
+			else
+				Extra.checkFavorite()
+			end
+		end)
+	end
+	local ok = pcall(function()
+		Extra.AES:PromptSetFavorite(game.PlaceId, Enum.AvatarItemType.Asset, true)
+	end)
+	if not ok then
+		toast("Favorite Spike Rush on its Roblox page (the star), and give it a like!")
+	end
+end
+-- Codes or Daily opened: check the favorite, and the first time a player who hasn't favorited
+-- opens one this session, Roblox's favorite prompt pops up by itself
+function Extra.onRequirementsOpen(prof)
+	Extra.checkFavorite()
+	if not prof.favorited and not Extra.favPrompted then
+		Extra.favPrompted = true
+		Extra.promptFavorite()
+	end
+end
+
+-- The owner's rule for codes and daily rewards: in the group, and they've favorited the game. Two
+-- rows that tick off: Join (Roblox's prompt; the server checks) and Favorite (Roblox's prompt;
+-- Roblox says whether they have).
 function Extra.requirements(parent, y)
 	local f = make("Frame", { Position = UDim2.fromOffset(26, y), Size = UDim2.new(1, -52, 0, 104), BackgroundTransparency = 1, ZIndex = 21 }, parent)
 	local rows = {}
-	for i, def in ipairs({ { "group", "Join" }, { "like", "I liked it" } }) do
+	for i, def in ipairs({ { "group", "Join" }, { "like", "Favorite" } }) do
 		local r = make("Frame", { Position = UDim2.fromOffset(0, (i - 1) * 56), Size = UDim2.new(1, 0, 0, 48), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 21 }, f)
 		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
 		Gui.label(r, { Text = tostring(i), display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, TextColor3 = Gui.SIGNAL, Size = UDim2.fromOffset(36, 48), Position = UDim2.fromOffset(6, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
@@ -4444,15 +4493,13 @@ function Extra.requirements(parent, y)
 		rows[def[1]] = { text = t, button = b, done = done }
 	end
 	onClick(rows.group.button, Extra.joinGroup)
-	onClick(rows.like.button, function()
-		Net.get("Profile"):FireServer("liked")
-	end)
+	onClick(rows.like.button, Extra.promptFavorite)
 	return rows
 end
 
 -- Both met, as far as this client knows (the server asks Roblox about the group again).
 function Extra.meetsRequirements(prof)
-	return prof.member ~= false and prof.liked == true
+	return prof.member ~= false and prof.favorited == true
 end
 
 function Extra.refreshRequirements(rows, prof)
@@ -4461,15 +4508,15 @@ function Extra.refreshRequirements(rows, prof)
 	rows.group.text.Text = member and ("You're in " .. Extra.groupText()) or ("Join " .. Extra.groupText() .. " on Roblox")
 	rows.group.button.Visible = not member
 	rows.group.done.Visible = member
-	rows.like.text.Text = prof.liked and "You liked the game. Thanks!" or "Like the game: the thumbs up on its Roblox page"
-	rows.like.button.Visible = not prof.liked
-	rows.like.done.Visible = prof.liked == true
+	rows.like.text.Text = prof.favorited and "You favorited the game. Thanks!" or "Favorite the game (and give it a like!)"
+	rows.like.button.Visible = not prof.favorited
+	rows.like.done.Visible = prof.favorited == true
 end
 
 -- Codes (the owner: "add a codes system"): a box and Redeem, under the requirements.
 function Extra.buildCodes()
 	local m = modal("Codes", "Codes", 660, 336, true)
-	Gui.label(m.panel, { Text = "Codes are for members of the group who liked the game. Each works once.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
+	Gui.label(m.panel, { Text = "Codes are for members of the group who favorited the game. Each works once.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
 	local req = Extra.requirements(m.panel, 116)
 	local box = Extra.inputBox(m.panel, { Position = UDim2.fromOffset(26, 246), Size = UDim2.new(1, -52 - 190, 0, 54), TextSize = 22 }, "Enter a code")
 	local go, goPlate = Gui.plateButton(m.panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -26, 0, 246), Size = UDim2.fromOffset(176, 54), ZIndex = 22 }, Gui.SIGNAL, Gui.SIGNAL_HOT)
@@ -4514,7 +4561,7 @@ end
 -- week's seven days (claimed, today, next) and Claim.
 function Extra.buildDaily()
 	local m = modal("Daily", "Daily rewards", 960, 560, true)
-	Gui.label(m.panel, { Text = "One a day for members of the group who liked the game. Miss a day and the week starts over.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
+	Gui.label(m.panel, { Text = "One a day for members of the group who favorited the game. Miss a day and the week starts over.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
 	local req = Extra.requirements(m.panel, 116)
 	local week = make("Frame", { Position = UDim2.fromOffset(26, 236), Size = UDim2.new(1, -52, 0, 150), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
 	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, week)
