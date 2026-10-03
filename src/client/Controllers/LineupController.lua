@@ -165,6 +165,27 @@ local function newScene(parent, entries, color, opts)
 			-- a small pointer under the name
 			local tip = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 2), Size = UDim2.fromOffset(12, 12), Rotation = 45, BackgroundColor3 = e.mine and Gui.SIGNAL or Gui.CHALK, BorderSizePixel = 0, ZIndex = names.ZIndex }, slot.tag)
 			make("UIStroke", { Color = Gui.LINE, Thickness = 1.5, Transparency = 0.3 }, tip)
+			-- their best leaderboard place, over the name (the owner: "if they have any leaderboard
+			-- position, display their highest on top of their head"); gold, silver, bronze for a top 3
+			local uid = type(e.id) == "string" and string.sub(e.id, 1, 2) == "P_" and tonumber(string.sub(e.id, 3))
+			local plr = uid and Players:GetPlayerByUserId(uid)
+			local rank = plr and tonumber(plr:GetAttribute("BoardRank"))
+			if rank then
+				local color = Config.Cards.RankColors[rank] or Gui.CHALK
+				local badge = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, -2), Size = UDim2.fromOffset(0, 26), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = names.ZIndex }, slot.tag)
+				make("UICorner", { CornerRadius = UDim.new(0, 6) }, badge)
+				make("UIStroke", { Color = color, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, badge)
+				make("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }, badge)
+				label(badge, {
+					Text = "#" .. rank .. "  " .. string.upper(tostring(plr:GetAttribute("BoardName") or "")),
+					display = true,
+					TextSize = 18,
+					TextColor3 = color,
+					AutomaticSize = Enum.AutomaticSize.X,
+					Size = UDim2.fromOffset(0, 26),
+					ZIndex = names.ZIndex + 1,
+				})
+			end
 		end
 		table.insert(scene.slots, slot)
 	end

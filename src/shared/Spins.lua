@@ -135,16 +135,46 @@ function Spins.odds(kind, weights)
 	return out
 end
 
--- Everything a banner can give, best first: { item, chance } (what you're rolling for).
-function Spins.table(kind, weights)
+-- Boost and Lower (Config.Spins.Favor): favor = { [key] = "up" | "down" }; an item's weight
+-- within its rarity is multiplied by this.
+local FAVOR = SP.Favor
+function Spins.favorFactor(favor, key)
+	local f = favor and favor[key]
+	if f == "up" then
+		return FAVOR.Boost
+	elseif f == "down" then
+		return FAVOR.Lower
+	end
+	return 1
+end
+
+-- An item's weight in its pool, and the pool's total, with favor.
+local function favoredWeight(item, favor)
+	return (item.Weight or 1) * Spins.favorFactor(favor, item.Key)
+end
+local function poolWeight(pool, favor)
+	if not favor then
+		return pool.weight
+	end
+	local total = 0
+	for _, item in ipairs(pool.items) do
+		total = total + favoredWeight(item, favor)
+	end
+	return total
+end
+
+-- Everything a banner can give, best first: { item, chance } (what you're rolling for). favor:
+-- the Characters banner's boosted and lowered characters (or nil).
+function Spins.table(kind, weights, favor)
 	local odds = Spins.odds(kind, weights)
 	local out = {}
 	for i = #RAR.Order, 1, -1 do
 		local r = RAR.Order[i]
 		local p = (pools[kind] or {})[r]
 		if p and odds[r] > 0 then
+			local total = poolWeight(p, favor)
 			for _, item in ipairs(p.items) do
-				table.insert(out, { item = item, chance = odds[r] * (item.Weight or 1) / p.weight })
+				table.insert(out, { item = item, chance = odds[r] * favoredWeight(item, favor) / total })
 			end
 		end
 	end
@@ -152,8 +182,8 @@ function Spins.table(kind, weights)
 end
 
 -- One spin: a rarity by weight, then an item of that rarity by its weight. `weights`: a lucky
--- spin's (Spins.LuckyWeights), or nil for the usual ones.
-function Spins.rollItem(kind, rng, weights)
+-- spin's (Spins.LuckyWeights), or nil for the usual ones. favor: boosted and lowered items.
+function Spins.rollItem(kind, rng, weights, favor)
 	rng = rng or Random.new()
 	local p = pools[kind]
 	local odds = Spins.odds(kind, weights)
@@ -169,14 +199,50 @@ function Spins.rollItem(kind, rng, weights)
 		end
 	end
 	local pool = p[pick]
-	local y = rng:NextNumber() * pool.weight
+	local y = rng:NextNumber() * poolWeight(pool, favor)
 	for _, item in ipairs(pool.items) do
-		y = y - (item.Weight or 1)
+		y = y - favoredWeight(item, favor)
 		if y < 0 then
 			return item.Key
 		end
 	end
 	return pool.items[#pool.items].Key
+end
+
+-- Saved Boost and Lower choices made safe: only characters that can drop, at most MaxBoost
+-- boosted and MaxLower lowered (in roster order).
+function Spins.cleanFavor(data)
+	local out = {}
+	if type(data) ~= "table" then
+		return out
+	end
+	local ups, downs = 0, 0
+	for _, item in ipairs(items.Char) do
+		local f = data[item.Key]
+		if not starters.Char[item.Key] then
+			if f == "up" and ups < FAVOR.MaxBoost then
+				out[item.Key] = "up"
+				ups = ups + 1
+			elseif f == "down" and downs < FAVOR.MaxLower then
+				out[item.Key] = "down"
+				downs = downs + 1
+			end
+		end
+	end
+	return out
+end
+
+-- How many are boosted and lowered.
+function Spins.favorCounts(favor)
+	local ups, downs = 0, 0
+	for _, f in pairs(favor or {}) do
+		if f == "up" then
+			ups = ups + 1
+		elseif f == "down" then
+			downs = downs + 1
+		end
+	end
+	return ups, downs
 end
 
 ------------------------------------------------------------------------------------------
@@ -248,9 +314,26 @@ function Spins.pityLeft(pity)
 	return PITY.Normal.Every - (pity.normal or 0), PITY.Lucky.Every - (pity.lucky or 0)
 end
 
+-- A random character from a pity pool, weighted by Boost and Lower.
+local function pityPoolPick(pool, rng, favor)
+	local total = 0
+	for _, key in ipairs(pool) do
+		total = total + Spins.favorFactor(favor, key)
+	end
+	local y = rng:NextNumber() * total
+	for _, key in ipairs(pool) do
+		y = y - Spins.favorFactor(favor, key)
+		if y < 0 then
+			return key
+		end
+	end
+	return pool[#pool]
+end
+
 -- One recruit on the Characters banner, with pity. Updates `pity` and returns the key and how it
--- came: "pity" (a random one from the pool), "pick" (the S+ you chose) or nil (luck).
-function Spins.pityRoll(pity, rng, lucky)
+-- came: "pity" (a random one from the pool), "pick" (the S+ you chose) or nil (luck). favor:
+-- the boosted and lowered characters (Config.Spins.Favor), for the luck and pity's random picks.
+function Spins.pityRoll(pity, rng, lucky, favor)
 	rng = rng or Random.new()
 	local kind = lucky and "Lucky" or "Normal"
 	local count = lucky and pity.lucky or pity.normal
@@ -261,7 +344,7 @@ function Spins.pityRoll(pity, rng, lucky)
 			key, how = pity.pick, "pick"
 			pity.owed = false
 		elseif #pool > 0 then
-			key, how = pool[rng:NextInteger(1, #pool)], "pity"
+			key, how = pityPoolPick(pool, rng, favor), "pity"
 			if lucky then
 				-- the next lucky pity is your pick, unless this one already was (with no pick
 				-- chosen yet, it's owed until you choose)
@@ -270,7 +353,7 @@ function Spins.pityRoll(pity, rng, lucky)
 		end
 	end
 	if not key then
-		key = Spins.rollItem("Char", rng, lucky and Spins.LuckyWeights or nil)
+		key = Spins.rollItem("Char", rng, lucky and Spins.LuckyWeights or nil, favor)
 	end
 	local tier = Spins.item("Char", key).Char.Tier
 	if resetSets[kind][tier] then

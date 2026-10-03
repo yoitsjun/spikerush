@@ -21,7 +21,7 @@ The keyboard layout follows The Spike's, with WASD and mouse alternatives.
 | Action | Keyboard / mouse | Gamepad | What it does |
 |---|---|---|---|
 | Move | A / D or ← / → | Left stick | You only move along the court; your role sets your depth lane |
-| Spike | Space, Z, J or left click | A or R2 | On the ground: run-up jump, at any time (waiting for a serve, between points, in the lobby; with **Double approach** on in Settings, the first press starts a run-up toward the net, steered with Move, and the second jumps; a run-up takes off by itself after 0.9 s). In the air: spike, and you can swing any time (out of a rally, or at a ball that isn't yours, it's an empty swing). Azure Dragon: hold in the air to charge, release to swing. Feral Leap: hold on the ground to charge, release to leap |
+| Spike | Space, Z, J or left click | A or R2 | On the ground: run-up jump, at any time (waiting for a serve, between points, in the lobby; with **Double approach** on in Settings, the first press starts a run-up toward the net, steered with Move, and the second jumps; a run-up takes off by itself after 0.9 s). In the air: spike, and you can swing any time (out of a rally, or at a ball that isn't yours, it's an empty swing). A swing, roll shot or set that meets the ball when your team has used its three touches is a four-touch fault: their point. Azure Dragon: hold in the air to charge, release to swing. Feral Leap: hold on the ground to charge, release to leap |
 | Receive | ↓, S, K or right click | B | Arms a receive stance for 0.8 s; the touch happens by itself when the ball arrives |
 | Slide / feint | C, Shift or L | RB | On the ground: slide receive (never costs stamina). In the air: a soft roll shot |
 | Block | ↑ or W | Y | Hold to crouch and charge, release to jump; near the net (1.5 m) the ball that passes your hands is blocked |
@@ -94,6 +94,8 @@ The Shop's packs are Developer Products: 500 / 1,200 / 2,800 / 6,500 VP, 5,000 /
 **Lucky spins** (the gold strip on Recruit Player) pull from any banner with better odds: no Commons, Rare 48%, Epic 34%, Legendary 15% and Mythic 3% (a normal recruit: 4% and 0.5%). Lucky x1 and x10 use the ones you have, or buy that many for Robux; they also come from codes, daily rewards, gifts and the admin panel. Lucky odds opens their probability table. The Shop's second tab sells packs of 1, 3, 5 and 10.
 
 **Pity** (Recruit Player's Characters banner, the strip over the lucky spins): 200 recruits in a row without an S tier (S-, S or S+) and the 200th is a random S- or S. Lucky spins count on their own: 50 without an S+ and the 50th is an S+. The first lucky pity is a random S+; when it isn't the one you picked (Pick S+), the next lucky pity is your pick. Either count starts over whenever that tier comes, by luck or by pity, and a pity pull says so on its card.
+
+**Boost and Lower** (the Characters banner's Probability Table): Boost up to 3 characters (x1.5) and Lower up to 3 (x0.5) to change your odds of each within its rarity; the rarity's own chance stays the same (boosting an S+ makes it the likelier S+, not S+ likelier). The table shows your odds with them, and they count for pity's random picks too.
 
 **2x V Points boosts** (the Shop's second tab): 15 minutes, 30 minutes, 1 hour or 3 hours of double VP from your matches (the MVP bonus too), in real time from when you get it; another adds on top, up to a day. Home shows yours counting down, and it multiplies with the admin panel's 2x VP event.
 

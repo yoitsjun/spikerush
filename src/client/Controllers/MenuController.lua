@@ -1344,7 +1344,7 @@ function MenuController.openPityPick()
 end
 
 local function buildTable()
-	local m = modal("Odds", "Probability Table", 860, 680, true)
+	local m = modal("Odds", "Probability Table", 1000, 680, true)
 	local sub = Gui.label(m.panel, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, -48, 0, 20), Position = UDim2.fromOffset(28, 82), ZIndex = 21 })
 	local list = make("ScrollingFrame", {
 		Position = UDim2.fromOffset(20, 112),
@@ -1367,11 +1367,28 @@ local function buildTable()
 		local row = make("Frame", { Size = UDim2.new(1, -10, 0, 46), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0, LayoutOrder = i, Visible = false, ZIndex = 21 }, list)
 		make("UICorner", { CornerRadius = UDim.new(0, 6) }, row)
 		local bar = make("Frame", { Size = UDim2.fromOffset(5, 46), BackgroundColor3 = Gui.WHITE, BorderSizePixel = 0, ZIndex = 22 }, row)
-		local n = Gui.label(row, { Text = "", display = true, TextSize = 21, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(0.34, 0, 1, 0), Position = UDim2.fromOffset(18, 0), ZIndex = 22 })
-		local d = Gui.label(row, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(0.4, 0, 1, 0), Position = UDim2.fromScale(0.36, 0), ZIndex = 22 })
-		local ch = Gui.label(row, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 21, Size = UDim2.new(0.12, 0, 1, 0), Position = UDim2.fromScale(0.74, 0), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 22 })
+		local n = Gui.label(row, { Text = "", display = true, TextSize = 21, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(0.28, 0, 1, 0), Position = UDim2.fromOffset(18, 0), ZIndex = 22 })
+		local d = Gui.label(row, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(0.27, 0, 1, 0), Position = UDim2.fromScale(0.3, 0), ZIndex = 22 })
+		-- Boost and Lower (Config.Spins.Favor), on the Characters banner
+		local boost, boostL = hairButton(row, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.58, 0, 0.5, 0), Size = UDim2.fromOffset(76, 32) }, "Boost", 15)
+		local lower, lowerL = hairButton(row, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.58, 84, 0.5, 0), Size = UDim2.fromOffset(76, 32) }, "Lower", 15)
+		local ch = Gui.label(row, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 21, Size = UDim2.new(0.11, 0, 1, 0), Position = UDim2.fromScale(0.76, 0), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 22 })
 		local own = Gui.label(row, { Text = "", display = true, TextSize = 16, TextColor3 = Gui.SIGNAL, Size = UDim2.new(0.12, -12, 1, 0), Position = UDim2.fromScale(0.88, 0), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 22 })
-		rows[i] = { frame = row, bar = bar, name = n, desc = d, chance = ch, own = own }
+		local r = { frame = row, bar = bar, name = n, desc = d, chance = ch, own = own, boost = boost, boostL = boostL, lower = lower, lowerL = lowerL }
+		-- a press toggles it (Boost again, or Lower again, resets it)
+		onClick(boost, function()
+			if r.key then
+				local f = profile().favor or {}
+				sendProfile("favor", r.key, f[r.key] ~= "up" and "up" or nil)
+			end
+		end)
+		onClick(lower, function()
+			if r.key then
+				local f = profile().favor or {}
+				sendProfile("favor", r.key, f[r.key] ~= "down" and "down" or nil)
+			end
+		end)
+		rows[i] = r
 	end
 	ui.odds = { modal = m, sub = sub, rows = rows }
 end
@@ -1387,10 +1404,29 @@ function MenuController.openTable(kind, lucky)
 		end
 		return parts
 	end)(), ", "))
-	local data = Spins.table(kind, lucky and Spins.LuckyWeights or nil)
+	O.kind, O.lucky = kind, lucky
+	-- the Characters banner: Boost and Lower move a character's share of its rarity
+	local isChar = kind == "Char"
+	local favor = isChar and (prof.favor or {}) or nil
+	if isChar then
+		local F = Config.Spins.Favor
+		local ups, downs = Spins.favorCounts(favor)
+		O.sub.Text = string.format("Boost a character (x%.1f) or Lower one (x%.1f) to change your odds of it within its rarity: %d/%d boosted, %d/%d lowered. Duplicates turn into V Points.", F.Boost, F.Lower, ups, F.MaxBoost, downs, F.MaxLower)
+	end
+	local data = Spins.table(kind, lucky and Spins.LuckyWeights or nil, favor)
 	for i, row in ipairs(O.rows) do
 		local d = data[i]
 		row.frame.Visible = d ~= nil
+		local canFavor = isChar and d ~= nil and not Spins.starters("Char")[d.item.Key]
+		row.key = canFavor and d.item.Key or nil
+		row.boost.Visible, row.lower.Visible = canFavor, canFavor
+		if canFavor then
+			local f = favor[d.item.Key]
+			row.boostL.Text = f == "up" and "Boosted" or "Boost"
+			row.boostL.TextColor3 = f == "up" and Gui.SIGNAL or Gui.CHALK
+			row.lowerL.Text = f == "down" and "Lowered" or "Lower"
+			row.lowerL.TextColor3 = f == "down" and Gui.SIGNAL_HOT or Gui.CHALK
+		end
 		if d then
 			local color = Spins.rarityColor(d.item.Rarity)
 			row.bar.BackgroundColor3 = color
@@ -4969,6 +5005,9 @@ local function doRefresh()
 	end
 	if ui.admin.modal.root.Visible then
 		Extra.refreshAdmin()
+	end
+	if ui.odds and ui.odds.kind and ui.odds.modal.root.Visible then
+		MenuController.openTable(ui.odds.kind, ui.odds.lucky) -- Boost and Lower change the odds
 	end
 end
 

@@ -161,6 +161,27 @@ function HitService.process(entity, input, opts)
 	local team = entity.team
 	local ok, why, third = HitLogic.canTouch(BS.touch, team, entity.id, action, TS.teamSize)
 	if not ok then
+		-- the four-touch fault: a player's swing or set that really met their team's fourth ball
+		-- (the same hit check, with the count left out) gives the other team the point
+		if opts.fromClient and HitLogic.isFourthTouchFault(why, action) then
+			local fctx = {
+				side = Court.sideOf(team),
+				team = team,
+				teamSize = TS.teamSize,
+				seq = BS.seq,
+				ballVel = BallPhysics.velocityAt(BS.path, input.t),
+				lastHit = BS.lastHit,
+				touchNumber = 3,
+				stats = entity.charStats,
+				ability = entity.ability,
+				groundY = TS.groundY(entity),
+				stamina = TS.staminaOf(team),
+			}
+			if HitLogic.compute(input, fctx) then
+				MS.touchFault(entity, "FourTouches", input.ball)
+				return false, "fourth"
+			end
+		end
 		return false, why
 	end
 

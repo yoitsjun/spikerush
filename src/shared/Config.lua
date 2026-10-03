@@ -400,6 +400,12 @@ Config.Spins = {
 		Normal = { Every = 200, Tiers = { "S-", "S" }, ResetTiers = { "S-", "S", "S+" } },
 		Lucky = { Every = 50, Tiers = { "S+" }, ResetTiers = { "S+" } },
 	},
+	-- Boost and Lower (the owner: "slightly boost and slightly lower the chances of getting a
+	-- character of your choice during pulling"), on the Characters banner's probability table:
+	-- a boosted character's weight within its rarity is x Boost, a lowered one's x Lower. The
+	-- rarity's own chance never changes, only which of its characters you get (pity's random
+	-- picks too). Up to MaxBoost boosted and MaxLower lowered at a time.
+	Favor = { Boost = 1.5, Lower = 0.5, MaxBoost = 3, MaxLower = 3 },
 }
 
 -- Developers get everything: every character and unlockable, free spins. The place's owner

@@ -456,14 +456,43 @@ end
 
 -- Swing now if the contact is already decent (or about to get worse), otherwise commit the swing
 -- and let processBuffer land it.
+-- A touch on your team's fourth ball: if it really meets the ball (the usual hit, with the touch
+-- count left out), it's sent to the server, which calls the fault and gives them the point. No
+-- ball is predicted. Returns whether it met the ball.
+local function fourthTouch(action, info, t, ball)
+	local ctx = buildCtx(info, action, t)
+	local input = { action = action, t = t, root = info.root, vy = info.vy, grounded = info.grounded, ball = ball, setType = "Open" }
+	local ok = HitLogic.compute(input, ctx)
+	if not ok then
+		return false
+	end
+	lastActionAt = os.clock()
+	mods.AnimationController.pose(State.myId, attackPose(action))
+	State.hint("Four touches! That's their point")
+	Net.get("HitRequest"):FireServer({
+		seq = ctx.seq,
+		action = action,
+		t = t,
+		root = info.root,
+		vy = info.vy,
+		grounded = info.grounded,
+		ball = ball,
+		setType = "Open",
+	})
+	return true
+end
+
 local function tryAttack(action, info, opts)
 	local now, ball = ballNow()
 	-- rules first, so a blocked touch says why instead of silently waiting
 	if action ~= "Serve" then
 		local allowed, why = HitLogic.canTouch(mods.BallRenderer.getTouch(), State.myTeam, State.myId, action, State.teamSize())
-		-- not yours to touch: you still swing, at nothing (the owner: "make it so you can swing
-		-- whenever"), and it says why
+		-- not yours to touch: you still swing (the owner: "make it so you can swing whenever"),
+		-- and it says why. On your team's fourth touch, a swing that meets the ball is a fault
 		if not allowed then
+			if HitLogic.isFourthTouchFault(why, action) and fourthTouch(action, info, now, ball) then
+				return false
+			end
 			whiff(info, attackPose(action), REASONS[why] or "Not your touch")
 			return false
 		end
@@ -834,6 +863,10 @@ local function doSet(info, aim)
 	local ok, why = execute("Set", info, opts, now, ball)
 	if ok then
 		mods.AnimationController.pose(State.myId, "Set")
+		return
+	end
+	if HitLogic.isFourthTouchFault(why, "Set") then
+		fourthTouch("Set", info, now, ball) -- a set on your team's fourth ball is a fault
 		return
 	end
 	if why == "zone" then

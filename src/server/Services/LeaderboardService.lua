@@ -166,21 +166,24 @@ local function snapshot()
 	return { boards = mergedBoards(), global = global, updated = lastRead, refresh = LB.RefreshInterval }
 end
 
--- Players here in the top 3 of any board: their best place is kept (the Top 3 and Number One
--- player cards).
+-- Every player here: their best place on any board goes on them as the attributes BoardRank and
+-- BoardName (the matchup intro shows it over their head; none: nil), and a top-3 place is kept
+-- (the Top 3 and Number One player cards).
 local function checkRanks()
 	local boards = mergedBoards()
 	for _, plr in ipairs(Players:GetPlayers()) do
 		local best, bestBoard = nil, nil
 		for _, b in ipairs(LB.Boards) do
 			for _, r in ipairs(boards[b.Key] or {}) do
-				if r.userId == plr.UserId and r.rank <= 3 and (not best or r.rank < best) then
-					best, bestBoard = r.rank, b.Key
+				if r.userId == plr.UserId and (not best or r.rank < best) then
+					best, bestBoard = r.rank, b
 				end
 			end
 		end
-		if best then
-			reg.ProfileService.topRank(plr, best, bestBoard)
+		plr:SetAttribute("BoardRank", best)
+		plr:SetAttribute("BoardName", bestBoard and bestBoard.Name or nil)
+		if best and best <= 3 then
+			reg.ProfileService.topRank(plr, best, bestBoard.Key)
 		end
 	end
 end

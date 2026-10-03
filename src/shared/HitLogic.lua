@@ -520,6 +520,15 @@ function HitLogic.canTouch(touch, team, id, action, teamSize)
 	return true, nil, count == 2
 end
 
+-- The four-touch fault (the owner: "swinging for fourth ball should make you lose the point
+-- similar to volleyball's four touches rule"): a touch refused because the team has used its
+-- three (canTouch's "count") that a player still made on purpose (a swing, a roll shot or a set
+-- that really met the ball) loses the rally. Receives are automatic, so they never fault.
+local FAULT_ACTIONS = { Spike = true, Feint = true, Set = true }
+function HitLogic.isFourthTouchFault(why, action)
+	return why == "count" and FAULT_ACTIONS[action] == true
+end
+
 -- Which touch (1, 2 or 3) this team is about to make.
 function HitLogic.touchNumber(touch, team)
 	touch = touch or {}

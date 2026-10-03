@@ -376,6 +376,7 @@ local REASON = {
 	Drop = "Drop",
 	ServiceFault = "Service fault",
 	ServeClock = "Serve clock",
+	FourTouches = "Four touches",
 	Fault = "Fault",
 	Point = "Point",
 }

@@ -238,6 +238,21 @@ end
 -- hit bookkeeping
 ------------------------------------------------------------------------------------------
 
+-- A fault called on a touch (HitService: the four-touch rule): the rally ends at once and the
+-- other team scores; the ball flies on but no longer counts.
+function MatchService.touchFault(entity, reason, where)
+	if MatchService.phase ~= "Rally" or MatchService.rallyResult or MatchService.practice then
+		return
+	end
+	MatchService.rallyResult = {
+		winner = Court.other(entity.team),
+		reason = reason,
+		byId = entity.id,
+		error = true,
+		landing = where,
+	}
+end
+
 function MatchService.onServeHit()
 	MatchService.setPhase("Rally", 0)
 end
@@ -787,7 +802,7 @@ function MatchService.init(r)
 		reg.BallService.sendTo(plr)
 	end)
 	reg.BallService.onDead:Connect(function(landing, flags, last)
-		if MatchService.phase == "Rally" or MatchService.phase == "Serving" then
+		if (MatchService.phase == "Rally" or MatchService.phase == "Serving") and not MatchService.rallyResult then
 			MatchService.rallyResult = MatchService.judge(landing, flags or {}, last)
 		end
 	end)

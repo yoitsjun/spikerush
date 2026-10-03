@@ -28,6 +28,7 @@
 -- recruit and leaderboard read.
 --   ("gift", kind, index, username)  -> buy a pack for someone else
 --   ("pityPick", charId)             -> the S+ your lucky pity owes you (Config.Spins.Pity)
+--   ("favor", charId, "up"|"down"|nil) -> boost, lower or reset a character's odds (Config.Spins.Favor)
 -- Codes and the daily reward are for members of the group who liked the game (the owner's rule;
 -- only the group can be checked, so liking is the player's word, asked once).
 -- Your character locks while you're in a match, so prediction always matches the server.
@@ -184,7 +185,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, boosts = {}, cards = {}, pity = Spins.newPity() }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -314,6 +315,7 @@ local function sanitizeProfile(data)
 	-- lucky spins, the codes used, the daily streak, Robux spent, the gifts already delivered
 	out.lucky = math.clamp(math.floor(tonumber(data.lucky) or 0), 0, 1000000)
 	out.pity = Spins.cleanPity(data.pity) -- the Characters banner's pity counters and lucky pick
+	out.favor = Spins.cleanFavor(data.favor) -- the characters whose odds you boosted or lowered
 	if type(data.codes) == "table" then
 		for k, v in pairs(data.codes) do
 			if v == true and type(k) == "string" and #k <= 40 then
@@ -461,6 +463,7 @@ local function save(plr, force)
 		cards = profile.cards,
 		bestRank = profile.bestRank,
 		pity = profile.pity,
+		favor = profile.favor,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -714,6 +717,7 @@ function ProfileService.snapshot(plr)
 		-- the Characters banner's pity: recruits counted toward each, whether the next lucky pity is
 		-- your pick, and the pick
 		pity = { normal = profile.pity.normal, lucky = profile.pity.lucky, owed = profile.pity.owed, pick = profile.pity.pick },
+		favor = profile.favor, -- boosted ("up") and lowered ("down") characters
 		liked = profile.liked == true,
 		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP
 		group = groupId(),
@@ -1218,7 +1222,7 @@ local function spinOnce(plr, profile, banner, count, lucky)
 	for i = 1, count do
 		local k, how = nil, nil
 		if banner == "Char" then
-			k, how = Spins.pityRoll(profile.pity, rng, lucky) -- counts toward pity, and pays it
+			k, how = Spins.pityRoll(profile.pity, rng, lucky, profile.favor) -- counts toward pity, and pays it
 		else
 			k = Spins.rollItem(banner, rng, lucky and Spins.LuckyWeights or nil)
 		end
@@ -1343,6 +1347,25 @@ local function onRequest(plr, kind, a, b, c)
 		upgrade(plr, profile, a, b, c)
 	elseif kind == "spin" then
 		spin(plr, profile, a, b, c == "lucky")
+	elseif kind == "favor" then
+		-- Boost or Lower a character's odds on the Characters banner (or reset it)
+		local item = type(a) == "string" and Spins.item("Char", a)
+		if not item or Spins.starters("Char")[a] then
+			return
+		end
+		local mode = (b == "up" or b == "down") and b or nil
+		local ups, downs = Spins.favorCounts(profile.favor)
+		if mode == "up" and profile.favor[a] ~= "up" and ups >= Config.Spins.Favor.MaxBoost then
+			push(plr, string.format("You can boost %d characters at a time: take one off first.", Config.Spins.Favor.MaxBoost))
+			return
+		end
+		if mode == "down" and profile.favor[a] ~= "down" and downs >= Config.Spins.Favor.MaxLower then
+			push(plr, string.format("You can lower %d characters at a time: take one off first.", Config.Spins.Favor.MaxLower))
+			return
+		end
+		profile.favor[a] = mode
+		dirty[plr] = true
+		push(plr)
 	elseif kind == "pityPick" then
 		-- the S+ the lucky pity gives you when it's owed
 		if Spins.isPityPick(a) then

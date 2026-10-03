@@ -1574,6 +1574,49 @@ do
 		"with no pick chosen the pick stays owed; saved pity is made safe (only an S+ can be the pick)")
 end
 
+print("== boost and lower ==")
+do
+	local F = Config.Spins.Favor
+	local base = {}
+	for _, row in ipairs(Spins.table("Char")) do
+		base[row.item.Key] = row.chance
+	end
+	local favor = { yejun = "up", seojin = "down" }
+	local fav, rarity, rarityBase = {}, 0, 0
+	for _, row in ipairs(Spins.table("Char", nil, favor)) do
+		fav[row.item.Key] = row.chance
+		if row.item.Rarity == "Mythic" then
+			rarity = rarity + row.chance
+			rarityBase = rarityBase + base[row.item.Key]
+		end
+	end
+	check(fav.yejun > base.yejun and fav.seojin < base.seojin and math.abs(rarity - rarityBase) < 1e-9 and math.abs(fav.aoi - base.aoi) < 1e-12,
+		"Boost raises a character's odds and Lower cuts them, inside the rarity only (Mythic stays the same)", string.format("YeJun %.3f%% -> %.3f%%, Seojin %.3f%% -> %.3f%%", base.yejun * 100, fav.yejun * 100, base.seojin * 100, fav.seojin * 100))
+	-- rolled: a boosted S+ comes more often than a lowered one
+	local rng = Random.new(11)
+	local up, down = 0, 0
+	for _ = 1, 20000 do
+		local k = Spins.rollItem("Char", rng, Spins.LuckyWeights, favor)
+		if k == "yejun" then
+			up = up + 1
+		elseif k == "seojin" then
+			down = down + 1
+		end
+	end
+	check(up > down * 2, "20,000 lucky pulls: the boosted S+ comes about three times as often as the lowered one", up .. " vs " .. down)
+	local clean = Spins.cleanFavor({ riku = "up", yejun = "up", seojin = "up", dante = "up", hayun = "up", shoyo = "down", aoi = "sideways" })
+	local ups, downs = Spins.favorCounts(clean)
+	check(ups == F.MaxBoost and downs == 1 and clean.riku == nil and clean.aoi == nil, "saved choices are made safe: no starters, no more than the limit", ups .. " boosted, " .. downs .. " lowered")
+end
+
+print("== four touches ==")
+do
+	local touch = { team = "Away", count = 3, lastId = "a" }
+	local ok, why = HitLogic.canTouch(touch, "Away", "b", "Spike", 3)
+	check(not ok and HitLogic.isFourthTouchFault(why, "Spike") and HitLogic.isFourthTouchFault(why, "Set") and not HitLogic.isFourthTouchFault(why, "Bump") and not HitLogic.isFourthTouchFault("double", "Spike"),
+		"a swing or a set on your team's fourth ball is a fault (an automatic receive isn't)")
+end
+
 print("== the third wave ==")
 do
 	local yeonho = Characters.derive(Characters.fromRoster(Roster.get("yeonho"), "max"))
