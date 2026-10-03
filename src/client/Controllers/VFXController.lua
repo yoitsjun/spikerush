@@ -1457,6 +1457,9 @@ local function onHit(snap)
 			VFXController.flash(0.25, 0.2)
 		end
 	end
+	if meta.secondSwing then
+		VFXController.popup(pos + Vector3.new(0, 3.4, 0), "Double Swing!", Config.Abilities.Thunder.Color, 1.1)
+	end
 	if meta.adrenaline then
 		VFXController.popup(pos + Vector3.new(0, 3, 0), "Adrenaline!", Config.Abilities.Adrenaline.Color, 0.8)
 	end

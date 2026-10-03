@@ -52,6 +52,9 @@ local ATTACK_SCALE = { Spike = 1, Serve = 1.1, Feint = 1.25 }
 
 local lastActionAt = -10
 local whiffUntil = 0
+-- one swing a jump (the owner: "characters can only swing once in the air except yejun who has a
+-- double swing ability, with enhanced power on the second swing"); the server counts them too
+local airSwings = 0
 local buffered = nil
 local stance = nil -- { t0, lastCheck, assist }
 local slideCheck = nil
@@ -298,6 +301,7 @@ local function execute(action, info, opts, t, ballPos)
 		assist = opts.assist == true,
 		stanceAge = opts.stanceAge or 0.25,
 		energy = opts.energy or 0,
+		second = opts.second, -- Thunder Spiker's second swing this jump (harder)
 		setType = opts.setType,
 		targetId = opts.targetId,
 		tossHeight = opts.tossHeight,
@@ -482,7 +486,32 @@ local function fourthTouch(action, info, t, ball)
 	return true
 end
 
+-- Swings this jump, and how many this character has (Thunder Spiker: two).
+local function swingLimit()
+	return State.myAbility() == "Thunder" and Config.Abilities.Thunder.Swings or 1
+end
+
+-- A swing in the air uses the jump's one (two for Thunder Spiker); false: none left. The second
+-- swing is marked so it hits harder.
+local function takeSwing(info, opts)
+	if info.grounded then
+		return true
+	end
+	if airSwings >= swingLimit() then
+		return false
+	end
+	airSwings = airSwings + 1
+	if airSwings >= 2 and opts then
+		opts.second = true
+	end
+	return true
+end
+
 local function tryAttack(action, info, opts)
+	if not takeSwing(info, opts) then
+		State.hint(swingLimit() > 1 and "Two swings a jump" or "One swing a jump")
+		return false
+	end
 	local now, ball = ballNow()
 	-- rules first, so a blocked touch says why instead of silently waiting
 	if action ~= "Serve" then
@@ -715,8 +744,8 @@ local function pressSpike(info)
 		return
 	end
 	if not State.isPlaying or State.phase() ~= "Rally" then
-		-- in the air out of a rally: an empty swing whenever you like
-		if os.clock() >= whiffUntil then
+		-- in the air out of a rally: an empty swing whenever you like (still one a jump)
+		if os.clock() >= whiffUntil and takeSwing(info, nil) then
 			whiff(info, attackPose("Spike"), nil)
 		end
 		return
@@ -1376,6 +1405,9 @@ function ActionController.init(m)
 		local info = charInfo()
 		local now = Util.now()
 		State.context = evaluate(info, now)
+		if info and info.grounded then
+			airSwings = 0 -- back on the floor: the next jump's swing
+		end
 		if info and State.isPlaying then
 			processProwl(info)
 			processCharge(info, dt)

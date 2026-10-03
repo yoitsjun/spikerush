@@ -25,6 +25,10 @@ local SET_TYPES = { Open = true, Quick = true, Back = true }
 local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true, Approach = true, Prowl = true, Leap = true, ProwlEnd = true }
 local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true, Approach = true, Prowl = true, Leap = true }
 local FERAL = Config.Abilities.Feral
+-- One swing a jump (Thunder Spiker: Config.Abilities.Thunder.Swings): a player's attacks and empty
+-- swings off the floor count until their root is back down (the Heartbeat in init)
+local airSwings = {} -- entity id -> swings this jump
+local SWING_ACTIONS = { Spike = true, Feint = true, Serve = true }
 local LEAP_SLACK = 0.15 -- gauge a leap may claim over the charge the server saw (network jitter)
 local LEAP_LIFE = 3 -- seconds a leap's gauge stays good for its spike
 local requestLog = {}
@@ -258,6 +262,29 @@ function HitService.process(entity, input, opts)
 	return true
 end
 
+local function swingLimit(entity)
+	return entity.ability == "Thunder" and Config.Abilities.Thunder.Swings or 1
+end
+
+-- Off the floor: the root above where it stands.
+local function offFloor(entity)
+	local root = reg.TeamService.getRoot(entity)
+	return root ~= nil and root.Position.Y - reg.TeamService.groundY(entity) > 0.35
+end
+
+-- Count a swing in the air. Returns whether it's allowed, and whether it's the jump's second.
+local function countSwing(entity)
+	if not offFloor(entity) then
+		return true, false
+	end
+	local n = airSwings[entity.id] or 0
+	if n >= swingLimit(entity) then
+		return false, false
+	end
+	airSwings[entity.id] = n + 1
+	return true, n >= 1
+end
+
 function HitService.onRequest(plr, req)
 	if type(req) ~= "table" then
 		return
@@ -303,8 +330,18 @@ function HitService.onRequest(plr, req)
 		toward = req.toward == true
 		leapCap[entity.id] = nil
 	end
+	-- one swing a jump (Thunder Spiker: two, the second harder)
+	local second = false
+	if SWING_ACTIONS[req.action] then
+		local allowed
+		allowed, second = countSwing(entity)
+		if not allowed then
+			return reject("swings")
+		end
+	end
 	local H = Config.Hits
 	local input = {
+		second = second or nil,
 		action = req.action,
 		t = req.t,
 		root = req.root,
@@ -401,6 +438,15 @@ end
 function HitService.init(r)
 	reg = r
 	Net.get("HitRequest").OnServerEvent:Connect(HitService.onRequest)
+	-- back on the floor: the next jump's swings
+	game:GetService("RunService").Heartbeat:Connect(function()
+		for id in pairs(airSwings) do
+			local e = reg.TeamService.getEntity(id)
+			if not e or not offFloor(e) then
+				airSwings[id] = nil
+			end
+		end
+	end)
 	-- a setter's aim goes to their teammates only (SetterAim); the other team never hears it
 	local aimAt = {}
 	Net.get("SetAim").OnServerEvent:Connect(function(plr, depth, height)
@@ -458,6 +504,7 @@ function HitService.init(r)
 		end
 		if kind == "Whiff" then
 			missedAt[e.id] = os.clock()
+			countSwing(e) -- an empty swing in the air is the jump's swing too
 		end
 		if e.ability == "Feral" then
 			-- Feral Leap: the charge starts, then the leap goes with what was held

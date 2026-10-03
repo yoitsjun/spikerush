@@ -1302,7 +1302,7 @@ do
 	check(dig.meta.drain == nil and (dig.meta.counterGain or 0) >= 100 and (dig2.meta.drain or 0) > 0 and light.meta.counterGain == CE.LightGain,
 		"Counter Edge: one hard spike dug fills the meter with no guard lost; any other ball of theirs adds some", string.format("+%.0f from a %d km/h spike (vs %.1f guard), +%d from a serve", dig.meta.counterGain or 0, last.kmh, dig2.meta.drain or 0, light.meta.counterGain or 0))
 	check(s0 == ines and ines.Attack < hayun.Attack and ines.Defense <= 130 and s50.Attack > s0.Attack and s50.Defense < s100.Defense
-		and s100.Defense >= 195 and s100.Attack >= 205 and full.meta.kmh >= 150 and full.meta.kmh > empty.meta.kmh * 1.25 and full.meta.counterRelease == 100 and empty.meta.counterRelease == nil,
+		and s100.Defense >= 195 and s100.Attack >= 205 and full.meta.kmh >= 200 and full.meta.kmh <= 210 and full.meta.kmh > empty.meta.kmh * 1.25 and full.meta.counterRelease == 100 and empty.meta.counterRelease == nil,
 		"Counter Edge: a full meter makes her 210 / 200 and her spike releases it for a big hit", string.format("ATK %d / %d / %d, DEF %d / %d / %d (empty / half / full); spike %.0f -> %.0f km/h", s0.Attack, s50.Attack, s100.Attack, s0.Defense, s50.Defense, s100.Defense, empty.meta.kmh, full.meta.kmh))
 
 	-- the server re-tunes a humanoid only when its boosted stats change (TeamService.refreshBoosts
@@ -1619,6 +1619,20 @@ do
 	local clean = Spins.cleanFavor({ riku = "up", yejun = "up", seojin = "up", dante = "up", hayun = "up", shoyo = "down", aoi = "sideways" })
 	local ups, downs = Spins.favorCounts(clean)
 	check(ups == F.MaxBoost and downs == 1 and clean.riku == nil and clean.aoi == nil, "saved choices are made safe: no starters, no more than the limit", ups .. " boosted, " .. downs .. " lowered")
+end
+
+print("== one swing a jump ==")
+do
+	local yj = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))
+	local r = apexRoot(yj, 3.5 * K)
+	local b = ballAt(r, 0.9, 0)
+	local _, first = spike(r, b, { stats = yj, ability = "Thunder" })
+	local _, second = spike(r, b, { stats = yj, ability = "Thunder" }, { second = true })
+	local _, other = spike(r, b, { stats = yj, ability = "Azure" }, { second = true })
+	local _, plain = spike(r, b, { stats = yj, ability = "Azure" })
+	local ratio = second.meta.kmh / first.meta.kmh
+	check(second.meta.secondSwing and not first.meta.secondSwing and math.abs(ratio - (1 + Config.Abilities.Thunder.SecondBoost)) < 0.01 and not other.meta.secondSwing and math.abs(other.meta.kmh - plain.meta.kmh) < 1e-6 and Config.Abilities.Thunder.Swings == 2,
+		"YeJun swings twice a jump and the second hits harder; nobody else gets one", string.format("%.0f -> %.0f km/h", first.meta.kmh, second.meta.kmh))
 end
 
 print("== your own keys ==")

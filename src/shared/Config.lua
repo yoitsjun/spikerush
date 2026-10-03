@@ -675,11 +675,16 @@ Config.TierColors = {
 -- Abilities come with a character (the Roster module). S+ wing spikers: Thunder Spiker, Azure Dragon or Feral Leap.
 -- S characters have their role's ability. Everyone else has none.
 Config.Abilities = {
+	-- Everyone swings once a jump (the owner: "make it so characters can only swing once in the
+	-- air except yejun who has a double swing ability, with enhanced power on the second swing"):
+	-- Thunder Spiker gets Swings, and the second hits SecondBoost harder.
 	Thunder = {
 		Name = "Thunder Spiker",
 		Tier = "S+",
-		Blurb = "Hit the ball above 4.00 m and it becomes a lightning spike.",
+		Blurb = "Hit the ball above 4.00 m and it becomes a lightning spike. You can swing twice in one jump, and the second swing hits 18% harder.",
 		Color = Color3.fromRGB(255, 225, 77),
+		Swings = 2,
+		SecondBoost = 0.18,
 	},
 	Azure = {
 		Name = "Azure Dragon",
@@ -816,11 +821,14 @@ Config.Abilities = {
 		Name = "Counter Edge",
 		Tier = "S",
 		Role = "WS",
-		Blurb = "Every ball the other team sends that you dig fills your Counter meter, and one hard spike fills it. Spikes you receive cost no stamina: blades burst out and sink back in. The meter adds up to +40 Attack and +70 Defense, and your next spike releases all of it for up to +12% more power.",
+		Blurb = "Every ball the other team sends that you dig fills your Counter meter, and one hard spike fills it. Spikes you receive cost no stamina: blades burst out and sink back in. The meter adds up to +40 Attack and +70 Defense, and your next spike releases all of it for up to +46% more power (about 205 km/h maxed).",
 		Color = Color3.fromRGB(190, 220, 255),
 		-- stat points at a full meter (0..100, in proportion below it)
 		PerFull = { Attack = 40, Defense = 70 },
-		ReleaseBoost = 0.12, -- her spike releases the meter: speed x (1 + this x meter / 100), then it's empty
+		-- her spike releases the meter: speed x (1 + this x meter / 100), then it's empty (the owner:
+		-- "buff ines to be able to have around 200-210 at maxed out": maxed, a full one is about 205
+		-- km/h, with Dante's full leap 204 and a full Azure 201; it was 0.12, 157 km/h)
+		ReleaseBoost = 0.46,
 		GainPerKmh = 0.8, -- meter per km/h of a hard spike she receives (a 125 km/h spike fills it)
 		MinGain = 40,
 		MaxGain = 100,

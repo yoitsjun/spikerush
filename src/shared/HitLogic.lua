@@ -619,6 +619,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	-- this character's own top, so a short jumper can't reach 4.00 m off a high ball
 	local heightM = HitLogic.meters(math.min(ball.Y, stats.contactMaxStuds))
 	local kmh, thunder, energy, overcharge, pierce = attackPower(kind, q, qContact, heightM, stats, ctx.ability, input.energy)
+	-- Thunder Spiker's second swing in one jump hits harder (input.second: the server counts the
+	-- swings itself)
+	local second = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Thunder" and input.second == true
+	if second then
+		kmh = kmh * (1 + Config.Abilities.Thunder.SecondBoost)
+	end
 	local boom = kind == "Spike" and reaction(ctx)
 	if boom then
 		kmh = kmh * CHAIN.PowerMul
@@ -634,6 +640,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.flatDrain = CHAIN.FlatDrain
 	end
 	meta.thunder = thunder or nil
+	meta.secondSwing = second or nil
 	meta.energy = energy > 0 and energy or nil
 	meta.overcharge = overcharge or nil
 	meta.pierce = pierce or nil
