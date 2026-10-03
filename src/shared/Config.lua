@@ -1083,6 +1083,60 @@ Config.Settings = {
 	SaveDelay = 1, -- seconds after the last change before the client sends them
 }
 
+-- Keyboard controls (Settings > Controls; the owner: "in the settings, allows keybinds to be
+-- changed"). Each action works on its Defaults until you pick your own key, which replaces them
+-- (one key per action, and a key you pick is taken from any other action that had it). Allowed:
+-- the keys a player may pick: Roblox's own (Escape, chat's Slash, the console's F9, the player
+-- list's Tab) and 1 and 2 (your AI teammates' abilities) aren't. The mouse buttons and a
+-- controller stay as they are.
+Config.Controls = {
+	Order = { "MoveLeft", "MoveRight", "Spike", "Receive", "SlideFeint", "Block", "Set", "Serve", "EasyServe", "Ability", "Timeout" },
+	Names = {
+		MoveLeft = "Move left",
+		MoveRight = "Move right",
+		Spike = "Jump and spike",
+		Receive = "Receive",
+		SlideFeint = "Slide and roll shot",
+		Block = "Block",
+		Set = "Set",
+		Serve = "Serve",
+		EasyServe = "Easy serve",
+		Ability = "Ability",
+		Timeout = "Timeout",
+	},
+	Defaults = {
+		MoveLeft = { "A", "Left" },
+		MoveRight = { "D", "Right" },
+		Spike = { "Space", "Z", "J" },
+		Receive = { "S", "Down", "K" },
+		SlideFeint = { "C", "LeftShift", "RightShift", "L" },
+		Block = { "W", "Up" },
+		Set = { "E", "V" },
+		Serve = { "X" },
+		EasyServe = { "F" },
+		Ability = { "Q" },
+		Timeout = { "T" },
+	},
+	Allowed = {
+		"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+		"Zero", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+		"KeypadZero", "KeypadOne", "KeypadTwo", "KeypadThree", "KeypadFour", "KeypadFive", "KeypadSix", "KeypadSeven", "KeypadEight", "KeypadNine",
+		"Space", "LeftShift", "RightShift", "LeftControl", "RightControl", "LeftAlt", "RightAlt",
+		"Up", "Down", "Left", "Right", "Return", "Backspace", "CapsLock",
+		"Comma", "Period", "Semicolon", "Quote", "LeftBracket", "RightBracket", "Minus", "Equals", "BackSlash",
+	},
+	-- how a key reads on screen (the rest read as their name)
+	Labels = {
+		Space = "Space", LeftShift = "L Shift", RightShift = "R Shift", LeftControl = "L Ctrl", RightControl = "R Ctrl",
+		LeftAlt = "L Alt", RightAlt = "R Alt", Return = "Enter", CapsLock = "Caps",
+		Zero = "0", Three = "3", Four = "4", Five = "5", Six = "6", Seven = "7", Eight = "8", Nine = "9",
+		KeypadZero = "Num 0", KeypadOne = "Num 1", KeypadTwo = "Num 2", KeypadThree = "Num 3", KeypadFour = "Num 4",
+		KeypadFive = "Num 5", KeypadSix = "Num 6", KeypadSeven = "Num 7", KeypadEight = "Num 8", KeypadNine = "Num 9",
+		Comma = ",", Period = ".", Semicolon = ";", Quote = "'", LeftBracket = "[", RightBracket = "]", Minus = "-",
+		Equals = "=", BackSlash = "\\",
+	},
+}
+
 Config.Graphics = {
 	CrowdDensityDesktop = 0.7, -- the stands grew with the court
 	CrowdDensityMobile = 0.35,

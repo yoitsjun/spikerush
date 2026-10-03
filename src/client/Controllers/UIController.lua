@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Settings = require(Shared.Settings)
 local Assets = require(Shared.Assets)
 local Characters = require(Shared.Characters)
 local Court = require(Shared.Court)
@@ -1404,7 +1405,8 @@ end
 ------------------------------------------------------------------------------------------
 
 -- One row per setting: a switch (key), or a button (press) that opens something. `sub` is a
--- line under the name; `touch` rows show on touch devices only.
+-- line under the name; `touch` rows show on touch devices only, `keyboard` rows everywhere else.
+local Keys = {} -- Settings > Controls (Keys.build)
 local SETTINGS = {
 	{ key = "doubleApproach", text = "Double approach", sub = "Press Jump twice to jump (a squeak on the first)" },
 	{ key = "setterAim", text = "Setter aim", sub = "As the setter, aim your sets (your team sees it)" },
@@ -1412,6 +1414,17 @@ local SETTINGS = {
 	{ key = "dramatic", text = "Impact frames and speed lines" },
 	{ key = "assist", text = "Receive assist" },
 	{ key = "followCam", text = "Follow camera (zoomed in)" },
+	{
+		key = "controls",
+		text = "Controls",
+		sub = "Change your keys",
+		keyboard = true,
+		button = "Edit",
+		press = function()
+			UIController.closeSettings()
+			Keys.open()
+		end,
+	},
 	{ key = "shake", text = "Camera shake" },
 	{
 		key = "touchLayout",
@@ -1457,6 +1470,127 @@ local function fitSettings()
 	ui.settingsScale.Scale = math.clamp(room / sp.Size.Y.Offset, 0.45, 1)
 end
 
+-- Settings > Controls (the owner: "in the settings, allows keybinds to be changed"): a row per
+-- action (Config.Controls) with the keys it's on. Change waits for the next key, which becomes
+-- that action's one key (taken from any other action that had it); Reset all puts the defaults
+-- back. The mouse buttons and a controller don't change.
+function Keys.build()
+	local CT = Config.Controls
+	local rowH, top = 38, 98
+	local h = top + #CT.Order * (rowH + 4) + 62
+	local f = panel(gui, { Name = "Controls", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(540, h), Visible = false, ZIndex = 8 })
+	f.BackgroundTransparency = 0.04
+	edge(f, Gui.HAIRLINE, 0.3)
+	Keys.scale = make("UIScale", {}, f)
+	label(f, { Text = "Controls", Font = Enum.Font.GothamBlack, TextSize = 26, Size = UDim2.new(1, -32, 0, 30), Position = UDim2.fromOffset(16, 10), ZIndex = 8 })
+	Gui.plate(f, { Size = UDim2.fromOffset(56, 5), Position = UDim2.fromOffset(18, 44), ZIndex = 8 }, Gui.SIGNAL)
+	Keys.hint = label(f, { Text = "", TextSize = 14, TextColor3 = UI.Fog, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -32, 0, 36), Position = UDim2.fromOffset(16, 56), ZIndex = 8 })
+	Keys.rows = {}
+	for i, action in ipairs(CT.Order) do
+		local r = make("Frame", { Size = UDim2.new(1, -24, 0, rowH), Position = UDim2.fromOffset(12, top + (i - 1) * (rowH + 4)), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 8 }, f)
+		corner(r, 6)
+		label(r, { Text = CT.Names[action], Font = Enum.Font.GothamBlack, TextSize = 17, Size = UDim2.new(0.42, 0, 1, 0), Position = UDim2.fromOffset(12, 0), ZIndex = 8 })
+		local keysL = label(r, { Text = "", Font = Enum.Font.GothamBold, TextSize = 15, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(0.58, -116, 1, 0), Position = UDim2.new(0.42, 4, 0, 0), ZIndex = 8 })
+		local b = button(r, "Change", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(96, 28), TextSize = 14, ZIndex = 9 })
+		Gui.pressSound(b)
+		b.MouseButton1Click:Connect(function()
+			click()
+			Keys.listen(action)
+		end)
+		Keys.rows[action] = { keys = keysL }
+	end
+	local reset = button(f, "Reset all", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -12), Size = UDim2.fromOffset(150, 40), TextSize = 16, ZIndex = 9 })
+	local done = button(f, "Done", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, -12), Size = UDim2.fromOffset(150, 40), BackgroundColor3 = UI.Spark, TextColor3 = UI.Ink, TextSize = 16, ZIndex = 9 })
+	Gui.pressSound(reset)
+	Gui.pressSound(done)
+	reset.MouseButton1Click:Connect(function()
+		click()
+		Keys.stopListening()
+		State.setSetting("keys", {})
+		Keys.refresh()
+	end)
+	done.MouseButton1Click:Connect(function()
+		click()
+		Keys.close()
+	end)
+	ui.keys = f
+	State.signals.Settings:Connect(function(key)
+		if key == "keys" and f.Visible then
+			Keys.refresh()
+		end
+	end)
+end
+
+function Keys.refresh()
+	local CT = Config.Controls
+	if Keys.listening then
+		Keys.hint.Text = string.format("Press the key you want for %s now (Done stops).", string.lower(CT.Names[Keys.listening]))
+	else
+		Keys.hint.Text = Keys.note or "Change a key, then press the one you want: it replaces that action's others. The mouse buttons and a controller stay as they are."
+	end
+	Keys.note = nil
+	for action, r in pairs(Keys.rows) do
+		if Keys.listening == action then
+			r.keys.Text = "Press a key..."
+			r.keys.TextColor3 = UI.Spark
+		else
+			r.keys.Text = Settings.keysText(State.settings.keys, action)
+			r.keys.TextColor3 = UI.Chalk
+		end
+	end
+end
+
+function Keys.stopListening()
+	Keys.listening = nil
+	mods.InputController.cancelCapture()
+end
+
+function Keys.listen(action)
+	Keys.listening = action
+	Keys.refresh()
+	mods.InputController.capture(function(name)
+		Keys.listening = nil
+		if Settings.allowedKey(name) then
+			local keys = {}
+			for a, k in pairs(State.settings.keys or {}) do
+				if k ~= name then
+					keys[a] = k -- the key moves here from whatever had it
+				end
+			end
+			keys[action] = name
+			State.setSetting("keys", keys)
+		else
+			Keys.note = Settings.keyLabel(name) .. " can't be used (Roblox needs it, or it's a teammate's ability): pick another."
+		end
+		Keys.refresh()
+	end)
+end
+
+function Keys.open()
+	if not ui.keys then
+		return
+	end
+	Keys.stopListening()
+	Keys.refresh()
+	ui.keys.Visible = true
+	gui.DisplayOrder = 25 -- over the menus too
+	local size = gui.AbsoluteSize
+	Keys.scale.Scale = math.clamp(math.min((size.Y - 24) / ui.keys.Size.Y.Offset, (size.X - 24) / ui.keys.Size.X.Offset), 0.45, 1)
+end
+
+function Keys.close()
+	Keys.stopListening()
+	if ui.keys then
+		ui.keys.Visible = false
+	end
+	gui.DisplayOrder = 10
+end
+
+-- Settings > Controls, from anywhere (the tutorial's controls card opens it too).
+function UIController.openControls()
+	Keys.open()
+end
+
 local function buildCorner()
 	local timeout, timeoutCap = roundButton("Timeout", "IconTimeout", -84)
 	timeout.Visible = false
@@ -1486,7 +1620,7 @@ local function buildCorner()
 	local rows, tops = {}, {}
 	local y = 60
 	for _, s in ipairs(SETTINGS) do
-		if not s.touch or State.isMobile then
+		if (not s.touch or State.isMobile) and not (s.keyboard and State.isMobile) then
 			table.insert(rows, s)
 			table.insert(tops, y)
 			y = y + (s.sub and 58 or 44) + 6
@@ -2090,6 +2224,7 @@ function UIController.init(m)
 	buildAbility()
 	buildRail()
 	buildCorner()
+	Keys.build()
 	buildRotation()
 	buildCoach()
 	buildContinue()

@@ -1621,6 +1621,19 @@ do
 	check(ups == F.MaxBoost and downs == 1 and clean.riku == nil and clean.aoi == nil, "saved choices are made safe: no starters, no more than the limit", ups .. " boosted, " .. downs .. " lowered")
 end
 
+print("== your own keys ==")
+local Settings = require("Settings")
+do
+	local clean = Settings.clean({ keys = { Spike = "G", Block = "G", Set = "Escape", Receive = 5, Bogus = "H", Timeout = "One" } })
+	check(clean.keys.Spike == "G" and clean.keys.Block == nil and clean.keys.Set == nil and clean.keys.Receive == nil and clean.keys.Bogus == nil and clean.keys.Timeout == nil,
+		"saved keys: allowed keys only, one action each (no Escape, no 1 and 2, no junk)")
+	local map = Settings.keyMap({ Spike = "G", Block = "Space" })
+	check(map.G == "Spike" and map.Space == "Block" and map.Z == nil and map.J == nil and map.W == nil and map.Up == nil and map.E == "Set" and map.A == "MoveLeft",
+		"your key replaces that action's defaults and wins over another action's default on it")
+	local spikeKeys, blockKeys = Settings.keysText({ Spike = "G" }, "Spike"), Settings.keysText({}, "Block")
+	check(spikeKeys == "G" and blockKeys == "W / Up" and Settings.keysText({}, "SlideFeint") == "C / L Shift / R Shift / L", "the keys an action is on read as text", spikeKeys .. " | " .. blockKeys)
+end
+
 print("== tier colours ==")
 do
 	check(Characters.color("S-") == Config.TierColors["S-"] and Characters.color("S") == Config.TierColors.S and Characters.color("S-") ~= Characters.color("S") and Characters.color("A+") == Config.TierColors.A,

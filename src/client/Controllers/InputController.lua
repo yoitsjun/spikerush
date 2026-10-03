@@ -16,6 +16,9 @@
 --
 -- Gamepad: A spike, B receive, X serve, D-pad up easy serve, Y block, RB slide/feint, LB set,
 -- R2 spike, L2 ability, Select timeout.
+--
+-- The keyboard keys above are the defaults (Config.Controls): Settings > Controls gives an action
+-- a key of your own instead (Settings.keyMap; capture() takes the next key pressed for it).
 
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -24,6 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Net = require(Shared.Net)
+local Settings = require(Shared.Settings)
 local State = require(script.Parent.State)
 
 local InputController = {}
@@ -31,24 +35,8 @@ local mods
 
 local lastDevice = "Keyboard"
 
-local KEYS = {
-	[Enum.KeyCode.Z] = "Spike",
-	[Enum.KeyCode.J] = "Spike",
-	[Enum.KeyCode.Down] = "Receive",
-	[Enum.KeyCode.S] = "Receive",
-	[Enum.KeyCode.K] = "Receive",
-	[Enum.KeyCode.C] = "SlideFeint",
-	[Enum.KeyCode.LeftShift] = "SlideFeint",
-	[Enum.KeyCode.RightShift] = "SlideFeint",
-	[Enum.KeyCode.L] = "SlideFeint",
-	[Enum.KeyCode.Up] = "Block",
-	[Enum.KeyCode.W] = "Block",
-	[Enum.KeyCode.E] = "Set",
-	[Enum.KeyCode.V] = "Set",
-	[Enum.KeyCode.X] = "Serve",
-	[Enum.KeyCode.F] = "EasyServe",
-	[Enum.KeyCode.T] = "Timeout",
-	[Enum.KeyCode.Q] = "Ability",
+-- the controller's buttons and the teammates' abilities on 1 and 2 (these stay as they are)
+local FIXED = {
 	[Enum.KeyCode.ButtonL2] = "Ability",
 	[Enum.KeyCode.One] = "Team1", -- your AI teammates' abilities
 	[Enum.KeyCode.Two] = "Team2",
@@ -70,6 +58,49 @@ local MOUSE = {
 	[Enum.UserInputType.MouseButton2] = "Receive",
 }
 
+-- the keyboard, from your keys and the defaults (Settings.keyMap): key -> action, and the keys
+-- that move you along the court
+local KEYS = {}
+local moveLeft, moveRight = {}, {}
+local capturing = nil -- Settings > Controls waiting for a key: called with its name
+
+local function rebuild()
+	local keys, left, right = {}, {}, {}
+	for name, action in pairs(Settings.keyMap(State.settings.keys)) do
+		local ok, kc = pcall(function()
+			return Enum.KeyCode[name]
+		end)
+		if ok and kc then
+			if action == "MoveLeft" then
+				table.insert(left, kc)
+			elseif action == "MoveRight" then
+				table.insert(right, kc)
+			else
+				keys[kc] = action
+			end
+		end
+	end
+	KEYS, moveLeft, moveRight = keys, left, right
+end
+
+local function actionFor(keyCode)
+	return KEYS[keyCode] or FIXED[keyCode]
+end
+
+-- The next key pressed goes to fn(name) instead of the game (Settings > Controls).
+function InputController.capture(fn)
+	capturing = fn
+end
+
+function InputController.cancelCapture()
+	capturing = nil
+end
+
+-- An action's keys as text right now ("Space / Z / J").
+function InputController.keysText(action, sep)
+	return Settings.keysText(State.settings.keys, action, sep)
+end
+
 local held = {}
 
 function InputController.lastDevice()
@@ -81,12 +112,21 @@ function InputController.isHeld(action)
 end
 
 -- -1, 0 or 1 along the court (screen right is +z).
+local function anyDown(list)
+	for _, kc in ipairs(list) do
+		if UserInputService:IsKeyDown(kc) then
+			return true
+		end
+	end
+	return false
+end
+
 function InputController.keyboardAxis()
 	local axis = 0
-	if UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) then
+	if anyDown(moveRight) then
 		axis = axis + 1
 	end
-	if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left) then
+	if anyDown(moveLeft) then
 		axis = axis - 1
 	end
 	return axis
@@ -108,12 +148,30 @@ function InputController.init(m)
 	mods = m
 	-- Space is Spike too. It's taken above Roblox's own jump (sunk at a higher priority), so a
 	-- press never also hops: on the ground it's the run-up jump (pressed twice with the double approach)
+	rebuild()
+	State.signals.Settings:Connect(function(key)
+		if key == "keys" then
+			rebuild()
+		end
+	end)
 	ContextActionService:BindActionAtPriority("SpikeRushSpace", function(_, inputState)
+		-- whatever Space is on (Spike unless you moved it); it never hops on its own
+		if inputState == Enum.UserInputState.Begin and capturing then
+			local fn = capturing
+			capturing = nil
+			fn("Space")
+			return Enum.ContextActionResult.Sink
+		end
+		local action = KEYS[Enum.KeyCode.Space]
 		if inputState == Enum.UserInputState.Begin then
 			lastDevice = "Keyboard"
-			press("Spike")
+			if action then
+				press(action)
+			end
 		elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
-			release("Spike")
+			if action then
+				release(action)
+			end
 		end
 		return Enum.ContextActionResult.Sink
 	end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.Space)
@@ -131,7 +189,16 @@ function InputController.init(m)
 			press(action)
 			return
 		end
-		action = KEYS[input.KeyCode]
+		if capturing and t == Enum.UserInputType.Keyboard then
+			local fn = capturing
+			capturing = nil
+			fn(input.KeyCode.Name)
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.Space then
+			return -- Space goes through its own binding above
+		end
+		action = actionFor(input.KeyCode)
 		if action then
 			if t == Enum.UserInputType.Gamepad1 then
 				lastDevice = "Gamepad"
@@ -145,7 +212,10 @@ function InputController.init(m)
 		if State.isMobile and MOUSE[input.UserInputType] then
 			return
 		end
-		local action = MOUSE[input.UserInputType] or KEYS[input.KeyCode]
+		if input.KeyCode == Enum.KeyCode.Space then
+			return
+		end
+		local action = MOUSE[input.UserInputType] or actionFor(input.KeyCode)
 		if action then
 			release(action)
 		end
