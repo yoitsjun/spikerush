@@ -1380,8 +1380,18 @@ print("== leaderboards ==")
 do
 	local Leaderboards = require("Leaderboards")
 	local v = Leaderboards.valuesOf({ bestStreak = 4, record = { wins = 12, kills = 140, aces = 9, blocks = -3 }, spent = { robux = 897, gifts = 399 } })
-	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and v.robux == 897 and v.gifts == 399 and #Leaderboards.Boards == 7,
-		"seven boards: wins, best win streak, spike kills, aces and blocks from the career counters, Robux spent and Robux gifted")
+	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and v.robux == 897 and v.gifts == 399 and #Leaderboards.Boards == 8 and v.winRate == 0,
+		"eight boards: wins, best win streak, spike kills, aces and blocks from the career counters, Robux spent and gifted, and the W/L ratio (none before 20 matches)")
+	-- the W/L ratio board: one number that sorts by the share won, then the wins, and keeps both
+	local wr = Leaderboards.valuesOf({ record = { wins = 120, matches = 194 } }).winRate
+	local pct, w, l = Leaderboards.unpackWinRate(wr)
+	local better = Leaderboards.winRate(130, 60)
+	local tieMoreWins = Leaderboards.winRate(124, 76)
+	check(math.abs(pct - 61.9) < 1e-9 and w == 120 and l == 74 and better > wr and tieMoreWins > Leaderboards.winRate(62, 38) and Leaderboards.format("winRate", wr) == "61.9%  120 W  74 L" and Leaderboards.format("wins", 1234) == "1,234 wins",
+		"the W/L ratio board shows the share won, the wins and the losses, best share first", Leaderboards.format("winRate", wr))
+	local merged = Leaderboards.merge({ { userId = 1, value = Leaderboards.winRate(30, 10) } }, { { userId = 1, value = Leaderboards.winRate(30, 20) } }, 10, true)
+	local _, mw, ml = Leaderboards.unpackWinRate(merged[1].value)
+	check(mw == 30 and ml == 20, "a board that can go down shows a player's fresh value over the stored one")
 	local ranked = Leaderboards.rank({ { userId = 5, value = 10 }, { userId = 2, value = 30 }, { userId = 9, value = 10 }, { userId = 1, value = 7 } }, 3)
 	check(#ranked == 3 and ranked[1].userId == 2 and ranked[1].rank == 1 and ranked[2].userId == 5 and ranked[2].rank == 2 and ranked[3].userId == 9 and ranked[3].rank == 2, "best first, ties share a rank, only the top N", string.format("%d:%d %d:%d %d:%d", ranked[1].rank, ranked[1].value, ranked[2].rank, ranked[2].value, ranked[3].rank, ranked[3].value))
 	local merged = Leaderboards.merge({ { userId = 1, value = 20, name = "A" }, { userId = 2, value = 15, name = "B" } }, { { userId = 2, value = 25, name = "B" }, { userId = 3, value = 5, name = "C" }, { userId = 4, value = 0, name = "D" } }, 10)
@@ -1490,9 +1500,21 @@ do
 	local stats0 = Cards.stats({ record = {} }, 0)
 	for _, c in ipairs(Cards.list()) do
 		ok = ok and not seen[c.Key] and type(c.Goal) == "string" and patterns[c.Look.Pattern] ~= nil and c.Look.Base ~= nil
-		ok = ok and (c.Stat == nil or c.Stat == "rank" or stats0[c.Stat] ~= nil) and (c.Show == nil or c.Show == "rank" or stats0[c.Show] ~= nil)
+		ok = ok and (c.Stat == nil or c.Stat == "rank" or c.Stat == "grant" or stats0[c.Stat] ~= nil) and (c.Show == nil or c.Show == "rank" or c.Show == "winRate" or stats0[c.Show] ~= nil)
+		ok = ok and (c.Stat ~= "grant" or c.Grant == true)
 		seen[c.Key] = true
 	end
+	-- the Win/Loss card: the share won, then the wins and losses; the Content Creator card is only given
+	local wlStats = Cards.stats({ record = { wins = 120, matches = 194 } }, 0)
+	local wv, wlab = Cards.display(Cards.get("WinLoss"), wlStats)
+	local creator = Cards.get("Creator")
+	local Economy = require("Economy")
+	local g = Economy.cleanGrant({ Cards = { "Creator", "Rookie", "Creator", "Bogus" } })
+	local prof = { cards = {} }
+	Economy.apply(prof, g, 0)
+	check(wv == "62%" and wlab == "120 W  74 L" and Cards.met(Cards.get("WinLoss"), wlStats) and not Cards.met(creator, wlStats) and Cards.isGrant(creator)
+		and #g.Cards == 1 and prof.cards.Creator == true and not Economy.isEmpty(g) and Cards.look(creator, nil, nil).Avatar == true,
+		"the Win/Loss card shows the share won and the record; the Content Creator card is given, never earned", wv .. " / " .. wlab)
 	local default = Cards.get(Cards.default())
 	check(ok and default and not default.Stat and #Cards.list() >= 10, "player cards: each has its own look, goal and achievement; the default needs nothing", #Cards.list() .. " cards")
 	-- they unlock by achievement: a streak, wins, spikes, MVPs, recruits, a leaderboard place

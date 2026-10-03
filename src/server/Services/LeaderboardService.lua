@@ -152,7 +152,7 @@ local function mergedBoards()
 		for _, l in ipairs(live) do
 			table.insert(liveRows, { userId = l.userId, name = l.name, value = l.values[b.Key] })
 		end
-		local rows = Leaderboards.merge(stored[b.Key], liveRows, LB.Top)
+		local rows = Leaderboards.merge(stored[b.Key], liveRows, LB.Top, b.Live == true)
 		for _, r in ipairs(rows) do
 			r.name = r.name or names[r.userId] or "Player"
 		end
@@ -166,26 +166,67 @@ local function snapshot()
 	return { boards = mergedBoards(), global = global, updated = lastRead, refresh = LB.RefreshInterval }
 end
 
--- Every player here: their best place on any board goes on them as the attributes BoardRank and
--- BoardName (the matchup intro shows it over their head; none: nil), and a top-3 place is kept
--- (the Top 3 and Number One player cards).
+-- A player's place on every board ({ [board key] = rank }), from merged boards.
+local function placesOf(boards, userId)
+	local out = {}
+	for _, b in ipairs(LB.Boards) do
+		for _, r in ipairs(boards[b.Key] or {}) do
+			if r.userId == userId then
+				out[b.Key] = r.rank
+			end
+		end
+	end
+	return out
+end
+
+-- The place that goes over a player's head in the matchup intro, as the attributes BoardRank and
+-- BoardName (none: nil): the board they picked (the owner: "allow players to pick what stat shows
+-- up on the entrance instead of picking the highest"; ProfileService's equip.Entrance), or their
+-- best place when they picked none.
+local function showEntrance(plr, places)
+	local profile = reg.ProfileService.peek(plr)
+	local pick = profile and profile.equip and profile.equip.Entrance
+	local rank, board = nil, nil
+	if pick and Leaderboards.isBoard(pick) then
+		rank, board = places[pick], Leaderboards.board(pick)
+	else
+		for _, b in ipairs(LB.Boards) do
+			if places[b.Key] and (not rank or places[b.Key] < rank) then
+				rank, board = places[b.Key], b
+			end
+		end
+	end
+	plr:SetAttribute("BoardRank", rank)
+	plr:SetAttribute("BoardName", rank and board and board.Name or nil)
+end
+
+-- Every player here: what goes over their head (showEntrance), and a top-3 place on any board is
+-- kept (the Top 3 and Number One player cards).
 local function checkRanks()
 	local boards = mergedBoards()
 	for _, plr in ipairs(Players:GetPlayers()) do
-		local best, bestBoard = nil, nil
-		for _, b in ipairs(LB.Boards) do
-			for _, r in ipairs(boards[b.Key] or {}) do
-				if r.userId == plr.UserId and (not best or r.rank < best) then
-					best, bestBoard = r.rank, b
-				end
+		local places = placesOf(boards, plr.UserId)
+		showEntrance(plr, places)
+		local best, bestKey = nil, nil
+		for key, rank in pairs(places) do
+			if not best or rank < best then
+				best, bestKey = rank, key
 			end
 		end
-		plr:SetAttribute("BoardRank", best)
-		plr:SetAttribute("BoardName", bestBoard and bestBoard.Name or nil)
 		if best and best <= 3 then
-			reg.ProfileService.topRank(plr, best, bestBoard.Key)
+			reg.ProfileService.topRank(plr, best, bestKey)
 		end
 	end
+end
+
+-- A player changed what goes over their head: show it now.
+function LeaderboardService.updateEntrance(plr)
+	showEntrance(plr, placesOf(mergedBoards(), plr.UserId))
+end
+
+-- A player's place on every board right now ({ [board key] = rank }; a profile page).
+function LeaderboardService.placesOf(userId)
+	return placesOf(mergedBoards(), userId)
 end
 
 function LeaderboardService.init(r)

@@ -41,7 +41,21 @@ function Economy.cleanGrant(g)
 	local function amount(v, max)
 		return math.max(0, math.min(whole(v), max))
 	end
-	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), Chars = {} }
+	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), Chars = {}, Cards = {} }
+	-- player cards that are given, never earned (the Content Creator card)
+	if type(g.Cards) == "table" then
+		local seen = {}
+		for _, key in ipairs(g.Cards) do
+			if type(key) == "string" and not seen[key] then
+				for _, c in ipairs(Config.Cards.List) do
+					if c.Key == key and c.Grant then
+						seen[key] = true
+						table.insert(out.Cards, key)
+					end
+				end
+			end
+		end
+	end
 	if type(g.Chars) == "table" then
 		local seen = {}
 		for _, id in ipairs(g.Chars) do
@@ -55,7 +69,7 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and #g.Chars == 0
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0
 end
 
 -- A boost timer (unix end) after adding `seconds` at `now`: from now if it had run out, on top
@@ -94,6 +108,10 @@ function Economy.apply(profile, g, now)
 			table.insert(added, id)
 		end
 	end
+	profile.cards = type(profile.cards) == "table" and profile.cards or {}
+	for _, key in ipairs(g.Cards or {}) do
+		profile.cards[key] = true
+	end
 	return added
 end
 
@@ -116,6 +134,13 @@ function Economy.describe(g, chars)
 	for _, id in ipairs(chars or g.Chars) do
 		local c = Roster.get(id)
 		table.insert(parts, c and c.Name or id)
+	end
+	for _, key in ipairs(g.Cards or {}) do
+		for _, c in ipairs(Config.Cards.List) do
+			if c.Key == key then
+				table.insert(parts, "the " .. c.Name .. " card")
+			end
+		end
 	end
 	if #parts == 0 then
 		return "nothing new"

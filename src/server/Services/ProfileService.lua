@@ -30,6 +30,7 @@
 --   ("gift", kind, index, username)  -> buy a pack for someone else
 --   ("pityPick", charId)             -> the S+ your lucky pity owes you (Config.Spins.Pity)
 --   ("favor", charId, "up"|"down"|nil) -> boost, lower or reset a character's odds (Config.Spins.Favor)
+--   ("entrance", boardKey | nil)     -> the board whose place shows over your head (nil: your best)
 -- Codes and the daily reward are for members of the group who favorited the game (the owner:
 -- "actually check"; Roblox can't tell a game who liked it, but its favorite prompt tells the
 -- client when they favorite it). Kept in the profile, so it's done once.
@@ -352,6 +353,10 @@ local function sanitizeProfile(data)
 	end
 	if type(data.equip) == "table" and Cards.get(data.equip.Card) then
 		out.equip.Card = data.equip.Card
+	end
+	-- the leaderboard place over your head in the matchup intro: a board, or your best (nil)
+	if type(data.equip) == "table" and Leaderboards.isBoard(data.equip.Entrance) then
+		out.equip.Entrance = data.equip.Entrance
 	end
 	if type(data.bestRank) == "table" and Leaderboards.isBoard(data.bestRank.board) then
 		local r = math.floor(tonumber(data.bestRank.rank) or 0)
@@ -1354,6 +1359,14 @@ local function onRequest(plr, kind, a, b, c)
 		upgrade(plr, profile, a, b, c)
 	elseif kind == "spin" then
 		spin(plr, profile, a, b, c == "lucky")
+	elseif kind == "entrance" then
+		-- which leaderboard place shows over your head in the matchup intro (nil: your best one)
+		profile.equip.Entrance = Leaderboards.isBoard(a) and a or nil
+		dirty[plr] = true
+		push(plr)
+		if reg.LeaderboardService and reg.LeaderboardService.updateEntrance then
+			task.spawn(reg.LeaderboardService.updateEntrance, plr)
+		end
 	elseif kind == "favor" then
 		-- Boost or Lower a character's odds on the Characters banner (or reset it)
 		local item = type(a) == "string" and Spins.item("Char", a)

@@ -1233,6 +1233,62 @@ function AnimationController.rig(model)
 	return { model = model, root = root, byPart0 = byPart0, attached = attached }
 end
 
+-- The pose of a character's spike at the hand (their spike style's, else the Full Bow's).
+function AnimationController.spikePose(model)
+	local style = model and model:GetAttribute(Config.Cosmetics.Attribute.Style)
+	if style and POSES["Snap_" .. style] then
+		return "Snap_" .. style
+	end
+	return POSES.Snap_Bow and "Snap_Bow" or "Cock"
+end
+
+local PORTRAIT_STRIP = { ForceField = true, BillboardGui = true, SurfaceGui = true, Sound = true, ParticleEmitter = true, Highlight = true, Trail = true, Beam = true, VectorForce = true, Fire = true, Smoke = true, Sparkles = true }
+
+-- Fill a ViewportFrame with a posed copy of `model` (a character in the world) facing screen
+-- right, framed head to toe (the Content Creator card's avatar, mid-spike). Calling it again
+-- replaces the copy; returns the rig, or nil while the model isn't there.
+function AnimationController.portrait(viewport, model, poseName)
+	for _, c in ipairs(viewport:GetChildren()) do
+		if c:IsA("Model") or c:IsA("Camera") then
+			c:Destroy()
+		end
+	end
+	if not model or not model:FindFirstChild("HumanoidRootPart") then
+		return nil
+	end
+	local was = model.Archivable
+	model.Archivable = true
+	local ok, clone = pcall(function()
+		return model:Clone()
+	end)
+	model.Archivable = was
+	if not ok or not clone then
+		return nil
+	end
+	for _, d in ipairs(clone:GetDescendants()) do
+		if PORTRAIT_STRIP[d.ClassName] or d:IsA("Light") then
+			d:Destroy()
+		end
+	end
+	local rig = AnimationController.rig(clone)
+	if not rig then
+		clone:Destroy()
+		return nil
+	end
+	-- turned a quarter so the camera (on -Z, looking +Z) sees them side on, facing screen right
+	AnimationController.poseModel(rig, POSES[poseName or ""] or POSES.Cock or {}, CFrame.Angles(0, math.rad(90), 0))
+	rig.model.Parent = viewport
+	local cam = Instance.new("Camera")
+	cam.FieldOfView = 30
+	local box, size = rig.model:GetBoundingBox()
+	local half = math.max(size.Y, size.Z, size.X) / 2
+	local dist = half / math.tan(math.rad(cam.FieldOfView) / 2) * 1.08
+	cam.CFrame = CFrame.lookAt(box.Position + Vector3.new(0, 0, -dist), box.Position)
+	cam.Parent = viewport
+	viewport.CurrentCamera = cam
+	return rig
+end
+
 -- Place the rig at `rootCF` in pose `joints` (joint name -> rotation, as poseJoints returns).
 function AnimationController.poseModel(rig, joints, rootCF)
 	if not rig then

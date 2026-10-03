@@ -1823,7 +1823,12 @@ local function showScoreCard(a)
 	-- the card they wear, and the number it shows (the server keeps these on their character)
 	local def = Cards.get(m and m:GetAttribute("PlayerCard")) or Cards.get(Cards.default())
 	local rank = m and tonumber(m:GetAttribute("CardRank")) or 0
-	C.card.set(Cards.look(def, teamColor(a.winner), rank > 0 and rank or nil), {
+	local look = Cards.look(def, teamColor(a.winner), rank > 0 and rank or nil)
+	if look.Avatar and m then
+		-- the Content Creator card: their own avatar, mid-spike, across it
+		mods.AnimationController.portrait(C.card.viewport, m, mods.AnimationController.spikePose(m))
+	end
+	C.card.set(look, {
 		userId = userId,
 		name = a.scorerName or "",
 		tier = tier,

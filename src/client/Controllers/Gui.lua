@@ -887,8 +887,10 @@ end
 -- (optional), the base, the colour sweeping in from the left, a pattern (halftone, stripes, rays or
 -- stars), the headshot, the card's title on a small tag, the name, tier and a line, a number in big
 -- type at the right with its label (else speed chevrons), and the point's word on a tag.
--- card.set(look, data): look = { Base, Sweep, Accent, Edge (or nil), Pattern }; data = { userId,
--- name, tier, tierColor, line, value, label, word, title }.
+-- card.set(look, data): look = { Base, Sweep, Accent, Edge (or nil), Pattern, Big, Avatar };
+-- data = { userId, name, tier, tierColor, line, value, label, word, title }. Big: words in big
+-- type where the number goes; Avatar: card.viewport (left, over the headshot's place) shows and
+-- the caller fills it with the player's avatar (AnimationController.portrait).
 function Gui.playerCard(parent, props)
 	props = props or {}
 	local W = props.W or 480
@@ -965,11 +967,27 @@ function Gui.playerCard(parent, props)
 	-- the card's title, on a small tag over the top left
 	local title = Gui.plate(root, { Position = UDim2.fromOffset(18, -14), Size = UDim2.fromOffset(150, 26), ZIndex = z + 6 }, Gui.SIGNAL)
 	local titleText = Gui.label(title, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 16, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = z + 7 })
+	-- the Content Creator card's words, in big type where the number goes, and its avatar viewport
+	-- (the caller poses the player's avatar in it, mid-spike, rising over the card's top edge)
+	local bigW = math.floor(W * 0.34)
+	local big = Gui.label(root, { display = true, weight = Enum.FontWeight.Heavy, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Center, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 2), Size = UDim2.fromOffset(bigW, H - 26), Visible = false, ZIndex = z + 5 })
+	make("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 2, Transparency = 0.35 }, big)
+	local viewport = make("ViewportFrame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 0, 1, 4),
+		Size = UDim2.fromOffset(shotSize + 44, H + 40),
+		BackgroundTransparency = 1,
+		Ambient = Color3.fromRGB(190, 180, 210),
+		LightColor = Color3.new(1, 1, 1),
+		LightDirection = Vector3.new(-0.6, -1, -0.4),
+		Visible = false,
+		ZIndex = z + 6,
+	}, root)
 	-- the point's word ("KILL!"), on a tag over the top right
 	local tag = Gui.plate(root, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, -16), Size = UDim2.fromOffset(150, 34), ZIndex = z + 6 }, Gui.SIGNAL)
 	local word = Gui.label(tag, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = z + 7 })
 
-	local card = { root = root }
+	local card = { root = root, viewport = viewport }
 	function card.set(look, data)
 		data = data or {}
 		local accent = look.Accent or Gui.SIGNAL
@@ -986,17 +1004,22 @@ function Gui.playerCard(parent, props)
 			f.BackgroundColor3 = accent
 		end
 		local hasValue = type(data.value) == "string" and data.value ~= ""
+		local bigOn = type(look.Big) == "string" and look.Big ~= ""
+		big.Visible = bigOn
+		big.Text = bigOn and look.Big or ""
+		viewport.Visible = look.Avatar == true
 		for _, c in ipairs(chevrons) do
-			c.Visible = not hasValue
+			c.Visible = not hasValue and not bigOn
 			Gui.tint(c, accent)
 		end
 		value.Visible, valueLabel.Visible = hasValue, hasValue
 		value.Text = hasValue and data.value or ""
 		valueLabel.Text = data.label or ""
 		valueLabel.TextColor3 = accent
-		name.Size = UDim2.new(1, -x - (hasValue and 200 or 120), 0, 38)
-		line.Size = UDim2.new(1, -x - (hasValue and 230 or 60), 0, 30)
+		name.Size = UDim2.new(1, -x - ((hasValue or bigOn) and (bigOn and bigW + 24 or 200) or 120), 0, 38)
+		line.Size = UDim2.new(1, -x - ((hasValue or bigOn) and (bigOn and bigW + 24 or 230) or 60), 0, 30)
 		shot.Image = (data.userId or 0) > 0 and string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", data.userId) or ""
+		shot.Visible = look.Avatar ~= true -- the avatar takes the headshot's place
 		shotEdge.Color = accent
 		name.Text = data.name or ""
 		setBadge(data.tier or "", data.tierColor or Gui.CHALK, false)

@@ -16,6 +16,11 @@ for _, b in ipairs(Config.Leaderboards.Boards) do
 	boardNames[b.Key] = b.Name
 end
 
+-- Whether a card is only ever given (the admin panel's Give), never earned.
+function Cards.isGrant(card)
+	return card ~= nil and card.Grant == true
+end
+
 function Cards.list()
 	return Config.Cards.List
 end
@@ -54,7 +59,10 @@ function Cards.stats(profile, owned)
 	local rec = type(profile.record) == "table" and profile.record or {}
 	local r = type(profile.bestRank) == "table" and profile.bestRank or nil
 	local rank = r and tonumber(r.rank) or nil
+	local wins, matches = whole(rec.wins), whole(rec.matches)
 	return {
+		losses = math.max(0, matches - wins),
+		winPct = matches > 0 and wins / matches * 100 or 0,
 		wins = whole(rec.wins),
 		kills = whole(rec.kills),
 		aces = whole(rec.aces),
@@ -77,6 +85,9 @@ function Cards.met(card, stats)
 	if card.Stat == "rank" then
 		return stats.rank ~= nil and stats.rank <= card.Need
 	end
+	if card.Stat == "grant" then
+		return false -- given only
+	end
 	return (stats[card.Stat] or 0) >= card.Need
 end
 
@@ -85,7 +96,7 @@ function Cards.progress(card, stats)
 	if not card.Stat then
 		return 1, 1
 	end
-	if card.Stat == "rank" then
+	if card.Stat == "rank" or card.Stat == "grant" then
 		return Cards.met(card, stats) and 1 or 0, 1
 	end
 	return math.min(stats[card.Stat] or 0, card.Need), card.Need
@@ -99,6 +110,9 @@ function Cards.display(card, stats)
 			return "", ""
 		end
 		return "#" .. stats.rank, string.upper(boardNames[stats.rankBoard or ""] or "LEADERBOARD")
+	end
+	if card.Show == "winRate" then
+		return string.format("%d%%", math.floor((stats.winPct or 0) + 0.5)), string.format("%s W  %s L", commas(stats.wins), commas(stats.losses))
 	end
 	if not card.Show then
 		return "", ""
@@ -119,7 +133,7 @@ function Cards.look(card, team, rank)
 		end
 		return v
 	end
-	return { Base = L.Base, Sweep = resolve(L.Sweep), Accent = L.Accent, Edge = resolve(L.Edge), Pattern = L.Pattern }
+	return { Base = L.Base, Sweep = resolve(L.Sweep), Accent = L.Accent, Edge = resolve(L.Edge), Pattern = L.Pattern, Big = L.Big, Avatar = L.Avatar == true }
 end
 
 return Cards

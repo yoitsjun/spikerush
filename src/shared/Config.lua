@@ -558,6 +558,15 @@ Config.Cards = {
 			Look = { Base = Color3.fromRGB(24, 24, 30), Sweep = "rank", Accent = Color3.fromRGB(255, 255, 255), Edge = "rank", Pattern = "rays" } },
 		{ Key = "Number1", Name = "Number One", Stat = "rank", Need = 1, Show = "rank", Goal = "Reach #1 on any leaderboard",
 			Look = { Base = Color3.fromRGB(28, 20, 2), Sweep = Color3.fromRGB(255, 200, 40), Accent = Color3.fromRGB(255, 255, 255), Edge = Color3.fromRGB(255, 230, 120), Pattern = "stars" } },
+		-- the owner: "another card displaying win/loss ratio... show wins, losses, and percent of
+		-- wins": the share of matches won in big type, the wins and losses under it
+		{ Key = "WinLoss", Name = "Win/Loss", Stat = "matches", Need = 20, Show = "winRate", Goal = "Play 20 matches",
+			Look = { Base = Color3.fromRGB(6, 26, 22), Sweep = Color3.fromRGB(40, 220, 150), Accent = Color3.fromRGB(190, 255, 225), Edge = Color3.fromRGB(60, 230, 160), Pattern = "stripes" } },
+		-- the owner: "a new card purple theme for Content creators... keep that text, but make it
+		-- their own avatar spiking across the card": given from the admin panel (Grant), never
+		-- earned; Big is drawn across the card and Avatar puts your own avatar, mid-spike, over it
+		{ Key = "Creator", Name = "Content Creator", Stat = "grant", Grant = true, Goal = "Given to content creators",
+			Look = { Base = Color3.fromRGB(26, 8, 48), Sweep = Color3.fromRGB(150, 50, 255), Accent = Color3.fromRGB(255, 110, 230), Edge = Color3.fromRGB(200, 120, 255), Pattern = "stripes", Big = "CONTENT\nCREATOR", Avatar = true } },
 	},
 }
 
@@ -977,6 +986,12 @@ Config.Leaderboards = {
 		-- the owner: "most robux spent, most gifts spent leaderboard"
 		{ Key = "robux", Name = "Robux spent", Unit = "Robux", Empty = "Nobody has bought anything yet." },
 		{ Key = "gifts", Name = "Gifts given", Unit = "Robux gifted", Empty = "Nobody has sent a gift yet." },
+		-- the owner: "a w/l ratio leaderboard with the appropriate title... show wins, losses, and
+		-- percent of wins": ranked by the share of matches won (the same order as wins over
+		-- losses), from MinMatches on. A board stores one whole number, so the value packs the
+		-- percent (to 0.1), the wins and the losses (Leaderboards.winRate); Live: it can go down,
+		-- so a player's fresh value replaces the stored one
+		{ Key = "winRate", Name = "W/L ratio", Unit = "", WinRate = true, Live = true, MinMatches = 20, Empty = "Play 20 matches to get on this board." },
 	},
 	StorePrefix = "SpikeRushBoard_v1_",
 	Top = 50,

@@ -3133,7 +3133,7 @@ local function buildLocker()
 			if unlocked[key] then
 				Net.get("Profile"):FireServer("equip", "Card", key)
 			elseif def then
-				toast(def.Goal .. " to wear this card.")
+				toast(def.Stat == "grant" and "This card is given to content creators." or (def.Goal .. " to wear this card."))
 			end
 			return
 		end
@@ -3151,6 +3151,17 @@ end
 
 -- The Locker's Cards tab: every player card with your own numbers on it (locked ones dimmed, with
 -- how far along you are), the picked one big over the gym, and Equip.
+-- A card with Avatar (the Content Creator card) shows your own avatar mid-spike: posed again only
+-- when your character or spike style changes.
+function Extra.cardAvatar(card)
+	local c = player.Character
+	local key = c and (tostring(c) .. tostring(c:GetAttribute(Config.Cosmetics.Attribute.Style))) or nil
+	if card.avatarKey ~= key then
+		card.avatarKey = key
+		mods.AnimationController.portrait(card.viewport, c, mods.AnimationController.spikePose(c))
+	end
+end
+
 function Extra.refreshCards(prof)
 	local L = ui.locker
 	local C = Extra.Cards
@@ -3184,6 +3195,9 @@ function Extra.refreshCards(prof)
 	for key, r in pairs(L.cardRows) do
 		local def = C.get(key)
 		r.mini.set(C.look(def, team, stats.rank), data(def, false))
+		if def.Look.Avatar then
+			Extra.cardAvatar(r.mini)
+		end
 		local have = unlocked[key] == true
 		r.lock.Visible = not have
 		local got, need = C.progress(def, stats)
@@ -3193,8 +3207,8 @@ function Extra.refreshCards(prof)
 		elseif have then
 			r.state.Text = "EQUIP"
 			r.state.TextColor3 = Gui.CHALK
-		elseif def.Stat == "rank" then
-			r.state.Text = "LOCKED"
+		elseif def.Stat == "rank" or def.Stat == "grant" then
+			r.state.Text = def.Stat == "grant" and "GIVEN ONLY" or "LOCKED"
 			r.state.TextColor3 = Gui.DIM
 		else
 			r.state.Text = string.format("LOCKED   %s / %s", Gui.num(got), Gui.num(need))
@@ -3205,10 +3219,15 @@ function Extra.refreshCards(prof)
 	end
 	local def = C.get(picked)
 	L.cardPreview.set(C.look(def, team, stats.rank), data(def, true))
+	if def.Look.Avatar then
+		Extra.cardAvatar(L.cardPreview)
+	end
 	L.pickName.Text = def.Name
 	local got, need = C.progress(def, stats)
 	if unlocked[picked] then
 		L.pickSub.Text = def.Goal
+	elseif def.Stat == "grant" then
+		L.pickSub.Text = def.Goal .. " (the developers give it)"
 	elseif def.Stat == "rank" then
 		L.pickSub.Text = def.Goal .. " to unlock it"
 	else
@@ -4434,8 +4453,15 @@ local function buildRanks()
 	}, p)
 	make("UICorner", { CornerRadius = UDim.new(0, 8) }, panel)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, panel)
-	local title = Gui.label(panel, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 46, Size = UDim2.new(1, -40, 0, 52), Position = UDim2.fromOffset(22, 10) })
+	local title = Gui.label(panel, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 46, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -400, 0, 52), Position = UDim2.fromOffset(22, 10) })
 	Gui.plate(panel, { Size = UDim2.fromOffset(84, 6), Position = UDim2.fromOffset(24, 64) }, Gui.SIGNAL)
+	-- the place that shows over your head in the matchup intro (the owner: "allow players to pick
+	-- what stat shows up on the entrance instead of picking the highest")
+	local entrance, entranceL = hairButton(panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 18), Size = UDim2.fromOffset(350, 44) }, "", 17)
+	onClick(entrance, function()
+		local cur = profile().equip and profile().equip.Entrance
+		sendProfile("entrance", cur ~= boardKey and boardKey or nil)
+	end)
 	local scope = Gui.label(panel, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.new(1, -40, 0, 18), Position = UDim2.fromOffset(24, 78) })
 	local rowsFrame = make("ScrollingFrame", { Position = UDim2.fromOffset(12, 106), Size = UDim2.new(1, -24, 1, -170), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, panel)
 	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, rowsFrame)
@@ -4452,7 +4478,7 @@ local function buildRanks()
 	end
 	local empty = Gui.label(panel, { Text = "No scores yet. Win matches to get on the board.", TextSize = 18, TextColor3 = Gui.DIM, Size = UDim2.new(1, -40, 0, 30), Position = UDim2.fromOffset(20, 130), TextXAlignment = Enum.TextXAlignment.Center })
 	local you = Gui.label(panel, { Text = "", display = true, TextSize = 22, TextColor3 = Gui.SIGNAL_HOT, RichText = true, Size = UDim2.new(1, -40, 0, 40), Position = UDim2.new(0, 22, 1, -54) })
-	ui.ranks = { tabs = tabs, title = title, scope = scope, rows = rows, empty = empty, you = you }
+	ui.ranks = { tabs = tabs, title = title, scope = scope, rows = rows, empty = empty, you = you, entranceL = entranceL }
 end
 
 local function refreshRanks(prof)
@@ -4468,7 +4494,8 @@ local function refreshRanks(prof)
 		if tab.stroke then
 			tab.stroke.Color = on and Gui.SIGNAL or Gui.HAIRLINE
 		end
-		tab.mine.Text = string.format("You: %s", Gui.num(mineValues[b.Key] or 0))
+		local mineV = mineValues[b.Key] or 0
+		tab.mine.Text = (b.WinRate and mineV == 0) and string.format("You: %d matches to go", math.max(0, (b.MinMatches or 0) - ((prof.record and prof.record.matches) or 0))) or ("You: " .. Leaderboards.format(b.Key, mineV))
 		if on then
 			R.title.Text = b.Name
 			unit = b.Unit
@@ -4483,6 +4510,10 @@ local function refreshRanks(prof)
 		R.scope.Text = "Loading..."
 	end
 	local myRank = nil
+	local isRate = Leaderboards.board(boardKey) ~= nil and Leaderboards.board(boardKey).WinRate == true
+	local cur = prof.equip and prof.equip.Entrance
+	R.entranceL.Text = cur == boardKey and "At your entrance (tap: your best place)" or "Show this place at my entrance"
+	R.entranceL.TextColor3 = cur == boardKey and Gui.SIGNAL or Gui.CHALK
 	for i, row in ipairs(R.rows) do
 		local d = rows[i]
 		row.frame.Visible = d ~= nil
@@ -4490,7 +4521,10 @@ local function refreshRanks(prof)
 			row.rank.Text = tostring(d.rank)
 			row.rank.TextColor3 = MEDAL[d.rank] or Gui.CHALK
 			row.name.Text = d.name or "Player"
-			row.value.Text = Gui.num(d.value) .. " " .. unit
+			-- the W/L ratio board shows the share won, the wins and the losses
+			row.value.Size = UDim2.fromOffset(isRate and 330 or 170, 58)
+			row.name.Size = UDim2.new(1, isRate and -470 or -300, 1, 0)
+			row.value.Text = Leaderboards.format(boardKey, d.value)
 			if row.userId ~= d.userId then
 				row.userId = d.userId
 				row.shot.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(d.userId) .. "&w=48&h=48"
@@ -4507,9 +4541,11 @@ local function refreshRanks(prof)
 	R.empty.Text = emptyText
 	local mine = mineValues[boardKey] or 0
 	if myRank then
-		R.you.Text = string.format("You: <b>#%d</b> with %s %s", myRank, Gui.num(mine), unit)
+		R.you.Text = string.format("You: <b>#%d</b> with %s", myRank, Leaderboards.format(boardKey, mine))
 	elseif mine > 0 then
-		R.you.Text = string.format("You: %s %s (not in the top %d yet)", Gui.num(mine), unit, Config.Leaderboards.Top)
+		R.you.Text = string.format("You: %s (not in the top %d yet)", Leaderboards.format(boardKey, mine), Config.Leaderboards.Top)
+	elseif isRate then
+		R.you.Text = string.format("You're on this board after %d matches.", Leaderboards.board(boardKey).MinMatches or 0)
 	else
 		R.you.Text = "You're not on this board yet."
 	end
@@ -4871,6 +4907,12 @@ function Extra.buildAdmin()
 		amounts[def[1]] = Extra.inputBox(right, { Position = UDim2.fromOffset(x, 122), Size = UDim2.fromOffset(164, 44) }, "0")
 	end
 	Gui.label(right, { Text = "Characters (click to pick)", TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 178), Size = UDim2.fromOffset(300, 16), ZIndex = 22 })
+	-- player cards that are only given: the Content Creator card
+	local creatorBtn, creatorL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 168), Size = UDim2.fromOffset(250, 28), ZIndex = 23 }, "", 15)
+	onClick(creatorBtn, function()
+		Extra.adminCreator = not Extra.adminCreator
+		MenuController.refresh()
+	end)
 	local grid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 22 }, right)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(158, 36), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
 	-- best first: S+ down to D-
@@ -4913,15 +4955,18 @@ function Extra.buildAdmin()
 			Gold = tonumber(amounts.Gold.Text) or 0,
 			Lucky = tonumber(amounts.Lucky.Text) or 0,
 			Chars = chars,
+			Cards = Extra.adminCreator and { "Creator" } or nil,
 		})
 	end)
 	local status = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -20), Size = UDim2.new(1, -56, 0, 44), ZIndex = 21 })
-	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status }
+	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status, creatorL = creatorL }
 end
 
 function Extra.refreshAdmin()
 	local A = ui.admin
 	A.setLen(Extra.adminMinutes)
+	A.creatorL.Text = Extra.adminCreator and "Content Creator card: yes" or "Content Creator card: no"
+	A.creatorL.TextColor3 = Extra.adminCreator and Gui.SIGNAL or Gui.CHALK
 	for kind, r in pairs(A.evRows) do
 		local left = Extra.eventLeft(kind)
 		r.status.Text = left > 0 and ("On, " .. Extra.clockText(left) .. " left") or "Off"
