@@ -72,6 +72,9 @@
         },
         "Notice": {
           "$className": "RemoteEvent"
+        },
+        "PlayerProfile": {
+          "$className": "RemoteEvent"
         }
       },
       "ToolboxAssets": {

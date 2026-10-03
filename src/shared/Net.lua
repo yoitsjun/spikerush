@@ -27,6 +27,7 @@ Net.Names = {
 	"SetAim", -- client -> server: a setter's aim (depth, or false); server -> teammates: (id, depth)
 	"Admin", -- the admin panel: client -> server ops, server -> client replies (AdminService)
 	"Notice", -- server -> client: announcements and events starting, shown to everyone
+	"PlayerProfile", -- server -> client: a player's public profile (asked with Profile "profileOf")
 }
 
 local cache = {}

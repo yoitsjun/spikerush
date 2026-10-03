@@ -532,6 +532,13 @@ local function buildHome()
 		Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(player.UserId) .. "&w=150&h=150",
 	}, prof)
 	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, shot)
+	-- the headshot opens your profile (your record and your leaderboard places)
+	local shotBtn = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = shot.ZIndex + 1 }, shot)
+	local shotTag = Gui.plate(shot, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 6), Size = UDim2.fromOffset(84, 22), ZIndex = shot.ZIndex + 2 }, Gui.SIGNAL)
+	Gui.label(shotTag, { Text = "PROFILE", display = true, weight = Enum.FontWeight.Heavy, TextSize = 13, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = shot.ZIndex + 3 })
+	onClick(shotBtn, function()
+		MenuController.openPlayerProfile(player.UserId)
+	end)
 	local name = Gui.label(prof, {
 		Text = player.DisplayName,
 		display = true,
@@ -4474,7 +4481,15 @@ local function buildRanks()
 		make("UICorner", { CornerRadius = UDim.new(0, 6) }, shot)
 		local name = Gui.label(r, { Text = "", display = true, TextSize = 24, Size = UDim2.new(1, -300, 1, 0), Position = UDim2.fromOffset(132, 0), TextTruncate = Enum.TextTruncate.AtEnd })
 		local value = Gui.label(r, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Size = UDim2.fromOffset(170, 58), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 0), TextXAlignment = Enum.TextXAlignment.Right })
-		rows[i] = { frame = r, rank = rank, shot = shot, name = name, value = value, userId = nil }
+		local rowEntry = { frame = r, rank = rank, shot = shot, name = name, value = value, userId = nil }
+		-- a row opens that player's profile
+		local open = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = r.ZIndex + 2 }, r)
+		onClick(open, function()
+			if rowEntry.userId then
+				MenuController.openPlayerProfile(rowEntry.userId)
+			end
+		end)
+		rows[i] = rowEntry
 	end
 	local empty = Gui.label(panel, { Text = "No scores yet. Win matches to get on the board.", TextSize = 18, TextColor3 = Gui.DIM, Size = UDim2.new(1, -40, 0, 30), Position = UDim2.fromOffset(20, 130), TextXAlignment = Enum.TextXAlignment.Center })
 	local you = Gui.label(panel, { Text = "", display = true, TextSize = 22, TextColor3 = Gui.SIGNAL_HOT, RichText = true, Size = UDim2.new(1, -40, 0, 40), Position = UDim2.new(0, 22, 1, -54) })
@@ -4549,6 +4564,114 @@ local function refreshRanks(prof)
 	else
 		R.you.Text = "You're not on this board yet."
 	end
+end
+
+-- A player's profile (the owner: "add player profiles that display all that, but also your stats
+-- and your leaderboard standings as well. these stats are spikes blocks, etc"): the card they wear,
+-- their record (matches, wins, losses and the share won, spike kills, aces, blocks, MVPs, streaks)
+-- and their place on every board. Yours from Home's headshot; anyone's from a leaderboard row. The
+-- server answers ("profileOf", userId) on the PlayerProfile remote.
+Extra.profileStats = {
+	{ "matches", "Matches" }, { "wins", "Wins" }, { "losses", "Losses" }, { "winPct", "Win %" }, { "kills", "Spike kills" },
+	{ "aces", "Aces" }, { "blocks", "Blocks" }, { "mvps", "MVPs" }, { "bestStreak", "Best streak" }, { "winStreak", "Win streak" },
+}
+
+function Extra.buildPlayerProfile()
+	local m = modal("PlayerProfile", "Player profile", 1040, 720, true)
+	local card = Gui.playerCard(m.panel, { Position = UDim2.fromOffset(40, 112), ZIndex = 22 })
+	make("UIScale", { Scale = 1.2 }, card.root)
+	local status = Gui.label(m.panel, { Text = "", TextSize = 18, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(640, 120), Size = UDim2.fromOffset(360, 60), TextWrapped = true, ZIndex = 22 })
+	local extra = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.CHALK, RichText = true, TextWrapped = true, Position = UDim2.fromOffset(640, 120), Size = UDim2.fromOffset(360, 110), ZIndex = 22 })
+	-- the record: two rows of five
+	local tiles = {}
+	for i, def in ipairs(Extra.profileStats) do
+		local col = (i - 1) % 5
+		local row = math.floor((i - 1) / 5)
+		local t = make("Frame", { Position = UDim2.fromOffset(28 + col * 198, 262 + row * 98), Size = UDim2.fromOffset(186, 88), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 21 }, m.panel)
+		make("UICorner", { CornerRadius = UDim.new(0, 8) }, t)
+		local v = Gui.label(t, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 36, Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -28, 0, 44), ZIndex = 22 })
+		Gui.label(t, { Text = def[2], TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(14, 54), Size = UDim2.new(1, -28, 0, 20), ZIndex = 22 })
+		tiles[def[1]] = v
+	end
+	-- the leaderboards: two columns
+	Gui.label(m.panel, { Text = "Leaderboards", display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, Position = UDim2.fromOffset(28, 468), Size = UDim2.fromOffset(400, 32), ZIndex = 21 })
+	Gui.plate(m.panel, { Size = UDim2.fromOffset(46, 5), Position = UDim2.fromOffset(30, 502), ZIndex = 21 }, Gui.SIGNAL)
+	local places = {}
+	for i, b in ipairs(Leaderboards.Boards) do
+		local col = (i - 1) % 2
+		local row = math.floor((i - 1) / 2)
+		local r = make("Frame", { Position = UDim2.fromOffset(28 + col * 496, 516 + row * 44), Size = UDim2.fromOffset(484, 38), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0, ZIndex = 21 }, m.panel)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
+		Gui.label(r, { Text = b.Name, display = true, TextSize = 18, Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -150, 1, 0), ZIndex = 22 })
+		places[b.Key] = Gui.label(r, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 0), Size = UDim2.fromOffset(170, 38), ZIndex = 22 })
+	end
+	ui.playerProfile = { modal = m, card = card, status = status, extra = extra, tiles = tiles, places = places }
+	Net.get("PlayerProfile").OnClientEvent:Connect(function(data)
+		if type(data) == "table" and data.userId == Extra.viewingProfile then
+			Extra.fillPlayerProfile(data)
+		end
+	end)
+end
+
+function Extra.fillPlayerProfile(data)
+	local PP = ui.playerProfile
+	if data.missing then
+		PP.status.Text = "No profile to show: they haven't played yet."
+		PP.status.Visible = true
+		PP.extra.Visible = false
+		return
+	end
+	PP.status.Visible = false
+	PP.extra.Visible = true
+	local C = Extra.Cards
+	local def = C.get(data.card and data.card.key) or C.get(C.default())
+	local stats = { rank = data.card and data.card.rank }
+	local look = C.look(def, Config.Teams.Home.Color, stats.rank)
+	local c = Roster.get(data.char or "")
+	local tier = c and c.Tier or ""
+	if look.Avatar then
+		local other = Players:GetPlayerByUserId(data.userId)
+		mods.AnimationController.portrait(PP.card.viewport, other and other.Character, mods.AnimationController.spikePose(other and other.Character))
+	end
+	PP.card.set(look, {
+		userId = data.userId,
+		name = data.name or "Player",
+		tier = tier,
+		tierColor = tierColor(tier),
+		line = c and (c.Name .. "  /  " .. roleName(c.Role)) or "",
+		value = data.card and data.card.value or "",
+		label = data.card and data.card.label or "",
+		title = def.Key ~= C.default() and string.upper(def.Name) or nil,
+	})
+	local rec = data.record or {}
+	for key, v in pairs(PP.tiles) do
+		if key == "winPct" then
+			v.Text = (rec.matches or 0) > 0 and string.format("%.1f%%", rec.winPct or 0) or "-"
+		else
+			v.Text = Gui.num(rec[key] or 0)
+		end
+	end
+	for key, l in pairs(PP.places) do
+		local rank = data.places and data.places[key]
+		l.Text = rank and ("#" .. rank) or ("Not in the top " .. Config.Leaderboards.Top)
+		l.TextColor3 = rank and (MEDAL[rank] or Gui.CHALK) or Gui.DIM
+	end
+	PP.extra.Text = string.format("<b>%s</b>\nPlaying %s\n%d of %d characters recruited, %d player cards", data.name or "Player",
+		c and (c.Name .. " (" .. c.Tier .. ")") or "nobody yet", data.owned or 0, #Roster, data.cards or 0)
+end
+
+-- Open a profile: yours, or anyone's by user id (the server sends it).
+function MenuController.openPlayerProfile(userId)
+	local PP = ui.playerProfile
+	if not PP or not userId then
+		return
+	end
+	Extra.viewingProfile = userId
+	PP.status.Text = "Loading..."
+	PP.status.Visible = true
+	PP.extra.Visible = false
+	PP.modal.root.Visible = true
+	Net.get("Profile"):FireServer("profileOf", userId)
 end
 
 ------------------------------------------------------------------------------------------
@@ -5365,6 +5488,7 @@ function MenuController.init(m)
 	buildTable()
 	Extra.buildPityPick()
 	Extra.buildHowTo()
+	Extra.buildPlayerProfile()
 	buildMatch()
 	buildMatchScreen()
 	buildSequence()

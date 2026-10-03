@@ -31,6 +31,7 @@
 --   ("pityPick", charId)             -> the S+ your lucky pity owes you (Config.Spins.Pity)
 --   ("favor", charId, "up"|"down"|nil) -> boost, lower or reset a character's odds (Config.Spins.Favor)
 --   ("entrance", boardKey | nil)     -> the board whose place shows over your head (nil: your best)
+--   ("profileOf", userId)            -> a player's public profile, on the PlayerProfile remote
 -- Codes and the daily reward are for members of the group who favorited the game (the owner:
 -- "actually check"; Roblox can't tell a game who liked it, but its favorite prompt tells the
 -- client when they favorite it). Kept in the profile, so it's done once.
@@ -45,6 +46,7 @@
 local DataStoreService = game:GetService("DataStoreService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
+local UserService = game:GetService("UserService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local GroupService = game:GetService("GroupService")
@@ -613,6 +615,83 @@ local function applyCard(plr, profile)
 		inst:SetAttribute("CardLabel", label)
 		inst:SetAttribute("CardRank", stats.rank or 0)
 	end
+end
+
+-- Player profiles (the owner: "add player profiles that display all that, but also your stats
+-- and your leaderboard standings as well. these stats are spikes blocks, etc"): what anyone may
+-- see of a player: the card they wear (and what it shows), their character, their record and
+-- their place on every board. From this server's profile when they're here, else read from the
+-- store (kept a minute; each asker gets one every PROFILE_GAP seconds).
+local PROFILE_KEEP, PROFILE_GAP = 60, 1.5
+local publicKept = {} -- userId -> { at, data }
+local lastLook = {} -- plr -> when they last asked
+
+local function publicOf(profile, userId, name)
+	local stats = cardStats(profile)
+	local cardKey = profile.equip and profile.equip.Card
+	if not (Cards.get(cardKey) and cardUnlocked(profile, cardKey)) then
+		cardKey = Cards.default()
+	end
+	local value, label = Cards.display(Cards.get(cardKey), stats)
+	local c = Roster.get(profile.char or "")
+	local unlocked = 0
+	for _, card in ipairs(Cards.list()) do
+		if cardUnlocked(profile, card.Key) then
+			unlocked = unlocked + 1
+		end
+	end
+	return {
+		userId = userId,
+		name = name,
+		card = { key = cardKey, value = value, label = label, rank = stats.rank },
+		char = c and c.Id or nil,
+		record = {
+			matches = stats.matches,
+			wins = stats.wins,
+			losses = stats.losses,
+			winPct = stats.winPct,
+			kills = stats.kills,
+			aces = stats.aces,
+			blocks = stats.blocks,
+			mvps = stats.mvps,
+			bestStreak = stats.bestStreak,
+			winStreak = stats.winStreak,
+		},
+		owned = stats.owned,
+		cards = unlocked,
+		places = reg.LeaderboardService and reg.LeaderboardService.placesOf(userId) or {},
+	}
+end
+
+function ProfileService.publicProfile(userId)
+	local plr = Players:GetPlayerByUserId(userId)
+	if plr and profiles[plr] then
+		return publicOf(profiles[plr], userId, plr.DisplayName)
+	end
+	local kept = publicKept[userId]
+	if kept and os.clock() - kept.at < PROFILE_KEEP then
+		kept.data.places = reg.LeaderboardService and reg.LeaderboardService.placesOf(userId) or kept.data.places
+		return kept.data
+	end
+	if not store then
+		return nil
+	end
+	local ok, data = pcall(function()
+		return store:GetAsync("u_" .. tostring(userId))
+	end)
+	if not ok or type(data) ~= "table" then
+		return nil
+	end
+	local name = "Player"
+	local okName, infos = pcall(function()
+		return UserService:GetUserInfosByUserIdsAsync({ userId })
+	end)
+	if okName and type(infos) == "table" and infos[1] then
+		name = infos[1].DisplayName or infos[1].Username or name
+	end
+	local summary = publicOf(sanitizeProfile(data), userId, name)
+	publicKept[userId] = { at = os.clock(), data = summary }
+	return summary
 end
 
 -- The tier and build this player plays: their character with its upgrades.
@@ -1359,6 +1438,23 @@ local function onRequest(plr, kind, a, b, c)
 		upgrade(plr, profile, a, b, c)
 	elseif kind == "spin" then
 		spin(plr, profile, a, b, c == "lucky")
+	elseif kind == "profileOf" then
+		-- a player's public profile, by user id (yours, or anyone's on a board)
+		local userId = tonumber(a)
+		if not userId or userId ~= userId or userId < 1 or userId > 1e15 then
+			return
+		end
+		if lastLook[plr] and now - lastLook[plr] < PROFILE_GAP then
+			return
+		end
+		lastLook[plr] = now
+		userId = math.floor(userId)
+		task.spawn(function()
+			local summary = ProfileService.publicProfile(userId)
+			if plr.Parent then
+				Net.get("PlayerProfile"):FireClient(plr, summary or { userId = userId, missing = true })
+			end
+		end)
 	elseif kind == "entrance" then
 		-- which leaderboard place shows over your head in the matchup intro (nil: your best one)
 		profile.equip.Entrance = Leaderboards.isBoard(a) and a or nil
@@ -1701,6 +1797,7 @@ function ProfileService.init(r)
 		lastPerkSet[plr] = nil
 		pendingGift[plr] = nil
 		groupMember[plr] = nil
+		lastLook[plr] = nil
 		lastClaim[plr] = nil
 		mailBusy[plr] = nil
 	end)
