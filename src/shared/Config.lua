@@ -314,11 +314,11 @@ Config.StatCurve = {
 -- characters with the same Jump stat hit from different heights.
 Config.Height = {
 	Min = 165,
-	Max = 210,
+	Max = 216, -- Mateus (was 210; ZoneScale's top moved with it, so every other height keeps its zone)
 	Mean = 185,
 	Spread = 9, -- roughly one standard deviation, cm
 	ReachPerCm = 0.013, -- standing reach in metres per cm of height
-	ZoneScale = { 0.94, 1.08 }, -- hit-zone size, shortest -> tallest
+	ZoneScale = { 0.94, 0.94 + 0.14 * 51 / 45 }, -- hit-zone size, Min -> Max (1.08 at 210 cm, as before the cap went up)
 }
 
 -- V Points (VP): the currency, like The Spike's. Earned by playing and bought in the shop,
@@ -724,10 +724,20 @@ Config.Abilities = {
 		Tier = "S",
 		Role = "MB",
 		Active = true, -- press the Ability key (Q)
-		Blurb = "Press Q: for a moment every ball that reaches your block is stuffed, whatever its power.",
+		-- the owner: "make it so he is literally a perfect block. when he pops the ability and a
+		-- spike comes his way, it is perfect shut down onto their side no matter where it hits the
+		-- block"
+		Blurb = "Press Q: for a moment you're a perfect block. Any attack that comes near your hands, even off the fingertips, is shut straight down onto their side, whatever its power.",
 		Color = Color3.fromRGB(150, 205, 255),
 		Duration = 3.0,
 		Cooldown = 20,
+		-- while it's up the block box grows (studs): higher over the hands, further each side of the net
+		ReachUp = 1.4,
+		OwnDepth = 1.0,
+		OverDepth = 1.0,
+		-- the shut-down: straight down onto their court, this far from the net (metres), this fast
+		StuffDepth = { 1.0, 2.2 },
+		StuffKmh = 95,
 	},
 	ChainReaction = {
 		Name = "Chain Reaction",

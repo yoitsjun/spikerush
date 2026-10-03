@@ -196,16 +196,18 @@ function HitLogic.floatZone(root, ball, side)
 	return true, clamp(falloff(d, 1.4), 0, 1)
 end
 
--- Block: hands above the tape, reaching over the net. Returns ok, quality, fingertips.
-function HitLogic.blockBox(root, ball, side, stats)
+-- Block: hands above the tape, reaching over the net. Returns ok, quality, fingertips. iron:
+-- Iron Wall is up, and the box is bigger (Config.Abilities.IronWall).
+function HitLogic.blockBox(root, ball, side, stats, iron)
 	if math.abs(root.Z) > Z.BlockNetDistance then
 		return false, 0, false
 	end
+	local IW = Config.Abilities.IronWall
 	local zs = ball.Z * side
-	if zs > Z.BlockOwnDepth or zs < -Z.BlockOverDepth then
+	if zs > Z.BlockOwnDepth + (iron and IW.OwnDepth or 0) or zs < -(Z.BlockOverDepth + (iron and IW.OverDepth or 0)) then
 		return false, 0, false
 	end
-	local top = root.Y + Z.BlockReachUp
+	local top = root.Y + Z.BlockReachUp + (iron and IW.ReachUp or 0)
 	if ball.Y > top + R or ball.Y < C.NetTop - 0.6 then
 		return false, 0, false
 	end
@@ -878,7 +880,7 @@ function HitLogic.compute(input, ctx)
 
 	-- Block -----------------------------------------------------------------------------------
 	if action == "Block" then
-		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats)
+		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, ctx.ironWall)
 		if not ok then
 			return false, "zone"
 		end
@@ -906,9 +908,10 @@ function HitLogic.compute(input, ctx)
 		-- Attack than the attacker had
 		local smash = last.hitType == "Spike" and type(last.breakAtk) == "number" and last.breakAtk > stats.Attack
 		if ctx.ironWall then
-			-- Iron Wall: whatever reaches the hands is stuffed, pierce and thunder included
+			-- Iron Wall: a perfect block, whatever reaches the hands (pierce, thunder and a Feral
+			-- smash included), wherever it meets them
 			stuffScore = 1
-			q = math.max(q, 0.9)
+			q = 1
 			smash = false
 		end
 		local atk = -side
@@ -930,6 +933,16 @@ function HitLogic.compute(input, ctx)
 			v = vin * FERAL.BreakKeep
 			a = Vector3.new(0, -G * H.SpikeGravityScale, 0)
 			hold = 0.06
+		elseif ctx.ironWall then
+			-- the perfect shut-down: straight down onto their court just past the net, always in
+			meta.outcome = "Stuff"
+			meta.perfectBlock = true
+			local IW = Config.Abilities.IronWall
+			p = Vector3.new(0, math.max(ball.Y, C.NetTop + R), atk * (R + 0.1))
+			local depth = SPM * lerp(IW.StuffDepth[1], IW.StuffDepth[2], rng:NextNumber())
+			v = HitLogic.solveSpeed(p, Vector3.new(0, R, atk * depth), HitLogic.studs(IW.StuffKmh), G * 1.3)
+			a = Vector3.new(0, -G * 1.3, 0)
+			hold = H.HitStopPerfect
 		elseif stuffScore >= 0.45 then
 			meta.outcome = "Stuff"
 			p = Vector3.new(0, ball.Y, atk * (R + 0.1))

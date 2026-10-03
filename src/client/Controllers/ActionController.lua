@@ -461,12 +461,14 @@ local function tryAttack(action, info, opts)
 	-- rules first, so a blocked touch says why instead of silently waiting
 	if action ~= "Serve" then
 		local allowed, why = HitLogic.canTouch(mods.BallRenderer.getTouch(), State.myTeam, State.myId, action, State.teamSize())
+		-- not yours to touch: you still swing, at nothing (the owner: "make it so you can swing
+		-- whenever"), and it says why
 		if not allowed then
-			State.hint(REASONS[why] or "Not your touch")
+			whiff(info, attackPose(action), REASONS[why] or "Not your touch")
 			return false
 		end
 		if ball.Z * State.mySide < -0.4 then
-			State.hint("The ball's already over the net")
+			whiff(info, attackPose(action), "The ball's already over the net")
 			return false
 		end
 	end
@@ -688,6 +690,10 @@ local function pressSpike(info)
 		return
 	end
 	if not State.isPlaying or State.phase() ~= "Rally" then
+		-- in the air out of a rally: an empty swing whenever you like
+		if os.clock() >= whiffUntil then
+			whiff(info, attackPose("Spike"), nil)
+		end
 		return
 	end
 	if isAzure() and charge.gauge > 0.05 then
@@ -1168,7 +1174,7 @@ local function processBlock(info, now)
 		local t = t0 + (now - t0) * i / 6
 		local p = BallPhysics.positionAt(path, t)
 		local v = BallPhysics.velocityAt(path, t)
-		if v.Z * State.mySide > 0 and HitLogic.blockBox(info.root, p, State.mySide, State.myStats()) then
+		if v.Z * State.mySide > 0 and HitLogic.blockBox(info.root, p, State.mySide, State.myStats(), State.myAbility() == "IronWall" and ActionController.abilityActive()) then
 			block.active = false
 			execute("Block", info, {}, t, p)
 			return

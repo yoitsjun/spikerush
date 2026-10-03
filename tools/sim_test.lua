@@ -1598,6 +1598,23 @@ do
 	end
 	check(tallest and mateus.Ability == nil and shortestWS and junseo.Jump < yejun.Jump and junseo.Jump >= 185,
 		"Mateus is the tallest (no ability); Junseo the shortest wing spiker, with a jump just under YeJun's", string.format("%d cm; %d cm, jump %d vs %d", mateus.Height, junseo.Height, junseo.Jump, yejun.Jump))
+	-- the height cap went up for Mateus without changing anyone else's hit zone (1.08 at 210 cm)
+	local gaeul = Characters.derive(Characters.fromRoster(Roster.get("gaeul"), "max"))
+	local m = Characters.derive(Characters.fromRoster(mateus, "max"))
+	local ye = Characters.derive(Characters.fromRoster(yejun, "max"))
+	check(math.abs(gaeul.Reach - (0.94 + 0.14 * (204 - 165) / 45)) < 1e-9 and m.Reach > 1.08 and m.contactMaxStuds < ye.contactMaxStuds and m.contactMaxStuds < gaeul.contactMaxStuds and m.BlockPower > gaeul.BlockPower and mateus.Attack < gaeul.Attack,
+		"a 216 cm Mateus built to block: everyone else's hit zone is as before, his is the biggest; YeJun and Gaeul still hit higher, he blocks harder and spikes softer", string.format("zone %.3f, contact %.2f m (YeJun %.2f, Gaeul %.2f)", m.Reach, m.ContactMaxM, ye.ContactMaxM, gaeul.ContactMaxM))
+	-- Iron Wall: a perfect block wherever the attack meets the hands, even above the usual box,
+	-- shut straight down onto their side
+	local broot = vec(0, GROUND + Characters.jumpHeight(gaeul, GROUND), side * 0.3 * K)
+	local high = vec(0, broot.Y + Z.BlockReachUp + 1.0, side * 0.2)
+	local lastSpike = { team = "Home", hitType = "Spike", kmh = 160, pierce = true }
+	local okPlain = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = high, grounded = false }, ctx({ stats = gaeul, ability = "IronWall", lastHit = lastSpike, ballVel = vec(0, -8, side * 40) }))
+	local okIron, iw = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = high, grounded = false }, ctx({ stats = gaeul, ability = "IronWall", ironWall = true, lastHit = lastSpike, ballVel = vec(0, -8, side * 40) }))
+	local ip = okIron and BallPhysics.buildPath(iw.launch)
+	local land = ip and ip.landing.pos.Z * -side
+	check(not okPlain and okIron and iw.meta.perfectBlock and iw.meta.quality == 1 and land > 0 and land <= Config.Court.SideDepth,
+		"Iron Wall: a perfect block even off the top of the hands, shut down into their court", land and string.format("lands %.1f m past the net", land / SPM) or "no block")
 end
 
 print("== determinism ==")

@@ -20,7 +20,7 @@ local Roster = {
 	{ Id = "ilya", Name = "Ilya", Role = "SE", Tier = "S", Height = 178, Attack = 130, Defense = 170, Speed = 180, Jump = 142, Ability = "Vector" },
 	{ Id = "seoyeon", Name = "Seoyeon", Role = "SE", Tier = "S", Height = 176, Attack = 128, Defense = 172, Speed = 178, Jump = 140, Ability = "ChainReaction" },
 	{ Id = "junseo", Name = "Junseo", Role = "WS", Tier = "S-", Height = 168, Attack = 180, Defense = 110, Speed = 150, Jump = 188, Ability = nil },
-	{ Id = "mateus", Name = "Mateus", Role = "MB", Tier = "S-", Height = 210, Attack = 164, Defense = 146, Speed = 102, Jump = 172, Ability = nil },
+	{ Id = "mateus", Name = "Mateus", Role = "MB", Tier = "S-", Height = 216, Attack = 148, Defense = 156, Speed = 102, Jump = 166, Ability = nil },
 	{ Id = "aoi", Name = "Aoi", Role = "WS", Tier = "A+", Height = 182, Attack = 190, Defense = 119, Speed = 131, Jump = 175, Ability = nil },
 	{ Id = "kenji", Name = "Kenji", Role = "MB", Tier = "A+", Height = 201, Attack = 155, Defense = 133, Speed = 114, Jump = 160, Ability = nil },
 	{ Id = "rin", Name = "Rin", Role = "SE", Tier = "A+", Height = 179, Attack = 125, Defense = 157, Speed = 167, Jump = 126, Ability = nil },

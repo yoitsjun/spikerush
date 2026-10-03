@@ -61,8 +61,9 @@ FIXED = [
     {"Name": "Ines", "Role": "WS", "Tier": "S", "Height": 184, "Attack": 170, "Defense": 130, "Speed": 138, "Jump": 180, "Ability": "Counter"},
     # the owner's third wave (original characters from the owner's descriptions):
     # a middle blocker "exceptionally tall, but not much else. no ability, just very tall with good
-    # stats" (the tallest anyone can be, Config.Height.Max)
-    {"Name": "Mateus", "Role": "MB", "Tier": "S-", "Height": 210, "Attack": 164, "Defense": 146, "Speed": 102, "Jump": 172, "Ability": None},
+    # stats" (216 cm, the tallest anyone can be: Config.Height.Max). Then "his focus should be good
+    # blocks, but not really about the spikes": a trimmed Jump, less Attack, more Defense (block power)
+    {"Name": "Mateus", "Role": "MB", "Tier": "S-", "Height": 216, "Attack": 148, "Defense": 156, "Speed": 102, "Jump": 166, "Ability": None},
     # a wing spiker "short but an incredible jump, not higher than yejun's but still very high"
     {"Name": "Junseo", "Role": "WS", "Tier": "S-", "Height": 168, "Attack": 180, "Defense": 110, "Speed": 150, "Jump": 188, "Ability": None},
     # Plunge Spin: "a wingspiker with a blitz spin ability. it sharply angles down"

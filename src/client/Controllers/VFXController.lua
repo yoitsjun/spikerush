@@ -1619,7 +1619,7 @@ local function onHit(snap)
 		end
 		if outcome == "Stuff" then
 			Fx.play("BlockImpact", pos, { color = tc })
-			VFXController.popup(pos, "Stuff!", tc, 1.2)
+			VFXController.popup(pos, meta.perfectBlock and "Perfect Block!" or "Stuff!", meta.perfectBlock and Config.Abilities.IronWall.Color or tc, meta.perfectBlock and 1.5 or 1.2)
 			if close then
 				VFXController.impactFrame(meta.id, tc)
 				shaker.shake(0.5)

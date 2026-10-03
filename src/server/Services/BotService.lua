@@ -863,7 +863,8 @@ local function blockCheck(b, now, root, side)
 		return
 	end
 	local t, p = sweep(b, BS.path, now, function(pos, vel)
-		return vel.Z * side > 0 and (HitLogic.blockBox(root, pos, side, b.entity.charStats))
+		local iron = b.entity.ability == "IronWall" and (b.entity.abilityUntil or -1) >= now
+		return vel.Z * side > 0 and (HitLogic.blockBox(root, pos, side, b.entity.charStats, iron))
 	end)
 	if t then
 		act(b, "Block", p, { t = t })
