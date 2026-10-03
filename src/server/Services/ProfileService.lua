@@ -32,7 +32,7 @@
 -- Your character locks while you're in a match, so prediction always matches the server.
 -- VP, Gold and lucky spin packs are Developer Products granted in MarketplaceService.
 -- ProcessReceipt; one bought as a gift goes to its recipient. What's spent in Robux (packs, gifts,
--- the perks' passes) is counted for the leaderboards. Gifts and the admin panel's Give reach a
+-- the perks' passes) is counted for the leaderboards (not in Studio, whose purchases are tests). Gifts and the admin panel's Give reach a
 -- player in another server, or offline, through their mail (a DataStore; giveUser, checkMail).
 -- Developers (Config.Developers: the place owner, Studio sessions, listed ids) own everything
 -- and spin for free.
@@ -1303,6 +1303,10 @@ end
 
 -- What a player spent in Robux, for the leaderboards (gift: it was a gift).
 local function addSpent(plr, profile, robux, gift, sign)
+	-- Studio's purchases are Roblox's free test purchases: they don't go on the Robux boards
+	if RunService:IsStudio() then
+		return
+	end
 	robux = math.max(0, math.floor(tonumber(robux) or 0)) * (sign or 1)
 	profile.spent.robux = math.max(0, profile.spent.robux + robux)
 	if gift then
