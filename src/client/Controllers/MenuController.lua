@@ -1174,8 +1174,8 @@ local function buildRecruit()
 	end
 	-- pity (Config.Spins.Pity), on the Characters banner: how far along each is, and the S+ your
 	-- lucky pity owes you
-	local pityCard = Gui.card(p, { Name = "Pity", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 290), Size = UDim2.fromOffset(582, 50) }, Color3.fromRGB(70, 20, 70))
-	local pityL = Gui.label(pityCard, { Text = "", display = true, TextSize = 19, RichText = true, TextStrokeTransparency = 0.6, Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -170, 1, 0) })
+	local pityCard = Gui.card(p, { Name = "Pity", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 290), Size = UDim2.fromOffset(582, 62) }, Color3.fromRGB(70, 20, 70))
+	local pityL = Gui.label(pityCard, { Text = "", display = true, TextSize = 17, RichText = true, TextWrapped = true, TextStrokeTransparency = 0.6, Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -170, 1, 0) })
 	local pityBtn = hairButton(pityCard, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(140, 32) }, "Pick S+", 15)
 	onClick(pityBtn, function()
 		MenuController.openPityPick()
@@ -1272,9 +1272,10 @@ local function refreshRecruit(prof)
 	local pity = prof.pity or {}
 	local PT = Config.Spins.Pity
 	local pick = pity.pick and Roster.get(pity.pick)
-	local nextLucky = pity.owed and (pick and pick.Name or "your pick") or "random S+"
-	R.pityL.Text = string.format('Pity <font color="#%s">%d/%d</font> S tier   Lucky pity <font color="#%s">%d/%d</font> %s',
-		Spins.rarityColor("Legendary"):ToHex(), pity.normal or 0, PT.Normal.Every, Spins.rarityColor("Mythic"):ToHex(), pity.lucky or 0, PT.Lucky.Every, nextLucky)
+	local nextLucky = pity.owed and (pick and pick.Name or "your pick") or "a random one"
+	local gold, red = Spins.rarityColor("Legendary"):ToHex(), Spins.rarityColor("Mythic"):ToHex()
+	R.pityL.Text = string.format('Pity: S tier <font color="#%s">%d/%d</font>   S+ <font color="#%s">%d/%d</font>\nLucky pity: S+ <font color="#%s">%d/%d</font> (%s)',
+		gold, pity.normal or 0, PT.Normal.Every, red, pity.top or 0, PT.Top.Every, red, pity.lucky or 0, PT.Lucky.Every, nextLucky)
 	if ui.pityPick and ui.pityPick.modal.root.Visible then
 		Extra.refreshPityPick(prof)
 	end

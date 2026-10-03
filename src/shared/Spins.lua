@@ -261,7 +261,7 @@ end
 
 -- the characters each pity can give (starters never drop)
 local pityPools = {}
-for _, kind in ipairs({ "Normal", "Lucky" }) do
+for _, kind in ipairs({ "Normal", "Top", "Lucky" }) do
 	local set = tierSet(PITY[kind].Tiers)
 	pityPools[kind] = {}
 	for _, item in ipairs(items.Char) do
@@ -270,12 +270,13 @@ for _, kind in ipairs({ "Normal", "Lucky" }) do
 		end
 	end
 end
-local resetSets = { Normal = tierSet(PITY.Normal.ResetTiers), Lucky = tierSet(PITY.Lucky.ResetTiers) }
+local resetSets = { Normal = tierSet(PITY.Normal.ResetTiers), Top = tierSet(PITY.Top.ResetTiers), Lucky = tierSet(PITY.Lucky.ResetTiers) }
 
--- A fresh pity state: { normal, lucky } recruits counted since the last reset, owed (the next
--- lucky pity is your pick) and pick (the S+ you chose).
+-- A fresh pity state: { normal, top, lucky } recruits counted since the last reset (normal
+-- recruits count toward both normal and top), owed (the next lucky pity is your pick) and pick
+-- (the S+ you chose).
 function Spins.newPity()
-	return { normal = 0, lucky = 0, owed = false, pick = nil }
+	return { normal = 0, top = 0, lucky = 0, owed = false, pick = nil }
 end
 
 -- A saved pity state made safe.
@@ -285,6 +286,7 @@ function Spins.cleanPity(data)
 		return out
 	end
 	out.normal = math.clamp(math.floor(tonumber(data.normal) or 0), 0, PITY.Normal.Every - 1)
+	out.top = math.clamp(math.floor(tonumber(data.top) or 0), 0, PITY.Top.Every - 1)
 	out.lucky = math.clamp(math.floor(tonumber(data.lucky) or 0), 0, PITY.Lucky.Every - 1)
 	out.owed = data.owed == true
 	if Spins.isPityPick(data.pick) then
@@ -308,10 +310,10 @@ function Spins.isPityPick(key)
 	return false
 end
 
--- How many recruits until each pity: normal and lucky (1 = the very next one).
+-- How many recruits until each pity: normal, lucky and top (1 = the very next one).
 function Spins.pityLeft(pity)
 	pity = pity or Spins.newPity()
-	return PITY.Normal.Every - (pity.normal or 0), PITY.Lucky.Every - (pity.lucky or 0)
+	return PITY.Normal.Every - (pity.normal or 0), PITY.Lucky.Every - (pity.lucky or 0), PITY.Top.Every - (pity.top or 0)
 end
 
 -- A random character from a pity pool, weighted by Boost and Lower.
@@ -335,36 +337,38 @@ end
 -- the boosted and lowered characters (Config.Spins.Favor), for the luck and pity's random picks.
 function Spins.pityRoll(pity, rng, lucky, favor)
 	rng = rng or Random.new()
-	local kind = lucky and "Lucky" or "Normal"
-	local count = lucky and pity.lucky or pity.normal
+	pity.top = pity.top or 0
 	local key, how = nil, nil
-	if count + 1 >= PITY[kind].Every then
-		local pool = pityPools[kind]
-		if lucky and pity.owed and Spins.isPityPick(pity.pick) then
-			key, how = pity.pick, "pick"
-			pity.owed = false
-		elseif #pool > 0 then
-			key, how = pityPoolPick(pool, rng, favor), "pity"
-			if lucky then
+	if lucky then
+		if pity.lucky + 1 >= PITY.Lucky.Every then
+			local pool = pityPools.Lucky
+			if pity.owed and Spins.isPityPick(pity.pick) then
+				key, how = pity.pick, "pick"
+				pity.owed = false
+			elseif #pool > 0 then
+				key, how = pityPoolPick(pool, rng, favor), "pity"
 				-- the next lucky pity is your pick, unless this one already was (with no pick
 				-- chosen yet, it's owed until you choose)
 				pity.owed = key ~= pity.pick
 			end
 		end
+	elseif pity.top + 1 >= PITY.Top.Every and #pityPools.Top > 0 then
+		key, how = pityPoolPick(pityPools.Top, rng, favor), "pity" -- the S+ one comes first
+	elseif pity.normal + 1 >= PITY.Normal.Every and #pityPools.Normal > 0 then
+		key, how = pityPoolPick(pityPools.Normal, rng, favor), "pity"
 	end
 	if not key then
 		key = Spins.rollItem("Char", rng, lucky and Spins.LuckyWeights or nil, favor)
 	end
 	local tier = Spins.item("Char", key).Char.Tier
-	if resetSets[kind][tier] then
-		count = 0
-	else
-		count = count + 1
+	local function counted(kind, count)
+		return resetSets[kind][tier] and 0 or count + 1
 	end
 	if lucky then
-		pity.lucky = count
+		pity.lucky = counted("Lucky", pity.lucky)
 	else
-		pity.normal = count
+		pity.normal = counted("Normal", pity.normal)
+		pity.top = counted("Top", pity.top)
 	end
 	return key, how
 end

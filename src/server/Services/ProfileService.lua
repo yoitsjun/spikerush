@@ -720,7 +720,7 @@ function ProfileService.snapshot(plr)
 		lucky = profile.lucky or 0,
 		-- the Characters banner's pity: recruits counted toward each, whether the next lucky pity is
 		-- your pick, and the pick
-		pity = { normal = profile.pity.normal, lucky = profile.pity.lucky, owed = profile.pity.owed, pick = profile.pity.pick },
+		pity = { normal = profile.pity.normal, top = profile.pity.top, lucky = profile.pity.lucky, owed = profile.pity.owed, pick = profile.pity.pick },
 		favor = profile.favor, -- boosted ("up") and lowered ("down") characters
 		favorited = profile.favorited == true or RunService:IsStudio(), -- codes and daily rewards need it
 		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP

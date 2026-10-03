@@ -1540,6 +1540,27 @@ do
 		end
 	end
 	check(worst <= PT.Normal.Every, "3,000 recruits: never more than 200 between S tiers", "longest wait " .. worst)
+	-- normal recruits count toward an S+ too, at 350 (the S+ one wins when both are due)
+	local both = Spins.newPity()
+	both.normal, both.top = PT.Normal.Every - 1, PT.Top.Every - 1
+	local tk, th = Spins.pityRoll(both, rng, false)
+	check(th == "pity" and tierOf(tk) == "S+" and both.top == 0 and both.normal == 0, "S+ pity: the 350th normal recruit without an S+ is one (it wins over the S tier pity due on the same pull)", tk)
+	local longS, longTop, sinceS, sinceTop = 0, 0, 0, 0
+	local run2 = Spins.newPity()
+	for _ = 1, 20000 do
+		local key = Spins.pityRoll(run2, rng, false)
+		local t = tierOf(key)
+		sinceS, sinceTop = sinceS + 1, sinceTop + 1
+		if string.sub(t, 1, 1) == "S" then
+			longS = math.max(longS, sinceS)
+			sinceS = 0
+		end
+		if t == "S+" then
+			longTop = math.max(longTop, sinceTop)
+			sinceTop = 0
+		end
+	end
+	check(longS <= PT.Normal.Every and longTop <= PT.Top.Every, "20,000 recruits: never more than 200 between S tiers, nor 350 between S+", string.format("longest waits %d and %d", longS, longTop))
 	-- lucky: the first pity is a random S+; when it isn't your pick, the next one is your pick
 	local lp = Spins.newPity()
 	lp.pick = Spins.pityPool("Lucky")[1]

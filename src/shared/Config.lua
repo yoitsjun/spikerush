@@ -396,9 +396,13 @@ Config.Spins = {
 	-- spins... 50... first pity hit is a random s+, next one is a chosen s+"). Recruits count up
 	-- until one of ResetTiers comes (by luck or by pity) and start again; the recruit that
 	-- reaches Every gives one of Tiers. Lucky spins count on their own: their first pity is a
-	-- random S+, and when that wasn't the one you picked, the next is the one you picked.
+	-- random S+, and when that wasn't the one you picked, the next is the one you picked. Normal
+	-- recruits also count toward an S+ (Top, the owner: "add a normal spin S+ pity but it has to be
+	-- 350 pulls"): an S+ is a 0.5% pull, so most players see one long before it (the average wait
+	-- is 200), and about one in six reach it. When Top and Normal land on the same recruit, Top wins.
 	Pity = {
 		Normal = { Every = 200, Tiers = { "S-", "S" }, ResetTiers = { "S-", "S", "S+" } },
+		Top = { Every = 350, Tiers = { "S+" }, ResetTiers = { "S+" } },
 		Lucky = { Every = 50, Tiers = { "S+" }, ResetTiers = { "S+" } },
 	},
 	-- Boost and Lower (the owner: "slightly boost and slightly lower the chances of getting a
