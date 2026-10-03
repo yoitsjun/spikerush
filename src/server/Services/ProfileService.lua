@@ -1224,10 +1224,12 @@ local function spinOnce(plr, profile, banner, count, lucky)
 	dirty[plr] = true
 	local rng = Random.new()
 	local items, refund = {}, 0
+	-- the admin panel's 2x Luck: usual recruits on the Characters banner are likelier to be A- and up
+	local luck = not lucky and banner == "Char" and reg.AdminService and reg.AdminService.multiplier("Luck") > 1
 	for i = 1, count do
 		local k, how = nil, nil
 		if banner == "Char" then
-			k, how = Spins.pityRoll(profile.pity, rng, lucky, profile.favor) -- counts toward pity, and pays it
+			k, how = Spins.pityRoll(profile.pity, rng, lucky, profile.favor, luck and Spins.LuckEventWeights or nil) -- counts toward pity, and pays it
 		else
 			k = Spins.rollItem(banner, rng, lucky and Spins.LuckyWeights or nil)
 		end

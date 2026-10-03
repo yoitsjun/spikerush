@@ -117,6 +117,22 @@ end
 -- The rarity weights of a lucky spin (Config.Lucky), for odds, table and rollItem.
 Spins.LuckyWeights = Config.Lucky.Weights
 
+-- The rarity weights while the admin panel's 2x Luck runs (Config.Spins.LuckEvent): A- and up
+-- doubled, what that adds taken from the Commons.
+Spins.LuckEventWeights = (function()
+	local out, added = {}, 0
+	for r, w in pairs(RAR.Weights) do
+		out[r] = w
+	end
+	for _, r in ipairs(SP.LuckEvent.Double) do
+		added = added + (out[r] or 0)
+		out[r] = (out[r] or 0) * 2
+	end
+	local from = SP.LuckEvent.From
+	out[from] = math.max(0, (out[from] or 0) - added)
+	return out
+end)()
+
 -- Chance (0..1) of each rarity on this banner: the rarity weights (Rarity.Weights, or a lucky
 -- spin's) over the rarities it has.
 function Spins.odds(kind, weights)
@@ -335,7 +351,7 @@ end
 -- One recruit on the Characters banner, with pity. Updates `pity` and returns the key and how it
 -- came: "pity" (a random one from the pool), "pick" (the S+ you chose) or nil (luck). favor:
 -- the boosted and lowered characters (Config.Spins.Favor), for the luck and pity's random picks.
-function Spins.pityRoll(pity, rng, lucky, favor)
+function Spins.pityRoll(pity, rng, lucky, favor, weights)
 	rng = rng or Random.new()
 	pity.top = pity.top or 0
 	local key, how = nil, nil
@@ -358,7 +374,8 @@ function Spins.pityRoll(pity, rng, lucky, favor)
 		key, how = pityPoolPick(pityPools.Normal, rng, favor), "pity"
 	end
 	if not key then
-		key = Spins.rollItem("Char", rng, lucky and Spins.LuckyWeights or nil, favor)
+		-- a lucky spin's weights, or `weights` (2x Luck's) for a usual one
+		key = Spins.rollItem("Char", rng, lucky and Spins.LuckyWeights or weights, favor)
 	end
 	local tier = Spins.item("Char", key).Char.Tier
 	local function counted(kind, count)

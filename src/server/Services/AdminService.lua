@@ -133,7 +133,7 @@ local function reply(plr, msg)
 end
 
 local function eventName(kind)
-	return kind == "VP" and "V Points" or kind
+	return A.EventNames[kind] or kind
 end
 
 local function onAdmin(plr, op, a, b)
@@ -156,7 +156,7 @@ local function onAdmin(plr, op, a, b)
 		writeEvents()
 		storeEvents()
 		publish(TOPIC_LIVE, { [a] = events[a] })
-		notify({ kind = "event", text = string.format("%dx %s for the next %d minutes! Every match pays double.", A.Multiplier, eventName(a), minutes) })
+		notify({ kind = "event", text = string.format("%dx %s for the next %d minutes! %s", A.Multiplier, eventName(a), minutes, A.EventLines[a] or "") })
 		reply(plr, string.format("%dx %s is on in every server for %d minutes.", A.Multiplier, a, minutes))
 	elseif op == "stop" then
 		if not Economy.isEvent(a) then

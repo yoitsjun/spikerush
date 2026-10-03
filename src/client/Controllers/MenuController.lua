@@ -184,6 +184,15 @@ function Extra.eventLeft(kind)
 	return math.max(0, (ReplicatedStorage:GetAttribute("Event_" .. kind) or 0) - Util.now())
 end
 
+-- The rarity weights a usual recruit on `kind` uses right now (2x Luck's on Characters, while it
+-- runs; nil: the usual ones).
+function Extra.recruitWeights(kind)
+	if kind == "Char" and Extra.eventLeft("Luck") > 0 then
+		return Spins.LuckEventWeights
+	end
+	return nil
+end
+
 -- A text box in the Shop's style.
 function Extra.inputBox(parent, props, placeholder)
 	local box = make("TextBox", {
@@ -1227,7 +1236,7 @@ local function refreshRecruit(prof)
 	end
 	R.title.Text = bannerName(banner)
 	R.desc.Text = banner == "Char" and "Recruit named players: each has a role, a height, stat ceilings and (S and S+) an ability. Upgrade them with Gold in Players." or SP.Banners[banner].Blurb
-	local o = Spins.odds(banner)
+	local o = Spins.odds(banner, Extra.recruitWeights(banner))
 	local parts = {}
 	for _, r in ipairs(Config.Rarity.Order) do
 		if o[r] > 0 then
@@ -1416,7 +1425,7 @@ function MenuController.openTable(kind, lucky)
 		local ups, downs = Spins.favorCounts(favor)
 		O.sub.Text = string.format("Boost a character (x%.1f) or Lower one (x%.1f) to change your odds of it within its rarity: %d/%d boosted, %d/%d lowered. Duplicates turn into V Points.", F.Boost, F.Lower, ups, F.MaxBoost, downs, F.MaxLower)
 	end
-	local data = Spins.table(kind, lucky and Spins.LuckyWeights or nil, favor)
+	local data = Spins.table(kind, lucky and Spins.LuckyWeights or Extra.recruitWeights(kind), favor)
 	for i, row in ipairs(O.rows) do
 		local d = data[i]
 		row.frame.Visible = d ~= nil
@@ -4722,16 +4731,16 @@ function Extra.buildAdmin()
 		end)
 		evRows[kind] = { status = status, startL = startL, stop = stop }
 	end
-	heading(left, "Announcement", 250)
-	local ann = Extra.inputBox(left, { Position = UDim2.fromOffset(0, 296), Size = UDim2.new(1, 0, 0, 112), TextWrapped = true, MultiLine = true, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 18 }, "Shown to every player in every server")
-	local annCount = Gui.label(left, { Text = "0 / " .. Config.Admin.AnnounceMax, TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 418), Size = UDim2.fromOffset(200, 18), ZIndex = 22 })
+	heading(left, "Announcement", 314)
+	local ann = Extra.inputBox(left, { Position = UDim2.fromOffset(0, 360), Size = UDim2.new(1, 0, 0, 112), TextWrapped = true, MultiLine = true, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 18 }, "Shown to every player in every server")
+	local annCount = Gui.label(left, { Text = "0 / " .. Config.Admin.AnnounceMax, TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 482), Size = UDim2.fromOffset(200, 18), ZIndex = 22 })
 	ann:GetPropertyChangedSignal("Text"):Connect(function()
 		if #ann.Text > Config.Admin.AnnounceMax then
 			ann.Text = string.sub(ann.Text, 1, Config.Admin.AnnounceMax)
 		end
 		annCount.Text = #ann.Text .. " / " .. Config.Admin.AnnounceMax
 	end)
-	local send = actionPlate(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 416), Size = UDim2.fromOffset(240, 48) }, "Send to everyone", 20)
+	local send = actionPlate(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 480), Size = UDim2.fromOffset(240, 48) }, "Send to everyone", 20)
 	onClick(send, function()
 		if string.match(ann.Text, "%S") then
 			Net.get("Admin"):FireServer("announce", ann.Text)

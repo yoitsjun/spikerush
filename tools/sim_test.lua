@@ -1621,6 +1621,20 @@ do
 	check(ups == F.MaxBoost and downs == 1 and clean.riku == nil and clean.aoi == nil, "saved choices are made safe: no starters, no more than the limit", ups .. " boosted, " .. downs .. " lowered")
 end
 
+print("== 2x luck ==")
+local Economy = require("Economy")
+do
+	local base, luck = Spins.odds("Char"), Spins.odds("Char", Spins.LuckEventWeights)
+	local sum = 0
+	for _, r in ipairs(Config.Rarity.Order) do
+		sum = sum + luck[r]
+	end
+	check(math.abs(luck.Epic - 2 * base.Epic) < 1e-9 and math.abs(luck.Legendary - 2 * base.Legendary) < 1e-9 and math.abs(luck.Mythic - 2 * base.Mythic) < 1e-9
+		and math.abs(luck.Rare - base.Rare) < 1e-9 and luck.Common < base.Common and math.abs(sum - 1) < 1e-9 and Economy.isEvent("Luck"),
+		"2x Luck: A- and up twice as likely, the Commons (D and C) pay for it, Rare as it is", string.format("Common %.1f%% -> %.1f%%, Epic %.1f%% -> %.1f%%, Legendary %.1f%% -> %.1f%%, Mythic %.2f%% -> %.2f%%",
+			base.Common * 100, luck.Common * 100, base.Epic * 100, luck.Epic * 100, base.Legendary * 100, luck.Legendary * 100, base.Mythic * 100, luck.Mythic * 100))
+end
+
 print("== one swing a jump ==")
 do
 	local yj = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))

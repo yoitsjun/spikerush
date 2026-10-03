@@ -101,7 +101,7 @@ The Shop's packs are Developer Products: 500 / 1,200 / 2,800 / 6,500 VP, 5,000 /
 
 **Gifts**: every pack (VP, Gold, lucky spins, boosts) can be bought for someone else, by username or user id, or picked from the players in your server. It reaches them at once wherever they are, or when they next join.
 
-**The admin panel** (developers only): start 2x VP or 2x Gold for 5, 10, 15, 20 or 30 minutes in every server (every match pays double, the showcase says so, and Home shows the time left), send an announcement to every player in every server (through Roblox's text filter), and give anyone VP, Gold, lucky spins and characters by username or user id.
+**The admin panel** (developers only): start 2x VP or 2x Gold for 5, 10, 15, 20 or 30 minutes in every server (every match pays double, the showcase says so, and Home shows the time left), or 2x Luck (recruits on the Characters banner are twice as likely to be A- or better: Common 55% to 38%, Epic 12.5% to 25%, Legendary 4% to 8%, Mythic 0.5% to 1%; Recruit's odds and table show it while it runs; lucky spins don't change), send an announcement to every player in every server (through Roblox's text filter), and give anyone VP, Gold, lucky spins and characters by username or user id.
 
 **Developers** own every character and unlockable, recruit and upgrade for free: the place's owner (or the group's owner), anyone in a Studio test session, and any UserId listed in `Config.Developers.UserIds`.
 

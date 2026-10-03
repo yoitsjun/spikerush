@@ -400,6 +400,10 @@ Config.Spins = {
 	-- recruits also count toward an S+ (Top, the owner: "add a normal spin S+ pity but it has to be
 	-- 350 pulls"): an S+ is a 0.5% pull, so most players see one long before it (the average wait
 	-- is 200), and about one in six reach it. When Top and Normal land on the same recruit, Top wins.
+	-- 2x Luck (Config.Admin's event): these rarities' weights double on the Characters banner (A-
+	-- and up: Epic, Legendary, Mythic), and the weight they add is taken from From (D and C:
+	-- Common), so Rare stays as it is. Lucky spins aren't changed.
+	LuckEvent = { Double = { "Epic", "Legendary", "Mythic" }, From = "Common" },
 	Pity = {
 		Normal = { Every = 200, Tiers = { "S-", "S" }, ResetTiers = { "S-", "S", "S+" } },
 		Top = { Every = 350, Tiers = { "S+" }, ResetTiers = { "S+" } },
@@ -643,7 +647,13 @@ Config.Daily = {
 -- characters to anyone by username (online in any server at once, otherwise on their next join).
 Config.Admin = {
 	Durations = { 5, 10, 15, 20, 30 },
-	Events = { "VP", "Gold" },
+	-- 2x VP and 2x Gold double what matches pay; 2x Luck (the owner: "add 2x luck, similar to the
+	-- 2x gold and vp... this should lower the odds of getting the d's and the c's and double the
+	-- odds of getting better characters. from A- to above") changes recruits on the Characters
+	-- banner: Config.Spins.LuckEvent
+	Events = { "VP", "Gold", "Luck" },
+	EventNames = { VP = "V Points", Gold = "Gold", Luck = "Luck" },
+	EventLines = { VP = "Every match pays double.", Gold = "Every match pays double.", Luck = "Recruits are twice as likely to be A- or better." },
 	Multiplier = 2,
 	AnnounceMax = 200, -- characters
 	AnnounceSeconds = 10, -- how long an announcement shows
