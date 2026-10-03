@@ -827,18 +827,27 @@ Config.Abilities = {
 		LightGain = 30, -- any other ball of theirs she digs (serves, feints, free balls)
 	},
 	-- The owner: "a wingspiker with a blitz spin ability. it sharply angles down" (with a picture
-	-- of a spike that leaves the hand through a ring of wind and dives). A spike met cleanly spins
-	-- hard: it comes off flatter and faster, then dives steeply into the front of the court.
+	-- of a spike that leaves the hand through a ring of wind and dives), then "i want an
+	-- exaggerated downwards spin, make also with the boom jump sound playing. i haven't seen it hit
+	-- that sharp downwards angle". His spikes spin hard: they shoot over the net flat and fast,
+	-- then just past it turn and plunge at DiveAngle into the front of the court (the ball's path
+	-- has a second part from the turn: BallPhysics' launch.dive), with a ring and a boom there.
 	Plunge = {
 		Name = "Plunge Spin",
 		Tier = "S",
 		Role = "WS",
-		Blurb = "Spikes you meet cleanly spin hard: they leave your hand through a ring of wind, flat and fast, then dive steeply into the front of their court.",
+		Blurb = "Your spikes spin hard: they shoot over the net flat and fast, then turn and plunge almost straight down into the front of their court, with a boom.",
 		Color = Color3.fromRGB(255, 60, 90),
-		MinContact = 0.45, -- the contact quality a spike needs to plunge
-		Topspin = 2.1, -- the spike's gravity x this: it comes off flatter, then dives
-		DepthPull = 0.4, -- it lands this much of the way from where it would toward the shortest spike
-		PowerBoost = 0.06, -- and leaves the hand x (1 + this) faster
+		MinContact = 0.15, -- nearly any spike plunges
+		MinOverNet = 0.55 * M, -- met at least this far over the tape (lower: a usual spike)
+		DiveAngle = 72, -- degrees below level after the turn
+		TurnDrop = 0.35 * M, -- the flat part drops this much from the contact to the turn
+		TurnOverNet = 0.5 * M, -- and the turn is never lower than this over the tape
+		LandDepth = { 1.6 * M, 3.0 * M }, -- where it lands, past the net
+		TurnMin = 0.3 * M, -- the turn is at least this far past the net
+		FlatGravity = 0.25, -- gravity x this on the flat part
+		DiveSpeed = 1.0, -- the plunge keeps this much of the speed
+		PowerBoost = 0.06, -- and it leaves the hand x (1 + this) faster
 	},
 }
 Config.AbilityOrder = { "Thunder", "Azure", "Feral", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge" }

@@ -1492,20 +1492,31 @@ local function onHit(snap)
 			VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("+%.1f%%", boost * 100), VECTOR, 0.9 + 2 * boost)
 		end
 		if meta.plunge then
-			-- Plunge Spin: the ball leaves the hand through a big ring of wind (across its line),
-			-- and a second ring where it turns down into the dive
+			-- Plunge Spin: the ball leaves the hand through a big ring of wind (across its line);
+			-- where it turns down into the plunge, a second ring, a burst and a boom
 			local col = Config.Abilities.Plunge.Color
 			sonicRing(pos, seg.v, WHITE, 11, 0.45)
 			ringFx(pos, col, 1, 8, 0.3)
 			local path = snap.path
-			task.delay(math.max(0.05, (path.landing.t - seg.t0) * 0.45), function()
-				local now = Util.now()
-				if now < path.landing.t then
-					sonicRing(BallPhysics.positionAt(path, now), BallPhysics.velocityAt(path, now), WHITE, 9, 0.4)
-				end
-			end)
+			local turn = path.segs[2]
+			if turn then
+				task.delay(math.max(0, turn.t0 - Util.now()), function()
+					if Util.now() < path.landing.t + 0.05 then
+						sonicRing(turn.p, turn.v, WHITE, 14, 0.5)
+						ringFx(turn.p, col, 1, 12, 0.35)
+						Fx.play("Burst", turn.p, { color = col, scale = 1.1 })
+						if mods.AudioController then
+							mods.AudioController.play("Boom", { pos = turn.p, volume = 1, minGap = 0.05 })
+						end
+						if close then
+							shaker.shake(0.6)
+							shaker.kick(-7)
+						end
+					end
+				end)
+			end
 			if close then
-				VFXController.popup(pos + Vector3.new(0, 2.6, 0), "Plunge Spin!", col, 1)
+				VFXController.popup(pos + Vector3.new(0, 2.6, 0), "Plunge Spin!", col, 1.1)
 				shaker.kick(-5)
 			end
 		end

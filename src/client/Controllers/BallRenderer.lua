@@ -705,6 +705,8 @@ local function update(dt)
 			local rate = 0.35
 			if cur.meta and (cur.meta.hitType == "Overhand" or cur.meta.hitType == "Underhand") then
 				rate = 0.06 -- a floater barely spins
+			elseif cur.meta and cur.meta.plunge then
+				rate = 2.4 -- Plunge Spin: a wild topspin, all the way down
 			elseif cur.meta and cur.meta.energy then
 				rate = 0.35 + 0.9 * cur.meta.energy -- Azure: heavy spin
 			elseif cur.meta and cur.meta.gauge then

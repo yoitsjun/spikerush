@@ -1656,14 +1656,16 @@ do
 	local _, pl = spike(sr, b, { stats = yeonho, ability = "Plunge" })
 	local _, nopl = spike(sr, b, { stats = yeonho })
 	local pp, np = BallPhysics.buildPath(pl.launch), BallPhysics.buildPath(nopl.launch)
-	local function angle(path)
-		local v = path.segs[#path.segs].v
-		local t = path.landing.t - path.segs[#path.segs].t0
-		local vy = v.Y + path.segs[#path.segs].a.Y * t
-		return math.deg(math.atan(-vy / math.max(math.abs(v.Z), 0.01)))
+	local function angleIn(path)
+		local v = path.landing.vel
+		return math.deg(math.atan(-v.Y / math.max(math.abs(v.Z), 0.01)))
 	end
-	check(pl.meta.plunge and not nopl.meta.plunge and oppDepth(pp) < oppDepth(np) and angle(pp) > angle(np) + 5 and pl.meta.kmh > nopl.meta.kmh,
-		"Plunge Spin: a clean spike lands nearer the net, faster, and dives in steeper", string.format("%.1f vs %.1f m deep, %.0f vs %.0f degrees in, %.0f vs %.0f km/h", oppDepth(pp) / SPM, oppDepth(np) / SPM, angle(pp), angle(np), pl.meta.kmh, nopl.meta.kmh))
+	local depthIn = oppDepth(pp) / SPM
+	check(pl.meta.plunge and not nopl.meta.plunge and #pp.segs == 2 and pp.flags.dive ~= nil and not pp.flags.netTouch and (pp.flags.crossings or 0) == 1
+		and angleIn(pp) >= 60 and angleIn(pp) > angleIn(np) + 20 and depthIn >= 1.5 and depthIn <= 3.2 and pl.meta.kmh > nopl.meta.kmh,
+		"Plunge Spin: flat over the net, then a turn and a plunge into the front of their court", string.format("lands %.1f m in at %.0f degrees (a usual spike: %.1f m at %.0f), %.0f vs %.0f km/h", depthIn, angleIn(pp), oppDepth(np) / SPM, angleIn(np), pl.meta.kmh, nopl.meta.kmh))
+	local turn = pp.segs[2]
+	check(turn.p.Y > Config.Court.NetTop and -turn.p.Z * side > 0, "the turn comes past the net, over the tape", string.format("%.2f m high, %.2f m past", turn.p.Y / SPM, -turn.p.Z * side / SPM))
 	local mateus, junseo, yejun = Roster.get("mateus"), Roster.get("junseo"), Roster.get("yejun")
 	local tallest, shortestWS = true, true
 	for _, c in ipairs(Roster) do

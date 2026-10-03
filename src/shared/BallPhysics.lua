@@ -65,13 +65,17 @@ local function refine(s, lo, hi, test)
 end
 
 -- Walk one segment until something interesting happens. Clean net crossings are recorded in
--- `flags` and do not end the segment.
+-- `flags` and do not end the segment. A segment with a turn (s.dive: Plunge Spin) ends there.
 local function scan(s, flags)
 	local prev = posAt(s, 0)
 	local tau = 0
 	local maxT = Config.Ball.MaxFlightTime
+	local turnAt = s.dive and s.dive.tau or nil
 	while tau < maxT do
 		local nt = tau + STEP
+		if turnAt and nt > turnAt then
+			nt = turnAt
+		end
 		local pos = posAt(s, nt)
 		if pos.Y <= R then
 			return "Floor", refine(s, tau, nt, function(p)
@@ -109,6 +113,9 @@ local function scan(s, flags)
 			end
 			flags.crossings = (flags.crossings or 0) + 1
 		end
+		if turnAt and nt >= turnAt then
+			return "Dive", turnAt
+		end
 		prev = pos
 		tau = nt
 	end
@@ -125,7 +132,11 @@ function BallPhysics.buildPath(launch)
 		local pos = posAt(s, tau)
 		local vel = velAt(s, tau)
 		local absT = s.t0 + s.hold + tau
-		if kind == "Net" then
+		if kind == "Dive" then
+			-- the turn: on from here with the new velocity and pull
+			flags.dive = absT
+			s = { p = pos, v = s.dive.v, a = s.dive.a, t0 = absT, hold = 0, wob = 0, wobF = 0, ph = 0 }
+		elseif kind == "Net" then
 			flags.netTouch = true
 			local ns
 			if pos.Y >= C.NetTop - R * 0.35 then

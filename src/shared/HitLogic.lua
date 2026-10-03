@@ -662,11 +662,10 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if overcharge then
 		depth = C.SideDepth + SPM * (1.25 + rng:NextNumber() * 2.5)
 	end
-	-- Plunge Spin: a spike met cleanly spins hard. It lands nearer the net, leaves the hand a
-	-- little faster, and heavy topspin (below) brings it off flat and then dives it in steeply
-	local plunge = kind == "Spike" and ctx.ability == "Plunge" and qContact >= PLUNGE.MinContact
+	-- Plunge Spin: high enough over the tape, the spike shoots flat over the net and turns down
+	-- just past it (below)
+	local plunge = kind == "Spike" and ctx.ability == "Plunge" and qContact >= PLUNGE.MinContact and ball.Y >= C.NetTop + PLUNGE.MinOverNet
 	if plunge then
-		depth = lerp(depth, shortest, PLUNGE.DepthPull)
 		kmh = kmh * (1 + PLUNGE.PowerBoost)
 		meta.plunge = true
 	end
@@ -723,7 +722,27 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		g = math.max(G * H.ServeGravityScale, flat * H.ServeTopspin)
 	end
 	if plunge then
-		g = g * PLUNGE.Topspin
+		-- the turn: past the net, a little under the contact; from there it plunges at DiveAngle
+		-- to land LandDepth past the net
+		local tan = math.tan(math.rad(PLUNGE.DiveAngle))
+		local turnY = math.max(ball.Y - PLUNGE.TurnDrop, C.NetTop + PLUNGE.TurnOverNet)
+		local land = lerp(PLUNGE.LandDepth[1], PLUNGE.LandDepth[2], rng:NextNumber())
+		local turnZ = land - (turnY - R) / tan
+		if turnZ < PLUNGE.TurnMin then
+			turnZ = PLUNGE.TurnMin
+			land = turnZ + (turnY - R) / tan
+		end
+		local turn = Vector3.new(0, turnY, -side * turnZ)
+		local g1 = G * PLUNGE.FlatGravity
+		local v1 = HitLogic.solveSpeed(ball, turn, speed, g1)
+		local tau = math.abs(turn.Z - ball.Z) / math.max(math.abs(v1.Z), 1)
+		local down = Vector3.new(0, R, -side * land) - turn
+		local v2 = down.Unit * speed * PLUNGE.DiveSpeed
+		local hold = q >= H.PerfectAt and H.HitStopPerfect or H.HitStopGreat
+		meta.turnAt = math.floor(tau * 1000 + 0.5) / 1000
+		local ok, res = launchResult(meta, ball, v1, Vector3.new(0, -g1, 0), t, hold)
+		res.launch.dive = { tau = tau, v = planar(v2), a = planar(Vector3.new(0, -G, 0)) }
+		return ok, res
 	end
 	local v = speedWithAssist(ball, target, speed, g, side, steps)
 	local hold = 0
