@@ -89,8 +89,10 @@ local function charInfo()
 		hum = hum,
 		root = hrp.Position,
 		vy = hrp.AssemblyLinearVelocity.Y,
-		-- FloorMaterial lags a few frames behind takeoff; the humanoid state doesn't
-		grounded = hum.FloorMaterial ~= Enum.Material.Air and not AIR_STATES[hum:GetState()],
+		-- FloorMaterial lags a few frames behind takeoff; the humanoid state doesn't. A humanoid
+		-- left in a falling state while it stands still on the floor (pressed on the net's
+		-- barrier, or landing on an edge) is on the ground all the same, so it can still jump
+		grounded = hum.FloorMaterial ~= Enum.Material.Air and (not AIR_STATES[hum:GetState()] or math.abs(hrp.AssemblyLinearVelocity.Y) < 0.5),
 		groundY = hum.HipHeight + hrp.Size.Y / 2,
 	}
 end
@@ -672,14 +674,20 @@ local function pressSpike(info)
 		end
 		return
 	end
-	if not State.isPlaying or State.phase() ~= "Rally" then
-		return
-	end
 	if info.grounded then
-		if isFeral() and startProwl("Spike") then
+		-- a jump whenever you like (the owner: "make it so i can jump whenever"): waiting for the
+		-- serve, between points and out of a match too; Feral Leap charges only in a rally
+		if State.isPlaying and State.phase() == "Rally" and isFeral() and startProwl("Spike") then
 			return
 		end
-		MC.approach("Spike")
+		if not (State.isPlaying and State.phase() == "Rally") and State.settings.doubleApproach then
+			MC.jump("Spike") -- the double approach's run-up only runs in a rally
+		else
+			MC.approach("Spike")
+		end
+		return
+	end
+	if not State.isPlaying or State.phase() ~= "Rally" then
 		return
 	end
 	if isAzure() and charge.gauge > 0.05 then
@@ -951,12 +959,11 @@ local function pressJump(info)
 		end
 		return
 	end
-	if State.isPlaying and State.phase() == "Rally" then
-		if isFeral() and startProwl("Jump") then
-			return
-		end
-		mods.MovementController.jump("Spike")
+	-- straight up whenever you like; Feral Leap charges only in a rally
+	if State.isPlaying and State.phase() == "Rally" and isFeral() and startProwl("Jump") then
+		return
 	end
+	mods.MovementController.jump("Spike")
 end
 
 function ActionController.press(action)
@@ -987,7 +994,9 @@ function ActionController.press(action)
 	elseif action == "Block" then
 		pressBlock(info)
 	elseif action == "Set" then
-		if mods.SetterAim and mods.SetterAim.on() then
+		if mods.SetterAim and mods.SetterAim.on() and not mods.SetterAim.charged() then
+			doSet(info, mods.SetterAim.aim()) -- the mouse's aim: set there at once
+		elseif mods.SetterAim and mods.SetterAim.on() then
 			setCharge = { t0 = os.clock() } -- the set goes when Set is let go
 		else
 			doSet(info, nil)

@@ -27,6 +27,7 @@
 -- count, the best leaderboard place, the players recruited); checkCards runs after every match,
 -- recruit and leaderboard read.
 --   ("gift", kind, index, username)  -> buy a pack for someone else
+--   ("pityPick", charId)             -> the S+ your lucky pity owes you (Config.Spins.Pity)
 -- Codes and the daily reward are for members of the group who liked the game (the owner's rule;
 -- only the group can be checked, so liking is the player's word, asked once).
 -- Your character locks while you're in a match, so prediction always matches the server.
@@ -183,7 +184,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, boosts = {}, cards = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, boosts = {}, cards = {}, pity = Spins.newPity() }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -312,6 +313,7 @@ local function sanitizeProfile(data)
 	end
 	-- lucky spins, the codes used, the daily streak, Robux spent, the gifts already delivered
 	out.lucky = math.clamp(math.floor(tonumber(data.lucky) or 0), 0, 1000000)
+	out.pity = Spins.cleanPity(data.pity) -- the Characters banner's pity counters and lucky pick
 	if type(data.codes) == "table" then
 		for k, v in pairs(data.codes) do
 			if v == true and type(k) == "string" and #k <= 40 then
@@ -458,6 +460,7 @@ local function save(plr, force)
 		boosts = profile.boosts,
 		cards = profile.cards,
 		bestRank = profile.bestRank,
+		pity = profile.pity,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -708,6 +711,9 @@ function ProfileService.snapshot(plr)
 			return { unlocked = unlocked, stats = cardStats(profile) }
 		end)(),
 		lucky = profile.lucky or 0,
+		-- the Characters banner's pity: recruits counted toward each, whether the next lucky pity is
+		-- your pick, and the pick
+		pity = { normal = profile.pity.normal, lucky = profile.pity.lucky, owed = profile.pity.owed, pick = profile.pity.pick },
 		liked = profile.liked == true,
 		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP
 		group = groupId(),
@@ -1210,7 +1216,12 @@ local function spinOnce(plr, profile, banner, count, lucky)
 	local rng = Random.new()
 	local items, refund = {}, 0
 	for i = 1, count do
-		local k = Spins.rollItem(banner, rng, lucky and Spins.LuckyWeights or nil)
+		local k, how = nil, nil
+		if banner == "Char" then
+			k, how = Spins.pityRoll(profile.pity, rng, lucky) -- counts toward pity, and pays it
+		else
+			k = Spins.rollItem(banner, rng, lucky and Spins.LuckyWeights or nil)
+		end
 		local item = Spins.item(banner, k)
 		local dup = owns(profile, banner, k)
 		local sold = not dup and profile.autoSell[item.Rarity] == true
@@ -1219,7 +1230,7 @@ local function spinOnce(plr, profile, banner, count, lucky)
 		else
 			profile.owned[banner][k] = true
 		end
-		items[i] = { key = k, dup = dup or nil, sold = sold or nil }
+		items[i] = { key = k, dup = dup or nil, sold = sold or nil, pity = how }
 	end
 	if not profile.dev then
 		profile.vp = profile.vp + refund
@@ -1332,6 +1343,13 @@ local function onRequest(plr, kind, a, b, c)
 		upgrade(plr, profile, a, b, c)
 	elseif kind == "spin" then
 		spin(plr, profile, a, b, c == "lucky")
+	elseif kind == "pityPick" then
+		-- the S+ the lucky pity gives you when it's owed
+		if Spins.isPityPick(a) then
+			profile.pity.pick = a
+			dirty[plr] = true
+			push(plr, Spins.item("Char", a).Name .. " is your lucky pity pick.")
+		end
 	elseif kind == "code" or kind == "daily" or kind == "gift" or kind == "group" then
 		-- each asks Roblox (the group, a username), so they're spaced out and run on their own
 		if lastClaim[plr] and now - lastClaim[plr] < 1.5 then

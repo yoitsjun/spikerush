@@ -31,6 +31,7 @@ local FERAL = Config.Abilities.Feral
 local ADRENALINE = Config.Abilities.Adrenaline
 local CHAIN = Config.Abilities.ChainReaction
 local VECTOR = Config.Abilities.Vector
+local PLUNGE = Config.Abilities.Plunge
 local TURN = Config.Abilities.Turnabout
 local SUN = Config.Abilities.RisingSun
 local RALLY = Config.Abilities.RallyCry
@@ -650,6 +651,14 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if overcharge then
 		depth = C.SideDepth + SPM * (1.25 + rng:NextNumber() * 2.5)
 	end
+	-- Plunge Spin: a spike met cleanly spins hard. It lands nearer the net, leaves the hand a
+	-- little faster, and heavy topspin (below) brings it off flat and then dives it in steeply
+	local plunge = kind == "Spike" and ctx.ability == "Plunge" and qContact >= PLUNGE.MinContact
+	if plunge then
+		depth = lerp(depth, shortest, PLUNGE.DepthPull)
+		kmh = kmh * (1 + PLUNGE.PowerBoost)
+		meta.plunge = true
+	end
 	local target = Vector3.new(0, R, -side * depth)
 	-- Vector Set: off her set, the steeper the line from the contact to where it lands, the more
 	-- power (a sharp, short spike gets the most)
@@ -701,6 +710,9 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		local dist = math.max(math.abs(target.Z - ball.Z), 1)
 		local flat = 2 * math.max(ball.Y - R, 1) * (speed / dist) ^ 2
 		g = math.max(G * H.ServeGravityScale, flat * H.ServeTopspin)
+	end
+	if plunge then
+		g = g * PLUNGE.Topspin
 	end
 	local v = speedWithAssist(ball, target, speed, g, side, steps)
 	local hold = 0

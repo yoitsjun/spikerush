@@ -1491,6 +1491,24 @@ local function onHit(snap)
 			ringFx(pos, VECTOR, 1.5, 7 + 20 * boost, 0.35, 6)
 			VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("+%.1f%%", boost * 100), VECTOR, 0.9 + 2 * boost)
 		end
+		if meta.plunge then
+			-- Plunge Spin: the ball leaves the hand through a big ring of wind (across its line),
+			-- and a second ring where it turns down into the dive
+			local col = Config.Abilities.Plunge.Color
+			sonicRing(pos, seg.v, WHITE, 11, 0.45)
+			ringFx(pos, col, 1, 8, 0.3)
+			local path = snap.path
+			task.delay(math.max(0.05, (path.landing.t - seg.t0) * 0.45), function()
+				local now = Util.now()
+				if now < path.landing.t then
+					sonicRing(BallPhysics.positionAt(path, now), BallPhysics.velocityAt(path, now), WHITE, 9, 0.4)
+				end
+			end)
+			if close then
+				VFXController.popup(pos + Vector3.new(0, 2.6, 0), "Plunge Spin!", col, 1)
+				shaker.kick(-5)
+			end
+		end
 		if meta.counterRelease then
 			-- Counter Edge released: blades fly with the ball, more the fuller the meter was
 			local c = meta.counterRelease

@@ -3,11 +3,12 @@
 -- crosshair", then "up and down full control. you have to charge up the distance though".
 -- While you set for your team (the setter, or alone in 1v1) and your team hasn't set yet, a
 -- marker on your side shows where your set will come down: a ring on the floor, a post, and a
--- crosshair at the height the set comes down through. The height is yours to aim at any time
--- (the mouse up and down over the court, the right stick, or a tap); the distance from the net
--- is charged: hold Set and the marker slides out from the net (ActionController.setCharge),
--- let go and the set goes there (HitLogic's input.aimDepth and aimHeight, with the usual
--- accuracy error). The server passes your aim to your teammates only (the SetAim remote), who
+-- crosshair at the height the set comes down through. With a mouse the marker sits where the
+-- mouse points (the owner: "setter mode indicator is based on mouse position"): its height and
+-- its distance from the net, and Set sets there at once. With the right stick or a tap you aim
+-- the height and charge the distance: hold Set and the marker slides out from the net
+-- (ActionController.setCharge), let go and the set goes there (HitLogic's input.aimDepth and
+-- aimHeight, with the usual accuracy error). The server passes your aim to your teammates only (the SetAim remote), who
 -- see it in your team's colour. Settings > Setter aim turns it off.
 
 local UserInputService = game:GetService("UserInputService")
@@ -28,6 +29,8 @@ local STICK_SPEED = 22 -- studs a second at full right stick
 local EXPIRE = 3 -- a teammate's marker that hasn't been heard from for this long goes
 
 local aimY = nil -- the height your set comes down through (world studs)
+local mouseDepth = nil -- with a mouse: the distance from the net it points at
+local usingMouse = false -- the mouse aimed last (else the stick or a tap: the distance is charged)
 local stickY = 0
 local sent, sentAt = nil, 0
 local marks = {} -- entityId -> { depth, team, seen }: your aim and your teammates'
@@ -58,8 +61,8 @@ local function on()
 	return not (touch and touch.team == State.myTeam and (touch.count or 0) >= 2)
 end
 
--- Where a ray from the camera meets the plane the ball flies in (x = 0): its height.
-local function heightAt(ray)
+-- Where a ray from the camera meets the plane the ball flies in (x = 0).
+local function pointAt(ray)
 	if math.abs(ray.Direction.X) < 1e-3 then
 		return nil
 	end
@@ -67,21 +70,51 @@ local function heightAt(ray)
 	if t <= 0 then
 		return nil
 	end
-	return clampHeight(ray.Origin.Y + ray.Direction.Y * t)
+	return ray.Origin + ray.Direction * t
+end
+
+local function heightAt(ray)
+	local p = pointAt(ray)
+	return p and clampHeight(p.Y) or nil
+end
+
+-- Aim at the mouse: the height and the distance from the net on your side it points at (past
+-- the net: the nearest you can set). Returns whether it could.
+local function fromMouse()
+	local cam = workspace.CurrentCamera
+	if not cam or State.isMobile then
+		return false
+	end
+	local m = UserInputService:GetMouseLocation()
+	local p = pointAt(cam:ViewportPointToRay(m.X, m.Y))
+	if not p then
+		return false
+	end
+	aimY = clampHeight(p.Y)
+	mouseDepth = clampDepth(p.Z * Court.sideOf(State.myTeam))
+	return true
 end
 
 function SetterAim.on()
 	return on()
 end
 
--- Your aim right now: the height you picked and the distance charged so far (the near end
--- until Set is held). ActionController sets there when Set is let go.
+-- Your aim right now: the height you picked, and the distance the mouse points at (or the one
+-- charged so far: the near end until Set is held).
 function SetterAim.aim()
 	if not on() then
 		return nil
 	end
+	if usingMouse and mouseDepth then
+		return { depth = mouseDepth, height = aimY or H.SetArriveY }
+	end
 	local charge = mods.ActionController.setCharge() or 0
 	return { depth = H.SetAimMin + (H.SetAimMax - H.SetAimMin) * charge, height = aimY or H.SetArriveY }
+end
+
+-- Whether Set charges the distance (held, then let go) or sets at once where the mouse points.
+function SetterAim.charged()
+	return not (usingMouse and mouseDepth)
 end
 
 local function part(props)
@@ -127,9 +160,13 @@ local function update(dt)
 	local now = os.clock()
 	local active = on()
 	if active then
+		if usingMouse then
+			fromMouse() -- the camera moves too: keep the marker under the mouse
+		end
 		aimY = aimY or H.SetArriveY
 		if math.abs(stickY) > 0.2 then
 			aimY = clampHeight(aimY + stickY * STICK_SPEED * dt)
+			usingMouse = false
 		end
 	end
 	-- tell your team: when it moves (at most 10 times a second), once a second while it holds,
@@ -181,9 +218,8 @@ function SetterAim.init(m)
 	folder.Parent = workspace
 	UserInputService.InputChanged:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
-			if on() and workspace.CurrentCamera then
-				local p = UserInputService:GetMouseLocation()
-				aimY = heightAt(workspace.CurrentCamera:ViewportPointToRay(p.X, p.Y)) or aimY
+			if on() then
+				usingMouse = fromMouse() or usingMouse
 			end
 		elseif input.KeyCode == Enum.KeyCode.Thumbstick2 then
 			stickY = input.Position.Y
@@ -192,6 +228,7 @@ function SetterAim.init(m)
 	UserInputService.TouchTapInWorld:Connect(function(pos, processedByUI)
 		if not processedByUI and on() and workspace.CurrentCamera then
 			aimY = heightAt(workspace.CurrentCamera:ScreenPointToRay(pos.X, pos.Y)) or aimY
+			usingMouse = false
 		end
 	end)
 	-- a teammate's aim (the server only sends your own team's)

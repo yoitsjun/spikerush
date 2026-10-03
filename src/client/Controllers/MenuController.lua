@@ -1170,6 +1170,14 @@ local function buildRecruit()
 		end)
 		luckyButtons[i] = { button = b, sub = sub, n = n, packIndex = packIndex }
 	end
+	-- pity (Config.Spins.Pity), on the Characters banner: how far along each is, and the S+ your
+	-- lucky pity owes you
+	local pityCard = Gui.card(p, { Name = "Pity", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 290), Size = UDim2.fromOffset(582, 50) }, Color3.fromRGB(70, 20, 70))
+	local pityL = Gui.label(pityCard, { Text = "", display = true, TextSize = 19, RichText = true, TextStrokeTransparency = 0.6, Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -170, 1, 0) })
+	local pityBtn = hairButton(pityCard, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(140, 32) }, "Pick S+", 15)
+	onClick(pityBtn, function()
+		MenuController.openPityPick()
+	end)
 	local oddsL = hairButton(lucky, { Position = UDim2.fromOffset(282, 74), Size = UDim2.fromOffset(140, 28) }, "Lucky odds", 15)
 	onClick(oddsL, function()
 		MenuController.openTable(banner, true)
@@ -1193,7 +1201,7 @@ local function buildRecruit()
 		end
 	end
 
-	ui.recruit = { setTab = setTab, rows = rows, title = title, desc = desc, odds = odds, autoL = autoL, sells = sells, status = status, x1 = x1, x10 = x10, x1Cost = x1Cost, x10Cost = x10Cost, x10Plate = x10Plate, freeTag = freeTag, freeL = freeL, luckyHave = luckyHave, luckyOdds = luckyOdds, luckyButtons = luckyButtons }
+	ui.recruit = { setTab = setTab, rows = rows, title = title, desc = desc, odds = odds, autoL = autoL, sells = sells, status = status, x1 = x1, x10 = x10, x1Cost = x1Cost, x10Cost = x10Cost, x10Plate = x10Plate, freeTag = freeTag, freeL = freeL, luckyHave = luckyHave, luckyOdds = luckyOdds, luckyButtons = luckyButtons, pityCard = pityCard, pityL = pityL }
 end
 
 local function refreshRecruit(prof)
@@ -1257,6 +1265,17 @@ local function refreshRecruit(prof)
 		end
 	end
 	R.luckyOdds.Text = table.concat(lparts, "  ")
+	-- pity: recruits until a random S tier, lucky spins until an S+ (and which)
+	R.pityCard.Visible = banner == "Char"
+	local pity = prof.pity or {}
+	local PT = Config.Spins.Pity
+	local pick = pity.pick and Roster.get(pity.pick)
+	local nextLucky = pity.owed and (pick and pick.Name or "your pick") or "random S+"
+	R.pityL.Text = string.format('Pity <font color="#%s">%d/%d</font> S tier   Lucky pity <font color="#%s">%d/%d</font> %s',
+		Spins.rarityColor("Legendary"):ToHex(), pity.normal or 0, PT.Normal.Every, Spins.rarityColor("Mythic"):ToHex(), pity.lucky or 0, PT.Lucky.Every, nextLucky)
+	if ui.pityPick and ui.pityPick.modal.root.Visible then
+		Extra.refreshPityPick(prof)
+	end
 	for _, lb in ipairs(R.luckyButtons) do
 		local pack = lb.packIndex and Config.Lucky.Packs[lb.packIndex]
 		if free or have >= lb.n then
@@ -1272,6 +1291,57 @@ end
 ------------------------------------------------------------------------------------------
 -- Probability table
 ------------------------------------------------------------------------------------------
+
+-- The lucky pity pick (Config.Spins.Pity): the S+ characters, and the one your lucky pity gives
+-- you when it's owed (your first lucky pity is a random S+; when it isn't your pick, the next is).
+function Extra.buildPityPick()
+	local pool = Spins.pityPool("Lucky")
+	local cols = math.min(math.max(#pool, 1), 3)
+	local rowsN = math.ceil(math.max(#pool, 1) / cols)
+	local m = modal("PityPick", "Lucky pity pick", 120 + cols * 250, 240 + rowsN * 150, true)
+	local sub = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -56, 0, 48), Position = UDim2.fromOffset(28, 84), ZIndex = 21 })
+	local cards = {}
+	for i, key in ipairs(pool) do
+		local c = Roster.get(key)
+		local x = 40 + ((i - 1) % cols) * 250
+		local y = 150 + math.floor((i - 1) / cols) * 150
+		local b = make("TextButton", { Name = key, Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(230, 130), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.15, BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 22 }, m.panel)
+		local edge = make("UIStroke", { Color = Gui.SIGNAL, Thickness = 3, Transparency = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+		Gui.label(b, { Text = c.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextColor3 = tierColor(c.Tier), Position = UDim2.fromOffset(14, 10), Size = UDim2.new(1, -28, 0, 36), ZIndex = 23 })
+		local ab = c.Ability and Config.Abilities[c.Ability]
+		Gui.label(b, { Text = c.Tier .. "  " .. roleName(c.Role) .. (ab and ("  /  " .. ab.Name) or ""), TextSize = 15, TextColor3 = Gui.CHALK, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(14, 50), Size = UDim2.new(1, -28, 0, 20), ZIndex = 23 })
+		local state = Gui.label(b, { Text = "", display = true, TextSize = 18, Position = UDim2.fromOffset(14, 92), Size = UDim2.new(1, -28, 0, 24), ZIndex = 23 })
+		onClick(b, function()
+			sendProfile("pityPick", key)
+		end)
+		cards[key] = { edge = edge, state = state }
+	end
+	ui.pityPick = { modal = m, sub = sub, cards = cards }
+end
+
+function Extra.refreshPityPick(prof)
+	local PP = ui.pityPick
+	if not PP then
+		return
+	end
+	local pity = prof.pity or {}
+	local pickName = pity.pick and Roster.get(pity.pick) and Roster.get(pity.pick).Name
+	PP.sub.Text = (pity.owed and "Your next lucky pity is your pick" or "Your next lucky pity is a random S+; when it isn't your pick, the one after is")
+		.. (pickName and (". Picked: " .. pickName .. ".") or ". Pick one below.")
+	for key, c in pairs(PP.cards) do
+		local picked = pity.pick == key
+		c.edge.Transparency = picked and 0 or 1
+		c.state.Text = picked and "YOUR PICK" or (prof.owned and prof.owned.Char and prof.owned.Char[key] and "Owned: pick" or "Pick")
+		c.state.TextColor3 = picked and Gui.SIGNAL or Gui.DIM
+	end
+end
+
+function MenuController.openPityPick()
+	if ui.pityPick then
+		Extra.refreshPityPick(profile())
+		ui.pityPick.modal.root.Visible = true
+	end
+end
 
 local function buildTable()
 	local m = modal("Odds", "Probability Table", 860, 680, true)
@@ -1592,6 +1662,9 @@ local function fillTray(i, kind, it)
 	else
 		card.foot.Text = "NEW"
 	end
+	if it.pity then
+		card.foot.Text = (it.pity == "pick" and "PICK " or "PITY ") .. card.foot.Text -- a pity pull
+	end
 	card.foot.TextColor3 = (it.dup or it.sold) and Gui.MUTED or Gui.GOLD_LIGHT
 	card.scale.Scale = 0.3
 	tween(card.scale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
@@ -1762,6 +1835,9 @@ local function showCard(kind, it)
 	else
 		K.foot.Text = "NEW"
 		K.foot.TextColor3 = Gui.GOLD_LIGHT
+	end
+	if it.pity then
+		K.foot.Text = (it.pity == "pick" and "Your lucky pity pick!  " or "Pity!  ") .. K.foot.Text
 	end
 	-- your avatar in the pose
 	if cardRig then
@@ -5020,6 +5096,7 @@ function MenuController.init(m)
 	buildPractice()
 	buildHelp()
 	buildTable()
+	Extra.buildPityPick()
 	buildMatch()
 	buildMatchScreen()
 	buildSequence()

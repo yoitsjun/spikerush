@@ -490,7 +490,7 @@ local function applyStyle(meta)
 		sparkleOn = true
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 230, 210))
 	end
-	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or Color3.fromRGB(255, 90, 110)
+	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or (meta.plunge and Config.Abilities.Plunge.Color) or Color3.fromRGB(255, 90, 110)
 	if trailKey ~= "Ribbon" then
 		-- the unlock's kit (flames, glints, stardust, arcs, a comet's glow) rides the ball; a
 		-- flame keeps its own orange unless the spike has a colour

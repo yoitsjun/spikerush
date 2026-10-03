@@ -184,6 +184,7 @@ Assets.Images = {
 	AbilityRisingSun = "82174181192946", -- decal 134410622522060 (a sun)
 	AbilityRallyCry = "11874376205", -- decal 11874376247 (a megaphone)
 	AbilityCounter = "12902637748", -- decal 12902637801 (crossed swords)
+	AbilityPlunge = "232203094", -- stand-in: Turnabout's circling arrows (a Creator Store spin or comet icon goes here)
 	-- menu icons: one filled white glyph style (Toolbox decals)
 	IconHome = "13300916613", -- decal 13300916690 (Fluent "home")
 	IconSettings = "13300915301", -- decal 13300915335 (Fluent "settings")

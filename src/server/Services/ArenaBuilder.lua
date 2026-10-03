@@ -170,10 +170,13 @@ local function buildNet(arena)
 	pcall(function()
 		PhysicsService:RegisterCollisionGroup("NetBarrier")
 	end)
+	-- frictionless: a player pressed on it (blocking right at the net) slid up it slowly and lost
+	-- the jump, which ended the block
 	part(arena, "NetBarrier", Vector3.new(C.WallHalfX * 2 + 40, C.CeilingY, 0.6), CFrame.new(-20, C.CeilingY / 2, 0), WHITE, nil, {
 		Transparency = 1,
 		CastShadow = false,
 		CollisionGroup = "NetBarrier",
+		CustomPhysicalProperties = PhysicalProperties.new(0.7, 0, 0, 100, 1),
 	})
 
 	-- referee stand on the far side, behind the net

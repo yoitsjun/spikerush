@@ -137,7 +137,12 @@ local function inAir()
 	if not hum then
 		return false
 	end
-	return hum.FloorMaterial == Enum.Material.Air or AIR_STATES[hum:GetState()] == true
+	if hum.FloorMaterial == Enum.Material.Air then
+		return true
+	end
+	-- a falling state while standing still on the floor (pressed on the net's barrier, or landed
+	-- on an edge) isn't the air: without this, jumps were refused until the state cleared
+	return AIR_STATES[hum:GetState()] == true and not (hrp and math.abs(hrp.AssemblyLinearVelocity.Y) < 0.5)
 end
 
 function MovementController.airborne()
@@ -416,6 +421,10 @@ local function moveStep()
 	local airborne = inAir()
 	local stats = State.myStats()
 
+	if knock and queued then
+		knock = nil -- jumping ends the skid
+		hum.WalkSpeed = baseWalk()
+	end
 	if knock then
 		local e = now - knock.t0
 		if e < knock.dur and not slide then

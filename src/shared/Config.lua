@@ -391,6 +391,15 @@ Config.Spins = {
 	AutoRollMax = 100, -- an auto-roll stops after this many spins
 	AutoRollDelay = 0.4, -- seconds between auto-roll spins (so the reveal can be seen)
 	AutoRollTarget = "Legendary", -- stops at this rarity or better
+	-- Pity, on the Characters banner (the owner: "normal pity is 200 for a random s tier... lucky
+	-- spins... 50... first pity hit is a random s+, next one is a chosen s+"). Recruits count up
+	-- until one of ResetTiers comes (by luck or by pity) and start again; the recruit that
+	-- reaches Every gives one of Tiers. Lucky spins count on their own: their first pity is a
+	-- random S+, and when that wasn't the one you picked, the next is the one you picked.
+	Pity = {
+		Normal = { Every = 200, Tiers = { "S-", "S" }, ResetTiers = { "S-", "S", "S+" } },
+		Lucky = { Every = 50, Tiers = { "S+" }, ResetTiers = { "S+" } },
+	},
 }
 
 -- Developers get everything: every character and unlockable, free spins. The place's owner
@@ -792,8 +801,22 @@ Config.Abilities = {
 		MaxGain = 100,
 		LightGain = 30, -- any other ball of theirs she digs (serves, feints, free balls)
 	},
+	-- The owner: "a wingspiker with a blitz spin ability. it sharply angles down" (with a picture
+	-- of a spike that leaves the hand through a ring of wind and dives). A spike met cleanly spins
+	-- hard: it comes off flatter and faster, then dives steeply into the front of the court.
+	Plunge = {
+		Name = "Plunge Spin",
+		Tier = "S",
+		Role = "WS",
+		Blurb = "Spikes you meet cleanly spin hard: they leave your hand through a ring of wind, flat and fast, then dive steeply into the front of their court.",
+		Color = Color3.fromRGB(255, 60, 90),
+		MinContact = 0.45, -- the contact quality a spike needs to plunge
+		Topspin = 2.1, -- the spike's gravity x this: it comes off flatter, then dives
+		DepthPull = 0.4, -- it lands this much of the way from where it would toward the shortest spike
+		PowerBoost = 0.06, -- and leaves the hand x (1 + this) faster
+	},
 }
-Config.AbilityOrder = { "Thunder", "Azure", "Feral", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },

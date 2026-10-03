@@ -439,7 +439,7 @@ do
 	local ids, okShape, okAbility, okLimits = {}, true, true, true
 	local tallestSE, shortestMB, notes = 0, 999, {}
 	local want = {
-		WS = { Adrenaline = true, RisingSun = true, Counter = true },
+		WS = { Adrenaline = true, RisingSun = true, Counter = true, Plunge = true },
 		MB = { IronWall = true, RallyCry = true },
 		SE = { ChainReaction = true, Vector = true, Turnabout = true },
 	}
@@ -1523,6 +1523,81 @@ do
 	local team = Cards.look(Cards.get("Rookie"), Color3.fromRGB(1, 2, 3), nil)
 	check(gold.Sweep == Config.Cards.RankColors[1] and bronze.Edge == Config.Cards.RankColors[3] and team.Sweep[1] == 1,
 		"the Top 3 card is gold, silver or bronze by the place; the Rookie card takes the team colour")
+end
+
+print("== pity ==")
+do
+	local PT = Config.Spins.Pity
+	local rng = Random.new(7)
+	local function tierOf(key)
+		return Spins.item("Char", key).Char.Tier
+	end
+	-- normal: one recruit short of pity, the next is an S- or S
+	local pity = Spins.newPity()
+	pity.normal = PT.Normal.Every - 1
+	local k, how = Spins.pityRoll(pity, rng, false)
+	check(how == "pity" and (tierOf(k) == "S" or tierOf(k) == "S-") and pity.normal == 0, "normal pity: the 200th recruit without an S tier is a random S tier, and the count starts over", k .. " " .. tierOf(k))
+	-- across a long run nobody waits past 200 for an S tier
+	local worst, since = 0, 0
+	local run = Spins.newPity()
+	for _ = 1, 3000 do
+		local key = Spins.pityRoll(run, rng, false)
+		since = since + 1
+		if string.sub(tierOf(key), 1, 1) == "S" then
+			worst = math.max(worst, since)
+			since = 0
+		end
+	end
+	check(worst <= PT.Normal.Every, "3,000 recruits: never more than 200 between S tiers", "longest wait " .. worst)
+	-- lucky: the first pity is a random S+; when it isn't your pick, the next one is your pick
+	local lp = Spins.newPity()
+	lp.pick = Spins.pityPool("Lucky")[1]
+	local picks = {}
+	for i = 1, 6 do
+		lp.lucky = PT.Lucky.Every - 1
+		local key, h = Spins.pityRoll(lp, rng, true)
+		picks[i] = { key = key, how = h }
+	end
+	local ok = true
+	for i, pk in ipairs(picks) do
+		ok = ok and tierOf(pk.key) == "S+" and (pk.how == "pity" or pk.how == "pick")
+		if pk.how == "pity" and pk.key ~= lp.pick then
+			ok = ok and (picks[i + 1] == nil or (picks[i + 1].how == "pick" and picks[i + 1].key == lp.pick))
+		end
+	end
+	check(ok and lp.lucky == 0 and picks[1].how == "pity", "lucky pity: the 50th lucky spin is an S+, random first, then your pick after a random one that wasn't it")
+	local owedNoPick = Spins.newPity()
+	owedNoPick.lucky = PT.Lucky.Every - 1
+	Spins.pityRoll(owedNoPick, rng, true)
+	local clean = Spins.cleanPity({ normal = 9999, lucky = -3, owed = true, pick = "riku" })
+	check(owedNoPick.owed == true and clean.normal == PT.Normal.Every - 1 and clean.lucky == 0 and clean.owed and clean.pick == nil and Spins.isPityPick("yejun") and not Spins.isPityPick("hayun"),
+		"with no pick chosen the pick stays owed; saved pity is made safe (only an S+ can be the pick)")
+end
+
+print("== the third wave ==")
+do
+	local yeonho = Characters.derive(Characters.fromRoster(Roster.get("yeonho"), "max"))
+	local sr = apexRoot(yeonho, 3.5 * K)
+	local b = ballAt(sr, 0.9, 0)
+	local _, pl = spike(sr, b, { stats = yeonho, ability = "Plunge" })
+	local _, nopl = spike(sr, b, { stats = yeonho })
+	local pp, np = BallPhysics.buildPath(pl.launch), BallPhysics.buildPath(nopl.launch)
+	local function angle(path)
+		local v = path.segs[#path.segs].v
+		local t = path.landing.t - path.segs[#path.segs].t0
+		local vy = v.Y + path.segs[#path.segs].a.Y * t
+		return math.deg(math.atan(-vy / math.max(math.abs(v.Z), 0.01)))
+	end
+	check(pl.meta.plunge and not nopl.meta.plunge and oppDepth(pp) < oppDepth(np) and angle(pp) > angle(np) + 5 and pl.meta.kmh > nopl.meta.kmh,
+		"Plunge Spin: a clean spike lands nearer the net, faster, and dives in steeper", string.format("%.1f vs %.1f m deep, %.0f vs %.0f degrees in, %.0f vs %.0f km/h", oppDepth(pp) / SPM, oppDepth(np) / SPM, angle(pp), angle(np), pl.meta.kmh, nopl.meta.kmh))
+	local mateus, junseo, yejun = Roster.get("mateus"), Roster.get("junseo"), Roster.get("yejun")
+	local tallest, shortestWS = true, true
+	for _, c in ipairs(Roster) do
+		tallest = tallest and (c == mateus or c.Height < mateus.Height)
+		shortestWS = shortestWS and (c.Role ~= "WS" or c == junseo or c.Height > junseo.Height)
+	end
+	check(tallest and mateus.Ability == nil and shortestWS and junseo.Jump < yejun.Jump and junseo.Jump >= 185,
+		"Mateus is the tallest (no ability); Junseo the shortest wing spiker, with a jump just under YeJun's", string.format("%d cm; %d cm, jump %d vs %d", mateus.Height, junseo.Height, junseo.Jump, yejun.Jump))
 end
 
 print("== determinism ==")

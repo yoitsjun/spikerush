@@ -180,6 +180,113 @@ function Spins.rollItem(kind, rng, weights)
 end
 
 ------------------------------------------------------------------------------------------
+-- pity (Config.Spins.Pity, the Characters banner)
+------------------------------------------------------------------------------------------
+
+local PITY = SP.Pity
+
+local function tierSet(list)
+	local set = {}
+	for _, t in ipairs(list) do
+		set[t] = true
+	end
+	return set
+end
+
+-- the characters each pity can give (starters never drop)
+local pityPools = {}
+for _, kind in ipairs({ "Normal", "Lucky" }) do
+	local set = tierSet(PITY[kind].Tiers)
+	pityPools[kind] = {}
+	for _, item in ipairs(items.Char) do
+		if set[item.Char.Tier] and not starters.Char[item.Key] then
+			table.insert(pityPools[kind], item.Key)
+		end
+	end
+end
+local resetSets = { Normal = tierSet(PITY.Normal.ResetTiers), Lucky = tierSet(PITY.Lucky.ResetTiers) }
+
+-- A fresh pity state: { normal, lucky } recruits counted since the last reset, owed (the next
+-- lucky pity is your pick) and pick (the S+ you chose).
+function Spins.newPity()
+	return { normal = 0, lucky = 0, owed = false, pick = nil }
+end
+
+-- A saved pity state made safe.
+function Spins.cleanPity(data)
+	local out = Spins.newPity()
+	if type(data) ~= "table" then
+		return out
+	end
+	out.normal = math.clamp(math.floor(tonumber(data.normal) or 0), 0, PITY.Normal.Every - 1)
+	out.lucky = math.clamp(math.floor(tonumber(data.lucky) or 0), 0, PITY.Lucky.Every - 1)
+	out.owed = data.owed == true
+	if Spins.isPityPick(data.pick) then
+		out.pick = data.pick
+	end
+	return out
+end
+
+-- The characters a pity gives ("Normal" or "Lucky").
+function Spins.pityPool(kind)
+	return pityPools[kind] or {}
+end
+
+-- Whether a character can be picked for the lucky pity.
+function Spins.isPityPick(key)
+	for _, k in ipairs(pityPools.Lucky) do
+		if k == key then
+			return true
+		end
+	end
+	return false
+end
+
+-- How many recruits until each pity: normal and lucky (1 = the very next one).
+function Spins.pityLeft(pity)
+	pity = pity or Spins.newPity()
+	return PITY.Normal.Every - (pity.normal or 0), PITY.Lucky.Every - (pity.lucky or 0)
+end
+
+-- One recruit on the Characters banner, with pity. Updates `pity` and returns the key and how it
+-- came: "pity" (a random one from the pool), "pick" (the S+ you chose) or nil (luck).
+function Spins.pityRoll(pity, rng, lucky)
+	rng = rng or Random.new()
+	local kind = lucky and "Lucky" or "Normal"
+	local count = lucky and pity.lucky or pity.normal
+	local key, how = nil, nil
+	if count + 1 >= PITY[kind].Every then
+		local pool = pityPools[kind]
+		if lucky and pity.owed and Spins.isPityPick(pity.pick) then
+			key, how = pity.pick, "pick"
+			pity.owed = false
+		elseif #pool > 0 then
+			key, how = pool[rng:NextInteger(1, #pool)], "pity"
+			if lucky then
+				-- the next lucky pity is your pick, unless this one already was (with no pick
+				-- chosen yet, it's owed until you choose)
+				pity.owed = key ~= pity.pick
+			end
+		end
+	end
+	if not key then
+		key = Spins.rollItem("Char", rng, lucky and Spins.LuckyWeights or nil)
+	end
+	local tier = Spins.item("Char", key).Char.Tier
+	if resetSets[kind][tier] then
+		count = 0
+	else
+		count = count + 1
+	end
+	if lucky then
+		pity.lucky = count
+	else
+		pity.normal = count
+	end
+	return key, how
+end
+
+------------------------------------------------------------------------------------------
 -- client helpers (Roblox types; never called by the shared simulation)
 ------------------------------------------------------------------------------------------
 

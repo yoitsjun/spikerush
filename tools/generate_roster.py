@@ -7,7 +7,7 @@ four stats and possibly an ability:
   * MB: the tallest, with a big Jump (about 180) and less Attack (about 170).
   * SE: Speed and Defense (160 to 180 at the top), light on Attack and Jump.
 Abilities come with the character: S+ wing spikers have Thunder Spiker, Azure Dragon or Feral Leap;
-S characters have one of their role's abilities (WS Adrenaline, Rising Sun or Counter Edge;
+S characters have one of their role's abilities (WS Adrenaline, Rising Sun, Counter Edge or Plunge Spin;
 MB Iron Wall or Rally Cry; SE Chain Reaction, Vector Set or Turnabout); everyone else has none.
 
 The top characters are hand-set (the owner named YeJun: Thunder, 190 Jump and 210 Attack; he
@@ -59,6 +59,14 @@ FIXED = [
     # Counter Edge: lower Attack and Defense at an empty meter; a full one (one hard spike dug)
     # makes her 210 Attack and 200 Defense (+40 / +70) until her next spike releases it
     {"Name": "Ines", "Role": "WS", "Tier": "S", "Height": 184, "Attack": 170, "Defense": 130, "Speed": 138, "Jump": 180, "Ability": "Counter"},
+    # the owner's third wave (original characters from the owner's descriptions):
+    # a middle blocker "exceptionally tall, but not much else. no ability, just very tall with good
+    # stats" (the tallest anyone can be, Config.Height.Max)
+    {"Name": "Mateus", "Role": "MB", "Tier": "S-", "Height": 210, "Attack": 164, "Defense": 146, "Speed": 102, "Jump": 172, "Ability": None},
+    # a wing spiker "short but an incredible jump, not higher than yejun's but still very high"
+    {"Name": "Junseo", "Role": "WS", "Tier": "S-", "Height": 168, "Attack": 180, "Defense": 110, "Speed": 150, "Jump": 188, "Ability": None},
+    # Plunge Spin: "a wingspiker with a blitz spin ability. it sharply angles down"
+    {"Name": "Yeonho", "Role": "WS", "Tier": "S", "Height": 185, "Attack": 194, "Defense": 118, "Speed": 140, "Jump": 178, "Ability": "Plunge"},
 ]
 
 # free for everyone: a D-tier character in each role
