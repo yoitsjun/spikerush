@@ -1827,8 +1827,10 @@ end
 
 local SCORE_FX = Config.Match.ScoreFx
 
--- a fresh copy of one of the Blender meshes, or nil
-local function fxMesh(name, texture)
+-- a fresh copy of one of the Blender meshes, or nil. They glow in ForceField (a lit rim) or faint
+-- Neon; our white textures go on beams and decals instead, which take the tint (a texture on a
+-- MeshPart would paint over its colour).
+local function fxMesh(name)
 	local box = ReplicatedStorage:FindFirstChild("ToolboxAssets")
 	local set = box and box:FindFirstChild("ScoreFx")
 	local src = set and set:FindFirstChild(name, true)
@@ -1841,12 +1843,8 @@ local function fxMesh(name, texture)
 	m.CanQuery = false
 	m.CanTouch = false
 	m.CastShadow = false
-	m.Material = Enum.Material.SmoothPlastic
-	if texture then
-		pcall(function()
-			m.TextureID = Assets.id(Assets.Fx[texture]) or ""
-		end)
-	end
+	m.Material = Enum.Material.ForceField
+	m.TextureID = ""
 	m.Parent = fxFolder
 	return m
 end
@@ -1902,6 +1900,28 @@ local function shockDisc(pos, color, radius, dur)
 	TweenService:Create(p, info, { Size = Vector3.new(radius * 2, 0.05, radius * 2) }):Play()
 	TweenService:Create(d, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
 	task.delay(dur, p.Destroy, p)
+end
+
+-- a flat disc showing `texture` (an Assets.Fx key) tinted `color` on both faces
+local function decalDisc(texture, color)
+	local p = holderPart(Vector3.new(0, -500, 0))
+	p.Size = Vector3.new(1, 0.05, 1)
+	for _, face in ipairs({ Enum.NormalId.Top, Enum.NormalId.Bottom }) do
+		local d = Instance.new("Decal")
+		d.Face = face
+		d.Texture = Assets.id(Assets.Fx[texture]) or ""
+		d.Color3 = color
+		d.Parent = p
+	end
+	return p
+end
+
+local function discAlpha(p, a)
+	for _, d in ipairs(p:GetChildren()) do
+		if d:IsA("Decal") then
+			d.Transparency = a
+		end
+	end
 end
 
 -- a lens flare (Assets.Fx.Flare) that blooms open and fades
@@ -2041,19 +2061,20 @@ local function tornado(pos, tint, k)
 	local top = 12 * k
 	local holder = holderPart(pos)
 	local shells = {}
-	local looks = { { color, 0.45, 2.6, 1 }, { WHITE, 0.72, -1.8, 0.82 }, { color:Lerp(Color3.new(0, 0, 0), 0.35), 0.35, 4.2, 0.6 } }
+	local FF, NEON = Enum.Material.ForceField, Enum.Material.Neon
+	local looks = { { color, FF, 0, 2.6, 1 }, { WHITE, FF, 0.2, -1.8, 0.8 }, { color, NEON, 0.82, 4.2, 0.62 } }
 	for i, look in ipairs(looks) do
-		local m = fxMesh("Funnel", "Wind")
+		local m = fxMesh("Funnel")
 		if m then
 			m.Color = look[1]
-			m.Material = Enum.Material.Glass
+			m.Material = look[2]
 			m.Transparency = 1
-			shells[i] = { part = m, alpha = look[2], spin = look[3], width = look[4] }
+			shells[i] = { part = m, alpha = look[3], spin = look[4], width = look[5] }
 		end
 	end
 	local beams = {}
 	for i = 1, 10 do
-		local b = windBeam(holder, i % 3 == 0 and WHITE or color, 1.2 * k, 7 * k, 2 + i * 0.15)
+		local b = windBeam(holder, i % 3 == 0 and WHITE or color, 0.5 * k, 3.2 * k, 2 + i * 0.15)
 		beams[i] = { b = b, a = i / 10 * math.pi * 2, h = 0.2 + (i % 4) * 0.2 }
 	end
 	local debris = {}
@@ -2101,7 +2122,7 @@ local function tornado(pos, tint, k)
 			b.b.a1.WorldPosition = base + Vector3.new(math.cos(a + 2.4) * r1, h * (0.75 + b.h * 0.3), math.sin(a + 2.4) * r1)
 			b.b.beam.CurveSize0 = 6 * k
 			b.b.beam.CurveSize1 = -4 * k
-			b.b.beam.Transparency = NumberSequence.new(0.15 + 0.85 * math.max(fade, 1 - grow))
+			b.b.beam.Transparency = NumberSequence.new(0.3 + 0.7 * math.max(fade, 1 - grow))
 		end
 		for _, d in ipairs(debris) do
 			d.f = (d.f + 0.004 * d.speed) % 1
@@ -2157,20 +2178,16 @@ local function blackHole(pos, tint, k)
 	local rim = take(Enum.PartType.Ball)
 	rim.Color = color
 	rim.Transparency = 0.55
-	local well = fxMesh("Well", "Swirl")
+	local well = fxMesh("Well")
 	if well then
 		well.Color = color
-		well.Material = Enum.Material.Neon
 		well.Transparency = 1
 	else
 		well = take(Enum.PartType.Cylinder)
 		well.Color = color
 	end
-	local well2 = fxMesh("Well", "Swirl")
-	if well2 then
-		well2.Color = WHITE
-		well2.Transparency = 1
-	end
+	local swirl = decalDisc("Swirl", color)
+	local swirl2 = decalDisc("Swirl", WHITE)
 	local beams = {}
 	for i = 1, 12 do
 		local b = windBeam(holder, i % 2 == 0 and WHITE or color, 5 * k, 0.4, -3)
@@ -2199,17 +2216,18 @@ local function blackHole(pos, tint, k)
 		if well:IsA("MeshPart") then
 			well.Size = Vector3.new(26 * k * s, 8 * k * s, 26 * k * s) + Vector3.new(0.1, 0.1, 0.1)
 			well.CFrame = tiltCF * CFrame.Angles(0, e * 3, 0)
-			well.Transparency = 0.15 + 0.85 * (1 - s)
+			well.Transparency = 1 - s
 		else
 			well.Size = Vector3.new(0.3, 26 * k * s + 0.1, 26 * k * s + 0.1)
 			well.CFrame = tiltCF * CFrame.Angles(0, e * 3, math.rad(90))
 			well.Transparency = 0.3 + 0.7 * (1 - s)
 		end
-		if well2 then
-			well2.Size = Vector3.new(17 * k * s, 6 * k * s, 17 * k * s) + Vector3.new(0.1, 0.1, 0.1)
-			well2.CFrame = tiltCF * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, -e * 5, 0)
-			well2.Transparency = 0.45 + 0.55 * (1 - s)
-		end
+		swirl.Size = Vector3.new(30 * k * s + 0.1, 0.05, 30 * k * s + 0.1)
+		swirl.CFrame = tiltCF * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, -e * 2.4, 0)
+		discAlpha(swirl, 1 - s)
+		swirl2.Size = Vector3.new(17 * k * s + 0.1, 0.05, 17 * k * s + 0.1)
+		swirl2.CFrame = tiltCF * CFrame.new(0, 0.3, 0) * CFrame.Angles(0, -e * 4, 0)
+		discAlpha(swirl2, 0.2 + 0.8 * (1 - s))
 		local pulse = 1 + 0.06 * math.sin(e * 22)
 		local rs = 9.4 * k * s * pulse + 0.1
 		rim.Size = Vector3.new(rs, rs, rs)
@@ -2240,9 +2258,8 @@ local function blackHole(pos, tint, k)
 			else
 				release(well)
 			end
-			if well2 then
-				well2:Destroy()
-			end
+			swirl:Destroy()
+			swirl2:Destroy()
 			holder:Destroy()
 			release(rim)
 			core.Material = Enum.Material.Neon
@@ -2290,12 +2307,12 @@ local function tsunami(pos, tint, dirZ, k)
 	local z0 = pos.Z - dirZ * (reach * 1.5)
 	local z1 = pos.Z + dirZ * (reach * 0.7)
 	local x0, y0 = pos.X, pos.Y - 0.2
-	local wave = fxMesh("Wave", "Water")
-	local back = fxMesh("Wave", "Water")
+	local wave = fxMesh("Wave")
+	local back = fxMesh("Wave")
 	if wave then
-		wave.Material = Enum.Material.Glass
+		wave.Material = Enum.Material.Neon
 		wave.Color = color
-		back.Color = color:Lerp(WHITE, 0.4)
+		back.Color = color:Lerp(WHITE, 0.5)
 	else
 		wave = take(Enum.PartType.Block)
 		wave.Material = Enum.Material.Glass
@@ -2331,10 +2348,10 @@ local function tsunami(pos, tint, dirZ, k)
 			local bob = math.sin(e * 6) * 0.04
 			wave.Size = Vector3.new(width, h, h * 1.55)
 			wave.CFrame = face * CFrame.new(0, h / 2, 0) * CFrame.Angles(bob, 0, 0)
-			wave.Transparency = 0.2 + 0.8 * fall
-			back.Size = Vector3.new(width * 1.04, h * 0.7, h * 1.1)
-			back.CFrame = face * CFrame.new(0, h * 0.35, h * 0.35 * WAVE_FORWARD * -1)
-			back.Transparency = 0.55 + 0.45 * fall
+			wave.Transparency = 0.6 + 0.4 * fall
+			back.Size = wave.Size * 1.02
+			back.CFrame = wave.CFrame
+			back.Transparency = fall
 		else
 			wave.Size = Vector3.new(width, h, 6)
 			wave.CFrame = CFrame.new(x0, y0 + h / 2, z) * CFrame.Angles(-dirZ * math.rad(14), 0, 0)
@@ -2570,9 +2587,9 @@ local function celebrate(a)
 end
 
 -- A score effect anywhere, outside a match (the Locker's preview): the effect's key, the spike
--- colour's tint (or nil) and the direction the attack travelled along z.
-function VFXController.previewEffect(pos, effect, tint, dirZ)
-	if not playScore(effect, pos, tint, dirZ or -1) then
+-- colour's tint (or nil), the direction the attack travelled along z and the scale (1 if nil).
+function VFXController.previewEffect(pos, effect, tint, dirZ, k)
+	if not playScore(effect, pos, tint, dirZ or -1, k) then
 		Fx.play("FloorImpact", pos, { color = tint })
 	end
 end
