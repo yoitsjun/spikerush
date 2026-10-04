@@ -1819,7 +1819,7 @@ end
 -- tint, the attack's direction along z and a scale (Config.Match.ScoreFx.Scale by rarity: the
 -- Legendary and Mythic ones fill the court).
 --
--- Their meshes were modelled in Blender (tools/score_fx_meshes.md: the funnel, the curling wave,
+-- Their meshes were modelled in Blender (assets/fx/ScoreFxMeshes.fbx: the funnel, the curling wave,
 -- the gravity well, the crater, rocks, a shard and a dome) and imported into
 -- ReplicatedStorage.ToolboxAssets.ScoreFx; their textures are drawn by
 -- tools/generate_fx_textures.py, and the stat card was drawn in Figma. Until the meshes are
