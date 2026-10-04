@@ -49,7 +49,7 @@ Assets.Sounds = {
 	Feint = "84316579472327", -- "feint sound": a roll shot over the block
 	-- the owner's uploads (from a free sound library): Spike, Boom, FloorHit, FloorHitHeavy, CrowdServe
 	Spike = "101487104093246", -- "spike sfx": a spike's crack (SpikeHeavy borrows it, deeper and louder)
-	SpikeHeavy = "",
+	SpikeHeavy = "9119044267", -- Pro Sound Effects: shale break, a huge crack
 	Thunder = "117922524763696", -- lightning-strike-cool (the owner's pick): a Thunder spike
 	AzureCharge = "",
 	AzureRelease = "",
@@ -60,9 +60,9 @@ Assets.Sounds = {
 	Stuff = "",
 	FloorHit = "116030239767785", -- "spike land": the ball landing
 	FloorHitHeavy = "94780477478667", -- "heavy land": the ball landing off a hard spike (Thunder, 130+ km/h)
-	NetHit = "",
-	Toss = "",
-	Serve = "",
+	NetHit = "9113899121", -- Pro Sound Effects: rubbery smack
+	Toss = "9113069659", -- Pro Sound Effects: air swoosh
+	Serve = "9119334115", -- Pro Sound Effects: soccer chip shot, a hard thud
 	Slide = "",
 	Squeak = { "93928767284165", "121230189767569" }, -- "squeak 1" / "SQUEAK 2": a double approach's run-up starts
 	GuardBreak = "126675766605170", -- "jjs guard break" (the owner's pick, kept on their call)
@@ -70,8 +70,8 @@ Assets.Sounds = {
 	ScoreImpact = "91288569991875", -- Ground Slam 3 Explosion, Impact (the owner's pick)
 	ScoreShockwave = "9125484367", -- Pro Sound Effects: deep reverberant boom, rumbling tail
 	ScoreDebris = "120212342534790", -- Debris Explosion + Small Rocks Rumbling 2 (the owner's pick)
-	ScoreSparkle = "", -- a bright shimmer as it fades
-	AceStinger = "", -- a short riser into a hit: an ace
+	ScoreSparkle = "138190748214493", -- gold magic (Creator Store)
+	AceStinger = "1837834257", -- APM: reverse hard stop noise build
 	ScoreThunder = "86789834935708", -- Lightning Bolt (the owner's pick): the Thunderbolt score effect
 	StuffSlam = "9120256647", -- Pro Sound Effects: metal impact
 	Whistle = "9118113825", -- Pro Sound Effects: referee whistle, single blast
@@ -79,7 +79,7 @@ Assets.Sounds = {
 	UIClick = "101200067239382", -- "UIClick": any button
 	UIHover = "", -- the pointer over a button
 	UITick = "117000832074549", -- "UITick": a step (+ / -, the steppers)
-	Point = "",
+	Point = "71587723216424", -- UI reward (CoreKit)
 	CrowdLoop = "",
 	CrowdCheer = "133064028732021", -- "end of rally cheer": a point won by a kill, ace, stuff or break
 	CrowdServe = "140530824120891", -- "crowd hype": the crowd swells as the server tosses
@@ -143,6 +143,13 @@ Assets.SoundFiles = {
 	["9118113825"] = { start = 0.1, gain = 1.8 }, -- Whistle: peak 217
 	["9119335569"] = { gain = 6 }, -- Block: peak 47
 	["9120256647"] = { start = 0.12, gain = 1.2 }, -- StuffSlam: peak 328
+	["9119334115"] = { start = 0.15, gain = 0.6 }, -- Serve: peak 672
+	["9113899121"] = { gain = 3 }, -- NetHit: peak 127
+	["9119044267"] = { start = 0.12, gain = 1.7 }, -- SpikeHeavy: peak 231
+	["1837834257"] = { start = 1.6, gain = 1.8 }, -- AceStinger: a 2.4 s build, joined near its peak
+	["138190748214493"] = { gain = 1.3 }, -- ScoreSparkle: peak 287
+	["71587723216424"] = { gain = 2.4 }, -- Point: peak 157
+	["9113069659"] = { start = 1.5, gain = 6 }, -- Toss: quiet, the swoosh at 1.6 s
 	-- Parry3, Lightning Bolt and the shockwave boom start at once and peak near 400: as they are
 }
 
