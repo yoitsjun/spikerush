@@ -850,8 +850,6 @@ function VFXController.ability(entityId, ability)
 	end
 end
 
--- Counter Edge: blades burst out of the receiver in the play plane, hang for a beat and slide
--- back into the body (the spike's force goes into the meter, not the guard).
 -- Counter Edge: when she digs their spike, swords burst out of her across the court and fly
 -- back in (the owner: "swords fly out from her depending on the strength of the spike, then fly
 -- back in"). strength 0..1 (the meter the dig earned): more swords, flying further. Each sword is

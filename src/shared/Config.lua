@@ -888,13 +888,14 @@ Config.Abilities = {
 		-- "further back makes it dip quicker while being more in front make it travel further and dip
 		-- near the back court"): met at the hand or behind it lands LandShort in at DiveAngleShort;
 		-- met SpikeDzShort ahead of the hand it lands BackMargin inside the end line at DiveAngleDeep
-		DiveAngleShort = 74, -- degrees below level after the turn
-		DiveAngleDeep = 60,
+		-- (around the 57 the owner tried in Studio)
+		DiveAngleShort = 64, -- degrees below level after the turn
+		DiveAngleDeep = 52,
 		LandShort = 1.6 * M,
 		BackMargin = 0.8 * M,
 		TurnDrop = 0.35 * M, -- the flat part drops this much from the contact to the turn
 		TurnOverNet = 0.5 * M, -- and the turn is never lower than this over the tape
-		TurnMin = 0.3 * M, -- the turn is at least this far past the net
+		TurnMin = 0.8 * M, -- the turn is at least this far past the net (the owner's Studio value)
 		FlatGravity = 0.25, -- gravity x this on the flat part
 		DiveSpeed = 1.0, -- the plunge keeps this much of the speed
 		PowerBoost = 0.06, -- and it leaves the hand x (1 + this) faster
