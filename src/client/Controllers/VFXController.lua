@@ -587,13 +587,12 @@ function VFXController.boom(entityId, kind)
 		mods.AudioController.play("Boom", { volume = big and 0.8 or 0.45, minGap = 0.05 })
 	end
 	-- the owner: "have the boom jump be more exaggerated, and cool. this should feel powerful when
-	-- you jump": a pillar of light out of the floor in their spike colour (else the team's), two
-	-- shock rings across the floor, a starburst and sparks at the feet, and for your own jump the
-	-- screen kicks
+	-- you jump", then "i dont think it needs a beam of light"): in their spike colour (else the
+	-- team's), two shock rings across the floor, a starburst and sparks at the feet, and for your
+	-- own jump the screen kicks
 	local color = Spins.tint(Spins.equipped(model, "Color")) or teamColor(model:GetAttribute("Team"))
 	local k = big and 1 or 0.55
 	Fx.play("JumpBoom", foot, { scale = 1.6 * k, count = 1.4 * k })
-	lightPillar(foot, color, 34 * k, 3.2 * k)
 	floorRing(foot, color, 16 * k)
 	task.delay(0.07, floorRing, foot, WHITE, 10 * k)
 	starburst(foot + Vector3.new(0, 1, 0), color, 9 * k)
