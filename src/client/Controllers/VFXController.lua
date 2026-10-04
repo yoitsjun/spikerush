@@ -1705,12 +1705,13 @@ end
 -- score effects (V Points unlocks): where an attack lands for a point
 ------------------------------------------------------------------------------------------
 
--- The meteor: a burning rock drops out of the sky onto the spot, then the crater.
-local function meteorStrike(pos, dirZ, tint)
+-- The meteor: a burning rock drops out of the sky onto the spot, then the crater (k: bigger).
+local function meteorStrike(pos, dirZ, tint, k)
+	k = k or 1
 	local rock = take(Enum.PartType.Ball)
 	rock.Material = Enum.Material.Basalt
 	rock.Color = Color3.fromRGB(70, 52, 44)
-	rock.Size = Vector3.new(3.2, 3.2, 3.2)
+	rock.Size = Vector3.new(3.2, 3.2, 3.2) * k
 	rock.Transparency = 0
 	local from = pos + Vector3.new(-4, 70, -dirZ * 38)
 	rock.CFrame = CFrame.new(from)
@@ -1736,7 +1737,7 @@ local function meteorStrike(pos, dirZ, tint)
 			rock.Material = Enum.Material.Neon
 			release(rock)
 		end)
-		Fx.play("ScoreMeteor", pos, { color = tint })
+		Fx.play("ScoreMeteor", pos, { color = tint, scale = k })
 		if near(pos) then
 			mods.CameraController.shake(0.8)
 			mods.CameraController.kick(-6)
@@ -1747,17 +1748,18 @@ end
 
 -- The thunderbolt: a jagged bolt of hand-drawn segments out of the sky, then the ground
 -- crackles.
-local function thunderbolt(pos, tint)
+local function thunderbolt(pos, tint, k)
+	k = k or 1
 	local color = tint or THUNDER
 	local top = pos + Vector3.new(-1, 64, 0)
 	local prev = top
 	local segs = 7
 	for i = 1, segs do
-		local nextP = i == segs and pos or top:Lerp(pos, i / segs) + Vector3.new(0, 0, (math.random() - 0.5) * 6)
+		local nextP = i == segs and pos or top:Lerp(pos, i / segs) + Vector3.new(0, 0, (math.random() - 0.5) * 6 * k)
 		bolt(prev, (nextP - prev).Unit, (nextP - prev).Magnitude, color)
 		prev = nextP
 	end
-	Fx.play("ScoreThunderbolt", pos, { color = color })
+	Fx.play("ScoreThunderbolt", pos, { color = color, scale = k })
 	if near(pos) then
 		VFXController.flash(0.4, 0.25)
 		mods.CameraController.shake(0.6)
@@ -1766,13 +1768,13 @@ end
 
 -- A score effect at pos: the effect's key, the spike colour's tint (or nil) and which way the
 -- attack travelled along z. False for Dust, the plain floor impact.
-local function playScore(effect, pos, tint, dirZ)
+local function playScore(effect, pos, tint, dirZ, k)
 	if effect == "Meteor" then
-		meteorStrike(pos, dirZ, tint)
+		meteorStrike(pos, dirZ, tint, k)
 	elseif effect == "Thunderbolt" then
-		thunderbolt(pos, tint)
+		thunderbolt(pos, tint, k)
 	elseif effect == "Fire" or effect == "Shockwave" then
-		Fx.play("Score" .. effect, pos, { color = tint })
+		Fx.play("Score" .. effect, pos, { color = tint, scale = k })
 		if near(pos) then
 			mods.CameraController.shake(effect == "Fire" and 0.5 or 0.4)
 		end
@@ -1782,19 +1784,72 @@ local function playScore(effect, pos, tint, dirZ)
 	return true
 end
 
--- After the rally (on the server's call, so a late dig never sets one off): the scorer's equipped
--- score effect goes off just behind them as the camera closes in (CameraController's hero shot
--- looks at them three-quarters on from the net side).
+-- A pillar of light shooting up out of the floor and thinning away.
+local function lightPillar(pos, color, height, width)
+	local p = take(Enum.PartType.Cylinder)
+	p.Color = color
+	p.Size = Vector3.new(0.5, width, width)
+	p.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90))
+	p.Transparency = 0.1
+	local up = TweenService:Create(p, TweenInfo.new(0.16, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+		Size = Vector3.new(height, width, width),
+		CFrame = CFrame.new(pos + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+	})
+	up:Play()
+	task.delay(0.16, function()
+		local fade = TweenService:Create(p, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = Vector3.new(height * 1.1, 0.2, 0.2), Transparency = 1 })
+		fade:Play()
+		task.delay(0.52, release, p)
+	end)
+end
+
+-- After the rally (on the server's call, so a late dig never sets one off), where the point
+-- landed (the owner: "make scoring animations play at the end of the rally wherever you score,
+-- and make them large and exaggerated"): every scored point blows up there (a flash, a burst, two
+-- shock rings across the floor, a pillar of light, debris and a dust cloud, the screen flashing
+-- and shaking) in the scorer's spike colour (else the team's), with their equipped score effect
+-- ScoreScale times bigger on top. CameraController holds on the spot first, then the scorer.
+local SCORE_SCALE = 2.4
 local function celebrate(a)
 	local model = Util.modelOf(a.scorerId)
-	local hrp = model and model:FindFirstChild("HumanoidRootPart")
-	local side = State.sideOfEntity(a.scorerId)
-	if not hrp or not side then
+	local land = a.landing
+	if not land then
+		local hrp = model and model:FindFirstChild("HumanoidRootPart")
+		land = hrp and hrp.Position
+	end
+	if not land then
 		return
 	end
-	local r = hrp.Position
-	local pos = Vector3.new(r.X + 5.5, 0.2, r.Z + side * 1.8)
-	playScore(Spins.equipped(model, "Effect").Key, pos, Spins.tint(Spins.equipped(model, "Color")), -side)
+	local pos = Vector3.new(land.X, 0.2, land.Z)
+	local side = State.sideOfEntity(a.scorerId) or (land.Z > 0 and -1 or 1)
+	local tint = model and Spins.tint(Spins.equipped(model, "Color"))
+	local color = tint or teamColor(a.winner)
+	local big = a.reason == "Ace" or a.reason == "Stuff" or a.reason == "Break"
+	burst(pos + Vector3.new(0, 2, 0), WHITE, big and 30 or 24)
+	starburst(pos + Vector3.new(0, 1.5, 0), color, big and 30 or 24)
+	floorRing(pos, color, big and 40 or 32)
+	task.delay(0.09, floorRing, pos, WHITE, big and 26 or 20)
+	task.delay(0.05, ringFx, pos + Vector3.new(0, 3, 0), color, nil, big and 34 or 26)
+	lightPillar(pos, color, big and 70 or 56, big and 7 or 5.5)
+	shards(pos + Vector3.new(0, 1, 0), color, big and 60 or 44, 95)
+	Fx.play("FloorImpact", pos, { color = color, scale = 2.6, count = 3 })
+	emit("Dust", pos + Vector3.new(0, 0.5, 0), 70, nil)
+	if model then
+		playScore(Spins.equipped(model, "Effect").Key, pos, tint, -side, SCORE_SCALE)
+	end
+	VFXController.flash(big and 0.55 or 0.45, 0.3)
+	mods.CameraController.shake(big and 1.2 or 1)
+	mods.CameraController.kick(-8)
+	local A = mods.AudioController
+	A.play("ScoreImpact", { pos = pos })
+	A.play("ScoreShockwave", { pos = pos })
+	task.delay(0.12, A.play, "ScoreDebris", { pos = pos })
+	task.delay(0.45, A.play, "ScoreSparkle", { pos = pos })
+	if a.reason == "Ace" then
+		A.play("AceStinger")
+	elseif a.reason == "Stuff" then
+		A.play("StuffSlam", { pos = pos })
+	end
 end
 
 -- A score effect anywhere, outside a match (the Locker's preview): the effect's key, the spike
@@ -1889,7 +1944,7 @@ function VFXController.init(m)
 				emit("Sparks", a.landing + Vector3.new(0, 1, 0), 24, teamColor(a.winner))
 			end
 			if a.scorerId and not a.error and Config.Match.Celebrate[a.reason] and State.isPlaying then
-				task.delay(0.35, celebrate, a)
+				celebrate(a) -- at once: the camera is on the spot for its first moments
 			end
 		end
 	end)

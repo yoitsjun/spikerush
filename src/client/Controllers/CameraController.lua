@@ -167,7 +167,14 @@ local function update(dt)
 	local pos, look, fov
 	local zoomedOut = State.isPlaying and not State.settings.followCam
 	if pointCam and pointCam.target and now < pointCam.untilT and State.isPlaying then
-		pos, look, fov = heroShot(now)
+		if pointCam.landing and now < pointCam.landingUntil then
+			-- the score blast first, where the point landed (VFXController's celebrate)
+			local f = pointCam.landing
+			pos, look = side(f.Z, 9, 40, pointCam.yaw, 4)
+			fov = BASE_FOV
+		else
+			pos, look, fov = heroShot(now)
+		end
 	end
 	if not pos then
 		if zoomedOut then
@@ -216,7 +223,7 @@ function CameraController.init(m)
 			-- the hero shot: the camera holds on the player who scored while their card is up
 			local dur = Config.Match.PointPauseTime * 0.85
 			local sideOf = State.sideOfEntity(a.scorerId) or -1
-			pointCam = { target = a.scorerId, untilT = os.clock() + dur, duration = dur, yaw = 18 * sideOf }
+			pointCam = { target = a.scorerId, untilT = os.clock() + dur, duration = dur, yaw = 18 * sideOf, landing = a.landing, landingUntil = os.clock() + 0.85 }
 		elseif a.kind == "Point" and a.landing and a.reason ~= "ServeClock" then
 			local dur = Config.Match.PointPauseTime * 0.6
 			local yaw = a.landing.Z > 0 and -14 or 14

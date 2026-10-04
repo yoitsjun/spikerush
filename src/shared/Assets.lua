@@ -66,6 +66,13 @@ Assets.Sounds = {
 	Slide = "",
 	Squeak = { "93928767284165", "121230189767569" }, -- "squeak 1" / "SQUEAK 2": a double approach's run-up starts
 	GuardBreak = "",
+	-- the score blast where a point lands (VFXController's celebrate; the owner's uploads)
+	ScoreImpact = "", -- a huge cinematic hit: a deep boom with a crack
+	ScoreShockwave = "", -- a low whoosh into a rumble: the rings across the floor
+	ScoreDebris = "", -- crunchy rubble: the floor chunks flying
+	ScoreSparkle = "", -- a bright shimmer as it fades
+	AceStinger = "", -- a short riser into a hit: an ace
+	StuffSlam = "", -- a heavy metallic slam: a stuff block
 	Whistle = "",
 	Timeout = "",
 	UIClick = "101200067239382", -- "UIClick": any button
