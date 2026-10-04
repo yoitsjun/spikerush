@@ -1279,8 +1279,8 @@ do
 	check(rally.Attack == math.floor(SP.Attack * 1.12 + 0.5) and rally.Jump > SP.Jump and rally.Speed > SP.Speed and boosted.meta.kmh > normal.meta.kmh,
 		"Rally Cry: the whole team plays with +12% on every stat", string.format("ATK %d -> %d, spike %.0f -> %.0f km/h", SP.Attack, rally.Attack, normal.meta.kmh, boosted.meta.kmh))
 
-	-- Counter Edge: dug balls fill the meter (a hard spike fills it, without draining); she scales
-	-- with it and her next spike releases it
+	-- Counter Edge: dug balls fill the meter (a hard spike fills it, for a fraction of the guard);
+	-- she scales with it and her next spike releases it
 	local ines = Characters.derive(Characters.fromRoster(Roster.get("ines"), "max"))
 	local recRoot = vec(0, GROUND, side * 18 * K)
 	local recBall = vec(0, recRoot.Y + Z.ReceiveIdealY, recRoot.Z - side * Z.ReceiveForward)
@@ -1299,8 +1299,20 @@ do
 	local CE = Config.Abilities.Counter
 	-- a served ball she digs (not heavy) fills it a little and drains like any receive
 	local _, light = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 0.3 }, { lastHit = { team = "Home", hitType = "Underhand", noDrain = true, kmh = 45 }, ballVel = vec(0, -10 * K, side * 40 * K), ability = "Counter", stats = ines })
-	check(dig.meta.drain == nil and (dig.meta.counterGain or 0) >= 100 and (dig2.meta.drain or 0) > 0 and light.meta.counterGain == CE.LightGain,
-		"Counter Edge: one hard spike dug fills the meter with no guard lost; any other ball of theirs adds some", string.format("+%.0f from a %d km/h spike (vs %.1f guard), +%d from a serve", dig.meta.counterGain or 0, last.kmh, dig2.meta.drain or 0, light.meta.counterGain or 0))
+	check((dig.meta.drain or 0) > 0 and math.abs(dig.meta.drain - CE.SpikeDrainMul * (dig2.meta.drain or 0)) < 0.01 and (dig.meta.counterGain or 0) >= 100 and light.meta.counterGain == CE.LightGain,
+		"Counter Edge: one hard spike dug fills the meter for a fraction of the guard; any other ball of theirs adds some", string.format("+%.0f from a %d km/h spike for %.1f guard (%.1f without), +%d from a serve", dig.meta.counterGain or 0, last.kmh, dig.meta.drain or 0, dig2.meta.drain or 0, light.meta.counterGain or 0))
+	-- not invincible (the owner: "she should have very high defense but no invincible"): a Chain
+	-- Reaction's explosion costs her the whole drain and can break her guard from full ("chain
+	-- reaction should still be able to completely deplete stamina"), and with no guard left a hard
+	-- spike breaks her like anyone
+	local CH = Config.Abilities.ChainReaction
+	local huge = vec(0, -45 * K, side * 163 * K) -- about 190 km/h
+	local boomLast = { team = "Home", hitType = "Spike", kmh = 190, reaction = true, drainMul = CH.DrainMul, flatDrain = CH.FlatDrain }
+	local _, boomIn = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 1.5 }, { lastHit = boomLast, ballVel = huge, ability = "Counter", stats = ines })
+	local _, hardIn = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 1.5 }, { lastHit = { team = "Home", hitType = "Spike", kmh = 190 }, ballVel = huge, ability = "Counter", stats = ines })
+	local _, brokeIn = receive(recRoot, recBall, { value = 0, max = 90 }, { stanceAge = 0.6 }, { lastHit = last, ballVel = fast, ability = "Counter", stats = ines })
+	check(boomIn.meta.breaks == true and not hardIn.meta.breaks and (hardIn.meta.drain or 0) > 5 and brokeIn.meta.fail == true,
+		"Counter Edge isn't invincible: a Chain Reaction breaks her guard from full, and an empty guard breaks", string.format("a 190 km/h spike costs her %.1f of 90; its explosion breaks her: %s; with no guard: %s", hardIn.meta.drain or 0, tostring(boomIn.meta.breaks), tostring(brokeIn.meta.fail)))
 	check(s0 == ines and ines.Attack < hayun.Attack and ines.Defense <= 130 and s50.Attack > s0.Attack and s50.Defense < s100.Defense
 		and s100.Defense >= 195 and s100.Attack >= 205 and full.meta.kmh >= 200 and full.meta.kmh <= 210 and full.meta.kmh > empty.meta.kmh * 1.25 and full.meta.counterRelease == 100 and empty.meta.counterRelease == nil,
 		"Counter Edge: a full meter makes her 210 / 200 and her spike releases it for a big hit", string.format("ATK %d / %d / %d, DEF %d / %d / %d (empty / half / full); spike %.0f -> %.0f km/h", s0.Attack, s50.Attack, s100.Attack, s0.Defense, s50.Defense, s100.Defense, empty.meta.kmh, full.meta.kmh))

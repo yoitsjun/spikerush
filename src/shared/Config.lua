@@ -857,7 +857,7 @@ Config.Abilities = {
 		Name = "Counter Edge",
 		Tier = "S",
 		Role = "WS",
-		Blurb = "Every ball the other team sends that you dig fills your Counter meter, and one hard spike fills it. Spikes you receive cost no stamina: blades burst out and sink back in. The meter adds up to +40 Attack and +70 Defense, and your next spike releases all of it for up to +46% more power (about 205 km/h maxed).",
+		Blurb = "Every ball the other team sends that you dig fills your Counter meter, and one hard spike fills it. Spikes you receive cost far less stamina: blades burst out and sink back in (a Chain Reaction still hits in full). The meter adds up to +40 Attack and +70 Defense, and your next spike releases all of it for up to +46% more power (about 205 km/h maxed).",
 		Color = Color3.fromRGB(190, 220, 255),
 		-- stat points at a full meter (0..100, in proportion below it)
 		PerFull = { Attack = 40, Defense = 70 },
@@ -869,6 +869,10 @@ Config.Abilities = {
 		MinGain = 40,
 		MaxGain = 100,
 		LightGain = 30, -- any other ball of theirs she digs (serves, feints, free balls)
+		-- a hard spike she digs costs this share of the guard it would (the owner: "ines should not
+		-- be taking 0 damage on spikes", "she should have very high defense but no invincible"; it
+		-- was 0); a Chain Reaction's explosion costs her all of it
+		SpikeDrainMul = 0.4,
 	},
 	-- The owner: "a wingspiker with a blitz spin ability. it sharply angles down" (with a picture
 	-- of a spike that leaves the hand through a ring of wind and dives), then "i want an

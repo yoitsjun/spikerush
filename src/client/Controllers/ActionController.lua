@@ -77,8 +77,6 @@ local REASONS = {
 -- helpers
 ------------------------------------------------------------------------------------------
 
-local AIR_STATES = { [Enum.HumanoidStateType.Jumping] = true, [Enum.HumanoidStateType.Freefall] = true }
-
 local function charInfo()
 	local c = player.Character
 	local hrp = c and c:FindFirstChild("HumanoidRootPart")
@@ -94,8 +92,9 @@ local function charInfo()
 		vy = hrp.AssemblyLinearVelocity.Y,
 		-- FloorMaterial lags a few frames behind takeoff; the humanoid state doesn't. A humanoid
 		-- left in a falling state while it stands still on the floor (pressed on the net's
-		-- barrier, or landing on an edge) is on the ground all the same, so it can still jump
-		grounded = hum.FloorMaterial ~= Enum.Material.Air and (not AIR_STATES[hum:GetState()] or math.abs(hrp.AssemblyLinearVelocity.Y) < 0.5),
+		-- barrier, or landing on an edge) is on the ground all the same, so it can still jump; and
+		-- a one-frame blink of "air" on the floor is still the floor (MovementController.airborne)
+		grounded = not mods.MovementController.airborne(),
 		groundY = hum.HipHeight + hrp.Size.Y / 2,
 	}
 end

@@ -133,16 +133,30 @@ end
 -- few frames after takeoff, so the humanoid's own Jumping/Freefall state counts too.
 local AIR_STATES = { [Enum.HumanoidStateType.Jumping] = true, [Enum.HumanoidStateType.Freefall] = true }
 
+-- The floor check blinks to "air" for a frame now and then on the flat floor, and one blink used to
+-- refuse a jump or call off Feral Leap's whole charge (the owner: "when i serve with dante i
+-- sometimes get caught on the ground and i dont jump"; "sometimes on normal jumps too his leap is
+-- cancelled"). So the floor holds for FLOOR_GRACE after the last frame on it, unless he's taking off:
+-- the Jumping state, or moving up or down.
+local FLOOR_GRACE = 0.15
+local lastFloorAt = -10
+
 local function inAir()
 	if not hum then
 		return false
 	end
-	if hum.FloorMaterial == Enum.Material.Air then
-		return true
-	end
+	local vy = hrp and hrp.AssemblyLinearVelocity.Y or 0
 	-- a falling state while standing still on the floor (pressed on the net's barrier, or landed
 	-- on an edge) isn't the air: without this, jumps were refused until the state cleared
-	return AIR_STATES[hum:GetState()] == true and not (hrp and math.abs(hrp.AssemblyLinearVelocity.Y) < 0.5)
+	local air = hum.FloorMaterial == Enum.Material.Air or (AIR_STATES[hum:GetState()] == true and math.abs(vy) >= 0.5)
+	if not air then
+		lastFloorAt = os.clock()
+		return false
+	end
+	if os.clock() - lastFloorAt < FLOOR_GRACE and hum:GetState() ~= Enum.HumanoidStateType.Jumping and math.abs(vy) < 2 then
+		return false -- a blink
+	end
+	return true
 end
 
 function MovementController.airborne()

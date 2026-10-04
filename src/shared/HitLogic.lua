@@ -1091,10 +1091,15 @@ function HitLogic.compute(input, ctx)
 		end
 		if ctx.ability == "Counter" and touchN == 1 and last and last.team ~= ctx.team then
 			-- Counter Edge: any ball of theirs she digs fills the meter; a hard spike fills it most
-			-- (blades burst out and sink back in) and costs no guard
+			-- (blades burst out and sink back in) and costs only SpikeDrainMul of the guard (the
+			-- owner: "she should have very high defense but no invincible"); a Chain Reaction's
+			-- explosion costs her the full drain ("chain reaction should still be able to
+			-- completely deplete stamina")
 			if heavy then
 				meta.counterGain = clamp(incomingKmh * COUNTER.GainPerKmh, COUNTER.MinGain, COUNTER.MaxGain)
-				drain = 0
+				if not last.reaction then
+					drain = drain * COUNTER.SpikeDrainMul
+				end
 			else
 				meta.counterGain = COUNTER.LightGain
 			end
@@ -1107,7 +1112,7 @@ function HitLogic.compute(input, ctx)
 			meta.knock = knock > 0 and knock or nil
 		end
 
-		if heavy and not sliding and stam.value <= 0 and incomingKmh >= ST.BreakFailKmh and ctx.ability ~= "Counter" then
+		if heavy and not sliding and stam.value <= 0 and incomingKmh >= ST.BreakFailKmh then
 			-- guard broken: the spike blasts straight off the arms and out behind
 			meta.fail = true
 			meta.grade = "BROKEN"
