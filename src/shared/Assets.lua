@@ -50,7 +50,7 @@ Assets.Sounds = {
 	-- the owner's uploads (from a free sound library): Spike, Boom, FloorHit, FloorHitHeavy, CrowdServe
 	Spike = "101487104093246", -- "spike sfx": a spike's crack (SpikeHeavy borrows it, deeper and louder)
 	SpikeHeavy = "",
-	Thunder = "86789834935708", -- Lightning Bolt (the owner's pick): a Thunder spike
+	Thunder = "117922524763696", -- lightning-strike-cool (the owner's pick): a Thunder spike
 	AzureCharge = "",
 	AzureRelease = "",
 	Boom = "129991093083800", -- "boomp jump": a hit into a low rumble on a boom jump (Jump 170+)
@@ -72,7 +72,7 @@ Assets.Sounds = {
 	ScoreDebris = "120212342534790", -- Debris Explosion + Small Rocks Rumbling 2 (the owner's pick)
 	ScoreSparkle = "", -- a bright shimmer as it fades
 	AceStinger = "", -- a short riser into a hit: an ace
-	ScoreThunder = "117922524763696", -- lightning-strike-cool (the owner's pick): the Thunderbolt score effect
+	ScoreThunder = "86789834935708", -- Lightning Bolt (the owner's pick): the Thunderbolt score effect
 	StuffSlam = "9120256647", -- Pro Sound Effects: metal impact
 	Whistle = "9118113825", -- Pro Sound Effects: referee whistle, single blast
 	Timeout = "",
@@ -137,7 +137,7 @@ Assets.SoundFiles = {
 	["91288569991875"] = { gain = 1.15 }, -- ScoreImpact: peak 349
 	["120212342534790"] = { gain = 1.1 }, -- ScoreDebris: peak 351
 	["137628815514180"] = { start = 0.1, gain = 1.1 }, -- CounterReturn: 0.11 s in, peak 360
-	["117922524763696"] = { gain = 0.5 }, -- ScoreThunder: peak 798
+	["117922524763696"] = { gain = 0.5 }, -- Thunder: peak 798
 	["86816529419846"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491
 	["126675766605170"] = { start = 0.64, gain = 1.2 }, -- GuardBreak: faint noise, then the hit at 0.65 s, peak 340
 	["9118113825"] = { start = 0.1, gain = 1.8 }, -- Whistle: peak 217
