@@ -949,7 +949,17 @@ Config.Match = {
 	PreMatchTime = 7.6,
 	PreServeTime = 1.2,
 	ServeClock = 8,
-	PointPauseTime = 2.6,
+	-- the pause after a point (the owner: "make them last a longer so that players can really see
+	-- it, and in turn i guess make the intermission between points a little longer")
+	PointPauseTime = 4.4,
+	-- the score effects (VFXController's celebrate): each one's scale by its rarity (the owner:
+	-- "some explosions should be bigger than others... like court size"); the camera holds on the
+	-- spot for Hold seconds before the hero shot, from View[rarity] studs away
+	ScoreFx = {
+		Scale = { Common = 1.8, Rare = 2.1, Epic = 2.5, Legendary = 3, Mythic = 3.4 },
+		Hold = 2.4,
+		View = { Common = 40, Rare = 44, Epic = 52, Legendary = 72, Mythic = 80 },
+	},
 	SetEndTime = 3.5,
 	MatchEndTime = 11, -- the showcase (your team, their stats); Continue closes it sooner
 	DefaultBotTier = "A",

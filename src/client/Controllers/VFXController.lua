@@ -1813,247 +1813,674 @@ end
 
 -- Five more score effects (the owner, with Volleyball Legends' as the idea: "a tornado...", "an
 -- explosion displaying stats, a black hole... a tsunami that covers the map, or like rocket league
--- where the explosion alters the map for a bit"). Each takes the spot, the tint, the attack's
--- direction along z and a scale.
+-- where the explosion alters the map for a bit"; then "use blender and figma to make these player
+-- explosions. i want them premium", "some explosions should be bigger than others... like court
+-- size" and "make them last a longer so that players can really see it"). Each takes the spot, the
+-- tint, the attack's direction along z and a scale (Config.Match.ScoreFx.Scale by rarity: the
+-- Legendary and Mythic ones fill the court).
+--
+-- Their meshes were modelled in Blender (tools/score_fx_meshes.md: the funnel, the curling wave,
+-- the gravity well, the crater, rocks, a shard and a dome) and imported into
+-- ReplicatedStorage.ToolboxAssets.ScoreFx; their textures are drawn by
+-- tools/generate_fx_textures.py, and the stat card was drawn in Figma. Until the meshes are
+-- imported, each effect leaves that layer out (or uses plain parts).
 
--- Speed Burst: the spike's km/h bursts out of the spot in huge gold numbers over a spiky star.
-local function speedBurst(pos, tint, k)
+local SCORE_FX = Config.Match.ScoreFx
+
+-- a fresh copy of one of the Blender meshes, or nil
+local function fxMesh(name, texture)
+	local box = ReplicatedStorage:FindFirstChild("ToolboxAssets")
+	local set = box and box:FindFirstChild("ScoreFx")
+	local src = set and set:FindFirstChild(name, true)
+	if not (src and src:IsA("MeshPart")) then
+		return nil
+	end
+	local m = src:Clone()
+	m.Anchored = true
+	m.CanCollide = false
+	m.CanQuery = false
+	m.CanTouch = false
+	m.CastShadow = false
+	m.Material = Enum.Material.SmoothPlastic
+	if texture then
+		pcall(function()
+			m.TextureID = Assets.id(Assets.Fx[texture]) or ""
+		end)
+	end
+	m.Parent = fxFolder
+	return m
+end
+
+-- an invisible holder for attachments and emitters, destroyed with the effect
+local function holderPart(pos)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Transparency = 1
+	p.Size = Vector3.new(1, 1, 1)
+	p.CFrame = CFrame.new(pos)
+	p.Parent = fxFolder
+	return p
+end
+
+-- a scrolling band of wind (Assets.Fx.Wind) between two attachments on `holder`
+local function windBeam(holder, color, w0, w1, speed)
+	local a0 = Instance.new("Attachment")
+	a0.Parent = holder
+	local a1 = Instance.new("Attachment")
+	a1.Parent = holder
+	local b = Instance.new("Beam")
+	b.Attachment0 = a0
+	b.Attachment1 = a1
+	b.Texture = Assets.id(Assets.Fx.Wind) or ""
+	b.TextureMode = Enum.TextureMode.Stretch
+	b.TextureSpeed = speed or 1.5
+	b.LightEmission = 1
+	b.LightInfluence = 0
+	b.FaceCamera = true
+	b.Segments = 16
+	b.Width0 = w0
+	b.Width1 = w1
+	b.Color = ColorSequence.new(color)
+	b.Transparency = NumberSequence.new(0.1)
+	b.Parent = holder
+	return { a0 = a0, a1 = a1, beam = b }
+end
+
+-- a glowing ring (Assets.Fx.Shock) laid on the floor, opening out to `radius` and fading over `dur`
+local function shockDisc(pos, color, radius, dur)
+	local p = holderPart(pos + Vector3.new(0, 0.15, 0))
+	p.Size = Vector3.new(1, 0.05, 1)
+	local d = Instance.new("Decal")
+	d.Face = Enum.NormalId.Top
+	d.Texture = Assets.id(Assets.Fx.Shock) or ""
+	d.Color3 = color
+	d.Parent = p
+	local info = TweenInfo.new(dur, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	TweenService:Create(p, info, { Size = Vector3.new(radius * 2, 0.05, radius * 2) }):Play()
+	TweenService:Create(d, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
+	task.delay(dur, p.Destroy, p)
+end
+
+-- a lens flare (Assets.Fx.Flare) that blooms open and fades
+local function flare(pos, color, size, dur)
+	local gui, anchor = billboard(pos, size)
+	local img = Instance.new("ImageLabel")
+	img.BackgroundTransparency = 1
+	img.AnchorPoint = Vector2.new(0.5, 0.5)
+	img.Position = UDim2.fromScale(0.5, 0.5)
+	img.Size = UDim2.fromScale(0.2, 0.2)
+	img.Image = Assets.id(Assets.Fx.Flare) or ""
+	img.ImageColor3 = color
+	img.Parent = gui
+	TweenService:Create(img, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.fromScale(1, 1) }):Play()
+	TweenService:Create(img, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { ImageTransparency = 1, Rotation = 25 }):Play()
+	task.delay(dur, function()
+		gui:Destroy()
+		release(anchor)
+	end)
+end
+
+-- a grid of spray (Assets.Fx.Foam, 4x4) blown out of a box part
+local function foamEmitter(parent, color, size)
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = Assets.id(Assets.Fx.Foam) or ""
+	e.FlipbookLayout = Enum.ParticleFlipbookLayout.Grid4x4
+	e.FlipbookMode = Enum.ParticleFlipbookMode.OneShot
+	e.Color = ColorSequence.new(WHITE, color)
+	e.LightEmission = 0.4
+	e.LightInfluence = 0
+	e.Lifetime = NumberRange.new(0.9, 1.4)
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, size * 0.6), NumberSequenceKeypoint.new(1, size * 1.4) })
+	e.Speed = NumberRange.new(8, 22)
+	e.SpreadAngle = Vector2.new(40, 40)
+	e.Acceleration = Vector3.new(0, -30, 0)
+	e.Drag = 2
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-40, 40)
+	e.Shape = Enum.ParticleEmitterShape.Box
+	e.EmissionDirection = Enum.NormalId.Top
+	e.Rate = 0
+	e.Parent = parent
+	return e
+end
+
+-- a moment of tinted, contrasty colour over the whole screen (the big ones only)
+local function grade(tint, saturation, dur)
+	local Lighting = game:GetService("Lighting")
+	local cc = Instance.new("ColorCorrectionEffect")
+	cc.TintColor = tint
+	cc.Saturation = saturation
+	cc.Contrast = 0.25
+	cc.Parent = Lighting
+	task.delay(dur * 0.6, function()
+		local tw = TweenService:Create(cc, TweenInfo.new(dur * 0.4), { TintColor = WHITE, Saturation = 0, Contrast = 0 })
+		tw.Completed:Connect(function()
+			cc:Destroy()
+		end)
+		tw:Play()
+	end)
+end
+
+-- Speed Burst (Rare): the spike's speed slams onto the Figma stat card over a flare and a star, the
+-- card skidding in from the side with its speed lines, holding, then punching out.
+local function speedBurst(pos, tint, k, reason)
 	local meta = mods.BallRenderer and mods.BallRenderer.getMeta()
 	local kmh = math.floor(((meta and meta.kmh) or 0) + 0.5)
 	local color = tint or Color3.fromRGB(255, 205, 60)
 	starburst(pos + Vector3.new(0, 1, 0), WHITE, 22 * k)
+	flare(pos + Vector3.new(0, 3 * k, 0), color, 30 * k, 1.2)
+	shockDisc(pos, color, 16 * k, 1.1)
 	Fx.play("Glints", pos + Vector3.new(0, 3, 0), { color = color, scale = 1.6 * k })
 	shards(pos + Vector3.new(0, 1.5, 0), color, math.floor(30 * k), 80)
-	local gui, anchor = billboard(pos + Vector3.new(0, 4 * k, 0), 1)
-	gui.Size = UDim2.fromOffset(520, 220)
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 1)
-	label.Font = Enum.Font.GothamBlack
-	label.TextScaled = true
-	label.Text = kmh > 0 and tostring(kmh) or "POINT"
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.TextStrokeColor3 = Color3.fromRGB(90, 40, 0)
-	label.TextStrokeTransparency = 0
+	local gui, anchor = billboard(pos + Vector3.new(0, 6 * k, 0), 1)
+	gui.Size = UDim2.fromOffset(640, 200)
+	local card = Instance.new("ImageLabel")
+	card.BackgroundTransparency = 1
+	card.AnchorPoint = Vector2.new(0.5, 0.5)
+	card.Position = UDim2.fromScale(-0.6, 0.5)
+	card.Size = UDim2.fromScale(1, 1)
+	card.Image = Assets.id(Assets.Fx.StatCard) or ""
+	card.ImageColor3 = color
+	card.Parent = gui
+	local function text(str, x, y, w, h, colorText)
+		local t = Instance.new("TextLabel")
+		t.BackgroundTransparency = 1
+		t.Position = UDim2.fromScale(x, y)
+		t.Size = UDim2.fromScale(w, h)
+		t.FontFace = DISPLAY
+		t.TextScaled = true
+		t.TextXAlignment = Enum.TextXAlignment.Left
+		t.Text = str
+		t.TextColor3 = colorText or WHITE
+		t.TextStrokeTransparency = 0.4
+		t.Parent = card
+		return t
+	end
+	text(string.upper(reason or "POINT"), 0.14, 0.12, 0.5, 0.16, WHITE)
+	local num = text(kmh > 0 and tostring(kmh) or "!", 0.14, 0.3, 0.46, 0.44, WHITE)
 	local grad = Instance.new("UIGradient")
-	grad.Color = ColorSequence.new(Color3.fromRGB(255, 250, 200), color)
+	grad.Color = ColorSequence.new(Color3.fromRGB(255, 250, 220), color)
 	grad.Rotation = 90
-	grad.Parent = label
+	grad.Parent = num
+	text("KM/H", 0.62, 0.42, 0.2, 0.22, color)
 	local scale = Instance.new("UIScale")
-	scale.Scale = 0
-	scale.Parent = label
-	label.Parent = gui
-	TweenService:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.15 }):Play()
-	task.delay(0.9, function()
-		TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 1.6 }):Play()
-		TweenService:Create(label, TweenInfo.new(0.35), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
-		task.delay(0.4, function()
+	scale.Scale = 1.3
+	scale.Parent = card
+	TweenService:Create(card, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.fromScale(0.5, 0.5) }):Play()
+	TweenService:Create(scale, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	task.delay(0.3, function()
+		if near(pos) then
+			mods.CameraController.shake(0.4)
+		end
+	end)
+	task.delay(2.1, function()
+		TweenService:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 1.7 }):Play()
+		for _, d in ipairs(card:GetDescendants()) do
+			if d:IsA("TextLabel") then
+				TweenService:Create(d, TweenInfo.new(0.3), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+			end
+		end
+		TweenService:Create(card, TweenInfo.new(0.3), { ImageTransparency = 1 }):Play()
+		task.delay(0.35, function()
 			gui:Destroy()
 			release(anchor)
 		end)
 	end)
 end
 
--- Tornado: a swirling funnel of ribbons spins up out of the spot, widening as it rises, then
--- blows apart.
+-- Tornado (Legendary): three twisted funnels of wind (the Blender mesh) spin up out of the spot at
+-- different speeds, wrapped in scrolling wind beams, with rocks and sparks whirled up its sides
+-- and dust thrown off the base; it wanders, then blows apart.
 local function tornado(pos, tint, k)
 	local color = tint or Color3.fromRGB(70, 255, 190)
-	local parts = {}
-	local N = 42
-	for i = 1, N do
-		local p = take(Enum.PartType.Block)
-		p.Color = i % 3 == 0 and WHITE or color
-		p.Transparency = 0.25
-		p.Size = Vector3.new(0.25, 0.5, 3.2 * k)
-		parts[i] = p
+	local dur = 3.6
+	local height = 26 * k
+	local top = 12 * k
+	local holder = holderPart(pos)
+	local shells = {}
+	local looks = { { color, 0.45, 2.6, 1 }, { WHITE, 0.72, -1.8, 0.82 }, { color:Lerp(Color3.new(0, 0, 0), 0.35), 0.35, 4.2, 0.6 } }
+	for i, look in ipairs(looks) do
+		local m = fxMesh("Funnel", "Wind")
+		if m then
+			m.Color = look[1]
+			m.Material = Enum.Material.Glass
+			m.Transparency = 1
+			shells[i] = { part = m, alpha = look[2], spin = look[3], width = look[4] }
+		end
 	end
-	Fx.play("Dust", pos, { n = 10, scale = 1.6 * k })
-	floorRing(pos, color, 18 * k)
+	local beams = {}
+	for i = 1, 10 do
+		local b = windBeam(holder, i % 3 == 0 and WHITE or color, 1.2 * k, 7 * k, 2 + i * 0.15)
+		beams[i] = { b = b, a = i / 10 * math.pi * 2, h = 0.2 + (i % 4) * 0.2 }
+	end
+	local debris = {}
+	for i = 1, 16 do
+		local r = fxMesh("Rock" .. (i % 4 + 1))
+		if not r then
+			r = Instance.new("Part")
+			r.Anchored = true
+			r.CanCollide = false
+			r.CanQuery = false
+			r.CanTouch = false
+			r.Parent = fxFolder
+		end
+		r.Material = Enum.Material.Slate
+		r.Color = Color3.fromRGB(90 + math.random(0, 30), 80, 75)
+		local s = (0.6 + math.random() * 1.1) * k
+		r.Size = Vector3.new(s, s * 0.8, s)
+		debris[i] = { part = r, a = math.random() * 6.3, f = math.random(), speed = 3 + math.random() * 3 }
+	end
+	Fx.play("Dust", pos, { n = 14, scale = 2 * k })
+	floorRing(pos, color, 22 * k)
+	shockDisc(pos, color, 20 * k, 1.4)
+	flare(pos + Vector3.new(0, 2, 0), color, 26 * k, 0.8)
 	local t0 = os.clock()
-	local dur = 1.6
+	local nextDust = 0
 	local conn
 	conn = RunService.RenderStepped:Connect(function()
 		local e = os.clock() - t0
-		local grow = math.clamp(e / 0.35, 0, 1)
-		local fade = math.clamp((e - (dur - 0.4)) / 0.4, 0, 1)
-		for i, p in ipairs(parts) do
-			local f = i / N
-			local h = f * 26 * k * grow
-			local r = (1.2 + f * f * 11) * k * (1 + fade * 1.5)
-			local a = f * 14 + e * (9 - f * 4)
-			local at = pos + Vector3.new(math.cos(a) * r, h + 0.5, math.sin(a) * r)
-			p.CFrame = CFrame.lookAt(at, at + Vector3.new(-math.sin(a), 0.25, math.cos(a)))
-			p.Transparency = 0.25 + 0.75 * fade
+		local grow = math.clamp(e / 0.5, 0, 1)
+		grow = 1 - (1 - grow) * (1 - grow)
+		local fade = math.clamp((e - (dur - 0.6)) / 0.6, 0, 1)
+		local base = pos + Vector3.new(math.sin(e * 1.3) * 2.5 * k, 0, math.sin(e * 0.9 + 1) * 2 * k)
+		local h = height * grow
+		for _, s in ipairs(shells) do
+			local w = top * 2 * s.width * (1 + fade * 1.2)
+			s.part.Size = Vector3.new(w, math.max(0.2, h), w)
+			s.part.CFrame = CFrame.new(base + Vector3.new(0, h / 2, 0)) * CFrame.Angles(0, e * s.spin, 0)
+			s.part.Transparency = s.alpha + (1 - s.alpha) * math.max(fade, 1 - grow)
+		end
+		for i, b in ipairs(beams) do
+			local a = b.a + e * 5
+			local r0 = 1.5 * k
+			local r1 = top * (0.7 + b.h * 0.4) * (1 + fade)
+			b.b.a0.WorldPosition = base + Vector3.new(math.cos(a) * r0, 0.5, math.sin(a) * r0)
+			b.b.a1.WorldPosition = base + Vector3.new(math.cos(a + 2.4) * r1, h * (0.75 + b.h * 0.3), math.sin(a + 2.4) * r1)
+			b.b.beam.CurveSize0 = 6 * k
+			b.b.beam.CurveSize1 = -4 * k
+			b.b.beam.Transparency = NumberSequence.new(0.15 + 0.85 * math.max(fade, 1 - grow))
+		end
+		for _, d in ipairs(debris) do
+			d.f = (d.f + 0.004 * d.speed) % 1
+			local a = d.a + e * d.speed * 1.4
+			local r = (1.5 + d.f * d.f * top) * (1 + fade * 3)
+			d.part.CFrame = CFrame.new(base + Vector3.new(math.cos(a) * r, d.f * h, math.sin(a) * r)) * CFrame.Angles(e * 3, a, e * 2)
+			d.part.Transparency = fade
+		end
+		if e >= nextDust and fade <= 0 then
+			nextDust = e + 0.18
+			Fx.play("Dust", base, { n = 3, scale = 1.6 * k })
 		end
 		if e >= dur then
 			conn:Disconnect()
-			for _, p in ipairs(parts) do
-				release(p)
+			for _, s in ipairs(shells) do
+				s.part:Destroy()
 			end
+			for _, d in ipairs(debris) do
+				d.part:Destroy()
+			end
+			holder:Destroy()
+		end
+	end)
+	task.delay(dur - 0.6, function()
+		burst(pos + Vector3.new(0, height * 0.5, 0), WHITE, 18 * k)
+		shards(pos + Vector3.new(0, height * 0.4, 0), color, math.floor(40 * k), 90)
+		if near(pos) then
+			mods.CameraController.shake(0.8)
 		end
 	end)
 	if near(pos) then
 		mods.CameraController.shake(0.7)
+		task.delay(1, mods.CameraController.shake, 0.5)
+		task.delay(2, mods.CameraController.shake, 0.5)
 	end
 end
 
--- Black Hole: a dark sphere opens on the spot with a spinning violet disc, sparks get pulled in
--- from all around, then it collapses in a white flash.
+-- Black Hole (Mythic): the screen drains of colour as a black core opens over the spot, ringed by
+-- a hot photon rim and a spinning gravity well (the Blender mesh, the swirl texture); sparks and
+-- streaks spiral into it from all round, wind beams pour inward, then it collapses to a point and
+-- detonates in a white dome.
 local function blackHole(pos, tint, k)
 	local color = tint or Color3.fromRGB(170, 80, 255)
-	local center = pos + Vector3.new(0, 4 * k, 0)
+	local dur = 3.6
+	local center = pos + Vector3.new(0, 7 * k, 0)
+	local holder = holderPart(center)
 	local core = take(Enum.PartType.Ball)
 	core.Material = Enum.Material.SmoothPlastic
 	core.Color = Color3.new(0, 0, 0)
 	core.Transparency = 0
 	core.Size = Vector3.new(0.5, 0.5, 0.5)
 	core.CFrame = CFrame.new(center)
-	local disc = take(Enum.PartType.Cylinder)
-	disc.Color = color
-	disc.Transparency = 0.2
-	disc.Size = Vector3.new(0.3, 1, 1)
-	local bits = {}
-	for i = 1, 26 do
-		local b = take(Enum.PartType.Ball)
-		b.Color = i % 2 == 0 and WHITE or color
-		b.Transparency = 0
-		b.Size = Vector3.new(0.4, 0.4, 0.4)
-		local d = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5).Unit
-		bits[i] = { part = b, from = center + d * (16 + math.random() * 10) * k, delay = math.random() * 0.4 }
+	local rim = take(Enum.PartType.Ball)
+	rim.Color = color
+	rim.Transparency = 0.55
+	local well = fxMesh("Well", "Swirl")
+	if well then
+		well.Color = color
+		well.Material = Enum.Material.Neon
+		well.Transparency = 1
+	else
+		well = take(Enum.PartType.Cylinder)
+		well.Color = color
 	end
-	TweenService:Create(core, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = Vector3.new(9, 9, 9) * k }):Play()
+	local well2 = fxMesh("Well", "Swirl")
+	if well2 then
+		well2.Color = WHITE
+		well2.Transparency = 1
+	end
+	local beams = {}
+	for i = 1, 12 do
+		local b = windBeam(holder, i % 2 == 0 and WHITE or color, 5 * k, 0.4, -3)
+		beams[i] = { b = b, a = i / 12 * math.pi * 2, tilt = (math.random() - 0.5) * 1.2 }
+	end
+	local bits = {}
+	for i = 1, 40 do
+		local b = take(Enum.PartType.Ball)
+		b.Color = i % 3 == 0 and WHITE or color
+		b.Transparency = 0
+		local s = (0.3 + math.random() * 0.5) * k
+		b.Size = Vector3.new(s, s, s)
+		bits[i] = { part = b, a = math.random() * 6.3, y = (math.random() - 0.5) * 0.6, r = (18 + math.random() * 14) * k, delay = math.random() * 1.8, life = 0.9 + math.random() * 0.6 }
+	end
+	grade(Color3.fromRGB(215, 200, 255), -0.6, dur)
+	flare(center, color, 40 * k, 0.6)
 	local t0 = os.clock()
-	local dur = 1.5
 	local conn
 	conn = RunService.RenderStepped:Connect(function()
 		local e = os.clock() - t0
-		local open = math.clamp(e / 0.35, 0, 1)
-		disc.Size = Vector3.new(0.3, 22 * k * open, 22 * k * open)
-		disc.CFrame = CFrame.new(center) * CFrame.Angles(0, e * 6, math.rad(90)) * CFrame.Angles(math.rad(18), 0, 0)
+		local open = math.clamp(e / 0.5, 0, 1)
+		open = 1 - (1 - open) * (1 - open)
+		local collapse = math.clamp((e - (dur - 0.35)) / 0.35, 0, 1)
+		local s = open * (1 - collapse)
+		local tiltCF = CFrame.new(center) * CFrame.Angles(math.rad(-62), 0, math.rad(12))
+		if well:IsA("MeshPart") then
+			well.Size = Vector3.new(26 * k * s, 8 * k * s, 26 * k * s) + Vector3.new(0.1, 0.1, 0.1)
+			well.CFrame = tiltCF * CFrame.Angles(0, e * 3, 0)
+			well.Transparency = 0.15 + 0.85 * (1 - s)
+		else
+			well.Size = Vector3.new(0.3, 26 * k * s + 0.1, 26 * k * s + 0.1)
+			well.CFrame = tiltCF * CFrame.Angles(0, e * 3, math.rad(90))
+			well.Transparency = 0.3 + 0.7 * (1 - s)
+		end
+		if well2 then
+			well2.Size = Vector3.new(17 * k * s, 6 * k * s, 17 * k * s) + Vector3.new(0.1, 0.1, 0.1)
+			well2.CFrame = tiltCF * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, -e * 5, 0)
+			well2.Transparency = 0.45 + 0.55 * (1 - s)
+		end
+		local pulse = 1 + 0.06 * math.sin(e * 22)
+		local rs = 9.4 * k * s * pulse + 0.1
+		rim.Size = Vector3.new(rs, rs, rs)
+		rim.CFrame = CFrame.new(center)
+		core.Size = Vector3.new(8, 8, 8) * k * math.max(0.05, s)
+		for _, b in ipairs(beams) do
+			local a = b.a + e * 1.8
+			local r = 30 * k
+			b.b.a0.WorldPosition = center + Vector3.new(math.cos(a) * r, b.tilt * r * 0.5, math.sin(a) * r)
+			b.b.a1.WorldPosition = center
+			b.b.beam.CurveSize0 = 10 * k
+			b.b.beam.Transparency = NumberSequence.new(0.2 + 0.8 * (1 - s))
+		end
 		for _, b in ipairs(bits) do
-			local a = math.clamp((e - b.delay) / 0.7, 0, 1)
-			b.part.CFrame = CFrame.new(b.from:Lerp(center, a * a))
-			b.part.Transparency = a >= 1 and 1 or 0
+			local a = math.clamp((e - b.delay) / b.life, 0, 1)
+			local r = b.r * (1 - a * a)
+			local ang = b.a + a * 7
+			b.part.CFrame = CFrame.new(center + Vector3.new(math.cos(ang) * r, b.y * r, math.sin(ang) * r))
+			b.part.Transparency = (a <= 0 or a >= 1) and 1 or 0
 		end
 		if e >= dur then
 			conn:Disconnect()
 			for _, b in ipairs(bits) do
 				release(b.part)
 			end
-			release(disc)
-			TweenService:Create(core, TweenInfo.new(0.12), { Size = Vector3.new(0.3, 0.3, 0.3) }):Play()
-			task.delay(0.12, function()
-				core.Material = Enum.Material.Neon
-				release(core)
-				burst(center, WHITE, 26 * k)
-				ringFx(center, color, nil, 30 * k)
-				starburst(center, WHITE, 20 * k)
-				if near(pos) then
-					VFXController.flash(0.6, 0.3)
-					mods.CameraController.shake(1)
-				end
-			end)
+			if well:IsA("MeshPart") then
+				well:Destroy()
+			else
+				release(well)
+			end
+			if well2 then
+				well2:Destroy()
+			end
+			holder:Destroy()
+			release(rim)
+			core.Material = Enum.Material.Neon
+			release(core)
+			-- the detonation
+			local dome = fxMesh("Dome")
+			if dome then
+				dome.Material = Enum.Material.ForceField
+				dome.Color = color
+				dome.Size = Vector3.new(1, 0.5, 1)
+				dome.CFrame = CFrame.new(pos)
+				TweenService:Create(dome, TweenInfo.new(0.7, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = Vector3.new(60, 30, 60) * k, Transparency = 1 }):Play()
+				task.delay(0.75, dome.Destroy, dome)
+			end
+			burst(center, WHITE, 30 * k)
+			ringFx(center, color, nil, 34 * k)
+			starburst(center, WHITE, 24 * k)
+			flare(center, WHITE, 60 * k, 0.9)
+			shockDisc(pos, color, 34 * k, 1.2)
+			shards(center, color, math.floor(50 * k), 110)
+			if near(pos) then
+				VFXController.flash(0.7, 0.35)
+				mods.CameraController.shake(1.3)
+			end
 		end
 	end)
 	if near(pos) then
 		mods.CameraController.kick(10) -- the lens pulled toward it
+		task.delay(0.8, mods.CameraController.shake, 0.4)
+		task.delay(1.8, mods.CameraController.shake, 0.5)
 	end
 end
 
--- Tsunami: a wall of water rises behind the scorer's end and sweeps the whole court.
+-- Tsunami (Legendary): a curling wall of water (the Blender wave, the water texture) rears up
+-- behind the scorer's end and sweeps the whole court, spray (the foam flipbook) blowing off its
+-- crest, leaving the floor awash behind it; it bursts over the spot and drains away.
+local WAVE_FORWARD = -1 -- the imported wave's curl faces -z (Blender's +y)
 local function tsunami(pos, tint, dirZ, k)
 	local color = tint or Color3.fromRGB(60, 170, 255)
 	local C = Config.Court
-	local width = (C.HalfWidth + C.FreeZoneSide) * 2 + 10
-	local height = 26 * k
-	-- from behind the scorer's end to past the far one, wherever the court is (the Locker's gym too)
+	local width = (C.HalfWidth + C.FreeZoneSide) * 2 + 16
+	local height = 13 * k
+	local dur = 3.2
 	local reach = C.SideDepth + C.FreeZoneEnd
-	local z0 = pos.Z - dirZ * (reach * 1.6)
-	local z1 = pos.Z + dirZ * (reach * 0.8)
+	local z0 = pos.Z - dirZ * (reach * 1.5)
+	local z1 = pos.Z + dirZ * (reach * 0.7)
 	local x0, y0 = pos.X, pos.Y - 0.2
-	local wall = take(Enum.PartType.Block)
-	wall.Material = Enum.Material.Glass
-	wall.Color = color
-	wall.Transparency = 0.35
-	wall.Size = Vector3.new(width, 1, 6)
-	local crest = take(Enum.PartType.Block)
-	crest.Color = WHITE
-	crest.Transparency = 0.2
-	crest.Size = Vector3.new(width, 1.6, 7)
+	local wave = fxMesh("Wave", "Water")
+	local back = fxMesh("Wave", "Water")
+	if wave then
+		wave.Material = Enum.Material.Glass
+		wave.Color = color
+		back.Color = color:Lerp(WHITE, 0.4)
+	else
+		wave = take(Enum.PartType.Block)
+		wave.Material = Enum.Material.Glass
+		wave.Color = color
+	end
+	local crest = holderPart(Vector3.new(x0, y0, z0))
+	crest.Size = Vector3.new(width, 1, 2)
+	local spray = foamEmitter(crest, color, 4 * k)
+	-- the wash left behind: a sheet of water with its texture flowing the wave's way
+	local sheet = holderPart(Vector3.new(x0, y0, z0))
+	sheet.Transparency = 1
+	local water = Instance.new("Texture")
+	water.Face = Enum.NormalId.Top
+	water.Texture = Assets.id(Assets.Fx.Water) or ""
+	water.Color3 = color
+	water.StudsPerTileU = 24
+	water.StudsPerTileV = 24
+	water.Transparency = 0.25
+	water.Parent = sheet
 	local t0 = os.clock()
-	local dur = 1.6
+	local splashed = false
 	local conn
 	conn = RunService.RenderStepped:Connect(function()
 		local e = os.clock() - t0
-		local a = math.clamp(e / dur, 0, 1)
-		local rise = math.clamp(e / 0.35, 0, 1)
-		local h = math.max(1, height * rise * (1 - math.max(0, a - 0.8) * 5))
-		local z = z0 + (z1 - z0) * a
-		wall.Size = Vector3.new(width, h, 6)
-		wall.CFrame = CFrame.new(x0, y0 + h / 2, z) * CFrame.Angles(-dirZ * math.rad(14), 0, 0)
-		crest.CFrame = CFrame.new(x0, y0 + h + 0.4, z + dirZ * 1.5)
-		if math.random() < 0.5 then
-			Fx.play("Dust", Vector3.new(x0 + (math.random() - 0.5) * width * 0.8, y0 + h, z), { n = 2, scale = 1.4, color = WHITE })
+		local a = math.clamp(e / (dur - 0.5), 0, 1)
+		local move = a * a * (3 - 2 * a) * 0.6 + a * 0.4
+		local rise = math.clamp(e / 0.45, 0, 1)
+		local fall = math.clamp((e - (dur - 0.7)) / 0.7, 0, 1)
+		local h = math.max(0.5, height * rise * (1 - fall))
+		local z = z0 + (z1 - z0) * move
+		local face = CFrame.new(x0, y0, z) * CFrame.Angles(0, dirZ * WAVE_FORWARD > 0 and 0 or math.pi, 0)
+		if wave:IsA("MeshPart") then
+			local bob = math.sin(e * 6) * 0.04
+			wave.Size = Vector3.new(width, h, h * 1.15)
+			wave.CFrame = face * CFrame.new(0, h / 2, 0) * CFrame.Angles(bob, 0, 0)
+			wave.Transparency = 0.2 + 0.8 * fall
+			back.Size = Vector3.new(width * 1.04, h * 0.7, h * 1.4)
+			back.CFrame = face * CFrame.new(0, h * 0.35, h * 0.35 * WAVE_FORWARD * -1)
+			back.Transparency = 0.55 + 0.45 * fall
+		else
+			wave.Size = Vector3.new(width, h, 6)
+			wave.CFrame = CFrame.new(x0, y0 + h / 2, z) * CFrame.Angles(-dirZ * math.rad(14), 0, 0)
+			wave.Transparency = 0.35 + 0.65 * fall
+		end
+		crest.CFrame = CFrame.new(x0, y0 + h, z + dirZ * h * 0.3)
+		if fall < 1 then
+			spray:Emit(math.floor(3 * k))
+		end
+		local len = math.abs(z - z0)
+		sheet.Size = Vector3.new(width, 0.05, math.max(0.1, len))
+		sheet.CFrame = CFrame.new(x0, y0 + 0.12, (z + z0) / 2)
+		water.OffsetStudsV = -dirZ * e * 30
+		water.Transparency = 0.25 + 0.75 * fall
+		if not splashed and (z - pos.Z) * dirZ >= 0 then
+			splashed = true
+			local burstAt = holderPart(pos + Vector3.new(0, 2, 0))
+			burstAt.Size = Vector3.new(12 * k, 1, 12 * k)
+			local s = foamEmitter(burstAt, color, 7 * k)
+			s.Speed = NumberRange.new(25, 50)
+			s:Emit(60)
+			task.delay(2, burstAt.Destroy, burstAt)
+			shockDisc(pos, color, 24 * k, 1.2)
+			burst(pos + Vector3.new(0, 3, 0), WHITE, 20 * k)
+			if near(pos) then
+				VFXController.flash(0.3, 0.3)
+				mods.CameraController.shake(1)
+			end
 		end
 		if e >= dur then
 			conn:Disconnect()
-			wall.Material = Enum.Material.Neon
-			release(wall)
-			release(crest)
+			if wave:IsA("MeshPart") then
+				wave:Destroy()
+				back:Destroy()
+			else
+				wave.Material = Enum.Material.Neon
+				release(wave)
+			end
+			spray.Enabled = false
+			task.delay(1.5, crest.Destroy, crest)
+			sheet:Destroy()
 		end
 	end)
-	if mods then
-		VFXController.flash(0.25, 0.5)
+	grade(Color3.fromRGB(200, 230, 255), -0.15, dur)
+	if near(pos) then
 		mods.CameraController.shake(0.8)
+		task.delay(0.8, mods.CameraController.shake, 0.6)
 	end
 end
 
--- Crater (Rocket League's idea: the blast changes the court for a while): the spot caves in,
--- rubble is thrown up around it, and both stay on the court a few seconds before sinking away.
+-- Crater (Epic; Rocket League's idea: the blast changes the court for a while): the floor caves in
+-- under the spot (the Blender crater) with magma glowing in the pit, rocks are thrown up and come
+-- down around the rim, smoke rolls off it, and it all stays a few seconds before sinking away.
 local function crater(pos, tint, k)
 	local color = tint or Color3.fromRGB(255, 120, 50)
-	local pit = take(Enum.PartType.Cylinder)
-	pit.Material = Enum.Material.Slate
-	pit.Color = Color3.fromRGB(35, 30, 30)
-	pit.Transparency = 0
-	pit.Size = Vector3.new(0.2, 9 * k, 9 * k)
-	pit.CFrame = CFrame.new(pos.X, pos.Y - 0.08, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+	local floorY = pos.Y - 0.08
+	local bowl = fxMesh("Crater")
+	local radius = 7 * k
+	if bowl then
+		bowl.Material = Enum.Material.Slate
+		bowl.Color = Color3.fromRGB(45, 38, 36)
+		bowl.Size = Vector3.new(0.1, 0.1, 0.1)
+		bowl.CFrame = CFrame.new(pos.X, floorY, pos.Z)
+		TweenService:Create(bowl, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = Vector3.new(radius * 2, radius * 0.55, radius * 2) }):Play()
+	else
+		bowl = take(Enum.PartType.Cylinder)
+		bowl.Material = Enum.Material.Slate
+		bowl.Color = Color3.fromRGB(35, 30, 30)
+		bowl.Transparency = 0
+		bowl.Size = Vector3.new(0.2, radius * 1.3, radius * 1.3)
+		bowl.CFrame = CFrame.new(pos.X, floorY, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+	end
 	local glow = take(Enum.PartType.Cylinder)
 	glow.Color = color
-	glow.Transparency = 0.3
-	glow.Size = Vector3.new(0.22, 4 * k, 4 * k)
-	glow.CFrame = CFrame.new(pos.X, pos.Y - 0.06, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+	glow.Transparency = 0.15
+	glow.Size = Vector3.new(0.22, radius * 0.7, radius * 0.7)
+	glow.CFrame = CFrame.new(pos.X, floorY - 0.1, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = radius * 2.5
+	light.Brightness = 4
+	light.Parent = glow
 	local rocks = {}
-	for i = 1, 14 do
-		local r = take(Enum.PartType.Block)
+	for i = 1, 18 do
+		local r = fxMesh("Rock" .. (i % 4 + 1))
+		if not r then
+			r = Instance.new("Part")
+			r.Anchored = true
+			r.CanCollide = false
+			r.CanQuery = false
+			r.CanTouch = false
+			r.Parent = fxFolder
+		end
 		r.Material = Enum.Material.Slate
 		r.Color = Color3.fromRGB(70 + math.random(0, 30), 60, 55)
-		r.Transparency = 0
-		local s = (1 + math.random() * 1.6) * k
+		local s = (1 + math.random() * 1.8) * k
 		r.Size = Vector3.new(s, s * 0.7, s)
-		local a = (i / 14) * math.pi * 2
-		local at = pos + Vector3.new(math.cos(a) * 5.5 * k, s * 0.2, math.sin(a) * 5.5 * k)
-		r.CFrame = CFrame.new(pos) * CFrame.Angles(math.random(), math.random(), math.random())
-		TweenService:Create(r, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			CFrame = CFrame.new(at) * CFrame.Angles(math.rad(math.random(-35, 35)), math.random() * 6, math.rad(math.random(-35, 35))),
-		}):Play()
+		local a = (i / 18) * math.pi * 2 + math.random() * 0.3
+		local d = radius * (0.95 + math.random() * 0.6)
+		local land = Vector3.new(pos.X + math.cos(a) * d, floorY + s * 0.25, pos.Z + math.sin(a) * d)
+		local peak = (land + pos) / 2 + Vector3.new(0, (6 + math.random() * 8) * k, 0)
+		local spin = CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
+		local rest = CFrame.new(land) * CFrame.Angles(math.rad(math.random(-35, 35)), math.random() * 6, math.rad(math.random(-35, 35)))
+		r.CFrame = CFrame.new(pos)
+		local up = TweenService:Create(r, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(peak) * spin })
+		up.Completed:Connect(function()
+			local down = TweenService:Create(r, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = rest })
+			down.Completed:Connect(function()
+				Fx.play("Dust", land, { n = 2, scale = 1.2 * k })
+			end)
+			down:Play()
+		end)
+		up:Play()
 		rocks[i] = r
 	end
 	Fx.play("FloorImpact", pos, { color = color, scale = 2.2 * k, count = 2 })
+	shockDisc(pos, color, radius * 3, 1.3)
+	flare(pos + Vector3.new(0, 2, 0), color, 26 * k, 0.7)
 	burst(pos + Vector3.new(0, 1.5, 0), color, 14 * k)
-	TweenService:Create(glow, TweenInfo.new(3), { Transparency = 1 }):Play()
-	task.delay(5, function()
-		for _, r in ipairs(rocks) do
-			TweenService:Create(r, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = r.CFrame - Vector3.new(0, 3, 0) }):Play()
+	task.delay(0.65, function()
+		if near(pos) then
+			mods.CameraController.shake(0.6)
 		end
-		TweenService:Create(pit, TweenInfo.new(0.8), { Transparency = 1 }):Play()
+	end)
+	-- smoke rolling off the pit while it glows
+	for i = 1, 8 do
+		task.delay(0.3 + i * 0.35, Fx.play, "Dust", pos + Vector3.new(0, 0.5, 0), { n = 3, scale = 1.6 * k, color = color:Lerp(WHITE, 0.6) })
+	end
+	TweenService:Create(glow, TweenInfo.new(5), { Transparency = 0.9 }):Play()
+	TweenService:Create(light, TweenInfo.new(5), { Brightness = 0 }):Play()
+	task.delay(6, function()
+		for _, r in ipairs(rocks) do
+			TweenService:Create(r, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = r.CFrame - Vector3.new(0, 3 * k, 0) }):Play()
+		end
+		TweenService:Create(bowl, TweenInfo.new(0.8), { Transparency = 1 }):Play()
 		task.delay(0.85, function()
 			for _, r in ipairs(rocks) do
-				r.Material = Enum.Material.Neon
-				release(r)
+				r:Destroy()
 			end
-			pit.Material = Enum.Material.Neon
-			release(pit)
+			light:Destroy()
+			if bowl:IsA("MeshPart") then
+				bowl:Destroy()
+			else
+				bowl.Material = Enum.Material.Neon
+				release(bowl)
+			end
 			release(glow)
 		end)
 	end)
@@ -2062,15 +2489,16 @@ local function crater(pos, tint, k)
 	end
 end
 
--- A score effect at pos: the effect's key, the spike colour's tint (or nil) and which way the
--- attack travelled along z. False for Dust, the plain floor impact.
-local function playScore(effect, pos, tint, dirZ, k)
+-- A score effect at pos: the effect's key, the spike colour's tint (or nil), which way the
+-- attack travelled along z, the scale and the point's callout. False for Dust, the plain floor
+-- impact.
+local function playScore(effect, pos, tint, dirZ, k, reason)
 	if effect == "Meteor" then
 		meteorStrike(pos, dirZ, tint, k)
 	elseif effect == "Thunderbolt" then
 		thunderbolt(pos, tint, k)
 	elseif effect == "Speed" then
-		speedBurst(pos, tint, k or 1)
+		speedBurst(pos, tint, k or 1, reason)
 	elseif effect == "Tornado" then
 		tornado(pos, tint, k or 1)
 	elseif effect == "BlackHole" then
@@ -2096,8 +2524,8 @@ end
 -- and make them large and exaggerated"): every scored point blows up there (a flash, a burst, two
 -- shock rings across the floor, a pillar of light, debris and a dust cloud, the screen flashing
 -- and shaking) in the scorer's spike colour (else the team's), with their equipped score effect
--- ScoreScale times bigger on top. CameraController holds on the spot first, then the scorer.
-local SCORE_SCALE = 2.4
+-- on top, scaled by its rarity (Config.Match.ScoreFx.Scale: the rarer, the bigger, up to the whole
+-- court). CameraController holds on the spot first (ScoreFx.Hold), then the scorer.
 local function celebrate(a)
 	local model = Util.modelOf(a.scorerId)
 	local land = a.landing
@@ -2123,7 +2551,8 @@ local function celebrate(a)
 	Fx.play("FloorImpact", pos, { color = color, scale = 2.6, count = 3 })
 	emit("Dust", pos + Vector3.new(0, 0.5, 0), 70, nil)
 	if model then
-		playScore(Spins.equipped(model, "Effect").Key, pos, tint, -side, SCORE_SCALE)
+		local fx = Spins.equipped(model, "Effect")
+		playScore(fx.Key, pos, tint, -side, SCORE_FX.Scale[fx.Rarity] or SCORE_FX.Scale.Common, Config.Match.Celebrate[a.reason])
 	end
 	VFXController.flash(big and 0.55 or 0.45, 0.3)
 	mods.CameraController.shake(big and 1.2 or 1)

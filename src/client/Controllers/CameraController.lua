@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Util = require(Shared.Util)
+local Spins = require(Shared.Spins)
 local State = require(script.Parent.State)
 
 local CameraController = {}
@@ -170,7 +171,8 @@ local function update(dt)
 		if pointCam.landing and now < pointCam.landingUntil then
 			-- the score blast first, where the point landed (VFXController's celebrate)
 			local f = pointCam.landing
-			pos, look = side(f.Z, 9, 40, pointCam.yaw, 4)
+			local dist = pointCam.view or 40
+			pos, look = side(f.Z, 9 + (dist - 40) * 0.35, dist, pointCam.yaw, 4 + (dist - 40) * 0.25)
 			fov = BASE_FOV
 		else
 			pos, look, fov = heroShot(now)
@@ -223,7 +225,9 @@ function CameraController.init(m)
 			-- the hero shot: the camera holds on the player who scored while their card is up
 			local dur = Config.Match.PointPauseTime * 0.85
 			local sideOf = State.sideOfEntity(a.scorerId) or -1
-			pointCam = { target = a.scorerId, untilT = os.clock() + dur, duration = dur, yaw = 18 * sideOf, landing = a.landing, landingUntil = os.clock() + 0.85 }
+			local fx = Spins.equipped(Util.modelOf(a.scorerId), "Effect")
+			local SF = Config.Match.ScoreFx
+			pointCam = { target = a.scorerId, untilT = os.clock() + dur, duration = dur, yaw = 18 * sideOf, landing = a.landing, landingUntil = os.clock() + SF.Hold, view = SF.View[fx.Rarity] or SF.View.Common }
 		elseif a.kind == "Point" and a.landing and a.reason ~= "ServeClock" then
 			local dur = Config.Match.PointPauseTime * 0.6
 			local yaw = a.landing.Z > 0 and -14 or 14

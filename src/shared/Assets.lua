@@ -284,6 +284,15 @@ Assets.Fx = {
 	Bolt2 = "13612625856", -- another bolt (Yona, Lightning)
 	Electric = "14862694841", -- 4x4: crackling electricity (Yona, Lightning)
 	Arcs = "16951505034", -- 2x2: lightning arcs (BIG, Anime Lighting-03)
+	-- our own, for the premium score effects (tools/generate_fx_textures.py; the stat card drawn in
+	-- Figma, "Spike Rush Score FX"); the PNGs are in assets/fx
+	Swirl = "116715458220913", -- a spiral accretion disc (Black Hole)
+	Wind = "72621193352332", -- a streaky band of wind, laid along beams (Tornado)
+	Foam = "124482496885067", -- 4x4: spray bursting and thinning (Tsunami)
+	Water = "84146225428661", -- tiling water with foam streaks (Tsunami)
+	Shock = "90810996100926", -- a glowing ring with a hot rim, laid on the floor
+	Flare = "72648189689787", -- a six-point lens flare
+	StatCard = "109112222614632", -- the slanted stat plate behind Speed Burst's number
 }
 
 -- Font families (a FontFace family: rbxasset://fonts/families/<Name>.json, or a Creator Store
