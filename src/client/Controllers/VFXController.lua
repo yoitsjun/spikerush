@@ -1888,17 +1888,33 @@ local function windBeam(holder, color, w0, w1, speed)
 end
 
 -- a glowing ring (Assets.Fx.Shock) laid on the floor, opening out to `radius` and fading over `dur`
+-- `texture` (an Assets.Fx key) shown glowing on `face` of part `p`, tinted `color`. A SurfaceGui,
+-- not a Decal: in Studio our uploads drew nothing as Decals (as ImageLabels they do), and a
+-- SurfaceGui shows on an invisible part and can glow.
+local function surfaceImage(p, face, texture, color, glow)
+	local g = Instance.new("SurfaceGui")
+	g.Face = face
+	g.LightInfluence = 0
+	g.Brightness = glow or 2
+	g.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+	g.CanvasSize = Vector2.new(256, 256)
+	g.Parent = p
+	local img = Instance.new("ImageLabel")
+	img.BackgroundTransparency = 1
+	img.Size = UDim2.fromScale(1, 1)
+	img.Image = Assets.id(Assets.Fx[texture]) or ""
+	img.ImageColor3 = color
+	img.Parent = g
+	return img
+end
+
 local function shockDisc(pos, color, radius, dur)
 	local p = holderPart(pos + Vector3.new(0, 0.15, 0))
 	p.Size = Vector3.new(1, 0.05, 1)
-	local d = Instance.new("Decal")
-	d.Face = Enum.NormalId.Top
-	d.Texture = Assets.id(Assets.Fx.Shock) or ""
-	d.Color3 = color
-	d.Parent = p
+	local img = surfaceImage(p, Enum.NormalId.Top, "Shock", color)
 	local info = TweenInfo.new(dur, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 	TweenService:Create(p, info, { Size = Vector3.new(radius * 2, 0.05, radius * 2) }):Play()
-	TweenService:Create(d, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
+	TweenService:Create(img, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { ImageTransparency = 1 }):Play()
 	task.delay(dur, p.Destroy, p)
 end
 
@@ -1906,20 +1922,15 @@ end
 local function decalDisc(texture, color)
 	local p = holderPart(Vector3.new(0, -500, 0))
 	p.Size = Vector3.new(1, 0.05, 1)
-	for _, face in ipairs({ Enum.NormalId.Top, Enum.NormalId.Bottom }) do
-		local d = Instance.new("Decal")
-		d.Face = face
-		d.Texture = Assets.id(Assets.Fx[texture]) or ""
-		d.Color3 = color
-		d.Parent = p
-	end
+	surfaceImage(p, Enum.NormalId.Top, texture, color)
+	surfaceImage(p, Enum.NormalId.Bottom, texture, color)
 	return p
 end
 
 local function discAlpha(p, a)
-	for _, d in ipairs(p:GetChildren()) do
-		if d:IsA("Decal") then
-			d.Transparency = a
+	for _, d in ipairs(p:GetDescendants()) do
+		if d:IsA("ImageLabel") then
+			d.ImageTransparency = a
 		end
 	end
 end
@@ -2327,14 +2338,11 @@ local function tsunami(pos, tint, dirZ, k)
 	-- the wash left behind: a sheet of water with its texture flowing the wave's way
 	local sheet = holderPart(Vector3.new(x0, y0, z0))
 	sheet.Transparency = 1
-	local water = Instance.new("Texture")
-	water.Face = Enum.NormalId.Top
-	water.Texture = Assets.id(Assets.Fx.Water) or ""
-	water.Color3 = color
-	water.StudsPerTileU = 24
-	water.StudsPerTileV = 24
-	water.Transparency = 0.25
-	water.Parent = sheet
+	local water = surfaceImage(sheet, Enum.NormalId.Top, "Water", color, 1)
+	water.ScaleType = Enum.ScaleType.Tile
+	water.TileSize = UDim2.fromScale(0.25, 0.25)
+	water.Size = UDim2.fromScale(1.25, 1.25)
+	water.Parent.ClipsDescendants = true
 	local t0 = os.clock()
 	local splashed = false
 	local conn
@@ -2367,8 +2375,9 @@ local function tsunami(pos, tint, dirZ, k)
 		local len = math.abs(z - z0)
 		sheet.Size = Vector3.new(width, 0.05, math.max(0.1, len))
 		sheet.CFrame = CFrame.new(x0, y0 + 0.12, (z + z0) / 2)
-		water.OffsetStudsV = -dirZ * e * 30
-		water.Transparency = 0.25 + 0.75 * fall
+		local flow = (e * 0.35) % 0.25
+		water.Position = UDim2.fromScale(-flow, -flow)
+		water.ImageTransparency = 0.3 + 0.7 * fall
 		if not splashed and (z - pos.Z) * dirZ >= 0 then
 			splashed = true
 			local burstAt = holderPart(pos + Vector3.new(0, 2, 0))
