@@ -641,7 +641,7 @@ local SHOTS = {
 	-- the Locker's practice spike, side on like the match camera, wide enough that the spiker and
 	-- the score effect where the ball lands both play left of the Locker's panel (the owner: "have
 	-- the angle a bit moved over... i cant see it too well")
-	practice = { from = GYM + Vector3.new(-42, 10, 15), to = GYM + Vector3.new(0, 7, 15), fov = 46 },
+	practice = { from = GYM + Vector3.new(-42, 10, 19), to = GYM + Vector3.new(0, 7, 19), fov = 46 },
 }
 
 local function shotCF(name)
