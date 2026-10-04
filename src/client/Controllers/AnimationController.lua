@@ -393,8 +393,8 @@ local POSE_DEFS = {
 	-- Circular Swing (the owner: "yuji nishida's circular arm swing", then "the non hitting arm
 	-- drawn straight up, and the hitting arm working its way up from the bottom drawing very far
 	-- back then unleashing it"): the off-hand goes straight up and stays there; the hitting arm
-	-- comes up from the bottom, swings back, and is drawn all the way back, straight, at shoulder
-	-- height behind him with the chest wide open; then it's unleashed up over the top and through.
+	-- stays low and is drawn all the way back, straight, down behind the hip with the chest open;
+	-- then it's unleashed back, up and over the top and through.
 	-- Its shoulder's X only falls the whole way, each key under 90 degrees from the next, so every
 	-- blend keeps going round.
 	Rise_Circular = {
@@ -402,7 +402,7 @@ local POSE_DEFS = {
 		Neck = { 12, -6, 0 },
 		LeftShoulder = { 178, 0, -6 },
 		LeftElbow = { 0, 0, 0 },
-		RightShoulder = { -30, 0, 12 },
+		RightShoulder = { -25, 0, 8 },
 		RightElbow = { 5, 0, 0 },
 		LeftHip = { -6, 0, -4 },
 		RightHip = { -14, 0, 4 },
@@ -412,11 +412,11 @@ local POSE_DEFS = {
 		RightAnkle = { -20, 0, 0 },
 	},
 	Circ_Back = {
-		Waist = { 16, 30, 0 },
+		Waist = { 10, 24, 0 },
 		Neck = { 14, -16, 0 },
 		LeftShoulder = { 180, 0, -6 },
 		LeftElbow = { 0, 0, 0 },
-		RightShoulder = { -70, 0, 30 },
+		RightShoulder = { -45, 0, 10 },
 		RightElbow = { 0, 0, 0 },
 		LeftHip = { -10, 0, -6 },
 		RightHip = { -26, 0, 8 },
@@ -425,14 +425,14 @@ local POSE_DEFS = {
 		LeftAnkle = { -25, 0, 0 },
 		RightAnkle = { -25, 0, 0 },
 	},
-	-- drawn all the way back: the hitting arm straight out behind at shoulder height, the off-hand
-	-- straight up, the chest open to the side
+	-- drawn all the way back: the hitting arm straight, low, down and behind the hip (the owner: "i
+	-- want the arm low and drawn back, and the other hand held high"), the off-hand straight up
 	Cock_Circular = {
-		Waist = { 26, 50, 0 },
-		Neck = { 16, -30, 0 },
+		Waist = { 12, 34, 0 },
+		Neck = { 14, -22, 0 },
 		LeftShoulder = { 182, 0, -4 },
 		LeftElbow = { 0, 0, 0 },
-		RightShoulder = { -100, 0, 40 },
+		RightShoulder = { -62, 0, 12 },
 		RightElbow = { 0, 0, 0 },
 		RightWrist = { -10, 0, 0 },
 		LeftHip = { -14, 0, -6 },
@@ -447,7 +447,7 @@ local POSE_DEFS = {
 		Neck = { 10, -10, 0 },
 		LeftShoulder = { 130, 0, -14 },
 		LeftElbow = { 20, 0, 0 },
-		RightShoulder = { -168, 0, 18 },
+		RightShoulder = { -135, 0, 14 },
 		RightElbow = { 0, 0, 0 },
 		LeftHip = { 0, 0, -6 },
 		RightHip = { -10, 0, 6 },
