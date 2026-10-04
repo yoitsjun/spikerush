@@ -65,7 +65,7 @@ Assets.Sounds = {
 	Serve = "",
 	Slide = "",
 	Squeak = { "93928767284165", "121230189767569" }, -- "squeak 1" / "SQUEAK 2": a double approach's run-up starts
-	GuardBreak = "9114592102", -- Pro Sound Effects: glass breaks
+	GuardBreak = "126675766605170", -- "jjs guard break" (the owner's pick, kept on their call)
 	-- the score blast where a point lands (VFXController's celebrate; the owner's uploads)
 	ScoreImpact = "91288569991875", -- Ground Slam 3 Explosion, Impact (the owner's pick)
 	ScoreShockwave = "9125484367", -- Pro Sound Effects: deep reverberant boom, rumbling tail
@@ -139,7 +139,7 @@ Assets.SoundFiles = {
 	["137628815514180"] = { start = 0.1, gain = 1.1 }, -- CounterReturn: 0.11 s in, peak 360
 	["117922524763696"] = { gain = 0.5 }, -- ScoreThunder: peak 798
 	["86816529419846"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491
-	["9114592102"] = { start = 0.74, gain = 2.3 }, -- GuardBreak: 0.75 s silence, peak 174
+	["126675766605170"] = { start = 0.18, gain = 1.15 }, -- GuardBreak: 0.19 s in, peak 340
 	["9118113825"] = { start = 0.1, gain = 1.8 }, -- Whistle: peak 217
 	["9119335569"] = { gain = 6 }, -- Block: peak 47
 	["9120256647"] = { start = 0.12, gain = 1.2 }, -- StuffSlam: peak 328
