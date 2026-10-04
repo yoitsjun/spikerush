@@ -16,6 +16,7 @@ local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
+local Cups = require(Shared.Cups)
 
 local HitService = {}
 local reg
@@ -212,6 +213,7 @@ function HitService.process(entity, input, opts)
 		turnabout = entity.ability == "Turnabout" and armed or nil,
 		firstStrike = entity.ability == "Feral" and not entity.firstStrikeUsed or nil,
 		auto = entity.isBot or nil,
+		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
 	}
 	local computed, result = HitLogic.compute(input, ctx)
 	if not computed then

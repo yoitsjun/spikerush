@@ -32,6 +32,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Lobbies = require(Shared.Lobbies)
 local Tutorial = require(Shared.Tutorial)
+local Cups = require(Shared.Cups)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 
@@ -701,6 +702,77 @@ function LobbyService.tutorial(plr)
 	LobbyService.practice(plr, nil, true)
 end
 
+-- A tournament (Config.Tournament, Cups): a hidden lobby of your own against bot teams, its
+-- modifiers on (MatchService), started at once; LobbyService.finished takes it round to round.
+function LobbyService.enterCup(plr, key)
+	local T = Config.Tournament
+	local run = Cups.find(key, os.time())
+	if not run then
+		notify(plr, "That cup has ended. Pick one of the cups running now.")
+		return
+	end
+	if LobbyService.lobbyOf(plr) or net.remoteOf[plr.UserId] then
+		notify(plr, "You're already in a lobby: leave it first.")
+		return
+	end
+	local c = run.cup
+	local l = LobbyService.create(plr, { mode = run.mode, privacy = "Public", fill = true, botTier = c.Bots[1], points = T.Points, sets = 1, timeouts = T.Timeouts }, false)
+	if not l then
+		return
+	end
+	local paid, why = reg.ProfileService.spendVP(plr, c.Entry)
+	if not paid then
+		LobbyService.leave(plr)
+		notify(plr, why)
+		return
+	end
+	l.hidden = true
+	l.cup = { key = c.Key, name = c.Name, round = 1, mods = Cups.encode(run.mods) }
+	local names = {}
+	for _, k in ipairs(run.mods) do
+		table.insert(names, Cups.modifier(k).Name)
+	end
+	notify(plr, string.format("%s, round 1 of %d against %s bots. Modifiers: %s.", c.Name, T.Rounds, c.Bots[1], table.concat(names, ", ")))
+	LobbyService.launch(l)
+end
+
+-- A tournament match is over: on to the next round after a win (straight back on this court),
+-- else its payout (Cups.payout) and the run is over.
+local function cupFinished(l)
+	local T = Config.Tournament
+	local res = l.cupResult
+	l.cupResult = nil
+	local c = Cups.cup(l.cup.key)
+	local list = members(l)
+	if res and c and res.won and l.cup.round < T.Rounds then
+		l.cup.round = l.cup.round + 1
+		l.botTier = c.Bots[l.cup.round]
+		for _, plr in ipairs(list) do
+			notify(plr, string.format("%s: you won round %d! Round %d of %d against %s bots is next.", c.Name, l.cup.round - 1, l.cup.round, T.Rounds, l.botTier))
+		end
+		l.state = "Queued"
+		table.insert(courtQueue, 1, l.id)
+		markDirty()
+		return
+	end
+	if res and c then
+		local vp, gold = Cups.payout(c, l.cup.round, res.won)
+		for _, plr in ipairs(list) do
+			if vp > 0 or gold > 0 then
+				reg.ProfileService.award(plr, vp, gold)
+			end
+			if res.won then
+				notify(plr, string.format("You won the %s! +%d VP and +%d Gold.", c.Name, vp, gold))
+			elseif l.cup.round >= T.Rounds then
+				notify(plr, string.format("Out in the final of the %s: +%d VP for getting there.", c.Name, vp))
+			else
+				notify(plr, string.format("Out of the %s in round %d. Better luck next run!", c.Name, l.cup.round))
+			end
+		end
+	end
+	dissolve(l)
+end
+
 -- Quick Match: the fullest open public quick lobby of that mode in any server (this server's on
 -- a tie), or a new one here. localOnly: this server's only (a refused join elsewhere).
 function LobbyService.quick(plr, mode, localOnly)
@@ -861,7 +933,11 @@ function LobbyService.finished(l)
 	if not lobbies[l.id] then
 		return
 	end
-	if l.quick or l.tutorial or l.practice or #members(l) == 0 then
+	if l.cup and #members(l) > 0 then
+		cupFinished(l)
+		return
+	end
+	if l.quick or l.tutorial or l.practice or l.cup or #members(l) == 0 then
 		dissolve(l)
 		return
 	end
@@ -1261,6 +1337,7 @@ local function payloadFor(plr)
 		mine.startsAt = l.startsAt
 		mine.tutorial = l.tutorial
 		mine.practice = l.practice
+		mine.cup = l.cup
 		mine.arriveBy = l.arriveBy
 		mine.reserved = LobbyService.reserved
 		for i, id in ipairs(courtQueue) do
@@ -1324,6 +1401,10 @@ local function onRequest(plr, op, a, b)
 		LobbyService.practice(plr, a)
 	elseif op == "tutorial" then
 		LobbyService.tutorial(plr)
+	elseif op == "cup" then
+		if type(a) == "string" then
+			LobbyService.enterCup(plr, a)
+		end
 	elseif op == "quick" then
 		local mode = tonumber(a)
 		if mode == 1 or mode == 2 or mode == 3 then

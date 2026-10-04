@@ -16,6 +16,7 @@ local Court = require(Shared.Court)
 local Util = require(Shared.Util)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
+local Cups = require(Shared.Cups)
 local Characters = require(Shared.Characters)
 local Spins = require(Shared.Spins)
 
@@ -182,6 +183,9 @@ local function chooseDepth(b, team, shortest)
 		if rz then
 			table.insert(foes, rz * oside)
 		end
+	end
+	if team == "Away" and Cups.has(ReplicatedStorage:GetAttribute("CupMods"), "OppDeep") then
+		return deepest, deepest -- a tournament's Deep Spike: the bot team always goes deep
 	end
 	local best, bestScore = deepest, -math.huge
 	for _, cand in ipairs({ deepest, deepest - 1.25 * SPM, deepest - 2.5 * SPM, (deepest + shortest) / 2, shortest + 0.95 * SPM }) do
@@ -594,7 +598,7 @@ local function planAttack(team, now, exclude)
 		return
 	end
 	spiker.task = "Spike"
-	spiker.feint = spiker.rng:NextNumber() < B.FeintChance
+	spiker.feint = spiker.rng:NextNumber() < B.FeintChance and not (team == "Away" and Cups.has(ReplicatedStorage:GetAttribute("CupMods"), "OppDeep"))
 	local depth, deepest = chooseDepth(spiker, team, H.SpikeShortDepth)
 	if last and last.vectorSet and last.team == team then
 		-- off a Vector set the steepest spike gains the most: aim short enough for the full angle

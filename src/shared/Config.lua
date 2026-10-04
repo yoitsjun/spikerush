@@ -603,10 +603,12 @@ Config.Lucky = {
 	-- the owner: "1 lucky spin 3 lucky spin 5 lucky 10 lucky spin" (Recruit's Lucky x1 and x10 buy
 	-- the pack with that many when you have fewer)
 	Packs = {
-		{ Id = 3715530476, Lucky = 1, Name = "Lucky Spin" }, -- 49 Robux
-		{ Id = 3715530517, Lucky = 3, Name = "3 Lucky Spins" }, -- 129
-		{ Id = 3715530562, Lucky = 5, Name = "5 Lucky Spins" }, -- 199
-		{ Id = 3715530621, Lucky = 10, Name = "10 Lucky Spins" }, -- 379
+		-- prices raised 2026-10-04 (they outsold the VP packs: per Robux they were the cheaper way to
+		-- an S+); the owner sets them on Creator Hub
+		{ Id = 3715530476, Lucky = 1, Name = "Lucky Spin" }, -- 99 Robux (was 49)
+		{ Id = 3715530517, Lucky = 3, Name = "3 Lucky Spins" }, -- 189 (was 129)
+		{ Id = 3715530562, Lucky = 5, Name = "5 Lucky Spins" }, -- 299 (was 199)
+		{ Id = 3715530621, Lucky = 10, Name = "10 Lucky Spins" }, -- 549 (was 379)
 	},
 }
 
@@ -982,6 +984,44 @@ Config.Lobby = {
 		Watch = 3, -- s: and reads the lobbies they sit in
 		SeatLease = 25, -- s: a remote seat with no word from its server is let go
 		MessageMax = 950, -- bytes (MessagingService takes 1 kB a message)
+	},
+}
+
+-- Tournaments (the owner, after Bloons TD 6's: "3 rounds with bot fill... you pay to enter"; a
+-- fixed prize, never a pot of other players' entries, so no wagering): four cups at a time, one
+-- per tier, each with its mode and modifiers, picked anew every Rotate seconds (the shared
+-- Cups module, the same everywhere). Pay Entry VP, then play Rounds matches against bot teams
+-- of Bots[round], one set to Points each; lose and you're out. All three won pays Prize (VP and
+-- Gold); losing the last round pays Consolation. Tournament matches pay nothing else.
+Config.Tournament = {
+	Rotate = 6 * 3600,
+	Rounds = 3,
+	Points = 15,
+	Timeouts = 1,
+	Modes = { 1, 2, 3 },
+	-- Strength: which modifiers a cup may roll (Mods of them, Min..Max strength)
+	Cups = {
+		{ Key = "Bronze", Name = "Bronze Cup", Entry = 50, Bots = { "B", "A", "A" }, Mods = 1, Min = 1, Max = 1, PrizeVP = 110, PrizeGold = 600, Consolation = 20, Color = Color3.fromRGB(205, 127, 70) },
+		{ Key = "Silver", Name = "Silver Cup", Entry = 150, Bots = { "A", "S", "S" }, Mods = 1, Min = 1, Max = 2, PrizeVP = 360, PrizeGold = 1800, Consolation = 60, Color = Color3.fromRGB(190, 200, 215) },
+		{ Key = "Gold", Name = "Gold Cup", Entry = 250, Bots = { "A", "S", "S+" }, Mods = 1, Min = 2, Max = 3, PrizeVP = 600, PrizeGold = 3000, Consolation = 100, Color = Color3.fromRGB(255, 200, 60) },
+		{ Key = "Champion", Name = "Champion Cup", Entry = 600, Bots = { "S", "S+", "S+" }, Mods = 2, Min = 2, Max = 3, PrizeVP = 1700, PrizeGold = 8000, Consolation = 250, Color = Color3.fromRGB(255, 80, 120) },
+	},
+	-- what a modifier does: Add (stat points for everyone), Height (cm for everyone: reach and hit
+	-- zones), Stamina / OppStamina (every team's pool, or the bot team's, times this),
+	-- SlideCooldown, BlockCharge (block prep time) and BlockJump (block jump height) times this,
+	-- OppDeep (the bot team always spikes deep)
+	Modifiers = {
+		{ Key = "SpringHeels", Name = "Spring Heels", Blurb = "Everyone gets +20 Jump and +10 Attack.", Strength = 1, Add = { Jump = 20, Attack = 10 } },
+		{ Key = "PowerSurge", Name = "Power Surge", Blurb = "Everyone gets +15 Attack.", Strength = 1, Add = { Attack = 15 } },
+		{ Key = "LightFeet", Name = "Light Feet", Blurb = "Everyone gets +25 Speed.", Strength = 1, Add = { Speed = 25 } },
+		{ Key = "Giants", Name = "Giants", Blurb = "All players are taller: higher reach, bigger zones.", Strength = 1, Height = 12 },
+		{ Key = "Marathon", Name = "Marathon", Blurb = "All players' stamina increases.", Strength = 1, Stamina = 1.5 },
+		{ Key = "QuickSlides", Name = "Quick Slides", Blurb = "Sliding cooldowns are reduced.", Strength = 1, SlideCooldown = 0.4 },
+		{ Key = "FastHands", Name = "Fast Hands", Blurb = "Block prep speed is increased.", Strength = 1, BlockCharge = 0.5 },
+		{ Key = "IronWill", Name = "Iron Will", Blurb = "The opponent team's stamina increases.", Strength = 2, OppStamina = 1.6 },
+		{ Key = "LowNet", Name = "Grounded", Blurb = "All players' block jumps are lowered.", Strength = 2, BlockJump = 0.75 },
+		{ Key = "Exhausted", Name = "Exhausted", Blurb = "Extremely reduced stamina for everyone.", Strength = 3, Stamina = 0.45 },
+		{ Key = "DeepSpike", Name = "Deep Spike", Blurb = "The opponent always spikes deep.", Strength = 3, OppDeep = true },
 	},
 }
 

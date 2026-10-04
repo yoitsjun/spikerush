@@ -483,11 +483,13 @@ local function results(winner, forfeitTeam)
 	local mvp, mvpScore = nil, -math.huge
 	local P = Config.Progression
 	local tutorial = MatchService.lobby and MatchService.lobby.tutorial
+	-- a tournament's matches pay only its prize (LobbyService, Cups.payout)
+	local cup = MatchService.lobby and MatchService.lobby.cup
 	-- a custom lobby's shorter sets pay less and don't count for your record (a 3-point match
 	-- against bots would farm them)
 	local points = MatchService.rules.points
 	local scale = Rewards.pointsScale(points)
-	local counts = not tutorial and points >= M.PointsPerSet
+	local counts = not tutorial and not cup and points >= M.PointsPerSet
 	for _, team in ipairs(Config.TeamOrder) do
 		for _, e in ipairs(reg.TeamService.members(team)) do
 			local st = e.stats
@@ -502,7 +504,7 @@ local function results(winner, forfeitTeam)
 				if counts then
 					streak = reg.ProfileService.recordResult(e.player, won, st)
 				end
-				if team ~= forfeitTeam then
+				if team ~= forfeitTeam and not cup then
 					local plays = st.kills + st.aces + st.blocks
 					reward, gold = Rewards.match(won, plays)
 					local xv, xg = Rewards.extraSets(MatchService.setWinners, team)
@@ -554,7 +556,7 @@ local function results(winner, forfeitTeam)
 		end
 	end
 	-- the MVP's bonus V Points
-	if mvp and mvp.player and mvp.team ~= forfeitTeam then
+	if mvp and mvp.player and mvp.team ~= forfeitTeam and not cup then
 		local bonus = P.MvpVP * reg.AdminService.multiplier("VP") * reg.ProfileService.boost(mvp.player, "VP")
 		reg.ProfileService.award(mvp.player, bonus, 0)
 		if counts then
@@ -603,6 +605,9 @@ function MatchService.playMatch()
 	MatchService.court = Lobbies.courtFor(lobby, MatchService.court)
 	MatchService.rules = Lobbies.rules(lobby)
 	MatchService.target = MatchService.rules.points
+	-- a tournament's modifiers, for every server script and client (Cups)
+	ReplicatedStorage:SetAttribute("CupMods", lobby.cup and lobby.cup.mods or nil)
+	lobby.cupResult = nil
 	reg.ArenaBuilder.setCourt(MatchService.court)
 	TS.botTier = lobby.botTier
 	TS.assign(lobby.mode, reg.LobbyService.plan(lobby))
@@ -619,7 +624,7 @@ function MatchService.playMatch()
 	TS.resetPositions(MatchService.servingTeam)
 	BS.hide()
 	MatchService.setPhase("PreMatch", M.PreMatchTime)
-	MatchService.announce({ kind = "MatchStart", mode = TS.teamSize, court = MatchService.court })
+	MatchService.announce({ kind = "MatchStart", mode = TS.teamSize, court = MatchService.court, cup = lobby.cup and { name = lobby.cup.name, round = lobby.cup.round, mods = lobby.cup.mods } or nil })
 	waitUntil(MatchService.phaseEnd)
 
 	while true do
@@ -646,7 +651,7 @@ function MatchService.playMatch()
 				waitUntil(MatchService.phaseEnd)
 				more = true
 			end
-		elseif not MatchService.forfeitTeam and MatchService.setNumber < M.MaxSets then
+		elseif not MatchService.forfeitTeam and MatchService.setNumber < M.MaxSets and not lobby.cup then
 			if MatchService.setNumber < M.Sets then
 				MatchService.setPhase("SetEnd", M.SetEndTime)
 				MatchService.announce({ kind = "SetEnd", winner = winner, sets = MatchService.sets, scores = MatchService.scores, setNumber = MatchService.setNumber })
@@ -663,6 +668,9 @@ function MatchService.playMatch()
 		local forfeit = MatchService.forfeitTeam
 		if forfeit or not more then
 			local overall = forfeit and Court.other(forfeit) or Rewards.winner(MatchService.setWinners, MatchService.totals)
+			if lobby.cup then
+				lobby.cupResult = { won = overall == "Home" } -- the players are Home in a cup
+			end
 			local list, mvp = results(overall, forfeit)
 			MatchService.forfeitTeam = nil -- let the results screen run its course
 			MatchService.setPhase("MatchEnd", M.MatchEndTime)
@@ -692,6 +700,7 @@ function MatchService.intermission()
 	MatchService.lobby = nil
 	MatchService.serverId = nil
 	MatchService.rules = Lobbies.rules(nil) -- a custom match's rules end with it
+	ReplicatedStorage:SetAttribute("CupMods", nil)
 	MatchService.target = MatchService.rules.points
 	MatchService.scores = { Home = 0, Away = 0 }
 	MatchService.sets = { Home = 0, Away = 0 }

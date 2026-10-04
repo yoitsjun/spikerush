@@ -16,6 +16,7 @@
 
 local Config = require(script.Parent.Config)
 local Characters = require(script.Parent.Characters)
+local Cups = require(script.Parent.Cups)
 
 local Lobbies = {}
 local L = Config.Lobby
@@ -295,7 +296,7 @@ end
 
 -- The lobby as plain data for a teleport to its own server.
 function Lobbies.export(l)
-	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, host = l.host, hostName = l.hostName, quick = l.quick == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, Home = {}, Away = {} }
+	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, host = l.host, hostName = l.hostName, quick = l.quick == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(out[side], u)
@@ -324,6 +325,12 @@ function Lobbies.import(data, id)
 		l.hidden = true
 		l.tutorial = data.tutorial == true or nil
 		l.drill = type(data.drill) == "string" and data.drill:sub(1, 16) or nil
+	end
+	-- a tournament run (Cups) goes on in the new server: hidden like practice
+	if type(data.cup) == "table" and Cups.cup(data.cup.key) then
+		local c = Cups.cup(data.cup.key)
+		l.cup = { key = c.Key, name = c.Name, round = math.clamp(math.floor(tonumber(data.cup.round) or 1), 1, Config.Tournament.Rounds), mods = Cups.encode(Cups.parse(data.cup.mods)) }
+		l.hidden = true
 	end
 	l.expected = {}
 	for _, side in ipairs(SIDES) do

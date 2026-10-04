@@ -249,7 +249,7 @@ end
 function Characters.boosted(stats, add, mul)
 	add = add or {}
 	mul = mul or 1
-	local b = { Height = stats.Height }
+	local b = { Height = stats.Height + (add.Height or 0) } -- a tournament's Giants (Cups)
 	for _, k in ipairs(ST.Order) do
 		b[k] = math.floor((stats[k] + (add[k] or 0)) * mul + 0.5)
 	end

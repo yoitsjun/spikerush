@@ -447,6 +447,16 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		add.Attack = (add.Attack or 0) - math.floor(stats.Attack * (1 - FERAL.AutoAttackMul) + 0.5)
 		any = true
 	end
+	if extra and extra.mods then
+		-- a tournament's modifiers (Cups.statMods): stat points and height for everyone
+		for k, v in pairs(extra.mods.add or {}) do
+			add[k] = (add[k] or 0) + v
+		end
+		if (extra.mods.height or 0) ~= 0 then
+			add.Height = (add.Height or 0) + extra.mods.height
+		end
+		any = true
+	end
 	local mul = 1
 	if extra and extra.teamBoost then
 		mul = 1 + RALLY.Boost

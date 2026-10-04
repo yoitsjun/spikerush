@@ -13,6 +13,7 @@ local Config = require(Shared.Config)
 local Court = require(Shared.Court)
 local Characters = require(Shared.Characters)
 local HitLogic = require(Shared.HitLogic)
+local Cups = require(Shared.Cups)
 local Roster = require(Shared.Roster)
 local Lobbies = require(Shared.Lobbies)
 local Net = require(Shared.Net)
@@ -251,6 +252,7 @@ function TeamService.boostCtx(e, t)
 		counter = e.counter or 0,
 		auto = e.isBot or nil,
 		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= (t or Util.now()),
+		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 	}
 end
 
@@ -329,7 +331,8 @@ function TeamService.staminaOf(team)
 	return { value = s.value, max = s.max }
 end
 
--- A team's pool is the average of its players' pools (Defense raises it).
+-- A team's pool is the average of its players' pools (Defense raises it), times a tournament's
+-- stamina modifiers (Cups: every team's, and the bot team's, which is Away in a cup).
 local function poolFor(team)
 	local sum, n = 0, 0
 	for _, e in ipairs(TeamService.members(team)) do
@@ -339,7 +342,9 @@ local function poolFor(team)
 	if n == 0 then
 		return 100
 	end
-	return sum / n
+	local mods = ReplicatedStorage:GetAttribute("CupMods")
+	local f = Cups.factor(mods, "Stamina") * (team == "Away" and Cups.factor(mods, "OppStamina") or 1)
+	return sum / n * f
 end
 
 function TeamService.fillStamina(team)

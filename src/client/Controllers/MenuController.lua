@@ -4082,7 +4082,7 @@ local function refreshMatch()
 	Mt.create.Visible = (mine == nil and matchTab == "Create") or (mine ~= nil and editing)
 	Mt.lobby.Visible = inLobby
 	if mine then
-		Mt.modal.title.Text = mine.quick and string.format("Quick Match %dv%d", mine.mode, mine.mode) or (mine.hostName .. "'s Lobby")
+		Mt.modal.title.Text = mine.cup and string.format("%s: round %d of %d", mine.cup.name, mine.cup.round, Config.Tournament.Rounds) or (mine.quick and string.format("Quick Match %dv%d", mine.mode, mine.mode) or (mine.hostName .. "'s Lobby"))
 	else
 		Mt.modal.title.Text = "Lobbies"
 	end
@@ -4192,6 +4192,7 @@ local MATCH_CARDS = {
 	{ key = "3", mode = 3, title = "3v3", icon = "IconPlayers", art = "MatchArena" },
 	{ key = "2", mode = 2, title = "2v2", icon = "IconPlayers", art = "MatchBeach" },
 	{ key = "1", mode = 1, title = "1v1", icon = "IconAttack", art = "MatchRooftop" },
+	{ key = "Cups", title = "Tournaments", icon = "IconStar", art = "MatchColosseum", strip = "Pay in, win big" },
 	{ key = "Lobbies", title = "Lobbies", icon = "IconHome", art = "MatchNationals", strip = "Public, friends and private" },
 	{ key = "Custom", title = "Custom", icon = "IconSettings", art = "MatchColosseum", strip = "Host your own lobby" },
 	{ key = "Practice", title = "Practice", icon = "IconJump", art = "MatchPractice", strip = "Drills and the tutorial" },
@@ -4224,6 +4225,15 @@ local function pickMatchCard(c)
 	end
 	if c.key == "Practice" then
 		MenuController.go("practice")
+	elseif c.key == "Cups" then
+		if mine and not mine.cup then
+			toast("You're already in a lobby: leave it first.")
+			MenuController.openMatch()
+		elseif mine then
+			MenuController.openMatch()
+		else
+			Extra.openCups()
+		end
 	elseif c.mode then
 		if mine then
 			-- your lobby's window: its countdown, or Leave / Cancel queue before another mode
@@ -4383,8 +4393,14 @@ local function refreshMatchScreen(prof)
 			else
 				text = open == 0 and "None open yet" or (open == 1 and "1 open" or string.format("%d open", open))
 			end
+		elseif c.key == "Cups" then
+			if mine and mine.cup then
+				text, hot = string.format("%s: round %d of %d", mine.cup.name, mine.cup.round, Config.Tournament.Rounds), true
+			else
+				text = string.format("%d cups running", #Config.Tournament.Cups)
+			end
 		elseif c.key == "Custom" then
-			if mine and not mine.quick and mine.isHost then
+			if mine and not mine.quick and not mine.cup and mine.isHost then
 				text, hot = lobbyLine(mine), true
 			else
 				text = "Your court, your bots"
@@ -5040,6 +5056,76 @@ end
 Extra.adminMinutes = Config.Admin.Durations[1]
 Extra.adminChars = {} -- the characters picked to give
 
+------------------------------------------------------------------------------------------
+-- Tournaments (Config.Tournament, the shared Cups module): the four cups running now, each a
+-- card like Bloons TD 6's: its name in its colour, the mode, the modifiers, the prize, the time
+-- left and the entry. Enter pays and starts round 1 (LobbyService.enterCup).
+------------------------------------------------------------------------------------------
+Extra.Cups = require(Shared.Cups)
+
+function Extra.buildCups()
+	local T = Config.Tournament
+	local W, GAP = 268, 14
+	local m = modal("Cups", "Tournaments", 4 * W + 3 * GAP + 52, 660, true)
+	Gui.label(m.panel, { Text = "Three rounds against bot teams that get stronger. Lose and you're out. Win all three for the prize.", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(28, 82), Size = UDim2.new(1, -56, 0, 22), ZIndex = 22 })
+	local cards = {}
+	for i = 1, #T.Cups do
+		local card = make("Frame", { Position = UDim2.fromOffset(26 + (i - 1) * (W + GAP), 118), Size = UDim2.fromOffset(W, 520), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, ZIndex = 22 }, m.panel)
+		Gui.corner(card, 10)
+		local stroke = make("UIStroke", { Thickness = 2, Transparency = 0.1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, card)
+		local head = make("Frame", { Size = UDim2.new(1, 0, 0, 70), BorderSizePixel = 0, ZIndex = 23 }, card)
+		Gui.corner(head, 10)
+		local name = Gui.label(head, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextColor3 = Color3.new(0.05, 0.05, 0.1), Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 6), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 24 })
+		local mode = Gui.label(head, { Text = "", display = true, TextSize = 18, TextColor3 = Color3.new(0.05, 0.05, 0.1), Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 44), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 24 })
+		Gui.label(card, { Text = "PRIZE", display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 82), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+		local prize = Gui.label(card, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, TextColor3 = Gui.SIGNAL, Size = UDim2.new(1, -20, 0, 60), Position = UDim2.fromOffset(10, 108), TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+		local consolation = Gui.label(card, { Text = "", TextSize = 14, TextColor3 = Gui.DIM, Size = UDim2.new(1, -20, 0, 18), Position = UDim2.fromOffset(10, 168), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+		local mods = Gui.label(card, { Text = "", RichText = true, TextSize = 16, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -28, 0, 150), Position = UDim2.fromOffset(14, 198), ZIndex = 23 })
+		local bots = Gui.label(card, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, -28, 0, 36), Position = UDim2.fromOffset(14, 352), ZIndex = 23 })
+		local left = Gui.label(card, { Text = "", TextSize = 16, TextColor3 = Gui.SIGNAL_HOT, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 396), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+		local enter, enterL = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.new(1, -32, 0, 64) }, "Enter", 22)
+		local entry = { head = head, stroke = stroke, name = name, mode = mode, prize = prize, consolation = consolation, mods = mods, bots = bots, left = left, enter = enter, enterL = enterL }
+		onClick(enter, function()
+			if entry.key then
+				Net.get("Lobby"):FireServer("cup", entry.key)
+				ui.cups.modal.root.Visible = false
+			end
+		end)
+		cards[i] = entry
+	end
+	ui.cups = { modal = m, cards = cards }
+end
+
+function Extra.refreshCups()
+	local T = Config.Tournament
+	local now = workspace:GetServerTimeNow()
+	for i, run in ipairs(Extra.Cups.current(now)) do
+		local e = ui.cups.cards[i]
+		local c = run.cup
+		e.key = run.key
+		e.head.BackgroundColor3 = c.Color
+		e.stroke.Color = c.Color
+		e.name.Text = string.upper(c.Name)
+		e.mode.Text = string.format("%dv%d  ·  %d rounds", run.mode, run.mode, T.Rounds)
+		e.prize.Text = string.format("%s VP\n%s Gold", Gui.num(c.PrizeVP), Gui.num(c.PrizeGold))
+		e.consolation.Text = string.format("Out in the final: %d VP", c.Consolation)
+		local lines = {}
+		for _, k in ipairs(run.mods) do
+			local mod = Extra.Cups.modifier(k)
+			table.insert(lines, string.format('<font color="#FFD35A"><b>%s</b></font>\n%s', mod.Name, mod.Blurb))
+		end
+		e.mods.Text = table.concat(lines, "\n\n")
+		e.bots.Text = "Bots: " .. table.concat(c.Bots, ", then ")
+		e.left.Text = "Time left: " .. Extra.clockText(run.endsAt - now)
+		e.enterL.Text = string.format("Enter  ·  %d VP", c.Entry)
+	end
+end
+
+function Extra.openCups()
+	Extra.refreshCups()
+	ui.cups.modal.root.Visible = true
+end
+
 function Extra.buildAdmin()
 	local m = modal("Admin", "Admin panel", 1080, 780, true)
 	local function heading(parent, t, y)
@@ -5571,6 +5657,7 @@ function MenuController.init(m)
 	Extra.buildDaily()
 	Extra.buildGift()
 	Extra.buildAdmin()
+	Extra.buildCups()
 
 	-- the toast: a dark hairline card with a signal-yellow tab, under the nav
 	local tf = make("Frame", { Name = "Toast", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 100), Size = UDim2.fromOffset(660, 50), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.1, BorderSizePixel = 0, Visible = false, ZIndex = 40 }, canvas)
@@ -5666,6 +5753,9 @@ function MenuController.init(m)
 		end
 		if ui.match.modal.root.Visible and lobbies.mine then
 			ui.match.status.Text = lobbyStatus(lobbies.mine)
+		end
+		if ui.cups and ui.cups.modal.root.Visible then
+			Extra.refreshCups() -- the time left on each cup, and the next set when they change
 		end
 		if screen == "match" and lobbies.mine then
 			refreshMatchScreen(profile()) -- the countdown on your queue's card

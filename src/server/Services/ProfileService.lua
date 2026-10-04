@@ -1171,6 +1171,26 @@ function ProfileService.award(plr, vp, gold)
 	push(plr)
 end
 
+-- Take VP (a tournament's entry). Returns true, or false and why. Developers play free, as with
+-- recruits.
+function ProfileService.spendVP(plr, vp)
+	local profile = profiles[plr]
+	if not profile then
+		return false, "Your profile is still loading."
+	end
+	vp = math.max(0, math.floor(vp or 0))
+	if profile.dev then
+		return true
+	end
+	if profile.vp < vp then
+		return false, "Not enough VP. Get more in the shop or by playing."
+	end
+	profile.vp = profile.vp - vp
+	dirty[plr] = true
+	push(plr)
+	return true
+end
+
 -- A finished match: a win extends the win streak, a loss (or a forfeit) ends it, and the
 -- career counters add this match's wins, spike kills, aces and blocks (`st`, the match stats).
 -- Returns the streak after this match.

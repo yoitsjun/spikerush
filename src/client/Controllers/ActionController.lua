@@ -30,6 +30,7 @@ local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
+local Cups = require(Shared.Cups)
 local Lobbies = require(Shared.Lobbies)
 local State = require(script.Parent.State)
 
@@ -128,6 +129,7 @@ local function buildCtx(info, action, t)
 		counter = ability == "Counter" and (player:GetAttribute("Counter") or 0) or nil,
 		turnabout = ability == "Turnabout" and ActionController.abilityActive() or nil,
 		firstStrike = ability == "Feral" and not player:GetAttribute("FirstStrikeUsed") or nil,
+		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 	}, ok, why
 end
 
@@ -853,7 +855,7 @@ local function releaseBlock(info)
 		return
 	end
 	block.charging = false
-	local fraction = math.clamp((os.clock() - block.t0) / P.BlockChargeTime, 0, 1)
+	local fraction = math.clamp((os.clock() - block.t0) / (P.BlockChargeTime * Cups.factor(ReplicatedStorage:GetAttribute("CupMods"), "BlockCharge")), 0, 1)
 	if not mods.MovementController.blockJump(fraction) then
 		return
 	end
@@ -1006,7 +1008,7 @@ function ActionController.blockCharge()
 	if not block.charging then
 		return nil
 	end
-	return math.clamp((os.clock() - block.t0) / P.BlockChargeTime, 0, 1)
+	return math.clamp((os.clock() - block.t0) / (P.BlockChargeTime * Cups.factor(ReplicatedStorage:GetAttribute("CupMods"), "BlockCharge")), 0, 1)
 end
 
 function ActionController.chargeState()

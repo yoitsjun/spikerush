@@ -1049,6 +1049,53 @@ do
 	local pickA = Lobbies.pickQuickRemote(here1, elsewhere, 2, now0, lead)
 	local pickB = Lobbies.pickQuickRemote(here2, elsewhere, 2, now0, lead)
 	local pickC = Lobbies.pickQuickRemote(nil, { elsewhere[1] }, 2, now0, lead)
+	-- tournaments (Config.Tournament, Cups): four cups at a time, the same on every machine, each
+	-- with Mods modifiers of its strengths; modifiers move stats and stamina; a run pays its prize
+	-- for three wins, the consolation for a lost final, nothing else; a run survives a teleport
+	do
+		local Cups = require("Cups")
+		local TT = Config.Tournament
+		local t0 = 1791000000
+		local a, b2 = Cups.current(t0), Cups.current(t0 + 5)
+		local ok = #a == #TT.Cups
+		local differs = false
+		for slot = 1, 8 do
+			local o = Cups.current(t0 + slot * TT.Rotate)
+			for i, run in ipairs(o) do
+				if run.mode ~= a[i].mode or run.mods[1] ~= a[i].mods[1] then
+					differs = true
+				end
+			end
+		end
+		for i, run in ipairs(a) do
+			local seen = {}
+			ok = ok and #run.mods == run.cup.Mods and run.mode == b2[i].mode and run.mods[1] == b2[i].mods[1] and run.endsAt > t0
+			for _, k in ipairs(run.mods) do
+				local m = Cups.modifier(k)
+				ok = ok and m ~= nil and m.Strength >= run.cup.Min and m.Strength <= run.cup.Max and not seen[k]
+				seen[k] = true
+			end
+		end
+		check(ok and differs and Cups.find(a[1].key, t0) ~= nil and Cups.find("Nope", t0) == nil, "tournaments: four cups at a time, the same everywhere, each with its modifiers, a new set every rotation")
+		local base = Characters.stats("A")
+		local spring = HitLogic.effectiveStats(base, nil, nil, { mods = Cups.statMods("SpringHeels") })
+		local giant = HitLogic.effectiveStats(base, nil, nil, { mods = Cups.statMods("Giants") })
+		local plain = HitLogic.effectiveStats(base, nil, nil, { mods = Cups.statMods("Marathon") })
+		check(spring.Jump == base.Jump + 20 and spring.Attack == base.Attack + 10 and giant.Height > base.Height and giant.ContactMaxM > base.ContactMaxM and plain == base
+			and math.abs(Cups.factor("Exhausted,Marathon", "Stamina") - 0.675) < 1e-9 and Cups.factor("", "Stamina") == 1 and Cups.has("DeepSpike", "OppDeep") and not Cups.has("Giants", "OppDeep"),
+			"tournament modifiers: stat points and height for everyone, stamina and timing multipliers, the bots' deep spikes",
+			string.format("Jump %d -> %d, reach %.2f -> %.2f m", base.Jump, spring.Jump, base.ContactMaxM, giant.ContactMaxM))
+		local gold = Cups.cup("Gold")
+		local wv, wg = Cups.payout(gold, TT.Rounds, true)
+		local fv = Cups.payout(gold, TT.Rounds, false)
+		local ev = Cups.payout(gold, 1, false)
+		local run = Lobbies.new(77, 1, "a", Lobbies.settings({ mode = 2, points = TT.Points }))
+		run.cup = { key = "Gold", name = gold.Name, round = 2, mods = "DeepSpike,Junk" }
+		Lobbies.seat(run, 1)
+		local back2 = Lobbies.import(Lobbies.export(run), 78)
+		check(wv == gold.PrizeVP and wg == gold.PrizeGold and fv == gold.Consolation and ev == 0 and gold.PrizeVP > gold.Entry and back2.cup and back2.cup.round == 2 and back2.cup.mods == "DeepSpike" and back2.hidden,
+			"a tournament pays its prize for three wins and its consolation for a lost final, and a run goes on in its own server", string.format("Gold Cup: %d VP in, %d VP + %d Gold out", gold.Entry, wv, wg))
+	end
 	check(pickA == "d/1" and pickB == nil and pickC == "b/1",
 		"Quick Match across servers: the fullest queue anywhere with time to get in (the one starting first on a tie); this server's own on a tie", string.format("%s / %s / %s", tostring(pickA), tostring(pickB), tostring(pickC)))
 	-- AFK: idle time only builds while the ball is live; input resets it

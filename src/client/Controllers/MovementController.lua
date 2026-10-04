@@ -16,6 +16,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Cups = require(Shared.Cups)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 
@@ -299,7 +300,7 @@ function MovementController.blockJump(fraction)
 	if not MovementController.canJump() then
 		return false
 	end
-	local k = P.BlockMinHeight + (1 - P.BlockMinHeight) * math.clamp(fraction, 0, 1)
+	local k = (P.BlockMinHeight + (1 - P.BlockMinHeight) * math.clamp(fraction, 0, 1)) * Cups.factor(ReplicatedStorage:GetAttribute("CupMods"), "BlockJump")
 	queued = { height = baseJump() * k, kind = "Block" }
 	return true
 end
@@ -313,7 +314,7 @@ function MovementController.jump(kind)
 end
 
 function MovementController.slide(dirZ)
-	if not hum or not hrp or slide or gather or os.clock() - lastSlideAt < P.SlideCooldown then
+	if not hum or not hrp or slide or gather or os.clock() - lastSlideAt < P.SlideCooldown * Cups.factor(ReplicatedStorage:GetAttribute("CupMods"), "SlideCooldown") then
 		return false
 	end
 	if inAir() then
