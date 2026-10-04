@@ -139,7 +139,7 @@ Assets.SoundFiles = {
 	["137628815514180"] = { start = 0.1, gain = 1.1 }, -- CounterReturn: 0.11 s in, peak 360
 	["117922524763696"] = { gain = 0.5 }, -- ScoreThunder: peak 798
 	["86816529419846"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491
-	["126675766605170"] = { start = 0.18, gain = 1.15 }, -- GuardBreak: 0.19 s in, peak 340
+	["126675766605170"] = { start = 0.64, gain = 1.2 }, -- GuardBreak: faint noise, then the hit at 0.65 s, peak 340
 	["9118113825"] = { start = 0.1, gain = 1.8 }, -- Whistle: peak 217
 	["9119335569"] = { gain = 6 }, -- Block: peak 47
 	["9120256647"] = { start = 0.12, gain = 1.2 }, -- StuffSlam: peak 328
