@@ -945,6 +945,10 @@ Config.Match = {
 	SetEndTime = 3.5,
 	MatchEndTime = 11, -- the showcase (your team, their stats); Continue closes it sooner
 	DefaultBotTier = "A",
+	-- Quick Match bots play at the strongest player's character tier, between these (the owner:
+	-- "right now queues only have A+ tiers i want it up to S+")
+	QuickBotFloor = "A",
+	QuickBotCeiling = "S+",
 	-- points the scorer earned: after the rally the camera closes on them, their score effect goes
 	-- off and their card slides in with this word (faults like outs and nets get none of it)
 	Celebrate = { Spike = "SPIKE!", Feint = "FEINT!", Tooled = "TOOLED!", Break = "GUARD BREAK!", Ace = "ACE!", Stuff = "STUFF!", Block = "BLOCK!" },

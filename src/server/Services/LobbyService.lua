@@ -867,6 +867,14 @@ function LobbyService.launch(l)
 	if not ok then
 		return false, why
 	end
+	if l.quick then
+		-- the bots play at the strongest player's level (A up to S+)
+		local tiers = {}
+		for _, plr in ipairs(members(l)) do
+			table.insert(tiers, plr:GetAttribute("Tier"))
+		end
+		l.botTier = Lobbies.quickBotTier(tiers)
+	end
 	if hasRemote(l) and not canTeleportAcross() then
 		dropRemotes(l, "solo") -- (Studio) nowhere to take them: it plays here
 		if lobbies[l.id] ~= l then

@@ -987,6 +987,9 @@ do
 	local q3 = Lobbies.new(12, 4, "c", Lobbies.settings({ mode = 3 })); q3.quick = true; Lobbies.seat(q3, 4); Lobbies.seat(q3, 5); Lobbies.seat(q3, 6)
 	local q4 = Lobbies.new(13, 7, "d", Lobbies.settings({ mode = 2, privacy = "Private", password = "abc" })); q4.quick = true; Lobbies.seat(q4, 7); Lobbies.seat(q4, 8); Lobbies.seat(q4, 9)
 	check(Lobbies.pickQuick({ q1, q2, q3, q4 }, 2) == q2 and Lobbies.pickQuick({ q1, q3 }, 1) == nil, "Quick Match joins the fullest open public lobby of that mode")
+	-- Quick Match bots play at the strongest player's tier, from A up to S+
+	check(Lobbies.quickBotTier({ "D", "B" }) == Config.Match.QuickBotFloor and Lobbies.quickBotTier({ "D", "S" }) == "S" and Lobbies.quickBotTier({ "S+" }) == "S+" and Lobbies.quickBotTier({}) == Config.Match.QuickBotFloor,
+		"Quick Match bots play at the strongest player's level, A up to S+")
 	-- a tutorial lobby is hidden: only its player sees it, nobody can join
 	local tl = Lobbies.new(20, 1, "a", Lobbies.settings({ mode = 1, botTier = "D-" }))
 	tl.hidden = true

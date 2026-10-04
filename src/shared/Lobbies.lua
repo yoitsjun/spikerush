@@ -256,6 +256,22 @@ function Lobbies.courtFor(l, last)
 	return C.Rotation[1]
 end
 
+-- A Quick Match's bot level: the strongest of its players' character tiers, kept between
+-- Match.QuickBotFloor and QuickBotCeiling.
+function Lobbies.quickBotTier(tiers)
+	local M = Config.Match
+	local lo = Characters.tierIndex(M.QuickBotFloor) or 1
+	local hi = Characters.tierIndex(M.QuickBotCeiling) or #Config.Tiers
+	local best = lo
+	for _, t in ipairs(tiers) do
+		local i = Characters.tierIndex(t)
+		if i and i > best then
+			best = i
+		end
+	end
+	return Config.Tiers[math.clamp(best, lo, hi)]
+end
+
 -- The Quick Match lobby to join for a mode: the fullest open public quick lobby with room
 -- (oldest first on a tie), or nil.
 function Lobbies.pickQuick(list, mode)
