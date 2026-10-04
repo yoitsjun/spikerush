@@ -390,6 +390,110 @@ local POSE_DEFS = {
 		LeftAnkle = { -30, 0, 0 },
 		RightAnkle = { -30, 0, 0 },
 	},
+	-- Circular Swing (the owner: "yuji nishida's circular arm swing", then "the non hitting arm
+	-- drawn straight up, and the hitting arm working its way up from the bottom drawing very far
+	-- back then unleashing it"): the off-hand goes straight up and stays there; the hitting arm
+	-- comes up from the bottom, swings back, and is drawn all the way back, straight, at shoulder
+	-- height behind him with the chest wide open; then it's unleashed up over the top and through.
+	-- Its shoulder's X only falls the whole way, each key under 90 degrees from the next, so every
+	-- blend keeps going round.
+	Rise_Circular = {
+		Waist = { 8, 12, 0 },
+		Neck = { 12, -6, 0 },
+		LeftShoulder = { 178, 0, -6 },
+		LeftElbow = { 0, 0, 0 },
+		RightShoulder = { -30, 0, 12 },
+		RightElbow = { 5, 0, 0 },
+		LeftHip = { -6, 0, -4 },
+		RightHip = { -14, 0, 4 },
+		LeftKnee = { -50, 0, 0 },
+		RightKnee = { -70, 0, 0 },
+		LeftAnkle = { -20, 0, 0 },
+		RightAnkle = { -20, 0, 0 },
+	},
+	Circ_Back = {
+		Waist = { 16, 30, 0 },
+		Neck = { 14, -16, 0 },
+		LeftShoulder = { 180, 0, -6 },
+		LeftElbow = { 0, 0, 0 },
+		RightShoulder = { -70, 0, 30 },
+		RightElbow = { 0, 0, 0 },
+		LeftHip = { -10, 0, -6 },
+		RightHip = { -26, 0, 8 },
+		LeftKnee = { -78, 0, 0 },
+		RightKnee = { -100, 0, 0 },
+		LeftAnkle = { -25, 0, 0 },
+		RightAnkle = { -25, 0, 0 },
+	},
+	-- drawn all the way back: the hitting arm straight out behind at shoulder height, the off-hand
+	-- straight up, the chest open to the side
+	Cock_Circular = {
+		Waist = { 26, 50, 0 },
+		Neck = { 16, -30, 0 },
+		LeftShoulder = { 182, 0, -4 },
+		LeftElbow = { 0, 0, 0 },
+		RightShoulder = { -100, 0, 40 },
+		RightElbow = { 0, 0, 0 },
+		RightWrist = { -10, 0, 0 },
+		LeftHip = { -14, 0, -6 },
+		RightHip = { -34, 0, 8 },
+		LeftKnee = { -86, 0, 0 },
+		RightKnee = { -110, 0, 0 },
+		LeftAnkle = { -25, 0, 0 },
+		RightAnkle = { -25, 0, 0 },
+	},
+	Circ_Up = {
+		Waist = { 14, 20, 0 },
+		Neck = { 10, -10, 0 },
+		LeftShoulder = { 130, 0, -14 },
+		LeftElbow = { 20, 0, 0 },
+		RightShoulder = { -168, 0, 18 },
+		RightElbow = { 0, 0, 0 },
+		LeftHip = { 0, 0, -6 },
+		RightHip = { -10, 0, 6 },
+		LeftKnee = { -75, 0, 0 },
+		RightKnee = { -90, 0, 0 },
+	},
+	Circ_Top = {
+		Waist = { -10, -10, 0 },
+		Neck = { 2, 4, 0 },
+		LeftShoulder = { 60, 0, -26 },
+		LeftElbow = { 40, 0, 0 },
+		RightShoulder = { -215, 0, 8 },
+		RightElbow = { 0, 0, 0 },
+		RightWrist = { 10, 0, 0 },
+		LeftHip = { 20, 0, -6 },
+		RightHip = { 10, 0, 6 },
+		LeftKnee = { -60, 0, 0 },
+		RightKnee = { -70, 0, 0 },
+	},
+	Circ_Snap = {
+		Root = { -18, 0, 0 },
+		Waist = { -50, -34, 0 },
+		Neck = { -12, 12, 0 },
+		LeftShoulder = { 10, 0, -30 },
+		LeftElbow = { 50, 0, 0 },
+		RightShoulder = { -300, 0, 8 },
+		RightElbow = { 8, 0, 0 },
+		RightWrist = { -45, 0, 0 },
+		LeftHip = { 62, 0, -6 },
+		RightHip = { 54, 0, 6 },
+		LeftKnee = { -36, 0, 0 },
+		RightKnee = { -28, 0, 0 },
+	},
+	Circ_Through = {
+		Root = { -10, 0, 0 },
+		Waist = { -34, -22, 0 },
+		Neck = { -2, 6, 0 },
+		LeftShoulder = { 25, 0, -24 },
+		LeftElbow = { 45, 0, 0 },
+		RightShoulder = { -342, 0, -6 },
+		RightElbow = { 20, 0, 0 },
+		LeftHip = { 48, 0, -6 },
+		RightHip = { 40, 0, 6 },
+		LeftKnee = { -55, 0, 0 },
+		RightKnee = { -48, 0, 0 },
+	},
 	Snap_Bow = {
 		Root = { -20, 0, 0 },
 		Waist = { -55, -20, 0 },
@@ -995,6 +1099,16 @@ local CLIP_DEFS = {
 	Swing_Whirl = {
 		dur = 0.6,
 		keys = { { 0, "SpikeReach" }, { 0.06, "Snap_Whirl", "out" }, { 0.16, "Spin_Whirl", "smooth" }, { 0.34, "SpikeFollow", "smooth" } },
+	},
+	-- Circular Swing: up from the bottom and drawn all the way back after the rise (Air_), then
+	-- unleashed over the top and through
+	Air_Circular = {
+		dur = 0.3,
+		keys = { { 0, "Rise_Circular" }, { 0.13, "Circ_Back", "smooth" }, { 0.3, "Cock_Circular", "out" } },
+	},
+	Swing_Circular = {
+		dur = 0.52,
+		keys = { { 0, "Cock_Circular" }, { 0.03, "Circ_Up", "linear" }, { 0.06, "Circ_Top", "linear" }, { 0.11, "Circ_Snap", "out" }, { 0.21, "Circ_Through", "smooth" }, { 0.44, "SpikeFollow", "smooth" } },
 	},
 	-- Tornado 360: the spin on the way up (Air_: pick plays it after the rise, then holds its last
 	-- key, the bow-draw, until the swing), and the whip through the ball
@@ -1638,10 +1752,13 @@ local function pick(st, hum, hrp, now)
 		-- the style's bow-draw for the rest of the flight (it used to wait for the rise to slow, so a
 		-- spike on the way up, and every Feral Leap, showed both arms up until the swing)
 		if st.jumpKind ~= "Block" then
-			if now - st.airT < RISE_TIME then
-				return "Rise", POSES.Rise, 1
-			end
 			local style = styleOf(st)
+			if now - st.airT < RISE_TIME then
+				-- a style can rise its own way (the Circular Swing: the off-hand straight up, the
+				-- hitting arm still low)
+				local rise = POSES["Rise_" .. style]
+				return rise and ("Rise_" .. style) or "Rise", rise or POSES.Rise, 1
+			end
 			-- a style with a move of its own on the way up (Tornado's spin, the Bicycle's flip)
 			-- plays it, then holds its last key until the swing
 			local air = CLIPS["Air_" .. style]
