@@ -50,13 +50,13 @@ Assets.Sounds = {
 	-- the owner's uploads (from a free sound library): Spike, Boom, FloorHit, FloorHitHeavy, CrowdServe
 	Spike = "101487104093246", -- "spike sfx": a spike's crack (SpikeHeavy borrows it, deeper and louder)
 	SpikeHeavy = "",
-	Thunder = "",
+	Thunder = "86789834935708", -- Lightning Bolt (the owner's pick): a Thunder spike
 	AzureCharge = "",
 	AzureRelease = "",
 	Boom = "129991093083800", -- "boomp jump": a hit into a low rumble on a boom jump (Jump 170+)
 	Whoosh = "",
 	Whiff = "115661994288749", -- "missed spike or swing": a swing or a dig that misses
-	Block = "",
+	Block = "9119335569", -- Pro Sound Effects: goalie deflection, two-hand smack
 	Stuff = "",
 	FloorHit = "116030239767785", -- "spike land": the ball landing
 	FloorHitHeavy = "94780477478667", -- "heavy land": the ball landing off a hard spike (Thunder, 130+ km/h)
@@ -65,15 +65,16 @@ Assets.Sounds = {
 	Serve = "",
 	Slide = "",
 	Squeak = { "93928767284165", "121230189767569" }, -- "squeak 1" / "SQUEAK 2": a double approach's run-up starts
-	GuardBreak = "",
+	GuardBreak = "9114592102", -- Pro Sound Effects: glass breaks
 	-- the score blast where a point lands (VFXController's celebrate; the owner's uploads)
-	ScoreImpact = "", -- a huge cinematic hit: a deep boom with a crack
-	ScoreShockwave = "", -- a low whoosh into a rumble: the rings across the floor
-	ScoreDebris = "", -- crunchy rubble: the floor chunks flying
+	ScoreImpact = "91288569991875", -- Ground Slam 3 Explosion, Impact (the owner's pick)
+	ScoreShockwave = "9125484367", -- Pro Sound Effects: deep reverberant boom, rumbling tail
+	ScoreDebris = "120212342534790", -- Debris Explosion + Small Rocks Rumbling 2 (the owner's pick)
 	ScoreSparkle = "", -- a bright shimmer as it fades
 	AceStinger = "", -- a short riser into a hit: an ace
-	StuffSlam = "", -- a heavy metallic slam: a stuff block
-	Whistle = "",
+	ScoreThunder = "117922524763696", -- lightning-strike-cool (the owner's pick): the Thunderbolt score effect
+	StuffSlam = "9120256647", -- Pro Sound Effects: metal impact
+	Whistle = "9118113825", -- Pro Sound Effects: referee whistle, single blast
 	Timeout = "",
 	UIClick = "101200067239382", -- "UIClick": any button
 	UIHover = "", -- the pointer over a button
@@ -82,10 +83,12 @@ Assets.Sounds = {
 	CrowdLoop = "",
 	CrowdCheer = "133064028732021", -- "end of rally cheer": a point won by a kill, ace, stuff or break
 	CrowdServe = "140530824120891", -- "crowd hype": the crowd swells as the server tosses
-	CrowdGasp = "",
+	CrowdGasp = "86816529419846", -- crowd ooh (the owner's upload)
 	Music = "",
 	ImpactFrame = "",
-	Blades = "", -- Counter Edge: blades out and back in
+	Blades = "", -- Counter Edge: blades out and back in (the volley along her released spike)
+	CounterParry = "137580087669661", -- Parry3 (the owner's pick)
+	CounterReturn = "137628815514180", -- sword-slash-and-swing (the owner's pick)
 	FeralFull = "", -- Feral Leap: the charge is full (let go now)
 	FeralLeap = "", -- Feral Leap: the leap off the floor (louder the fuller the charge)
 	RallyCry = "",
@@ -130,6 +133,17 @@ Assets.SoundFiles = {
 	["72734883374430"] = { gain = 1.8 }, -- "UIOpenLong": peak 108
 	["75496570740002"] = { gain = 0.85 }, -- "UISelect": peak 244
 	-- "UIConfirm" (140365614756879) peaks at 219: as it is
+	-- Creator Store picks (2026-10-04): starts and gains from a playtest (peak to about 400 at 0.5)
+	["91288569991875"] = { gain = 1.15 }, -- ScoreImpact: peak 349
+	["120212342534790"] = { gain = 1.1 }, -- ScoreDebris: peak 351
+	["137628815514180"] = { start = 0.1, gain = 1.1 }, -- CounterReturn: 0.11 s in, peak 360
+	["117922524763696"] = { gain = 0.5 }, -- ScoreThunder: peak 798
+	["86816529419846"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491
+	["9114592102"] = { start = 0.74, gain = 2.3 }, -- GuardBreak: 0.75 s silence, peak 174
+	["9118113825"] = { start = 0.1, gain = 1.8 }, -- Whistle: peak 217
+	["9119335569"] = { gain = 6 }, -- Block: peak 47
+	["9120256647"] = { start = 0.12, gain = 1.2 }, -- StuffSlam: peak 328
+	-- Parry3, Lightning Bolt and the shockwave boom start at once and peak near 400: as they are
 }
 
 -- The per-upload entry for a sound value (an id in any form, or a Sound's SoundId), or nil.

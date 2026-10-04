@@ -1495,7 +1495,12 @@ local function onHit(snap)
 		counterBlades(model, COUNTER, math.clamp((meta.counterGain or 50) / 100, 0, 1)) -- more and further the harder their spike
 		VFXController.popup(pos + Vector3.new(0, 2.2, 0), "Counter +" .. math.floor(meta.counterGain + 0.5), COUNTER, 0.85)
 		if close and mods.AudioController then
-			mods.AudioController.play("Blades", { volume = 0.7 })
+			-- the parry as the blades burst out, then the sword woosh as they fly back into her (the
+			-- owner: "play parry first then the sword woosh into ines"; counterBlades: out, a hold of
+			-- 0.22 s, back)
+			local s = math.clamp((meta.counterGain or 50) / 100, 0, 1)
+			mods.AudioController.play("CounterParry", { volume = 0.8, pos = pos })
+			task.delay(0.18 + 0.06 * s + 0.22, mods.AudioController.play, "CounterReturn", { volume = 0.7, pos = pos })
 		end
 	end
 
@@ -1760,6 +1765,9 @@ local function thunderbolt(pos, tint, k)
 		prev = nextP
 	end
 	Fx.play("ScoreThunderbolt", pos, { color = color, scale = k })
+	if mods.AudioController then
+		mods.AudioController.play("ScoreThunder", { pos = pos })
+	end
 	if near(pos) then
 		VFXController.flash(0.4, 0.25)
 		mods.CameraController.shake(0.6)
