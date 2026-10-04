@@ -7,12 +7,16 @@
 --   ("give", username, grant)  -> VP, Gold, lucky spins and characters to anyone by username (or
 --                                 user id)
 --                                 (ProfileService.giveUser: now, or through their mail)
+--   ("server")                 -> the admin alone into a new reserved server, to try lobbies across
+--                                 servers (Config.Lobby.Global) with someone who stays behind
 -- Events are kept in a DataStore (a server that starts later reads them, and every server reads
 -- them again each PollInterval) and pushed at once over MessagingService, as are announcements
 -- and the "open your mail" pings for gifts. The running ones are ReplicatedStorage attributes
 -- (Event_VP, Event_Gold: the unix time each ends, 0 when off) for the menus.
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
 local DataStoreService = game:GetService("DataStoreService")
 local MessagingService = game:GetService("MessagingService")
 local TextService = game:GetService("TextService")
@@ -209,6 +213,27 @@ local function onAdmin(plr, op, a, b)
 			else
 				reply(plr, why or "That didn't work.")
 			end
+		end)
+	elseif op == "server" then
+		if RunService:IsStudio() then
+			reply(plr, "Teleports don't work in Studio: try it in the live game.")
+			return
+		end
+		task.spawn(function()
+			local ok, code = pcall(function()
+				return TeleportService:ReserveServer(game.PlaceId)
+			end)
+			if not ok or type(code) ~= "string" then
+				reply(plr, "Couldn't open a server: " .. tostring(code))
+				return
+			end
+			reg.ProfileService.save(plr) -- the new server loads what this one saved
+			local options = Instance.new("TeleportOptions")
+			options.ReservedServerAccessCode = code
+			local sent, err = pcall(function()
+				TeleportService:TeleportAsync(game.PlaceId, { plr }, options)
+			end)
+			reply(plr, sent and "Taking you to a new server..." or ("The teleport failed: " .. tostring(err)))
 		end)
 	end
 end

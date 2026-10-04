@@ -2,8 +2,11 @@
 -- holds the lobbies and the menus draw them; neither decides anything this module doesn't.
 --   * a lobby has a host, a mode (1v1 to 3v3), a privacy, "fill with bots", a bot level and two
 --     sides (Home, Away) of up to `mode` players each
---   * Public lobbies are open to anyone in the server; Friends lobbies are only seen and joined
---     by the host's Roblox friends; Private lobbies are listed with a lock and need the password
+--   * Public lobbies are open to anyone (in any server, Config.Lobby.Global); Friends lobbies
+--     are only seen and joined by the host's Roblox friends; Private lobbies are listed with a
+--     lock and need the password
+--   * other servers see a lobby as its view (Lobbies.view: no password) and list it, and Quick
+--     Match goes to a fuller queue in another server (Lobbies.pickQuickRemote)
 --   * with "fill with bots" the host can start any time (bots take the empty spots); without it
 --     both sides have to be full
 --   * a lobby plays on the court it picked, or on the next court in the rotation
@@ -333,6 +336,127 @@ function Lobbies.import(data, id)
 		end
 	end
 	return l
+end
+
+------------------------------------------------------------------------------------------
+-- across servers (Config.Lobby.Global): a lobby as the other servers see it
+------------------------------------------------------------------------------------------
+
+-- The lobby as plain data for the other servers (the shared list and its host's messages): the
+-- settings, state, countdown and members with their names (nameOf(userId)). Never the password.
+-- The server adds `v`, its version (it counts up with every change).
+function Lobbies.view(l, nameOf)
+	local v = { mode = l.mode, privacy = l.privacy, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, quick = l.quick == true, state = l.state, host = l.host, hostName = l.hostName, startsAt = l.startsAt, Home = {}, Away = {} }
+	for _, side in ipairs(SIDES) do
+		for _, u in ipairs(l[side]) do
+			table.insert(v[side], { id = u, name = nameOf(u) })
+		end
+	end
+	return v
+end
+
+local function viewList(view, side)
+	local list = type(view) == "table" and view[side]
+	return type(list) == "table" and list or {}
+end
+
+-- A view as one string in a fixed order: the same lobby gives the same string (JSON's key order
+-- isn't promised), so a server knows when it changed.
+function Lobbies.viewKey(view)
+	local parts = {}
+	for _, k in ipairs({ "mode", "privacy", "fill", "botTier", "court", "points", "winBy", "sets", "timeouts", "quick", "state", "host", "hostName", "startsAt" }) do
+		table.insert(parts, tostring(view[k]))
+	end
+	for _, side in ipairs(SIDES) do
+		table.insert(parts, side)
+		for _, m in ipairs(viewList(view, side)) do
+			table.insert(parts, tostring(m.id) .. "=" .. tostring(m.name))
+		end
+	end
+	return table.concat(parts, "|")
+end
+
+-- The side a player sits on in a view, or nil.
+function Lobbies.viewSide(view, userId)
+	for _, side in ipairs(SIDES) do
+		for _, m in ipairs(viewList(view, side)) do
+			if type(m) == "table" and m.id == userId then
+				return side
+			end
+		end
+	end
+	return nil
+end
+
+function Lobbies.viewCount(view)
+	return #viewList(view, "Home") + #viewList(view, "Away")
+end
+
+-- What a player sees of another server's lobby in the list (Lobbies.summary of a view); `id` is
+-- its global id.
+function Lobbies.remoteSummary(view, gid, viewerId)
+	local mode = tonumber(view.mode) or 1
+	return {
+		id = gid,
+		host = view.host,
+		hostName = type(view.hostName) == "string" and view.hostName or "Host",
+		mode = mode,
+		privacy = view.privacy,
+		locked = view.privacy == "Private",
+		fill = view.fill == true,
+		botTier = view.botTier,
+		court = view.court,
+		points = view.points,
+		winBy = view.winBy,
+		sets = view.sets,
+		timeouts = view.timeouts,
+		count = Lobbies.viewCount(view),
+		capacity = mode * 2,
+		state = view.state,
+		quick = view.quick == true,
+		mine = Lobbies.viewSide(view, viewerId) ~= nil,
+		remote = true,
+	}
+end
+
+-- Your lobby when it's another server's (the list's `mine`): "Joining" until its host's server
+-- says yes. Never yours to host: a lobby's host is always in its own server.
+function Lobbies.remoteMine(view, gid, viewerId, pending)
+	local s = Lobbies.remoteSummary(view, gid, viewerId)
+	s.isHost = false
+	s.side = Lobbies.viewSide(view, viewerId)
+	s.startsAt = tonumber(view.startsAt)
+	if pending then
+		s.state = "Joining"
+	end
+	for _, side in ipairs(SIDES) do
+		s[side] = {}
+		for _, m in ipairs(viewList(view, side)) do
+			if type(m) == "table" then
+				table.insert(s[side], { id = m.id, name = type(m.name) == "string" and m.name or "...", host = m.id == view.host })
+			end
+		end
+	end
+	return s
+end
+
+-- Quick Match across servers. `best` is this server's own pick (Lobbies.pickQuick, or nil) and
+-- `others` the other servers' lobbies ({ gid, view }). Returns the gid of a quick lobby elsewhere
+-- that has more players than `best` (the fullest; on a tie the one starting first) and at least
+-- `lead` seconds before it starts, or nil to stay in this server.
+function Lobbies.pickQuickRemote(best, others, mode, now, lead)
+	local pick, pickN, pickAt = nil, best and Lobbies.count(best) or 0, math.huge
+	for _, o in ipairs(others) do
+		local v = o.view
+		if type(v) == "table" and v.quick == true and v.state == "Open" and tonumber(v.mode) == mode and v.privacy == "Public" then
+			local n = Lobbies.viewCount(v)
+			local at = tonumber(v.startsAt) or 0
+			if n < mode * 2 and at - now >= lead and (n > pickN or (pick ~= nil and n == pickN and at < pickAt)) then
+				pick, pickN, pickAt = o.gid, n, at
+			end
+		end
+	end
+	return pick
 end
 
 -- AFK: add `dt` of idle time. Input resets it; it only builds while the ball is live. Returns

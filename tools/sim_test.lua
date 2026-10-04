@@ -1021,6 +1021,36 @@ do
 	check(pb.court == "Beach", "a lobby's court survives the trip to its own server")
 	local back = Lobbies.import(Lobbies.export(l), 99)
 	check(back.mode == 2 and back.password == "spike99" and back.expected[100] == "Home" and back.expected[300] ~= nil and Lobbies.count(back) == 0 and Lobbies.import("junk") == nil, "a lobby survives the trip to its own server")
+	-- across servers (Config.Lobby.Global): the other servers' view of a lobby never has the
+	-- password; a seat in another server's lobby reads like one here; Quick Match goes to a fuller
+	-- queue elsewhere if there's time to get in, and stays here on a tie
+	local names = { [100] = "Ana", [200] = "Bo", [300] = "Cy", [400] = "Di" }
+	local view = Lobbies.view(l, function(u) return names[u] or "?" end)
+	check(view.password == nil and view.mode == l.mode and view.privacy == "Private" and Lobbies.viewCount(view) == Lobbies.count(l) and Lobbies.viewSide(view, 300) == Lobbies.teamOf(l, 300) and Lobbies.viewSide(view, 999) == nil and view.Home[1].name == "Ana",
+		"another server sees a lobby's settings and members, never its password")
+	local rs = Lobbies.remoteSummary(view, "job-a/7", 300)
+	local pend = Lobbies.remoteMine(view, "job-a/7", 555, true)
+	local seated = Lobbies.remoteMine(view, "job-a/7", 300, false)
+	check(rs.id == "job-a/7" and rs.remote and rs.mine and rs.locked and rs.capacity == 4 and rs.count == 4 and pend.state == "Joining" and not pend.isHost and seated.state == l.state and seated.side == Lobbies.teamOf(l, 300) and #seated.Home + #seated.Away == 4 and seated.Home[1].host == true,
+		"a lobby in another server lists and reads like one here (Joining until its server says yes)")
+	local now0 = 1000
+	local function qv(mode, n, startsIn, privacy)
+		local v = { mode = mode, quick = true, state = "Open", privacy = privacy or "Public", startsAt = now0 + startsIn, Home = {}, Away = {} }
+		for i = 1, n do
+			table.insert(i % 2 == 1 and v.Home or v.Away, { id = 900 + i, name = "p" })
+		end
+		return v
+	end
+	local lead = Config.Lobby.Global.QuickLead
+	local here1 = Lobbies.new(50, 1, "a", Lobbies.settings({ mode = 2 })); here1.quick = true; Lobbies.seat(here1, 1)
+	local here2 = Lobbies.new(51, 1, "a", Lobbies.settings({ mode = 2 })); here2.quick = true; Lobbies.seat(here2, 1); Lobbies.seat(here2, 2)
+	-- e: three but about to start; f: friends only; g: another mode; h: full
+	local elsewhere = { { gid = "b/1", view = qv(2, 1, 8) }, { gid = "c/1", view = qv(2, 2, 6) }, { gid = "d/1", view = qv(2, 2, 3) }, { gid = "e/1", view = qv(2, 3, lead / 2) }, { gid = "f/1", view = qv(2, 3, 9, "Friends") }, { gid = "g/1", view = qv(3, 4, 9) }, { gid = "h/1", view = qv(2, 4, 9) } }
+	local pickA = Lobbies.pickQuickRemote(here1, elsewhere, 2, now0, lead)
+	local pickB = Lobbies.pickQuickRemote(here2, elsewhere, 2, now0, lead)
+	local pickC = Lobbies.pickQuickRemote(nil, { elsewhere[1] }, 2, now0, lead)
+	check(pickA == "d/1" and pickB == nil and pickC == "b/1",
+		"Quick Match across servers: the fullest queue anywhere with time to get in (the one starting first on a tie); this server's own on a tie", string.format("%s / %s / %s", tostring(pickA), tostring(pickB), tostring(pickC)))
 	-- AFK: idle time only builds while the ball is live; input resets it
 	local idle, afk = 0, false
 	for _ = 1, 20 do idle, afk = Lobbies.idle(idle, 0.5, "Timeout", false) end

@@ -3650,7 +3650,7 @@ local function courtName(id)
 	return c and c.Name or "Rotation"
 end
 
-local STATE_TEXT = { Open = "Open", Queued = "Queued", Teleporting = "Starting", Arriving = "Starting", Playing = "Playing" }
+local STATE_TEXT = { Open = "Open", Queued = "Queued", Teleporting = "Starting", Arriving = "Starting", Playing = "Playing", Joining = "Joining" }
 
 -- Broadcast tabs: slanted plates, the picked one signal yellow with dark type, the rest dark with
 -- chalk type that turns yellow under the pointer. Returns the row and a setter(activeKey).
@@ -3810,7 +3810,7 @@ local function buildMatch()
 	make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local empty = Gui.label(browse, { Text = "No lobbies here yet. Create one, or use Quick Match.", TextSize = 18, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 20), TextXAlignment = Enum.TextXAlignment.Center })
 	local rows = {}
-	for i = 1, LC.MaxLobbies do
+	for i = 1, math.max(LC.MaxLobbies, LC.Global.ListMax) do
 		local r = Gui.card(list, { Size = UDim2.new(1, -10, 0, 72), LayoutOrder = i, Visible = false })
 		local host = Gui.label(r, { Text = "", display = true, TextSize = 24, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(0.5, 0, 0, 30), Position = UDim2.fromOffset(18, 8) })
 		local detail = Gui.label(r, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.new(0.6, 0, 0, 20), Position = UDim2.fromOffset(18, 42) })
@@ -4048,6 +4048,8 @@ local function lobbyStatus(mine)
 		return pos <= 1 and "Next up on the court..." or string.format("Waiting for the court (%d ahead)", pos - 1)
 	elseif mine.state == "Teleporting" then
 		return "Taking you to your own server..."
+	elseif mine.state == "Joining" then
+		return "Joining a lobby in another server..."
 	elseif mine.state == "Arriving" then
 		return "Waiting for everyone to arrive..."
 	elseif mine.state == "Playing" then
@@ -4094,7 +4096,7 @@ local function refreshMatch()
 		if l then
 			shownRows = shownRows + 1
 			row.host.Text = l.quick and ("Quick Match " .. l.mode .. "v" .. l.mode) or (l.hostName .. "'s Lobby")
-			row.detail.Text = string.format("%dv%d   %s   %s   Bots %s   %s%s", l.mode, l.mode, PRIVACY_TEXT[l.privacy] or l.privacy, l.fill and "Bots fill" or "No bots", l.botTier, l.quick and "Rotation" or courtName(l.court), l.quick and "" or ("   " .. rulesLine(l)))
+			row.detail.Text = string.format("%dv%d   %s   %s   Bots %s   %s%s%s", l.mode, l.mode, PRIVACY_TEXT[l.privacy] or l.privacy, l.fill and "Bots fill" or "No bots", l.botTier, l.quick and "Rotation" or courtName(l.court), l.quick and "" or ("   " .. rulesLine(l)), l.remote and "   Another server" or "")
 			row.count.Text = string.format("%d/%d", l.count, l.capacity)
 			row.stateLabel.Text = STATE_TEXT[l.state] or l.state
 			Gui.tint(row.state, l.state == "Open" and Color3.fromRGB(34, 150, 96) or Gui.NAVY_LIGHT)
@@ -4114,7 +4116,8 @@ local function refreshMatch()
 	Mt.setFill(form.fill)
 	Mt.cpw.Visible = form.privacy == "Private"
 	Mt.cpwLabel.Visible = Mt.cpw.Visible
-	Mt.privacyNote.Text = form.privacy == "Friends" and "Only your Roblox friends in this server see and join it." or (form.privacy == "Private" and "Listed with a lock: players need the password." or "Anyone in this server can join.")
+	local anyServer = lobbies.global and "in any server" or "in this server"
+	Mt.privacyNote.Text = form.privacy == "Friends" and ("Only your Roblox friends " .. anyServer .. " see and join it.") or (form.privacy == "Private" and "Listed with a lock: players need the password." or ("Anyone " .. anyServer .. " can join."))
 	Mt.fillNote.Text = form.fill and "Start any time: bots take the empty spots." or "Both teams must be full before you can start."
 	Mt.botValue.Text = form.botTier
 	Mt.botValue.TextColor3 = tierColor(form.botTier)
@@ -4143,6 +4146,8 @@ local function refreshMatch()
 		end
 		if mine.reserved then
 			table.insert(parts, "your own server")
+		elseif mine.remote then
+			table.insert(parts, "in another server (the match gets its own)")
 		end
 		Mt.info.Text = table.concat(parts, "   ")
 		Mt.status.Text = lobbyStatus(mine)
@@ -4154,7 +4159,7 @@ local function refreshMatch()
 				local who = members[s]
 				slot.userId = who and who.id or nil
 				if who then
-					slot.name.Text = who.name .. (who.id == player.UserId and "  (you)" or "")
+					slot.name.Text = who.name .. (who.id == player.UserId and "  (you)" or (who.away and "  (other server)" or ""))
 					slot.name.TextColor3 = who.id == player.UserId and Gui.SIGNAL or Gui.CHALK
 					slot.tag.Visible = who.host == true
 					slot.kick.Visible = mine.isHost and who.id ~= player.UserId and mine.state == "Open"
@@ -4170,7 +4175,7 @@ local function refreshMatch()
 		Mt.swap.Visible = open and not mine.quick
 		Mt.settings.Visible = open and mine.isHost and not mine.quick
 		Mt.start.Visible = open and mine.isHost and not mine.quick
-		Mt.leave.Visible = open or mine.state == "Queued"
+		Mt.leave.Visible = open or mine.state == "Queued" or mine.state == "Joining"
 		Mt.leaveLabel.Text = mine.quick and "Cancel queue" or "Leave lobby"
 	end
 end
@@ -4197,7 +4202,7 @@ local CARD_W, CARD_H, CARD_GAP = 290, 490, 18
 local function lobbyLine(mine)
 	if mine.state == "Queued" then
 		return "Waiting for the court"
-	elseif mine.state == "Teleporting" or mine.state == "Arriving" then
+	elseif mine.state == "Teleporting" or mine.state == "Arriving" or mine.state == "Joining" then
 		return "Joining..."
 	elseif mine.state == "Playing" then
 		return "Match in progress"
@@ -5082,6 +5087,11 @@ function Extra.buildAdmin()
 		if string.match(ann.Text, "%S") then
 			Net.get("Admin"):FireServer("announce", ann.Text)
 		end
+	end)
+	-- testing lobbies across servers: you alone into a new server, whoever's with you stays here
+	local newServer = hairButton(left, { Position = UDim2.fromOffset(0, 548), Size = UDim2.fromOffset(480, 44), ZIndex = 22 }, "New server: test lobbies across servers", 17)
+	onClick(newServer, function()
+		Net.get("Admin"):FireServer("server")
 	end)
 	-- right: give a player VP, Gold, lucky spins and characters
 	local right = make("Frame", { Position = UDim2.fromOffset(544, 92), Size = UDim2.fromOffset(508, 600), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)

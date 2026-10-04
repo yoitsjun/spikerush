@@ -946,7 +946,8 @@ Config.Match = {
 }
 
 -- Custom lobbies (the Lobbies module has the rules). A lobby plays on this server's court when
--- it's free; otherwise it gets its own reserved server (in Studio it waits for the court).
+-- it's free; otherwise it gets its own reserved server (in Studio it waits for the court). One
+-- with players from other servers (Global) always gets its own.
 Config.Lobby = {
 	Privacy = { "Public", "Friends", "Private" },
 	PasswordMin = 3,
@@ -955,6 +956,33 @@ Config.Lobby = {
 	QuickStartTime = 10, -- a Quick Match lobby starts on its own this long after it opens
 	ArriveTimeout = 20, -- a teleported lobby waits this long for its players in the new server
 	ReservedServers = true,
+	-- Across servers (the owner: "make queues global throughout servers, same with lobbies"):
+	-- every server lists its open lobbies in a MemoryStore sorted map (Map), so the lobby list
+	-- and Quick Match see every server's. A lobby stays in its host's server; a player elsewhere
+	-- takes a remote seat (the two servers talk over MessagingService, a topic per server: Inbox
+	-- + its JobId), and when it starts everyone goes to one reserved server. Studio keeps its own
+	-- map (MemoryStore keeps Studio and live apart) and can't teleport. Off: lobbies stay per server.
+	Global = {
+		Enabled = true,
+		Map = "SpikeRushLobbies",
+		Inbox = "SpikeRushLobby_",
+		Format = 1, -- entries and messages of another format are left alone (servers on old code)
+		Write = 1, -- s: a changed lobby's entry is rewritten at most this often
+		Refresh = 20, -- s: and at least this often
+		Expire = 60, -- s: an entry nobody rewrites is gone after this (its server stopped)
+		LaunchKeep = 45, -- s: a started lobby's entry (with its server's code) stays this long
+		Read = 4, -- s: how often a server with anyone in the menus reads the list
+		ReadPerEntry = 0.05, -- s: plus this per lobby listed (fewer reads when there are many)
+		MaxRead = 100, -- lobbies read at most
+		ListMax = 30, -- rows in a player's list (this server's lobbies first)
+		QuickFresh = 1.5, -- s: Quick Match reads the list again when it's older than this
+		QuickLead = 2, -- s: a Quick Match elsewhere is only joined with this long left before it starts
+		JoinWait = 6, -- s: a join the host's server hasn't answered by then fails
+		Keep = 8, -- s: a server tells each host it still has its players
+		Watch = 3, -- s: and reads the lobbies they sit in
+		SeatLease = 25, -- s: a remote seat with no word from its server is let go
+		MessageMax = 950, -- bytes (MessagingService takes 1 kB a message)
+	},
 }
 
 -- Courts: where a match is played. The play area is the same everywhere (Config.Court); a
