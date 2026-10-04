@@ -437,6 +437,8 @@ Config.Cosmetics = {
 		{ Key = "Scissor", Name = "Scissor Kick", Rarity = "Rare" },
 		{ Key = "Hammer", Name = "Double Hammer", Rarity = "Epic" },
 		{ Key = "Whirl", Name = "Whirlwind", Rarity = "Legendary" },
+		-- the owner: "yuji nishida's circular arm swing": one continuous loop of the hitting arm
+		{ Key = "Circular", Name = "Circular Swing", Rarity = "Legendary" },
 		-- the owner: "a 360 jump or a bicycle kick" (AnimationController's Air_ and Swing_ clips)
 		{ Key = "Tornado", Name = "Tornado 360", Rarity = "Legendary" },
 		{ Key = "Bicycle", Name = "Bicycle Kick", Rarity = "Mythic" },
