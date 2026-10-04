@@ -162,11 +162,13 @@ In 3v3 the roles are wing spiker, middle blocker and setter, and humans take win
 
 Press **Match** on Home:
 
-- **Quick Match** (1v1, 2v2 or 3v3) drops you into the fullest open public quick lobby of that mode, or opens one. It starts on its own after 10 s (or when full), with bots in the empty spots. **Cancel queue** leaves it.
-- **Lobbies** lists the lobbies in the server you can see: public ones, friends-only ones if you're the host's friend, and private ones with a lock (they ask for the password).
+- **Quick Match** (1v1, 2v2 or 3v3) drops you into the fullest open public quick lobby of that mode in any server, or opens one. It starts on its own after 10 s (or when full), with bots in the empty spots. **Cancel queue** leaves it.
+- **Lobbies** lists the lobbies you can see in every server (this server's first, marked "Another server" otherwise): public ones, friends-only ones if you're the host's friend, and private ones with a lock (they ask for the password).
 - **Create Lobby**: the mode, who can join (Public, Friends only, or Private with a 3 to 12 character password), Fill with bots (on: start any time; off: both teams must be full) and the bot level. In your lobby you see both teams, can switch sides, and the host can remove players, change the settings and press Start.
 
 A lobby plays on this server's court when it's free. When the court is busy it gets its own server: everyone in it is teleported to a reserved server with the lobby's settings, and after the match the lobby stays together there for a rematch. In Studio (no teleports) lobbies take turns on the court. Only lobby members play; everyone else stays in the menus.
+
+**Across servers** (`Config.Lobby.Global`): every server lists its open lobbies in a shared MemoryStore list, so the lobby list and Quick Match see every server. A lobby stays in its host's server and a player from another server takes a remote seat (their name shows "(other server)"); when it starts, everyone from every server is teleported to one reserved server for the match. The host is always someone in the lobby's own server: when nobody is left there the lobby closes, and a Quick Match finds its other players a new queue. In Studio the list is Studio's own and nothing teleports, so a lobby with remote players plays without them. The admin panel's **New server** button sends you alone to a fresh server, to try it with someone who stays behind.
 
 If a player leaves, or gives no input for 12 s while the ball is live, an AI takes their spot on the spot: the same character, build and ability in the player's own avatar, marked "(AI)". An AFK player gets a Rejoin banner on Home and takes the spot back at the next serve. A match with no humans left (and nobody who could rejoin) is called off. The MVP of a finished match earns 15 extra V Points.
 
