@@ -2279,7 +2279,7 @@ end
 -- Tsunami (Legendary): a curling wall of water (the Blender wave, the water texture) rears up
 -- behind the scorer's end and sweeps the whole court, spray (the foam flipbook) blowing off its
 -- crest, leaving the floor awash behind it; it bursts over the spot and drains away.
-local WAVE_FORWARD = -1 -- the imported wave's curl faces -z (Blender's +y)
+local WAVE_FORWARD = 1 -- the imported wave's curl faces +z (checked in Studio)
 local function tsunami(pos, tint, dirZ, k)
 	local color = tint or Color3.fromRGB(60, 170, 255)
 	local C = Config.Court
@@ -2329,10 +2329,10 @@ local function tsunami(pos, tint, dirZ, k)
 		local face = CFrame.new(x0, y0, z) * CFrame.Angles(0, dirZ * WAVE_FORWARD > 0 and 0 or math.pi, 0)
 		if wave:IsA("MeshPart") then
 			local bob = math.sin(e * 6) * 0.04
-			wave.Size = Vector3.new(width, h, h * 1.15)
+			wave.Size = Vector3.new(width, h, h * 1.55)
 			wave.CFrame = face * CFrame.new(0, h / 2, 0) * CFrame.Angles(bob, 0, 0)
 			wave.Transparency = 0.2 + 0.8 * fall
-			back.Size = Vector3.new(width * 1.04, h * 0.7, h * 1.4)
+			back.Size = Vector3.new(width * 1.04, h * 0.7, h * 1.1)
 			back.CFrame = face * CFrame.new(0, h * 0.35, h * 0.35 * WAVE_FORWARD * -1)
 			back.Transparency = 0.55 + 0.45 * fall
 		else
