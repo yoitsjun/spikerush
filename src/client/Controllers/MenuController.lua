@@ -1775,7 +1775,7 @@ end
 
 -- The recruit's glow: red when a Mythic is inside, gold for a Legendary, else pale.
 local MYTHIC = Config.Rarity.PullGlow.Mythic
-local SPARK = { mythic = MYTHIC, gold = Color3.fromRGB(255, 214, 90) }
+local SPARK = { mythic = MYTHIC, gold = Color3.fromRGB(255, 214, 90), green = Config.TierColors["S-"] }
 
 local function sparkleBurst(tone)
 	local S = ui.seq
@@ -2085,15 +2085,20 @@ local function playSequence(reveal)
 	local S = ui.seq
 	local kind, items = reveal.banner, reveal.items or {}
 	local colors, strength, best = {}, {}, 1
+	local realGold = false -- a Legendary inside that isn't an S- (the owner: "change the s- recruit to green")
 	for i, it in ipairs(items) do
 		local _, _, rank, color = pullInfo(kind, it)
 		colors[i] = color
 		-- a Mythic glows hardest (and pulses red), a Legendary next
 		strength[i] = rank >= 5 and 1.3 or (rank >= 4 and 1 or (rank == 3 and 0.65 or (rank == 2 and 0.4 or 0.2)))
 		best = math.max(best, rank)
+		if rank == 4 and color ~= Config.TierColors["S-"] then
+			realGold = true
+		end
 	end
 	local gold = best >= 4
-	local tone = best >= 5 and "mythic" or (gold and "gold" or nil)
+	-- red for a Mythic, gold for a Legendary, green when the best inside is an S-
+	local tone = best >= 5 and "mythic" or (gold and (realGold and "gold" or "green") or nil)
 	-- the recruit has the screen to itself: no menus, panels or buttons behind it
 	for _, f in pairs(ui.pages) do
 		f.Visible = false
