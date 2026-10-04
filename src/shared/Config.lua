@@ -708,16 +708,19 @@ Config.TierColors = {
 -- Abilities come with a character (the Roster module). S+ wing spikers: Thunder Spiker, Azure Dragon or Feral Leap.
 -- S characters have their role's ability. Everyone else has none.
 Config.Abilities = {
-	-- Everyone swings once a jump (the owner: "make it so characters can only swing once in the
-	-- air except yejun who has a double swing ability, with enhanced power on the second swing"):
-	-- Thunder Spiker gets Swings, and the second hits SecondBoost harder.
+	-- Double Swing (the owner: "yejun who has a double swing ability, with enhanced power on the
+	-- second swing", then "remove the one swing limitation but keep the double swing buff on
+	-- yejun"): anyone may swing again in a jump, and his second swing hits SecondBoost harder.
+	-- Passives are shown as rows of their own on the Players screen.
 	Thunder = {
 		Name = "Thunder Spiker",
 		Tier = "S+",
-		Blurb = "Hit the ball above 4.00 m and it becomes a lightning spike. You can swing twice in one jump, and the second swing hits 18% harder.",
+		Blurb = "Hit the ball above 4.00 m and it becomes a lightning spike.",
 		Color = Color3.fromRGB(255, 225, 77),
-		Swings = 2,
 		SecondBoost = 0.18,
+		Passives = {
+			{ Name = "Double Swing", Blurb = "Swing again in the same jump: the second swing hits 18% harder." },
+		},
 	},
 	Azure = {
 		Name = "Azure Dragon",
@@ -877,14 +880,20 @@ Config.Abilities = {
 		Name = "Plunge Spin",
 		Tier = "S",
 		Role = "WS",
-		Blurb = "Your spikes spin hard: they shoot over the net flat and fast, then turn and plunge almost straight down into the front of their court, with a boom.",
+		Blurb = "Your spikes spin hard: they shoot over the net flat and fast, then turn and plunge, with a boom. Met out in front of you they fly on and dive near their back line; met further back they turn down at once, short and steep.",
 		Color = Color3.fromRGB(255, 60, 90),
 		MinContact = 0.15, -- nearly any spike plunges
 		MinOverNet = 0.55 * M, -- met at least this far over the tape (lower: a usual spike)
-		DiveAngle = 72, -- degrees below level after the turn
+		-- where it lands follows the contact like a usual spike's, the other way round (the owner:
+		-- "further back makes it dip quicker while being more in front make it travel further and dip
+		-- near the back court"): met at the hand or behind it lands LandShort in at DiveAngleShort;
+		-- met SpikeDzShort ahead of the hand it lands BackMargin inside the end line at DiveAngleDeep
+		DiveAngleShort = 74, -- degrees below level after the turn
+		DiveAngleDeep = 60,
+		LandShort = 1.6 * M,
+		BackMargin = 0.8 * M,
 		TurnDrop = 0.35 * M, -- the flat part drops this much from the contact to the turn
 		TurnOverNet = 0.5 * M, -- and the turn is never lower than this over the tape
-		LandDepth = { 1.6 * M, 3.0 * M }, -- where it lands, past the net
 		TurnMin = 0.3 * M, -- the turn is at least this far past the net
 		FlatGravity = 0.25, -- gravity x this on the flat part
 		DiveSpeed = 1.0, -- the plunge keeps this much of the speed

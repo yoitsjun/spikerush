@@ -629,7 +629,7 @@ local function allModels()
 	local list = {}
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr.Character then
-			table.insert(list, { model = plr.Character, name = plr.DisplayName, me = plr == player })
+			table.insert(list, { model = plr.Character, name = plr.DisplayName, me = plr == player, plr = plr })
 		end
 	end
 	local bots = workspace:FindFirstChild("Bots")
@@ -642,11 +642,28 @@ local function allModels()
 	return list
 end
 
+-- People who aren't in this match (in the menus, or benched) stand at the lobby spawn behind the
+-- court (the owner: "people in the lobby appear off to the side"): while you play, they're hidden
+-- on your screen, and their name tags too.
+local function setHidden(m, on)
+	ui.hidden = ui.hidden or {}
+	ui.hidden[m] = on or nil
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") or d:IsA("Decal") then
+			d.LocalTransparencyModifier = on and 1 or 0
+		end
+	end
+end
+
 local function refreshTags()
 	local seen = {}
 	for _, info in ipairs(allModels()) do
 		local m = info.model
 		seen[m] = true
+		local away = State.isPlaying and info.plr ~= nil and info.plr ~= player and State.entry("P_" .. tostring(info.plr.UserId)) == nil
+		if away or (ui.hidden or {})[m] then
+			setHidden(m, away) -- again every refresh while away: accessories load in late
+		end
 		local t = tags[m]
 		if not t or not t.bb.Parent then
 			t = tagFor(m)
@@ -670,6 +687,7 @@ local function refreshTags()
 				t.sub.Text = who .. abilityName
 			end
 			t.mark.Visible = info.me == true and State.isPlaying
+			t.bb.Enabled = not away
 		end
 	end
 	for m, t in pairs(tags) do

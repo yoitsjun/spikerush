@@ -281,6 +281,14 @@ local function planReceive(team, now, exclude)
 	local standZ = p.Z + side * Z.ReceiveForward
 	local who = closestMember(team, standZ, exclude)
 	local b = who and bots[who.id]
+	-- a human setter keeps their hands for the set (the owner: "when i play setter, the ai's dont
+	-- recieve"): the nearest bot takes the first ball instead of leaving it to them
+	if who and not b and who.role == "SE" and reg.TeamService.teamSize > 1 then
+		local taker = coverBot(team, standZ, exclude)
+		if taker then
+			who, b = taker.entity, taker
+		end
+	end
 	if who and not b then
 		-- a human's ball: the nearest bot shadows it and digs it if the human doesn't
 		b = coverBot(team, standZ, exclude)

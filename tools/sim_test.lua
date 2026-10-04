@@ -1717,8 +1717,8 @@ do
 	local _, other = spike(r, b, { stats = yj, ability = "Azure" }, { second = true })
 	local _, plain = spike(r, b, { stats = yj, ability = "Azure" })
 	local ratio = second.meta.kmh / first.meta.kmh
-	check(second.meta.secondSwing and not first.meta.secondSwing and math.abs(ratio - (1 + Config.Abilities.Thunder.SecondBoost)) < 0.01 and not other.meta.secondSwing and math.abs(other.meta.kmh - plain.meta.kmh) < 1e-6 and Config.Abilities.Thunder.Swings == 2,
-		"YeJun swings twice a jump and the second hits harder; nobody else gets one", string.format("%.0f -> %.0f km/h", first.meta.kmh, second.meta.kmh))
+	check(second.meta.secondSwing and not first.meta.secondSwing and math.abs(ratio - (1 + Config.Abilities.Thunder.SecondBoost)) < 0.01 and not other.meta.secondSwing and math.abs(other.meta.kmh - plain.meta.kmh) < 1e-6 and Config.Abilities.Thunder.Passives[1].Name == "Double Swing",
+		"YeJun's Double Swing: his second swing in a jump hits harder; nobody else's does", string.format("%.0f -> %.0f km/h", first.meta.kmh, second.meta.kmh))
 end
 
 print("== your own keys ==")
@@ -1773,8 +1773,16 @@ do
 	end
 	local depthIn = oppDepth(pp) / SPM
 	check(pl.meta.plunge and not nopl.meta.plunge and #pp.segs == 2 and pp.flags.dive ~= nil and not pp.flags.netTouch and (pp.flags.crossings or 0) == 1
-		and angleIn(pp) >= 60 and angleIn(pp) > angleIn(np) + 20 and depthIn >= 1.5 and depthIn <= 3.2 and pl.meta.kmh > nopl.meta.kmh,
-		"Plunge Spin: flat over the net, then a turn and a plunge into the front of their court", string.format("lands %.1f m in at %.0f degrees (a usual spike: %.1f m at %.0f), %.0f vs %.0f km/h", depthIn, angleIn(pp), oppDepth(np) / SPM, angleIn(np), pl.meta.kmh, nopl.meta.kmh))
+		and angleIn(pp) >= 55 and angleIn(pp) > angleIn(np) + 15 and pl.meta.kmh > nopl.meta.kmh,
+		"Plunge Spin: flat over the net, then a turn and a plunge", string.format("lands %.1f m in at %.0f degrees (a usual spike: %.1f m at %.0f), %.0f vs %.0f km/h", depthIn, angleIn(pp), oppDepth(np) / SPM, angleIn(np), pl.meta.kmh, nopl.meta.kmh))
+	-- the contact sets the depth: met out in front it flies on and dives near the back line, met at
+	-- the hand it turns down short; both stay in and steep
+	local _, frontHit = spike(sr, ballAt(sr, 2.6, 0), { stats = yeonho, ability = "Plunge" })
+	local _, backHit = spike(sr, ballAt(sr, -0.1, 0), { stats = yeonho, ability = "Plunge" })
+	local fp, bp = BallPhysics.buildPath(frontHit.launch), BallPhysics.buildPath(backHit.launch)
+	local fd, bd = oppDepth(fp) / SPM, oppDepth(bp) / SPM
+	check(frontHit.meta.plunge and backHit.meta.plunge and fd > bd + 3 and fd <= Config.Court.SideDepth / SPM and bd >= 1 and angleIn(fp) >= 50 and angleIn(bp) >= 65 and not fp.flags.netTouch and not bp.flags.netTouch,
+		"Plunge Spin's depth follows the contact: in front, near the back line; at the hand, short and steep", string.format("front %.1f m at %.0f degrees, back %.1f m at %.0f", fd, angleIn(fp), bd, angleIn(bp)))
 	local turn = pp.segs[2]
 	check(turn.p.Y > Config.Court.NetTop and -turn.p.Z * side > 0, "the turn comes past the net, over the tape", string.format("%.2f m high, %.2f m past", turn.p.Y / SPM, -turn.p.Z * side / SPM))
 	local mateus, junseo, yejun = Roster.get("mateus"), Roster.get("junseo"), Roster.get("yejun")

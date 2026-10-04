@@ -52,8 +52,8 @@ local ATTACK_SCALE = { Spike = 1, Serve = 1.1, Feint = 1.25 }
 
 local lastActionAt = -10
 local whiffUntil = 0
--- one swing a jump (the owner: "characters can only swing once in the air except yejun who has a
--- double swing ability, with enhanced power on the second swing"); the server counts them too
+-- swings this jump: as many as you like (the owner took the one-swing limit out again), but
+-- Thunder Spiker's second one in a jump hits harder (the server counts them too)
 local airSwings = 0
 local buffered = nil
 local stance = nil -- { t0, lastCheck, assist }
@@ -255,7 +255,26 @@ local function towardNetAxis()
 end
 
 -- Who a set is for: another human first, then the ace, then the quick.
-local function setTarget()
+local function setTarget(aim)
+	-- an aimed set (setter mode) goes to the teammate nearest where it comes down: you pick the
+	-- hitter by where you aim (the owner: "allow full setter mode control")
+	if aim and aim.depth then
+		local spotZ = State.mySide * aim.depth
+		local near, nearD = nil, math.huge
+		for _, e in ipairs(State.roster(State.myTeam)) do
+			if e.id ~= State.myId then
+				local m = Util.modelOf(e.id)
+				local root = m and m:FindFirstChild("HumanoidRootPart")
+				local d = root and math.abs(root.Position.Z - spotZ) or math.huge
+				if d < nearD then
+					near, nearD = e, d
+				end
+			end
+		end
+		if near then
+			return near.id
+		end
+	end
 	local best, bestScore = nil, -math.huge
 	for _, e in ipairs(State.roster(State.myTeam)) do
 		if e.id ~= State.myId then
@@ -486,19 +505,11 @@ local function fourthTouch(action, info, t, ball)
 	return true
 end
 
--- Swings this jump, and how many this character has (Thunder Spiker: two).
-local function swingLimit()
-	return State.myAbility() == "Thunder" and Config.Abilities.Thunder.Swings or 1
-end
-
--- A swing in the air uses the jump's one (two for Thunder Spiker); false: none left. The second
--- swing is marked so it hits harder.
+-- Count a swing in the air: from the second one in a jump it's marked (Thunder Spiker's hits
+-- harder: Config.Abilities.Thunder.SecondBoost).
 local function takeSwing(info, opts)
 	if info.grounded then
 		return true
-	end
-	if airSwings >= swingLimit() then
-		return false
 	end
 	airSwings = airSwings + 1
 	if airSwings >= 2 and opts then
@@ -508,10 +519,7 @@ local function takeSwing(info, opts)
 end
 
 local function tryAttack(action, info, opts)
-	if not takeSwing(info, opts) then
-		State.hint(swingLimit() > 1 and "Two swings a jump" or "One swing a jump")
-		return false
-	end
+	takeSwing(info, opts)
 	local now, ball = ballNow()
 	-- rules first, so a blocked touch says why instead of silently waiting
 	if action ~= "Serve" then
@@ -745,7 +753,7 @@ local function pressSpike(info)
 	end
 	if not State.isPlaying or State.phase() ~= "Rally" then
 		-- in the air out of a rally: an empty swing whenever you like (still one a jump)
-		if os.clock() >= whiffUntil and takeSwing(info, nil) then
+		if os.clock() >= whiffUntil and takeSwing(info, nil) then -- (always true: swings aren't limited)
 			whiff(info, attackPose("Spike"), nil)
 		end
 		return
@@ -880,7 +888,7 @@ local function doSet(info, aim)
 	elseif dir < 0 then
 		setType = "Back"
 	end
-	local opts = { setType = setType, targetId = setTarget() }
+	local opts = { setType = setType, targetId = setTarget(aim) }
 	if aim then
 		opts.aimDepth, opts.aimHeight = aim.depth, aim.height
 	end

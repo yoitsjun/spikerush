@@ -852,35 +852,51 @@ end
 
 -- Counter Edge: blades burst out of the receiver in the play plane, hang for a beat and slide
 -- back into the body (the spike's force goes into the meter, not the guard).
-local function counterBlades(model, color, count)
+-- Counter Edge: when she digs their spike, swords burst out of her across the court and fly
+-- back in (the owner: "swords fly out from her depending on the strength of the spike, then fly
+-- back in"). strength 0..1 (the meter the dig earned): more swords, flying further. Each sword is
+-- a blade and a crossguard from the pool, so a full burst is 20 swords, 40 short-lived parts.
+local function counterBlades(model, color, strength)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
 	if not hrp then
 		return
 	end
+	strength = math.clamp(strength or 0.5, 0, 1)
+	local count = 8 + math.floor(12 * strength + 0.5)
 	local from = hrp.Position + Vector3.new(0, 0.6, 0)
 	for i = 1, count do
-		local p = take(Enum.PartType.Block)
-		p.Color = color
-		local a = (i / count) * math.pi * 2 + math.random() * 0.35
-		local dir = Vector3.new((math.random() - 0.5) * 0.3, math.sin(a), math.cos(a)).Unit
-		local dist = 3.2 + math.random() * 1.8
-		p.Size = Vector3.new(0.1, 0.4, 2.6)
-		p.CFrame = CFrame.lookAt(from + dir * 0.6, from + dir * 2)
-		p.Transparency = 0.05
-		local out = TweenService:Create(p, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-			CFrame = CFrame.lookAt(from + dir * dist, from + dir * (dist + 1)),
-		})
+		-- spread around her in the plane the camera sees (along the court and up)
+		local a = (i / count) * math.pi * 2 + math.random() * 0.3
+		local dir = Vector3.new((math.random() - 0.5) * 0.2, math.sin(a), math.cos(a)).Unit
+		local dist = 4 + (8 + math.random() * 8) * (0.3 + 0.7 * strength) + 6 * strength
+		local blade = take(Enum.PartType.Block)
+		local guard = take(Enum.PartType.Block)
+		blade.Color, guard.Color = color, color
+		blade.Size = Vector3.new(0.12, 0.3, 3.4)
+		guard.Size = Vector3.new(0.12, 1.1, 0.2)
+		blade.Transparency, guard.Transparency = 0.05, 0.05
+		-- the blade's point leads; the guard sits near its back end
+		local function place(c, d)
+			local cf = CFrame.lookAt(c + d * 0.6, c + d * 2)
+			return cf, cf * CFrame.new(0, 0, 1.2)
+		end
+		local b0, g0 = place(from, dir)
+		blade.CFrame, guard.CFrame = b0, g0
+		local b1, g1 = place(from + dir * dist, dir)
+		local outInfo = TweenInfo.new(0.18 + 0.06 * strength, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+		local out = TweenService:Create(blade, outInfo, { CFrame = b1 })
+		TweenService:Create(guard, outInfo, { CFrame = g1 }):Play()
 		out.Completed:Connect(function()
-			task.delay(0.14, function()
-				-- back into wherever the body is now
+			task.delay(0.22, function()
+				-- back into wherever she is now
 				local c = (hrp.Parent and hrp.Position or from) + Vector3.new(0, 0.6, 0)
-				local back = TweenService:Create(p, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-					CFrame = CFrame.lookAt(c + dir * 0.3, c + dir * 1.3),
-					Size = Vector3.new(0.05, 0.2, 1.1),
-					Transparency = 0.7,
-				})
+				local b2, g2 = place(c, dir)
+				local backInfo = TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+				local back = TweenService:Create(blade, backInfo, { CFrame = b2, Transparency = 0.6 })
+				TweenService:Create(guard, backInfo, { CFrame = g2, Transparency = 0.6 }):Play()
 				back.Completed:Connect(function()
-					release(p)
+					release(blade)
+					release(guard)
 				end)
 				back:Play()
 			end)
@@ -1478,7 +1494,7 @@ local function onHit(snap)
 		VFXController.popup(pos + Vector3.new(0, 2, 0), "Turnabout!", tcol, 1.1)
 	end
 	if meta.counterGain then
-		counterBlades(model, COUNTER, 8)
+		counterBlades(model, COUNTER, math.clamp((meta.counterGain or 50) / 100, 0, 1)) -- more and further the harder their spike
 		VFXController.popup(pos + Vector3.new(0, 2.2, 0), "Counter +" .. math.floor(meta.counterGain + 0.5), COUNTER, 0.85)
 		if close and mods.AudioController then
 			mods.AudioController.play("Blades", { volume = 0.7 })

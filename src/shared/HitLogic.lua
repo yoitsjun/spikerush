@@ -729,11 +729,14 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		g = math.max(G * H.ServeGravityScale, flat * H.ServeTopspin)
 	end
 	if plunge then
-		-- the turn: past the net, a little under the contact; from there it plunges at DiveAngle
-		-- to land LandDepth past the net
-		local tan = math.tan(math.rad(PLUNGE.DiveAngle))
+		-- the turn: past the net, a little under the contact; from there it plunges
+		-- to land where the contact sends it (below)
+		-- met out in front it flies on and dives near their back line, met further back it turns
+		-- down at once (Config.Abilities.Plunge)
+		local front = clamp((dz - H.SpikeDzDeep) / (H.SpikeDzShort - H.SpikeDzDeep), 0, 1)
+		local tan = math.tan(math.rad(lerp(PLUNGE.DiveAngleShort, PLUNGE.DiveAngleDeep, front)))
 		local turnY = math.max(ball.Y - PLUNGE.TurnDrop, C.NetTop + PLUNGE.TurnOverNet)
-		local land = lerp(PLUNGE.LandDepth[1], PLUNGE.LandDepth[2], rng:NextNumber())
+		local land = lerp(PLUNGE.LandShort, deepest - PLUNGE.BackMargin, front) + (rng:NextNumber() - 0.5) * 0.5 * SPM
 		local turnZ = land - (turnY - R) / tan
 		if turnZ < PLUNGE.TurnMin then
 			turnZ = PLUNGE.TurnMin

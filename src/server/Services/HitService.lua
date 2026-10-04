@@ -25,8 +25,8 @@ local SET_TYPES = { Open = true, Quick = true, Back = true }
 local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true, Approach = true, Prowl = true, Leap = true, ProwlEnd = true }
 local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true, Approach = true, Prowl = true, Leap = true }
 local FERAL = Config.Abilities.Feral
--- One swing a jump (Thunder Spiker: Config.Abilities.Thunder.Swings): a player's attacks and empty
--- swings off the floor count until their root is back down (the Heartbeat in init)
+-- A player's attacks and empty swings off the floor count until their root is back down (the
+-- Heartbeat in init): Thunder Spiker's second one in a jump hits harder. Swings aren't limited.
 local airSwings = {} -- entity id -> swings this jump
 local SWING_ACTIONS = { Spike = true, Feint = true, Serve = true }
 local LEAP_SLACK = 0.15 -- gauge a leap may claim over the charge the server saw (network jitter)
@@ -262,25 +262,19 @@ function HitService.process(entity, input, opts)
 	return true
 end
 
-local function swingLimit(entity)
-	return entity.ability == "Thunder" and Config.Abilities.Thunder.Swings or 1
-end
-
 -- Off the floor: the root above where it stands.
 local function offFloor(entity)
 	local root = reg.TeamService.getRoot(entity)
 	return root ~= nil and root.Position.Y - reg.TeamService.groundY(entity) > 0.35
 end
 
--- Count a swing in the air. Returns whether it's allowed, and whether it's the jump's second.
+-- Count a swing in the air. Returns true (swings aren't limited), and whether it's the jump's
+-- second or later.
 local function countSwing(entity)
 	if not offFloor(entity) then
 		return true, false
 	end
 	local n = airSwings[entity.id] or 0
-	if n >= swingLimit(entity) then
-		return false, false
-	end
 	airSwings[entity.id] = n + 1
 	return true, n >= 1
 end

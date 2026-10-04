@@ -20,6 +20,7 @@
 --   ("spin", banner, 1|10, "lucky")  -> spend lucky spins instead of VP (Config.Lucky's odds)
 --   ("code", text)                   -> redeem a code, once each
 --   ("daily")                        -> claim the daily reward
+--   ("liked")                        -> "I liked the game" (their word: Roblox can't tell a game)
 --   ("favorited", bool)              -> what Roblox told the client: they favorited the game (its prompt
 --                                       said so), or no longer have (GetFavoriteAsync, with permission)
 --   ("group")                        -> check group membership again (after the join prompt)
@@ -810,6 +811,7 @@ function ProfileService.snapshot(plr)
 		pity = { normal = profile.pity.normal, top = profile.pity.top, lucky = profile.pity.lucky, owed = profile.pity.owed, pick = profile.pity.pick },
 		favor = profile.favor, -- boosted ("up") and lowered ("down") characters
 		favorited = profile.favorited == true or RunService:IsStudio(), -- codes and daily rewards need it
+		liked = profile.liked == true or RunService:IsStudio(), -- and the like (their word)
 		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP
 		boostLuck = math.max(0, (profile.boosts.Luck or 0) - os.time()), -- and on their 2x Luck
 		group = groupId(),
@@ -902,6 +904,9 @@ local function claimBlocker(plr, profile)
 	end
 	if not profile.favorited and not RunService:IsStudio() then
 		return "Favorite the game first"
+	end
+	if not profile.liked and not RunService:IsStudio() then
+		return "Like the game first"
 	end
 	return nil
 end
@@ -1517,13 +1522,25 @@ local function onRequest(plr, kind, a, b, c)
 			elseif kind == "daily" then
 				claimDaily(plr, profile)
 			elseif kind == "group" then
-				-- after Roblox's join prompt: ask again, so the menus show it
-				inGroup(plr, true)
+				-- after Roblox's join prompt: ask again, so the menus show it. Roblox keeps a player's
+				-- groups from when they joined the server, so a fresh join could read "not a member"
+				-- until they rejoined (the owner: "codes work, you just have to rejoin"): the prompt's
+				-- own answer (a = it said Joined or AlreadyMember) counts for this session
+				if not inGroup(plr, true) and a == true then
+					groupMember[plr] = true
+				end
 				push(plr)
 			else
 				giftStart(plr, a, b, c)
 			end
 		end)
+	elseif kind == "liked" then
+		-- the player says they liked the game (the owner: "add a seperate box for liking the game")
+		if not profile.liked then
+			profile.liked = true
+			dirty[plr] = true
+		end
+		push(plr)
 	elseif kind == "favorited" then
 		-- the client asked Roblox whether they've favorited the game (after its favorite prompt,
 		-- and whenever Codes or Daily opens)
