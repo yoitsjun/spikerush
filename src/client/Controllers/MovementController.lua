@@ -44,6 +44,11 @@ local leaping = nil -- { dir, carry, t0 } from a Feral Leap's takeoff until he l
 -- render step (from its own keys), so a jump set straight from an input handler is wiped before
 -- physics sees it; moveStep applies it after the control script instead.
 local queued = nil -- { height, kind }
+-- A jump the humanoid was told to take, until it's off the floor: now and then it ignores
+-- Humanoid.Jump (the owner: "i dash forward a tad and my arms swing back but i do not jump", and
+-- Dante's leap "cancelled"), so if it hasn't left within TAKEOFF_NUDGE it's made to.
+local takeoff = nil -- { t0, vz: the run-up's push along the court, if any }
+local TAKEOFF_NUDGE, TAKEOFF_GIVEUP = 0.03, 0.25
 
 -- Roblox's control module, if the place has one in PlayerScripts. This place doesn't, and this
 -- must never wait for it: a WaitForChild here froze every touch action that asked for the stick
@@ -78,7 +83,7 @@ local function onCharacter(c)
 	char = c
 	hum = c:WaitForChild("Humanoid")
 	hrp = c:WaitForChild("HumanoidRootPart")
-	slide, gather, run, charging, queued = nil, nil, nil, false, nil
+	slide, gather, run, charging, queued, takeoff = nil, nil, nil, false, nil, nil
 	prowlT0, leaping = nil, nil
 	hum.AutoRotate = false
 	-- state machine tweaks have to run on the client that owns the humanoid
@@ -429,6 +434,19 @@ local function moveStep()
 	local airborne = inAir()
 	local stats = State.myStats()
 
+	if takeoff then
+		local e = now - takeoff.t0
+		if hum:GetState() == Enum.HumanoidStateType.Jumping or hrp.AssemblyLinearVelocity.Y > 2 or e > TAKEOFF_GIVEUP or slide then
+			takeoff = nil -- off the floor (or long past it)
+		elseif e > TAKEOFF_NUDGE then
+			hum:ChangeState(Enum.HumanoidStateType.Jumping)
+			if takeoff.vz then
+				local v = hrp.AssemblyLinearVelocity
+				hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, takeoff.vz) -- and the run-up's push again
+			end
+		end
+	end
+
 	if knock and queued then
 		knock = nil -- jumping ends the skid
 		hum.WalkSpeed = baseWalk()
@@ -464,6 +482,7 @@ local function moveStep()
 		jumpKind = queued.kind
 		hum.JumpHeight = queued.height
 		hum.Jump = true
+		takeoff = { t0 = now }
 		queued = nil
 	end
 
@@ -490,11 +509,16 @@ local function moveStep()
 			hum.JumpHeight = baseJump()
 			hum.Jump = true
 			local v = hrp.AssemblyLinearVelocity
+			local vz = nil
 			if dir ~= 0 then
-				hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, dir * (P.ApproachBoost * stats.Approach + (carry or 0)))
+				vz = dir * (P.ApproachBoost * stats.Approach + (carry or 0))
 			elseif leapDir then
-				hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, leapDir * carry) -- an aimed leap: just its carry
+				vz = leapDir * carry -- an aimed leap: just its carry
 			end
+			if vz then
+				hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, vz)
+			end
+			takeoff = { t0 = now, vz = vz }
 			if carry then
 				leaping = { dir = leapDir or dir, carry = carry, t0 = now }
 			end
