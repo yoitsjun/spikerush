@@ -1973,10 +1973,11 @@ local function grade(tint, saturation, dur)
 	local cc = Instance.new("ColorCorrectionEffect")
 	cc.TintColor = tint
 	cc.Saturation = saturation
-	cc.Contrast = 0.25
+	cc.Contrast = 0.12
+	cc.Brightness = 0.06 -- the arenas are dark already; the tint alone would sink them
 	cc.Parent = Lighting
 	task.delay(dur * 0.6, function()
-		local tw = TweenService:Create(cc, TweenInfo.new(dur * 0.4), { TintColor = WHITE, Saturation = 0, Contrast = 0 })
+		local tw = TweenService:Create(cc, TweenInfo.new(dur * 0.4), { TintColor = WHITE, Saturation = 0, Contrast = 0, Brightness = 0 })
 		tw.Completed:Connect(function()
 			cc:Destroy()
 		end)
@@ -2176,8 +2177,9 @@ local function blackHole(pos, tint, k)
 	core.Size = Vector3.new(0.5, 0.5, 0.5)
 	core.CFrame = CFrame.new(center)
 	local rim = take(Enum.PartType.Ball)
+	rim.Material = Enum.Material.ForceField -- the photon ring: a lit edge, the black core seen through it
 	rim.Color = color
-	rim.Transparency = 0.55
+	rim.Transparency = 0
 	local well = fxMesh("Well")
 	if well then
 		well.Color = color
@@ -2189,9 +2191,9 @@ local function blackHole(pos, tint, k)
 	local swirl = decalDisc("Swirl", color)
 	local swirl2 = decalDisc("Swirl", WHITE)
 	local beams = {}
-	for i = 1, 12 do
-		local b = windBeam(holder, i % 2 == 0 and WHITE or color, 5 * k, 0.4, -3)
-		beams[i] = { b = b, a = i / 12 * math.pi * 2, tilt = (math.random() - 0.5) * 1.2 }
+	for i = 1, 9 do
+		local b = windBeam(holder, i % 2 == 0 and WHITE or color, 1.4 * k, 0.2, -3)
+		beams[i] = { b = b, a = i / 9 * math.pi * 2, tilt = (math.random() - 0.5) * 1.2 }
 	end
 	local bits = {}
 	for i = 1, 40 do
@@ -2212,7 +2214,7 @@ local function blackHole(pos, tint, k)
 		open = 1 - (1 - open) * (1 - open)
 		local collapse = math.clamp((e - (dur - 0.35)) / 0.35, 0, 1)
 		local s = open * (1 - collapse)
-		local tiltCF = CFrame.new(center) * CFrame.Angles(math.rad(-62), 0, math.rad(12))
+		local tiltCF = CFrame.new(center) * CFrame.Angles(0, 0, math.rad(68))
 		if well:IsA("MeshPart") then
 			well.Size = Vector3.new(26 * k * s, 8 * k * s, 26 * k * s) + Vector3.new(0.1, 0.1, 0.1)
 			well.CFrame = tiltCF * CFrame.Angles(0, e * 3, 0)
@@ -2239,7 +2241,7 @@ local function blackHole(pos, tint, k)
 			b.b.a0.WorldPosition = center + Vector3.new(math.cos(a) * r, b.tilt * r * 0.5, math.sin(a) * r)
 			b.b.a1.WorldPosition = center
 			b.b.beam.CurveSize0 = 10 * k
-			b.b.beam.Transparency = NumberSequence.new(0.2 + 0.8 * (1 - s))
+			b.b.beam.Transparency = NumberSequence.new(0.45 + 0.55 * (1 - s))
 		end
 		for _, b in ipairs(bits) do
 			local a = math.clamp((e - b.delay) / b.life, 0, 1)
@@ -2261,6 +2263,7 @@ local function blackHole(pos, tint, k)
 			swirl:Destroy()
 			swirl2:Destroy()
 			holder:Destroy()
+			rim.Material = Enum.Material.Neon
 			release(rim)
 			core.Material = Enum.Material.Neon
 			release(core)
@@ -2395,7 +2398,7 @@ local function tsunami(pos, tint, dirZ, k)
 			sheet:Destroy()
 		end
 	end)
-	grade(Color3.fromRGB(200, 230, 255), -0.15, dur)
+	grade(Color3.fromRGB(225, 240, 255), -0.1, dur)
 	if near(pos) then
 		mods.CameraController.shake(0.8)
 		task.delay(0.8, mods.CameraController.shake, 0.6)
