@@ -1811,6 +1811,254 @@ local function thunderbolt(pos, tint, k)
 	end
 end
 
+-- Five more score effects (the owner, with Volleyball Legends' as the idea: "a tornado...", "an
+-- explosion displaying stats, a black hole... a tsunami that covers the map, or like rocket league
+-- where the explosion alters the map for a bit"). Each takes the spot, the tint, the attack's
+-- direction along z and a scale.
+
+-- Speed Burst: the spike's km/h bursts out of the spot in huge gold numbers over a spiky star.
+local function speedBurst(pos, tint, k)
+	local meta = mods.BallRenderer and mods.BallRenderer.getMeta()
+	local kmh = math.floor(((meta and meta.kmh) or 0) + 0.5)
+	local color = tint or Color3.fromRGB(255, 205, 60)
+	starburst(pos + Vector3.new(0, 1, 0), WHITE, 22 * k)
+	Fx.play("Glints", pos + Vector3.new(0, 3, 0), { color = color, scale = 1.6 * k })
+	shards(pos + Vector3.new(0, 1.5, 0), color, math.floor(30 * k), 80)
+	local gui, anchor = billboard(pos + Vector3.new(0, 4 * k, 0), 1)
+	gui.Size = UDim2.fromOffset(520, 220)
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.GothamBlack
+	label.TextScaled = true
+	label.Text = kmh > 0 and tostring(kmh) or "POINT"
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextStrokeColor3 = Color3.fromRGB(90, 40, 0)
+	label.TextStrokeTransparency = 0
+	local grad = Instance.new("UIGradient")
+	grad.Color = ColorSequence.new(Color3.fromRGB(255, 250, 200), color)
+	grad.Rotation = 90
+	grad.Parent = label
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0
+	scale.Parent = label
+	label.Parent = gui
+	TweenService:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.15 }):Play()
+	task.delay(0.9, function()
+		TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 1.6 }):Play()
+		TweenService:Create(label, TweenInfo.new(0.35), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+		task.delay(0.4, function()
+			gui:Destroy()
+			release(anchor)
+		end)
+	end)
+end
+
+-- Tornado: a swirling funnel of ribbons spins up out of the spot, widening as it rises, then
+-- blows apart.
+local function tornado(pos, tint, k)
+	local color = tint or Color3.fromRGB(70, 255, 190)
+	local parts = {}
+	local N = 42
+	for i = 1, N do
+		local p = take(Enum.PartType.Block)
+		p.Color = i % 3 == 0 and WHITE or color
+		p.Transparency = 0.25
+		p.Size = Vector3.new(0.25, 0.5, 3.2 * k)
+		parts[i] = p
+	end
+	Fx.play("Dust", pos, { n = 10, scale = 1.6 * k })
+	floorRing(pos, color, 18 * k)
+	local t0 = os.clock()
+	local dur = 1.6
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local e = os.clock() - t0
+		local grow = math.clamp(e / 0.35, 0, 1)
+		local fade = math.clamp((e - (dur - 0.4)) / 0.4, 0, 1)
+		for i, p in ipairs(parts) do
+			local f = i / N
+			local h = f * 26 * k * grow
+			local r = (1.2 + f * f * 11) * k * (1 + fade * 1.5)
+			local a = f * 14 + e * (9 - f * 4)
+			local at = pos + Vector3.new(math.cos(a) * r, h + 0.5, math.sin(a) * r)
+			p.CFrame = CFrame.lookAt(at, at + Vector3.new(-math.sin(a), 0.25, math.cos(a)))
+			p.Transparency = 0.25 + 0.75 * fade
+		end
+		if e >= dur then
+			conn:Disconnect()
+			for _, p in ipairs(parts) do
+				release(p)
+			end
+		end
+	end)
+	if near(pos) then
+		mods.CameraController.shake(0.7)
+	end
+end
+
+-- Black Hole: a dark sphere opens on the spot with a spinning violet disc, sparks get pulled in
+-- from all around, then it collapses in a white flash.
+local function blackHole(pos, tint, k)
+	local color = tint or Color3.fromRGB(170, 80, 255)
+	local center = pos + Vector3.new(0, 4 * k, 0)
+	local core = take(Enum.PartType.Ball)
+	core.Material = Enum.Material.SmoothPlastic
+	core.Color = Color3.new(0, 0, 0)
+	core.Transparency = 0
+	core.Size = Vector3.new(0.5, 0.5, 0.5)
+	core.CFrame = CFrame.new(center)
+	local disc = take(Enum.PartType.Cylinder)
+	disc.Color = color
+	disc.Transparency = 0.2
+	disc.Size = Vector3.new(0.3, 1, 1)
+	local bits = {}
+	for i = 1, 26 do
+		local b = take(Enum.PartType.Ball)
+		b.Color = i % 2 == 0 and WHITE or color
+		b.Transparency = 0
+		b.Size = Vector3.new(0.4, 0.4, 0.4)
+		local d = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5).Unit
+		bits[i] = { part = b, from = center + d * (16 + math.random() * 10) * k, delay = math.random() * 0.4 }
+	end
+	TweenService:Create(core, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = Vector3.new(9, 9, 9) * k }):Play()
+	local t0 = os.clock()
+	local dur = 1.5
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local e = os.clock() - t0
+		local open = math.clamp(e / 0.35, 0, 1)
+		disc.Size = Vector3.new(0.3, 22 * k * open, 22 * k * open)
+		disc.CFrame = CFrame.new(center) * CFrame.Angles(0, e * 6, math.rad(90)) * CFrame.Angles(math.rad(18), 0, 0)
+		for _, b in ipairs(bits) do
+			local a = math.clamp((e - b.delay) / 0.7, 0, 1)
+			b.part.CFrame = CFrame.new(b.from:Lerp(center, a * a))
+			b.part.Transparency = a >= 1 and 1 or 0
+		end
+		if e >= dur then
+			conn:Disconnect()
+			for _, b in ipairs(bits) do
+				release(b.part)
+			end
+			release(disc)
+			TweenService:Create(core, TweenInfo.new(0.12), { Size = Vector3.new(0.3, 0.3, 0.3) }):Play()
+			task.delay(0.12, function()
+				core.Material = Enum.Material.Neon
+				release(core)
+				burst(center, WHITE, 26 * k)
+				ringFx(center, color, nil, 30 * k)
+				starburst(center, WHITE, 20 * k)
+				if near(pos) then
+					VFXController.flash(0.6, 0.3)
+					mods.CameraController.shake(1)
+				end
+			end)
+		end
+	end)
+	if near(pos) then
+		mods.CameraController.kick(10) -- the lens pulled toward it
+	end
+end
+
+-- Tsunami: a wall of water rises behind the scorer's end and sweeps the whole court.
+local function tsunami(pos, tint, dirZ, k)
+	local color = tint or Color3.fromRGB(60, 170, 255)
+	local C = Config.Court
+	local width = (C.HalfWidth + C.FreeZoneSide) * 2 + 10
+	local height = 26 * k
+	local z0 = -dirZ * (C.SideDepth + C.FreeZoneEnd + 6)
+	local z1 = dirZ * (C.SideDepth + C.FreeZoneEnd + 10)
+	local wall = take(Enum.PartType.Block)
+	wall.Material = Enum.Material.Glass
+	wall.Color = color
+	wall.Transparency = 0.35
+	wall.Size = Vector3.new(width, 1, 6)
+	local crest = take(Enum.PartType.Block)
+	crest.Color = WHITE
+	crest.Transparency = 0.2
+	crest.Size = Vector3.new(width, 1.6, 7)
+	local t0 = os.clock()
+	local dur = 1.6
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local e = os.clock() - t0
+		local a = math.clamp(e / dur, 0, 1)
+		local rise = math.clamp(e / 0.35, 0, 1)
+		local h = math.max(1, height * rise * (1 - math.max(0, a - 0.8) * 5))
+		local z = z0 + (z1 - z0) * a
+		wall.Size = Vector3.new(width, h, 6)
+		wall.CFrame = CFrame.new(0, h / 2, z) * CFrame.Angles(-dirZ * math.rad(14), 0, 0)
+		crest.CFrame = CFrame.new(0, h + 0.4, z + dirZ * 1.5)
+		if math.random() < 0.5 then
+			Fx.play("Dust", Vector3.new((math.random() - 0.5) * width * 0.8, h, z), { n = 2, scale = 1.4, color = WHITE })
+		end
+		if e >= dur then
+			conn:Disconnect()
+			wall.Material = Enum.Material.Neon
+			release(wall)
+			release(crest)
+		end
+	end)
+	if mods then
+		VFXController.flash(0.25, 0.5)
+		mods.CameraController.shake(0.8)
+	end
+end
+
+-- Crater (Rocket League's idea: the blast changes the court for a while): the spot caves in,
+-- rubble is thrown up around it, and both stay on the court a few seconds before sinking away.
+local function crater(pos, tint, k)
+	local color = tint or Color3.fromRGB(255, 120, 50)
+	local pit = take(Enum.PartType.Cylinder)
+	pit.Material = Enum.Material.Slate
+	pit.Color = Color3.fromRGB(35, 30, 30)
+	pit.Transparency = 0
+	pit.Size = Vector3.new(0.2, 9 * k, 9 * k)
+	pit.CFrame = CFrame.new(pos.X, 0.12, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+	local glow = take(Enum.PartType.Cylinder)
+	glow.Color = color
+	glow.Transparency = 0.3
+	glow.Size = Vector3.new(0.22, 4 * k, 4 * k)
+	glow.CFrame = CFrame.new(pos.X, 0.14, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+	local rocks = {}
+	for i = 1, 14 do
+		local r = take(Enum.PartType.Block)
+		r.Material = Enum.Material.Slate
+		r.Color = Color3.fromRGB(70 + math.random(0, 30), 60, 55)
+		r.Transparency = 0
+		local s = (1 + math.random() * 1.6) * k
+		r.Size = Vector3.new(s, s * 0.7, s)
+		local a = (i / 14) * math.pi * 2
+		local at = pos + Vector3.new(math.cos(a) * 5.5 * k, s * 0.2, math.sin(a) * 5.5 * k)
+		r.CFrame = CFrame.new(pos) * CFrame.Angles(math.random(), math.random(), math.random())
+		TweenService:Create(r, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			CFrame = CFrame.new(at) * CFrame.Angles(math.rad(math.random(-35, 35)), math.random() * 6, math.rad(math.random(-35, 35))),
+		}):Play()
+		rocks[i] = r
+	end
+	Fx.play("FloorImpact", pos, { color = color, scale = 2.2 * k, count = 2 })
+	burst(pos + Vector3.new(0, 1.5, 0), color, 14 * k)
+	TweenService:Create(glow, TweenInfo.new(3), { Transparency = 1 }):Play()
+	task.delay(5, function()
+		for _, r in ipairs(rocks) do
+			TweenService:Create(r, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = r.CFrame - Vector3.new(0, 3, 0) }):Play()
+		end
+		TweenService:Create(pit, TweenInfo.new(0.8), { Transparency = 1 }):Play()
+		task.delay(0.85, function()
+			for _, r in ipairs(rocks) do
+				r.Material = Enum.Material.Neon
+				release(r)
+			end
+			pit.Material = Enum.Material.Neon
+			release(pit)
+			release(glow)
+		end)
+	end)
+	if near(pos) then
+		mods.CameraController.shake(0.9)
+	end
+end
+
 -- A score effect at pos: the effect's key, the spike colour's tint (or nil) and which way the
 -- attack travelled along z. False for Dust, the plain floor impact.
 local function playScore(effect, pos, tint, dirZ, k)
@@ -1818,6 +2066,16 @@ local function playScore(effect, pos, tint, dirZ, k)
 		meteorStrike(pos, dirZ, tint, k)
 	elseif effect == "Thunderbolt" then
 		thunderbolt(pos, tint, k)
+	elseif effect == "Speed" then
+		speedBurst(pos, tint, k or 1)
+	elseif effect == "Tornado" then
+		tornado(pos, tint, k or 1)
+	elseif effect == "BlackHole" then
+		blackHole(pos, tint, k or 1)
+	elseif effect == "Tsunami" then
+		tsunami(pos, tint, dirZ or 1, k or 1)
+	elseif effect == "Crater" then
+		crater(pos, tint, k or 1)
 	elseif effect == "Fire" or effect == "Shockwave" then
 		Fx.play("Score" .. effect, pos, { color = tint, scale = k })
 		if near(pos) then

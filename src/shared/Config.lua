@@ -469,6 +469,14 @@ Config.Cosmetics = {
 		{ Key = "Fire", Name = "Fire Explosion", Rarity = "Rare" },
 		{ Key = "Meteor", Name = "Meteor Strike", Rarity = "Epic" },
 		{ Key = "Thunderbolt", Name = "Thunderbolt", Rarity = "Legendary" },
+		-- the owner, after Volleyball Legends: "a tornado", "an explosion displaying stats", "a black
+		-- hole", "a tsunami that covers the map", "like rocket league where the explosion alters the
+		-- map for a bit" (VFXController's playScore)
+		{ Key = "Speed", Name = "Speed Burst", Rarity = "Rare" },
+		{ Key = "Crater", Name = "Crater", Rarity = "Epic" },
+		{ Key = "Tornado", Name = "Tornado", Rarity = "Legendary" },
+		{ Key = "Tsunami", Name = "Tsunami", Rarity = "Legendary" },
+		{ Key = "BlackHole", Name = "Black Hole", Rarity = "Mythic" },
 	},
 	-- how you pose in the matchup intro and, when your team wins, the showcase after the match
 	-- (AnimationController's Intro_<Key> poses)
