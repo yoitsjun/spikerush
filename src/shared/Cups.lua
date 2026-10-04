@@ -39,20 +39,28 @@ end
 function Cups.current(now)
 	local slot = Cups.slot(now)
 	local out = {}
+	local used = {} -- a modifier another cup already has is only taken when nothing else is left
 	for i, c in ipairs(T.Cups) do
 		local x = (slot * 7919 + i * 104729) % 2147483646 + 1
 		x = nextRand(nextRand(x))
 		local mode = T.Modes[x % #T.Modes + 1]
-		local pool = {}
+		local pool, spare = {}, {}
 		for _, m in ipairs(T.Modifiers) do
 			if m.Strength >= c.Min and m.Strength <= c.Max then
-				table.insert(pool, m.Key)
+				table.insert(used[m.Key] and spare or pool, m.Key)
+			end
+		end
+		if #pool < c.Mods then
+			for _, k in ipairs(spare) do
+				table.insert(pool, k)
 			end
 		end
 		local mods = {}
 		for _ = 1, math.min(c.Mods, #pool) do
 			x = nextRand(x)
-			table.insert(mods, table.remove(pool, x % #pool + 1))
+			local k = table.remove(pool, x % #pool + 1)
+			used[k] = true
+			table.insert(mods, k)
 		end
 		table.insert(out, { cup = c, key = c.Key, mode = mode, mods = mods, endsAt = (slot + 1) * T.Rotate })
 	end

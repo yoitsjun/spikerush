@@ -1061,9 +1061,14 @@ do
 		local differs = false
 		for slot = 1, 8 do
 			local o = Cups.current(t0 + slot * TT.Rotate)
+			local taken = {}
 			for i, run in ipairs(o) do
 				if run.mode ~= a[i].mode or run.mods[1] ~= a[i].mods[1] then
 					differs = true
+				end
+				for _, k in ipairs(run.mods) do
+					ok = ok and not taken[k] -- no two cups share a modifier
+					taken[k] = true
 				end
 			end
 		end
@@ -1076,7 +1081,7 @@ do
 				seen[k] = true
 			end
 		end
-		check(ok and differs and Cups.find(a[1].key, t0) ~= nil and Cups.find("Nope", t0) == nil, "tournaments: four cups at a time, the same everywhere, each with its modifiers, a new set every rotation")
+		check(ok and differs and Cups.find(a[1].key, t0) ~= nil and Cups.find("Nope", t0) == nil, "tournaments: four cups at a time, the same everywhere, each with its own modifiers, a new set every rotation")
 		local base = Characters.stats("A")
 		local spring = HitLogic.effectiveStats(base, nil, nil, { mods = Cups.statMods("SpringHeels") })
 		local giant = HitLogic.effectiveStats(base, nil, nil, { mods = Cups.statMods("Giants") })
