@@ -638,9 +638,10 @@ local SHOTS = {
 	recruit = { from = GYM + Vector3.new(1, 5.2, -30), to = GYM + Vector3.new(9.5, 4.8, -11), fov = 40 },
 	ceiling = { from = GYM + Vector3.new(0, 8, 8), to = GYM + Vector3.new(0, 50, 34), fov = 62 },
 	lineup = { from = GYM + Vector3.new(0, 9.5, 12), to = GYM + Vector3.new(0, 18, 88), fov = 58 },
-	-- the Locker's practice spike, side on like the match camera; the camera sits 12 studs to the
-	-- side so the action plays in the left third, clear of the Locker's panel
-	practice = { from = GYM + Vector3.new(-40, 9, 24), to = GYM + Vector3.new(0, 7, 24), fov = 40 },
+	-- the Locker's practice spike, side on like the match camera, wide enough that the spiker and
+	-- the score effect where the ball lands both play left of the Locker's panel (the owner: "have
+	-- the angle a bit moved over... i cant see it too well")
+	practice = { from = GYM + Vector3.new(-42, 10, 15), to = GYM + Vector3.new(0, 7, 15), fov = 46 },
 }
 
 local function shotCF(name)
@@ -799,7 +800,7 @@ end
 local PRACTICE = GYM + Vector3.new(0, 0, 16)
 local LOOP = 3.1 -- seconds per spike
 local TAKEOFF, AIR, CONTACT = 0.35, 1.15, 0.92
-local LAND = PRACTICE + Vector3.new(0, 1.2, -26)
+local LAND = PRACTICE + Vector3.new(0, 1.2, -20)
 
 local function fadeSeq(from)
 	return NumberSequence.new({ NumberSequenceKeypoint.new(0, from), NumberSequenceKeypoint.new(1, 1) })
