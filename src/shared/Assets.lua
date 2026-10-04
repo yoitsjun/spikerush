@@ -73,6 +73,23 @@ Assets.Sounds = {
 	ScoreSparkle = "138190748214493", -- gold magic (Creator Store)
 	AceStinger = "1837834257", -- APM: reverse hard stop noise build
 	ScoreThunder = "86789834935708", -- Lightning Bolt (the owner's pick): the Thunderbolt score effect
+	-- each score effect's own sounds (Creator Store, picked 2026-10-04 on the owner's "pick them out
+	-- through the creator store... pull from all creators")
+	TornadoBurst = "133639929570919", -- "Wind Burst Heavy Shockwave": the funnel spins up
+	TornadoHowl = "71284123166666", -- "Blizzard Outdoor SFX": a harsh whistling wind while it spins
+	TornadoEnd = "9114373663", -- Pro Sound Effects: fast airy whoosh, as it blows apart
+	BlackHoleHum = "84321138018138", -- "nother black hole": the hole open
+	BlackHoleSuck = "9043343896", -- APM: reverse noise with a hard end, timed to the collapse
+	BlackHoleBoom = "1837830182", -- APM: "BOOM-Sub Boom 16", the detonation
+	TsunamiRush = "126761084927046", -- "wave_rush_sfx": the wall of water coming on
+	TsunamiCrash = "9120610532", -- Pro Sound Effects: "Wave Crash 3", over the spot
+	CraterSlam = "133444274732319", -- "downslam rocks slam hit sfx": the floor caving in
+	CraterRubble = "9118586430", -- Pro Sound Effects: "Rock Debris 2", the rocks coming down
+	CraterLava = "103148587203698", -- "Lava_Bubbles_Clip_2": the pit bubbling
+	SpeedWhoosh = "9125920594", -- Pro Sound Effects: searing whoosh, the card skidding in
+	SpeedSlam = "102243658312648", -- "combat_melee_REALLYheavyPUNCH": the number slamming down
+	ScoreFire = "124035544468314", -- "Long Flame": the Fire Explosion score effect
+	MeteorWhoosh = "9125920594", -- the searing whoosh again: the meteor ripping down
 	StuffSlam = "9120256647", -- Pro Sound Effects: metal impact
 	Whistle = "9118113825", -- Pro Sound Effects: referee whistle, single blast
 	Timeout = "",
@@ -150,6 +167,21 @@ Assets.SoundFiles = {
 	["138190748214493"] = { gain = 1.3 }, -- ScoreSparkle: peak 287
 	["71587723216424"] = { gain = 2.4 }, -- Point: peak 157
 	["9113069659"] = { start = 1.5, gain = 6 }, -- Toss: quiet, the swoosh at 1.6 s
+	-- the score effects' (measured 2026-10-04: where each gets loud and its peak)
+	["133639929570919"] = { gain = 1.6 }, -- TornadoBurst: peak 255
+	["71284123166666"] = { gain = 2.6 }, -- TornadoHowl: steady, peak 134
+	["9114373663"] = { start = 0.38, gain = 4 }, -- TornadoEnd: from 0.41 s, peak 82
+	["84321138018138"] = { gain = 0.8 }, -- BlackHoleHum: peak 501
+	["9043343896"] = { start = 1.0, gain = 1.5 }, -- BlackHoleSuck: swells from 1.32 s to the hard end at 2.07 s, peak 265
+	["1837830182"] = { gain = 0.56 }, -- BlackHoleBoom: peak 711
+	["126761084927046"] = { start = 5.2, gain = 0.78 }, -- TsunamiRush: builds to a peak of 511 at 7.3 s
+	["9120610532"] = { start = 0.42, gain = 2.4 }, -- TsunamiCrash: from 0.45 s, peak 166
+	["133444274732319"] = { gain = 0.85 }, -- CraterSlam: peak 470
+	["9118586430"] = { start = 1.3, gain = 4 }, -- CraterRubble: from 1.39 s, peak 94
+	["103148587203698"] = { gain = 2.5 }, -- CraterLava: peak 106
+	["9125920594"] = { start = 0.33, gain = 2.5 }, -- SpeedWhoosh / MeteorWhoosh: from 0.36 s, peak 159
+	["102243658312648"] = { gain = 0.5 }, -- SpeedSlam: peak 778
+	["124035544468314"] = { gain = 0.83 }, -- ScoreFire: peak 482
 	-- Parry3, Lightning Bolt and the shockwave boom start at once and peak near 400: as they are
 }
 

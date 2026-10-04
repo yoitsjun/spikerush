@@ -1746,6 +1746,20 @@ end
 -- score effects (V Points unlocks): where an attack lands for a point
 ------------------------------------------------------------------------------------------
 
+-- an effect's sound at `pos` (Assets.Sounds[key]), faded out after `fadeAt` seconds if given
+local function sfx(key, pos, fadeAt)
+	local A = mods and mods.AudioController
+	local sound = A and A.play(key, { pos = pos, minGap = 0.01 })
+	if sound and fadeAt then
+		task.delay(fadeAt, function()
+			if sound.Parent then
+				TweenService:Create(sound, TweenInfo.new(0.5), { Volume = 0 }):Play()
+			end
+		end)
+	end
+	return sound
+end
+
 -- The meteor: a burning rock drops out of the sky onto the spot, then the crater (k: bigger).
 local function meteorStrike(pos, dirZ, tint, k)
 	k = k or 1
@@ -1760,6 +1774,7 @@ local function meteorStrike(pos, dirZ, tint, k)
 	att.Parent = rock
 	local flames = Fx.attach("MeteorTrail", att)
 	flames.set(true, tint)
+	sfx("MeteorWhoosh", pos)
 	local t0 = os.clock()
 	local fall = 0.34
 	local conn
@@ -2040,6 +2055,8 @@ local function speedBurst(pos, tint, k, reason)
 	local scale = Instance.new("UIScale")
 	scale.Scale = 1.3
 	scale.Parent = card
+	sfx("SpeedWhoosh", pos)
+	task.delay(0.24, sfx, "SpeedSlam", pos)
 	TweenService:Create(card, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.fromScale(0.5, 0.5) }):Play()
 	TweenService:Create(scale, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	task.delay(0.3, function()
@@ -2105,6 +2122,9 @@ local function tornado(pos, tint, k)
 		r.Size = Vector3.new(s, s * 0.8, s)
 		debris[i] = { part = r, a = math.random() * 6.3, f = math.random(), speed = 3 + math.random() * 3 }
 	end
+	sfx("TornadoBurst", pos)
+	sfx("TornadoHowl", pos, dur - 0.7)
+	task.delay(dur - 0.6, sfx, "TornadoEnd", pos)
 	Fx.play("Dust", pos, { n = 14, scale = 2 * k })
 	floorRing(pos, color, 22 * k)
 	shockDisc(pos, color, 20 * k, 1.4)
@@ -2215,6 +2235,8 @@ local function blackHole(pos, tint, k)
 		bits[i] = { part = b, a = math.random() * 6.3, y = (math.random() - 0.5) * 0.6, r = (18 + math.random() * 14) * k, delay = math.random() * 1.8, life = 0.9 + math.random() * 0.6 }
 	end
 	grade(Color3.fromRGB(215, 200, 255), -0.6, dur)
+	sfx("BlackHoleHum", center, dur - 0.5)
+	task.delay(dur - 1.07, sfx, "BlackHoleSuck", center)
 	flare(center, color, 40 * k, 0.6)
 	local t0 = os.clock()
 	local conn
@@ -2287,6 +2309,7 @@ local function blackHole(pos, tint, k)
 				TweenService:Create(dome, TweenInfo.new(0.7, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = Vector3.new(60, 30, 60) * k, Transparency = 1 }):Play()
 				task.delay(0.75, dome.Destroy, dome)
 			end
+			sfx("BlackHoleBoom", center)
 			burst(center, WHITE, 30 * k)
 			ringFx(center, color, nil, 34 * k)
 			starburst(center, WHITE, 24 * k)
@@ -2342,6 +2365,7 @@ local function tsunami(pos, tint, dirZ, k)
 	water.TileSize = UDim2.fromScale(0.25, 0.25)
 	water.Size = UDim2.fromScale(1.25, 1.25)
 	water.Parent.ClipsDescendants = true
+	sfx("TsunamiRush", pos)
 	local t0 = os.clock()
 	local splashed = false
 	local conn
@@ -2385,6 +2409,7 @@ local function tsunami(pos, tint, dirZ, k)
 			s.Speed = NumberRange.new(25, 50)
 			s:Emit(60)
 			task.delay(2, burstAt.Destroy, burstAt)
+			sfx("TsunamiCrash", pos)
 			shockDisc(pos, color, 24 * k, 1.2)
 			burst(pos + Vector3.new(0, 3, 0), WHITE, 20 * k)
 			if near(pos) then
@@ -2478,6 +2503,10 @@ local function crater(pos, tint, k)
 		up:Play()
 		rocks[i] = r
 	end
+	sfx("CraterSlam", pos)
+	task.delay(0.5, sfx, "CraterRubble", pos)
+	task.delay(0.9, sfx, "CraterLava", pos)
+	task.delay(2.2, sfx, "CraterLava", pos)
 	Fx.play("FloorImpact", pos, { color = color, scale = 2.2 * k, count = 2 })
 	shockDisc(pos, color, radius * 3, 1.3)
 	flare(pos + Vector3.new(0, 2, 0), color, 26 * k, 0.7)
@@ -2537,6 +2566,9 @@ local function playScore(effect, pos, tint, dirZ, k, reason)
 		crater(pos, tint, k or 1)
 	elseif effect == "Fire" or effect == "Shockwave" then
 		Fx.play("Score" .. effect, pos, { color = tint, scale = k })
+		if effect == "Fire" then
+			sfx("ScoreFire", pos)
+		end
 		if near(pos) then
 			mods.CameraController.shake(effect == "Fire" and 0.5 or 0.4)
 		end
