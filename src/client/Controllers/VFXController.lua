@@ -1966,8 +1966,11 @@ local function tsunami(pos, tint, dirZ, k)
 	local C = Config.Court
 	local width = (C.HalfWidth + C.FreeZoneSide) * 2 + 10
 	local height = 26 * k
-	local z0 = -dirZ * (C.SideDepth + C.FreeZoneEnd + 6)
-	local z1 = dirZ * (C.SideDepth + C.FreeZoneEnd + 10)
+	-- from behind the scorer's end to past the far one, wherever the court is (the Locker's gym too)
+	local reach = C.SideDepth + C.FreeZoneEnd
+	local z0 = pos.Z - dirZ * (reach * 1.6)
+	local z1 = pos.Z + dirZ * (reach * 0.8)
+	local x0, y0 = pos.X, pos.Y - 0.2
 	local wall = take(Enum.PartType.Block)
 	wall.Material = Enum.Material.Glass
 	wall.Color = color
@@ -1987,10 +1990,10 @@ local function tsunami(pos, tint, dirZ, k)
 		local h = math.max(1, height * rise * (1 - math.max(0, a - 0.8) * 5))
 		local z = z0 + (z1 - z0) * a
 		wall.Size = Vector3.new(width, h, 6)
-		wall.CFrame = CFrame.new(0, h / 2, z) * CFrame.Angles(-dirZ * math.rad(14), 0, 0)
-		crest.CFrame = CFrame.new(0, h + 0.4, z + dirZ * 1.5)
+		wall.CFrame = CFrame.new(x0, y0 + h / 2, z) * CFrame.Angles(-dirZ * math.rad(14), 0, 0)
+		crest.CFrame = CFrame.new(x0, y0 + h + 0.4, z + dirZ * 1.5)
 		if math.random() < 0.5 then
-			Fx.play("Dust", Vector3.new((math.random() - 0.5) * width * 0.8, h, z), { n = 2, scale = 1.4, color = WHITE })
+			Fx.play("Dust", Vector3.new(x0 + (math.random() - 0.5) * width * 0.8, y0 + h, z), { n = 2, scale = 1.4, color = WHITE })
 		end
 		if e >= dur then
 			conn:Disconnect()
@@ -2014,12 +2017,12 @@ local function crater(pos, tint, k)
 	pit.Color = Color3.fromRGB(35, 30, 30)
 	pit.Transparency = 0
 	pit.Size = Vector3.new(0.2, 9 * k, 9 * k)
-	pit.CFrame = CFrame.new(pos.X, 0.12, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+	pit.CFrame = CFrame.new(pos.X, pos.Y - 0.08, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
 	local glow = take(Enum.PartType.Cylinder)
 	glow.Color = color
 	glow.Transparency = 0.3
 	glow.Size = Vector3.new(0.22, 4 * k, 4 * k)
-	glow.CFrame = CFrame.new(pos.X, 0.14, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+	glow.CFrame = CFrame.new(pos.X, pos.Y - 0.06, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
 	local rocks = {}
 	for i = 1, 14 do
 		local r = take(Enum.PartType.Block)
