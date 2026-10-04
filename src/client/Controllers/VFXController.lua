@@ -163,6 +163,25 @@ local function starburst(pos, color, size)
 	end
 end
 
+-- A pillar of light shooting up out of the floor and thinning away.
+local function lightPillar(pos, color, height, width)
+	local p = take(Enum.PartType.Cylinder)
+	p.Color = color
+	p.Size = Vector3.new(0.5, width, width)
+	p.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90))
+	p.Transparency = 0.1
+	local up = TweenService:Create(p, TweenInfo.new(0.16, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+		Size = Vector3.new(height, width, width),
+		CFrame = CFrame.new(pos + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+	})
+	up:Play()
+	task.delay(0.16, function()
+		local fade = TweenService:Create(p, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = Vector3.new(height * 1.1, 0.2, 0.2), Transparency = 1 })
+		fade:Play()
+		task.delay(0.52, release, p)
+	end)
+end
+
 -- sparks, dust and flames in the counts the effects were tuned with
 local SHARE = { Sparks = 0.4, Dust = 0.5, Fire = 0.35 }
 local function emit(kit, pos, count, color)
@@ -567,7 +586,25 @@ function VFXController.boom(entityId, kind)
 	if entityId == State.myId and mods and not own then
 		mods.AudioController.play("Boom", { volume = big and 0.8 or 0.45, minGap = 0.05 })
 	end
-	Fx.play("JumpBoom", foot, big and nil or { scale = 0.55, count = 0.5 })
+	-- the owner: "have the boom jump be more exaggerated, and cool. this should feel powerful when
+	-- you jump": a pillar of light out of the floor in their spike colour (else the team's), two
+	-- shock rings across the floor, a starburst and sparks at the feet, and for your own jump the
+	-- screen kicks
+	local color = Spins.tint(Spins.equipped(model, "Color")) or teamColor(model:GetAttribute("Team"))
+	local k = big and 1 or 0.55
+	Fx.play("JumpBoom", foot, { scale = 1.6 * k, count = 1.4 * k })
+	lightPillar(foot, color, 34 * k, 3.2 * k)
+	floorRing(foot, color, 16 * k)
+	task.delay(0.07, floorRing, foot, WHITE, 10 * k)
+	starburst(foot + Vector3.new(0, 1, 0), color, 9 * k)
+	shards(foot + Vector3.new(0, 0.6, 0), color, math.floor(18 * k), 70)
+	if entityId == State.myId and mods then
+		mods.CameraController.shake(big and 0.45 or 0.2)
+		mods.CameraController.kick(big and -4 or -2)
+		if big then
+			VFXController.flash(0.12, 0.15)
+		end
+	end
 end
 
 
@@ -1792,24 +1829,6 @@ local function playScore(effect, pos, tint, dirZ, k)
 	return true
 end
 
--- A pillar of light shooting up out of the floor and thinning away.
-local function lightPillar(pos, color, height, width)
-	local p = take(Enum.PartType.Cylinder)
-	p.Color = color
-	p.Size = Vector3.new(0.5, width, width)
-	p.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90))
-	p.Transparency = 0.1
-	local up = TweenService:Create(p, TweenInfo.new(0.16, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-		Size = Vector3.new(height, width, width),
-		CFrame = CFrame.new(pos + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
-	})
-	up:Play()
-	task.delay(0.16, function()
-		local fade = TweenService:Create(p, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = Vector3.new(height * 1.1, 0.2, 0.2), Transparency = 1 })
-		fade:Play()
-		task.delay(0.52, release, p)
-	end)
-end
 
 -- After the rally (on the server's call, so a late dig never sets one off), where the point
 -- landed (the owner: "make scoring animations play at the end of the rally wherever you score,
@@ -1915,10 +1934,48 @@ function VFXController.rippleNet()
 	end
 end
 
+-- The guard break (the owner: "on guard breaks, have a shield that gets broken"): a force-field
+-- shield pops up around the receiver, then shatters into glass shards that spin away and fade.
+local SHIELD = Color3.fromRGB(120, 220, 255)
+local function shieldShatter(center)
+	local dome = take(Enum.PartType.Ball)
+	dome.Material = Enum.Material.ForceField
+	dome.Color = SHIELD
+	dome.Size = Vector3.new(5.5, 5.5, 5.5)
+	dome.CFrame = CFrame.new(center)
+	dome.Transparency = 0
+	TweenService:Create(dome, TweenInfo.new(0.1, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = Vector3.new(7.4, 7.4, 7.4) }):Play()
+	task.delay(0.12, function()
+		dome.Material = Enum.Material.Neon
+		release(dome)
+		ringFx(center, SHIELD, nil, 16)
+		burst(center, WHITE, 12)
+		local rng = Random.new()
+		for _ = 1, 22 do
+			local dir = Vector3.new(rng:NextNumber(-0.25, 0.25), rng:NextNumber(-0.6, 1), rng:NextNumber(-1, 1)).Unit
+			local shard = take(Enum.PartType.Block)
+			shard.Material = Enum.Material.Glass
+			shard.Color = SHIELD
+			shard.Transparency = 0.15
+			shard.Size = Vector3.new(0.12, rng:NextNumber(0.6, 1.6), rng:NextNumber(0.4, 1.1))
+			shard.CFrame = CFrame.lookAt(center + dir * 3.6, center + dir * 5) * CFrame.Angles(0, 0, rng:NextNumber(0, math.pi))
+			local to = shard.CFrame + dir * rng:NextNumber(6, 12) + Vector3.new(0, -rng:NextNumber(1, 3), 0)
+			local spin = CFrame.Angles(rng:NextNumber(-4, 4), rng:NextNumber(-4, 4), rng:NextNumber(-4, 4))
+			local tw = TweenService:Create(shard, TweenInfo.new(rng:NextNumber(0.45, 0.7), Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = to * spin, Transparency = 1 })
+			tw.Completed:Connect(function()
+				shard.Material = Enum.Material.Neon
+				release(shard)
+			end)
+			tw:Play()
+		end
+	end)
+end
+
 local function onBreak(a)
 	local model = a.id and Util.modelOf(a.id)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
 	local pos = hrp and hrp.Position + Vector3.new(0, 2, 0) or Vector3.new(0, 3, 0)
+	shieldShatter(hrp and hrp.Position + Vector3.new(0, 0.6, 0) or pos)
 	Fx.play("GuardBreak", pos)
 	VFXController.popup(pos, "Guard break!", HOT, 1.2)
 	if a.team == State.myTeam then
