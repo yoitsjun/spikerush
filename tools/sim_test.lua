@@ -1101,6 +1101,16 @@ do
 		run.cup = { key = "Gold", name = gold.Name, round = 2, mods = "DeepSpike,Junk" }
 		Lobbies.seat(run, 1)
 		local back2 = Lobbies.import(Lobbies.export(run), 78)
+		-- with friends (the owner: "make it so you can play with friends"): the run's lobby lists as
+		-- the cup, and friends take the players' side only (the bots are Away)
+		local party = Lobbies.new(79, 1, "Host", Lobbies.settings({ mode = 2, privacy = "Friends" }))
+		party.cup = { key = "Gold", name = gold.Name, round = 1, mods = "" }
+		Lobbies.seat(party, 1, "Home")
+		local friendSide = Lobbies.seat(party, 2, "Home")
+		local thirdSide = Lobbies.seat(party, 3, "Home")
+		local ps = Lobbies.summary(party, 2)
+		check(friendSide == "Home" and thirdSide ~= "Home" and ps.cup and ps.cup.name == gold.Name and not Lobbies.visible(party, 9, false) and Lobbies.visible(party, 9, true),
+			"a cup with friends: listed as the cup to the host's friends only, players on one side")
 		check(wv == gold.PrizeVP and wg == gold.PrizeGold and fv == gold.Consolation and ev == 0 and gold.PrizeVP > gold.Entry and back2.cup and back2.cup.round == 2 and back2.cup.mods == "DeepSpike" and back2.hidden,
 			"a tournament pays its prize for three wins and its consolation for a lost final, and a run goes on in its own server", string.format("Gold Cup: %d VP in, %d VP + %d Gold out", gold.Entry, wv, wg))
 	end

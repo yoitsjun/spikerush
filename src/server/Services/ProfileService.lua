@@ -1171,6 +1171,12 @@ function ProfileService.award(plr, vp, gold)
 	push(plr)
 end
 
+-- A developer (recruits and tournament entries are free for them).
+function ProfileService.isDev(plr)
+	local profile = profiles[plr]
+	return profile ~= nil and profile.dev == true
+end
+
 -- Take VP (a tournament's entry). Returns true, or false and why. Developers play free, as with
 -- recruits.
 function ProfileService.spendVP(plr, vp)

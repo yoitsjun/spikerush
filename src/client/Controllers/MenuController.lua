@@ -4057,6 +4057,10 @@ local function lobbyStatus(mine)
 	elseif mine.quick then
 		local left = math.max(0, math.ceil((mine.startsAt or 0) - workspace:GetServerTimeNow()))
 		return string.format("Starting in %d. Bots fill the empty spots.", left)
+	elseif mine.cup and mine.isHost then
+		return "Your friends in this server can join from Lobbies. Start when you're ready."
+	elseif mine.cup then
+		return "Waiting for the host to start the run."
 	elseif mine.isHost then
 		if not mine.fill and mine.count < mine.capacity then
 			return "Both teams need to be full to start (or turn on Fill with bots)."
@@ -4095,7 +4099,7 @@ local function refreshMatch()
 		row.frame.Visible = l ~= nil
 		if l then
 			shownRows = shownRows + 1
-			row.host.Text = l.quick and ("Quick Match " .. l.mode .. "v" .. l.mode) or (l.hostName .. "'s Lobby")
+			row.host.Text = l.cup and (l.cup.name .. ": " .. l.hostName) or (l.quick and ("Quick Match " .. l.mode .. "v" .. l.mode) or (l.hostName .. "'s Lobby"))
 			row.detail.Text = string.format("%dv%d   %s   %s   Bots %s   %s%s%s", l.mode, l.mode, PRIVACY_TEXT[l.privacy] or l.privacy, l.fill and "Bots fill" or "No bots", l.botTier, l.quick and "Rotation" or courtName(l.court), l.quick and "" or ("   " .. rulesLine(l)), l.remote and "   Another server" or "")
 			row.count.Text = string.format("%d/%d", l.count, l.capacity)
 			row.stateLabel.Text = STATE_TEXT[l.state] or l.state
@@ -4172,8 +4176,8 @@ local function refreshMatch()
 			end
 		end
 		local open = mine.state == "Open"
-		Mt.swap.Visible = open and not mine.quick
-		Mt.settings.Visible = open and mine.isHost and not mine.quick
+		Mt.swap.Visible = open and not mine.quick and not mine.cup
+		Mt.settings.Visible = open and mine.isHost and not mine.quick and not mine.cup
 		Mt.start.Visible = open and mine.isHost and not mine.quick
 		Mt.leave.Visible = open or mine.state == "Queued" or mine.state == "Joining"
 		Mt.leaveLabel.Text = mine.quick and "Cancel queue" or "Leave lobby"

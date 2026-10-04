@@ -257,7 +257,7 @@ end
 -- Whether a lobby goes in the shared list: not hidden (practice), open, or holding players from
 -- elsewhere (they read it), or started with their reserved server's code.
 local function shared(l)
-	return net.on and not l.hidden and lobbies[l.id] == l and (l.state == "Open" or hasRemote(l) or l.launch ~= nil)
+	return net.on and not l.hidden and not l.cup and lobbies[l.id] == l and (l.state == "Open" or hasRemote(l) or l.launch ~= nil)
 end
 
 local function writeEntry(l, expire)
@@ -576,6 +576,20 @@ end
 -- making, joining and leaving
 ------------------------------------------------------------------------------------------
 
+-- A cup's entry back to a player who leaves before it starts.
+local function cupRefund(l, userId)
+	local paid = l.cup and l.cup.paid
+	if paid and paid[userId] and l.state == "Open" then
+		paid[userId] = nil
+		local plr = Players:GetPlayerByUserId(userId)
+		local c = Cups.cup(l.cup.key)
+		if plr and c then
+			reg.ProfileService.award(plr, c.Entry, 0)
+			notify(plr, string.format("Your %d VP entry is back.", c.Entry))
+		end
+	end
+end
+
 function LobbyService.leave(plr)
 	leaveRemote(plr) -- a seat in another server's lobby
 	local l = LobbyService.lobbyOf(plr)
@@ -583,6 +597,7 @@ function LobbyService.leave(plr)
 	if not l then
 		return
 	end
+	cupRefund(l, plr.UserId)
 	local empty = Lobbies.remove(l, plr.UserId)
 	if l.state ~= "Playing" and (empty or (hasRemote(l) and #members(l) == 0)) then
 		l.closeWhy = "host" -- the players from other servers are told
@@ -646,7 +661,30 @@ function LobbyService.join(plr, id, password)
 		notify(plr, NOTICES[why] or "Can't join that lobby.")
 		return false
 	end
+	if l.cup and #l.Home >= l.mode then
+		notify(plr, NOTICES.full)
+		return false
+	end
 	LobbyService.leave(plr)
+	if l.cup then
+		-- a friend's run: they pay the entry too, and sit on the players' side
+		local c = Cups.cup(l.cup.key)
+		local paid, payWhy = reg.ProfileService.spendVP(plr, c and c.Entry or 0)
+		if not paid then
+			notify(plr, payWhy)
+			return false
+		end
+		if not lobbies[id] or l.state ~= "Open" or not Lobbies.seat(l, plr.UserId, "Home") then
+			reg.ProfileService.award(plr, c and c.Entry or 0, 0)
+			notify(plr, NOTICES.full)
+			return false
+		end
+		l.cup.paid = l.cup.paid or {}
+		l.cup.paid[plr.UserId] = not reg.ProfileService.isDev(plr) or nil
+		memberOf[plr.UserId] = id
+		markDirty()
+		return true
+	end
 	if not lobbies[id] or not Lobbies.seat(l, plr.UserId) then
 		notify(plr, NOTICES.full)
 		return false
@@ -716,24 +754,26 @@ function LobbyService.enterCup(plr, key)
 		return
 	end
 	local c = run.cup
-	local l = LobbyService.create(plr, { mode = run.mode, privacy = "Public", fill = true, botTier = c.Bots[1], points = T.Points, sets = 1, timeouts = T.Timeouts }, false)
-	if not l then
-		return
-	end
 	local paid, why = reg.ProfileService.spendVP(plr, c.Entry)
 	if not paid then
-		LobbyService.leave(plr)
 		notify(plr, why)
 		return
 	end
-	l.hidden = true
-	l.cup = { key = c.Key, name = c.Name, round = 1, mods = Cups.encode(run.mods) }
+	local l = LobbyService.create(plr, { mode = run.mode, privacy = "Friends", fill = true, botTier = c.Bots[1], points = T.Points, sets = 1, timeouts = T.Timeouts }, false)
+	if not l then
+		reg.ProfileService.award(plr, reg.ProfileService.isDev(plr) and 0 or c.Entry, 0)
+		return
+	end
+	-- the owner: "make it so you can play with friends": the run waits in a friends-only lobby
+	-- (your Roblox friends in this server join it from Lobbies, paying the entry too, on your
+	-- side) until you press Start
+	l.cup = { key = c.Key, name = c.Name, round = 1, mods = Cups.encode(run.mods), paid = { [plr.UserId] = not reg.ProfileService.isDev(plr) or nil } }
 	local names = {}
 	for _, k in ipairs(run.mods) do
 		table.insert(names, Cups.modifier(k).Name)
 	end
-	notify(plr, string.format("%s, round 1 of %d against %s bots. Modifiers: %s.", c.Name, T.Rounds, c.Bots[1], table.concat(names, ", ")))
-	LobbyService.launch(l)
+	notify(plr, string.format("%s: %s. Friends in this server can join from Lobbies; press Start when you're ready.", c.Name, table.concat(names, ", ")))
+	markDirty()
 end
 
 -- A tournament match is over: on to the next round after a win (straight back on this court),
@@ -866,6 +906,18 @@ function LobbyService.launch(l)
 	local ok, why = Lobbies.canStart(l)
 	if not ok then
 		return false, why
+	end
+	if l.cup then
+		l.hidden = true -- started: out of the list
+		if l.cup.round == 1 then
+			local names = {}
+			for _, k in ipairs(Cups.parse(l.cup.mods)) do
+				table.insert(names, Cups.modifier(k).Name)
+			end
+			for _, plr in ipairs(members(l)) do
+				notify(plr, string.format("%s, round 1 of %d against %s bots. Modifiers: %s.", l.cup.name, Config.Tournament.Rounds, l.botTier, table.concat(names, ", ")))
+			end
+		end
 	end
 	if l.quick then
 		-- the bots play at the strongest player's level (A up to S+)
@@ -1345,7 +1397,7 @@ local function payloadFor(plr)
 		mine.startsAt = l.startsAt
 		mine.tutorial = l.tutorial
 		mine.practice = l.practice
-		mine.cup = l.cup
+		mine.cup = l.cup and { key = l.cup.key, name = l.cup.name, round = l.cup.round, mods = l.cup.mods } or nil
 		mine.arriveBy = l.arriveBy
 		mine.reserved = LobbyService.reserved
 		for i, id in ipairs(courtQueue) do
@@ -1449,7 +1501,7 @@ local function onRequest(plr, op, a, b)
 			return
 		end
 		local l = LobbyService.lobbyOf(plr)
-		if l and l.state == "Open" and Lobbies.swap(l, plr.UserId) then
+		if l and l.state == "Open" and not l.cup and Lobbies.swap(l, plr.UserId) then
 			markDirty()
 		end
 	elseif op == "kick" then
@@ -1460,6 +1512,7 @@ local function onRequest(plr, op, a, b)
 				removeRemote(l, target, "kicked")
 				return
 			end
+			cupRefund(l, target)
 			Lobbies.remove(l, target)
 			memberOf[target] = nil
 			notify(Players:GetPlayerByUserId(target), "The host removed you from the lobby.")
@@ -1467,7 +1520,7 @@ local function onRequest(plr, op, a, b)
 		end
 	elseif op == "settings" then
 		local l = LobbyService.lobbyOf(plr)
-		if not l or l.host ~= plr.UserId or l.state ~= "Open" then
+		if not l or l.host ~= plr.UserId or l.state ~= "Open" or l.cup then
 			return
 		end
 		local s, why = Lobbies.settings(a)

@@ -292,6 +292,7 @@ function Lobbies.summary(l, viewerId)
 		id = l.id,
 		host = l.host,
 		hostName = l.hostName,
+		cup = l.cup and { key = l.cup.key, name = l.cup.name, round = l.cup.round } or nil,
 		mode = l.mode,
 		privacy = l.privacy,
 		locked = l.privacy == "Private",
