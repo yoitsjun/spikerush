@@ -330,8 +330,8 @@ Assets.Fx = {
 -- The ball skins' textures (tools/generate_ball_skins.py, the PNGs in assets/balls): equirectangular
 -- maps for the BallSphere mesh (BallSkins).
 Assets.BallSkins = {
-	ProSwirl = "131973930130524",
-	TriPanel = "80638895104368",
+	ProSwirl = "102765409707796",
+	TriPanel = "112449624078091",
 	Beach = "98494400707072",
 	Eyeball = "86293073979138",
 	Lava = "136063469609688",
