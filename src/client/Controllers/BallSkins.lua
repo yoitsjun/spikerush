@@ -144,6 +144,9 @@ local function bigHead(radius, owner)
 	model:ScaleTo(model:GetScale() * radius * 2.15 / math.max(size.X, size.Y, size.Z, 0.01))
 	local box = model:GetBoundingBox()
 	model:PivotTo(box:Inverse() * model:GetPivot())
+	-- the pivot at the middle of head and hair together, not the head's own centre (the owner:
+	-- "head ball slightly higher than actual")
+	h.PivotOffset = h.CFrame:Inverse()
 	return model
 end
 

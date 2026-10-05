@@ -3112,6 +3112,9 @@ local function lockerCard(parent, kind, item)
 	onClick(b, function()
 		lockerPick[kind] = item.Key
 		MenuController.refresh()
+		if kind == "Effect" then
+			mods.SceneController.queuePracticeEffect() -- the effect plays once, on the next landing
+		end
 	end)
 	return { button = b, edge = edge, state = state, item = item, color = color }
 end

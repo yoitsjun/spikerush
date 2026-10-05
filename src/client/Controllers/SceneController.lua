@@ -958,6 +958,13 @@ end
 
 -- Start, restyle (opts = { style, color, trail, effect, pose } keys; `posing` holds the intro
 -- pose instead of spiking) or stop (nil) the practice spike.
+-- The Locker's practice spike plays the picked score effect once, where its next ball lands.
+function SceneController.queuePracticeEffect()
+	if practice then
+		practice.fxQueued = true
+	end
+end
+
 function SceneController.setPractice(opts)
 	if not opts then
 		if practice then
@@ -1072,7 +1079,11 @@ local function updatePractice(now)
 			p.landed = true
 			launchFx(b, false)
 			b.model:PivotTo(CFrame.new(LAND + Vector3.new(0, -60, 0)))
-			mods.VFXController.previewEffect(LAND - Vector3.new(0, 1.1, 0), p.opts.effect, b.tint, -1)
+			-- the score effect only when asked for (a click on its card): the owner found it
+			-- "quite annoying when it keeps repeated"; otherwise the plain floor impact
+			local effect = p.fxQueued and p.opts.effect or "Dust"
+			p.fxQueued = false
+			mods.VFXController.previewEffect(LAND - Vector3.new(0, 1.1, 0), effect, b.tint, -1)
 		end
 	end
 end
