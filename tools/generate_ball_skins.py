@@ -2,8 +2,8 @@
 the ball's north pole) for the UV sphere in assets/balls/BallSkinMeshes.fbx. Run with any
 Python 3 that has numpy and Pillow; upload the PNGs and paste their ids into Assets.BallSkins.
 
-  ProSwirl.png   eight curved panels swirling pole to pole, yellow and blue (a pro match ball)
-  TriPanel.png   the classic 18-panel layout in white, red and green
+  ProSwirl.png   yellow with three tapering blue crescents swirling out of a Y (a pro match ball)
+  TriPanel.png   sweeping S-curved bands of red, white and green on a honeycomb
   Beach.png      six bright gores with white caps
   Eyeball.png    a bloodshot white with a green-blue iris
   Lava.png       black basalt split by glowing cracks
@@ -65,57 +65,111 @@ def shade(img, amount=0.12):
     return img * (1 - amount / 2 + amount * g[..., None])
 
 
+def frame(axis):
+    """An orthonormal frame with `axis` as its pole: (theta from the pole, azimuth round it)."""
+    a = np.array(axis, dtype=np.float64)
+    a /= np.linalg.norm(a)
+    ref = np.array([0.0, 1.0, 0.0]) if abs(a[1]) < 0.9 else np.array([1.0, 0.0, 0.0])
+    b = np.cross(a, ref)
+    b /= np.linalg.norm(b)
+    c = np.cross(a, b)
+    da = DX * a[0] + DY * a[1] + DZ * a[2]
+    db = DX * b[0] + DY * b[1] + DZ * b[2]
+    dc = DX * c[0] + DY * c[1] + DZ * c[2]
+    return np.arccos(np.clip(da, -1, 1)), np.arctan2(dc, db)
+
+
+def wrap(a):
+    return (a + math.pi) % (2 * math.pi) - math.pi
+
+
+def dimples(freq, size):
+    """A field of small round dimples all over the ball (1 inside one, 0 between)."""
+    f = np.cos(DX * freq) * np.cos(DY * freq) * np.cos(DZ * freq)
+    g = np.cos((DX + DY) * freq * 0.7071) * np.cos((DY - DZ) * freq * 0.7071)
+    return np.clip((np.maximum(np.abs(f), np.abs(g)) - (1 - size)) / size, 0, 1)
+
+
 def pro_swirl():
-    img = np.zeros((H, W, 3))
-    # panels swept by latitude: each band's edge leans further round the higher it climbs
-    t = (LON + 1.15 * np.sin(LAT * 1.6) + 0.35 * LAT) / (2 * math.pi) * 8
-    idx = np.floor(t).astype(int) % 8
-    frac = t - np.floor(t)
-    yellow, blue, seam = (255, 206, 40), (28, 84, 196), (18, 28, 60)
-    for i in range(8):
-        fill(idx == i, yellow if i % 2 == 0 else blue, img)
-    edge = np.minimum(frac, 1 - frac)
-    img[edge < 0.035] = rgb(seam)
-    # the two poles meet in small white-rimmed caps
-    cap = np.abs(LAT) > math.radians(80)
-    img[cap] = rgb((240, 240, 236))
-    img[(np.abs(LAT) > math.radians(78.5)) & ~cap] = rgb(seam)
-    save("ProSwirl.png", shade(img))
+    # the owner's reference: a pro match ball, yellow with three blue crescents that swirl out of a
+    # Y-shaped junction and taper away round the far side; the blue dimpled, faint seams in the
+    # yellow (no logos or print)
+    theta, phi = frame((0.35, -0.45, 0.82))
+    yellow, blue = rgb((250, 204, 34)), rgb((22, 58, 168))
+    img = np.ones((H, W, 3)) * yellow
+    # broad, gentle swooshes: narrow at the junction, widest round the middle, tapering to a
+    # point on the far side; about a third of the ball blue
+    twist = 0.95
+    half = (math.pi / 3) * 0.72 * np.clip(np.sin(theta * 0.85 + 0.55), 0, 1) ** 1.3 * np.cos(theta / 2) ** 0.9
+    arm = np.zeros_like(theta)
+    edge = np.full_like(theta, 9.0)
+    for k in range(3):
+        centre = k * 2 * math.pi / 3 + twist * theta
+        off = np.abs(wrap(phi - centre))
+        inside = off < half
+        arm = np.maximum(arm, inside.astype(np.float64))
+        edge = np.minimum(edge, np.abs(off - half) * np.sin(np.clip(theta, 0.05, math.pi)))
+        # a soft seam down the middle of each yellow lobe
+        mid = np.abs(wrap(phi - centre - math.pi / 3)) * np.sin(np.clip(theta, 0.05, math.pi))
+        img[mid < 0.006] = yellow * 0.86
+    m = arm > 0
+    d = dimples(70, 0.25)
+    img[m] = blue * (1 - 0.22 * d[m, None])
+    # yellow panels are smooth with a very faint pebble
+    pebble = noise3(DX, DY, DZ, 60, 41)
+    img[~m] = img[~m] * (0.96 + 0.06 * pebble[~m, None])
+    # a crisp, slightly darker rim where blue meets yellow
+    rim = (edge < 0.012) & m
+    img[rim] = blue * 0.75
+    save("ProSwirl.png", img)
 
 
-def tri_panel():
-    img = np.zeros((H, W, 3))
+def honeycomb(cells):
+    """Raised hexagon outlines (1 on an edge, 0 in a cell), even all over the ball: laid on the
+    six faces of a cube and projected out (the faces' joins vanish at this size)."""
     a = np.stack([np.abs(DX), np.abs(DY), np.abs(DZ)])
     face = np.argmax(a, axis=0)
     comp = [DX, DY, DZ]
-    # within each face, three strips across the next axis round (the 18-panel ball)
-    strips = np.zeros_like(DX)
+    out = np.zeros_like(DX)
+    k = 2 * math.pi * cells
     for f in range(3):
         m = face == f
-        main = comp[f]
-        across = comp[(f + 1 + (f % 2)) % 3] / np.maximum(np.abs(main), 1e-6)
-        strips[m] = across[m]
-    s = np.clip((strips + 1) / 2 * 3, 0, 2.999)
-    strip = np.floor(s).astype(int)
-    white, red, green, seam = (244, 244, 238), (214, 32, 44), (24, 150, 72), (40, 40, 44)
-    group = face * 2 + (np.sign(np.choose(face, comp)) > 0)
-    for g in range(6):
-        for k in range(3):
-            m = (group == g) & (strip == k)
-            if k == 1:
-                c = white
-            else:
-                c = red if g % 3 == 0 else green if g % 3 == 1 else white
-                if g % 3 == 2:
-                    c = red if k == 0 else green
-            fill(m, c, img)
-    fr = s - np.floor(s)
-    edge = np.minimum(fr, 1 - fr)
-    img[edge < 0.04] = rgb(seam)
-    # seams between faces
-    top2 = np.sort(a, axis=0)
-    img[(top2[2] - top2[1]) < 0.025] = rgb(seam)
-    save("TriPanel.png", shade(img))
+        main = np.maximum(np.abs(comp[f]), 1e-6)
+        u = comp[(f + 1) % 3] / main
+        v = comp[(f + 2) % 3] / main
+        g = np.cos(k * u) + np.cos(k * (0.5 * u + 0.866 * v)) + np.cos(k * (-0.5 * u + 0.866 * v))
+        out[m] = (np.clip((1.2 - g) / 1.2, 0, 1) ** 6)[m]
+    return out
+
+
+def tri_panel():
+    # the owner's reference: a match ball wrapped in sweeping S-curved bands of red, white and
+    # green (the white widest), with a honeycomb texture all over (no logos or print). The bands
+    # repeat twice pole to pole, so both ends of the wrap sit in the middle of a white band and
+    # nothing closes into a ring.
+    theta, phi = frame((0.2, 0.95, -0.25))
+    lat = math.pi / 2 - theta
+    s = lat + 0.85 * np.cos(lat) * np.sin(phi + 0.4) + 0.1 * np.cos(lat) * np.sin(2 * phi)
+    green, red, white = rgb((20, 140, 72)), rgb((214, 32, 46)), rgb((246, 245, 240))
+    widths = [("red", 0.43), ("white", 0.71), ("green", 0.43)]
+    period = math.pi / 2
+    # both poles (s = +-pi/2) land mid-white
+    shift = (0.43 + 0.71 / 2) - math.pi / 2
+    pos = (s + shift + 4 * period) % period
+    img = np.zeros((H, W, 3))
+    start = 0.0
+    seam_dist = np.full_like(s, 9.0)
+    for name, w in widths:
+        inside = (pos >= start) & (pos < start + w)
+        img[inside] = {"green": green, "red": red, "white": white}[name]
+        seam_dist = np.minimum(seam_dist, np.abs(pos - start))
+        start += w
+    seam_dist = np.minimum(seam_dist, np.abs(pos - period))
+    img[pos >= start] = white
+    hexes = honeycomb(14)
+    img = img * (1 - 0.13 * hexes[..., None])
+    img[seam_dist < 0.011] = img[seam_dist < 0.011] * 0.72
+    save("TriPanel.png", img)
 
 
 def beach():
