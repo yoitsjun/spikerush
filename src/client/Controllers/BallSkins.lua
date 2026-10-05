@@ -120,9 +120,11 @@ local function bigHead(radius, owner)
 	for _, acc in ipairs(owner:GetChildren()) do
 		local handle = acc:IsA("Accessory") and acc:FindFirstChild("Handle")
 		if handle and handle:IsA("BasePart") then
+			-- worn on the head: its attachment (HatAttachment, HairAttachment, FaceFrontAttachment...)
+			-- is one of the head's, whatever joint holds it
 			local onHead = false
-			for _, w in ipairs(handle:GetChildren()) do
-				if (w:IsA("Weld") or w:IsA("WeldConstraint") or w:IsA("RigidConstraint")) and (w.Part0 == head or w.Part1 == head) then
+			for _, att in ipairs(handle:GetChildren()) do
+				if att:IsA("Attachment") and head:FindFirstChild(att.Name) then
 					onHead = true
 				end
 			end
@@ -145,7 +147,7 @@ local function bigHead(radius, owner)
 	return model
 end
 
-function BallSkins.build(key, radius, owner)
+local function build(key, radius, owner)
 	local model
 	if key == "BigHead" then
 		model = bigHead(radius, owner)
@@ -191,6 +193,16 @@ function BallSkins.build(key, radius, owner)
 		if d:IsA("BasePart") then
 			prep(d)
 		end
+	end
+	return model
+end
+
+-- a skin that fails to build (a strange head, say) falls back to the classic look
+function BallSkins.build(key, radius, owner)
+	local ok, model = pcall(build, key, radius, owner)
+	if not ok then
+		warn("[SpikeRush] ball skin " .. tostring(key) .. " failed: " .. tostring(model))
+		return nil
 	end
 	return model
 end
