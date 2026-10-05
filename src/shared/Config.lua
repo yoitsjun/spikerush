@@ -375,7 +375,7 @@ Config.Rarity = {
 -- turns into VP (SellValue).
 Config.Spins = {
 	Costs = { [1] = 50, [10] = 500 },
-	Order = { "Char", "Style", "Color", "Trail", "Effect", "Pose" },
+	Order = { "Char", "Style", "Color", "Trail", "Effect", "Pose", "Ball" },
 	Banners = {
 		Char = { Name = "Characters", Blurb = "Named characters with their own role, stats, height and ability." },
 		Style = { Name = "Spike style", Blurb = "Unlocks spike animations." },
@@ -383,6 +383,7 @@ Config.Spins = {
 		Trail = { Name = "Trail", Blurb = "Unlocks the trail your spikes leave." },
 		Effect = { Name = "Score effect", Blurb = "Unlocks what happens where your attack lands for a point." },
 		Pose = { Name = "Intro pose", Blurb = "Unlocks how you pose when the teams line up, and after a win." },
+		Ball = { Name = "Ball skin", Blurb = "Unlocks the ball's look for every rally you serve." },
 	},
 	-- a character's rarity comes from its tier; sub-tiers share it (minus most common)
 	TierRarity = { D = "Common", C = "Common", B = "Rare", A = "Epic", S = "Legendary", ["S+"] = "Mythic" },
@@ -429,8 +430,8 @@ Config.Developers = {
 
 -- Unlockables. The first item of each list is owned by everyone and equipped by default.
 Config.Cosmetics = {
-	Kinds = { "Style", "Color", "Trail", "Effect", "Pose" },
-	Attribute = { Style = "SpikeStyle", Color = "SpikeColor", Trail = "SpikeTrail", Effect = "ScoreEffect", Pose = "IntroPose" },
+	Kinds = { "Style", "Color", "Trail", "Effect", "Pose", "Ball" },
+	Attribute = { Style = "SpikeStyle", Color = "SpikeColor", Trail = "SpikeTrail", Effect = "ScoreEffect", Pose = "IntroPose", Ball = "BallSkin" },
 	Style = {
 		{ Key = "Classic", Name = "Classic", Rarity = "Common" },
 		{ Key = "Bow", Name = "Full Bow", Rarity = "Rare" },
@@ -487,6 +488,23 @@ Config.Cosmetics = {
 		{ Key = "Fist", Name = "Victory Fist", Rarity = "Rare" },
 		{ Key = "Flex", Name = "Double Flex", Rarity = "Epic" },
 		{ Key = "Air", Name = "Sky Attack", Rarity = "Legendary" },
+	},
+	-- the ball's look (the owner: "add some ball skins... make your own balls. i want 6-10
+	-- balls"): the server's skin, the whole rally (BallRenderer; the looks are in BallSkins).
+	-- Pro Swirl and Tri Panel are the owner's "mikasa" and "molten" in our own colours and names
+	-- (real brands' names and designs stay out of the game).
+	Ball = {
+		{ Key = "Classic", Name = "Classic", Rarity = "Common" },
+		{ Key = "ProSwirl", Name = "Pro Swirl", Rarity = "Rare" },
+		{ Key = "TriPanel", Name = "Tri Panel", Rarity = "Rare" },
+		{ Key = "Beach", Name = "Beach Ball", Rarity = "Rare" },
+		{ Key = "Eyeball", Name = "Eyeball", Rarity = "Epic" },
+		{ Key = "Disco", Name = "Disco Ball", Rarity = "Epic" },
+		{ Key = "Spiky", Name = "Spiky", Rarity = "Epic" },
+		{ Key = "Lava", Name = "Lava Core", Rarity = "Legendary" },
+		{ Key = "Galaxy", Name = "Galaxy", Rarity = "Legendary" },
+		{ Key = "Planet", Name = "Ringed Planet", Rarity = "Legendary" },
+		{ Key = "BigHead", Name = "Big Head", Rarity = "Mythic" },
 	},
 }
 

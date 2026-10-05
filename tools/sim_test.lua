@@ -1453,6 +1453,45 @@ do
 		"double approach: no run-up; the second press has a moment to come", string.format("%.1f s", P.ApproachArmTime))
 end
 
+print("== ball skins ==")
+do
+	local keys, dupes = {}, false
+	for _, item in ipairs(Config.Cosmetics.Ball) do
+		dupes = dupes or keys[item.Key] ~= nil
+		keys[item.Key] = true
+	end
+	local n = #Config.Cosmetics.Ball - 1
+	check(not dupes and Spins.default("Ball") == "Classic" and Spins.isBanner("Ball") and Spins.isCosmetic("Ball") and Config.Cosmetics.Attribute.Ball == "BallSkin" and n >= 6 and n <= 10,
+		"ball skins are a cosmetic kind with their own banner; everyone starts with Classic; 6 to 10 new balls", n .. " new")
+	-- every skin but Classic has a look in BallSkins, and each textured one an uploaded texture
+	local f = io.open(ROOT .. "/src/client/Controllers/BallSkins.lua")
+	local src = f and f:read("*a") or ""
+	if f then
+		f:close()
+	end
+	local missing = {}
+	for _, item in ipairs(Config.Cosmetics.Ball) do
+		if item.Key ~= "Classic" and item.Key ~= "BigHead" and not string.find(src, "\n\t" .. item.Key .. " = {", 1, true) then
+			table.insert(missing, item.Key)
+		end
+	end
+	local af = io.open(ROOT .. "/src/shared/Assets.lua")
+	local asrc = af and af:read("*a") or ""
+	if af then
+		af:close()
+	end
+	local block = string.match(asrc, "Assets%.BallSkins = (%b{})") or ""
+	for key, id in string.gmatch(block, '(%w+) = "(%d*)"') do
+		if id == "" then
+			table.insert(missing, key .. " (texture)")
+		end
+	end
+	if block == "" then
+		table.insert(missing, "Assets.BallSkins")
+	end
+	check(#missing == 0 and string.find(src, "BigHead", 1, true) ~= nil, "every ball skin has its look and texture", table.concat(missing, ", "))
+end
+
 print("== matchup intro and showcase ==")
 do
 	local I, MT = Config.Match.Intro, Config.Match

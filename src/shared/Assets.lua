@@ -327,6 +327,18 @@ Assets.Fx = {
 	StatCard = "109112222614632", -- the slanted stat plate behind Speed Burst's number
 }
 
+-- The ball skins' textures (tools/generate_ball_skins.py, the PNGs in assets/balls): equirectangular
+-- maps for the BallSphere mesh (BallSkins).
+Assets.BallSkins = {
+	ProSwirl = "94567248064724",
+	TriPanel = "131961429721109",
+	Beach = "98494400707072",
+	Eyeball = "86293073979138",
+	Lava = "136063469609688",
+	Galaxy = "136596164467380",
+	Planet = "95862712000351",
+}
+
 -- Font families (a FontFace family: rbxasset://fonts/families/<Name>.json, or a Creator Store
 -- font's rbxassetid). Display is set heavy and italic; Body upright.
 Assets.Fonts = {

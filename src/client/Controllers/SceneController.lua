@@ -23,6 +23,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Assets = require(Shared.Assets)
 local Spins = require(Shared.Spins)
 local Fx = require(script.Parent.Fx)
+local BallSkins = require(script.Parent.BallSkins)
 
 local SceneController = {}
 local mods
@@ -127,6 +128,7 @@ local function makeBall(parent, radius, pos, tumble)
 	m.PrimaryPart = core
 	local look = toolboxModel("Volleyball")
 	if look then
+		look:SetAttribute("BallLook", true)
 		core.Transparency = 1
 		core.CastShadow = false
 		local _, size = look:GetBoundingBox()
@@ -138,8 +140,10 @@ local function makeBall(parent, radius, pos, tumble)
 	else
 		-- two bands through the centre, crossed, so the ball stays round from every side
 		local tilt = CFrame.new(pos) * CFrame.Angles(math.rad(20), math.rad(30), math.rad(90))
-		part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(radius * 0.62, radius * 2.04, radius * 2.04), CFrame = tilt, Color = Color3.fromRGB(255, 205, 40) }, m)
-		part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(radius * 0.62, radius * 2.04, radius * 2.04), CFrame = tilt * CFrame.Angles(0, math.rad(90), 0), Color = Color3.fromRGB(34, 86, 196) }, m)
+		local a = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(radius * 0.62, radius * 2.04, radius * 2.04), CFrame = tilt, Color = Color3.fromRGB(255, 205, 40) }, m)
+		local b = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(radius * 0.62, radius * 2.04, radius * 2.04), CFrame = tilt * CFrame.Angles(0, math.rad(90), 0), Color = Color3.fromRGB(34, 86, 196) }, m)
+		a:SetAttribute("BallLook", true)
+		b:SetAttribute("BallLook", true)
 	end
 	m.Parent = parent
 	return m
@@ -865,6 +869,39 @@ local function practiceBall()
 end
 
 -- The same looks the match ball gives an attack (BallRenderer), from the previewed unlocks.
+-- Dress a ball model in a skin (BallSkins), anchored where its core is; the classic look is the
+-- one makeBall gave it, hidden while a skin is on. `owner` is whose head Big Head copies.
+local function skinBall(b, key, owner)
+	if b.skinKey == key and key ~= "BigHead" then
+		return
+	end
+	b.skinKey = key
+	if b.skin then
+		b.skin:Destroy()
+		b.skin = nil
+	end
+	local skin = key and key ~= "Classic" and BallSkins.build(key, b.core.Size.X / 2, owner) or nil
+	for _, c in ipairs(b.model:GetChildren()) do
+		if c:GetAttribute("BallLook") then
+			for _, d in ipairs(c:IsA("Model") and c:GetDescendants() or { c }) do
+				if d:IsA("BasePart") then
+					d.LocalTransparencyModifier = skin and 1 or 0
+				end
+			end
+		end
+	end
+	if skin then
+		for _, d in ipairs(skin:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+			end
+		end
+		skin:PivotTo(b.core.CFrame)
+		skin.Parent = b.model
+		b.skin = skin
+	end
+end
+
 local function styleBall(b, colorKey, trailKey)
 	local colorItem = Spins.resolve("Color", colorKey)
 	local tint = Spins.tint(colorItem)
@@ -947,6 +984,7 @@ function SceneController.setPractice(opts)
 	end
 	practice.opts = opts
 	styleBall(practice.ball, opts.color, opts.trail)
+	skinBall(practice.ball, opts.ball, practice.rig and practice.rig.model)
 	if opts.posing then
 		launchFx(practice.ball, false)
 		practice.ball.model:PivotTo(CFrame.new(PRACTICE + Vector3.new(0, -60, 0)))

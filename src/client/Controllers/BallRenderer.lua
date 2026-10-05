@@ -15,6 +15,7 @@ local BallPhysics = require(Shared.BallPhysics)
 local Spins = require(Shared.Spins)
 local State = require(script.Parent.State)
 local Fx = require(script.Parent.Fx)
+local BallSkins = require(script.Parent.BallSkins)
 
 local BallRenderer = {}
 
@@ -146,6 +147,8 @@ local function fitToolboxBall(clone)
 	end
 end
 
+local skinKey, skinOwner = "Classic", nil
+
 local function applyBallLook()
 	for _, c in ipairs(ballRoot:GetChildren()) do
 		if c:GetAttribute("BallLook") then
@@ -155,6 +158,22 @@ local function applyBallLook()
 	ballRoot.Transparency = 0
 	local home = ballRoot.CFrame
 	ballRoot.CFrame = CFrame.new()
+
+	-- the server's ball skin (BallSkins), else the classic look below
+	local skin = skinKey ~= "Classic" and BallSkins.build(skinKey, R, skinOwner and Util.modelOf(skinOwner)) or nil
+	if skin then
+		skin:SetAttribute("BallLook", true)
+		skin:PivotTo(CFrame.new())
+		skin.Parent = ballRoot
+		for _, d in ipairs(skin:GetDescendants()) do
+			if d:IsA("BasePart") then
+				weldTo(ballRoot, d)
+			end
+		end
+		ballRoot.Transparency = 1
+		ballRoot.CFrame = home
+		return
+	end
 
 	local clone = toolboxBallModel()
 	local meshId = Assets.id(Assets.Mesh.BallMesh)
@@ -529,6 +548,21 @@ local function adopt(snap, keepEvents)
 	cur.path = snap.path
 	cur.meta = snap.meta
 	cur.touch = snap.touch or { count = 0 }
+	-- the ball wears its server's skin for the rally: whoever holds it to serve, or tosses it
+	local owner = skinOwner
+	if cur.state == "Held" and cur.holder then
+		owner = cur.holder
+	elseif cur.meta and cur.meta.hitType == "Toss" and cur.meta.id then
+		owner = cur.meta.id
+	end
+	local key = Spins.equipped(owner and Util.modelOf(owner), "Ball").Key
+	if owner ~= skinOwner or key ~= skinKey then
+		local rebuild = key ~= skinKey or key == "BigHead"
+		skinOwner, skinKey = owner, key
+		if rebuild then
+			applyBallLook()
+		end
+	end
 	if not keepEvents then
 		fired = {}
 	end

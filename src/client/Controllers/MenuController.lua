@@ -41,6 +41,7 @@ local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
+local BallSkins = require(script.Parent.BallSkins)
 
 local MenuController = {}
 local mods
@@ -1026,7 +1027,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local PLAYER_BANNERS = { "Char" }
-local COSMETIC_BANNERS = { "Style", "Color", "Trail", "Effect", "Pose" }
+local COSMETIC_BANNERS = { "Style", "Color", "Trail", "Effect", "Pose", "Ball" }
 -- each banner's card stock (a flat colour under halftone and a gloss streak) and its icon
 local BANNER_ART = {
 	Char = { color = Color3.fromRGB(214, 138, 40), icon = "IconPlayers" },
@@ -1035,6 +1036,7 @@ local BANNER_ART = {
 	Trail = { color = Color3.fromRGB(28, 150, 164), icon = "IconSpeed" },
 	Effect = { color = Color3.fromRGB(206, 62, 62), icon = "IconAttack" },
 	Pose = { color = Color3.fromRGB(58, 156, 88), icon = "IconRanks" },
+	Ball = { color = Color3.fromRGB(224, 176, 30), icon = "IconStar" },
 }
 
 -- Recruit, laid out like The Spike's: the Player / Cosmetic toggle and the banners down the left,
@@ -3053,6 +3055,31 @@ local function lockerCard(parent, kind, item)
 	local foot = make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0.5), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0 }, b)
 	make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.45) }) }, foot)
 	make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.7, 0.08), Size = UDim2.new(0, 40, 1.8, 0), Rotation = 40, BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.9, BorderSizePixel = 0 }, b)
+	local icon = item.Color ~= nil
+	if kind == "Ball" then
+		-- the ball itself, turning slowly in a little viewport
+		icon = true
+		local vp = make("ViewportFrame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(64, 64), BackgroundTransparency = 1, LightDirection = Vector3.new(-1, -1, -0.5), Ambient = Color3.fromRGB(170, 170, 180) }, b)
+		local cam = Instance.new("Camera")
+		cam.FieldOfView = 30
+		cam.CFrame = CFrame.lookAt(Vector3.new(0, 0.6, 5.6), Vector3.zero)
+		cam.Parent = vp
+		vp.CurrentCamera = cam
+		local look = BallSkins.build(item.Key, 1, Players.LocalPlayer.Character)
+		if not look then
+			local classic = Assets.toolbox("Models.Volleyball")
+			look = classic and Assets.sanitize(classic:Clone()) or nil
+			if look and look:IsA("Model") then
+				local _, size = look:GetBoundingBox()
+				look:ScaleTo(look:GetScale() * 2 / math.max(size.X, size.Y, size.Z, 0.01))
+				local box = look:GetBoundingBox()
+				look:PivotTo(box:Inverse() * look:GetPivot())
+			end
+		end
+		if look then
+			look.Parent = vp
+		end
+	end
 	if item.Color then
 		local sw = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 16), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = item.Color, BorderSizePixel = 0 }, b)
 		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, sw)
@@ -3066,7 +3093,7 @@ local function lockerCard(parent, kind, item)
 		TextWrapped = true,
 		TextStrokeTransparency = 0.35,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0.5, item.Color and 12 or 0),
+		Position = UDim2.new(0.5, 0, 0.5, icon and 16 or 0),
 		Size = UDim2.new(1, -16, 0, 62),
 		TextXAlignment = Enum.TextXAlignment.Center,
 	})
@@ -3104,7 +3131,7 @@ local function buildLocker()
 	make("UICorner", { CornerRadius = UDim.new(0, 8) }, panel)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, panel)
 	-- short names, so a sixth tab fits: the player cards (unlocked by achievements, not spins)
-	local short = { Style = "Style", Color = "Color", Trail = "Trail", Effect = "Effect", Pose = "Pose" }
+	local short = { Style = "Style", Color = "Color", Trail = "Trail", Effect = "Effect", Pose = "Pose", Ball = "Ball" }
 	local kinds = {}
 	for _, kind in ipairs(COS.Kinds) do
 		table.insert(kinds, { key = kind, text = short[kind] or SP.Banners[kind].Name })
@@ -3352,7 +3379,7 @@ local function refreshLocker(prof)
 	if o.posing then
 		L.caption.Text = string.format("<b>Preview</b>   %s  (the matchup intro, and after a win)", nm("Pose", o.pose))
 	else
-		L.caption.Text = string.format("<b>Preview</b>   %s  /  %s  /  %s  /  %s", nm("Style", o.style), nm("Color", o.color), nm("Trail", o.trail), nm("Effect", o.effect))
+		L.caption.Text = string.format("<b>Preview</b>   %s  /  %s  /  %s  /  %s  /  %s", nm("Style", o.style), nm("Color", o.color), nm("Trail", o.trail), nm("Effect", o.effect), nm("Ball", o.ball))
 	end
 	if shown and screen == "locker" then
 		mods.SceneController.setPractice(o)
