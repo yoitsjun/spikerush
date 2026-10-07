@@ -381,7 +381,7 @@ local function set(name, action, text, iconKey, enabled)
 	entry.label.Text = text or ""
 	if entry.iconKey ~= iconKey then
 		entry.iconKey = iconKey
-		entry.icon.Image = Assets.image(iconKey) or ""
+		entry.icon.Image = iconKey and Assets.image(iconKey) or "" -- a hidden button has no icon
 	end
 	if not held[name] then
 		entry.button.BackgroundTransparency = entry.enabled and REST or OFF

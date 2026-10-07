@@ -466,6 +466,9 @@ end
 -- The image for a UI slot: a Decal or ImageLabel in ToolboxAssets.UI.<key>, else the id in
 -- Assets.Images, else nil.
 function Assets.image(key)
+	if type(key) ~= "string" then
+		return nil
+	end
 	local inst = Assets.toolbox("UI." .. key)
 	if inst then
 		if inst:IsA("Decal") then
