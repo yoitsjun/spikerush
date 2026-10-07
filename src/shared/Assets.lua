@@ -49,7 +49,7 @@ Assets.Sounds = {
 	Feint = "84316579472327", -- "feint sound": a roll shot over the block
 	-- the owner's uploads (from a free sound library): Spike, Boom, FloorHit, FloorHitHeavy, CrowdServe
 	Spike = "101487104093246", -- "spike sfx": a spike's crack (SpikeHeavy borrows it, deeper and louder)
-	SpikeHeavy = "9119044267", -- Pro Sound Effects: shale break, a huge crack
+	SpikeHeavy = "", -- borrows Spike, deeper and louder (the owner preferred it to the shale break, 9119044267)
 	Thunder = "117922524763696", -- lightning-strike-cool (the owner's pick): a Thunder spike
 	AzureCharge = "",
 	AzureRelease = "",
@@ -162,7 +162,6 @@ Assets.SoundFiles = {
 	["9120256647"] = { start = 0.12, gain = 1.2 }, -- StuffSlam: peak 328
 	["9119334115"] = { start = 0.15, gain = 0.6 }, -- Serve: peak 672
 	["9113899121"] = { gain = 3 }, -- NetHit: peak 127
-	["9119044267"] = { start = 0.12, gain = 1.7 }, -- SpikeHeavy: peak 231
 	["1837834257"] = { start = 1.6, gain = 1.8 }, -- AceStinger: a 2.4 s build, joined near its peak
 	["138190748214493"] = { gain = 1.3 }, -- ScoreSparkle: peak 287
 	["71587723216424"] = { gain = 2.4 }, -- Point: peak 157
