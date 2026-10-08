@@ -283,6 +283,7 @@ local PACK_LISTS = {
 	{ kind = "Lucky", list = Config.Lucky.Packs },
 	{ kind = "Boost", list = Config.Boosts.Packs },
 	{ kind = "LuckBoost", list = Config.Boosts.LuckPacks },
+	{ kind = "Bundle", list = Config.Bundles.Packs },
 }
 
 -- A pack by its kind ("VP", "Gold", "Lucky") and index: { kind, index, pack, id }.
@@ -312,6 +313,41 @@ end
 function Economy.packGrant(entry)
 	local p = entry.pack
 	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky, BoostVP = p.BoostVP, BoostLuck = p.BoostLuck })
+end
+
+-- Whether a pack is a bundle sold once per player that `bought` (a profile's bundles: name ->
+-- true) already has.
+function Economy.boughtOnce(entry, bought)
+	return entry ~= nil and entry.pack.Once == true and type(bought) == "table" and bought[entry.pack.Name] == true
+end
+
+------------------------------------------------------------------------------------------
+-- game passes (Config.Passes)
+------------------------------------------------------------------------------------------
+
+-- What the passes in `owned` (key -> true) multiply `kind` ("VP", "Gold", "Luck") by.
+function Economy.passMult(owned, kind)
+	local m = 1
+	if type(owned) == "table" then
+		for _, key in ipairs(Config.Passes.Order) do
+			local def = Config.Passes[key]
+			if owned[key] and tonumber(def[kind]) then
+				m = m * def[kind]
+			end
+		end
+	end
+	return m
+end
+
+-- The pass a game pass id is, or nil.
+function Economy.passById(passId)
+	for _, key in ipairs(Config.Passes.Order) do
+		local id = Config.Passes[key].PassId
+		if id ~= 0 and id == passId then
+			return key, Config.Passes[key]
+		end
+	end
+	return nil
 end
 
 return Economy

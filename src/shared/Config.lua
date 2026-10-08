@@ -598,6 +598,9 @@ Config.Cards = {
 		-- earned; Big is drawn across the card and Avatar puts your own avatar, mid-spike, over it
 		{ Key = "Creator", Name = "Content Creator", Stat = "grant", Grant = true, Goal = "Given to content creators",
 			Look = { Base = Color3.fromRGB(26, 8, 48), Sweep = Color3.fromRGB(150, 50, 255), Accent = Color3.fromRGB(255, 110, 230), Edge = Color3.fromRGB(200, 120, 255), Pattern = "stripes", Big = "CONTENT\nCREATOR", Avatar = true } },
+		-- the VIP game pass's card (Config.Passes.VIP): given with the pass, never earned
+		{ Key = "VIP", Name = "VIP", Stat = "grant", Grant = true, Goal = "Comes with the VIP game pass",
+			Look = { Base = Color3.fromRGB(20, 14, 2), Sweep = Color3.fromRGB(255, 196, 40), Accent = Color3.fromRGB(255, 245, 200), Edge = Color3.fromRGB(255, 220, 100), Pattern = "stars", Big = "VIP" } },
 	},
 }
 
@@ -664,6 +667,30 @@ Config.Boosts = {
 		{ Id = 3716309109, BoostLuck = 60 * 60, Name = "2x Luck, 1 hour" }, -- 199
 		{ Id = 3716309176, BoostLuck = 3 * 3600, Name = "2x Luck, 3 hours" }, -- 449
 	},
+}
+
+-- Bundles (the owner: "make gamepasses and developer products that people actually will buy...
+-- such as a starter pack bundle"): one Developer Product giving several things at once, worth
+-- more than its packs bought one by one (Value: what those packs cost, shown on its card). Once:
+-- sold once per player (the Shop hides it after; a receipt that still arrives is granted, it was
+-- paid), and not giftable. Id 0 shows "Soon" (free in Studio).
+Config.Bundles = {
+	Packs = {
+		{ Id = 3717319531, Name = "Starter Pack", Once = true, VP = 1500, Gold = 15000, Lucky = 3, BoostLuck = 30 * 60, Value = 800 }, -- 149 Robux
+		{ Id = 3717319999, Name = "Pro Bundle", VP = 4000, Gold = 40000, Lucky = 5, BoostVP = 60 * 60, Value = 1400 }, -- 799
+	},
+}
+
+-- Game passes, owned for good (Creator Hub > your experience > Monetization > Passes; 0 while
+-- there isn't one). VP and Gold multiply what matches pay (the MVP bonus too), and multiply with
+-- each other, the boosts and the admin panel's events; Luck multiplies the Characters banner's
+-- luck like 2x Luck does (Spins.luckWeights), stacking with both. Card: the player card the pass
+-- gives (a Grant card); Tag: the chat tag its owners get. Developers own every pass.
+Config.Passes = {
+	Order = { "VIP", "DoubleVP", "Lucky" },
+	VIP = { PassId = 2021828280, Name = "VIP", Blurb = "1.5x V Points and Gold from every match, a gold VIP chat tag and the VIP player card.", VP = 1.5, Gold = 1.5, Card = "VIP", Tag = "VIP" }, -- 349 Robux
+	DoubleVP = { PassId = 2021552278, Name = "2x V Points", Blurb = "Every match pays double V Points, for good. Stacks with VIP, boosts and events.", VP = 2 }, -- 499
+	Lucky = { PassId = 2022146273, Name = "Lucky", Blurb = "Your Characters recruits are 1.5x luckier, for good. Stacks with 2x Luck.", Luck = 1.5 }, -- 399
 }
 
 -- Codes (the owner: "add a codes system... first code should be release, you decide the value

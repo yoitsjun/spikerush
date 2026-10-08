@@ -549,6 +549,8 @@ CREATOR" and `Avatar`); grants carry `Cards` (`Economy.cleanGrant` keeps only Gr
 
 ## Next steps
 
+0. **Bundles and game passes: try a purchase** (the owner: "make gamepasses and developer products that people actually will buy... maximize profits"). Live on Creator Hub, made through Open Cloud: the Starter Pack (149, once per player, `profile.bundles`) and the Pro Bundle (799) in `Config.Bundles`; the VIP (349: 1.5x VP and Gold, the `ChatTag` attribute shown in chat by Main.client.lua, the VIP card), 2x V Points (499) and Lucky (399: 1.5x luck on the Characters banner) passes in `Config.Passes`. The Shop opens on its new Deals tab. Not tried yet: a test purchase of each in Studio (a developer owns every pass, so the pass buttons read "Owned" there; test those from an alt in the live game). Not built: a Starter Pack pop-up for new players, and icons for the five items (they use Roblox's default).
+
 0. **The premium score effects: the owner's look** (twentieth session). Save the place (the meshes live only there). Score with each effect equipped (Locker > Score effect) in a match: Speed Burst's card and number, the size tiers and the longer pause. Not built: the tornado and black hole pulling players around (visual only).
 
 0. **Tournaments: tune with the owner** (`Config.Tournament`: entries, prizes, bot tiers, modifiers). Not built: friends joining a run, an active-players count on the cards, taller-looking models for Giants.

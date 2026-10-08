@@ -191,7 +191,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -374,6 +374,14 @@ local function sanitizeProfile(data)
 	if type(data.boosts) == "table" and tonumber(data.boosts.Luck) then
 		out.boosts.Luck = math.max(0, math.floor(tonumber(data.boosts.Luck)))
 	end
+	-- the bundles sold once (Config.Bundles) this player has bought, by name
+	if type(data.bundles) == "table" then
+		for _, b in ipairs(Config.Bundles.Packs) do
+			if b.Once and data.bundles[b.Name] == true then
+				out.bundles[b.Name] = true
+			end
+		end
+	end
 	return out
 end
 
@@ -479,6 +487,7 @@ local function save(plr, force)
 		bestRank = profile.bestRank,
 		pity = profile.pity,
 		favor = profile.favor,
+		bundles = profile.bundles,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -578,6 +587,45 @@ local function applyPerks(plr, profile)
 			end
 		end
 	end
+end
+
+-- Game passes (Config.Passes): owned when Roblox says so, or for a developer.
+local ownedPasses = {} -- plr -> { [pass] = true }
+
+local function passesOf(plr, profile)
+	local out = {}
+	for _, key in ipairs(Config.Passes.Order) do
+		if profile.dev == true or (ownedPasses[plr] ~= nil and ownedPasses[plr][key] == true) then
+			out[key] = true
+		end
+	end
+	return out
+end
+
+-- What this player's passes multiply `kind` ("VP", "Gold", "Luck") by (MatchService's rewards).
+function ProfileService.passMult(plr, kind)
+	local profile = profiles[plr]
+	return profile and Economy.passMult(passesOf(plr, profile), kind) or 1
+end
+
+-- A pass's chat tag as the ChatTag attribute on the Player (every client shows it), and the
+-- player card it gives (kept for good, like a granted card).
+local function applyPasses(plr, profile)
+	local owned = passesOf(plr, profile)
+	local tag = ""
+	for _, key in ipairs(Config.Passes.Order) do
+		local def = Config.Passes[key]
+		if owned[key] then
+			if def.Tag and tag == "" then
+				tag = def.Tag
+			end
+			if def.Card and not profile.dev and not profile.cards[def.Card] then
+				profile.cards[def.Card] = true
+				dirty[plr] = true
+			end
+		end
+	end
+	plr:SetAttribute("ChatTag", tag)
 end
 
 ------------------------------------------------------------------------------------------
@@ -722,6 +770,7 @@ function ProfileService.applyActive(plr)
 	end
 	applyCosmetics(plr, ProfileService.get(plr))
 	applyPerks(plr, ProfileService.get(plr))
+	applyPasses(plr, ProfileService.get(plr))
 	applyCard(plr, ProfileService.get(plr))
 end
 
@@ -814,6 +863,8 @@ function ProfileService.snapshot(plr)
 		liked = profile.liked == true or RunService:IsStudio(), -- and the like (their word)
 		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP
 		boostLuck = math.max(0, (profile.boosts.Luck or 0) - os.time()), -- and on their 2x Luck
+		passes = passesOf(plr, profile), -- the game passes they own (Config.Passes)
+		bundles = table.clone(profile.bundles), -- the once-only bundles they bought
 		group = groupId(),
 		member = groupMember[plr], -- nil until it's known
 		daily = (function()
@@ -1121,7 +1172,7 @@ end
 -- purchase is prompted; ProcessReceipt sends them the pack.
 local function giftStart(plr, kind, index, username)
 	local entry = Economy.pack(kind, index)
-	if not entry or type(username) ~= "string" then
+	if not entry or type(username) ~= "string" or entry.pack.Once then
 		return
 	end
 	local userId, why = ProfileService.findUser(username)
@@ -1352,6 +1403,7 @@ local function spinOnce(plr, profile, banner, count, lucky)
 	if Economy.boost(profile, "Luck", os.time()) > 1 then
 		mult = mult * 2
 	end
+	mult = mult * Economy.passMult(passesOf(plr, profile), "Luck") -- the Lucky game pass
 	local luckWeights = (not lucky and banner == "Char") and Spins.luckWeights(mult) or nil
 	for i = 1, count do
 		local k, how = nil, nil
@@ -1717,9 +1769,12 @@ local function onRequest(plr, kind, a, b, c)
 	elseif kind == "buy" then
 		-- Studio: a pack whose product doesn't exist yet is free, so the flow can be tried
 		local entry = Economy.pack(b, a)
-		if entry and entry.id == 0 and RunService:IsStudio() then
+		if entry and entry.id == 0 and RunService:IsStudio() and not Economy.boughtOnce(entry, profile.bundles) then
 			local g = Economy.packGrant(entry)
 			applyPack(profile, g)
+			if entry.pack.Once then
+				profile.bundles[entry.pack.Name] = true
+			end
 			dirty[plr] = true
 			push(plr, Economy.describe(g) .. " (free in Studio)")
 		end
@@ -1758,6 +1813,11 @@ local function processReceipt(info)
 		end
 	end
 	local before = not gift and applyPack(profile, g) or nil
+	-- a bundle sold once is marked bought (a second receipt for it still grants: it was paid)
+	local once = not gift and entry.pack.Once == true and not profile.bundles[entry.pack.Name]
+	if once then
+		profile.bundles[entry.pack.Name] = true
+	end
 	addSpent(plr, profile, info.CurrencySpent, gift ~= nil, 1)
 	table.insert(profile.receipts, 1, id)
 	while #profile.receipts > Config.Shop.ReceiptHistory do
@@ -1769,6 +1829,9 @@ local function processReceipt(info)
 		-- not persisted: undo, and let Roblox retry later (a gift already sent won't send twice)
 		if before then
 			unapplyPack(profile, before)
+		end
+		if once then
+			profile.bundles[entry.pack.Name] = nil
 		end
 		addSpent(plr, profile, info.CurrencySpent, gift ~= nil, -1)
 		table.remove(profile.receipts, 1)
@@ -1830,6 +1893,22 @@ function ProfileService.init(r)
 					end
 				end
 			end
+			-- and the other game passes (Config.Passes)
+			for _, key in ipairs(Config.Passes.Order) do
+				local id = Config.Passes[key].PassId
+				if id ~= 0 then
+					local ok, owns = pcall(function()
+						return MarketplaceService:UserOwnsGamePassAsync(plr.UserId, id)
+					end)
+					if ok and owns and plr.Parent then
+						ownedPasses[plr] = ownedPasses[plr] or {}
+						ownedPasses[plr][key] = true
+						applyPasses(plr, ProfileService.get(plr))
+						push(plr)
+					end
+				end
+			end
+			applyPasses(plr, ProfileService.get(plr))
 		end)
 		plr.CharacterAdded:Connect(function()
 			task.defer(ProfileService.applyActive, plr)
@@ -1850,6 +1929,7 @@ function ProfileService.init(r)
 		loading[plr] = nil
 		lastRequest[plr] = nil
 		passes[plr] = nil
+		ownedPasses[plr] = nil
 		lastPerkSet[plr] = nil
 		pendingGift[plr] = nil
 		groupMember[plr] = nil
@@ -1879,7 +1959,22 @@ function ProfileService.init(r)
 			pendingGift[plr] = nil
 		end
 	end)
-	-- a perk's game pass bought in game (its price counts toward Robux spent)
+	-- a game pass bought in game (its price counts toward Robux spent)
+	local function countPass(plr, passId)
+		task.spawn(function()
+			if not passPrices[passId] then
+				local okInfo, info = pcall(function()
+					return MarketplaceService:GetProductInfo(passId, Enum.InfoType.GamePass)
+				end)
+				passPrices[passId] = okInfo and type(info) == "table" and tonumber(info.PriceInRobux) or 0
+			end
+			local profile = profiles[plr]
+			if profile and passPrices[passId] > 0 then
+				addSpent(plr, profile, passPrices[passId], false, 1)
+				reg.LeaderboardService.track(plr, profile)
+			end
+		end)
+	end
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(plr, passId, purchased)
 		if not purchased then
 			return
@@ -1890,20 +1985,17 @@ function ProfileService.init(r)
 				passes[plr][key] = true
 				applyPerks(plr, ProfileService.get(plr))
 				push(plr, Config.Perks[key].Name .. " unlocked: enter your id")
-				task.spawn(function()
-					if not passPrices[passId] then
-						local okInfo, info = pcall(function()
-							return MarketplaceService:GetProductInfo(passId, Enum.InfoType.GamePass)
-						end)
-						passPrices[passId] = okInfo and type(info) == "table" and tonumber(info.PriceInRobux) or 0
-					end
-					local profile = profiles[plr]
-					if profile and passPrices[passId] > 0 then
-						addSpent(plr, profile, passPrices[passId], false, 1)
-						reg.LeaderboardService.track(plr, profile)
-					end
-				end)
+				countPass(plr, passId)
 			end
+		end
+		local key, def = Economy.passById(passId)
+		if key then
+			ownedPasses[plr] = ownedPasses[plr] or {}
+			ownedPasses[plr][key] = true
+			applyPasses(plr, ProfileService.get(plr))
+			applyCard(plr, ProfileService.get(plr))
+			push(plr, def.Name .. " unlocked. Thanks for the support!")
+			countPass(plr, passId)
 		end
 	end)
 	Net.get("Profile").OnServerEvent:Connect(onRequest)

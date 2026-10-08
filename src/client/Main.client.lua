@@ -77,6 +77,22 @@ pcall(function()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
 end)
 
+-- A game pass's chat tag (Config.Passes: the ChatTag attribute the server sets) in gold before
+-- its owner's name.
+pcall(function()
+	local TextChatService = game:GetService("TextChatService")
+	TextChatService.OnIncomingMessage = function(message)
+		local props = Instance.new("TextChatMessageProperties")
+		local source = message.TextSource
+		local who = source and Players:GetPlayerByUserId(source.UserId)
+		local tag = who and who:GetAttribute("ChatTag")
+		if type(tag) == "string" and tag ~= "" then
+			props.PrefixText = string.format('<font color="#FFC828">[%s]</font> %s', tag, message.PrefixText)
+		end
+		return props
+	end
+end)
+
 Net.get("ClientReady"):FireServer()
 Net.get("Profile"):FireServer("get")
 -- lets the loading screen (ReplicatedFirst) fade out

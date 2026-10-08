@@ -1853,6 +1853,29 @@ do
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
 end
 
+print("== bundles and game passes ==")
+do
+	local Economy = require("Economy")
+	-- the Starter Pack: one product, several things, sold once
+	local starter = Economy.pack("Bundle", 1)
+	local g = Economy.packGrant(starter)
+	local prof = { vp = 0, gold = 0, lucky = 0, boosts = {} }
+	Economy.apply(prof, g, 1000)
+	local byId = Config.Bundles.Packs[2].Id ~= 0 and Economy.packByProduct(Config.Bundles.Packs[2].Id) or Economy.pack("Bundle", 2)
+	check(starter and starter.pack.Once and prof.vp == starter.pack.VP and prof.gold == starter.pack.Gold and prof.lucky == starter.pack.Lucky and Economy.boost(prof, "Luck", 1000 + 60) == 2
+		and not Economy.boughtOnce(starter, {}) and Economy.boughtOnce(starter, { [starter.pack.Name] = true })
+		and byId and byId.kind == "Bundle" and not Economy.boughtOnce(byId, { [byId.pack.Name] = true }),
+		"a bundle gives everything in it; the Starter Pack counts as bought once it is, the Pro Bundle never does", Economy.describe(g))
+	-- the passes multiply each other: VIP 1.5x and 2x V Points make 3x; Lucky 1.5x luck on top of 2x Luck is 3x
+	local all = { VIP = true, DoubleVP = true, Lucky = true }
+	local three = Spins.odds("Char", Spins.luckWeights(2 * Economy.passMult(all, "Luck")))
+	local base = Spins.odds("Char")
+	check(Economy.passMult({}, "VP") == 1 and Economy.passMult(nil, "Gold") == 1 and Economy.passMult({ VIP = true }, "Gold") == 1.5
+		and Economy.passMult(all, "VP") == 3 and Economy.passMult(all, "Gold") == 1.5 and Economy.passMult(all, "Luck") == 1.5
+		and math.abs(three.Mythic - 3 * base.Mythic) < 1e-9 and math.abs(Spins.odds("Char", Spins.luckWeights(1.5)).Mythic - 1.5 * base.Mythic) < 1e-9,
+		"game passes multiply what matches pay and the Characters banner's luck, and stack", string.format("Mythic %.2f%% at 3x", three.Mythic * 100))
+end
+
 print("== one swing a jump ==")
 do
 	local yj = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))

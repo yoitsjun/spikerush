@@ -68,9 +68,9 @@ local refreshQueued = false
 -- this table rather than in locals: this chunk is close to Luau's 200 locals.
 local Extra = {}
 Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns count from then)
-Extra.shopTab = "Currency" -- the Shop's tab: "Currency" (VP and Gold) or "Lucky" (lucky spins and boosts)
+Extra.shopTab = "Deals" -- the Shop's tab: "Deals" (bundles and game passes), "Currency" (VP and Gold), "Lucky" or "Boosts"
 Extra.Cards = require(Shared.Cards) -- player cards (the Locker's Cards tab)
-local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {} } -- product prices in Robux, looked up once per pack
+local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, Bundle = {} } -- product prices in Robux, looked up once per pack
 
 local TIPS = {
 	"Hold toward the net as you let go of a jump-serve toss to throw it forward, then run into it.",
@@ -195,12 +195,13 @@ function Extra.recruitWeights(kind)
 end
 
 -- How lucky your usual recruits are right now: the admin panel's 2x Luck and your own 2x Luck each
--- double it, and they stack (4x); and whether each is on.
+-- double it, and they stack (4x), and the Lucky game pass multiplies on top; and whether each is on.
 function Extra.luckMult()
 	local prof = profile()
 	local event = Extra.eventLeft("Luck") > 0
 	local mine = (prof.boostLuck or 0) - (os.clock() - (Extra.profileAt or 0)) > 0
-	return (event and 2 or 1) * (mine and 2 or 1), event, mine
+	local pass = Economy.passMult(prof.passes, "Luck")
+	return (event and 2 or 1) * (mine and 2 or 1) * pass, event, mine, pass > 1
 end
 
 -- A text box in the Shop's style.
@@ -1267,10 +1268,19 @@ local function refreshRecruit(prof)
 	local o = Spins.odds(banner, Extra.recruitWeights(banner))
 	local parts = {}
 	-- 2x Luck in front, and when your own and the event's are both on, that they stack
-	local mult, event, mine = Extra.luckMult()
+	local mult, event, mine, pass = Extra.luckMult()
 	if banner == "Char" and mult > 1 then
-		local why = (event and mine) and "your 2x + the event's 2x" or (event and "the event" or "your boost")
-		table.insert(parts, string.format('<font color="#BE6EFF"><b>%dx Luck</b> (%s)</font>', mult, why))
+		local whys = {}
+		if mine then
+			table.insert(whys, event and "your 2x" or "your boost")
+		end
+		if event then
+			table.insert(whys, mine and "the event's 2x" or "the event")
+		end
+		if pass then
+			table.insert(whys, "Lucky pass")
+		end
+		table.insert(parts, string.format('<font color="#BE6EFF"><b>%sx Luck</b> (%s)</font>', tostring(mult), table.concat(whys, " + ")))
 	end
 	for _, r in ipairs(Config.Rarity.Order) do
 		if o[r] > 0 then
@@ -3423,24 +3433,147 @@ function Extra.boostLength(seconds)
 end
 
 local function shopPacks(key)
-	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs, LuckBoost = Config.Boosts.LuckPacks }
+	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs, LuckBoost = Config.Boosts.LuckPacks, Bundle = Config.Bundles.Packs }
 	return lists[key] or {}
+end
+
+-- The Shop's Deals tab: the bundles (Config.Bundles) in a row of two wide cards, then the game
+-- passes (Config.Passes) in a row of three. `prices` takes each bundle's price label, which
+-- refreshShop fills like the packs'.
+Extra.passPrices = {} -- pass key -> its price in Robux, looked up once
+function Extra.buildDeals(holder, prices)
+	local d = { bundles = {}, passes = {} }
+	local function heading(text, note, y)
+		Gui.label(holder, { Text = text, display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextStrokeTransparency = 0.6, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 36), Position = UDim2.fromOffset(0, y) })
+		Gui.label(holder, { Text = note, TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextStrokeTransparency = 0.6, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(420, 20), Position = UDim2.new(1, 0, 0, y + 12) })
+		Gui.plate(holder, { Size = UDim2.fromOffset(60, 6), Position = UDim2.fromOffset(2, y + 40) }, Gui.SIGNAL)
+	end
+	-- a ribbon in a card's top-left corner ("ONE TIME", "BEST VALUE")
+	local function ribbon(card, text, color)
+		local r = Gui.plate(card, { Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(120, 26) }, color)
+		Gui.label(r, { Text = text, display = true, weight = Enum.FontWeight.Heavy, TextSize = 15, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3 })
+		return r
+	end
+
+	heading("Bundles", "Way more than the packs bought one by one", 0)
+	for i, pack in ipairs(Config.Bundles.Packs) do
+		local entry = Economy.pack("Bundle", i)
+		local card = Gui.card(holder, { Size = UDim2.fromOffset(414, 224), Position = UDim2.fromOffset((i - 1) * 428, 56), ClipsDescendants = true })
+		Gui.halftone(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.6, 1), ImageColor3 = Gui.GOLD, ImageTransparency = 0.88 })
+		ribbon(card, pack.Once and "ONE TIME" or "BEST VALUE", pack.Once and Color3.fromRGB(255, 90, 60) or Gui.GOLD)
+		local icon = Gui.sparkle(card, 64, Gui.GOLD)
+		icon.AnchorPoint = Vector2.new(1, 0)
+		icon.Position = UDim2.new(1, -16, 0, 12)
+		Gui.label(card, { Text = pack.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 36, Position = UDim2.fromOffset(16, 44), Size = UDim2.new(1, -100, 0, 40) })
+		Gui.label(card, { Text = Economy.describe(Economy.packGrant(entry)), TextSize = 17, weight = Enum.FontWeight.Medium, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 88), Size = UDim2.new(1, -32, 0, 44) })
+		if pack.Value then
+			Gui.label(card, { Text = string.format("Worth R$ %s in packs", Gui.num(pack.Value)), TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.GOLD, Position = UDim2.fromOffset(16, 136), Size = UDim2.new(1, -32, 0, 18) })
+		end
+		local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -16), Size = UDim2.fromOffset(220, 46) }, "", 22)
+		onClick(buy, function()
+			if Economy.boughtOnce(entry, profile().bundles) then
+				return
+			end
+			if pack.Id ~= 0 then
+				pcall(function()
+					MarketplaceService:PromptProductPurchase(player, pack.Id)
+				end)
+			elseif profile().studio then
+				Net.get("Profile"):FireServer("buy", i, "Bundle")
+			end
+		end)
+		-- a bundle sold once can't be gifted (it's the buyer's own first boost)
+		if not pack.Once then
+			local gift = hairButton(card, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -16, 1, -16), Size = UDim2.fromOffset(96, 46) }, "Gift", 18)
+			onClick(gift, function()
+				MenuController.openGift("Bundle", i)
+			end)
+		end
+		prices.Bundle[i] = price
+		d.bundles[i] = { entry = entry, buy = buy, price = price }
+		if pack.Id ~= 0 then
+			task.spawn(function()
+				local ok, info = pcall(function()
+					return MarketplaceService:GetProductInfo(pack.Id, Enum.InfoType.Product)
+				end)
+				if ok and info and info.PriceInRobux then
+					packPrices.Bundle[i] = info.PriceInRobux
+					MenuController.refresh()
+				end
+			end)
+		end
+	end
+
+	heading("Game passes", "Yours for good, in every match", 284)
+	local n = #Config.Passes.Order
+	local w = math.floor((842 - (n - 1) * 14) / n)
+	for i, key in ipairs(Config.Passes.Order) do
+		local def = Config.Passes[key]
+		local card = Gui.card(holder, { Size = UDim2.fromOffset(w, 224), Position = UDim2.fromOffset((i - 1) * (w + 14), 340), ClipsDescendants = true })
+		Gui.halftone(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.94 })
+		Gui.label(card, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextColor3 = key == "VIP" and Gui.GOLD or Gui.CHALK, Position = UDim2.fromOffset(16, 14), Size = UDim2.new(1, -32, 0, 34) })
+		Gui.label(card, { Text = def.Blurb, TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 54), Size = UDim2.new(1, -32, 0, 80) })
+		local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.new(1, -32, 0, 46) }, "", 22)
+		onClick(buy, function()
+			if def.PassId ~= 0 and not (profile().passes and profile().passes[key]) then
+				pcall(function()
+					MarketplaceService:PromptGamePassPurchase(player, def.PassId)
+				end)
+			end
+		end)
+		d.passes[key] = { buy = buy, price = price }
+		if def.PassId ~= 0 then
+			task.spawn(function()
+				local ok, info = pcall(function()
+					return MarketplaceService:GetProductInfo(def.PassId, Enum.InfoType.GamePass)
+				end)
+				if ok and info and info.PriceInRobux then
+					Extra.passPrices[key] = info.PriceInRobux
+					MenuController.refresh()
+				end
+			end)
+		end
+	end
+	Extra.deals = d
+end
+
+-- After refreshShop's prices: a bundle bought once and a pass owned say so.
+function Extra.refreshDeals(prof)
+	local d = Extra.deals
+	if not d then
+		return
+	end
+	for _, b in ipairs(d.bundles) do
+		if Economy.boughtOnce(b.entry, prof.bundles) then
+			b.price.Text = "Bought"
+		end
+	end
+	for key, e in pairs(d.passes) do
+		local def = Config.Passes[key]
+		if prof.passes and prof.passes[key] then
+			e.price.Text = "Owned"
+		elseif def.PassId ~= 0 then
+			e.price.Text = Extra.passPrices[key] and ("R$ " .. Extra.passPrices[key]) or "..."
+		else
+			e.price.Text = "Soon"
+		end
+	end
 end
 
 local function buildShop()
 	local p = page("shop")
 	mainChrome(p, "shop")
 	-- two tabs (the owner added lucky spins and 2x VP boosts to sell), two rows each
-	local _, setTab = segmented(p, { { key = "Currency", text = "V Points & Gold" }, { key = "Lucky", text = "Lucky spins" }, { key = "Boosts", text = "Boosts" } }, { Name = "ShopTabs", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(640, 46) }, function(key)
+	local _, setTab = segmented(p, { { key = "Deals", text = "Deals" }, { key = "Currency", text = "V Points & Gold" }, { key = "Lucky", text = "Lucky spins" }, { key = "Boosts", text = "Boosts" } }, { Name = "ShopTabs", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(842, 46) }, function(key)
 		Extra.shopTab = key
 		MenuController.refresh()
 	end)
 	local packs = make("Frame", { Name = "Packs", Position = UDim2.fromOffset(M, 210), Size = UDim2.fromOffset(4 * 200 + 3 * 14, 560), BackgroundTransparency = 1 }, p)
 	local tabs = {}
-	for _, key in ipairs({ "Currency", "Lucky", "Boosts" }) do
+	for _, key in ipairs({ "Deals", "Currency", "Lucky", "Boosts" }) do
 		tabs[key] = make("Frame", { Name = key, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, packs)
 	end
-	local prices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {} }
+	local prices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, Bundle = {} }
 	local notes = {}
 	local rowsIn = { Currency = 0, Lucky = 0, Boosts = 0 }
 	for _, row in ipairs(SHOP_ROWS) do
@@ -3487,6 +3620,7 @@ local function buildShop()
 			end
 		end
 	end
+	Extra.buildDeals(tabs.Deals, prices)
 
 	-- Recruit: the big way in, bottom right like Home's Match plate
 	local recruit, recruitPlate = Gui.plateButton(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M), Size = UDim2.fromOffset(440, 128) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
@@ -3659,6 +3793,7 @@ local function refreshShop(prof)
 			end
 		end
 	end
+	Extra.refreshDeals(prof)
 end
 
 ------------------------------------------------------------------------------------------

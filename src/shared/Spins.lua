@@ -118,11 +118,12 @@ end
 Spins.LuckyWeights = Config.Lucky.Weights
 
 -- The rarity weights at `mult` times the luck (Config.Spins.LuckEvent): 2 for the admin panel's
--- 2x Luck or your own boost, 4 for both (they stack): A- and up times mult, what that adds taken
--- from the Commons (never below none). nil at 1 (the usual weights).
+-- 2x Luck or your own boost, 4 for both (they stack), and the Lucky game pass's 1.5 on top (3, 6):
+-- A- and up times mult, what that adds taken from the Commons (never below none). nil at 1 (the
+-- usual weights).
 local luckWeights = {}
 function Spins.luckWeights(mult)
-	mult = math.floor(tonumber(mult) or 1)
+	mult = math.floor((tonumber(mult) or 1) * 100 + 0.5) / 100
 	if mult <= 1 then
 		return nil
 	end
