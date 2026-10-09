@@ -439,7 +439,7 @@ do
 	local ids, okShape, okAbility, okLimits = {}, true, true, true
 	local tallestSE, shortestMB, notes = 0, 999, {}
 	local want = {
-		WS = { Adrenaline = true, RisingSun = true, Counter = true, Plunge = true, Skyward = true },
+		WS = { Adrenaline = true, RisingSun = true, Counter = true, Plunge = true },
 		MB = { IronWall = true, RallyCry = true },
 		SE = { ChainReaction = true, Vector = true, Turnabout = true },
 	}
@@ -450,7 +450,7 @@ do
 			okLimits = okLimits and c[k] >= Config.Stats.Min and c[k] <= Config.Stats.Max
 		end
 		if c.Tier == "S+" then
-			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint")
+			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint" or c.Ability == "Skyward")
 		elseif c.Tier == "S" then
 			okAbility = okAbility and want[c.Role][c.Ability or ""] == true and Config.Abilities[c.Ability].Role == c.Role
 		else
@@ -471,7 +471,7 @@ do
 		end
 	end
 	check(okLimits and #Roster >= 30, "every roster character is valid and unique", #Roster .. " characters")
-	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap or Zero Point, S characters one of their role's abilities, the rest none")
+	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap, Zero Point or Skyward, S characters one of their role's abilities, the rest none")
 	local topId, topAtk, nextAtk = nil, 0, 0
 	for _, c in ipairs(Roster) do
 		if c.Attack > topAtk then
@@ -1902,7 +1902,7 @@ do
 	local ok2, res2 = spike(lowRoot, ballAt(lowRoot, 1.0, 0.4), { stats = se, ability = "Skyward" })
 	check(ok and ok2 and math.abs(res.meta.liftGain - SKYW.Gain) < 0.02 and res2.meta.liftGain < res.meta.liftGain * 0.6 and math.abs(res.meta.height - low.ContactMaxM) < 0.05,
 		"a spike at the top of her jump raises it most, a low one little", string.format("+%.3f m at %.2f m, +%.3f m low", ok and res.meta.liftGain or 0, ok and res.meta.height or 0, ok2 and res2.meta.liftGain or 0))
-	-- Talon Drop: right at the net nearly straight down onto their side; off the net onto her own
+	-- Talon Drop: right at the net nearly straight down; further back flatter, still over the net
 	local function talonFrom(ballFromNet)
 		local r = apexRoot(top, Z.SpikeForward + Z.SpikeCenterDz + ballFromNet)
 		local okT, resT = HitLogic.compute({ action = "Feint", t = 0, root = r, ball = ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy), vy = 0, grounded = false }, ctx({ stats = se, ability = "Skyward", lift = 99 }))
@@ -1912,8 +1912,10 @@ do
 	local okF, far, pF = talonFrom(2.4 * SPM)
 	check(okN and near.meta.talon and near.meta.hitType == "Spike" and near.meta.talonAngle >= 75 and not pN.flags.netTouch and pN.landing.pos.Z * side < 0 and -pN.landing.pos.Z * side < 1.6 * SPM,
 		"Talon Drop at the net goes nearly straight down just past the tape", string.format("%d deg, %.1f km/h, %s", okN and near.meta.talonAngle or 0, okN and near.meta.kmh or 0, okN and describe(pN) or "-"))
-	check(okF and far.meta.talonAngle == SKYW.TalonFarAngle and pF.landing.pos.Z * side > 0,
-		"off the net it comes down on her own side", okF and describe(pF) or "-")
+	check(okF and far.meta.talonAngle < near.meta.talonAngle - 15 and not pF.flags.netTouch and pF.landing.pos.Z * side < 0,
+		"further back it's flatter, still over the net onto their side", string.format("%d deg, %s", okF and far.meta.talonAngle or 0, okF and describe(pF) or "-"))
+	check(low.Attack == se.Attack and top.Attack == se.Attack + SKYW.AttackAtMax,
+		"her Attack climbs with her jump", string.format("%d to %d", low.Attack, top.Attack))
 end
 
 print("== bundles and game passes ==")

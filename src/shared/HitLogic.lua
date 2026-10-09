@@ -464,8 +464,11 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		end
 	end
 	if ability == "Skyward" then
-		-- Skyward: her hitting point climbs with her spikes this set (extra.lift, metres)
-		add.Lift = HitLogic.skyLift(extra and extra.lift)
+		-- Skyward: her hitting point climbs with her spikes this set (extra.lift, metres), and her
+		-- Attack with it
+		local lift = HitLogic.skyLift(extra and extra.lift)
+		add.Lift = lift
+		add.Attack = (add.Attack or 0) + math.floor(SKY.AttackAtMax * (lift - SKY.StartLift) / (SKY.MaxLift - SKY.StartLift) + 0.5)
 		any = true
 	end
 	if ability == "Feral" and extra and extra.auto then
@@ -824,9 +827,9 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t, hold)
 end
 
--- Talon Drop (Skyward's feint): a spike driven nearly straight down. Within TalonReach of the net
--- it's steeper the closer she is, and never so steep it can't clear the tape; further back it
--- keeps TalonFarAngle and comes down on her own side.
+-- Talon Drop (Skyward's feint): a spike driven down over the net, nearly straight down right on
+-- top of it and flatter the further back she is (TalonAngle out to TalonReach), never so steep it
+-- can't clear the tape.
 local function talon(input, ctx, rng, stats)
 	local side = ctx.side
 	local ball, root, t = input.ball, input.root, input.t
@@ -855,14 +858,11 @@ local function talon(input, ctx, rng, stats)
 	end
 	-- how far the ball is from the net on her side (studs; 0 or less: over it)
 	local back = ball.Z * side
-	local angle = SKY.TalonFarAngle
-	if back <= SKY.TalonReach then
-		angle = lerp(SKY.TalonAngle[1], SKY.TalonAngle[2], clamp(back / SKY.TalonReach, 0, 1))
-		if back > 0 then
-			-- no steeper than the line that clears the tape (a little spare for the fall)
-			local rise = ball.Y - (C.NetTop + R + H.NetClearance + 0.3)
-			angle = math.max(math.min(angle, math.deg(math.atan(math.max(rise, 0) / back))), 8)
-		end
+	local angle = lerp(SKY.TalonAngle[1], SKY.TalonAngle[2], clamp(back / SKY.TalonReach, 0, 1))
+	if back > 0 then
+		-- no steeper than the line that clears the tape (spare for the fall, more the further back)
+		local rise = ball.Y - (C.NetTop + R + H.NetClearance + 0.3 + 0.15 * back)
+		angle = math.max(math.min(angle, math.deg(math.atan(math.max(rise, 0) / back))), 8)
 	end
 	local a = math.rad(angle)
 	local speed = HitLogic.studs(kmh)

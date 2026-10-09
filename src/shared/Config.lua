@@ -993,32 +993,33 @@ Config.Abilities = {
 	},
 	-- Seora (the owner: "a jump that starts low, but the higher spike point she gets the higher her
 	-- jump increases... at her peak, maybe 4.7-4.8", and "instead of a typical feint she has a sharp
-	-- nearly 90 degree spike"). Her hitting point moves by Lift metres (from StartLift each set):
-	-- every spike adds up to Gain, all of it when met at the top of her jump, less the lower she
-	-- met it, to MaxLift (maxed: about 3.85 m at the start of a set, 4.75 m at the top). Her feint
-	-- is Talon Drop: a spike driven nearly straight down. Within TalonReach of the net it goes over
-	-- the tape at TalonAngle (steeper the closer she is); further back it keeps TalonFarAngle and
-	-- lands on her own side.
+	-- nearly 90 degree spike"; then, back to S+: "if her attack scales with highest jump too, and
+	-- maybe make it so her vertical feint is based on her distance from net"). Her hitting point
+	-- moves by Lift metres (from StartLift each set): every spike adds up to Gain, all of it when
+	-- met at the top of her jump, less the lower she met it, to MaxLift (maxed: about 3.85 m at the
+	-- start of a set, 4.75 m at the top); her Attack climbs with it, up to AttackAtMax more. Her
+	-- feint is Talon Drop: a spike driven down at TalonAngle, steepest right at the net and flatter
+	-- the further back she is (out to TalonReach, and flatter still past it), never so steep it
+	-- can't clear the tape: it always comes down just over the net on their side.
 	Skyward = {
 		Name = "Skyward",
-		Tier = "S", -- (the owner moved Seora from S+ to S)
-		Role = "WS",
-		Blurb = "Your jump starts low and climbs: every spike raises your hitting point, most when you meet it at the very top (up to about 4.75 m maxed), until the set ends.",
+		Tier = "S+",
+		Blurb = "Your jump starts low and climbs: every spike raises your hitting point and your Attack, most when you meet it at the very top (up to about 4.75 m and +24 Attack maxed), until the set ends.",
 		Color = Color3.fromRGB(255, 120, 200),
 		StartLift = -0.45, -- metres on her hitting point at the start of a set
 		MaxLift = 0.45,
+		AttackAtMax = 24, -- Attack points at MaxLift (none at StartLift, in proportion between)
 		Gain = 0.15, -- metres a spike at the top of her jump adds (x the height quality ^ GainExp)
 		GainExp = 4, -- steep: only near the top of her jump does a spike lift her much
-		TalonAngle = { 86, 66 }, -- degrees below level: at the net, and at TalonReach
-		TalonReach = 1.1 * M, -- the ball this far from the net (her side) or nearer clears it
-		TalonFarAngle = 78, -- further back: this steep, onto her own court
+		TalonAngle = { 86, 55 }, -- degrees below level: right at the net, and at TalonReach
+		TalonReach = 2.2 * M, -- the ball this far from the net (her side); further back, flatter still
 		TalonPower = 0.9, -- x her spike's speed
 		Passives = {
-			{ Name = "Talon Drop", Blurb = "Feint is a spike driven nearly straight down. At the net it drops just past the tape; off the net it hits your own court." },
+			{ Name = "Talon Drop", Blurb = "Feint is a spike driven down over the net: nearly straight down right on top of it, flatter the further back you are." },
 		},
 	},
 }
-Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Skyward", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },

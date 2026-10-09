@@ -598,8 +598,7 @@ local function planAttack(team, now, exclude)
 		return
 	end
 	spiker.task = "Spike"
-	-- (Skyward's feint is Talon Drop, which off the net lands on her own side: the AI spikes)
-	spiker.feint = spiker.ability ~= "Skyward" and spiker.rng:NextNumber() < B.FeintChance and not (team == "Away" and Cups.has(ReplicatedStorage:GetAttribute("CupMods"), "OppDeep"))
+	spiker.feint = spiker.rng:NextNumber() < B.FeintChance and not (team == "Away" and Cups.has(ReplicatedStorage:GetAttribute("CupMods"), "OppDeep"))
 	local depth, deepest = chooseDepth(spiker, team, H.SpikeShortDepth)
 	if last and last.vectorSet and last.team == team then
 		-- off a Vector set the steepest spike gains the most: aim short enough for the full angle

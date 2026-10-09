@@ -6,12 +6,12 @@
 local Roster = {
 	{ Id = "dante", Name = "Dante", Role = "WS", Tier = "S+", Height = 186, Attack = 222, Defense = 120, Speed = 152, Jump = 184, Ability = "Feral" },
 	{ Id = "seojin", Name = "Seojin", Role = "WS", Tier = "S+", Height = 184, Attack = 210, Defense = 128, Speed = 140, Jump = 175, Ability = "Azure" },
+	{ Id = "seora", Name = "Seora", Role = "WS", Tier = "S+", Height = 178, Attack = 196, Defense = 118, Speed = 150, Jump = 196, Ability = "Skyward" },
 	{ Id = "taeha", Name = "Taeha", Role = "WS", Tier = "S+", Height = 187, Attack = 205, Defense = 122, Speed = 146, Jump = 182, Ability = "ZeroPoint" },
 	{ Id = "yejun", Name = "YeJun", Role = "WS", Tier = "S+", Height = 189, Attack = 210, Defense = 124, Speed = 146, Jump = 190, Ability = "Thunder" },
 	{ Id = "daon", Name = "Daon", Role = "WS", Tier = "S", Height = 186, Attack = 176, Defense = 115, Speed = 124, Jump = 160, Ability = "RisingSun" },
 	{ Id = "hayun", Name = "Hayun", Role = "WS", Tier = "S", Height = 187, Attack = 198, Defense = 126, Speed = 142, Jump = 181, Ability = "Adrenaline" },
 	{ Id = "ines", Name = "Ines", Role = "WS", Tier = "S", Height = 184, Attack = 170, Defense = 130, Speed = 138, Jump = 180, Ability = "Counter" },
-	{ Id = "seora", Name = "Seora", Role = "WS", Tier = "S", Height = 178, Attack = 196, Defense = 118, Speed = 150, Jump = 196, Ability = "Skyward" },
 	{ Id = "shoyo", Name = "Shoyo", Role = "WS", Tier = "S", Height = 181, Attack = 190, Defense = 118, Speed = 150, Jump = 186, Ability = "Adrenaline" },
 	{ Id = "yeonho", Name = "Yeonho", Role = "WS", Tier = "S", Height = 185, Attack = 194, Defense = 118, Speed = 140, Jump = 178, Ability = "Plunge" },
 	{ Id = "gaeul", Name = "Gaeul", Role = "MB", Tier = "S", Height = 204, Attack = 170, Defense = 150, Speed = 116, Jump = 180, Ability = "IronWall" },
