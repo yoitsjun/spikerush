@@ -964,23 +964,23 @@ Config.Abilities = {
 	},
 	-- Taeha (the owner: "an ability focused on perfect contact... a perfect contact spike hits a ???
 	-- km/h... around [YeJun's] double spike power or maybe higher. a perfect spike plays the image
-	-- like i show you, but a normal one doesnt"). A spike graded PERFECT (PerfectAt, a little wider
-	-- for him) is a Zero Point: ZeroKmh by how clean it was (x Power: about 240 maxed, YeJun's
-	-- double swing is 236), nearly straight (Gravity), through any block that isn't Iron Wall, the
-	-- speed hidden as "???" and a white beam with rings along its line. Anything less is his usual
-	-- spike, no effect.
+	-- like i show you, but a normal one doesnt"; then, the PERFECT grade being "impossible": "change
+	-- how its achieved. maybe when the ball is at its highest"). A spike met at the top of his jump
+	-- (HeightAt of the way from his standing reach to his hitting point, or above) with a fair
+	-- contact (MinContact) is a Zero Point: ZeroKmh by how high and clean it was (x Power: about
+	-- 240 maxed, YeJun's double swing is 236), nearly straight (Gravity), through any block that
+	-- isn't Iron Wall, the speed hidden as "???" and a white beam with rings along its line.
+	-- Anything lower is his usual spike, no effect.
 	ZeroPoint = {
 		Name = "Zero Point",
 		Tier = "S+",
-		Blurb = "Meet a spike perfectly and it becomes a Zero Point: too fast to read (??? km/h), nearly straight, through the block, and it costs whoever digs it extra stamina. Anything less is a normal spike.",
+		Blurb = "Meet the ball at the very top of your jump and the spike becomes a Zero Point: too fast to read (??? km/h), nearly straight, through the block, and it costs whoever digs it extra stamina. Hit it lower and it's a normal spike.",
 		Color = Color3.fromRGB(235, 245, 255),
-		PerfectAt = 0.82, -- his spike's quality for PERFECT (everyone else: Hits.PerfectAt)
-		ZeroKmh = { 228, 246 }, -- at PerfectAt and at a flawless 1.0 (x Power)
+		HeightAt = 0.9, -- the top tenth of his jump
+		MinContact = 0.35, -- and not off the fingertips
+		ZeroKmh = { 228, 246 }, -- from a fair contact at HeightAt to a clean one at the very top (x Power)
 		Gravity = 0.35, -- gravity x this: a laser line
 		DrainMul = 1.3, -- digging one costs this much more stamina
-		Passives = {
-			{ Name = "Calm Eye", Blurb = "His perfect window is wider than anyone's." },
-		},
 	},
 	-- Seora (the owner: "a jump that starts low, but the higher spike point she gets the higher her
 	-- jump increases... at her peak, maybe 4.7-4.8", and "instead of a typical feint she has a sharp

@@ -178,6 +178,10 @@ Assets.SoundFiles = {
 	["84321138018138"] = { gain = 0.8 }, -- BlackHoleHum: peak 501
 	["9043343896"] = { start = 1.0, gain = 1.5 }, -- BlackHoleSuck: swells from 1.32 s to the hard end at 2.07 s, peak 265
 	["1837830182"] = { gain = 0.56 }, -- BlackHoleBoom: peak 711
+	-- Taeha and Seora (2026-10-09): started on the hit, not the swish before it
+	["9120729973"] = { start = 0.24, gain = 1.9 }, -- ZeroPoint: swish from 0.11 s, the hit at 0.32 s, peak 212
+	["9120730138"] = { start = 0.28, gain = 1.6 }, -- TalonDrop: swish from 0.23 s, the hit at 0.36 s, peak 249
+	["9116408879"] = { start = 0.6, gain = 3 }, -- SkyPeak: silent to 0.62 s, a soft chime, peak 73
 	["126761084927046"] = { start = 5.2, gain = 0.78 }, -- TsunamiRush: builds to a peak of 511 at 7.3 s
 	["9120610532"] = { start = 0.42, gain = 2.4 }, -- TsunamiCrash: from 0.45 s, peak 166
 	["133444274732319"] = { gain = 0.85 }, -- CraterSlam: peak 470

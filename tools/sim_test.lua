@@ -1854,7 +1854,7 @@ do
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
 end
 
-print("== Zero Point (Taeha: a perfect spike is ???, nearly straight, through the block) ==")
+print("== Zero Point (Taeha: met at the top of his jump: ???, nearly straight, through the block) ==")
 do
 	local ZP = Config.Abilities.ZeroPoint
 	local th = Characters.derive(Characters.fromRoster(Roster.get("taeha"), "max"))
@@ -1866,12 +1866,16 @@ do
 	local _, double = spike(yr, ballAt(yr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = yj, ability = "Thunder" }, { second = true })
 	check(ok and res.meta.zero and res.meta.grade == "PERFECT" and res.meta.breakAtk == 999 and res.meta.kmh >= 225 and res.meta.kmh <= 250 and res.meta.kmh >= double.meta.kmh - 5
 		and not path.flags.netTouch and path.landing.pos.Z * side < 0 and Court.inBounds(path.landing.pos),
-		"a perfect spike is a Zero Point: about YeJun's double swing or more, and it lands in", string.format("%.1f km/h (YeJun's double swing %.1f), %s", ok and res.meta.kmh or 0, double.meta.kmh, ok and describe(path) or "-"))
+		"met at the top of his jump it is a Zero Point: about YeJun's double swing or more, and it lands in", string.format("%.1f km/h (YeJun's double swing %.1f), %s", ok and res.meta.kmh or 0, double.meta.kmh, ok and describe(path) or "-"))
+	-- no PERFECT needed: a so-so contact at the top of his jump still is one
+	local okF, fair = spike(root, ballAt(root, Z.SpikeCenterDz + Z.SpikeRadiusZ * 0.55, Z.SpikeCenterDy), { stats = th, ability = "ZeroPoint" })
+	check(okF and fair.meta.zero and fair.meta.contact < 0.75 and fair.meta.kmh >= 225,
+		"a fair contact at the top of his jump is a Zero Point too", string.format("contact %.2f, %.1f km/h", okF and fair.meta.contact or 0, okF and fair.meta.kmh or 0))
 	local lowRoot = root - vec(0, 3.2, 0)
 	local ok2, res2 = spike(lowRoot, ballAt(lowRoot, 1.9, 1.3), { stats = th, ability = "ZeroPoint" })
 	local _, plain = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = th })
 	check(ok2 and not res2.meta.zero and res2.meta.kmh < 141 and not plain.meta.zero and plain.meta.kmh < 145,
-		"anything less than perfect is his usual spike (and nobody else gets a Zero Point)", string.format("%.1f km/h mistimed, %.1f without the ability", ok2 and res2.meta.kmh or 0, plain.meta.kmh))
+		"met lower it is his usual spike (and nobody else gets a Zero Point)", string.format("%.1f km/h mistimed, %.1f without the ability", ok2 and res2.meta.kmh or 0, plain.meta.kmh))
 	check(res.meta.tierDrain > plain.meta.tierDrain and res.launch.a.Magnitude < plain.launch.a.Magnitude * 0.5,
 		"a Zero Point flies nearly straight and costs the digger more stamina", string.format("gravity %.0f vs %.0f", res.launch.a.Magnitude, plain.launch.a.Magnitude))
 end

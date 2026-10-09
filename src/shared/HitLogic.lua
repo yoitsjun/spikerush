@@ -652,12 +652,13 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if second then
 		kmh = kmh * (1 + Config.Abilities.Thunder.SecondBoost)
 	end
-	-- Zero Point: his perfect spike (a wider window than anyone's) is far faster, nearly straight
-	-- and goes through the block (below)
-	local zero = kind == "Spike" and ctx.ability == "ZeroPoint" and q >= ZERO.PerfectAt and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
+	-- Zero Point: met at the top of his jump with a fair contact, his spike is far faster, nearly
+	-- straight and goes through the block (below)
+	local zero = kind == "Spike" and ctx.ability == "ZeroPoint" and qHeight >= ZERO.HeightAt and qContact >= ZERO.MinContact and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
 	if zero then
-		local k = clamp((q - ZERO.PerfectAt) / (1 - ZERO.PerfectAt), 0, 1)
-		kmh = lerp(ZERO.ZeroKmh[1], ZERO.ZeroKmh[2], k) * stats.Power
+		local high = clamp((qHeight - ZERO.HeightAt) / (1 - ZERO.HeightAt), 0, 1)
+		local clean = clamp((qContact - ZERO.MinContact) / (1 - ZERO.MinContact), 0, 1)
+		kmh = lerp(ZERO.ZeroKmh[1], ZERO.ZeroKmh[2], 0.5 * high + 0.5 * clean) * stats.Power
 	end
 	local boom = kind == "Spike" and reaction(ctx)
 	if boom then
