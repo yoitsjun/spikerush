@@ -498,7 +498,7 @@ end
 -- white between letterbox bars): while the ball holds on the hand, a close shot of the hitter
 -- and the ball in black on white, pushing in slowly; it snaps away as the ball fires.
 local freezeGui = nil
-function VFXController.freezeFrame(entityId, ballPos, duration)
+function VFXController.freezeFrame(entityId, ballPos, duration, color)
 	local cam = workspace.CurrentCamera
 	local model = Util.modelOf(entityId)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
@@ -516,7 +516,7 @@ function VFXController.freezeFrame(entityId, ballPos, duration)
 	freezeGui:ClearAllChildren()
 	local bg = Instance.new("Frame")
 	bg.Size = UDim2.fromScale(1, 1)
-	bg.BackgroundColor3 = WHITE
+	bg.BackgroundColor3 = color or WHITE -- (Dante's First Strike: purple, the owner's call)
 	bg.BorderSizePixel = 0
 	bg.Parent = freezeGui
 	local vp = Instance.new("ViewportFrame")
@@ -1789,8 +1789,9 @@ local function onHit(snap)
 			return
 		end
 		if meta.firstStrike then
-			-- Dante's First Strike: a shorter freeze frame, then his usual burst (below) as it fires
-			VFXController.freezeFrame(meta.id, pos, fires)
+			-- Dante's First Strike: a shorter freeze frame, in purple, then his usual burst (below) as it
+			-- fires
+			VFXController.freezeFrame(meta.id, pos, fires, FERAL)
 		end
 		if meta.talon then
 			-- Talon Drop: a pink ring across the drop and a star where she hit it
