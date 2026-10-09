@@ -405,6 +405,13 @@ function HitLogic.adrenaline(ability, stamina)
 	return stamina.value / stamina.max < ADRENALINE.StaminaBelow
 end
 
+-- Zero Point's sweet spot: the ball `dz` in front of the raised hand and `dy` above it (studs,
+-- HitLogic.spikeZone's), inside ZeroDz and ZeroDy (x the character's reach).
+function HitLogic.zeroSpot(dz, dy, stats)
+	local k = (stats and stats.Reach) or 1
+	return dz >= ZERO.ZeroDz[1] * k and dz <= ZERO.ZeroDz[2] * k and dy >= ZERO.ZeroDy[1] * k and dy <= ZERO.ZeroDy[2] * k
+end
+
 -- Skyward: her lift (metres on the hitting point) kept in range; nil is the start of a set.
 function HitLogic.skyLift(lift)
 	return clamp(tonumber(lift) or SKY.StartLift, SKY.StartLift, SKY.MaxLift)
@@ -632,7 +639,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if kind == "Spike" then
 		scale = scale * HitLogic.spikeReach(ctx.ability)
 	end
-	local ok, qContact, dz = HitLogic.spikeZone(root, ball, side, stats, scale)
+	local ok, qContact, dz, dy = HitLogic.spikeZone(root, ball, side, stats, scale)
 	if not ok then
 		return false, "zone"
 	end
@@ -652,13 +659,11 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if second then
 		kmh = kmh * (1 + Config.Abilities.Thunder.SecondBoost)
 	end
-	-- Zero Point: met at the top of his jump with a fair contact, his spike is far faster, nearly
-	-- straight and goes through the block (below)
-	local zero = kind == "Spike" and ctx.ability == "ZeroPoint" and qHeight >= ZERO.HeightAt and qContact >= ZERO.MinContact and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
+	-- Zero Point: the ball slightly in front of his raised hand and above his head makes his spike
+	-- far faster, nearly straight and through the block (below)
+	local zero = kind == "Spike" and ctx.ability == "ZeroPoint" and HitLogic.zeroSpot(dz, dy, stats) and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
 	if zero then
-		local high = clamp((qHeight - ZERO.HeightAt) / (1 - ZERO.HeightAt), 0, 1)
-		local clean = clamp((qContact - ZERO.MinContact) / (1 - ZERO.MinContact), 0, 1)
-		kmh = lerp(ZERO.ZeroKmh[1], ZERO.ZeroKmh[2], 0.5 * high + 0.5 * clean) * stats.Power
+		kmh = lerp(ZERO.ZeroKmh[1], ZERO.ZeroKmh[2], qContact) * stats.Power
 	end
 	local boom = kind == "Spike" and reaction(ctx)
 	if boom then

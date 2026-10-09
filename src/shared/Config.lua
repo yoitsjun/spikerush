@@ -965,20 +965,21 @@ Config.Abilities = {
 	-- Taeha (the owner: "an ability focused on perfect contact... a perfect contact spike hits a ???
 	-- km/h... around [YeJun's] double spike power or maybe higher. a perfect spike plays the image
 	-- like i show you, but a normal one doesnt"; then, the PERFECT grade being "impossible": "change
-	-- how its achieved. maybe when the ball is at its highest"). A spike met at the top of his jump
-	-- (HeightAt of the way from his standing reach to his hitting point, or above) with a fair
-	-- contact (MinContact) is a Zero Point: ZeroKmh by how high and clean it was (x Power: about
-	-- 240 maxed, YeJun's double swing is 236), nearly straight (Gravity), through any block that
-	-- isn't Iron Wall, the speed hidden as "???" and a white beam with rings along its line.
-	-- Anything lower is his usual spike, no effect.
+	-- how its achieved", "you need some leniency or else its not possible", "maybe do it if the
+	-- ball is slightly infront of you above your head"). A spike met with the ball in his sweet
+	-- spot, ZeroDz in front of his raised hand and ZeroDy around and above it (studs, x his reach),
+	-- is a Zero Point: ZeroKmh by how clean the contact was (x Power: about 240 maxed, YeJun's
+	-- double swing is 236), nearly straight (Gravity), through any block that isn't Iron Wall, the
+	-- speed hidden as "???" and a white beam with rings along its line. Anywhere else (behind his
+	-- head, low, far out in front) it's his usual spike, no effect.
 	ZeroPoint = {
 		Name = "Zero Point",
 		Tier = "S+",
-		Blurb = "Meet the ball at the very top of your jump and the spike becomes a Zero Point: too fast to read (??? km/h), nearly straight, through the block, and it costs whoever digs it extra stamina. Hit it lower and it's a normal spike.",
+		Blurb = "Spike the ball while it's slightly in front of you, above your head, and it becomes a Zero Point: too fast to read (??? km/h), nearly straight, through the block, and it costs whoever digs it extra stamina. Anywhere else it's a normal spike.",
 		Color = Color3.fromRGB(235, 245, 255),
-		HeightAt = 0.9, -- the top tenth of his jump
-		MinContact = 0.35, -- and not off the fingertips
-		ZeroKmh = { 228, 246 }, -- from a fair contact at HeightAt to a clean one at the very top (x Power)
+		ZeroDz = { 0.1, 2.0 }, -- the ball this far in front of his raised hand
+		ZeroDy = { -1.0, 2.6 }, -- and from just under the hand to the top of his reach
+		ZeroKmh = { 228, 246 }, -- from an edge of the sweet spot to a clean contact (x Power)
 		Gravity = 0.35, -- gravity x this: a laser line
 		DrainMul = 1.3, -- digging one costs this much more stamina
 	},
