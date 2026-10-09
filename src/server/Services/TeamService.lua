@@ -231,6 +231,7 @@ function TeamService.applyToModel(e)
 	for _, inst in ipairs({ model, e.player or false }) do
 		if inst then
 			inst:SetAttribute("Counter", e.ability == "Counter" and (e.counter or 0) or nil)
+			inst:SetAttribute("Lift", e.ability == "Skyward" and HitLogic.skyLift(e.lift) or nil)
 			inst:SetAttribute("FirstStrikeUsed", e.ability == "Feral" and e.firstStrikeUsed or nil)
 			inst:SetAttribute("AbilityUntil", e.abilityUntil or -1)
 			inst:SetAttribute("AbilityReadyAt", e.abilityReadyAt or 0)
@@ -250,6 +251,7 @@ function TeamService.boostCtx(e, t)
 	return {
 		enemyPoints = scores[Court.other(e.team)] or 0,
 		counter = e.counter or 0,
+		lift = e.lift,
 		auto = e.isBot or nil,
 		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= (t or Util.now()),
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
@@ -310,11 +312,27 @@ function TeamService.setCounter(e, value)
 	refreshBoosts(e.team)
 end
 
+-- Skyward's lift (metres on her hitting point) on the character and the player (the HUD, her
+-- effects and prediction); her real jump follows it.
+function TeamService.setLift(e, value)
+	e.lift = HitLogic.skyLift(value)
+	local model = TeamService.getModel(e)
+	if model then
+		model:SetAttribute("Lift", e.lift)
+	end
+	if e.player then
+		e.player:SetAttribute("Lift", e.lift)
+	end
+	refreshBoosts(e.team)
+end
+
 -- A new set: meters that build over a set start again (Rising Sun follows the score).
 function TeamService.resetSetAbilities()
 	for _, e in pairs(TeamService.entities) do
 		if e.ability == "Counter" then
 			TeamService.setCounter(e, 0)
+		elseif e.ability == "Skyward" then
+			TeamService.setLift(e, nil) -- back to the bottom of her climb
 		end
 	end
 end

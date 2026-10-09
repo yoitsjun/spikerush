@@ -1472,6 +1472,33 @@ local function boomRings(path, color, count)
 	end
 end
 
+-- Zero Point: a white beam along the whole flight (it barely curves) that thins away, with rings
+-- standing across it, biggest at the hand.
+local ZERO_GLOW = Color3.fromRGB(200, 225, 255)
+local function zeroBeam(path)
+	local from = path.segs[1].p
+	local to = path.landing.pos
+	local d = to - from
+	local len = d.Magnitude
+	if len < 1 then
+		return
+	end
+	local cf = CFrame.lookAt(from + d / 2, to)
+	for i, w in ipairs({ 1.1, 3.4 }) do
+		local p = take(Enum.PartType.Block)
+		p.Color = i == 1 and WHITE or ZERO_GLOW
+		p.Size = Vector3.new(w, w, len)
+		p.CFrame = cf
+		p.Transparency = i == 1 and 0 or 0.65
+		TweenService:Create(p, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = Vector3.new(0.1, 0.1, len), Transparency = 1 }):Play()
+		task.delay(0.62, release, p)
+	end
+	local v = path.segs[1].v
+	for k = 1, 4 do
+		task.delay((k - 1) * 0.035, sonicRing, from + d * (0.06 + (k - 1) * 0.2), v, k == 1 and WHITE or ZERO_GLOW, 14 - k * 2, 0.5)
+	end
+end
+
 ------------------------------------------------------------------------------------------
 -- reactions to gameplay
 ------------------------------------------------------------------------------------------
@@ -1588,6 +1615,34 @@ local function onHit(snap)
 			if close and mods.AudioController then
 				mods.AudioController.play("Blades", { volume = 0.5 + 0.4 * c / 100, speed = 1.2 })
 			end
+		end
+		if meta.zero then
+			-- Zero Point: the beam, the rings and a white burst; nothing else on top of it
+			zeroBeam(snap.path)
+			Fx.play("PerfectImpact", pos, { color = WHITE, scale = 1.35 })
+			Fx.play("Burst", pos, { color = ZERO_GLOW, scale = 1.2 })
+			if close then
+				VFXController.impactFrame(meta.id, WHITE)
+				VFXController.flash(0.4, 0.25)
+				VFXController.speedLines(0.55, WHITE, dirZ)
+				shaker.shake(0.85)
+				shaker.kick(-9)
+			end
+			return
+		end
+		if meta.talon then
+			-- Talon Drop: a pink ring across the drop and a star where she hit it
+			local col = Config.Abilities.Skyward.Color
+			sonicRing(pos, seg.v, col, 10, 0.4)
+			starburst(pos, col, 10)
+			if close then
+				VFXController.popup(pos + Vector3.new(0, 2.6, 0), "Talon Drop!", col, 1.1)
+				shaker.kick(-6)
+			end
+		end
+		if (meta.liftGain or 0) >= 0.03 and meta.height then
+			-- Skyward: the height she met it at, as her climb goes up
+			VFXController.popup(pos + Vector3.new(0, 4.2, 0), string.format("%.2f m", meta.height), Config.Abilities.Skyward.Color, 0.9)
 		end
 		if heavy or meta.thunder or meta.energy or meta.gauge then
 			local ring = meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL) or WHITE

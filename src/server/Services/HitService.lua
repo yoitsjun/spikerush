@@ -210,6 +210,7 @@ function HitService.process(entity, input, opts)
 		enemyPoints = (MS.scores or {})[Court.other(team)] or 0,
 		teamBoost = (TS.rallyUntil[team] or -1) >= input.t - 0.05 or nil,
 		counter = entity.ability == "Counter" and (entity.counter or 0) or nil,
+		lift = entity.ability == "Skyward" and entity.lift or nil,
 		turnabout = entity.ability == "Turnabout" and armed or nil,
 		firstStrike = entity.ability == "Feral" and not entity.firstStrikeUsed or nil,
 		auto = entity.isBot or nil,
@@ -247,6 +248,14 @@ function HitService.process(entity, input, opts)
 		TS.setCounter(entity, math.min(100, (entity.counter or 0) + meta.counterGain))
 	elseif meta.counterRelease then
 		TS.setCounter(entity, 0) -- her spike released it
+	end
+	if meta.liftGain and entity.ability == "Skyward" then
+		-- Skyward: the spike raised her hitting point (the HUD shows her new peak)
+		local before = HitLogic.skyLift(entity.lift)
+		local after = HitLogic.skyLift(before + meta.liftGain)
+		if after > before then
+			TS.setLift(entity, after)
+		end
 	end
 	if meta.firstStrike then
 		-- Feral Leap's first full charge of the match is spent (the client predicts from this too)

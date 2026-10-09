@@ -127,6 +127,7 @@ local function buildCtx(info, action, t)
 		enemyPoints = State.enemyPoints(State.myTeam),
 		teamBoost = State.rallyOn(State.myTeam, t) or nil,
 		counter = ability == "Counter" and (player:GetAttribute("Counter") or 0) or nil,
+		lift = ability == "Skyward" and player:GetAttribute("Lift") or nil,
 		turnabout = ability == "Turnabout" and ActionController.abilityActive() or nil,
 		firstStrike = ability == "Feral" and not player:GetAttribute("FirstStrikeUsed") or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers

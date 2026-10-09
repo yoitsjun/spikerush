@@ -36,6 +36,8 @@ local TURN = Config.Abilities.Turnabout
 local SUN = Config.Abilities.RisingSun
 local RALLY = Config.Abilities.RallyCry
 local COUNTER = Config.Abilities.Counter
+local ZERO = Config.Abilities.ZeroPoint
+local SKY = Config.Abilities.Skyward
 
 local ACTION_CODE = { Bump = 1, Set = 2, Spike = 3, Feint = 4, Block = 5, Toss = 6, Serve = 7, Underhand = 8 }
 local SERVES = { JumpServe = true, Overhand = true, Underhand = true }
@@ -403,6 +405,16 @@ function HitLogic.adrenaline(ability, stamina)
 	return stamina.value / stamina.max < ADRENALINE.StaminaBelow
 end
 
+-- Skyward: her lift (metres on the hitting point) kept in range; nil is the start of a set.
+function HitLogic.skyLift(lift)
+	return clamp(tonumber(lift) or SKY.StartLift, SKY.StartLift, SKY.MaxLift)
+end
+
+-- Skyward: what a spike met at `qHeight` (0..1, the top of her jump at 1) adds to her lift.
+function HitLogic.skyGain(qHeight)
+	return SKY.Gain * clamp(qHeight or 0, 0, 1) ^ SKY.GainExp
+end
+
 -- Rising Sun: the Sunrise level from the points the other team has this set (0..MaxLevel).
 function HitLogic.sunLevel(enemyPoints)
 	return math.min(SUN.MaxLevel, math.floor(math.max(0, enemyPoints or 0) / SUN.Every))
@@ -441,6 +453,11 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 			end
 			any = true
 		end
+	end
+	if ability == "Skyward" then
+		-- Skyward: her hitting point climbs with her spikes this set (extra.lift, metres)
+		add.Lift = HitLogic.skyLift(extra and extra.lift)
+		any = true
 	end
 	if ability == "Feral" and extra and extra.auto then
 		-- the AI playing him (a bot, or a stand-in for an idle player) hits with less
@@ -635,6 +652,13 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if second then
 		kmh = kmh * (1 + Config.Abilities.Thunder.SecondBoost)
 	end
+	-- Zero Point: his perfect spike (a wider window than anyone's) is far faster, nearly straight
+	-- and goes through the block (below)
+	local zero = kind == "Spike" and ctx.ability == "ZeroPoint" and q >= ZERO.PerfectAt and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
+	if zero then
+		local k = clamp((q - ZERO.PerfectAt) / (1 - ZERO.PerfectAt), 0, 1)
+		kmh = lerp(ZERO.ZeroKmh[1], ZERO.ZeroKmh[2], k) * stats.Power
+	end
 	local boom = kind == "Spike" and reaction(ctx)
 	if boom then
 		kmh = kmh * CHAIN.PowerMul
@@ -644,6 +668,15 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	meta.contact = qContact
 	meta.adrenaline = ctx.adrenaline or nil
 	meta.tierDrain = HitLogic.tierDrain(stats.tier)
+	if zero then
+		meta.zero = true
+		meta.grade = "PERFECT"
+		meta.breakAtk = 999 -- through any block but Iron Wall's
+		meta.tierDrain = meta.tierDrain * ZERO.DrainMul
+	end
+	if kind == "Spike" and ctx.ability == "Skyward" then
+		meta.liftGain = HitLogic.skyGain(qHeight)
+	end
 	if boom then
 		meta.reaction = true
 		meta.drainMul = CHAIN.DrainMul
@@ -764,9 +797,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		res.launch.dive = { tau = tau, v = planar(v2), a = planar(Vector3.new(0, -G, 0)) }
 		return ok, res
 	end
+	if zero then
+		g = g * ZERO.Gravity -- a laser line
+	end
 	local v = speedWithAssist(ball, target, speed, g, side, steps)
 	local hold = 0
-	if thunder or pierce or fullLeap then
+	if thunder or pierce or fullLeap or zero then
 		hold = H.HitStopThunder
 	elseif q >= H.PerfectAt then
 		hold = H.HitStopPerfect
@@ -774,6 +810,54 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		hold = H.HitStopGreat
 	end
 	return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t, hold)
+end
+
+-- Talon Drop (Skyward's feint): a spike driven nearly straight down. Within TalonReach of the net
+-- it's steeper the closer she is, and never so steep it can't clear the tape; further back it
+-- keeps TalonFarAngle and comes down on her own side.
+local function talon(input, ctx, rng, stats)
+	local side = ctx.side
+	local ball, root, t = input.ball, input.root, input.t
+	local ok, qContact = HitLogic.spikeZone(root, ball, side, stats, 1)
+	if not ok then
+		return false, "zone"
+	end
+	if ctx.forceQuality then
+		qContact = ctx.forceQuality
+	end
+	local qHeight = HitLogic.heightQuality(ball.Y, stats, ctx.groundY)
+	local q = clamp(qContact * (H.ContactWeight + (1 - H.ContactWeight) * qHeight), 0, 1)
+	local heightM = HitLogic.meters(math.min(ball.Y, stats.contactMaxStuds))
+	local kmh = attackPower("Spike", q, qContact, heightM, stats, ctx.ability) * SKY.TalonPower
+	local meta = meta0("Spike", q)
+	meta.talon = true
+	meta.height = heightM
+	meta.contact = qContact
+	meta.tierDrain = HitLogic.tierDrain(stats.tier)
+	meta.liftGain = HitLogic.skyGain(qHeight)
+	if reaction(ctx) then
+		kmh = kmh * CHAIN.PowerMul
+		meta.reaction = true
+		meta.drainMul = CHAIN.DrainMul
+		meta.flatDrain = CHAIN.FlatDrain
+	end
+	-- how far the ball is from the net on her side (studs; 0 or less: over it)
+	local back = ball.Z * side
+	local angle = SKY.TalonFarAngle
+	if back <= SKY.TalonReach then
+		angle = lerp(SKY.TalonAngle[1], SKY.TalonAngle[2], clamp(back / SKY.TalonReach, 0, 1))
+		if back > 0 then
+			-- no steeper than the line that clears the tape (a little spare for the fall)
+			local rise = ball.Y - (C.NetTop + R + H.NetClearance + 0.3)
+			angle = math.max(math.min(angle, math.deg(math.atan(math.max(rise, 0) / back))), 8)
+		end
+	end
+	local a = math.rad(angle)
+	local speed = HitLogic.studs(kmh)
+	local v = Vector3.new(0, -math.sin(a) * speed, -side * math.cos(a) * speed)
+	meta.talonAngle = math.floor(angle + 0.5)
+	local g = G * H.SpikeGravityScale
+	return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t, H.HitStopGreat)
 end
 
 -- Turnabout: the armed set spins into a spike. High enough (a jump set) it's a real spike deep
@@ -897,6 +981,9 @@ function HitLogic.compute(input, ctx)
 		end
 		if action == "Spike" then
 			return attack("Spike", input, ctx, rng, stats, 1)
+		end
+		if ctx.ability == "Skyward" then
+			return talon(input, ctx, rng, stats) -- her feint is Talon Drop
 		end
 		local ok, qContact, dz = HitLogic.spikeZone(root, ball, side, stats, 1.25)
 		if not ok then

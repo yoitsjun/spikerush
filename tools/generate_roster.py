@@ -68,6 +68,13 @@ FIXED = [
     {"Name": "Junseo", "Role": "WS", "Tier": "S-", "Height": 168, "Attack": 180, "Defense": 110, "Speed": 150, "Jump": 188, "Ability": None},
     # Plunge Spin: "a wingspiker with a blitz spin ability. it sharply angles down"
     {"Name": "Yeonho", "Role": "WS", "Tier": "S", "Height": 185, "Attack": 194, "Defense": 118, "Speed": 140, "Jump": 178, "Ability": "Plunge"},
+    # Zero Point (the owner: "S+... an ability focused on perfect contact... a perfect contact
+    # spike hits a ??? km/h"): clean hands over raw power, so a little less Attack than YeJun
+    {"Name": "Taeha", "Role": "WS", "Tier": "S+", "Height": 187, "Attack": 205, "Defense": 122, "Speed": 146, "Jump": 182, "Ability": "ZeroPoint"},
+    # Skyward (the owner: "a jump that starts low, but the higher spike point she gets the higher
+    # her jump increases... a high max jump, than even yejun. at her peak, maybe 4.7-4.8"): her
+    # Jump here is the middle of her climb (Config.Abilities.Skyward moves her hitting point)
+    {"Name": "Seora", "Role": "WS", "Tier": "S+", "Height": 178, "Attack": 196, "Defense": 118, "Speed": 150, "Jump": 196, "Ability": "Skyward"},
 ]
 
 # free for everyone: a D-tier character in each role

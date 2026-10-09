@@ -962,8 +962,53 @@ Config.Abilities = {
 		DiveSpeed = 1.0, -- the plunge keeps this much of the speed
 		PowerBoost = 0.06, -- and it leaves the hand x (1 + this) faster
 	},
+	-- Taeha (the owner: "an ability focused on perfect contact... a perfect contact spike hits a ???
+	-- km/h... around [YeJun's] double spike power or maybe higher. a perfect spike plays the image
+	-- like i show you, but a normal one doesnt"). A spike graded PERFECT (PerfectAt, a little wider
+	-- for him) is a Zero Point: ZeroKmh by how clean it was (x Power: about 240 maxed, YeJun's
+	-- double swing is 236), nearly straight (Gravity), through any block that isn't Iron Wall, the
+	-- speed hidden as "???" and a white beam with rings along its line. Anything less is his usual
+	-- spike, no effect.
+	ZeroPoint = {
+		Name = "Zero Point",
+		Tier = "S+",
+		Blurb = "Meet a spike perfectly and it becomes a Zero Point: too fast to read (??? km/h), nearly straight, through the block, and it costs whoever digs it extra stamina. Anything less is a normal spike.",
+		Color = Color3.fromRGB(235, 245, 255),
+		PerfectAt = 0.82, -- his spike's quality for PERFECT (everyone else: Hits.PerfectAt)
+		ZeroKmh = { 228, 246 }, -- at PerfectAt and at a flawless 1.0 (x Power)
+		Gravity = 0.35, -- gravity x this: a laser line
+		DrainMul = 1.3, -- digging one costs this much more stamina
+		Passives = {
+			{ Name = "Calm Eye", Blurb = "His perfect window is wider than anyone's." },
+		},
+	},
+	-- Seora (the owner: "a jump that starts low, but the higher spike point she gets the higher her
+	-- jump increases... at her peak, maybe 4.7-4.8", and "instead of a typical feint she has a sharp
+	-- nearly 90 degree spike"). Her hitting point moves by Lift metres (from StartLift each set):
+	-- every spike adds up to Gain, all of it when met at the top of her jump, less the lower she
+	-- met it, to MaxLift (maxed: about 3.85 m at the start of a set, 4.75 m at the top). Her feint
+	-- is Talon Drop: a spike driven nearly straight down. Within TalonReach of the net it goes over
+	-- the tape at TalonAngle (steeper the closer she is); further back it keeps TalonFarAngle and
+	-- lands on her own side.
+	Skyward = {
+		Name = "Skyward",
+		Tier = "S+",
+		Blurb = "Your jump starts low and climbs: every spike raises your hitting point, most when you meet it at the very top (up to about 4.75 m maxed), until the set ends.",
+		Color = Color3.fromRGB(255, 120, 200),
+		StartLift = -0.45, -- metres on her hitting point at the start of a set
+		MaxLift = 0.45,
+		Gain = 0.15, -- metres a spike at the top of her jump adds (x the height quality ^ GainExp)
+		GainExp = 4, -- steep: only near the top of her jump does a spike lift her much
+		TalonAngle = { 86, 66 }, -- degrees below level: at the net, and at TalonReach
+		TalonReach = 1.1 * M, -- the ball this far from the net (her side) or nearer clears it
+		TalonFarAngle = 78, -- further back: this steep, onto her own court
+		TalonPower = 0.9, -- x her spike's speed
+		Passives = {
+			{ Name = "Talon Drop", Blurb = "Feint is a spike driven nearly straight down. At the net it drops just past the tape; off the net it hits your own court." },
+		},
+	},
 }
-Config.AbilityOrder = { "Thunder", "Azure", "Feral", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Skyward", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },

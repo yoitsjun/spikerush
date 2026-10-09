@@ -450,15 +450,16 @@ do
 			okLimits = okLimits and c[k] >= Config.Stats.Min and c[k] <= Config.Stats.Max
 		end
 		if c.Tier == "S+" then
-			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral")
+			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint" or c.Ability == "Skyward")
 		elseif c.Tier == "S" then
 			okAbility = okAbility and want[c.Role][c.Ability or ""] == true and Config.Abilities[c.Ability].Role == c.Role
 		else
 			okAbility = okAbility and c.Ability == nil
 		end
 		if c.Role == "WS" then
-			-- 210 Attack tops the wing spikers' template; Dante (Feral Leap) is the one above it
-			okShape = okShape and (c.Attack <= 210 or c.Ability == "Feral") and c.Jump <= 190 and c.Attack > c.Defense
+			-- 210 Attack tops the wing spikers' template (Dante, Feral Leap, is above it); 190 Jump (Seora,
+			-- Skyward, is above it: her climb moves her hitting point)
+			okShape = okShape and (c.Attack <= 210 or c.Ability == "Feral") and (c.Jump <= 190 or c.Ability == "Skyward") and c.Attack > c.Defense
 		elseif c.Role == "SE" then
 			okShape = okShape and c.Speed > c.Attack and c.Defense > c.Jump
 			tallestSE = math.max(tallestSE, c.Height)
@@ -470,7 +471,7 @@ do
 		end
 	end
 	check(okLimits and #Roster >= 30, "every roster character is valid and unique", #Roster .. " characters")
-	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure or Feral Leap, S characters one of their role's abilities, the rest none")
+	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap, Zero Point or Skyward, S characters one of their role's abilities, the rest none")
 	local topId, topAtk, nextAtk = nil, 0, 0
 	for _, c in ipairs(Roster) do
 		if c.Attack > topAtk then
@@ -1851,6 +1852,58 @@ do
 	Economy.apply(prof, again, 1000)
 	check(entry and #Config.Boosts.LuckPacks == 4 and g.BoostLuck == 30 * 60 and prof.boosts.Luck == 1000 + 45 * 60 and Economy.boost(prof, "Luck", 1000 + 60) == 2 and Economy.boost(prof, "Luck", 1000 + 46 * 60) == 1 and not Economy.isEmpty(again) and Economy.describe(again) == "2x Luck for 15 minutes",
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
+end
+
+print("== Zero Point (Taeha: a perfect spike is ???, nearly straight, through the block) ==")
+do
+	local ZP = Config.Abilities.ZeroPoint
+	local th = Characters.derive(Characters.fromRoster(Roster.get("taeha"), "max"))
+	local yj = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))
+	local root = apexRoot(th, 3.5 * K)
+	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = th, ability = "ZeroPoint" })
+	local path = ok and BallPhysics.buildPath(res.launch)
+	local yr = apexRoot(yj, 3.5 * K)
+	local _, double = spike(yr, ballAt(yr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = yj, ability = "Thunder" }, { second = true })
+	check(ok and res.meta.zero and res.meta.grade == "PERFECT" and res.meta.breakAtk == 999 and res.meta.kmh >= 225 and res.meta.kmh <= 250 and res.meta.kmh >= double.meta.kmh - 5
+		and not path.flags.netTouch and path.landing.pos.Z * side < 0 and Court.inBounds(path.landing.pos),
+		"a perfect spike is a Zero Point: about YeJun's double swing or more, and it lands in", string.format("%.1f km/h (YeJun's double swing %.1f), %s", ok and res.meta.kmh or 0, double.meta.kmh, ok and describe(path) or "-"))
+	local lowRoot = root - vec(0, 3.2, 0)
+	local ok2, res2 = spike(lowRoot, ballAt(lowRoot, 1.9, 1.3), { stats = th, ability = "ZeroPoint" })
+	local _, plain = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = th })
+	check(ok2 and not res2.meta.zero and res2.meta.kmh < 141 and not plain.meta.zero and plain.meta.kmh < 145,
+		"anything less than perfect is his usual spike (and nobody else gets a Zero Point)", string.format("%.1f km/h mistimed, %.1f without the ability", ok2 and res2.meta.kmh or 0, plain.meta.kmh))
+	check(res.meta.tierDrain > plain.meta.tierDrain and res.launch.a.Magnitude < plain.launch.a.Magnitude * 0.5,
+		"a Zero Point flies nearly straight and costs the digger more stamina", string.format("gravity %.0f vs %.0f", res.launch.a.Magnitude, plain.launch.a.Magnitude))
+end
+
+print("== Skyward (Seora: her jump climbs with her spikes; Talon Drop) ==")
+do
+	local SKYW = Config.Abilities.Skyward
+	local se = Characters.derive(Characters.fromRoster(Roster.get("seora"), "max"))
+	local yj = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))
+	local stam = { value = 120, max = 120 }
+	local low = HitLogic.effectiveStats(se, "Skyward", stam, {})
+	local top = HitLogic.effectiveStats(se, "Skyward", stam, { lift = 99 })
+	check(low.ContactMaxM > 3.75 and low.ContactMaxM < 3.95 and top.ContactMaxM > 4.7 and top.ContactMaxM < 4.8 and top.ContactMaxM > yj.ContactMaxM + 0.3,
+		"she starts a set low and climbs past YeJun to about 4.75 m", string.format("%.2f m to %.2f m (YeJun %.2f m)", low.ContactMaxM, top.ContactMaxM, yj.ContactMaxM))
+	local root = apexRoot(low, 3.5 * K)
+	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = se, ability = "Skyward" })
+	local lowRoot = root - vec(0, 3.2, 0)
+	local ok2, res2 = spike(lowRoot, ballAt(lowRoot, 1.0, 0.4), { stats = se, ability = "Skyward" })
+	check(ok and ok2 and math.abs(res.meta.liftGain - SKYW.Gain) < 0.02 and res2.meta.liftGain < res.meta.liftGain * 0.6 and math.abs(res.meta.height - low.ContactMaxM) < 0.05,
+		"a spike at the top of her jump raises it most, a low one little", string.format("+%.3f m at %.2f m, +%.3f m low", ok and res.meta.liftGain or 0, ok and res.meta.height or 0, ok2 and res2.meta.liftGain or 0))
+	-- Talon Drop: right at the net nearly straight down onto their side; off the net onto her own
+	local function talonFrom(ballFromNet)
+		local r = apexRoot(top, Z.SpikeForward + Z.SpikeCenterDz + ballFromNet)
+		local okT, resT = HitLogic.compute({ action = "Feint", t = 0, root = r, ball = ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy), vy = 0, grounded = false }, ctx({ stats = se, ability = "Skyward", lift = 99 }))
+		return okT, resT, okT and BallPhysics.buildPath(resT.launch)
+	end
+	local okN, near, pN = talonFrom(0.25 * SPM)
+	local okF, far, pF = talonFrom(2.4 * SPM)
+	check(okN and near.meta.talon and near.meta.hitType == "Spike" and near.meta.talonAngle >= 75 and not pN.flags.netTouch and pN.landing.pos.Z * side < 0 and -pN.landing.pos.Z * side < 1.6 * SPM,
+		"Talon Drop at the net goes nearly straight down just past the tape", string.format("%d deg, %.1f km/h, %s", okN and near.meta.talonAngle or 0, okN and near.meta.kmh or 0, okN and describe(pN) or "-"))
+	check(okF and far.meta.talonAngle == SKYW.TalonFarAngle and pF.landing.pos.Z * side > 0,
+		"off the net it comes down on her own side", okF and describe(pF) or "-")
 end
 
 print("== bundles and game passes ==")

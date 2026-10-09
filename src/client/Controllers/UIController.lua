@@ -337,6 +337,30 @@ local function showReadout(meta)
 		return string.format('%s<font size="%d">.%s %s</font>', whole or "0", small, dec or "00", unit)
 	end
 	t.kmh.Text = split(meta.kmh, "km/h", 22)
+	t.zeroToken = nil
+	if meta.zero then
+		-- Zero Point: too fast to read. The digits scramble for a moment and settle on "???"
+		color = Color3.new(1, 1, 1)
+		local token = {}
+		t.zeroToken = token
+		task.spawn(function()
+			for _ = 1, 7 do
+				if t.zeroToken ~= token then
+					return
+				end
+				local s = ""
+				for _ = 1, 3 do
+					local n = math.random(0, 10)
+					s = s .. (n == 10 and "?" or tostring(n))
+				end
+				t.kmh.Text = s .. '<font size="22"> km/h</font>'
+				task.wait(0.04)
+			end
+			if t.zeroToken == token then
+				t.kmh.Text = '???<font size="22"> km/h</font>'
+			end
+		end)
+	end
 	t.kmh.TextColor3 = color
 	t.kmh.TextTransparency = 0
 	t.height.Text = meta.height and split(meta.height, "m", 20) or ""
@@ -977,6 +1001,13 @@ local function badgeState(ability, id, model, team, mine)
 		local m = stats and stats.ContactMaxM or 0
 		p, hot = math.clamp(m / Config.Hits.ThunderHeight, 0, 1), m >= Config.Hits.ThunderHeight
 		sub = string.format("%.2f m", m)
+	elseif ability == "Skyward" then
+		-- her climb this set, and the top of her jump it gives her now
+		local stats = mine and State.myStats() or (model and Characters.fromAttributes(model))
+		local lift = HitLogic.skyLift((mine and player:GetAttribute("Lift")) or (model and model:GetAttribute("Lift")))
+		p = (lift - def.StartLift) / (def.MaxLift - def.StartLift)
+		hot = lift >= def.MaxLift - 0.001
+		sub = stats and string.format("%.2f m", stats.ContactMaxM - (stats.Lift or 0) + lift) or ""
 	elseif ability == "Adrenaline" then
 		local s = State.stamina(team)
 		local pct = (s and s.max and s.max > 0) and s.value / s.max or 1

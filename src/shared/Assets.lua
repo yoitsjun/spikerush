@@ -106,6 +106,11 @@ Assets.Sounds = {
 	Blades = "", -- Counter Edge: blades out and back in (the volley along her released spike)
 	CounterParry = "137580087669661", -- Parry3 (the owner's pick)
 	CounterReturn = "137628815514180", -- sword-slash-and-swing (the owner's pick)
+	-- Taeha and Seora (Creator Store, Pro Sound Effects, picked 2026-10-09); both spikes still
+	-- play the owner's Spike crack under these
+	ZeroPoint = "9120729973", -- "Whoosh Impact 1": thick swish, hard reverberant impact (a Zero Point)
+	TalonDrop = "9120730138", -- "Whoosh Impact 4": a shorter swish into a hard hit (Talon Drop)
+	SkyPeak = "9116408879", -- "Magic Swirling Tone 1": a spinning chime as Seora's jump climbs
 	FeralFull = "", -- Feral Leap: the charge is full (let go now)
 	FeralLeap = "", -- Feral Leap: the leap off the floor (louder the fuller the charge)
 	RallyCry = "",
@@ -244,6 +249,8 @@ Assets.Images = {
 	AbilityRallyCry = "11874376205", -- decal 11874376247 (a megaphone)
 	AbilityCounter = "12902637748", -- decal 12902637801 (crossed swords)
 	AbilityPlunge = "232203094", -- stand-in: Turnabout's circling arrows (a Creator Store spin or comet icon goes here)
+	AbilityZeroPoint = "12614416478", -- stand-in: Vector Set's crosshair (precision)
+	AbilitySkyward = "13751812696", -- stand-in: IconJump's leap
 	-- menu icons: one filled white glyph style (Toolbox decals)
 	IconHome = "13300916613", -- decal 13300916690 (Fluent "home")
 	IconSettings = "13300915301", -- decal 13300915335 (Fluent "settings")

@@ -297,6 +297,18 @@ local function onHit(snap)
 			if kmh >= 130 and not own then
 				AudioController.play("SpikeHeavy", { pos = pos, volume = 0.8 })
 			end
+		elseif meta.zero then
+			-- Zero Point: the crack, deeper, under the whoosh and its reverberant hit
+			if not own then
+				AudioController.play("SpikeHeavy", { pos = pos, volume = 1.1 })
+			end
+			AudioController.play("ZeroPoint", { pos = pos, volume = 1.1 })
+		elseif meta.talon then
+			-- Talon Drop: the crack and a short swish straight down
+			if not own then
+				AudioController.play("Spike", { pos = pos, speed = 0.95, volume = 1.1 })
+			end
+			AudioController.play("TalonDrop", { pos = pos })
 		elseif own then
 			-- theirs played
 		elseif kmh >= 130 then
@@ -307,6 +319,10 @@ local function onHit(snap)
 		end
 		if kmh >= 110 then
 			AudioController.play("Whoosh", { pos = pos, speed = 0.8 })
+		end
+		if (meta.liftGain or 0) >= 0.03 then
+			-- Skyward: her jump climbs (a little higher pitched the more it rose)
+			AudioController.play("SkyPeak", { pos = pos, volume = 0.6, speed = 1 + meta.liftGain })
 		end
 	elseif ht == "Block" then
 		if AudioController.custom(who, "SoundBlock") then

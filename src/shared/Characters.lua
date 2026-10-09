@@ -202,8 +202,11 @@ function Characters.derive(tier, build)
 	if not Characters.isTier(tier) then
 		tier = Config.DefaultTier
 	end
+	-- Lift: metres on the hitting point from an ability (Skyward), never part of a saved build
+	local lift = type(build) == "table" and clamp(tonumber(build.Lift) or 0, -1.5, 1.5) or 0
+	lift = math.floor(lift * 1000 + 0.5) / 1000
 	build = Characters.sanitize(tier, build)
-	local key = table.concat({ tier, build.Height, build.Attack, build.Defense, build.Speed, build.Jump }, ":")
+	local key = table.concat({ tier, build.Height, build.Attack, build.Defense, build.Speed, build.Jump, lift }, ":")
 	if cache[key] then
 		return cache[key]
 	end
@@ -230,7 +233,8 @@ function Characters.derive(tier, build)
 	local hn = clamp((build.Height - HT.Min) / (HT.Max - HT.Min), 0, 1)
 	s.Reach = HT.ZoneScale[1] + (HT.ZoneScale[2] - HT.ZoneScale[1]) * hn
 	s.StandingReachM = build.Height * HT.ReachPerCm
-	s.ContactMaxM = s.StandingReachM + s.VerticalM
+	s.Lift = lift
+	s.ContactMaxM = s.StandingReachM + s.VerticalM + lift
 	s.contactMaxStuds = Characters.studsAt(s.ContactMaxM)
 	cache[key] = s
 	return s
@@ -249,7 +253,8 @@ end
 function Characters.boosted(stats, add, mul)
 	add = add or {}
 	mul = mul or 1
-	local b = { Height = stats.Height + (add.Height or 0) } -- a tournament's Giants (Cups)
+	-- a tournament's Giants (Cups); Skyward's lift (metres on the hitting point)
+	local b = { Height = stats.Height + (add.Height or 0), Lift = (stats.Lift or 0) + (add.Lift or 0) }
 	for _, k in ipairs(ST.Order) do
 		b[k] = math.floor((stats[k] + (add[k] or 0)) * mul + 0.5)
 	end
