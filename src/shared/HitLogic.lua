@@ -114,6 +114,8 @@ end
 function HitLogic.spikeReach(ability)
 	if ability == "Feral" then
 		return FERAL.ReachMul
+	elseif ability == "ZeroPoint" then
+		return Config.Abilities.ZeroPoint.ReachMul
 	end
 	return 1
 end
@@ -408,7 +410,7 @@ end
 -- Zero Point's sweet spot: the ball `dz` in front of the raised hand and `dy` above it (studs,
 -- HitLogic.spikeZone's), inside ZeroDz and ZeroDy (x the character's reach).
 function HitLogic.zeroSpot(dz, dy, stats)
-	local k = (stats and stats.Reach) or 1
+	local k = ((stats and stats.Reach) or 1) * ZERO.ReachMul
 	return dz >= ZERO.ZeroDz[1] * k and dz <= ZERO.ZeroDz[2] * k and dy >= ZERO.ZeroDy[1] * k and dy <= ZERO.ZeroDy[2] * k
 end
 
@@ -808,7 +810,11 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	end
 	local v = speedWithAssist(ball, target, speed, g, side, steps)
 	local hold = 0
-	if thunder or pierce or fullLeap or zero then
+	if zero then
+		hold = ZERO.Freeze -- the freeze-frame cut-in
+	elseif meta.firstStrike then
+		hold = FERAL.FirstFreeze
+	elseif thunder or pierce or fullLeap then
 		hold = H.HitStopThunder
 	elseif q >= H.PerfectAt then
 		hold = H.HitStopPerfect

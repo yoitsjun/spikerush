@@ -249,6 +249,19 @@ function HitService.process(entity, input, opts)
 	elseif meta.counterRelease then
 		TS.setCounter(entity, 0) -- her spike released it
 	end
+	if meta.zero or meta.firstStrike then
+		-- the freeze frame: the hitter hangs where they hit it while the ball holds on the hand
+		local root = TS.getRoot(entity)
+		if root and not root.Anchored then
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.Anchored = true
+			task.delay(result.launch.hold or 0, function()
+				if root.Parent then
+					root.Anchored = false
+				end
+			end)
+		end
+	end
 	if meta.liftGain and entity.ability == "Skyward" then
 		-- Skyward: the spike raised her hitting point (the HUD shows her new peak)
 		local before = HitLogic.skyLift(entity.lift)

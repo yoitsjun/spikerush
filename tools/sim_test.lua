@@ -1866,6 +1866,12 @@ do
 	check(ok and res.meta.zero and res.meta.grade == "PERFECT" and res.meta.breakAtk == 999 and res.meta.kmh >= 225 and res.meta.kmh <= 250 and res.meta.kmh >= double.meta.kmh - 5
 		and not path.flags.netTouch and path.landing.pos.Z * side < 0 and Court.inBounds(path.landing.pos),
 		"the ball in his sweet spot makes a Zero Point: about YeJun's double swing or more, and it lands in", string.format("%.1f km/h (YeJun's double swing %.1f), %s", ok and res.meta.kmh or 0, double.meta.kmh, ok and describe(path) or "-"))
+	-- the freeze frame: the ball holds on his hand for the cut-in; and his hitbox is bigger
+	local edge = ballAt(root, Z.SpikeCenterDz + Z.SpikeRadiusZ * th.Reach * 1.1, Z.SpikeCenterDy)
+	local okWide = spike(root, edge, { stats = th, ability = "ZeroPoint" })
+	local okNarrow = spike(root, edge, { stats = th })
+	check(res.launch.hold == Config.Abilities.ZeroPoint.Freeze and okWide and not okNarrow,
+		"a Zero Point freezes on the hand for the cut-in, and his spike hitbox is bigger", string.format("hold %.2f s", res.launch.hold))
 	-- lenient: no PERFECT grade and no exact jump timing needed, just the ball in front and up
 	local lowRoot = root - vec(0, 3.2, 0) -- on the way up, the ball well over his hand and ahead
 	local okF, fair = spike(lowRoot, ballAt(lowRoot, 1.6, 1.8), { stats = th, ability = "ZeroPoint" })

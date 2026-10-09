@@ -492,6 +492,79 @@ function VFXController.impactFrame(entityId, color)
 	end)
 end
 
+-- The freeze frame (Zero Point, Dante's First Strike; the owner's reference: a black silhouette on
+-- white between letterbox bars): while the ball holds on the hand, a close shot of the hitter
+-- and the ball in black on white, pushing in slowly; it snaps away as the ball fires.
+local freezeGui = nil
+function VFXController.freezeFrame(entityId, ballPos, duration)
+	local cam = workspace.CurrentCamera
+	local model = Util.modelOf(entityId)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not cam or not hrp or duration <= 0.05 then
+		return false
+	end
+	if not freezeGui then
+		freezeGui = Instance.new("ScreenGui")
+		freezeGui.Name = "SpikeRushFreeze"
+		freezeGui.IgnoreGuiInset = true
+		freezeGui.ResetOnSpawn = false
+		freezeGui.DisplayOrder = 21
+		freezeGui.Parent = player:WaitForChild("PlayerGui")
+	end
+	freezeGui:ClearAllChildren()
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.fromScale(1, 1)
+	bg.BackgroundColor3 = WHITE
+	bg.BorderSizePixel = 0
+	bg.Parent = freezeGui
+	local vp = Instance.new("ViewportFrame")
+	vp.Size = UDim2.fromScale(1, 1)
+	vp.BackgroundTransparency = 1
+	vp.Ambient = Color3.new(0, 0, 0)
+	vp.LightColor = Color3.new(0, 0, 0)
+	vp.Parent = bg
+	-- side on and close, framing the hitter and the ball over their hand
+	local mid = hrp.Position:Lerp(ballPos, 0.55)
+	local vcam = Instance.new("Camera")
+	vcam.FieldOfView = 30
+	vcam.CFrame = CFrame.lookAt(mid + Vector3.new(-30, 0.5, 0), mid)
+	vcam.Parent = vp
+	vp.CurrentCamera = vcam
+	local clone = silhouette(model, vp)
+	if clone then
+		local ball = Instance.new("Part")
+		ball.Shape = Enum.PartType.Ball
+		ball.Size = Vector3.one * (Config.Ball.Radius * 2)
+		ball.Anchored = true
+		ball.Color = Color3.new(0, 0, 0)
+		ball.Material = Enum.Material.SmoothPlastic
+		ball.CFrame = CFrame.new(ballPos)
+		ball.Parent = clone.Parent
+	end
+	-- the letterbox
+	for _, top in ipairs({ true, false }) do
+		local bar = Instance.new("Frame")
+		bar.BackgroundColor3 = Color3.new(0, 0, 0)
+		bar.BorderSizePixel = 0
+		bar.AnchorPoint = Vector2.new(0, top and 0 or 1)
+		bar.Position = UDim2.fromScale(0, top and 0 or 1)
+		bar.Size = UDim2.fromScale(1, 0.1)
+		bar.ZIndex = 3
+		bar.Parent = bg
+	end
+	freezeGui.Enabled = true
+	TweenService:Create(vcam, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { FieldOfView = 25 }):Play()
+	task.delay(duration, function()
+		TweenService:Create(bg, TweenInfo.new(0.08), { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(vp, TweenInfo.new(0.08), { ImageTransparency = 1 }):Play()
+		task.delay(0.09, function()
+			freezeGui.Enabled = false
+			freezeGui:ClearAllChildren()
+		end)
+	end)
+	return true
+end
+
 ------------------------------------------------------------------------------------------
 -- popups
 ------------------------------------------------------------------------------------------
@@ -1472,30 +1545,45 @@ local function boomRings(path, color, count)
 	end
 end
 
--- Zero Point: a white beam along the whole flight (it barely curves) that thins away, with rings
--- standing across it, biggest at the hand.
+-- Zero Point: a huge white beam along the whole line of the flight (it barely curves), out
+-- behind the hitter too (the owner: "much more exaggerated and goes out behind him too"), in
+-- three layers that thin away, with rings standing across it, biggest at the hand.
 local ZERO_GLOW = Color3.fromRGB(200, 225, 255)
+local ZERO_BEHIND = 90 -- studs of beam behind the hitter
 local function zeroBeam(path)
 	local from = path.segs[1].p
 	local to = path.landing.pos
 	local d = to - from
-	local len = d.Magnitude
-	if len < 1 then
+	if d.Magnitude < 1 then
 		return
 	end
-	local cf = CFrame.lookAt(from + d / 2, to)
-	for i, w in ipairs({ 1.1, 3.4 }) do
+	local dir = d.Unit
+	local back = from - dir * ZERO_BEHIND
+	local len = (to - back).Magnitude
+	local cf = CFrame.lookAt(back:Lerp(to, 0.5), to)
+	for i, layer in ipairs({ { 2.6, 0, WHITE, 0.8 }, { 7, 0.45, ZERO_GLOW, 1.0 }, { 16, 0.82, ZERO_GLOW, 1.2 } }) do
+		local w, a, col, life = layer[1], layer[2], layer[3], layer[4]
 		local p = take(Enum.PartType.Block)
-		p.Color = i == 1 and WHITE or ZERO_GLOW
-		p.Size = Vector3.new(w, w, len)
+		p.Color = col
+		p.Size = Vector3.new(w * 0.3, w * 0.3, len)
 		p.CFrame = cf
-		p.Transparency = i == 1 and 0 or 0.65
-		TweenService:Create(p, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = Vector3.new(0.1, 0.1, len), Transparency = 1 }):Play()
-		task.delay(0.62, release, p)
+		p.Transparency = a
+		-- it bursts open to full width, then thins away
+		TweenService:Create(p, TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(w, w, len) }):Play()
+		task.delay(0.07, function()
+			TweenService:Create(p, TweenInfo.new(life, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = Vector3.new(0.1, 0.1, len), Transparency = 1 }):Play()
+		end)
+		task.delay(life + 0.1, release, p)
+		if i == 1 then
+			p.Transparency = 0
+		end
 	end
 	local v = path.segs[1].v
-	for k = 1, 4 do
-		task.delay((k - 1) * 0.035, sonicRing, from + d * (0.06 + (k - 1) * 0.2), v, k == 1 and WHITE or ZERO_GLOW, 14 - k * 2, 0.5)
+	-- rings across the line, from behind the hitter out to the landing
+	for k = 1, 8 do
+		local f = -0.35 + (k - 1) * 0.16
+		local at = f < 0 and from + dir * (ZERO_BEHIND * f / 0.35) or from + d * f
+		task.delay(math.abs(f) * 0.12, sonicRing, at, v, k % 2 == 0 and WHITE or ZERO_GLOW, k == 3 and 22 or 16 - math.abs(k - 3) * 1.2, 0.6)
 	end
 end
 
@@ -1616,19 +1704,28 @@ local function onHit(snap)
 				mods.AudioController.play("Blades", { volume = 0.5 + 0.4 * c / 100, speed = 1.2 })
 			end
 		end
+		-- when the ball leaves the hand (after its hold: a freeze frame's length)
+		local fires = math.max(0, seg.t0 + (seg.hold or 0) - Util.now())
 		if meta.zero then
-			-- Zero Point: the beam, the rings and a white burst; nothing else on top of it
-			zeroBeam(snap.path)
-			Fx.play("PerfectImpact", pos, { color = WHITE, scale = 1.35 })
-			Fx.play("Burst", pos, { color = ZERO_GLOW, scale = 1.2 })
-			if close then
-				VFXController.impactFrame(meta.id, WHITE)
-				VFXController.flash(0.4, 0.25)
-				VFXController.speedLines(0.55, WHITE, dirZ)
-				shaker.shake(0.85)
-				shaker.kick(-9)
-			end
+			-- Zero Point: the freeze frame while it holds, then the beam, the rings and a white burst;
+			-- nothing else on top of it
+			VFXController.freezeFrame(meta.id, pos, fires)
+			task.delay(fires, function()
+				zeroBeam(snap.path)
+				Fx.play("PerfectImpact", pos, { color = WHITE, scale = 1.6 })
+				Fx.play("Burst", pos, { color = ZERO_GLOW, scale = 1.5 })
+				VFXController.flash(0.5, 0.3)
+				if close then
+					VFXController.speedLines(0.7, WHITE, dirZ)
+					shaker.shake(1)
+					shaker.kick(-10)
+				end
+			end)
 			return
+		end
+		if meta.firstStrike then
+			-- Dante's First Strike: a shorter freeze frame, then his usual burst (below) as it fires
+			VFXController.freezeFrame(meta.id, pos, fires)
 		end
 		if meta.talon then
 			-- Talon Drop: a pink ring across the drop and a star where she hit it
@@ -1687,24 +1784,29 @@ local function onHit(snap)
 			-- Feral Leap: a magenta burst that grows with the charge; a full one freezes the frame,
 			-- and his first full one of the match says so
 			local g = meta.gauge
-			Fx.play("PerfectImpact", pos, { color = FERAL_HOT, scale = 0.8 + 0.5 * g })
-			if meta.firstStrike then
-				Fx.play("Burst", pos, { color = FERAL, scale = 1.3 })
-				VFXController.popup(pos + Vector3.new(0, 2.6, 0), "First Strike!", FERAL_HOT, 1.4)
-			end
-			if close and (meta.fullLeap or g >= 0.9) then
-				VFXController.impactFrame(meta.id, FERAL)
-				shaker.shake(meta.firstStrike and 0.9 or 0.7)
-				shaker.kick(meta.firstStrike and -9 or -7)
+			-- (a First Strike's freeze frame holds it all back until the ball fires)
+			task.delay(meta.firstStrike and fires or 0, function()
+				Fx.play("PerfectImpact", pos, { color = FERAL_HOT, scale = 0.8 + 0.5 * g })
 				if meta.firstStrike then
-					VFXController.flash(0.35, 0.25)
+					Fx.play("Burst", pos, { color = FERAL, scale = 1.3 })
+					VFXController.popup(pos + Vector3.new(0, 2.6, 0), "First Strike!", FERAL_HOT, 1.4)
 				end
-			elseif close then
-				shaker.shake(0.35 + 0.2 * g)
-			end
-			if close then
-				VFXController.speedLines(0.3 + 0.25 * g, FERAL_LIGHT, dirZ)
-			end
+				if close and (meta.fullLeap or g >= 0.9) then
+					if not meta.firstStrike then
+						VFXController.impactFrame(meta.id, FERAL)
+					end
+					shaker.shake(meta.firstStrike and 0.9 or 0.7)
+					shaker.kick(meta.firstStrike and -9 or -7)
+					if meta.firstStrike then
+						VFXController.flash(0.35, 0.25)
+					end
+				elseif close then
+					shaker.shake(0.35 + 0.2 * g)
+				end
+				if close then
+					VFXController.speedLines(0.3 + 0.25 * g, FERAL_LIGHT, dirZ)
+				end
+			end)
 		else
 			-- the attacker's spike colour (a V Points unlock) replaces the default hot pink
 			local tint = Spins.tint(Spins.equipped(model, "Color"))

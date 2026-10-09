@@ -813,6 +813,7 @@ Config.Abilities = {
 		MaxBoost = 0.4, -- spike and jump serve speed x (1 + this x gauge ^ 1.2)
 		FullAt = 0.97, -- the gauge counts as full from here
 		FirstBoost = 0.15, -- his first full-gauge spike or jump serve of the match: x (1 + this) on top
+		FirstFreeze = 0.3, -- and it freezes on the impact with a cut-in like Zero Point's, shorter (the owner)
 		BreakKeep = 0.85, -- a spike that smashes through a block keeps this much of its speed
 		ReachMul = 1.15, -- a wider spike reach
 		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front
@@ -977,10 +978,15 @@ Config.Abilities = {
 		Tier = "S+",
 		Blurb = "Spike the ball while it's slightly in front of you, above your head, and it becomes a Zero Point: too fast to read (??? km/h), nearly straight, through the block, and it costs whoever digs it extra stamina. Anywhere else it's a normal spike.",
 		Color = Color3.fromRGB(235, 245, 255),
+		ReachMul = 1.2, -- his spike hitbox is this much bigger (the owner: "a buff to the hitbox"), the sweet spot too
 		ZeroDz = { 0.1, 2.0 }, -- the ball this far in front of his raised hand
 		ZeroDy = { -1.0, 2.6 }, -- and from just under the hand to the top of his reach
 		ZeroKmh = { 228, 246 }, -- from an edge of the sweet spot to a clean contact (x Power)
 		Gravity = 0.35, -- gravity x this: a laser line
+		-- the owner: "play a small cutscene when he hits it and freeze on the frame of impact": the ball
+		-- holds on his hand this long (everyone sees it) while he hangs in the air and the camera cuts
+		-- in on him, then it fires
+		Freeze = 0.45,
 		DrainMul = 1.3, -- digging one costs this much more stamina
 	},
 	-- Seora (the owner: "a jump that starts low, but the higher spike point she gets the higher her
