@@ -979,8 +979,10 @@ Config.Abilities = {
 		Blurb = "Spike the ball while it's slightly in front of you, above your head, and it becomes a Zero Point: too fast to read (??? km/h), nearly straight, through the block, and it costs whoever digs it extra stamina. Anywhere else it's a normal spike.",
 		Color = Color3.fromRGB(235, 245, 255),
 		ReachMul = 1.2, -- his spike hitbox is this much bigger (the owner: "a buff to the hitbox"), the sweet spot too
-		ZeroDz = { 0.1, 2.0 }, -- the ball this far in front of his raised hand
-		ZeroDy = { -1.0, 2.6 }, -- and from just under the hand to the top of his reach
+		-- the owner drew the spot: a big box in front of him and above his head, so it's most of the
+		-- front and top of his hitbox (studs from his raised hand, x his reach and ReachMul)
+		ZeroDz = { -0.3, 3.4 }, -- from level with the hand to well out in front
+		ZeroDy = { -1.6, 4.0 }, -- from about his head up past the top of his reach
 		ZeroKmh = { 228, 246 }, -- from an edge of the sweet spot to a clean contact (x Power)
 		Gravity = 0.35, -- gravity x this: a laser line
 		-- the owner: "play a small cutscene when he hits it and freeze on the frame of impact": the ball
@@ -999,7 +1001,8 @@ Config.Abilities = {
 	-- lands on her own side.
 	Skyward = {
 		Name = "Skyward",
-		Tier = "S+",
+		Tier = "S", -- (the owner moved Seora from S+ to S)
+		Role = "WS",
 		Blurb = "Your jump starts low and climbs: every spike raises your hitting point, most when you meet it at the very top (up to about 4.75 m maxed), until the set ends.",
 		Color = Color3.fromRGB(255, 120, 200),
 		StartLift = -0.45, -- metres on her hitting point at the start of a set
@@ -1015,7 +1018,7 @@ Config.Abilities = {
 		},
 	},
 }
-Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Skyward", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },

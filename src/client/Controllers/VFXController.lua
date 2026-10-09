@@ -24,6 +24,8 @@ local Util = require(Shared.Util)
 local BallPhysics = require(Shared.BallPhysics)
 local Spins = require(Shared.Spins)
 local Court = require(Shared.Court)
+local Characters = require(Shared.Characters)
+local HitLogic = require(Shared.HitLogic)
 local State = require(script.Parent.State)
 local Fx = require(script.Parent.Fx)
 
@@ -1428,9 +1430,70 @@ function VFXController.chargeOf(model)
 	return fx and math.min(fx.energy or 0, 1) or nil
 end
 
+-- Skyward: her peak (the top of her jump this set) as a marker that stays over her, a pink line
+-- at that height with the metres on it (the owner: "make the top spike indicator stay there").
+local peakMarks = {} -- model -> { anchor, gui, text }
+local function updatePeaks()
+	local seen = {}
+	if State.isPlaying or State.match.inMatch then
+		for _, team in ipairs(Config.TeamOrder) do
+			for _, e in ipairs(State.roster(team)) do
+				local model = Util.modelOf(e.id)
+				local lift = model and model:GetAttribute("Lift")
+				local hrp = model and model:FindFirstChild("HumanoidRootPart")
+				local stats = lift and hrp and Characters.fromAttributes(model)
+				if stats then
+					seen[model] = true
+					local m = peakMarks[model]
+					if not m then
+						local anchor = take(Enum.PartType.Block)
+						anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+						anchor.Transparency = 1
+						local gui = Instance.new("BillboardGui")
+						gui.Size = UDim2.fromOffset(110, 30)
+						gui.AlwaysOnTop = true
+						gui.LightInfluence = 0
+						gui.Adornee = anchor
+						gui.Parent = anchor
+						local line = Instance.new("Frame")
+						line.AnchorPoint = Vector2.new(0.5, 0.5)
+						line.Position = UDim2.fromScale(0.5, 1)
+						line.Size = UDim2.new(0.8, 0, 0, 3)
+						line.BorderSizePixel = 0
+						line.BackgroundColor3 = Config.Abilities.Skyward.Color
+						line.Parent = gui
+						local text = Instance.new("TextLabel")
+						text.BackgroundTransparency = 1
+						text.Size = UDim2.new(1, 0, 1, -4)
+						text.Font = Enum.Font.GothamBlack
+						text.TextSize = 18
+						text.TextColor3 = Config.Abilities.Skyward.Color
+						text.TextStrokeTransparency = 0.3
+						text.Parent = gui
+						m = { anchor = anchor, gui = gui, text = text }
+						peakMarks[model] = m
+					end
+					local top = stats.ContactMaxM - (stats.Lift or 0) + HitLogic.skyLift(lift)
+					m.text.Text = string.format("%.2f m", top)
+					-- the line sits at her hitting point, the label just above it
+					m.anchor.CFrame = CFrame.new(hrp.Position.X, Characters.studsAt(top) + 0.8, hrp.Position.Z)
+				end
+			end
+		end
+	end
+	for model, m in pairs(peakMarks) do
+		if not seen[model] then
+			m.gui:Destroy()
+			release(m.anchor)
+			peakMarks[model] = nil
+		end
+	end
+end
+
 local function updateAuras(dt)
 	updateArcs(dt)
 	updateAbilityFx(dt)
+	updatePeaks()
 	for model, fx in pairs(auras) do
 		if not model.Parent then
 			fx.hand.att:Destroy()
@@ -1736,10 +1799,6 @@ local function onHit(snap)
 				VFXController.popup(pos + Vector3.new(0, 2.6, 0), "Talon Drop!", col, 1.1)
 				shaker.kick(-6)
 			end
-		end
-		if (meta.liftGain or 0) >= 0.03 and meta.height then
-			-- Skyward: the height she met it at, as her climb goes up
-			VFXController.popup(pos + Vector3.new(0, 4.2, 0), string.format("%.2f m", meta.height), Config.Abilities.Skyward.Color, 0.9)
 		end
 		if heavy or meta.thunder or meta.energy or meta.gauge then
 			local ring = meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL) or WHITE

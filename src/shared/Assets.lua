@@ -110,7 +110,7 @@ Assets.Sounds = {
 	-- play the owner's Spike crack under these
 	ZeroPoint = "9120729973", -- "Whoosh Impact 1": thick swish, hard reverberant impact (a Zero Point)
 	TalonDrop = "9120730138", -- "Whoosh Impact 4": a shorter swish into a hard hit (Talon Drop)
-	SkyPeak = "9116408879", -- "Magic Swirling Tone 1": a spinning chime as Seora's jump climbs
+	SkyPeak = "", -- Seora's jump climbs: borrows Ines's parry, quicker (the owner: "nice and quick sword shink maaybe reuse ines"; the Magic Swirling Tone, 9116408879, was "bad")
 	FeralFull = "", -- Feral Leap: the charge is full (let go now)
 	FeralLeap = "", -- Feral Leap: the leap off the floor (louder the fuller the charge)
 	RallyCry = "",
@@ -181,7 +181,6 @@ Assets.SoundFiles = {
 	-- Taeha and Seora (2026-10-09): started on the hit, not the swish before it
 	["9120729973"] = { start = 0.24, gain = 1.9 }, -- ZeroPoint: swish from 0.11 s, the hit at 0.32 s, peak 212
 	["9120730138"] = { start = 0.28, gain = 1.6 }, -- TalonDrop: swish from 0.23 s, the hit at 0.36 s, peak 249
-	["9116408879"] = { start = 0.6, gain = 3 }, -- SkyPeak: silent to 0.62 s, a soft chime, peak 73
 	["126761084927046"] = { start = 5.2, gain = 0.78 }, -- TsunamiRush: builds to a peak of 511 at 7.3 s
 	["9120610532"] = { start = 0.42, gain = 2.4 }, -- TsunamiCrash: from 0.45 s, peak 166
 	["133444274732319"] = { gain = 0.85 }, -- CraterSlam: peak 470

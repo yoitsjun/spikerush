@@ -66,6 +66,7 @@ local BORROW = {
 	RecruitRevealGold = { "CrowdCheer" },
 	RecruitCharge = { "Boom" },
 	RecruitSpike = { "SpikeHeavy" },
+	SkyPeak = { "CounterParry", 0.9, 1.25 }, -- Seora's climb: a quick sword shink
 }
 
 -- A slot's upload: its id, or one of its variants at random.
