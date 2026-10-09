@@ -1475,8 +1475,10 @@ local function updatePeaks()
 					end
 					local top = stats.ContactMaxM - (stats.Lift or 0) + HitLogic.skyLift(lift)
 					m.text.Text = string.format("%.2f m", top)
-					-- the line sits at her hitting point, the label just above it
-					m.anchor.CFrame = CFrame.new(hrp.Position.X, Characters.studsAt(top) + 0.8, hrp.Position.Z)
+					-- the line sits at her hitting point, in one place over her side's attack spot (the
+					-- owner: "dont make it move with the character")
+					local sideOf = State.sideOfEntity(e.id) or (hrp.Position.Z >= 0 and 1 or -1)
+					m.anchor.CFrame = CFrame.new(0, Characters.studsAt(top) + 0.8, sideOf * Config.Hits.OpenDepth)
 				end
 			end
 		end
