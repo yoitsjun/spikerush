@@ -1438,7 +1438,8 @@ local function updatePeaks()
 		for _, team in ipairs(Config.TeamOrder) do
 			for _, e in ipairs(State.roster(team)) do
 				local model = Util.modelOf(e.id)
-				local peak = model and model:GetAttribute("PeakM")
+				-- (Lift is only on a Skyward character in this match)
+				local peak = model and model:GetAttribute("Lift") ~= nil and model:GetAttribute("PeakM")
 				local py, pz = model and model:GetAttribute("PeakY"), model and model:GetAttribute("PeakZ")
 				if peak and py and pz then
 					seen[model] = true

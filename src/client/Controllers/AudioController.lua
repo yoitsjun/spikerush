@@ -67,6 +67,10 @@ local BORROW = {
 	RecruitCharge = { "Boom" },
 	RecruitSpike = { "SpikeHeavy" },
 	SkyPeak = { "CounterParry", 0.9, 1.25 }, -- Seora's climb: a quick sword shink
+	-- (the owner: "the spike sfx feels too weak rn i want the game to feel powerful"): a sub boom
+	-- under every spike's crack, and a fast airy whoosh behind the hard ones
+	SpikeBody = { "BlackHoleBoom" }, -- APM "BOOM-Sub Boom 16", only its front (fade)
+	Whoosh = { "TornadoEnd", 1, 1.15 }, -- Pro Sound Effects: fast airy whoosh
 }
 
 -- A slot's upload: its id, or one of its variants at random.
@@ -148,10 +152,18 @@ local function spawnSound(info, opts)
 		sound.TimePosition = info.start
 	end
 	sound:Play()
+	if opts.fade then
+		-- only the front of a long sound: it fades out from here
+		task.delay(opts.fade, function()
+			if sound.Parent then
+				TweenService:Create(sound, TweenInfo.new(0.25), { Volume = 0 }):Play()
+			end
+		end)
+	end
 	return sound
 end
 
--- opts: volume, speed, pos (Vector3 for 3D), minGap
+-- opts: volume, speed, pos (Vector3 for 3D), minGap, fade (seconds before it fades out)
 function AudioController.play(key, opts)
 	opts = opts or {}
 	local info = resolve(key)
@@ -316,10 +328,14 @@ local function onHit(snap)
 			AudioController.play("SpikeHeavy", { pos = pos })
 		else
 			local k = math.clamp(kmh / 140, 0, 1)
-			AudioController.play("Spike", { pos = pos, speed = 1.1 - k * 0.15, volume = 0.8 + k * 0.6 })
+			AudioController.play("Spike", { pos = pos, speed = 1.08 - k * 0.15, volume = 1.05 + k * 0.55 })
 		end
-		if kmh >= 110 then
-			AudioController.play("Whoosh", { pos = pos, speed = 0.8 })
+		-- the weight under it: a sub boom, deeper and louder the harder the spike (the owner wants
+		-- spikes to feel powerful)
+		local p = math.clamp((kmh - 60) / 100, 0, 1.4)
+		AudioController.play("SpikeBody", { pos = pos, volume = 0.35 + 0.65 * p, speed = 1.25 - 0.3 * math.min(p, 1), fade = 0.35 + 0.25 * math.min(p, 1) })
+		if kmh >= 100 then
+			AudioController.play("Whoosh", { pos = pos, volume = 0.6 + 0.4 * math.min(p, 1), speed = 1.15 - 0.2 * math.min(p, 1) })
 		end
 		if (meta.liftGain or 0) >= 0.03 then
 			-- Skyward: her jump climbs (a little higher pitched the more it rose)
@@ -405,7 +421,7 @@ function AudioController.init()
 	local comp = Instance.new("CompressorSoundEffect")
 	comp.Threshold = -22
 	comp.Ratio = 3.5
-	comp.Attack = 0.015
+	comp.Attack = 0.035 -- slow enough to let a spike's crack through before it clamps (was 0.015: it flattened the hits)
 	comp.Release = 0.12
 	comp.GainMakeup = 6
 	comp.Priority = 3

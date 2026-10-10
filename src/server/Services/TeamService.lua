@@ -232,6 +232,12 @@ function TeamService.applyToModel(e)
 		if inst then
 			inst:SetAttribute("Counter", e.ability == "Counter" and (e.counter or 0) or nil)
 			inst:SetAttribute("Lift", e.ability == "Skyward" and HitLogic.skyLift(e.lift) or nil)
+			if e.ability ~= "Skyward" or not e.peakM then
+				-- (a peak left on a player who played Seora before must not show)
+				inst:SetAttribute("PeakM", nil)
+				inst:SetAttribute("PeakY", nil)
+				inst:SetAttribute("PeakZ", nil)
+			end
 			inst:SetAttribute("FirstStrikeUsed", e.ability == "Feral" and e.firstStrikeUsed or nil)
 			inst:SetAttribute("AbilityUntil", e.abilityUntil or -1)
 			inst:SetAttribute("AbilityReadyAt", e.abilityReadyAt or 0)
