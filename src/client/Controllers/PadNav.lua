@@ -10,6 +10,7 @@
 --     repeats), lists scroll to keep it in view, and A presses it (Roblox's own press). Roblox's
 --     own moving is shut off: every other button is unselectable to it (the owner: "it starts
 --     skipping over now", "im using the joystick on the left side" when both moved).
+--   * the right stick scrolls the list the selection is in (or the panel's first list)
 --   * B is the root's back (close a modal, back to Home), LB/RB its main tabs, LT/RT its second
 --     row of tabs, Y and X its own extras when it has them
 --   * nothing is selected while you play, so A still spikes. In a match D-pad down opens the
@@ -322,8 +323,10 @@ end
 -- Roblox's own moving is off: only the selected button is selectable to it (so its D-pad and
 -- stick navigation has nowhere to go), and A still presses that one.
 local held = nil -- the one button left selectable
+-- (scrolling lists too: they're selectable by default, and Roblox kept jumping onto the Ranks
+-- board's list itself, the owner: "it gets really buggy on lists like these")
 local function lockOut(obj)
-	if (obj:IsA("GuiButton") or obj:IsA("TextBox")) and obj ~= held then
+	if obj:IsA("GuiObject") and obj ~= held and obj.Selectable then
 		obj.Selectable = false
 	end
 end
@@ -526,7 +529,25 @@ function PadNav.init(m)
 	-- the left stick: a move each time it's pushed past halfway in a direction, repeating while
 	-- held. Read straight from the controller every frame: while a button is selected Roblox keeps
 	-- the stick's change events from scripts (the owner: "works on dpad but not the joystick").
-	local function pollStick()
+	-- the right stick scrolls: the list the selection is in, else the root's first one showing
+	local function scrollList(dt, y)
+		local o = GuiService.SelectedObject
+		local list = o and o:FindFirstAncestorWhichIsA("ScrollingFrame")
+		if not list or not list:IsDescendantOf(current) then
+			list = nil
+			for _, d in ipairs(current:GetDescendants()) do
+				if d:IsA("ScrollingFrame") and onScreen(d) and d.AbsoluteCanvasSize.Y > d.AbsoluteWindowSize.Y + 4 then
+					list = d
+					break
+				end
+			end
+		end
+		if list then
+			list.CanvasPosition = list.CanvasPosition + Vector2.new(0, -y * dt * 900 / scaleOf(list))
+		end
+	end
+
+	local function pollStick(dt)
 		if not current then
 			stickDir = nil
 			return
@@ -535,7 +556,8 @@ function PadNav.init(m)
 		for _, input in ipairs(UserInputService:GetGamepadState(Enum.UserInputType.Gamepad1)) do
 			if input.KeyCode == Enum.KeyCode.Thumbstick1 then
 				p = input.Position
-				break
+			elseif input.KeyCode == Enum.KeyCode.Thumbstick2 and math.abs(input.Position.Y) > 0.25 and not roots[current].noSelect then
+				scrollList(dt, input.Position.Y)
 			end
 		end
 		if not p then
@@ -559,10 +581,10 @@ function PadNav.init(m)
 			stickDir = nil -- back near the middle: the next push counts again
 		end
 	end
-	RunService.Heartbeat:Connect(function()
+	RunService.Heartbeat:Connect(function(dt)
 		local ok, err = pcall(function()
 			if UserInputService:GetGamepadConnected(Enum.UserInputType.Gamepad1) then
-				pollStick()
+				pollStick(dt)
 			end
 			step()
 		end)
