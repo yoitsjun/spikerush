@@ -1009,13 +1009,28 @@ local HELP_ROWS = {
 	{ "Ability", { "Q" }, "Iron Wall, Turnabout and Rally Cry. The rest work on their own." },
 	{ "Timeout", { "T" }, "At the next dead ball: refills stamina, opens the rotation and lets you change character. Press again before then to call it off." },
 }
+-- the same on a controller (shown instead while one is in use), and how the menus work on it
+local PAD_HELP_ROWS = {
+	{ "Move", { "LS" }, "The left stick. You only ever move along the court." },
+	{ "Spike", { "A", "R2" }, "On the ground your run-up jump, in the air the spike." },
+	{ "Receive", { "B" }, "Press a little before the ball arrives: early is perfect." },
+	{ "Slide / feint", { "RB" }, "On the ground a diving receive that costs far less stamina, in the air a roll shot." },
+	{ "Block", { "Y" }, "Hold near the net, then let go to jump. Longer holds jump higher." },
+	{ "Set", { "LB" }, "Stick toward the net for a quick, away for a back set. As the setter, aim with the right stick." },
+	{ "Serve", { "X", "D-Up" }, "Tap X to serve overhand, hold X to toss for a jump serve. D-pad up serves underhand and always goes in." },
+	{ "Ability", { "L2" }, "Iron Wall, Turnabout and Rally Cry. D-pad left and right fire your AI teammates' abilities." },
+	{ "Timeout", { "Select" }, "At the next dead ball: refills stamina, opens the rotation. D-pad down opens Settings and Forfeit." },
+	{ "Menus", { "A", "B" }, "D-pad or left stick moves the yellow outline, A presses, B goes back. LB and RB switch tabs." },
+}
 
 local function buildHelp()
 	local m = modal("Help", "How to play", 960, 660, true)
-	local list = make("Frame", { Position = UDim2.fromOffset(24, 96), Size = UDim2.new(1, -48, 0, #HELP_ROWS * 52), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
+	-- the rows: an action, its keys (or buttons) as caps, and what it does
+	local function rowsList(rowsDef, rowH)
+	local list = make("Frame", { Position = UDim2.fromOffset(24, 96), Size = UDim2.new(1, -48, 0, #rowsDef * (rowH + 6)), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
 	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
-	for i, row in ipairs(HELP_ROWS) do
-		local r = make("Frame", { Size = UDim2.new(1, 0, 0, 46), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 21 }, list)
+	for i, row in ipairs(rowsDef) do
+		local r = make("Frame", { Size = UDim2.new(1, 0, 0, rowH), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 21 }, list)
 		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
 		Gui.label(r, { Text = row[1], display = true, TextSize = 22, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(150, 46), ZIndex = 22 })
 		local keys = make("Frame", { Position = UDim2.fromOffset(166, 8), Size = UDim2.fromOffset(150, 30), BackgroundTransparency = 1, ZIndex = 22 }, r)
@@ -1028,6 +1043,19 @@ local function buildHelp()
 		end
 		Gui.label(r, { Text = row[3], TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(320, 0), Size = UDim2.new(1, -332, 1, 0), ZIndex = 22 })
 	end
+	return list
+	end
+	local keysList = rowsList(HELP_ROWS, 46)
+	local padList = rowsList(PAD_HELP_ROWS, 42)
+	-- the controller's rows while one is in use (and the moment one is picked up)
+	local function showDevice()
+		local onPad = mods.PadNav.usingPad()
+		keysList.Visible = not onPad
+		padList.Visible = onPad
+	end
+	m.root:GetPropertyChangedSignal("Visible"):Connect(showDevice)
+	mods.PadNav.changed.Event:Connect(showDevice)
+	showDevice()
 	Gui.label(m.panel, {
 		Text = "Recruit players with V Points, then spend Gold on their stats in Players. Every character's stats grow to its own ceiling: higher ranks cost more and go higher.",
 		TextSize = 16,
@@ -1477,10 +1505,11 @@ function Extra.refreshHowTo()
 		HT.note.Text = "Move and resize your buttons any time: Settings > Touch controls."
 		HT.edit.Visible = false
 	elseif mods.InputController.lastDevice() == "Gamepad" then
+		-- the controller's own card: every button, what it does, and how the menus work
 		for _, e in ipairs(CT.Pad) do
-			table.insert(list, { e[1], e[2], "" })
+			table.insert(list, { e[1], e[2], e[3] or "" })
 		end
-		HT.note.Text = "On a keyboard you can change any key in Settings > Controls, any time."
+		HT.note.Text = "Press A on Start the tutorial. The buttons are fixed; on a keyboard any key can be changed in Settings > Controls."
 		HT.edit.Visible = false
 	else
 		for _, action in ipairs(CT.Order) do
@@ -4856,14 +4885,26 @@ local function buildRanks()
 	local list = make("Frame", { Name = "Boards", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(310, 7 * 64 + 6 * 8), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local tabs = {}
+	-- (a controller: LB and RB step through the boards)
+	local boardItems = {}
+	for _, b in ipairs(Leaderboards.Boards) do
+		table.insert(boardItems, { key = b.Key })
+	end
+	local markBoard
+	local function pickBoard(key)
+		boardKey = key
+		markBoard(key)
+		MenuController.refresh()
+	end
+	markBoard = Gui.navTabs(list, boardItems, pickBoard)
+	markBoard(boardKey)
 	for i, b in ipairs(Leaderboards.Boards) do
 		local t = Gui.cardButton(list, { Name = b.Key, Size = UDim2.new(1, 0, 0, 64), LayoutOrder = i })
 		local bar = Gui.plate(t, { Position = UDim2.fromOffset(-2, 0), Size = UDim2.fromOffset(12, 64) }, Gui.SIGNAL, { flatLeft = true })
 		Gui.label(t, { Text = b.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Size = UDim2.new(1, -40, 0, 28), Position = UDim2.fromOffset(24, 7) })
 		local mine = Gui.label(t, { Text = "", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, -40, 0, 20), Position = UDim2.fromOffset(26, 36) })
 		onClick(t, function()
-			boardKey = b.Key
-			MenuController.refresh()
+			pickBoard(b.Key)
 		end)
 		tabs[b.Key] = { button = t, bar = bar, stroke = t:FindFirstChildWhichIsA("UIStroke"), mine = mine }
 	end

@@ -1441,10 +1441,23 @@ Config.Controls = {
 		Ability = "Your character's active ability",
 		Timeout = "In a match: refills stamina, change who serves",
 	},
-	-- a controller's buttons and the touch buttons, for the same card
+	-- a controller's buttons (what each does), and the menus on a controller (PadNav), for the same
+	-- card (the owner: "make a controller tutorial aswell")
 	Pad = {
-		{ "Move", "Left stick" }, { "Jump and spike", "A or R2" }, { "Receive", "B" }, { "Slide and roll shot", "RB" },
-		{ "Block", "Y" }, { "Set", "LB" }, { "Serve", "X" }, { "Easy serve", "D-pad up" }, { "Ability", "L2" }, { "Timeout", "Select" },
+		{ "Move", "Left stick", "You only move along the court" },
+		{ "Jump and spike", "A or R2", "On the floor a run-up jump; in the air, the spike" },
+		{ "Receive", "B", "Press a little before the ball reaches you" },
+		{ "Slide and roll shot", "RB", "A diving receive; in the air, a soft roll shot" },
+		{ "Block", "Y", "Hold at the net, let go to jump" },
+		{ "Set", "LB", "Stick toward the net: quick; away: back. Setters aim with the right stick" },
+		{ "Serve", "X", "Tap: overhand; hold: a jump-serve toss" },
+		{ "Easy serve", "D-pad up", "A slow underhand serve that lands in" },
+		{ "Ability", "L2", "Your character's active ability" },
+		{ "Teammates' abilities", "D-pad left / right", "Your AI teammates' active abilities" },
+		{ "Timeout", "Select", "In a match: refills stamina, change who serves" },
+		{ "Settings and Forfeit", "D-pad down", "In a match; B closes it" },
+		{ "Menus", "D-pad or stick, A", "Move the yellow outline; A presses" },
+		{ "Back and tabs", "B, LB / RB", "B goes back or closes; LB and RB switch tabs" },
 	},
 	Touch = {
 		{ "Move", "The stick, bottom left" }, { "Jump and spike", "Jump: jump, then Jump again in the air to spike" },

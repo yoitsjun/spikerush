@@ -1418,7 +1418,7 @@ local function updateCoach()
 			-- and the last lesson, for matches: what a timeout does (the owner: "add a short tutorial
 			-- on what the timeout does")
 			local vp, gold, spins = Tutorial.reward()
-			local key = State.isMobile and "the hourglass" or "T or the hourglass"
+			local key = State.isMobile and "the hourglass" or (mods.PadNav.usingPad() and "Select, or the hourglass" or "T or the hourglass")
 			c.body.Text = string.format("+%d VP, +%d Gold and %d free recruits the first time.\nOne last thing, for matches: a timeout (%s) pauses play for %d s, refills both teams' stamina and lets you change who serves next. %d per set; press it again to call it off.",
 				vp, gold, spins, key, Config.Timeout.Duration, Config.Timeout.PerSet)
 		else

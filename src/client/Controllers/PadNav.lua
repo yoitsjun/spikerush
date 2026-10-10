@@ -11,6 +11,8 @@
 --     row of tabs, Y and X its own extras when it has them
 --   * nothing is selected while you play, so A still spikes. In a match D-pad down opens the
 --     settings panel (Timeout and Forfeit are there too).
+--   * when Roblox's navigation finds nothing in the direction pressed (a button far off to the
+--     side, like the Ranks boards under the nav bar) the nearest one that way is picked instead
 --   * the controller is "in use" from its first input until the mouse, keyboard or a touch
 -- Buttons that only make sense with a mouse (the huge click-anywhere ones, the HUD's action rail)
 -- carry NoNav; the corner buttons a page shouldn't start on (Back, Close, the nav bar) NavSkipFirst.
@@ -286,6 +288,56 @@ local function setPause(on)
 	end
 end
 
+-- The nearest usable button from `from` in direction `dir` (a unit Vector2, screen space): ahead
+-- of it, preferring ones in line with it.
+local function nearestToward(root, from, dir)
+	local c0 = from.AbsolutePosition + from.AbsoluteSize / 2
+	local best, bestScore = nil, math.huge
+	for _, d in ipairs(root:GetDescendants()) do
+		if d ~= from and (d:IsA("GuiButton") or d:IsA("TextBox")) and usable(d, root) then
+			local c = d.AbsolutePosition + d.AbsoluteSize / 2
+			local off = c - c0
+			local along = off.X * dir.X + off.Y * dir.Y
+			if along > 6 then
+				local across = math.abs(off.X * dir.Y - off.Y * dir.X)
+				local score = along + across * 2
+				if score < bestScore then
+					best, bestScore = d, score
+				end
+			end
+		end
+	end
+	return best
+end
+
+local DIRS = {
+	[Enum.KeyCode.DPadUp] = Vector2.new(0, -1),
+	[Enum.KeyCode.DPadDown] = Vector2.new(0, 1),
+	[Enum.KeyCode.DPadLeft] = Vector2.new(-1, 0),
+	[Enum.KeyCode.DPadRight] = Vector2.new(1, 0),
+}
+
+-- A direction pressed (D-pad, or the left stick pushed past halfway): give Roblox's navigation a
+-- frame, and if the selection didn't move, move it ourselves.
+local function nudge(dir)
+	local root = current
+	local o = root and roots[root]
+	local before = GuiService.SelectedObject
+	if not o or o.noSelect or not before then
+		return
+	end
+	task.defer(function()
+		RunService.Heartbeat:Wait()
+		if current ~= root or GuiService.SelectedObject ~= before or not before.Parent then
+			return
+		end
+		local nextSel = nearestToward(root, before, dir)
+		if nextSel then
+			GuiService.SelectedObject = nextSel
+		end
+	end)
+end
+
 local function ours(obj)
 	return obj ~= nil and obj:IsDescendantOf(player.PlayerGui)
 end
@@ -325,12 +377,20 @@ local function step()
 	end
 end
 
+-- Fires (with usingPad()) when the controller starts or stops being the one in use: the How to
+-- play cards swap to its buttons as soon as someone picks it up.
+PadNav.changed = Instance.new("BindableEvent")
+
 local function setPad(t)
 	local name = t and t.Name or ""
+	local was = pad
 	if string.sub(name, 1, 7) == "Gamepad" then
 		pad = true
 	elseif t == Enum.UserInputType.Keyboard or t == Enum.UserInputType.Touch or t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.MouseButton2 or t == Enum.UserInputType.MouseMovement or t == Enum.UserInputType.MouseWheel then
 		pad = false
+	end
+	if pad ~= was then
+		PadNav.changed:Fire(pad)
 	end
 end
 
@@ -358,6 +418,37 @@ function PadNav.init(m)
 	end)
 	setPad(UserInputService:GetLastInputType())
 	UserInputService.LastInputTypeChanged:Connect(setPad)
+	UserInputService.InputBegan:Connect(function(input)
+		local dir = DIRS[input.KeyCode]
+		if dir then
+			nudge(dir)
+		end
+	end)
+	-- the left stick: one nudge each time it's pushed past halfway in a direction
+	local stickDir = nil
+	UserInputService.InputChanged:Connect(function(input)
+		if input.KeyCode ~= Enum.KeyCode.Thumbstick1 then
+			return
+		end
+		local p = input.Position
+		local v = Vector2.new(p.X, -p.Y) -- the stick's up is the screen's up
+		local d = nil
+		if v.Magnitude > 0.55 then
+			if math.abs(v.X) > math.abs(v.Y) then
+				d = Vector2.new(v.X > 0 and 1 or -1, 0)
+			else
+				d = Vector2.new(0, v.Y > 0 and 1 or -1)
+			end
+		end
+		if d and d ~= stickDir then
+			nudge(d)
+		end
+		if d then
+			stickDir = d
+		elseif v.Magnitude < 0.3 then
+			stickDir = nil -- back near the middle: the next push counts again
+		end
+	end)
 	RunService.Heartbeat:Connect(function()
 		local ok, err = pcall(step)
 		if not ok then
