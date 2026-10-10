@@ -10,8 +10,8 @@
 --   * with "fill with bots" the host can start any time (bots take the empty spots); without it
 --     both sides have to be full
 --   * a lobby plays on the court it picked, or on the next court in the rotation
---   * Quick Match joins the fullest open public quick lobby of that mode, or opens one that
---     starts on its own a few seconds later
+--   * Quick Match joins the fullest open public quick lobby of that mode, or opens one; it starts
+--     when it's full, or when anyone in it presses Start with bots
 --   * the host of a custom lobby can pick the character each bot spot plays, on both teams, from
 --     the whole roster (owned or not; the owner: "you can now pick what characters you want each
 --     team to have even if you dont have them. only thing is that you cannot pick your own
@@ -564,7 +564,7 @@ function Lobbies.pickQuickRemote(best, others, mode, now, lead)
 		local v = o.view
 		if type(v) == "table" and v.quick == true and v.state == "Open" and tonumber(v.mode) == mode and v.privacy == "Public" then
 			local n = Lobbies.viewCount(v)
-			local at = tonumber(v.startsAt) or 0
+			local at = tonumber(v.startsAt) or math.huge -- (no countdown: it waits until it's full)
 			if n < mode * 2 and at - now >= lead and (n > pickN or (pick ~= nil and n == pickN and at < pickAt)) then
 				pick, pickN, pickAt = o.gid, n, at
 			end

@@ -637,8 +637,7 @@ function LobbyService.create(plr, raw, quick)
 	end
 	local l = Lobbies.new(newId(), plr.UserId, plr.DisplayName, s)
 	if quick then
-		l.quick = true
-		l.startsAt = Util.now() + L.QuickStartTime
+		l.quick = true -- starts when full, or when someone in it starts it with bots
 	end
 	Lobbies.seat(l, plr.UserId)
 	memberOf[plr.UserId] = l.id
@@ -1127,6 +1126,15 @@ function HANDLERS.leave(m)
 	end
 end
 
+-- a player of another server in one of our Quick Match lobbies starts it with bots
+function HANDLERS.bots(m)
+	local l = lobbyByGid(m.g)
+	local u = tonumber(m.u)
+	if l and u and l.quick and l.remote and l.remote[u] and l.state == "Open" then
+		LobbyService.launch(l)
+	end
+end
+
 function HANDLERS.team(m)
 	local l = lobbyByGid(m.g)
 	local u = tonumber(m.u)
@@ -1493,6 +1501,18 @@ local function onRequest(plr, op, a, b)
 		end
 	elseif op == "start" then
 		LobbyService.start(plr)
+	elseif op == "bots" then
+		-- anyone in a Quick Match queue can start it now, bots in the empty spots
+		if remote then
+			if not remote.pending then
+				send(remote.job, { k = "bots", g = remote.g, u = plr.UserId })
+			end
+			return
+		end
+		local l = LobbyService.lobbyOf(plr)
+		if l and l.quick and l.state == "Open" then
+			LobbyService.launch(l)
+		end
 	elseif op == "team" then
 		if remote then
 			if not remote.pending then
@@ -1644,8 +1664,8 @@ function LobbyService.init(r)
 			local now = Util.now()
 			for _, id in ipairs(order) do
 				local l = lobbies[id]
-				-- a Quick Match lobby starts itself when full or when its countdown runs out
-				if l and l.quick and l.state == "Open" and (Lobbies.count(l) >= Lobbies.capacity(l) or now >= (l.startsAt or 0)) then
+				-- a Quick Match lobby starts itself when it's full
+				if l and l.quick and l.state == "Open" and Lobbies.count(l) >= Lobbies.capacity(l) then
 					LobbyService.launch(l)
 				end
 			end

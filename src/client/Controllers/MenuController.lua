@@ -4148,7 +4148,7 @@ local function buildMatch()
 	local swap = hairButton(lobby, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.fromOffset(160, 56) }, "Switch side")
 	local settingsB = hairButton(lobby, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 172, 1, 0), Size = UDim2.fromOffset(140, 56) }, "Settings")
 	local leave, leaveLabel = hairButton(lobby, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -266, 1, 0), Size = UDim2.fromOffset(180, 56) }, "Leave lobby")
-	local start = actionPlate(lobby, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(250, 58) }, "Start", 28)
+	local start, startLabel = actionPlate(lobby, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(250, 58) }, "Start", 28)
 	onClick(swap, function()
 		Net.get("Lobby"):FireServer("team")
 	end)
@@ -4168,7 +4168,9 @@ local function buildMatch()
 		Net.get("Lobby"):FireServer("leave")
 	end)
 	onClick(start, function()
-		Net.get("Lobby"):FireServer("start")
+		-- a Quick Match queue: anyone in it starts it with bots
+		local mine = lobbies.mine
+		Net.get("Lobby"):FireServer(mine and mine.quick and "bots" or "start")
 	end)
 
 	-- the host's picker for a bot spot: the whole roster, recruited or not (bots play them maxed)
@@ -4269,6 +4271,7 @@ local function buildMatch()
 		leave = leave,
 		leaveLabel = leaveLabel,
 		start = start,
+		startLabel = startLabel,
 	}
 end
 
@@ -4291,8 +4294,7 @@ local function lobbyStatus(mine)
 	elseif mine.state == "Playing" then
 		return "Match in progress"
 	elseif mine.quick then
-		local left = math.max(0, math.ceil((mine.startsAt or 0) - workspace:GetServerTimeNow()))
-		return string.format("Starting in %d. Bots fill the empty spots.", left)
+		return string.format("Waiting for players (%d/%d). It starts when it's full, or start it now with bots.", mine.count or 0, mine.capacity or 0)
 	elseif mine.cup and mine.isHost then
 		return "Your friends in this server can join from Lobbies. Start when you're ready."
 	elseif mine.cup then
@@ -4458,7 +4460,9 @@ local function refreshMatch()
 		end
 		Mt.swap.Visible = open and not mine.quick and not mine.cup
 		Mt.settings.Visible = open and mine.isHost and not mine.quick and not mine.cup
-		Mt.start.Visible = open and mine.isHost and not mine.quick
+		Mt.start.Visible = open and (mine.quick or mine.isHost)
+		Mt.startLabel.Text = mine.quick and "Start with bots" or "Start"
+		Mt.startLabel.TextSize = mine.quick and 24 or 28
 		Mt.leave.Visible = open or mine.state == "Queued" or mine.state == "Joining"
 		Mt.leaveLabel.Text = mine.quick and "Cancel queue" or "Leave lobby"
 	end
@@ -4492,7 +4496,7 @@ local function lobbyLine(mine)
 	elseif mine.state == "Playing" then
 		return "Match in progress"
 	elseif mine.quick then
-		return string.format("Starting in %d", math.max(0, math.ceil((mine.startsAt or 0) - workspace:GetServerTimeNow())))
+		return string.format("Waiting %d/%d", mine.count or 0, mine.capacity or 0)
 	end
 	return string.format("%d/%d in the lobby", mine.count, mine.capacity)
 end

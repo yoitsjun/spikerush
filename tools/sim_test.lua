@@ -1145,6 +1145,9 @@ do
 	end
 	check(pickA == "d/1" and pickB == nil and pickC == "b/1",
 		"Quick Match across servers: the fullest queue anywhere with time to get in (the one starting first on a tie); this server's own on a tie", string.format("%s / %s / %s", tostring(pickA), tostring(pickB), tostring(pickC)))
+	local waiting = qv(2, 2, 0)
+	waiting.startsAt = nil -- a queue now waits until it's full (or someone starts it with bots)
+	check(Lobbies.pickQuickRemote(here1, { { gid = "w/1", view = waiting } }, 2, now0, lead) == "w/1", "a Quick Match queue with no countdown can still be joined from another server")
 	-- AFK: idle time only builds while the ball is live; input resets it
 	local idle, afk = 0, false
 	for _ = 1, 20 do idle, afk = Lobbies.idle(idle, 0.5, "Timeout", false) end
