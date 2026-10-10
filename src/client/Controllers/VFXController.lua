@@ -359,7 +359,7 @@ local function handBall(clone, fallback)
 	-- the hitting hand is the one reaching highest (the swing's arm; the owner: "the ball attaches
 	-- to the arm but the wrong one")
 	local hand = nil
-	for _, n in ipairs({ "RightHand", "LeftHand", "Right Arm", "Left Arm" }) do
+	for _, n in ipairs({ "LeftHand", "RightHand", "Left Arm", "Right Arm" }) do -- (a tie: the left, the swing's arm)
 		local part = clone and clone:FindFirstChild(n, true)
 		if part and part:IsA("BasePart") and (not hand or part.Position.Y > hand.Position.Y) then
 			hand = part
