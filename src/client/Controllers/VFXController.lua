@@ -305,14 +305,24 @@ local function buildScreen()
 	impactGui.Parent = player:WaitForChild("PlayerGui")
 end
 
+-- The full-screen effects (flash, speed lines, impact, dark and freeze frames) are only for the
+-- players on court: everyone else in the server (menus, the lobby) gets them too otherwise (the
+-- owner: "the taeho impact is showing accross all servers even if youre not playing").
+local function onCourt()
+	return State.isPlaying == true
+end
+
 function VFXController.flash(strength, duration)
+	if not onCourt() then
+		return
+	end
 	flashFrame.BackgroundTransparency = 1 - strength
 	TweenService:Create(flashFrame, TweenInfo.new(duration or 0.25), { BackgroundTransparency = 1 }):Play()
 end
 
 -- Horizontal streaks racing across the screen in the ball's direction (dir: +1 right, -1 left).
 function VFXController.speedLines(duration, color, dir)
-	if not State.settings.dramatic then
+	if not State.settings.dramatic or not onCourt() then
 		return
 	end
 	linesUntil = os.clock() + duration
@@ -409,7 +419,7 @@ end
 
 -- The manga impact frame: white screen, black silhouette, coloured radial burst.
 function VFXController.impactFrame(entityId, color)
-	if not State.settings.dramatic then
+	if not State.settings.dramatic or not onCourt() then
 		return
 	end
 	local cam = workspace.CurrentCamera
@@ -537,7 +547,7 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color)
 	local cam = workspace.CurrentCamera
 	local model = Util.modelOf(entityId)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
-	if not cam or not hrp or duration <= 0.05 then
+	if not cam or not hrp or duration <= 0.05 or not onCourt() then
 		return false
 	end
 	local token = freezeScreen()
@@ -608,7 +618,7 @@ end
 function VFXController.darkFrame(entityId, ballPos, duration, color)
 	local cam = workspace.CurrentCamera
 	local model = Util.modelOf(entityId)
-	if not cam or not model or duration <= 0.05 then
+	if not cam or not model or duration <= 0.05 or not onCourt() then
 		return false
 	end
 	local token = freezeScreen()
