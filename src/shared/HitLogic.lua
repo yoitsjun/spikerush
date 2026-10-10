@@ -1354,8 +1354,8 @@ function HitLogic.compute(input, ctx)
 		local err = (1 - q) ^ 1.3 * H.PassError
 		local apex = lerp(H.PassApexMin, H.PassApexMax, q)
 		if sliding then
-			depth = depth + 0.6 * SPM
-			err = err + 0.6 * SPM
+			depth = depth + H.SlidePassDrift * SPM
+			err = err + H.SlidePassDrift * SPM
 			apex = H.SlidePassApex
 		end
 		depth = math.max(depth + jitter(rng, err), 0.56 * SPM)

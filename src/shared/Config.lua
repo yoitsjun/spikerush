@@ -85,10 +85,12 @@ Config.Player = {
 	-- inside ApproachArmTime it's let go.
 	ApproachArmTime = 1.0,
 	AirControl = 0.55, -- air drift speed as a fraction of walk speed
-	SlideSpeed = 50,
-	SlideTime = 0.42,
-	SlideRecover = 0.38,
-	SlideCooldown = 0.75,
+	-- Slides (buffed 2026-10-10, the owner: "major buff to sliding"): was 50 / 0.42 / 0.38 / 0.75,
+	-- about 16 studs of slide; now about 24 with half the recovery and a shorter cooldown.
+	SlideSpeed = 64,
+	SlideTime = 0.5,
+	SlideRecover = 0.2,
+	SlideCooldown = 0.45,
 	BlockChargeTime = 0.45, -- hold the block key this long for a full-height block
 	BlockMinHeight = 0.55, -- a tapped block jumps this fraction of full height
 	BlockReach = 1.5 * M, -- max distance from the net that starts a block
@@ -115,9 +117,9 @@ Config.Zones = {
 	ReceiveMinY = -3.3,
 	ReceiveMaxY = 2.1,
 	ReceiveReach = 3.4,
-	SlideReach = 5.2,
-	SlideMinY = -3.5,
-	SlideMaxY = 1.2,
+	SlideReach = 7.0, -- was 5.2 / -3.5 / 1.2 before the slide buff
+	SlideMinY = -4.0,
+	SlideMaxY = 2.0,
 	SetIdealY = 3.4,
 	SetHalfY = 2.4,
 	SetMinY = 1.2,
@@ -170,8 +172,9 @@ Config.Hits = {
 	PassError = 1.6 * M,
 	PassGravityScale = 1.0,
 	ShankAt = 0.3,
-	SlidePassApex = 5 * M,
-	SlideQualityFloor = 0.62,
+	SlidePassApex = 6 * M, -- was 5 m and a 0.62 floor before the slide buff
+	SlideQualityFloor = 0.8, -- a slide receive is always at least a Great
+	SlidePassDrift = 0.25, -- metres a slide pass lands deeper and its extra error (was 0.6)
 	PerfectStanceMin = 0.08, -- receive pressed this long before contact...
 	PerfectStanceMax = 0.42, -- ...up to this long = perfect timing
 

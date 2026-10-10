@@ -1210,7 +1210,7 @@ local function processSlide(info, now)
 	for i = 1, 5 do
 		local t = t0 + (now - t0) * i / 5
 		local p = BallPhysics.positionAt(path, t)
-		if HitLogic.receiveZone(info.root, p, State.mySide, State.myStats(), true) and p.Y - info.root.Y < 0.8 then
+		if HitLogic.receiveZone(info.root, p, State.mySide, State.myStats(), true) and p.Y - info.root.Y < 1.6 then
 			if execute("Bump", info, { diving = true }, t, p) then
 				slideCheck = nil
 			end
