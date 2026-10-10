@@ -317,18 +317,29 @@ local DIRS = {
 	[Enum.KeyCode.DPadRight] = Vector2.new(1, 0),
 }
 
--- A direction pressed (D-pad, or the left stick pushed past halfway): give Roblox's navigation a
--- frame, and if the selection didn't move, move it ourselves.
+-- A direction pressed (D-pad, or the left stick pushed past halfway): Roblox's navigation gets
+-- NUDGE_WAIT to move the selection (it can take a few frames), and only if the selection hasn't
+-- changed at all by then do we move it (the owner: "it starts skipping over now", when this
+-- stepped in after one frame and both moved).
+local NUDGE_WAIT = 0.15
+local selChanges = 0
+local nudging = false
+GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
+	selChanges = selChanges + 1
+end)
+
 local function nudge(dir)
 	local root = current
 	local o = root and roots[root]
 	local before = GuiService.SelectedObject
-	if not o or o.noSelect or not before then
+	if not o or o.noSelect or not before or nudging then
 		return
 	end
-	task.defer(function()
-		RunService.Heartbeat:Wait()
-		if current ~= root or GuiService.SelectedObject ~= before or not before.Parent then
+	nudging = true
+	local n0 = selChanges
+	task.delay(NUDGE_WAIT, function()
+		nudging = false
+		if current ~= root or selChanges ~= n0 or GuiService.SelectedObject ~= before or not before.Parent then
 			return
 		end
 		local nextSel = nearestToward(root, before, dir)
