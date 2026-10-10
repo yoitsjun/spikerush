@@ -479,11 +479,14 @@ local function planSet(team, now, exclude)
 	local near = math.abs(p.Z) <= B.JumpSetPassDepth
 	local turn = e.ability == "Turnabout" and (e.abilityUntil or -1) >= now -- already armed: no quick
 	-- the wing spiker gets the ball; off a good pass (near the net) the setter sometimes calls a
-	-- quick to the middle instead, if the middle is close enough to the net to hit it
+	-- quick to the middle instead, if the middle is close enough to the net to hit it. Whoever
+	-- passed (`exclude`) can't set, but can hit the third touch: a wing spiker who took the serve
+	-- in the back court still gets the set (it used to go to the middle every time, the owner:
+	-- "the npc constantly keeps setting the middle blocker")
 	local target, setType = nil, "Open"
 	local ws = TS.byRole(team, "WS")
 	local mb = TS.byRole(team, "MB")
-	if not turn and mb and mb.id ~= b.entity.id and mb.id ~= exclude and math.abs(p.Z) <= B.QuickPassDepth then
+	if not turn and mb and mb.id ~= b.entity.id and math.abs(p.Z) <= B.QuickPassDepth then
 		local mbZ = rootZ(mb)
 		local chance = tierPair(b, B.QuickChance)
 		if not mb.isBot then
@@ -493,7 +496,7 @@ local function planSet(team, now, exclude)
 			target, setType = mb, "Quick"
 		end
 	end
-	if not target and ws and ws.id ~= b.entity.id and ws.id ~= exclude then
+	if not target and ws and ws.id ~= b.entity.id then
 		target = ws
 		if ws.isBot and b.rng:NextNumber() > 0.9 and b.entity.ability ~= "Vector" then
 			setType = "Back" -- (a Vector setter keeps it in front, tight to the net)
@@ -502,7 +505,7 @@ local function planSet(team, now, exclude)
 	if not target then
 		-- no wing spiker to set: any other hitter, humans first
 		for _, e in ipairs(TS.members(team)) do
-			if e.id ~= b.entity.id and e.id ~= exclude and (not target or (target.isBot and not e.isBot)) then
+			if e.id ~= b.entity.id and (not target or (target.isBot and not e.isBot)) then
 				target = e
 			end
 		end
