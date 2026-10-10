@@ -1431,6 +1431,7 @@ end
 -- Skyward: her highest spike this set as a marker left where she met it, a pink line
 -- at that height with the metres on it (the owner: "make the top spike indicator stay there").
 local peakMarks = {} -- model -> { anchor, gui, text }
+local PEAK_BAR = 9 -- studs: the bar's length, from just off the net out over her court
 local function updatePeaks()
 	local seen = {}
 	if State.isPlaying or State.match.inMatch then
@@ -1447,7 +1448,7 @@ local function updatePeaks()
 						anchor.Size = Vector3.new(0.2, 0.2, 0.2)
 						anchor.Transparency = 1
 						local gui = Instance.new("BillboardGui")
-						gui.Size = UDim2.fromOffset(110, 30)
+						gui.Size = UDim2.new(PEAK_BAR, 0, 2.2, 0) -- in studs: a long bar beside the net
 						gui.AlwaysOnTop = true
 						gui.LightInfluence = 0
 						gui.Adornee = anchor
@@ -1455,7 +1456,7 @@ local function updatePeaks()
 						local line = Instance.new("Frame")
 						line.AnchorPoint = Vector2.new(0.5, 0.5)
 						line.Position = UDim2.fromScale(0.5, 1)
-						line.Size = UDim2.new(0.8, 0, 0, 3)
+						line.Size = UDim2.new(1, 0, 0, 4)
 						line.BorderSizePixel = 0
 						line.BackgroundColor3 = Config.Abilities.Skyward.Color
 						line.Parent = gui
@@ -1470,10 +1471,12 @@ local function updatePeaks()
 						m = { anchor = anchor, gui = gui, text = text }
 						peakMarks[model] = m
 					end
-					-- right where her highest spike this set was met (the owner: "literally where her highest
-					-- spike was"), and it stays there until she beats it
+					-- at the height of her highest spike this set (the owner: "literally where her highest
+					-- spike was"), the bar running from the net out over her side ("extend the bar and make
+					-- it just stay right next to the net")
 					m.text.Text = string.format("%.2f m", peak)
-					m.anchor.CFrame = CFrame.new(0, py + 0.8, pz)
+					local sideOf = State.sideOfEntity(e.id) or (pz >= 0 and 1 or -1)
+					m.anchor.CFrame = CFrame.new(0, py + 1.1, sideOf * (PEAK_BAR / 2 + 0.6))
 				end
 			end
 		end
