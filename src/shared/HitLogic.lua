@@ -674,28 +674,13 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	-- Zero Point: the ball slightly in front of his raised hand and above his head makes his spike
 	-- far faster, nearly straight and through the block (below)
 	-- (his jump serves too, a little slower)
-	-- It takes two swings (the owner: "make it so he has to swing and it hits the ball during the
-	-- freeze frame or he doesnt get a perfect spike"): the first, the ball in the spot, freezes it on
-	-- his hand for Window (zeroReady: a usual spike if the window runs out); a second swing in the
-	-- window (ctx.zeroConfirm, HitService) fires the Zero Point. The AI skips the window and gets
-	-- one AutoChance of the time.
-	local spot = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "ZeroPoint" and HitLogic.zeroSpot(dz, dy, stats) and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
-	local zero, zeroReady = false, false
-	if spot then
-		-- the ball meets his hand: it holds there through the freeze and leaves from there (the
-		-- owner saw him "swinging right below the ball" when it was met high in the spot)
-		ball = Vector3.new(0, root.Y + Z.SpikeUp + ZERO.HandUp, root.Z - side * (Z.SpikeForward + ZERO.HandAhead))
-		if ctx.zeroConfirm then
-			zero = true
-		elseif ctx.auto then
-			zero = rng:NextNumber() < ZERO.AutoChance
-		else
-			zeroReady = true
-		end
-	end
+	local zero = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "ZeroPoint" and HitLogic.zeroSpot(dz, dy, stats) and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
 	if zero then
 		local range = kind == "JumpServe" and ZERO.ZeroServeKmh or ZERO.ZeroKmh
 		kmh = lerp(range[1], range[2], qContact) * stats.Power
+		-- the ball meets his hand: it holds there through the freeze frame and leaves from there
+		-- (the owner saw him "swinging right below the ball" when it was met high in the spot)
+		ball = Vector3.new(0, root.Y + Z.SpikeUp + ZERO.HandUp, root.Z - side * (Z.SpikeForward + ZERO.HandAhead))
 	end
 	local boom = kind == "Spike" and reaction(ctx)
 	if boom then
@@ -711,8 +696,6 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.grade = "PERFECT"
 		meta.breakAtk = 999 -- through any block but Iron Wall's
 		meta.tierDrain = meta.tierDrain * ZERO.DrainMul
-	elseif zeroReady then
-		meta.zeroReady = true
 	end
 	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Skyward" then -- (serves climb her too)
 		meta.liftGain = HitLogic.skyGain(qHeight)
@@ -843,10 +826,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local v = speedWithAssist(ball, target, speed, g, side, steps)
 	local hold = 0
 	if zero then
-		-- the silhouette cut-in (after the window when it was confirmed; the AI's straight away)
-		hold = ctx.zeroConfirm and ZERO.CutIn or ZERO.CutIn + ZERO.FreezeDark
-	elseif zeroReady then
-		hold = ZERO.Window -- frozen on his hand, waiting for the second swing
+		hold = ZERO.Freeze -- the freeze-frame cut-in
 	elseif meta.firstStrike then
 		hold = FERAL.FirstFreeze
 	elseif thunder or pierce or fullLeap then

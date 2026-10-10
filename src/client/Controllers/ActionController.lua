@@ -712,24 +712,8 @@ local function releaseProwl(info)
 	Net.get("ActionFX"):FireServer("Leap", string.format("%.2f", gauge))
 end
 
--- Zero Point's second swing: while the server holds his ball in its window (the ZeroWindowUntil
--- attribute), Spike swings into it and the server fires the Zero Point. Nothing is predicted.
-function ActionController.zeroSwing()
-	if (player:GetAttribute("ZeroWindowUntil") or 0) <= Util.now() then
-		return false
-	end
-	player:SetAttribute("ZeroWindowUntil", nil) -- one swing
-	mods.AnimationController.pose(State.myId, "Swing") -- (everyone else sees it with the Zero Point's hit)
-	Net.get("HitRequest"):FireServer({ zeroConfirm = true, seq = mods.BallRenderer.getSeq() })
-	lastActionAt = os.clock()
-	return true
-end
-
 local function pressSpike(info)
 	local MC = mods.MovementController
-	if ActionController.zeroSwing() then
-		return
-	end
 	if serving() then
 		local BR = mods.BallRenderer
 		if BR.getState() == "Held" then

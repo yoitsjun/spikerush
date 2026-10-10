@@ -100,59 +100,6 @@ local function writeAbility(entity, name, value)
 	end
 end
 
--- A freeze frame: the hitter hangs where they hit it for `seconds` (a later freeze takes over).
-local freezeTokens = {} -- entity id -> the freeze holding it now
-function HitService.freezeHitter(entity, seconds)
-	local root = reg.TeamService.getRoot(entity)
-	if not root then
-		return
-	end
-	local token = {}
-	freezeTokens[entity.id] = token
-	root.AssemblyLinearVelocity = Vector3.zero
-	root.Anchored = true
-	task.delay(seconds, function()
-		if freezeTokens[entity.id] == token then
-			freezeTokens[entity.id] = nil
-			if root.Parent then
-				root.Anchored = false
-			end
-		end
-	end)
-end
-
--- Zero Point's second swing (Config.Abilities.ZeroPoint): inside the window its first swing
--- opened, while that ball still holds on the hand, the same hit again fires the Zero Point.
-local zeroPending = {} -- entity id -> { input, ctx, meta, untilT }
-function HitService.zeroConfirm(entity)
-	local BS = reg.BallService
-	local p = zeroPending[entity.id]
-	zeroPending[entity.id] = nil
-	if entity.player then
-		entity.player:SetAttribute("ZeroWindowUntil", nil)
-	end
-	local now = Util.now()
-	if not p or now > p.untilT or BS.lastHit ~= p.meta or BS.state ~= "Flight" then
-		return false, "window"
-	end
-	local input = table.clone(p.input)
-	input.t = now
-	local ctx = table.clone(p.ctx)
-	ctx.zeroConfirm = true
-	local ok, result = HitLogic.compute(input, ctx)
-	if not ok or not result.meta.zero then
-		return false, "zone"
-	end
-	local meta = result.meta
-	meta.id, meta.name, meta.team, meta.t = entity.id, entity.name, entity.team, now
-	BS.launch(result.launch, meta) -- the same touch: it's the hit the first swing made
-	if meta.kmh then
-		entity.stats.topKmh = math.max(entity.stats.topKmh or 0, meta.kmh)
-	end
-	HitService.freezeHitter(entity, result.launch.hold or 0)
-	return true
-end
-
 -- Core: used by both remote requests and bots. Returns ok, reason.
 function HitService.process(entity, input, opts)
 	opts = opts or {}
@@ -302,16 +249,17 @@ function HitService.process(entity, input, opts)
 	elseif meta.counterRelease then
 		TS.setCounter(entity, 0) -- her spike released it
 	end
-	if meta.zero or meta.zeroReady or meta.firstStrike then
+	if meta.zero or meta.firstStrike then
 		-- the freeze frame: the hitter hangs where they hit it while the ball holds on the hand
-		HitService.freezeHitter(entity, result.launch.hold or 0)
-	end
-	if meta.zeroReady then
-		-- Zero Point's window: a second swing before it runs out fires it (HitService.zeroConfirm)
-		local untilT = input.t + (result.launch.hold or 0)
-		zeroPending[entity.id] = { input = input, ctx = ctx, meta = meta, untilT = untilT }
-		if entity.player then
-			entity.player:SetAttribute("ZeroWindowUntil", untilT)
+		local root = TS.getRoot(entity)
+		if root and not root.Anchored then
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.Anchored = true
+			task.delay(result.launch.hold or 0, function()
+				if root.Parent then
+					root.Anchored = false
+				end
+			end)
 		end
 	end
 	if meta.liftGain and entity.ability == "Skyward" then
@@ -378,14 +326,6 @@ function HitService.onRequest(plr, req)
 		return reject("nomatch")
 	end
 	intentAt[entity.id] = os.clock()
-	if req.zeroConfirm == true then
-		-- Zero Point's second swing (the ball is already his, held on his hand)
-		local ok, why = HitService.zeroConfirm(entity)
-		if not ok then
-			reject(why)
-		end
-		return
-	end
 	if not VALID[req.action] or not finiteNumber(req.t) or not finiteNumber(seq) then
 		return reject("bad")
 	end
