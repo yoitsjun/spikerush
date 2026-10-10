@@ -5625,6 +5625,26 @@ function Extra.buildAdmin()
 			Cards = Extra.adminCreator and { "Creator" } or nil,
 		})
 	end)
+	-- reset the username's match stats (a faked record): press twice within 4 s
+	local wipe, wipeL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 48), Size = UDim2.fromOffset(170, 46) }, "Reset stats", 18)
+	user.Size = UDim2.new(1, -182, 0, 46) -- room for Reset stats beside it
+	onClick(wipe, function()
+		if Extra.wipeArmed and os.clock() - Extra.wipeArmed < 4 and Extra.wipeName == user.Text then
+			Extra.wipeArmed = nil
+			wipeL.Text = "Reset stats"
+			Net.get("Admin"):FireServer("wipe", user.Text)
+		else
+			Extra.wipeArmed = os.clock()
+			Extra.wipeName = user.Text
+			wipeL.Text = "Sure? Press again"
+			task.delay(4, function()
+				if Extra.wipeArmed and os.clock() - Extra.wipeArmed >= 4 then
+					Extra.wipeArmed = nil
+					wipeL.Text = "Reset stats"
+				end
+			end)
+		end
+	end)
 	local status = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -20), Size = UDim2.new(1, -56, 0, 44), ZIndex = 21 })
 	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status, creatorL = creatorL }
 end

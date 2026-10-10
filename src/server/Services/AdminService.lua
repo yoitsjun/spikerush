@@ -214,6 +214,28 @@ local function onAdmin(plr, op, a, b)
 				reply(plr, why or "That didn't work.")
 			end
 		end)
+	elseif op == "wipe" then
+		-- reset someone's match stats (wins, matches, kills, aces, blocks, MVPs, streaks) and take
+		-- them off those leaderboards; their VP, Gold, characters and purchases stay
+		local name = type(a) == "string" and string.match(a, "^%s*([%w_]+)%s*$") or nil
+		if not name then
+			reply(plr, "Enter a username (or a user id) to reset.")
+			return
+		end
+		task.spawn(function()
+			local userId, why = reg.ProfileService.findUser(name)
+			if not userId then
+				reply(plr, why)
+				return
+			end
+			local done, why2 = reg.ProfileService.wipeUser(userId)
+			if done then
+				local where = Players:GetPlayerByUserId(userId) and "now" or "when they're next in the game (at once if they're online)"
+				reply(plr, string.format("Reset %s's match stats: it applies %s. The leaderboards drop them at their next refresh.", name, where))
+			else
+				reply(plr, why2 or "That didn't work.")
+			end
+		end)
 	elseif op == "server" then
 		if RunService:IsStudio() then
 			reply(plr, "Teleports don't work in Studio: try it in the live game.")

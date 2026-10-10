@@ -1006,6 +1006,66 @@ local function deliver(plr, profile, id, g, from, note)
 	return true
 end
 
+-- An admin's stats wipe (the owner: "i dont believe this person has 2k wins... how do i wipe the
+-- data"): the match record and the win streaks go back to zero; VP, Gold, characters, cosmetics
+-- and purchases stay. Once per mail id, like a gift.
+local function wipeStats(plr, profile, id)
+	if seenMail(profile, id) then
+		return false
+	end
+	profile.record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }
+	profile.winStreak = 0
+	profile.bestStreak = 0
+	table.insert(profile.mailSeen, 1, id)
+	while #profile.mailSeen > Config.Gifts.MailSeen do
+		table.remove(profile.mailSeen)
+	end
+	dirty[plr] = true
+	if reg.LeaderboardService then
+		task.spawn(reg.LeaderboardService.forget, plr.UserId)
+	end
+	push(plr, "Your match stats were reset by the developers.")
+	return true
+end
+
+-- Wipe a player's match stats: at once if they're in this server, else through the mail (their
+-- server picks it up right away if they're online, or they get it when they next join). The
+-- leaderboards drop them either way. Returns ok and, if not, why.
+function ProfileService.wipeUser(userId)
+	local id = "wipe-" .. HttpService:GenerateGUID(false)
+	if reg.LeaderboardService then
+		task.spawn(reg.LeaderboardService.forget, userId)
+	end
+	local plr = Players:GetPlayerByUserId(userId)
+	local profile = plr and profiles[plr]
+	if profile then
+		wipeStats(plr, profile, id)
+		save(plr, true)
+		push(plr)
+		return true
+	end
+	if not mailStore then
+		return false, "They aren't in this server, and reaching other servers needs DataStore access."
+	end
+	local ok, err = pcall(function()
+		mailStore:UpdateAsync(mailKey(userId), function(old)
+			local list = (type(old) == "table" and type(old.list) == "table") and old.list or {}
+			table.insert(list, { id = id, wipe = true, t = os.time() })
+			while #list > 100 do
+				table.remove(list, 1)
+			end
+			return { list = list }
+		end)
+	end)
+	if not ok then
+		return false, "It couldn't be sent: " .. tostring(err)
+	end
+	if reg.AdminService then
+		reg.AdminService.pingMail(userId)
+	end
+	return true
+end
+
 -- Gives a player in this server a clean grant (Economy.cleanGrant) with a notice. Returns the
 -- characters it added.
 function ProfileService.grant(plr, g, notice)
@@ -1075,7 +1135,11 @@ function ProfileService.checkMail(plr)
 		for _, m in ipairs(list) do
 			if type(m) == "table" and type(m.id) == "string" then
 				ids[m.id] = true
-				deliver(plr, profile, m.id, Economy.cleanGrant(m.g), type(m.from) == "string" and m.from or nil, type(m.note) == "string" and m.note or nil)
+				if m.wipe == true then
+					wipeStats(plr, profile, m.id)
+				else
+					deliver(plr, profile, m.id, Economy.cleanGrant(m.g), type(m.from) == "string" and m.from or nil, type(m.note) == "string" and m.note or nil)
+				end
 			end
 		end
 		if save(plr, true) then

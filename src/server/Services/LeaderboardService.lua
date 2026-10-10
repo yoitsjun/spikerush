@@ -38,6 +38,37 @@ local function openStores()
 	end
 end
 
+-- The boards that come from playing (a stats wipe takes a player off these; Robux spent and Gifts
+-- given stay).
+local STAT_BOARDS = { "wins", "bestStreak", "kills", "aces", "blocks", "winRate" }
+
+-- Take a player off the match-stat boards (an admin's stats wipe): drops any write still queued and
+-- removes their entries; the boards show it at their next refresh.
+function LeaderboardService.forget(userId)
+	pending[userId] = nil
+	for _, k in ipairs(STAT_BOARDS) do
+		local store = stores[k]
+		if store then
+			local ok, err = pcall(function()
+				store:RemoveAsync("u_" .. tostring(userId))
+			end)
+			if not ok then
+				warn("[SpikeRush] leaderboard remove: " .. tostring(err))
+			end
+		end
+	end
+	for _, k in ipairs(STAT_BOARDS) do
+		local rows = stored[k]
+		if type(rows) == "table" then
+			for i = #rows, 1, -1 do
+				if type(rows[i]) == "table" and tonumber(rows[i].userId) == userId then
+					table.remove(rows, i)
+				end
+			end
+		end
+	end
+end
+
 -- Queue a player's current numbers for writing (ProfileService calls this after a match).
 function LeaderboardService.track(plr, profile)
 	if not plr or not profile then

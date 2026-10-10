@@ -496,6 +496,11 @@ local function results(winner, forfeitTeam)
 	local points = MatchService.rules.points
 	local scale = Rewards.pointsScale(points)
 	local counts = not tutorial and not cup and points >= M.PointsPerSet
+	-- a forfeit before ForfeitWinMinPoints points were played isn't a win for the other side: no
+	-- record, no streak, no VP (a second account forfeiting at once farmed thousands of wins). The
+	-- side that forfeits still takes its loss.
+	local played = (MatchService.totals.Home or 0) + (MatchService.totals.Away or 0)
+	local hollow = forfeitTeam ~= nil and played < M.ForfeitWinMinPoints
 	for _, team in ipairs(Config.TeamOrder) do
 		for _, e in ipairs(reg.TeamService.members(team)) do
 			local st = e.stats
@@ -507,10 +512,11 @@ local function results(winner, forfeitTeam)
 			local boostVP, boostGold = 1, 1
 			if e.player then
 				local won = team == winner
-				if counts then
+				local empty = hollow and team ~= forfeitTeam -- the other side of an early forfeit
+				if counts and not empty then
 					streak = reg.ProfileService.recordResult(e.player, won, st)
 				end
-				if team ~= forfeitTeam and not cup then
+				if team ~= forfeitTeam and not cup and not empty then
 					local plays = st.kills + st.aces + st.blocks
 					reward, gold = Rewards.match(won, plays)
 					local xv, xg = Rewards.extraSets(MatchService.setWinners, team)
