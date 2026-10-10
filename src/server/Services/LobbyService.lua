@@ -1126,15 +1126,6 @@ function HANDLERS.leave(m)
 	end
 end
 
--- a player of another server in one of our Quick Match lobbies starts it with bots
-function HANDLERS.bots(m)
-	local l = lobbyByGid(m.g)
-	local u = tonumber(m.u)
-	if l and u and l.quick and l.remote and l.remote[u] and l.state == "Open" then
-		LobbyService.launch(l)
-	end
-end
-
 function HANDLERS.team(m)
 	local l = lobbyByGid(m.g)
 	local u = tonumber(m.u)
@@ -1502,15 +1493,10 @@ local function onRequest(plr, op, a, b)
 	elseif op == "start" then
 		LobbyService.start(plr)
 	elseif op == "bots" then
-		-- anyone in a Quick Match queue can start it now, bots in the empty spots
-		if remote then
-			if not remote.pending then
-				send(remote.job, { k = "bots", g = remote.g, u = plr.UserId })
-			end
-			return
-		end
+		-- the first player in a Quick Match queue (its host: whoever opened it, then the next one
+		-- if they leave; always in this server) can start it now, bots in the empty spots
 		local l = LobbyService.lobbyOf(plr)
-		if l and l.quick and l.state == "Open" then
+		if l and l.quick and l.state == "Open" and l.host == plr.UserId then
 			LobbyService.launch(l)
 		end
 	elseif op == "team" then

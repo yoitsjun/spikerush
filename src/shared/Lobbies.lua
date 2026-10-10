@@ -11,7 +11,7 @@
 --     both sides have to be full
 --   * a lobby plays on the court it picked, or on the next court in the rotation
 --   * Quick Match joins the fullest open public quick lobby of that mode, or opens one; it starts
---     when it's full, or when anyone in it presses Start with bots
+--     when it's full, or when its first player presses Start with bots
 --   * the host of a custom lobby can pick the character each bot spot plays, on both teams, from
 --     the whole roster (owned or not; the owner: "you can now pick what characters you want each
 --     team to have even if you dont have them. only thing is that you cannot pick your own

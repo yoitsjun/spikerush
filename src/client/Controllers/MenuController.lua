@@ -4168,7 +4168,7 @@ local function buildMatch()
 		Net.get("Lobby"):FireServer("leave")
 	end)
 	onClick(start, function()
-		-- a Quick Match queue: anyone in it starts it with bots
+		-- a Quick Match queue: its first player starts it with bots
 		local mine = lobbies.mine
 		Net.get("Lobby"):FireServer(mine and mine.quick and "bots" or "start")
 	end)
@@ -4293,8 +4293,10 @@ local function lobbyStatus(mine)
 		return "Waiting for everyone to arrive..."
 	elseif mine.state == "Playing" then
 		return "Match in progress"
-	elseif mine.quick then
+	elseif mine.quick and mine.isHost then
 		return string.format("Waiting for players (%d/%d). It starts when it's full, or start it now with bots.", mine.count or 0, mine.capacity or 0)
+	elseif mine.quick then
+		return string.format("Waiting for players (%d/%d). It starts when it's full, or when %s (first in the queue) starts it with bots.", mine.count or 0, mine.capacity or 0, mine.hostName or "the first player")
 	elseif mine.cup and mine.isHost then
 		return "Your friends in this server can join from Lobbies. Start when you're ready."
 	elseif mine.cup then
@@ -4460,7 +4462,7 @@ local function refreshMatch()
 		end
 		Mt.swap.Visible = open and not mine.quick and not mine.cup
 		Mt.settings.Visible = open and mine.isHost and not mine.quick and not mine.cup
-		Mt.start.Visible = open and (mine.quick or mine.isHost)
+		Mt.start.Visible = open and mine.isHost == true
 		Mt.startLabel.Text = mine.quick and "Start with bots" or "Start"
 		Mt.startLabel.TextSize = mine.quick and 24 or 28
 		Mt.leave.Visible = open or mine.state == "Queued" or mine.state == "Joining"

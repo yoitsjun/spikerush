@@ -1108,7 +1108,7 @@ Config.Lobby = {
 	PasswordMin = 3,
 	PasswordMax = 12, -- letters and digits
 	MaxLobbies = 16, -- per server
-	-- (a Quick Match lobby starts on its own only when it's full; anyone in it can start it with bots
+	-- (a Quick Match lobby starts on its own only when it's full; its first player can start it with bots
 	-- before that. The owner: "dont make it auto start with bots. leave it and add an option to
 	-- start with bots")
 	ArriveTimeout = 20, -- a teleported lobby waits this long for its players in the new server
