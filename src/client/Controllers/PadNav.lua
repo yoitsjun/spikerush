@@ -523,12 +523,24 @@ function PadNav.init(m)
 			padDir = nil
 		end
 	end)
-	-- the left stick: a move each time it's pushed past halfway in a direction, repeating while held
-	UserInputService.InputChanged:Connect(function(input)
-		if input.KeyCode ~= Enum.KeyCode.Thumbstick1 then
+	-- the left stick: a move each time it's pushed past halfway in a direction, repeating while
+	-- held. Read straight from the controller every frame: while a button is selected Roblox keeps
+	-- the stick's change events from scripts (the owner: "works on dpad but not the joystick").
+	local function pollStick()
+		if not current then
+			stickDir = nil
 			return
 		end
-		local p = input.Position
+		local p = nil
+		for _, input in ipairs(UserInputService:GetGamepadState(Enum.UserInputType.Gamepad1)) do
+			if input.KeyCode == Enum.KeyCode.Thumbstick1 then
+				p = input.Position
+				break
+			end
+		end
+		if not p then
+			return
+		end
 		local v = Vector2.new(p.X, -p.Y) -- the stick's up is the screen's up
 		local d = nil
 		if v.Magnitude > 0.55 then
@@ -546,9 +558,14 @@ function PadNav.init(m)
 		elseif v.Magnitude < 0.3 then
 			stickDir = nil -- back near the middle: the next push counts again
 		end
-	end)
+	end
 	RunService.Heartbeat:Connect(function()
-		local ok, err = pcall(step)
+		local ok, err = pcall(function()
+			if UserInputService:GetGamepadConnected(Enum.UserInputType.Gamepad1) then
+				pollStick()
+			end
+			step()
+		end)
 		if not ok then
 			warn("[SpikeRush] pad navigation: " .. tostring(err))
 		end
