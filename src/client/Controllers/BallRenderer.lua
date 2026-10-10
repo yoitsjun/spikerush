@@ -12,6 +12,7 @@ local Assets = require(Shared.Assets)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
+local HitLogic = require(Shared.HitLogic)
 local Spins = require(Shared.Spins)
 local State = require(script.Parent.State)
 local Fx = require(script.Parent.Fx)
@@ -28,6 +29,16 @@ local cur = { seq = 0, state = "Idle", path = nil, holder = nil, meta = nil, tou
 local predicted = nil -- { seq = n, prev = snapshot before our prediction }
 local blendOffset = Vector3.zero
 local blendStart = 0
+local blendTime = Config.Ball.VisualBlendTime
+
+-- Blocks seen from outside (the owner: "it looks like sometimes the ball teleports through the
+-- block"): a block is decided on the blocker's own client, so everyone else hears of it a beat
+-- late, when the ball has already flown on past the hands, and it snapped back. While someone on
+-- the other side is up for a block (their Block action) or has Iron Wall up, an attack that
+-- reaches their hands is held there for up to Ball.BlockHold seconds: the block starts from where
+-- it's held, and when none comes the ball catches up.
+local blockingUntil = {} -- entity id -> os.clock() until which they're up for a block
+local blockHold = nil -- { pos, seq, untilT }
 local renderPos = HIDDEN
 local renderVel = Vector3.zero
 local spinCF = CFrame.identity
@@ -567,6 +578,7 @@ local function adopt(snap, keepEvents)
 		fired = {}
 	end
 	bounce = nil
+	blockHold = nil
 	blendOffset = Vector3.zero
 	if cur.state == "Flight" and cur.path and oldPos.Y > -100 then
 		local newPos = BallPhysics.positionAt(cur.path, Util.now())
@@ -574,6 +586,7 @@ local function adopt(snap, keepEvents)
 		if err.Magnitude < 14 then
 			blendOffset = err
 			blendStart = os.clock()
+			blendTime = Config.Ball.VisualBlendTime
 		end
 	end
 	applyStyle(cur.meta)
@@ -698,6 +711,37 @@ end
 -- per frame
 ------------------------------------------------------------------------------------------
 
+-- Whether the attack at `ball` (gameplay position, moving with `vel`) is at the hands of someone
+-- on the other side who's up for a block (not you: your own block predicts).
+local function atABlock(ball, vel)
+	local meta = cur.meta
+	if not meta or (meta.hitType ~= "Spike" and meta.hitType ~= "Feint") then
+		return false
+	end
+	local clock = os.clock()
+	local serverNow = Util.now()
+	for _, team in ipairs(Config.TeamOrder) do
+		if team ~= meta.team then
+			local side = Config.Teams[team].Side
+			if vel.Z * side > 0 then
+				for _, e in ipairs(State.roster(team)) do
+					if e.id ~= State.myId then
+						local model = Util.modelOf(e.id)
+						local hrp = model and model:FindFirstChild("HumanoidRootPart")
+						if hrp then
+							local iron = model:GetAttribute("Ability") == "IronWall" and (model:GetAttribute("AbilityUntil") or -1) >= serverNow
+							if (iron or (blockingUntil[e.id] or 0) > clock) and HitLogic.blockBox(hrp.Position, ball, side, nil, iron) then
+								return true
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	return false
+end
+
 local function update(dt)
 	local now = Util.now()
 	local pos, vel = HIDDEN, Vector3.zero
@@ -719,10 +763,33 @@ local function update(dt)
 			live = true
 		end
 		checkEvents(now)
+		-- an attack at someone's block waits there a moment for the server's word (see blockHold)
+		if blockHold and blockHold.seq ~= cur.seq then
+			blockHold = nil
+		end
+		if blockHold then
+			if os.clock() < blockHold.untilT then
+				pos, vel = blockHold.pos, Vector3.zero
+				blendOffset = Vector3.zero
+			else
+				-- no block: the ball glides on to catch up with its flight
+				local err = blockHold.pos - pos
+				blockHold = nil
+				if err.Magnitude < 60 then
+					blendOffset = err
+					blendStart = os.clock()
+					blendTime = 0.15
+				end
+			end
+		elseif live and cur.state == "Flight" and atABlock(pos, vel) then
+			blockHold = { pos = renderPos.Y > -100 and renderPos or pos, seq = cur.seq, untilT = os.clock() + Config.Ball.BlockHold }
+			pos, vel = blockHold.pos, Vector3.zero
+			blendOffset = Vector3.zero
+		end
 	end
 
 	if blendOffset.Magnitude > 0.001 then
-		local a = (os.clock() - blendStart) / Config.Ball.VisualBlendTime
+		local a = (os.clock() - blendStart) / blendTime
 		if a >= 1 then
 			blendOffset = Vector3.zero
 		else
@@ -928,6 +995,12 @@ function BallRenderer.init()
 	applyStyle(nil)
 	Net.get("BallState").OnClientEvent:Connect(onState)
 	Net.get("HitReject").OnClientEvent:Connect(onReject)
+	-- who's up for a block right now (a block jump lasts about this long)
+	Net.get("ActionFX").OnClientEvent:Connect(function(entityId, kind)
+		if kind == "Block" and type(entityId) == "string" then
+			blockingUntil[entityId] = os.clock() + 1.1
+		end
+	end)
 	RunService:BindToRenderStep("SpikeRushBall", Enum.RenderPriority.Camera.Value - 2, update)
 end
 

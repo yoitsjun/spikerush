@@ -68,6 +68,9 @@ Config.Ball = {
 	MaxFlightTime = 9,
 	LandGrace = 0.2,
 	VisualBlendTime = 0.08,
+	-- an attack reaching the hands of a blocker on another client waits there this long (s) for the
+	-- server's block, so the block doesn't snap the ball back through the hands (BallRenderer)
+	BlockHold = 0.18,
 }
 
 Config.Player = {
