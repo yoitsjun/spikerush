@@ -350,45 +350,17 @@ local function updateLines(dt)
 	end
 end
 
--- A frozen frame catches the hitter at the start of the swing, arm still down (the owner: "ball
--- appears below them"): straighten the clone's right arm up to the ball, from the shoulder, and
--- put the ball just past the hand. Returns where the ball goes (`target` when there's no arm).
-local function reachFor(clone, target)
-	local parts = {}
-	for _, n in ipairs({ "RightUpperArm", "RightLowerArm", "RightHand" }) do
-		local part = clone and clone:FindFirstChild(n, true)
-		if part and part:IsA("BasePart") then
-			table.insert(parts, part)
-		end
+-- The ball in a frozen frame sits on the tip of the hitter's right hand, in their real pose.
+-- The frames copy that pose a moment after the hit (the swing's first key is the reach up to the
+-- ball, AnimationController's SpikeReach; at the hit itself the arm is still down: the owner saw
+-- "ball appears below them"). `fallback` when there's no hand.
+local POSE_WAIT = 0.04
+local function handBall(clone, fallback)
+	local hand = clone and (clone:FindFirstChild("RightHand", true) or clone:FindFirstChild("Right Arm", true))
+	if not hand or not hand:IsA("BasePart") then
+		return fallback
 	end
-	if #parts == 0 then
-		local arm = clone and clone:FindFirstChild("Right Arm", true)
-		if arm and arm:IsA("BasePart") then
-			parts = { arm }
-		end
-	end
-	if #parts == 0 then
-		return target
-	end
-	local top = parts[1]
-	local shoulder = (top.CFrame * CFrame.new(0, top.Size.Y / 2, 0)).Position
-	local d = target - shoulder
-	if d.Magnitude < 0.05 then
-		return target
-	end
-	local dir = d.Unit
-	local up = -dir -- each part's top points back at the shoulder
-	local along = 0
-	for _, part in ipairs(parts) do
-		local look = part.CFrame.LookVector
-		if math.abs(look:Dot(up)) > 0.95 then
-			look = Vector3.new(1, 0, 0)
-		end
-		local right = look:Cross(up).Unit
-		part.CFrame = CFrame.fromMatrix(shoulder + dir * (along + part.Size.Y / 2), right, up)
-		along = along + part.Size.Y
-	end
-	return shoulder + dir * (along + Config.Ball.Radius * 0.9)
+	return (hand.CFrame * CFrame.new(0, -(hand.Size.Y / 2 + Config.Ball.Radius * 0.8), 0)).Position
 end
 
 local function silhouette(model, vp)
@@ -579,18 +551,23 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color)
 	vcam.CFrame = CFrame.lookAt(mid + Vector3.new(-30, 0.5, 0), mid)
 	vcam.Parent = vp
 	vp.CurrentCamera = vcam
-	local clone = silhouette(model, vp)
-	if clone then
-		local ball = Instance.new("Part")
-		ball.Shape = Enum.PartType.Ball
-		ball.Size = Vector3.one * (Config.Ball.Radius * 2)
-		ball.Anchored = true
-		ball.Color = Color3.new(0, 0, 0)
-		ball.Material = Enum.Material.SmoothPlastic
-		ballPos = reachFor(clone, ballPos)
-		ball.CFrame = CFrame.new(ballPos)
-		ball.Parent = clone.Parent
-	end
+	-- the hitter in the swing's reach, the ball on their hand (POSE_WAIT)
+	task.delay(POSE_WAIT, function()
+		if freezeToken ~= token then
+			return
+		end
+		local clone = silhouette(model, vp)
+		if clone then
+			local ball = Instance.new("Part")
+			ball.Shape = Enum.PartType.Ball
+			ball.Size = Vector3.one * (Config.Ball.Radius * 2)
+			ball.Anchored = true
+			ball.Color = Color3.new(0, 0, 0)
+			ball.Material = Enum.Material.SmoothPlastic
+			ball.CFrame = CFrame.new(handBall(clone, ballPos))
+			ball.Parent = clone.Parent
+		end
+	end)
 	-- the letterbox
 	for _, top in ipairs({ true, false }) do
 		local bar = Instance.new("Frame")
@@ -646,28 +623,36 @@ function VFXController.darkFrame(entityId, ballPos, duration, color)
 	vcam.FieldOfView = cam.FieldOfView
 	vcam.Parent = vp
 	vp.CurrentCamera = vcam
-	local clone = silhouette(model, vp)
-	if clone then
-		for _, d in ipairs(clone:GetDescendants()) do
-			if d:IsA("BasePart") then
-				d.Color = Color3.fromRGB(245, 245, 250)
-			end
-		end
-		local ball = Instance.new("Part")
-		ball.Shape = Enum.PartType.Ball
-		ball.Size = Vector3.one * (Config.Ball.Radius * 2)
-		ball.Anchored = true
-		ball.Color = color or Color3.fromRGB(255, 200, 60)
-		ball.Material = Enum.Material.SmoothPlastic
-		ballPos = reachFor(clone, ballPos)
-		ball.CFrame = CFrame.new(ballPos)
-		ball.Parent = clone.Parent
-	end
 	-- a soft glow where the hand meets the ball
 	local sp = cam:WorldToViewportPoint(ballPos)
 	local glow = Instance.new("ImageLabel")
 	glow.AnchorPoint = Vector2.new(0.5, 0.5)
 	glow.Position = UDim2.fromOffset(sp.X, sp.Y)
+	-- the hitter in the swing's reach, the ball on their hand (POSE_WAIT), the glow moved onto it
+	task.delay(POSE_WAIT, function()
+		if freezeToken ~= token then
+			return
+		end
+		local clone = silhouette(model, vp)
+		if clone then
+			for _, d in ipairs(clone:GetDescendants()) do
+				if d:IsA("BasePart") then
+					d.Color = Color3.fromRGB(245, 245, 250)
+				end
+			end
+			local at = handBall(clone, ballPos)
+			local ball = Instance.new("Part")
+			ball.Shape = Enum.PartType.Ball
+			ball.Size = Vector3.one * (Config.Ball.Radius * 2)
+			ball.Anchored = true
+			ball.Color = color or Color3.fromRGB(255, 200, 60)
+			ball.Material = Enum.Material.SmoothPlastic
+			ball.CFrame = CFrame.new(at)
+			ball.Parent = clone.Parent
+			local p2 = cam:WorldToViewportPoint(at)
+			glow.Position = UDim2.fromOffset(p2.X, p2.Y)
+		end
+	end)
 	glow.Size = UDim2.fromOffset(cam.ViewportSize.Y * 0.28, cam.ViewportSize.Y * 0.28)
 	glow.BackgroundTransparency = 1
 	glow.Image = Assets.id(Assets.Fx.Glow) or ""
