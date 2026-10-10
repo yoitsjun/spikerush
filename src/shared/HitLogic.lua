@@ -671,6 +671,9 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if zero then
 		local range = kind == "JumpServe" and ZERO.ZeroServeKmh or ZERO.ZeroKmh
 		kmh = lerp(range[1], range[2], qContact) * stats.Power
+		-- the ball meets his hand: it holds there through the freeze frame and leaves from there
+		-- (the owner saw him "swinging right below the ball" when it was met high in the spot)
+		ball = Vector3.new(0, root.Y + Z.SpikeUp + ZERO.HandUp, root.Z - side * (Z.SpikeForward + ZERO.HandAhead))
 	end
 	local boom = kind == "Spike" and reaction(ctx)
 	if boom then
@@ -687,7 +690,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.breakAtk = 999 -- through any block but Iron Wall's
 		meta.tierDrain = meta.tierDrain * ZERO.DrainMul
 	end
-	if kind == "Spike" and ctx.ability == "Skyward" then
+	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Skyward" then -- (serves climb her too)
 		meta.liftGain = HitLogic.skyGain(qHeight)
 	end
 	if boom then
@@ -725,9 +728,9 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if overcharge then
 		depth = C.SideDepth + SPM * (1.25 + rng:NextNumber() * 2.5)
 	end
-	-- Plunge Spin: high enough over the tape, the spike shoots flat over the net and turns down
+	-- Plunge Spin: high enough over the tape, the spike (or jump serve) shoots flat over the net and turns down
 	-- just past it (below)
-	local plunge = kind == "Spike" and ctx.ability == "Plunge" and qContact >= PLUNGE.MinContact and ball.Y >= C.NetTop + PLUNGE.MinOverNet
+	local plunge = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Plunge" and qContact >= PLUNGE.MinContact and ball.Y >= C.NetTop + PLUNGE.MinOverNet
 	if plunge then
 		kmh = kmh * (1 + PLUNGE.PowerBoost)
 		meta.plunge = true
@@ -744,7 +747,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.vectorBoost = math.floor(boost * 1000 + 0.5) / 1000
 	end
 	-- Counter Edge: the meter's Attack is already in `stats`; the spike releases the meter on top
-	if kind == "Spike" and ctx.ability == "Counter" and (ctx.counter or 0) > 0 then
+	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Counter" and (ctx.counter or 0) > 0 then
 		local c = clamp(ctx.counter, 0, 100)
 		kmh = kmh * (1 + COUNTER.ReleaseBoost * c / 100)
 		meta.counterRelease = c

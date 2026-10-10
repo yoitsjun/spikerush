@@ -1924,6 +1924,33 @@ do
 		"her Attack climbs with her jump", string.format("%d to %d", low.Attack, top.Attack))
 end
 
+print("== abilities on jump serves ==")
+do
+	-- (the owner: "allow everyones abilities to work on serves")
+	local S = Characters.derive(Characters.fromRoster(Roster.get("yeonho"), "max"))
+	local root = vec(0, GROUND + Characters.jumpHeight(S, GROUND) + Characters.hangGain(), side * (C.SideDepth + 1))
+	local function serve(ability, extra)
+		local c = ctx({ stats = S, ability = ability, touchNumber = 1 })
+		for k, v in pairs(extra or {}) do c[k] = v end
+		local ok, res = HitLogic.compute({ action = "Serve", t = 0, root = root, ball = ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), vy = 0, grounded = false }, c)
+		return ok and res, ok and BallPhysics.buildPath(res.launch)
+	end
+	local plain = serve(nil)
+	local pl, plPath = serve("Plunge")
+	local co = serve("Counter", { counter = 100 })
+	local sk = serve("Skyward")
+	check(pl and pl.meta.plunge and plPath.landing.pos.Z * side < 0 and Court.inBounds(plPath.landing.pos) and co and co.meta.counterRelease == 100 and co.meta.kmh > plain.meta.kmh * 1.3 and sk and (sk.meta.liftGain or 0) > 0,
+		"Plunge Spin, Counter Edge's release and Skyward's climb work on jump serves", string.format("plunge %s, counter %.0f vs %.0f km/h", pl and describe(plPath) or "-", co and co.meta.kmh or 0, plain.meta.kmh))
+	-- Zero Point's ball meets his hand (it isn't left hanging above his swing)
+	local th = Characters.derive(Characters.fromRoster(Roster.get("taeha"), "max"))
+	local r = apexRoot(th, 3.5 * K)
+	local high = ballAt(r, 0.8, 2.6 * th.Reach)
+	local okZ, z = spike(r, high, { stats = th, ability = "ZeroPoint" })
+	local hand = vec(0, r.Y + Z.SpikeUp, r.Z - side * Z.SpikeForward)
+	check(okZ and z.meta.zero and (z.launch.p - hand).Magnitude < 1.2,
+		"a Zero Point met high in the spot leaves from his hand", string.format("%.2f studs from the hand (the ball was %.2f)", okZ and (z.launch.p - hand).Magnitude or -1, (high - hand).Magnitude))
+end
+
 print("== bundles and game passes ==")
 do
 	local Economy = require("Economy")
