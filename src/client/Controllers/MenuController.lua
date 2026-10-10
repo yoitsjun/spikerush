@@ -482,6 +482,7 @@ local function currencyStrip(parent, props)
 		iconFn(cur, 30).LayoutOrder = order
 		local amount = Gui.label(cur, { Text = "0", display = true, TextSize = 26, TextStrokeTransparency = 0.6, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 36), LayoutOrder = order + 1 })
 		local plus = make("TextButton", { Text = "+", FontFace = Gui.display(), TextSize = 32, TextColor3 = Gui.SIGNAL, BackgroundTransparency = 1, Size = UDim2.fromOffset(26, 36), LayoutOrder = order + 2 }, cur)
+		plus:SetAttribute("NavSkipFirst", true)
 		return amount, plus
 	end
 	local vp, vpPlus = currency(1, Gui.icon.vp)
@@ -4610,6 +4611,10 @@ local function buildMatchScreen()
 		arrow.ImageColor3 = Gui.SIGNAL
 	end)
 	onClick(back, function()
+		MenuController.go("home")
+	end)
+	back:SetAttribute("NavSkipFirst", true)
+	mods.PadNav.set(p, "back", function()
 		MenuController.go("home")
 	end)
 
