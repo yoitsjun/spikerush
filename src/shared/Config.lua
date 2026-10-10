@@ -822,6 +822,10 @@ Config.Abilities = {
 		FirstFreeze = 0.3, -- and it freezes on the impact with a cut-in like Zero Point's, shorter (the owner)
 		BreakKeep = 0.85, -- a spike that smashes through a block keeps this much of its speed
 		ReachMul = 1.15, -- a wider spike reach
+		LeapReachMul = 1.4, -- and wider still on the swing off a charged leap (the owner: "extend dante's swinging hitbox after he leaps")
+		Passives = {
+			{ Name = "Long Reach", Blurb = "Off a charged leap, your swing reaches much further than anyone's." },
+		},
 		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front
 		-- played by the AI (a bot, or a stand-in for an idle player): the gauge fills in the air on
 		-- its own over AutoChargeTime, Attack is AutoAttackMul of the player's, and the gauge's and

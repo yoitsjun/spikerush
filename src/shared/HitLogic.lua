@@ -111,9 +111,10 @@ function HitLogic.tossReach(ability)
 end
 
 -- The spike zone's size for an ability (x the usual): Feral Leap reaches wider.
-function HitLogic.spikeReach(ability)
+function HitLogic.spikeReach(ability, gauge)
 	if ability == "Feral" then
-		return FERAL.ReachMul
+		-- (off a charged leap, gauge > 0: wider still)
+		return (gauge or 0) > 0 and FERAL.LeapReachMul or FERAL.ReachMul
 	elseif ability == "ZeroPoint" then
 		return Config.Abilities.ZeroPoint.ReachMul
 	end
@@ -649,7 +650,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local side = ctx.side
 	local ball, root, t = input.ball, input.root, input.t
 	if kind == "Spike" then
-		scale = scale * HitLogic.spikeReach(ctx.ability)
+		scale = scale * HitLogic.spikeReach(ctx.ability, input.gauge)
 	end
 	local ok, qContact, dz, dy = HitLogic.spikeZone(root, ball, side, stats, scale)
 	if not ok then

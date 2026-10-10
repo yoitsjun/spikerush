@@ -542,7 +542,7 @@ local function tryAttack(action, info, opts)
 	end
 	local scale = ATTACK_SCALE[action] or 1
 	if action == "Spike" then
-		scale = scale * HitLogic.spikeReach(State.myAbility()) -- Feral Leap reaches wider
+		scale = scale * HitLogic.spikeReach(State.myAbility(), leap.gauge) -- Feral Leap reaches wider (wider still off a leap)
 	end
 	local nz, ny = zoneOffset(info.root, ball, scale)
 	local d = math.sqrt(nz * nz + ny * ny)
@@ -1395,7 +1395,7 @@ local function evaluate(info, now)
 		ctx.canSet = ok and (HitLogic.setZone(info.root, bp, side, stats))
 	else
 		ctx.spikeLabel = isAzure() and "Charge" or "Spike"
-		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReach(State.myAbility())))
+		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReach(State.myAbility(), leap.gauge)))
 	end
 	local meta = BR.getMeta()
 	ctx.incoming = meta ~= nil and meta.team ~= State.myTeam and bp.Z * side > -0.6 * Config.Scale.StudsPerMeter

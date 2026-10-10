@@ -1924,6 +1924,17 @@ do
 		"her Attack climbs with her jump", string.format("%d to %d", low.Attack, top.Attack))
 end
 
+print("== Dante reaches further off a leap ==")
+do
+	local dn = Characters.derive(Characters.fromRoster(Roster.get("dante"), "max"))
+	local r = apexRoot(dn, 3.5 * K)
+	local edge = ballAt(r, Z.SpikeCenterDz + Z.SpikeRadiusZ * dn.Reach * 1.3, Z.SpikeCenterDy)
+	local okLeap = spike(r, edge, { stats = dn, ability = "Feral" }, { gauge = 1 })
+	local okPlain = spike(r, edge, { stats = dn, ability = "Feral" }, { gauge = 0 })
+	check(okLeap and not okPlain and Config.Abilities.Feral.Passives ~= nil,
+		"off a charged leap his swing reaches further (a passive)", string.format("x%.2f, x%.2f without a leap", Config.Abilities.Feral.LeapReachMul, Config.Abilities.Feral.ReachMul))
+end
+
 print("== a losing streak brings stamina back faster ==")
 do
 	local a, b, c, d = HitLogic.lossRecovery(1), HitLogic.lossRecovery(2), HitLogic.lossRecovery(3), HitLogic.lossRecovery(6)
