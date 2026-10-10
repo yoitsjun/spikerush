@@ -400,8 +400,8 @@ local function modal(name, title, w, h, broadcast)
 	onClick(close, hide)
 	shade.MouseButton1Click:Connect(hide)
 	-- a controller: it stays inside the panel, B closes it, and it starts on the content
-	shade.Selectable = false
-	panel.Selectable = false
+	shade:SetAttribute("NoNav", true)
+	panel:SetAttribute("NoNav", true)
 	close:SetAttribute("NavSkipFirst", true)
 	mods.PadNav.root(root, { prio = 28, back = hide })
 	root:GetPropertyChangedSignal("Visible"):Connect(function()
@@ -1729,7 +1729,7 @@ local function buildSequence()
 		end
 	end)
 	-- a controller: A continues (the whole screen is the button), Y skips
-	root.Selectable = false
+	root:SetAttribute("NoNav", true)
 	mods.PadNav.root(root, {
 		prio = 40,
 		noSelect = true,

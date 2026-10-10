@@ -204,6 +204,9 @@ function InputController.init(m)
 			return -- Space goes through its own binding above
 		end
 		action = actionFor(input.KeyCode)
+		if action and t == Enum.UserInputType.Gamepad1 and mods.PadNav and mods.PadNav.current() then
+			return -- a panel has the controller (PadNav): its D-pad and buttons move and press there
+		end
 		if action then
 			if t == Enum.UserInputType.Gamepad1 then
 				lastDevice = "Gamepad"

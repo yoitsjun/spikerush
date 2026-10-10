@@ -5,14 +5,15 @@
 --     lobby's character picker, the settings panel, the timeout panel, the continue vote, the
 --     match's result screen. The highest priority one showing has it (the newest on a tie).
 --   * the selection (GuiService.SelectedObject) stays in that root: it starts on the root's
---     first button (its `first`, a NavFirst attribute, else the top-left one), comes back where you
---     left it, and Roblox's own navigation moves it (D-pad, left stick) and presses it (A)
+--     first button (its `first`, a NavFirst attribute, else the top-left one) and comes back where
+--     you left it. The D-pad and the left stick move it to the nearest button that way (held, it
+--     repeats), lists scroll to keep it in view, and A presses it (Roblox's own press). Roblox's
+--     own moving is shut off: every other button is unselectable to it (the owner: "it starts
+--     skipping over now", "im using the joystick on the left side" when both moved).
 --   * B is the root's back (close a modal, back to Home), LB/RB its main tabs, LT/RT its second
 --     row of tabs, Y and X its own extras when it has them
 --   * nothing is selected while you play, so A still spikes. In a match D-pad down opens the
 --     settings panel (Timeout and Forfeit are there too).
---   * when Roblox's navigation finds nothing in the direction pressed (a button far off to the
---     side, like the Ranks boards under the nav bar) the nearest one that way is picked instead
 --   * the controller is "in use" from its first input until the mouse, keyboard or a touch
 -- Buttons that only make sense with a mouse (the huge click-anywhere ones, the HUD's action rail)
 -- carry NoNav; the corner buttons a page shouldn't start on (Back, Close, the nav bar) NavSkipFirst.
@@ -110,7 +111,7 @@ local function layerArea(b)
 end
 
 local function usable(b, root)
-	if not (b:IsA("GuiButton") or b:IsA("TextBox")) or not b.Selectable or b:GetAttribute("NoNav") then
+	if not (b:IsA("GuiButton") or b:IsA("TextBox")) or b:GetAttribute("NoNav") then
 		return false
 	end
 	if b == root or not b:IsDescendantOf(root) then
@@ -288,11 +289,12 @@ local function setPause(on)
 	end
 end
 
--- The nearest usable button from `from` in direction `dir` (a unit Vector2, screen space): ahead
--- of it, preferring ones in line with it.
+-- The nearest usable button from `from` in direction `dir` (a unit Vector2, screen space): one
+-- roughly that way first (within about 60 degrees), preferring ones in line; else anything ahead.
 local function nearestToward(root, from, dir)
 	local c0 = from.AbsolutePosition + from.AbsoluteSize / 2
 	local best, bestScore = nil, math.huge
+	local wide, wideScore = nil, math.huge
 	for _, d in ipairs(root:GetDescendants()) do
 		if d ~= from and (d:IsA("GuiButton") or d:IsA("TextBox")) and usable(d, root) then
 			local c = d.AbsolutePosition + d.AbsoluteSize / 2
@@ -300,14 +302,103 @@ local function nearestToward(root, from, dir)
 			local along = off.X * dir.X + off.Y * dir.Y
 			if along > 6 then
 				local across = math.abs(off.X * dir.Y - off.Y * dir.X)
-				local score = along + across * 2
-				if score < bestScore then
-					best, bestScore = d, score
+				if across <= along * 1.8 then
+					local score = along + across * 2
+					if score < bestScore then
+						best, bestScore = d, score
+					end
+				else
+					local score = along + across * 4
+					if score < wideScore then
+						wide, wideScore = d, score
+					end
 				end
 			end
 		end
 	end
-	return best
+	return best or wide
+end
+
+-- Roblox's own moving is off: only the selected button is selectable to it (so its D-pad and
+-- stick navigation has nowhere to go), and A still presses that one.
+local held = nil -- the one button left selectable
+local function lockOut(obj)
+	if (obj:IsA("GuiButton") or obj:IsA("TextBox")) and obj ~= held then
+		obj.Selectable = false
+	end
+end
+
+-- The product of the UIScales above a ScrollingFrame (screen pixels per canvas pixel).
+local function scaleOf(obj)
+	local s = 1
+	local o = obj.Parent
+	while o and not o:IsA("LayerCollector") do
+		local sc = o:FindFirstChildWhichIsA("UIScale")
+		if sc then
+			s = s * sc.Scale
+		end
+		o = o.Parent
+	end
+	return math.max(s, 0.01)
+end
+
+-- Scroll every list the button sits in so it's in view.
+local function scrollTo(b)
+	local o = b.Parent
+	while o and not o:IsA("LayerCollector") do
+		if o:IsA("ScrollingFrame") then
+			local k = scaleOf(o)
+			local top, bottom = o.AbsolutePosition.Y, o.AbsolutePosition.Y + o.AbsoluteWindowSize.Y
+			local left, right = o.AbsolutePosition.X, o.AbsolutePosition.X + o.AbsoluteWindowSize.X
+			local bt, bb = b.AbsolutePosition.Y, b.AbsolutePosition.Y + b.AbsoluteSize.Y
+			local bl, br = b.AbsolutePosition.X, b.AbsolutePosition.X + b.AbsoluteSize.X
+			local dy, dx = 0, 0
+			if bt < top then
+				dy = bt - top - 8
+			elseif bb > bottom then
+				dy = bb - bottom + 8
+			end
+			if bl < left then
+				dx = bl - left - 8
+			elseif br > right then
+				dx = br - right + 8
+			end
+			if dx ~= 0 or dy ~= 0 then
+				o.CanvasPosition = o.CanvasPosition + Vector2.new(dx, dy) / k
+			end
+		end
+		o = o.Parent
+	end
+end
+
+local function choose(b)
+	if held and held ~= b and held.Parent then
+		held.Selectable = false
+	end
+	held = b
+	if b then
+		b.Selectable = true
+		GuiService.SelectedObject = b
+		scrollTo(b)
+	else
+		GuiService.SelectedObject = nil
+	end
+end
+
+local function move(dir)
+	local root = current
+	local o = root and roots[root]
+	local from = GuiService.SelectedObject
+	if not o or o.noSelect or not from or not from.Parent then
+		return
+	end
+	local nextSel = nearestToward(root, from, dir)
+	if nextSel then
+		choose(nextSel)
+		if mods and mods.AudioController then
+			mods.AudioController.play("UIHover", { minGap = 0.04, volume = 0.4 })
+		end
+	end
 end
 
 local DIRS = {
@@ -316,37 +407,13 @@ local DIRS = {
 	[Enum.KeyCode.DPadLeft] = Vector2.new(-1, 0),
 	[Enum.KeyCode.DPadRight] = Vector2.new(1, 0),
 }
+local REPEAT_FIRST, REPEAT_EVERY = 0.4, 0.13 -- a held direction: first repeat, then every
+local padDir, stickDir = nil, nil
+local repeatAt = 0
 
--- A direction pressed (D-pad, or the left stick pushed past halfway): Roblox's navigation gets
--- NUDGE_WAIT to move the selection (it can take a few frames), and only if the selection hasn't
--- changed at all by then do we move it (the owner: "it starts skipping over now", when this
--- stepped in after one frame and both moved).
-local NUDGE_WAIT = 0.15
-local selChanges = 0
-local nudging = false
-GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
-	selChanges = selChanges + 1
-end)
-
-local function nudge(dir)
-	local root = current
-	local o = root and roots[root]
-	local before = GuiService.SelectedObject
-	if not o or o.noSelect or not before or nudging then
-		return
-	end
-	nudging = true
-	local n0 = selChanges
-	task.delay(NUDGE_WAIT, function()
-		nudging = false
-		if current ~= root or selChanges ~= n0 or GuiService.SelectedObject ~= before or not before.Parent then
-			return
-		end
-		local nextSel = nearestToward(root, before, dir)
-		if nextSel then
-			GuiService.SelectedObject = nextSel
-		end
-	end)
+local function pressDir(dir)
+	move(dir)
+	repeatAt = os.clock() + REPEAT_FIRST
 end
 
 local function ours(obj)
@@ -370,12 +437,21 @@ local function step()
 	local sel = GuiService.SelectedObject
 	if not root or o.noSelect then
 		if ours(sel) then
-			GuiService.SelectedObject = nil
+			choose(nil)
 		end
 		return
 	end
+	-- a held direction repeats
+	local dir = padDir or stickDir
+	if dir and os.clock() >= repeatAt then
+		move(dir)
+		repeatAt = os.clock() + REPEAT_EVERY
+	end
 	if sel and usable(sel, root) then
 		o.last = sel
+		if sel ~= held then
+			choose(sel)
+		end
 		return
 	end
 	local nextSel = (o.last and usable(o.last, root)) and o.last or nil
@@ -384,7 +460,7 @@ local function step()
 		o.emptyAt = nextSel and 0 or os.clock() -- nothing to select yet: look again in a moment
 	end
 	if nextSel and nextSel ~= sel then
-		GuiService.SelectedObject = nextSel
+		choose(nextSel)
 	end
 end
 
@@ -429,14 +505,25 @@ function PadNav.init(m)
 	end)
 	setPad(UserInputService:GetLastInputType())
 	UserInputService.LastInputTypeChanged:Connect(setPad)
+	-- Roblox's own moving off: every button is unselectable to it but the one selected
+	local pg = player:WaitForChild("PlayerGui")
+	for _, d in ipairs(pg:GetDescendants()) do
+		lockOut(d)
+	end
+	pg.DescendantAdded:Connect(lockOut)
 	UserInputService.InputBegan:Connect(function(input)
 		local dir = DIRS[input.KeyCode]
-		if dir then
-			nudge(dir)
+		if dir and current then
+			padDir = dir
+			pressDir(dir)
 		end
 	end)
-	-- the left stick: one nudge each time it's pushed past halfway in a direction
-	local stickDir = nil
+	UserInputService.InputEnded:Connect(function(input)
+		if DIRS[input.KeyCode] and padDir == DIRS[input.KeyCode] then
+			padDir = nil
+		end
+	end)
+	-- the left stick: a move each time it's pushed past halfway in a direction, repeating while held
 	UserInputService.InputChanged:Connect(function(input)
 		if input.KeyCode ~= Enum.KeyCode.Thumbstick1 then
 			return
@@ -451,10 +538,10 @@ function PadNav.init(m)
 				d = Vector2.new(0, v.Y > 0 and 1 or -1)
 			end
 		end
-		if d and d ~= stickDir then
-			nudge(d)
-		end
-		if d then
+		if d and d ~= stickDir and current then
+			stickDir = d
+			pressDir(d)
+		elseif d then
 			stickDir = d
 		elseif v.Magnitude < 0.3 then
 			stickDir = nil -- back near the middle: the next push counts again
