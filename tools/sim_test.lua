@@ -1859,32 +1859,45 @@ do
 	local th = Characters.derive(Characters.fromRoster(Roster.get("taeha"), "max"))
 	local yj = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))
 	local root = apexRoot(th, 3.5 * K)
-	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = th, ability = "ZeroPoint" })
+	local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = th, ability = "ZeroPoint", zeroConfirm = true })
 	local path = ok and BallPhysics.buildPath(res.launch)
 	local yr = apexRoot(yj, 3.5 * K)
 	local _, double = spike(yr, ballAt(yr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = yj, ability = "Thunder" }, { second = true })
 	check(ok and res.meta.zero and res.meta.grade == "PERFECT" and res.meta.breakAtk == 999 and res.meta.kmh >= 225 and res.meta.kmh <= 250 and res.meta.kmh >= double.meta.kmh - 5
 		and not path.flags.netTouch and path.landing.pos.Z * side < 0 and Court.inBounds(path.landing.pos),
 		"the ball in his sweet spot makes a Zero Point: about YeJun's double swing or more, and it lands in", string.format("%.1f km/h (YeJun's double swing %.1f), %s", ok and res.meta.kmh or 0, double.meta.kmh, ok and describe(path) or "-"))
+	-- two swings: the first in the spot freezes the ball on his hand for the window (a usual spike
+	-- if it runs out); the second, inside it, is the Zero Point; the AI skips the window
+	local _, first = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = th, ability = "ZeroPoint" })
+	local hits, tries = 0, 0
+	for seq = 1, 40 do
+		local _, auto = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = th, ability = "ZeroPoint", auto = true, seq = seq })
+		tries = tries + 1
+		if auto.meta.zero then
+			hits = hits + 1
+		end
+	end
+	check(first.meta.zeroReady and not first.meta.zero and first.launch.hold == Config.Abilities.ZeroPoint.Window and first.meta.kmh < 150 and hits > tries * 0.4 and hits < tries,
+		"his first swing freezes it for the second; the AI gets one most of the time", string.format("window %.2f s, a usual %.0f km/h if it runs out; AI %d of %d", first.launch.hold, first.meta.kmh, hits, tries))
 	-- his jump serve too: a little slower, from behind the end line, and it lands in
 	local sroot = vec(0, GROUND + Characters.jumpHeight(th, GROUND) + Characters.hangGain(), side * (C.SideDepth + 1))
-	local okS, serve = HitLogic.compute({ action = "Serve", t = 0, root = sroot, ball = ballAt(sroot, Z.SpikeCenterDz, Z.SpikeCenterDy), vy = 0, grounded = false }, ctx({ stats = th, ability = "ZeroPoint", touchNumber = 1 }))
+	local okS, serve = HitLogic.compute({ action = "Serve", t = 0, root = sroot, ball = ballAt(sroot, Z.SpikeCenterDz, Z.SpikeCenterDy), vy = 0, grounded = false }, ctx({ stats = th, ability = "ZeroPoint", touchNumber = 1, zeroConfirm = true }))
 	local sPath = okS and BallPhysics.buildPath(serve.launch)
 	check(okS and serve.meta.hitType == "JumpServe" and serve.meta.zero and serve.meta.kmh >= 200 and serve.meta.kmh < res.meta.kmh and not sPath.flags.netTouch and sPath.landing.pos.Z * side < 0 and Court.inBounds(sPath.landing.pos),
 		"his jump serve can be a Zero Point too, a little slower, and it lands in", string.format("%.1f km/h, %s", okS and serve.meta.kmh or 0, okS and describe(sPath) or "-"))
 	-- the freeze frame: the ball holds on his hand for the cut-in; and his hitbox is bigger
 	local edge = ballAt(root, Z.SpikeCenterDz + Z.SpikeRadiusZ * th.Reach * 1.1, Z.SpikeCenterDy)
-	local okWide = spike(root, edge, { stats = th, ability = "ZeroPoint" })
+	local okWide = spike(root, edge, { stats = th, ability = "ZeroPoint", zeroConfirm = true })
 	local okNarrow = spike(root, edge, { stats = th })
-	check(res.launch.hold == Config.Abilities.ZeroPoint.Freeze and okWide and not okNarrow,
+	check(res.launch.hold == Config.Abilities.ZeroPoint.CutIn and okWide and not okNarrow,
 		"a Zero Point freezes on the hand for the cut-in, and his spike hitbox is bigger", string.format("hold %.2f s", res.launch.hold))
 	-- lenient: no PERFECT grade and no exact jump timing needed, just the ball in front and up
 	local lowRoot = root - vec(0, 3.2, 0) -- on the way up, the ball well over his hand and ahead
-	local okF, fair = spike(lowRoot, ballAt(lowRoot, 1.6, 1.8), { stats = th, ability = "ZeroPoint" })
+	local okF, fair = spike(lowRoot, ballAt(lowRoot, 1.6, 1.8), { stats = th, ability = "ZeroPoint", zeroConfirm = true })
 	check(okF and fair.meta.zero and fair.meta.quality < H.PerfectAt and fair.meta.kmh >= 225,
 		"a so-so contact with the ball in front and up is a Zero Point too", string.format("quality %.2f, %.1f km/h", okF and fair.meta.quality or 0, okF and fair.meta.kmh or 0))
-	local okB, behind = spike(root, ballAt(root, -0.6, 0.4), { stats = th, ability = "ZeroPoint" })
-	local okL, low = spike(root, ballAt(root, 0.8, -2.0), { stats = th, ability = "ZeroPoint" })
+	local okB, behind = spike(root, ballAt(root, -0.6, 0.4), { stats = th, ability = "ZeroPoint", zeroConfirm = true })
+	local okL, low = spike(root, ballAt(root, 0.8, -2.0), { stats = th, ability = "ZeroPoint", zeroConfirm = true })
 	local _, plain = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = th })
 	check(okB and okL and not behind.meta.zero and not low.meta.zero and low.meta.kmh < 145 and not plain.meta.zero and plain.meta.kmh < 145,
 		"behind his head or low it is his usual spike (and nobody else gets a Zero Point)", string.format("%.1f km/h low, %.1f without the ability", okL and low.meta.kmh or 0, plain.meta.kmh))
@@ -1952,7 +1965,7 @@ do
 	local th = Characters.derive(Characters.fromRoster(Roster.get("taeha"), "max"))
 	local r = apexRoot(th, 3.5 * K)
 	local high = ballAt(r, 0.8, 2.6 * th.Reach)
-	local okZ, z = spike(r, high, { stats = th, ability = "ZeroPoint" })
+	local okZ, z = spike(r, high, { stats = th, ability = "ZeroPoint", zeroConfirm = true })
 	local hand = vec(0, r.Y + Z.SpikeUp, r.Z - side * Z.SpikeForward)
 	check(okZ and z.meta.zero and (z.launch.p - hand).Magnitude < 1.2,
 		"a Zero Point met high in the spot leaves from his hand", string.format("%.2f studs from the hand (the ball was %.2f)", okZ and (z.launch.p - hand).Magnitude or -1, (high - hand).Magnitude))

@@ -1002,8 +1002,14 @@ Config.Abilities = {
 		-- in on him, then it fires
 		-- the first FreezeDark of it stops on the hit with the court gone dark and him lit white (the
 		-- owner's second reference, "just the white spiker guy"), the rest is the silhouette cut-in
-		Freeze = 0.6,
+		-- Then (the owner: "make it so he has to swing and it hits the ball during the freeze frame"):
+		-- the dark frame holds for Window waiting for his second swing; that swing gets the CutIn
+		-- (the silhouette) and the Zero Point. The AI's Zero Points (AutoChance of its spot hits)
+		-- go straight to FreezeDark + CutIn.
+		Window = 0.6,
+		CutIn = 0.3,
 		FreezeDark = 0.25,
+		AutoChance = 0.7,
 		DrainMul = 1.3, -- digging one costs this much more stamina
 	},
 	-- Seora (the owner: "a jump that starts low, but the higher spike point she gets the higher her

@@ -648,6 +648,32 @@ function VFXController.darkFrame(entityId, ballPos, duration, color)
 	return true
 end
 
+-- "SWING!" over the freeze frame while Zero Point's window is open (the hitter's own screen).
+function VFXController.swingPrompt(duration)
+	if not freezeGui then
+		return
+	end
+	local t = Instance.new("TextLabel")
+	t.AnchorPoint = Vector2.new(0.5, 0.5)
+	t.Position = UDim2.fromScale(0.5, 0.78)
+	t.Size = UDim2.fromScale(0.6, 0.12)
+	t.BackgroundTransparency = 1
+	t.Font = Enum.Font.GothamBlack
+	t.TextScaled = true
+	t.Text = "SWING!"
+	t.TextColor3 = WHITE
+	t.TextStrokeTransparency = 0
+	t.ZIndex = 5
+	t.Parent = freezeGui
+	local s = Instance.new("UIScale")
+	s.Scale = 1.4
+	s.Parent = t
+	TweenService:Create(s, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	task.delay(duration, function()
+		t:Destroy()
+	end)
+end
+
 ------------------------------------------------------------------------------------------
 -- popups
 ------------------------------------------------------------------------------------------
@@ -1858,8 +1884,11 @@ local function onHit(snap)
 			-- nothing else on top of it
 			-- first the court goes dark around him, lit white with the ball glowing on his hand, then
 			-- the silhouette cut-in
-			local darkFor = math.min(Config.Abilities.ZeroPoint.FreezeDark, fires)
-			if VFXController.darkFrame(meta.id, pos, darkFor, WHITE) then
+			-- (a confirmed one already had its dark frame through the window: just the cut-in; the AI's
+			-- comes straight, so it gets both)
+			local ZP = Config.Abilities.ZeroPoint
+			local darkFor = fires > ZP.CutIn + 0.05 and math.min(ZP.FreezeDark, fires) or 0
+			if darkFor > 0 and VFXController.darkFrame(meta.id, pos, darkFor, WHITE) then
 				task.delay(darkFor, function()
 					VFXController.freezeFrame(meta.id, pos, fires - darkFor)
 				end)
@@ -1897,8 +1926,22 @@ local function onHit(snap)
 		-- the S+ signature hits (a Thunder spike, a full Azure, a full Feral Leap): the court goes
 		-- dark around the hitter, lit white with the ball glowing on the hand, while it holds; the
 		-- rest of the hit plays as it fires (the owner's reference)
-		local dark = false -- (the dark frame is Zero Point's alone now: the owner, "just the white spiker guy")
+		-- Zero Point's window (its first swing in the spot): the court goes dark, him lit white with
+		-- the ball on his hand, until his second swing fires it (then the Zero Point's own effects take
+		-- over) or the window runs out and it goes as this usual spike. (The dark frame is his alone:
+		-- the owner, "just the white spiker guy".)
+		local dark = false
+		if meta.zeroReady then
+			dark = VFXController.darkFrame(meta.id, pos, fires, WHITE)
+			if dark and meta.id == State.myId then
+				VFXController.swingPrompt(fires)
+			end
+		end
 		task.delay(dark and fires or 0, function()
+			local cur = mods.BallRenderer.getMeta()
+			if meta.zeroReady and cur and cur.zero then
+				return -- he swung: it's a Zero Point now
+			end
 			if heavy or meta.thunder or meta.energy or meta.gauge then
 				local ring = meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL) or WHITE
 				boomRings(snap.path, ring, (meta.thunder or meta.fullLeap) and 3 or 2)

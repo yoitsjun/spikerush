@@ -283,9 +283,24 @@ local function loop(key, volume)
 	return s
 end
 
+local lastHitMeta = nil -- the latest hit heard (Zero Point's window checks whether he swung)
 local function onHit(snap)
 	local meta = snap.meta
 	if not meta or not snap.path or not AudioController.hearsMatch() then
+		return
+	end
+	if not snap.zeroLate then
+		lastHitMeta = meta
+	end
+	if meta.zeroReady and not snap.zeroLate then
+		-- Zero Point's window: silent while it waits; the Zero Point brings its own sounds, and if
+		-- the window runs out this spike sounds as it leaves the hand
+		local seg = snap.path.segs[1]
+		task.delay(math.max(0, seg.t0 + (seg.hold or 0) - Util.now()), function()
+			if not (lastHitMeta and lastHitMeta.zero) then
+				onHit({ meta = meta, path = snap.path, zeroLate = true })
+			end
+		end)
 		return
 	end
 	local pos = snap.path.segs[1].p
