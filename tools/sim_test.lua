@@ -1924,6 +1924,13 @@ do
 		"her Attack climbs with her jump", string.format("%d to %d", low.Attack, top.Attack))
 end
 
+print("== a losing streak brings stamina back faster ==")
+do
+	local a, b, c, d = HitLogic.lossRecovery(1), HitLogic.lossRecovery(2), HitLogic.lossRecovery(3), HitLogic.lossRecovery(6)
+	check(a == Config.Stamina.RecoverLoser and b > a * 1.3 and c > b * 1.3 and d == 1,
+		"each point lost in a row gives more of the bar back, up to all of it", string.format("%.2f, %.2f, %.2f ... %.2f", a, b, c, d))
+end
+
 print("== abilities on jump serves ==")
 do
 	-- (the owner: "allow everyones abilities to work on serves")

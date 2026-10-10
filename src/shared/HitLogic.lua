@@ -407,6 +407,13 @@ function HitLogic.adrenaline(ability, stamina)
 	return stamina.value / stamina.max < ADRENALINE.StaminaBelow
 end
 
+-- The share of its bar a team gets back after losing `streak` points in a row (1: just this
+-- one): Stamina.RecoverLoser, times LossStreakGrowth for each one before it, up to all of it.
+function HitLogic.lossRecovery(streak)
+	local n = math.max(1, math.floor(tonumber(streak) or 1))
+	return math.min(1, ST.RecoverLoser * ST.LossStreakGrowth ^ (n - 1))
+end
+
 -- Zero Point's sweet spot: the ball `dz` in front of the raised hand and `dy` above it (studs,
 -- HitLogic.spikeZone's), inside ZeroDz and ZeroDy (x the character's reach).
 function HitLogic.zeroSpot(dz, dy, stats)

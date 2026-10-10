@@ -15,6 +15,7 @@ local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local Rewards = require(Shared.Rewards)
 local Lobbies = require(Shared.Lobbies)
+local HitLogic = require(Shared.HitLogic)
 
 local MatchService = {}
 local reg
@@ -26,6 +27,7 @@ MatchService.practice = nil -- the drill on the court while a practice lobby pla
 MatchService.phaseEnd = 0
 MatchService.mode = M.DefaultTeamSize
 MatchService.scores = { Home = 0, Away = 0 }
+MatchService.lossStreak = { Home = 0, Away = 0 } -- points each team has lost in a row (stamina comes back faster)
 MatchService.sets = { Home = 0, Away = 0 }
 MatchService.setNumber = 1
 MatchService.target = M.PointsPerSet
@@ -315,9 +317,13 @@ function MatchService.awardPoint(res)
 		end
 	end
 
-	-- stamina comes back between rallies; the team that lost the point gets more
+	-- stamina comes back between rallies; the team that lost the point gets more, and more again
+	-- for every point in a row it has lost (HitLogic.lossRecovery)
+	local streak = MatchService.lossStreak
+	streak[loser] = (streak[loser] or 0) + 1
+	streak[winner] = 0
 	TS.recoverStamina(winner, Config.Stamina.RecoverWinner)
-	TS.recoverStamina(loser, Config.Stamina.RecoverLoser)
+	TS.recoverStamina(loser, HitLogic.lossRecovery(streak[loser]))
 
 	local sideOut = winner ~= MatchService.servingTeam
 	if sideOut then
@@ -617,6 +623,7 @@ function MatchService.playMatch()
 	MatchService.forfeitTeam = nil
 	MatchService.aborted = false
 	MatchService.scores = { Home = 0, Away = 0 }
+	MatchService.lossStreak = { Home = 0, Away = 0 } -- points each team has lost in a row (stamina comes back faster)
 	MatchService.sets = { Home = 0, Away = 0 }
 	MatchService.totals = { Home = 0, Away = 0 }
 	MatchService.setWinners = {}
@@ -689,6 +696,7 @@ function MatchService.playMatch()
 		end
 		MatchService.setNumber = MatchService.setNumber + 1
 		MatchService.scores = { Home = 0, Away = 0 }
+		MatchService.lossStreak = { Home = 0, Away = 0 } -- points each team has lost in a row (stamina comes back faster)
 		MatchService.servingTeam = Court.other(winner)
 	end
 end
@@ -704,6 +712,7 @@ function MatchService.intermission()
 	ReplicatedStorage:SetAttribute("CupMods", nil)
 	MatchService.target = MatchService.rules.points
 	MatchService.scores = { Home = 0, Away = 0 }
+	MatchService.lossStreak = { Home = 0, Away = 0 } -- points each team has lost in a row (stamina comes back faster)
 	MatchService.sets = { Home = 0, Away = 0 }
 	MatchService.setPhase("Intermission", 0)
 	local lobby = nil

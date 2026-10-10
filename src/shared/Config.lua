@@ -247,6 +247,10 @@ Config.Stamina = {
 	LowQualityFloor = 0.55, -- receive quality multiplier at the bottom of the red zone
 	RecoverWinner = 0.1, -- fraction of max refilled after a rally
 	RecoverLoser = 0.5, -- the team that lost the point gets half its bar back
+	-- (the owner: "losing multiple points in a row exponentially increases the stamina that is
+	-- gained back"): each point lost in a row multiplies that by this (0.5, 0.7, 0.98: about full
+	-- after the third), capped at the whole bar
+	LossStreakGrowth = 1.4,
 	-- The drain above is what an S+ attacker's ball costs. Lower tiers hit the guard less and
 	-- less: Low for a D-, rising along ((tier - 1) / 14) ^ Exponent to 1 for S+ (B about half,
 	-- A about 0.7, S about 0.9).
