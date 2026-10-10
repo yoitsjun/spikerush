@@ -739,7 +739,9 @@ end
 function ProfileService.publicProfile(userId)
 	local plr = Players:GetPlayerByUserId(userId)
 	if plr and profiles[plr] then
-		return publicOf(profiles[plr], userId, plr.DisplayName)
+		local s = publicOf(profiles[plr], userId, plr.DisplayName)
+		s.username = plr.Name -- (the display name isn't what admin tools look people up by)
+		return s
 	end
 	local kept = publicKept[userId]
 	if kept and os.clock() - kept.at < PROFILE_KEEP then
@@ -755,14 +757,16 @@ function ProfileService.publicProfile(userId)
 	if not ok or type(data) ~= "table" then
 		return nil
 	end
-	local name = "Player"
+	local name, username = "Player", nil
 	local okName, infos = pcall(function()
 		return UserService:GetUserInfosByUserIdsAsync({ userId })
 	end)
 	if okName and type(infos) == "table" and infos[1] then
 		name = infos[1].DisplayName or infos[1].Username or name
+		username = infos[1].Username
 	end
 	local summary = publicOf(sanitizeProfile(data), userId, name)
+	summary.username = username
 	publicKept[userId] = { at = os.clock(), data = summary }
 	return summary
 end

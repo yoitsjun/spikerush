@@ -5131,7 +5131,30 @@ function Extra.buildPlayerProfile()
 		Gui.label(r, { Text = b.Name, display = true, TextSize = 18, Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -150, 1, 0), ZIndex = 22 })
 		places[b.Key] = Gui.label(r, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 0), Size = UDim2.fromOffset(170, 38), ZIndex = 22 })
 	end
-	ui.playerProfile = { modal = m, card = card, status = status, extra = extra, tiles = tiles, places = places }
+	-- an admin resets this player's match stats from here (press twice): no username needed (the
+	-- owner: "i cant actually find this persons real username to reset")
+	local reset, resetL = hairButton(m.panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -142, 0, 18), Size = UDim2.fromOffset(170, 40), Visible = false }, "Reset stats", 17)
+	onClick(reset, function()
+		local id = Extra.viewingProfile
+		if not id then
+			return
+		end
+		if Extra.profileResetArmed and os.clock() - Extra.profileResetArmed < 4 then
+			Extra.profileResetArmed = nil
+			resetL.Text = "Reset stats"
+			Net.get("Admin"):FireServer("wipe", tostring(id))
+		else
+			Extra.profileResetArmed = os.clock()
+			resetL.Text = "Sure? Again"
+			task.delay(4, function()
+				if Extra.profileResetArmed and os.clock() - Extra.profileResetArmed >= 4 then
+					Extra.profileResetArmed = nil
+					resetL.Text = "Reset stats"
+				end
+			end)
+		end
+	end)
+	ui.playerProfile = { modal = m, card = card, status = status, extra = extra, tiles = tiles, places = places, reset = reset }
 	Net.get("PlayerProfile").OnClientEvent:Connect(function(data)
 		if type(data) == "table" and data.userId == Extra.viewingProfile then
 			Extra.fillPlayerProfile(data)
@@ -5182,8 +5205,10 @@ function Extra.fillPlayerProfile(data)
 		l.Text = rank and ("#" .. rank) or ("Not in the top " .. Config.Leaderboards.Top)
 		l.TextColor3 = rank and (MEDAL[rank] or Gui.CHALK) or Gui.DIM
 	end
-	PP.extra.Text = string.format("<b>%s</b>\nPlaying %s\n%d of %d characters recruited, %d player cards", data.name or "Player",
+	PP.extra.Text = string.format("<b>%s</b>%s\nPlaying %s\n%d of %d characters recruited, %d player cards", data.name or "Player",
+		data.username and string.format('  <font color="#9aa3b5">@%s  (id %d)</font>', data.username, data.userId) or string.format('  <font color="#9aa3b5">(id %d)</font>', data.userId),
 		c and (c.Name .. " (" .. c.Tier .. ")") or "nobody yet", data.owned or 0, #Roster, data.cards or 0)
+	PP.reset.Visible = profile().admin == true
 end
 
 -- Open a profile: yours, or anyone's by user id (the server sends it).
@@ -5196,6 +5221,7 @@ function MenuController.openPlayerProfile(userId)
 	PP.status.Text = "Loading..."
 	PP.status.Visible = true
 	PP.extra.Visible = false
+	PP.reset.Visible = false
 	PP.modal.root.Visible = true
 	Net.get("Profile"):FireServer("profileOf", userId)
 end
@@ -5693,7 +5719,31 @@ function Extra.buildAdmin()
 	end)
 	-- reset the username's match stats (a faked record): press twice within 4 s
 	local wipe, wipeL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 48), Size = UDim2.fromOffset(170, 46) }, "Reset stats", 18)
-	user.Size = UDim2.new(1, -182, 0, 46) -- room for Reset stats beside it
+	user.Size = UDim2.new(1, -244, 0, 46) -- room for the players list and Reset stats beside it
+	-- the players in this server: a dropdown that fills in the username
+	local here = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -182, 0, 48), Size = UDim2.fromOffset(56, 46) }, "v", 20)
+	local drop = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 98), Size = UDim2.new(1, -182, 0, 220), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 40 }, right)
+	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, drop)
+	make("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, drop)
+	onClick(here, function()
+		drop.Visible = not drop.Visible
+		if not drop.Visible then
+			return
+		end
+		for _, c in ipairs(drop:GetChildren()) do
+			if c:IsA("GuiButton") then
+				c:Destroy()
+			end
+		end
+		for i, plr in ipairs(Players:GetPlayers()) do
+			local b = make("TextButton", { Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.3, BorderSizePixel = 0, AutoButtonColor = false, Text = "", LayoutOrder = i, ZIndex = 41 }, drop)
+			Gui.label(b, { Text = string.format('%s  <font color="#9aa3b5">@%s</font>', plr.DisplayName, plr.Name), RichText = true, display = true, TextSize = 18, Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -24, 1, 0), ZIndex = 42 })
+			onClick(b, function()
+				user.Text = plr.Name
+				drop.Visible = false
+			end)
+		end
+	end)
 	onClick(wipe, function()
 		if Extra.wipeArmed and os.clock() - Extra.wipeArmed < 4 and Extra.wipeName == user.Text then
 			Extra.wipeArmed = nil
@@ -6202,6 +6252,9 @@ function MenuController.init(m)
 	Net.get("Admin").OnClientEvent:Connect(function(data)
 		if type(data) == "table" and type(data.msg) == "string" then
 			ui.admin.status.Text = data.msg
+			if not ui.admin.modal.root.Visible then
+				toast(data.msg)
+			end
 		end
 		MenuController.refresh()
 	end)
