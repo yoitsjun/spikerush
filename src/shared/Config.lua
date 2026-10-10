@@ -1316,6 +1316,9 @@ Config.Bots = {
 	-- (a bot plays at the lobby's bot level when its character is a lower tier: `skillP`)
 	JumpTimingNoise = { 0.12, 0.012 }, -- seconds
 	ContactNoise = { 1.1, 0.06 }, -- studs of positioning error under the ball
+	-- a spiker's jump steers along the court to its spot by the contact, up to this x its run speed
+	-- (a long run to a set from deep used to leave it short)
+	AirSteerMul = 1.5,
 	ReactionDelay = { 0.28, 0.02 }, -- seconds before starting to move for a new ball
 	PerfectReceiveChance = { 0.1, 0.8 },
 	SloppyStance = { 0.8, 0.2 }, -- how far outside the perfect window a normal receive is pressed

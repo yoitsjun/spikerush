@@ -617,6 +617,7 @@ local function planAttack(team, now, exclude)
 		spiker.overcharge = spiker.rng:NextNumber() < 0.03
 	end
 	spiker.jumpAt = cT - lead + (spiker.rng:NextNumber() * 2 - 1) * tierPair(spiker, B.JumpTimingNoise)
+	spiker.contactAt = cT -- (its jump steers in the air to be at targetZ by then)
 	if spiker.entity.role == "WS" and last and last.hitType == "Set" and last.team == team then
 		planBackup(team, now, spiker.entity, exclude)
 	end
@@ -950,6 +951,19 @@ local function updateBot(b, now)
 	local charging = b.chargeFrom ~= nil and type(b.chargeFrom) == "number" and not grounded
 	updateForces(b, grounded, charging)
 
+	-- a spiker's jump steers to its takeoff target by the contact (planAttack's contactAt)
+	if b.airTarget then
+		if grounded and now > (b.airUntil or 0) or b.task ~= "Spike" or now > (b.airUntil or 0) + 0.3 then
+			b.airTarget, b.airUntil = nil, nil
+		elseif not grounded and not b.knockUntil then
+			local left = math.max(b.airUntil - now, 0.06)
+			local maxV = (e.charStats.WalkSpeed or 27) * B.AirSteerMul
+			local vz = math.clamp((b.airTarget - hrp.Position.Z) / left, -maxV, maxV)
+			local v = hrp.AssemblyLinearVelocity
+			hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, vz)
+		end
+	end
+
 	if MS.phase == "Serving" then
 		rallyCry(b, now)
 		serveLogic(b, now, grounded, side)
@@ -984,6 +998,12 @@ local function updateBot(b, now)
 			hum.Jump = true
 			if b.task == "Spike" or b.task == "Quick" then
 				reg.HitService.fx(e.id, "Jump", "Spike")
+				-- a spiker still running in when it has to go (a long run to a set from deep) steers
+				-- its jump to be under the ball at contact (the owner: "they set it forward and leap
+				-- forward but usually mistime it")
+				if b.task == "Spike" and b.targetZ and b.contactAt then
+					b.airTarget, b.airUntil = b.targetZ, b.contactAt
+				end
 			elseif b.task == "Set" then
 				reg.HitService.fx(e.id, "Jump", "Set")
 			elseif b.task == "Block" then
