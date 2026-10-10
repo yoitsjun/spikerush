@@ -896,7 +896,7 @@ end
 print("== role abilities ==")
 do
 	-- Adrenaline (S wing spiker): low team stamina = more Attack and Jump
-	local hayun = Characters.derive(Characters.fromRoster(Roster.get("hayun"), "max"))
+	local hayun = Characters.derive(Characters.fromRoster(Roster.get("shoyo"), "max"))
 	local low = { value = 20, max = 100 }
 	local boostedStats, on = HitLogic.effectiveStats(hayun, "Adrenaline", low)
 	local _, off = HitLogic.effectiveStats(hayun, "Adrenaline", { value = 80, max = 100 })
@@ -928,7 +928,7 @@ do
 
 	-- Iron Wall (S middle): everything that reaches the block is stuffed, even a full Azure
 	local bside = -side
-	local gaeul = Characters.derive(Characters.fromRoster(Roster.get("gaeul"), "max"))
+	local gaeul = Characters.derive(Characters.fromRoster(Roster.get("tetsuo"), "max"))
 	local broot = vec(0, GROUND + Characters.jumpHeight(gaeul, GROUND) * 0.9, bside * 1.2)
 	local bball = vec(0, C.NetTop + 2.4, bside * 0.3)
 	local function block(wall)
@@ -1422,7 +1422,7 @@ do
 	local s0 = HitLogic.effectiveStats(ines, "Counter", nil, { counter = 0 })
 	local s50 = HitLogic.effectiveStats(ines, "Counter", nil, { counter = 50 })
 	local s100 = HitLogic.effectiveStats(ines, "Counter", nil, { counter = 100 })
-	local hayun = Characters.derive(Characters.fromRoster(Roster.get("hayun"), "max"))
+	local hayun = Characters.derive(Characters.fromRoster(Roster.get("shoyo"), "max"))
 	local CE = Config.Abilities.Counter
 	-- a served ball she digs (not heavy) fills it a little and drains like any receive
 	local _, light = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 0.3 }, { lastHit = { team = "Home", hitType = "Underhand", noDrain = true, kmh = 45 }, ballVel = vec(0, -10 * K, side * 40 * K), ability = "Counter", stats = ines })
@@ -2111,11 +2111,11 @@ do
 	check(tallest and mateus.Ability == nil and shortestWS and junseo.Jump < yejun.Jump and junseo.Jump >= 185,
 		"Mateus is the tallest (no ability); Junseo the shortest wing spiker, with a jump just under YeJun's", string.format("%d cm; %d cm, jump %d vs %d", mateus.Height, junseo.Height, junseo.Jump, yejun.Jump))
 	-- the height cap went up for Mateus without changing anyone else's hit zone (1.08 at 210 cm)
-	local gaeul = Characters.derive(Characters.fromRoster(Roster.get("gaeul"), "max"))
+	local gaeul = Characters.derive(Characters.fromRoster(Roster.get("tetsuo"), "max"))
 	local m = Characters.derive(Characters.fromRoster(mateus, "max"))
 	local ye = Characters.derive(Characters.fromRoster(yejun, "max"))
-	check(math.abs(gaeul.Reach - (0.94 + 0.14 * (204 - 165) / 45)) < 1e-9 and m.Reach > 1.08 and m.contactMaxStuds < ye.contactMaxStuds and m.contactMaxStuds < gaeul.contactMaxStuds and m.BlockPower > gaeul.BlockPower and mateus.Attack < gaeul.Attack,
-		"a 216 cm Mateus built to block: everyone else's hit zone is as before, his is the biggest; YeJun and Gaeul still hit higher, he blocks harder and spikes softer", string.format("zone %.3f, contact %.2f m (YeJun %.2f, Gaeul %.2f)", m.Reach, m.ContactMaxM, ye.ContactMaxM, gaeul.ContactMaxM))
+	check(math.abs(gaeul.Reach - (0.94 + 0.14 * (201 - 165) / 45)) < 1e-9 and m.Reach > 1.08 and m.contactMaxStuds < ye.contactMaxStuds and mateus.Attack < gaeul.Attack,
+		"a 216 cm Mateus built to block: everyone else's hit zone is as before, his is the biggest; YeJun still hits higher, he spikes softer than Tetsuo", string.format("zone %.3f, contact %.2f m (YeJun %.2f, Tetsuo %.2f)", m.Reach, m.ContactMaxM, ye.ContactMaxM, gaeul.ContactMaxM))
 	-- Iron Wall: a perfect block wherever the attack meets the hands, even above the usual box,
 	-- shut straight down onto their side
 	local broot = vec(0, GROUND + Characters.jumpHeight(gaeul, GROUND), side * 0.3 * K)

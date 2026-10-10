@@ -1050,6 +1050,15 @@ Config.Abilities = {
 		},
 	},
 }
+-- Retired characters (the owner: "remove repeat characters. provide compensation with one free s
+-- tier selection ticket"): each shared an ability with another character. A profile that owned
+-- one loses it on its next load and gets a ticket per retired character it owned (once): the
+-- ticket recruits any TicketTier character it doesn't own yet (Home opens the pick).
+Config.Retired = {
+	Chars = { "hayun", "gaeul", "akira" }, -- Adrenaline (Shoyo stays), Iron Wall (Tetsuo), Chain Reaction (Seoyeon)
+	TicketTier = "S",
+}
+
 Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
 
 Config.Roles = {

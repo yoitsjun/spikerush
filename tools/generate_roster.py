@@ -43,12 +43,9 @@ FIXED = [
     # Feral Leap (the owner: "the highest attack character in the game"): the top Attack of the
     # roster, fast on his feet for the charged run-up, a little less Jump than YeJun
     {"Name": "Dante", "Role": "WS", "Tier": "S+", "Height": 186, "Attack": 222, "Defense": 120, "Speed": 152, "Jump": 184, "Ability": "Feral"},
-    {"Name": "Hayun", "Role": "WS", "Tier": "S", "Height": 187, "Attack": 198, "Defense": 126, "Speed": 142, "Jump": 181, "Ability": "Adrenaline"},
     {"Name": "Shoyo", "Role": "WS", "Tier": "S", "Height": 181, "Attack": 190, "Defense": 118, "Speed": 150, "Jump": 186, "Ability": "Adrenaline"},
-    {"Name": "Gaeul", "Role": "MB", "Tier": "S", "Height": 204, "Attack": 170, "Defense": 150, "Speed": 116, "Jump": 180, "Ability": "IronWall"},
     {"Name": "Tetsuo", "Role": "MB", "Tier": "S", "Height": 201, "Attack": 166, "Defense": 158, "Speed": 112, "Jump": 178, "Ability": "IronWall"},
     {"Name": "Seoyeon", "Role": "SE", "Tier": "S", "Height": 176, "Attack": 128, "Defense": 172, "Speed": 178, "Jump": 140, "Ability": "ChainReaction"},
-    {"Name": "Akira", "Role": "SE", "Tier": "S", "Height": 180, "Attack": 134, "Defense": 178, "Speed": 168, "Jump": 136, "Ability": "ChainReaction"},
     # the second wave of S abilities (original characters; the owner described the ideas)
     {"Name": "Ilya", "Role": "SE", "Tier": "S", "Height": 178, "Attack": 130, "Defense": 170, "Speed": 180, "Jump": 142, "Ability": "Vector"},
     {"Name": "Haeri", "Role": "SE", "Tier": "S", "Height": 183, "Attack": 150, "Defense": 160, "Speed": 172, "Jump": 158, "Ability": "Turnabout"},

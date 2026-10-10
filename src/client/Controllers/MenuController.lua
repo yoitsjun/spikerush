@@ -1437,6 +1437,63 @@ function Extra.refreshPityPick(prof)
 	end
 end
 
+-- The selection ticket's pick (Config.Retired: compensation for a retired character): every
+-- character of the ticket's tier, the ones you have marked; pick one you don't. Home opens it by
+-- itself while you hold a ticket.
+function Extra.buildTicketPick()
+	local pool = {}
+	for _, c in ipairs(Roster) do
+		if c.Tier == Config.Retired.TicketTier then
+			table.insert(pool, c)
+		end
+	end
+	table.sort(pool, function(x, y)
+		if x.Role ~= y.Role then
+			return x.Role < y.Role
+		end
+		return x.Name < y.Name
+	end)
+	local cols = 4
+	local rowsN = math.ceil(math.max(#pool, 1) / cols)
+	local m = modal("TicketPick", "S-tier selection ticket", 120 + cols * 230, 230 + rowsN * 120, true)
+	local sub = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -56, 0, 48), Position = UDim2.fromOffset(28, 84), ZIndex = 21 })
+	local cards = {}
+	for i, c in ipairs(pool) do
+		local x = 40 + ((i - 1) % cols) * 230
+		local y = 145 + math.floor((i - 1) / cols) * 120
+		local b = make("TextButton", { Name = c.Id, Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(214, 108), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.15, BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 22 }, m.panel)
+		make("UIStroke", { Color = tierColor(c.Tier), Thickness = 2, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+		Gui.label(b, { Text = c.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, TextColor3 = tierColor(c.Tier), Position = UDim2.fromOffset(12, 8), Size = UDim2.new(1, -24, 0, 32), ZIndex = 23 })
+		local ab = c.Ability and Config.Abilities[c.Ability]
+		Gui.label(b, { Text = roleName(c.Role) .. (ab and ("  /  " .. ab.Name) or ""), TextSize = 14, TextColor3 = Gui.CHALK, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(12, 44), Size = UDim2.new(1, -24, 0, 18), ZIndex = 23 })
+		local state = Gui.label(b, { Text = "", display = true, TextSize = 17, Position = UDim2.fromOffset(12, 74), Size = UDim2.new(1, -24, 0, 22), ZIndex = 23 })
+		onClick(b, function()
+			if owns(profile(), "Char", c.Id) then
+				toast("You already have " .. c.Name .. ". Pick someone new.")
+				return
+			end
+			sendProfile("sTicket", c.Id)
+		end)
+		cards[c.Id] = { button = b, state = state }
+	end
+	ui.ticketPick = { modal = m, sub = sub, cards = cards }
+end
+
+function Extra.refreshTicketPick(prof)
+	local TP = ui.ticketPick
+	if not TP then
+		return
+	end
+	local n = prof.sTickets or 0
+	TP.sub.Text = n > 0 and string.format("A character you owned shared an ability with another and was retired. Thanks for playing: pick any S-tier character you don't have yet (%d ticket%s).", n, n == 1 and "" or "s") or "No tickets left. Enjoy your new player!"
+	for id, c in pairs(TP.cards) do
+		local have = owns(prof, "Char", id)
+		c.state.Text = have and "Owned" or (n > 0 and "Pick" or "")
+		c.state.TextColor3 = have and Gui.DIM or Gui.SIGNAL
+		c.button.BackgroundTransparency = have and 0.55 or 0.15
+	end
+end
+
 function MenuController.openPityPick()
 	if ui.pityPick then
 		Extra.refreshPityPick(profile())
@@ -5921,6 +5978,16 @@ local function doRefresh()
 	elseif Extra.howToLocked and not Extra.mustTutorial(prof) then
 		Extra.howToLocked = false -- the tutorial's done (or a match played): free to close
 	end
+	if ui.ticketPick then
+		Extra.refreshTicketPick(prof)
+		local n = prof.sTickets or 0
+		if n > 0 and shown and screen == "home" and not Extra.howToLocked and not ui.ticketPick.modal.root.Visible and Extra.ticketShownFor ~= n then
+			Extra.ticketShownFor = n
+			ui.ticketPick.modal.root.Visible = true
+		elseif n == 0 then
+			Extra.ticketShownFor = nil
+		end
+	end
 	if ui.odds and ui.odds.kind and ui.odds.modal.root.Visible then
 		MenuController.openTable(ui.odds.kind, ui.odds.lucky) -- Boost and Lower change the odds
 	end
@@ -6051,6 +6118,7 @@ function MenuController.init(m)
 	buildHelp()
 	buildTable()
 	Extra.buildPityPick()
+	Extra.buildTicketPick()
 	Extra.buildHowTo()
 	Extra.buildPlayerProfile()
 	buildMatch()

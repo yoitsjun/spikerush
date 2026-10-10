@@ -30,6 +30,8 @@
 -- recruit and leaderboard read.
 --   ("gift", kind, index, username)  -> buy a pack for someone else
 --   ("pityPick", charId)             -> the S+ your lucky pity owes you (Config.Spins.Pity)
+--   ("sTicket", charId)              -> spend a selection ticket on a Config.Retired.TicketTier
+--                                       character you don't own (tickets: retired characters)
 --   ("favor", charId, "up"|"down"|nil) -> boost, lower or reset a character's odds (Config.Spins.Favor)
 --   ("entrance", boardKey | nil)     -> the board whose place shows over your head (nil: your best)
 --   ("profileOf", userId)            -> a player's public profile, on the PlayerProfile remote
@@ -191,7 +193,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -276,6 +278,23 @@ local function sanitizeProfile(data)
 		end
 	end
 	out.freeSpins = math.clamp(math.floor(tonumber(data.freeSpins) or 0), 0, 1000)
+	-- retired characters (Config.Retired): the ones this profile owned are gone (Spins.item no
+	-- longer knows them, above); each pays one selection ticket, once
+	out.sTickets = math.clamp(math.floor(tonumber(data.sTickets) or 0), 0, 100)
+	if type(data.retiredPaid) == "table" then
+		for _, id in ipairs(Config.Retired.Chars) do
+			if data.retiredPaid[id] == true then
+				out.retiredPaid[id] = true
+			end
+		end
+	end
+	local hadChars = type(data.owned) == "table" and type(data.owned.Char) == "table" and data.owned.Char or {}
+	for _, id in ipairs(Config.Retired.Chars) do
+		if hadChars[id] and not out.retiredPaid[id] then
+			out.retiredPaid[id] = true
+			out.sTickets = out.sTickets + 1
+		end
+	end
 	out.winStreak = math.max(0, math.floor(tonumber(data.winStreak) or 0))
 	out.bestStreak = math.max(out.winStreak, math.floor(tonumber(data.bestStreak) or 0))
 	if type(data.record) == "table" then
@@ -488,6 +507,8 @@ local function save(plr, force)
 		pity = profile.pity,
 		favor = profile.favor,
 		bundles = profile.bundles,
+		sTickets = profile.sTickets,
+		retiredPaid = profile.retiredPaid,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -855,6 +876,7 @@ function ProfileService.snapshot(plr)
 			return { unlocked = unlocked, stats = cardStats(profile) }
 		end)(),
 		lucky = profile.lucky or 0,
+		sTickets = profile.sTickets or 0, -- selection tickets (Config.Retired)
 		-- the Characters banner's pity: recruits counted toward each, whether the next lucky pity is
 		-- your pick, and the pick
 		pity = { normal = profile.pity.normal, top = profile.pity.top, lucky = profile.pity.lucky, owed = profile.pity.owed, pick = profile.pity.pick },
@@ -1642,6 +1664,22 @@ local function onRequest(plr, kind, a, b, c)
 		profile.favor[a] = mode
 		dirty[plr] = true
 		push(plr)
+	elseif kind == "sTicket" then
+		-- a selection ticket: any character of the ticket's tier you don't own yet
+		local c = type(a) == "string" and Roster.get(a)
+		if (profile.sTickets or 0) < 1 or not c or c.Tier ~= Config.Retired.TicketTier then
+			return
+		end
+		if owns(profile, "Char", c.Id) then
+			push(plr, "You already have " .. c.Name .. ". Pick someone new.")
+			return
+		end
+		profile.sTickets = profile.sTickets - 1
+		profile.owned.Char[c.Id] = true
+		dirty[plr] = true
+		save(plr, true)
+		push(plr, c.Name .. " joined your roster!")
+		ProfileService.checkCards(plr)
 	elseif kind == "pityPick" then
 		-- the S+ the lucky pity gives you when it's owed
 		if Spins.isPityPick(a) then
