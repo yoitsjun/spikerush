@@ -1113,6 +1113,10 @@ local function updateBot(b, now)
 			blockCheck(b, now, root, side)
 		end
 	end
+	-- Iron Wall up: a wall at the net whatever it's doing (blockCheck's box covers any height then)
+	if b.entity.ability == "IronWall" and (b.entity.abilityUntil or -1) >= now and not (task == "Block" and not grounded) then
+		blockCheck(b, now, root, side)
+	end
 	b.lastCheck = now
 end
 

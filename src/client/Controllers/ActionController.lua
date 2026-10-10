@@ -1225,12 +1225,16 @@ local function processSlide(info, now)
 end
 
 local function processBlock(info, now)
-	if not block.active then
+	-- Iron Wall up: you're a wall at the net, jumping or not (no block press or timing needed)
+	local iron = State.myAbility() == "IronWall" and ActionController.abilityActive()
+	if not block.active and not iron then
 		return
 	end
-	if info.grounded and os.clock() - block.activeT0 > 0.25 then
+	if block.active and info.grounded and os.clock() - block.activeT0 > 0.25 then
 		block.active = false
-		return
+		if not iron then
+			return
+		end
 	end
 	local BR = mods.BallRenderer
 	local meta = BR.getMeta()
@@ -1247,7 +1251,7 @@ local function processBlock(info, now)
 		local t = t0 + (now - t0) * i / 6
 		local p = BallPhysics.positionAt(path, t)
 		local v = BallPhysics.velocityAt(path, t)
-		if v.Z * State.mySide > 0 and HitLogic.blockBox(info.root, p, State.mySide, State.myStats(), State.myAbility() == "IronWall" and ActionController.abilityActive()) then
+		if v.Z * State.mySide > 0 and HitLogic.blockBox(info.root, p, State.mySide, State.myStats(), iron) then
 			block.active = false
 			execute("Block", info, {}, t, p)
 			return

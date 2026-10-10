@@ -205,10 +205,10 @@ end
 -- Block: hands above the tape, reaching over the net. Returns ok, quality, fingertips. iron:
 -- Iron Wall is up, and the box is bigger (Config.Abilities.IronWall).
 function HitLogic.blockBox(root, ball, side, stats, iron)
-	if math.abs(root.Z) > Z.BlockNetDistance then
+	local IW = Config.Abilities.IronWall
+	if math.abs(root.Z) > Z.BlockNetDistance + (iron and IW.NetExtra or 0) then
 		return false, 0, false
 	end
-	local IW = Config.Abilities.IronWall
 	local zs = ball.Z * side
 	if zs > Z.BlockOwnDepth + (iron and IW.OwnDepth or 0) or zs < -(Z.BlockOverDepth + (iron and IW.OverDepth or 0)) then
 		return false, 0, false

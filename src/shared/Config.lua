@@ -859,14 +859,18 @@ Config.Abilities = {
 		-- the owner: "make it so he is literally a perfect block. when he pops the ability and a
 		-- spike comes his way, it is perfect shut down onto their side no matter where it hits the
 		-- block"
-		Blurb = "Press Q: for a moment you're a perfect block. Any attack that comes near your hands, even off the fingertips, is shut straight down onto their side, whatever its power.",
+		-- (then "make iron wall completely unbreakable": while it's up, at the net, every attack that
+		-- crosses in front of you is shut down, however high, with no jump or timing needed)
+		Blurb = "Press Q: for a moment you're an unbreakable wall. At the net, every attack that crosses in front of you is shut straight down onto their side, however high or hard, even without jumping.",
 		Color = Color3.fromRGB(150, 205, 255),
 		Duration = 3.0,
 		Cooldown = 20,
-		-- while it's up the block box grows (studs): higher over the hands, further each side of the net
-		ReachUp = 1.4,
-		OwnDepth = 1.0,
-		OverDepth = 1.0,
+		-- while it's up the block box grows (studs): far over the hands (any spike's height, even from
+		-- the floor), further each side of the net, and you can stand a little further off it
+		ReachUp = 20, -- (studs: about 4.4 m more, so the highest spike in the game is still under it)
+		OwnDepth = 1.6,
+		OverDepth = 1.6,
+		NetExtra = 2.5,
 		-- the shut-down: straight down onto their court, this far from the net (metres), this fast
 		StuffDepth = { 1.0, 2.2 },
 		StuffKmh = 95,

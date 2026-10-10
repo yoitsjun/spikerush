@@ -2127,6 +2127,14 @@ do
 	local land = ip and ip.landing.pos.Z * -side
 	check(not okPlain and okIron and iw.meta.perfectBlock and iw.meta.quality == 1 and land > 0 and land <= Config.Court.SideDepth,
 		"Iron Wall: a perfect block even off the top of the hands, shut down into their court", land and string.format("lands %.1f m past the net", land / SPM) or "no block")
+	-- unbreakable: standing on the floor (no jump), a little off the net, a 4.75 m spike crossing in
+	-- front of the wall is still shut down; without the wall it's nowhere near the hands
+	local floorRoot = vec(0, GROUND, side * (Z.BlockNetDistance + 1.5))
+	local sky = vec(0, 4.75 * SPM, side * 0.2)
+	local okNo = HitLogic.compute({ action = "Block", t = 0, root = floorRoot, ball = sky, grounded = true }, ctx({ stats = gaeul, ability = "IronWall", lastHit = lastSpike, ballVel = vec(0, -8, side * 60) }))
+	local okWall, ww = HitLogic.compute({ action = "Block", t = 0, root = floorRoot, ball = sky, grounded = true }, ctx({ stats = gaeul, ability = "IronWall", ironWall = true, lastHit = { team = "Home", hitType = "Spike", kmh = 240, pierce = true, breakAtk = 999 }, ballVel = vec(0, -8, side * 60) }))
+	check(not okNo and okWall and ww.meta.perfectBlock and ww.meta.outcome == "Stuff",
+		"Iron Wall is unbreakable: standing, off the net, a 4.75 m 240 km/h spike that breaks blocks is still shut down", okWall and ww.meta.outcome or "no block")
 end
 
 print("== determinism ==")
