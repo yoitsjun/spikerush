@@ -770,6 +770,22 @@ end
 
 -- Text tabs over a hairline: the active tab in signal yellow with a slanted bar under it.
 -- Returns the frame and set(activeKey); onPick(key) on a press.
+-- Every row of tabs (tabs, chips, segmented controls, plate tabs) by its frame, so a controller's
+-- shoulder buttons can step through them (PadNav): { keys, pick(key), current }.
+Gui.tabGroups = setmetatable({}, { __mode = "k" })
+
+-- Register a row of tabs; returns mark(activeKey) for its set() to call.
+function Gui.navTabs(frame, items, onPick)
+	local g = { keys = {}, pick = onPick, current = nil }
+	for i, it in ipairs(items) do
+		g.keys[i] = it.key
+	end
+	Gui.tabGroups[frame] = g
+	return function(active)
+		g.current = active
+	end
+end
+
 function Gui.tabs(parent, items, props, onPick)
 	local f = make("Frame", { BackgroundTransparency = 1 }, parent)
 	for k, v in pairs(props or {}) do
@@ -814,7 +830,9 @@ function Gui.tabs(parent, items, props, onPick)
 		end)
 		tabs[it.key] = { label = l, bar = bar }
 	end
+	local mark = Gui.navTabs(f, items, onPick)
 	local function set(active)
+		mark(active)
 		for key, t in pairs(tabs) do
 			local on = key == active
 			t.label.TextColor3 = on and Gui.SIGNAL or Gui.DIM
@@ -862,7 +880,9 @@ function Gui.chips(parent, items, props, onPick)
 		end)
 		chips[it.key] = { button = b, label = l }
 	end
+	local mark = Gui.navTabs(f, items, onPick)
 	local function set(active)
+		mark(active)
 		for key, c in pairs(chips) do
 			local on = key == active
 			c.button.BackgroundColor3 = on and Gui.SIGNAL or Color3.fromRGB(38, 42, 58)

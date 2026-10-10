@@ -103,7 +103,12 @@ end
 
 local held = {}
 
+-- "Gamepad" while a controller is in use (PadNav watches every input, sticks and menus too),
+-- else "Keyboard".
 function InputController.lastDevice()
+	if mods and mods.PadNav then
+		return mods.PadNav.usingPad() and "Gamepad" or "Keyboard"
+	end
 	return lastDevice
 end
 

@@ -884,6 +884,7 @@ local function buildAbility()
 	local mates = {}
 	for i = 1, 2 do
 		local b = newBadge(left, BADGE_MATE, true) -- placed by updateAbility
+		b.frame:SetAttribute("NoNav", true) -- (a controller: D-pad left and right)
 		b.frame.MouseButton1Click:Connect(function()
 			if b.press then
 				mods.ActionController.press("Team" .. b.press)
@@ -1238,7 +1239,8 @@ local function buildRail()
 			Size = UDim2.new(1, -52, 1, 0),
 			Position = UDim2.fromOffset(12, 0),
 		})
-		-- mouse users can click the rail too
+		-- mouse users can click the rail too (a controller has its own buttons for these)
+		b:SetAttribute("NoNav", true)
 		b.MouseButton1Down:Connect(function()
 			mods.ActionController.press(def.action)
 		end)
@@ -1338,6 +1340,7 @@ local function buildContinue()
 		Net.get("Continue"):FireServer(false)
 	end)
 	ui.again = { frame = f, title = title, offer = nil, offerLabel = offer, keep = keep, stop = stop, status = status }
+	mods.PadNav.root(f, { prio = 24, first = keep })
 end
 
 local function updateContinue()
@@ -1565,6 +1568,7 @@ function Keys.build()
 		Keys.close()
 	end)
 	ui.keys = f
+	mods.PadNav.root(f, { prio = 35, back = Keys.close })
 	State.signals.Settings:Connect(function(key)
 		if key == "keys" and f.Visible then
 			Keys.refresh()
@@ -1762,6 +1766,18 @@ local function buildCorner()
 	ui.timeoutCap = timeoutCap
 	ui.gear = gear
 	ui.settings = sp
+	-- a controller: while the panel's open it has the whole HUD (Timeout, Forfeit and the coach's
+	-- way out are around it); D-pad down opens it in a match (PadNav), B closes it
+	mods.PadNav.root(gui, {
+		prio = 30,
+		when = function()
+			return sp.Visible
+		end,
+		first = function()
+			return sp:FindFirstChildWhichIsA("TextButton")
+		end,
+		back = UIController.closeSettings,
+	})
 end
 
 function UIController.closeSettings()
@@ -2127,6 +2143,7 @@ local function buildRotation()
 		mods.MenuController.openSwap()
 	end)
 	ui.rotation = { frame = f, title = title, rows = rows, readyButton = ready, swap = swap }
+	mods.PadNav.root(f, { prio = 23, first = ready })
 end
 
 local function updateRotation()

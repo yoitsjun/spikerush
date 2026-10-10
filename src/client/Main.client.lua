@@ -48,6 +48,7 @@ local order = {
 	"LineupController",
 	"MobileControls",
 	"CrowdController",
+	"PadNav",
 }
 
 local mods = { State = State }

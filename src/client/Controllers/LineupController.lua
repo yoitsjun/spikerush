@@ -688,6 +688,7 @@ function LineupController.showcase(a)
 		Gui.click("UIConfirm")
 		close()
 	end)
+	mods.PadNav.root(stage, { prio = 26, first = cont, back = close }) -- a controller: A or B moves on
 	if mods.AudioController and won then
 		mods.AudioController.play("CrowdCheer", { volume = 0.8 })
 	end

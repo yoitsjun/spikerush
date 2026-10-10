@@ -260,7 +260,9 @@ local function segmented(parent, items, props, onPick)
 		end)
 		buttons[it.key] = b
 	end
+	local mark = Gui.navTabs(f, items, onPick)
 	local function set(active)
+		mark(active)
 		for key, b in pairs(buttons) do
 			local on = key == active
 			b.BackgroundTransparency = on and 0 or 1
@@ -325,11 +327,17 @@ local function header(page, title)
 	onClick(back, function()
 		MenuController.go("home")
 	end)
+	-- a controller: B goes back too, and a page starts on its content, not this corner
+	back:SetAttribute("NavSkipFirst", true)
+	mods.PadNav.set(page, "back", function()
+		MenuController.go("home")
+	end)
 	ui.headers = ui.headers or {}
 	table.insert(ui.headers, back)
 	local strip = chrome.currencyStrip(page, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M - 112, 0, 70) })
 	strip.UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	local gear = chrome.navItem(page, "IconSettings", "Settings", { Name = "Settings", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 52) })
+	gear:SetAttribute("NavSkipFirst", true)
 	onClick(gear, function()
 		mods.UIController.toggleSettings(gear.AbsolutePosition.Y + gear.AbsoluteSize.Y + 6)
 	end)
@@ -340,6 +348,7 @@ local function page(name)
 	local f = make("Frame", { Name = name, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, canvas)
 	ui.pages = ui.pages or {}
 	ui.pages[name] = f
+	mods.PadNav.root(f, { prio = 1 }) -- a controller moves through it (its header gives it B)
 	return f
 end
 
@@ -390,6 +399,11 @@ local function modal(name, title, w, h, broadcast)
 	end
 	onClick(close, hide)
 	shade.MouseButton1Click:Connect(hide)
+	-- a controller: it stays inside the panel, B closes it, and it starts on the content
+	shade.Selectable = false
+	panel.Selectable = false
+	close:SetAttribute("NavSkipFirst", true)
+	mods.PadNav.root(root, { prio = 28, back = hide })
 	root:GetPropertyChangedSignal("Visible"):Connect(function()
 		if root.Visible and mods and mods.AudioController then
 			mods.AudioController.play("UIOpen", { minGap = 0.1 })
@@ -407,6 +421,7 @@ end
 -- rest light up under the pointer.
 local function navItem(parent, icon, caption, props, active)
 	local b = make("TextButton", { Name = caption, Size = UDim2.fromOffset(96, 74), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, parent)
+	b:SetAttribute("NavSkipFirst", true) -- a controller starts a page on its content
 	for k, v in pairs(props or {}) do
 		b[k] = v
 	end
@@ -736,6 +751,7 @@ local function buildHome()
 	-- Match: the one loud thing on the screen, a slanted signal-yellow plate with print grain
 	local matchPos = UDim2.new(1, -M, 1, -M)
 	local match, matchPlate = Gui.plateButton(p, { Name = "Match", AnchorPoint = Vector2.new(1, 1), Position = matchPos, Size = UDim2.fromOffset(360, 120) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	match:SetAttribute("NavFirst", true) -- a controller starts Home here
 	Gui.halftone(matchPlate.Body, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1) })
 	-- two racing stripes at the same 12 degree lean as the plate's ends
 	for i = 1, 2 do
@@ -1682,6 +1698,22 @@ local function buildSequence()
 			seqActive.skipping = true
 		end
 	end)
+	-- a controller: A continues (the whole screen is the button), Y skips
+	root.Selectable = false
+	mods.PadNav.root(root, {
+		prio = 40,
+		noSelect = true,
+		press = function()
+			if seqActive then
+				seqActive.clicked = true
+			end
+		end,
+		y = function()
+			if seqActive then
+				seqActive.skipping = true
+			end
+		end,
+	})
 
 	-- the S cinematic: a yellow screen (red for a Mythic), a light beam, your avatar's silhouette
 	-- spiking
@@ -2161,6 +2193,7 @@ local function playSequence(reveal)
 	S.black.BackgroundTransparency = 1
 	mods.SceneController.shot("lineup")
 	mods.SceneController.lineUp(colors, strength)
+	S.cont.Text = mods.PadNav.usingPad() and "Press A to continue   (Y to skip)" or "Click to Continue"
 	S.cont.Visible = true
 	if not waitClick(seq, true) then
 		return
@@ -2736,6 +2769,10 @@ local function buildPlayer()
 		arrow.ImageColor3 = Gui.CHALK
 	end)
 	onClick(back, function()
+		MenuController.go("players")
+	end)
+	back:SetAttribute("NavSkipFirst", true)
+	mods.PadNav.set(p, "back", function()
 		MenuController.go("players")
 	end)
 	currencyStrip(top, { Position = UDim2.fromOffset(72, 8) })
@@ -3860,7 +3897,9 @@ local function plateTabs(parent, items, props, onPick)
 			end
 		end)
 	end
+	local mark = Gui.navTabs(f, items, onPick)
 	local function set(active)
+		mark(active)
 		for _, tab in ipairs(tabs) do
 			tab.on = tab.key == active
 			tab.picked.Visible = tab.on
@@ -4196,6 +4235,15 @@ local function buildMatch()
 		lobbyPick = nil
 		MenuController.refresh()
 	end)
+	randomB:SetAttribute("NavSkipFirst", true)
+	pickCancel:SetAttribute("NavSkipFirst", true)
+	mods.PadNav.root(picker, {
+		prio = 29,
+		back = function()
+			lobbyPick = nil
+			MenuController.refresh()
+		end,
+	})
 	local pgrid = make("ScrollingFrame", {
 		Position = UDim2.fromOffset(10, 74),
 		Size = UDim2.new(1, -20, 1, -84),
