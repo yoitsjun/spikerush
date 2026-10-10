@@ -1541,6 +1541,12 @@ local function onRequest(plr, op, a, b)
 		l.quick = nil
 		l.startsAt = nil
 		markDirty()
+	elseif op == "pick" then
+		-- the host picks the character a bot spot plays: a = { side, spot, id } (id "" = random)
+		local l = LobbyService.lobbyOf(plr)
+		if l and l.host == plr.UserId and type(a) == "table" and Lobbies.setPick(l, a.side, a.spot, a.id) then
+			markDirty()
+		end
 	elseif op == "rejoin" then
 		reg.TeamService.requestJoin(plr)
 	elseif op == "list" then

@@ -37,6 +37,7 @@ TeamService.rallyUntil = { Home = -1, Away = -1 } -- Rally Cry: the team's boost
 local botCounter = 0
 local usedNames = {}
 local usedChars = {} -- roster ids already on court this match
+local reservedChars = {} -- the host's picks while the bots are being made (TeamService.assign)
 
 local function newRecord()
 	return { kills = 0, aces = 0, blocks = 0, digs = 0, assists = 0, errors = 0, topKmh = 0 }
@@ -100,7 +101,7 @@ local function rosterFor(tier, role)
 	local ti = Characters.tierIndex(tier) or 11
 	local best, bestD = {}, 3
 	for _, c in ipairs(Roster) do
-		if c.Role == want and not usedChars[c.Id] then
+		if c.Role == want and not usedChars[c.Id] and not reservedChars[c.Id] then
 			local d = math.abs((Characters.tierIndex(c.Tier) or 1) - ti)
 			if d < bestD then
 				best, bestD = { c }, d
@@ -457,16 +458,23 @@ end
 
 -- `captain`: the player whose team this bot fills; it plays their pick for the role (their own
 -- build of that character) when they made one, else a roster character near the bot level.
-local function addBot(team, index, role, captain)
+-- `pickId`: the custom lobby host's pick for this spot (Lobbies.botPicks), played maxed whether
+-- or not anyone owns it; it comes first.
+local function addBot(team, index, role, captain, pickId)
 	botCounter = botCounter + 1
 	local id = "B_" .. botCounter
 	role = role or "WS"
 	local e
 	local c, tier, build = nil, nil, nil
-	if captain then
+	local picked = pickId and Roster.get(pickId)
+	if picked and not usedChars[picked.Id] then
+		c = picked
+		tier, build = Characters.fromRoster(c, "max")
+	end
+	if captain and not c then
 		c, tier, build = reg.ProfileService.teamPick(captain, TeamService.teamSize, role)
-		if c and usedChars[c.Id] then
-			c = nil -- already on the court (the captain plays it themselves)
+		if c and (usedChars[c.Id] or reservedChars[c.Id]) then
+			c = nil -- already on the court (the captain plays it themselves), or the host's pick
 		end
 	end
 	if not c then
@@ -541,8 +549,15 @@ end
 
 -- plan = { Home = { Player }, Away = { Player } } (a lobby's sides). Empty spots get bots: a
 -- lobby without "fill with bots" only starts full, so bots there only cover someone who left.
-function TeamService.assign(size, plan)
+function TeamService.assign(size, plan, picks)
 	TeamService.clear()
+	-- the host's picks for the bot spots: no other bot takes these characters first
+	reservedChars = {}
+	for _, team in ipairs(Config.TeamOrder) do
+		for _, id in ipairs((picks and picks[team]) or {}) do
+			reservedChars[id] = true
+		end
+	end
 	TeamService.teamSize = size
 	local roles = roleList(size)
 	local captains = {} -- the first player on each team: bots fill it with their picks
@@ -561,9 +576,11 @@ function TeamService.assign(size, plan)
 	end
 	for _, team in ipairs(Config.TeamOrder) do
 		while #TeamService.teams[team].order < size do
-			addBot(team, nil, freeRole(team, roles), captains[team])
+			local role = freeRole(team, roles)
+			addBot(team, nil, role, captains[team], Lobbies.pickFor((picks and picks[team]) or {}, role, usedChars))
 		end
 	end
+	reservedChars = {}
 	TeamService.inMatch = true
 	for _, team in ipairs(Config.TeamOrder) do
 		TeamService.rallyUntil[team] = -1

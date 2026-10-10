@@ -3806,6 +3806,7 @@ local MC = Config.Match.Custom
 local form = { mode = 3, privacy = "Public", password = "", fill = true, botTier = Config.Match.DefaultBotTier, court = Config.Courts.Rotate, points = Config.Match.PointsPerSet, winBy = Config.Match.WinBy, sets = 1, timeouts = Config.Timeout.PerSet }
 local matchTab = "Browse"
 local editing = false -- the host is changing their lobby's settings
+local lobbyPick = nil -- the bot spot the host is picking a character for: { side, spot }
 local joinTarget = nil -- a private lobby waiting for its password
 
 local PRIVACY_TEXT = { Public = "Public", Friends = "Friends only", Private = "Private" }
@@ -4124,15 +4125,21 @@ local function buildMatch()
 		for s = 1, 3 do
 			local row = make("Frame", { Size = UDim2.new(1, -24, 0, 54), Position = UDim2.fromOffset(12, 56 + (s - 1) * 62), BackgroundColor3 = Gui.NAVY, BackgroundTransparency = 0.4, BorderSizePixel = 0 }, col)
 			make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.7, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, row)
-			local nm = Gui.label(row, { Text = "", display = true, TextSize = 21, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -164, 1, 0), Position = UDim2.fromOffset(14, 0) })
+			local nm = Gui.label(row, { Text = "", display = true, TextSize = 21, RichText = true, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -164, 1, 0), Position = UDim2.fromOffset(14, 0) })
 			local tag = Gui.plate(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -92, 0.5, 0), Size = UDim2.fromOffset(58, 22), Visible = false }, Gui.SIGNAL)
 			Gui.label(tag, { Text = "HOST", display = true, TextSize = 13, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
 			local kick = hairButton(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(76, 32), Visible = false }, "Remove", 14)
-			local slot = { row = row, name = nm, tag = tag, kick = kick }
+			-- on a bot spot the host picks the character it plays
+			local pickB, pickL = hairButton(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(76, 32), Visible = false }, "Pick", 14)
+			local slot = { row = row, name = nm, tag = tag, kick = kick, pick = pickB, pickLabel = pickL }
 			onClick(kick, function()
 				if slot.userId then
 					Net.get("Lobby"):FireServer("kick", slot.userId)
 				end
+			end)
+			onClick(pickB, function()
+				lobbyPick = { side = team, spot = s }
+				MenuController.refresh()
 			end)
 			slots[s] = slot
 		end
@@ -4163,6 +4170,62 @@ local function buildMatch()
 	onClick(start, function()
 		Net.get("Lobby"):FireServer("start")
 	end)
+
+	-- the host's picker for a bot spot: the whole roster, recruited or not (bots play them maxed)
+	local picker = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.04, BorderSizePixel = 0, Visible = false }, lobby)
+	make("UICorner", { CornerRadius = UDim.new(0, 8) }, picker)
+	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, picker)
+	local pickTitle = Gui.label(picker, { Text = "", display = true, TextSize = 24, TextColor3 = Gui.SIGNAL, Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -330, 0, 32) })
+	Gui.label(picker, { Text = "Bots can play anyone, maxed. You still play your own character.", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(16, 44), Size = UDim2.new(1, -330, 0, 20) })
+	local function sendPick(id)
+		local pk = lobbyPick
+		lobbyPick = nil
+		if pk then
+			Net.get("Lobby"):FireServer("pick", { side = pk.side, spot = pk.spot, id = id })
+		end
+		MenuController.refresh()
+	end
+	local randomB = hairButton(picker, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -136, 0, 14), Size = UDim2.fromOffset(170, 44) }, "Random bot", 17)
+	onClick(randomB, function()
+		sendPick("")
+	end)
+	local pickCancel = hairButton(picker, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 14), Size = UDim2.fromOffset(110, 44) }, "Cancel", 17)
+	onClick(pickCancel, function()
+		lobbyPick = nil
+		MenuController.refresh()
+	end)
+	local pgrid = make("ScrollingFrame", {
+		Position = UDim2.fromOffset(10, 74),
+		Size = UDim2.new(1, -20, 1, -84),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 5,
+		ScrollBarImageColor3 = Gui.HAIRLINE,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(),
+	}, picker)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 4), PaddingTop = UDim.new(0, 4) }, pgrid)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(150, 186), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }, pgrid)
+	local pickList = {}
+	for _, c in ipairs(Roster) do
+		table.insert(pickList, c)
+	end
+	table.sort(pickList, function(a, b)
+		local ta, tb = Characters.tierIndex(a.Tier) or 0, Characters.tierIndex(b.Tier) or 0
+		if ta ~= tb then
+			return ta > tb
+		end
+		return a.Name < b.Name
+	end)
+	local pickCards = {}
+	for i, c in ipairs(pickList) do
+		local card = characterCard(pgrid, c)
+		card.button.LayoutOrder = i
+		onClick(card.button, function()
+			sendPick(c.Id)
+		end)
+		pickCards[c.Id] = card
+	end
 
 	ui.match = {
 		modal = m,
@@ -4200,6 +4263,9 @@ local function buildMatch()
 		sides = sides,
 		swap = swap,
 		settings = settingsB,
+		picker = picker,
+		pickTitle = pickTitle,
+		pickCards = pickCards,
 		leave = leave,
 		leaveLabel = leaveLabel,
 		start = start,
@@ -4247,6 +4313,9 @@ local function refreshMatch()
 	end
 	local mine = lobbies.mine
 	local inLobby = mine ~= nil and not editing
+	if not inLobby then
+		lobbyPick = nil
+	end
 	Mt.tabs.Visible = mine == nil
 	-- in a lobby there are no tabs: its page moves up into their place
 	Mt.body.Position = UDim2.fromOffset(26, mine and 100 or 152)
@@ -4338,14 +4407,55 @@ local function refreshMatch()
 					slot.tag.Visible = who.host == true
 					slot.kick.Visible = mine.isHost and who.id ~= player.UserId and mine.state == "Open"
 				else
-					slot.name.Text = mine.fill and "Bot" or "Open"
+					local pickId = mine.picks and mine.picks[team] and mine.picks[team][s] or ""
+					local pc = pickId ~= "" and Roster.get(pickId) or nil
+					if mine.fill and pc then
+						slot.name.Text = string.format('Bot  <font color="#%s">%s</font>', tierColor(pc.Tier):ToHex(), pc.Name)
+					else
+						slot.name.Text = mine.fill and "Bot" or "Open"
+					end
 					slot.name.TextColor3 = Gui.DIM
 					slot.tag.Visible = false
 					slot.kick.Visible = false
 				end
+				slot.pick.Visible = who == nil and mine.isHost and mine.fill and mine.picks ~= nil and mine.state == "Open"
+				local picked = mine.picks and mine.picks[team] and mine.picks[team][s] or ""
+				slot.pickLabel.Text = picked ~= "" and "Change" or "Pick"
 			end
 		end
 		local open = mine.state == "Open"
+		-- the bot spot picker (host only, while the lobby is open)
+		if lobbyPick and not (open and mine.isHost and mine.fill and mine.picks and lobbyPick.spot <= mine.mode) then
+			lobbyPick = nil
+		end
+		Mt.picker.Visible = lobbyPick ~= nil
+		if lobbyPick then
+			Mt.pickTitle.Text = string.format("%s, spot %d: pick who the bot plays", Config.Teams[lobbyPick.side].Name, lobbyPick.spot)
+			if not portraits then
+				portraits = buildPortraits()
+			end
+			local current = mine.picks[lobbyPick.side][lobbyPick.spot] or ""
+			local elsewhere = {}
+			for _, team in ipairs(Config.TeamOrder) do
+				for s2, id in ipairs(mine.picks[team] or {}) do
+					if id ~= "" and not (team == lobbyPick.side and s2 == lobbyPick.spot) then
+						elsewhere[id] = true
+					end
+				end
+			end
+			for id, card in pairs(Mt.pickCards) do
+				if portraits then
+					fillPortrait(card.vp, card.role)
+				end
+				local on = id == current
+				card.edge.Color = on and Gui.SIGNAL or card.color
+				card.edge.Thickness = on and 3 or 2
+				card.edge.Transparency = on and 0 or 0.55
+				card.button:SetAttribute("Playing", on)
+				card.tag.Text = on and "Picked" or (elsewhere[id] and "On a spot" or "")
+				card.tag.TextColor3 = on and Gui.SIGNAL or Gui.DIM
+			end
+		end
 		Mt.swap.Visible = open and not mine.quick and not mine.cup
 		Mt.settings.Visible = open and mine.isHost and not mine.quick and not mine.cup
 		Mt.start.Visible = open and mine.isHost and not mine.quick

@@ -617,7 +617,7 @@ function MatchService.playMatch()
 	lobby.cupResult = nil
 	reg.ArenaBuilder.setCourt(MatchService.court)
 	TS.botTier = lobby.botTier
-	TS.assign(lobby.mode, reg.LobbyService.plan(lobby))
+	TS.assign(lobby.mode, reg.LobbyService.plan(lobby), Lobbies.botPicks(lobby))
 	TS.resetStats()
 	MatchService.pendingTimeout = nil
 	MatchService.forfeitTeam = nil

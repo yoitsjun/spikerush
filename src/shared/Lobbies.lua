@@ -12,11 +12,16 @@
 --   * a lobby plays on the court it picked, or on the next court in the rotation
 --   * Quick Match joins the fullest open public quick lobby of that mode, or opens one that
 --     starts on its own a few seconds later
+--   * the host of a custom lobby can pick the character each bot spot plays, on both teams, from
+--     the whole roster (owned or not; the owner: "you can now pick what characters you want each
+--     team to have even if you dont have them. only thing is that you cannot pick your own
+--     character. you need to own it"): every player still plays their own character
 -- It also holds the AFK rule: idle time only counts while the ball is live.
 
 local Config = require(script.Parent.Config)
 local Characters = require(script.Parent.Characters)
 local Cups = require(script.Parent.Cups)
+local Roster = require(script.Parent.Roster)
 
 local Lobbies = {}
 local L = Config.Lobby
@@ -91,8 +96,91 @@ end
 
 function Lobbies.new(id, hostId, hostName, settings)
 	local l = { id = id, host = hostId, hostName = hostName, Home = {}, Away = {}, state = "Open" }
+	l.picks = Lobbies.cleanPicks(nil)
 	Lobbies.configure(l, settings)
 	return l
+end
+
+------------------------------------------------------------------------------------------
+-- the host's character picks for the bot spots
+------------------------------------------------------------------------------------------
+
+-- Picks by spot: picks.Home[3] is the character the third Home spot plays when a bot fills it
+-- ("" for a random one). Anything that isn't a roster character is dropped.
+function Lobbies.cleanPicks(raw)
+	raw = type(raw) == "table" and raw or {}
+	local out = {}
+	for _, side in ipairs(SIDES) do
+		local list = type(raw[side]) == "table" and raw[side] or {}
+		out[side] = {}
+		for i = 1, 3 do
+			local id = list[i]
+			out[side][i] = (type(id) == "string" and Roster.get(id)) and id or ""
+		end
+	end
+	return out
+end
+
+-- Whether this lobby takes picks: a custom lobby (not Quick Match, a tournament or practice).
+function Lobbies.canPick(l)
+	return not l.quick and not l.cup and not l.practice and not l.tutorial
+end
+
+-- The host sets one spot (id "" or nil for a random bot). Returns whether it changed anything.
+function Lobbies.setPick(l, side, spot, id)
+	if not Lobbies.canPick(l) or l.state ~= "Open" or (side ~= "Home" and side ~= "Away") then
+		return false
+	end
+	spot = tonumber(spot)
+	if not spot or spot ~= math.floor(spot) or spot < 1 or spot > l.mode then
+		return false
+	end
+	if id == nil or id == "" then
+		id = ""
+	elseif type(id) ~= "string" or not Roster.get(id) then
+		return false
+	end
+	l.picks = l.picks or Lobbies.cleanPicks(nil)
+	if l.picks[side][spot] == id then
+		return false
+	end
+	l.picks[side][spot] = id
+	return true
+end
+
+-- The characters the bots on each side play, in spot order: the picks of the spots past the
+-- players on it (players fill a side from the top, so a player joining covers that spot's pick).
+function Lobbies.botPicks(l)
+	local out = { Home = {}, Away = {} }
+	if not Lobbies.canPick(l) or not l.picks then
+		return out
+	end
+	for _, side in ipairs(SIDES) do
+		for i = #l[side] + 1, l.mode do
+			local id = l.picks[side][i]
+			if id and id ~= "" then
+				table.insert(out[side], id)
+			end
+		end
+	end
+	return out
+end
+
+-- Which of `picks` (character ids, in order) a bot playing `role` takes: the first one not in
+-- `used` made for that role, else the first one not in `used` at all. Returns the id or nil.
+function Lobbies.pickFor(picks, role, used)
+	local want = role == "Solo" and "WS" or role
+	local first = nil
+	for _, id in ipairs(picks or {}) do
+		if not used[id] then
+			local c = Roster.get(id)
+			if c and c.Role == want then
+				return id
+			end
+			first = first or id
+		end
+	end
+	return first
 end
 
 function Lobbies.count(l)
@@ -305,6 +393,7 @@ function Lobbies.summary(l, viewerId)
 		timeouts = l.timeouts,
 		count = Lobbies.count(l),
 		capacity = Lobbies.capacity(l),
+		picks = Lobbies.canPick(l) and l.picks or nil,
 		state = l.state,
 		quick = l.quick == true,
 		mine = Lobbies.teamOf(l, viewerId) ~= nil,
@@ -313,7 +402,7 @@ end
 
 -- The lobby as plain data for a teleport to its own server.
 function Lobbies.export(l)
-	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, host = l.host, hostName = l.hostName, quick = l.quick == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, Home = {}, Away = {} }
+	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, host = l.host, hostName = l.hostName, quick = l.quick == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, picks = l.picks, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(out[side], u)
@@ -336,6 +425,7 @@ function Lobbies.import(data, id)
 	end
 	local l = Lobbies.new(id, tonumber(data.host), type(data.hostName) == "string" and data.hostName:sub(1, 40) or "Host", s)
 	l.quick = data.quick == true
+	l.picks = Lobbies.cleanPicks(data.picks)
 	-- a practice lobby (a drill, or the tutorial's four) stays hidden on its own server too
 	if data.practice == true then
 		l.practice = true

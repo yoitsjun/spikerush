@@ -964,6 +964,29 @@ do
 	local sum = Lobbies.summary(custom, 1)
 	check(custom.points == 21 and custom.winBy == 1 and custom.sets == 3 and custom.timeouts == 4 and back.points == 21 and back.winBy == 1 and back.sets == 3 and back.timeouts == 4 and sum.points == 21 and sum.sets == 3,
 		"a custom lobby keeps its rules, shows them in its summary and takes them along to its own server")
+	-- the host picks the characters of the bot spots, from the whole roster
+	local pk = Lobbies.new(42, 1, "a", Lobbies.settings({ mode = 3 }))
+	Lobbies.seat(pk, 1, "Home")
+	local ws, mb, se
+	for _, c in ipairs(Roster) do
+		if c.Role == "WS" and not ws then ws = c.Id end
+		if c.Role == "MB" and not mb then mb = c.Id end
+		if c.Role == "SE" and not se then se = c.Id end
+	end
+	local set1 = Lobbies.setPick(pk, "Home", 1, ws)
+	local set2 = Lobbies.setPick(pk, "Home", 2, se)
+	local set3 = Lobbies.setPick(pk, "Away", 3, mb)
+	local junk = Lobbies.setPick(pk, "Away", 1, "nobody") or Lobbies.setPick(pk, "Nope", 1, ws) or Lobbies.setPick(pk, "Away", 4, ws)
+	local bp = Lobbies.botPicks(pk)
+	check(set1 and set2 and set3 and not junk and #bp.Home == 1 and bp.Home[1] == se and #bp.Away == 1 and bp.Away[1] == mb,
+		"the host picks bot spots' characters; the host's own spot isn't a bot, junk picks are refused")
+	local back2 = Lobbies.import(Lobbies.export(pk), 43)
+	check(back2.picks.Away[3] == mb and back2.picks.Home[2] == se and Lobbies.import({ mode = 3, picks = { Home = { "x", 5 } } }, 44).picks.Home[1] == "",
+		"picks go along to the lobby's own server, cleaned")
+	check(Lobbies.pickFor({ ws, se }, "SE", {}) == se and Lobbies.pickFor({ ws, se }, "MB", {}) == ws and Lobbies.pickFor({ ws }, "WS", { [ws] = true }) == nil and Lobbies.pickFor({ ws }, "Solo", {}) == ws,
+		"a bot takes the pick made for its role first, else the next one left")
+	local qk = Lobbies.new(45, 1, "a", Lobbies.settings({ mode = 3 })); qk.quick = true
+	check(not Lobbies.setPick(qk, "Away", 1, ws) and #Lobbies.botPicks(qk).Away == 0, "Quick Match takes no picks")
 	local l = Lobbies.new(1, 100, "Host", s2)
 	Lobbies.seat(l, 100)
 	local okNo, whyNo = Lobbies.canJoin(l, 200, "wrong")
