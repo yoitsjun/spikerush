@@ -350,15 +350,45 @@ local function updateLines(dt)
 	end
 end
 
--- Where the ball sits in a frozen frame: on the tip of the hitter's right hand in that pose (the
--- owner: "its swinging right below the ball"), so the frame always shows the hit; `fallback`
--- when the clone has no hand.
-local function handBall(clone, fallback)
-	local hand = clone and (clone:FindFirstChild("RightHand", true) or clone:FindFirstChild("Right Arm", true))
-	if not hand or not hand:IsA("BasePart") then
-		return fallback
+-- A frozen frame catches the hitter at the start of the swing, arm still down (the owner: "ball
+-- appears below them"): straighten the clone's right arm up to the ball, from the shoulder, and
+-- put the ball just past the hand. Returns where the ball goes (`target` when there's no arm).
+local function reachFor(clone, target)
+	local parts = {}
+	for _, n in ipairs({ "RightUpperArm", "RightLowerArm", "RightHand" }) do
+		local part = clone and clone:FindFirstChild(n, true)
+		if part and part:IsA("BasePart") then
+			table.insert(parts, part)
+		end
 	end
-	return (hand.CFrame * CFrame.new(0, -(hand.Size.Y / 2 + Config.Ball.Radius * 0.8), 0)).Position
+	if #parts == 0 then
+		local arm = clone and clone:FindFirstChild("Right Arm", true)
+		if arm and arm:IsA("BasePart") then
+			parts = { arm }
+		end
+	end
+	if #parts == 0 then
+		return target
+	end
+	local top = parts[1]
+	local shoulder = (top.CFrame * CFrame.new(0, top.Size.Y / 2, 0)).Position
+	local d = target - shoulder
+	if d.Magnitude < 0.05 then
+		return target
+	end
+	local dir = d.Unit
+	local up = -dir -- each part's top points back at the shoulder
+	local along = 0
+	for _, part in ipairs(parts) do
+		local look = part.CFrame.LookVector
+		if math.abs(look:Dot(up)) > 0.95 then
+			look = Vector3.new(1, 0, 0)
+		end
+		local right = look:Cross(up).Unit
+		part.CFrame = CFrame.fromMatrix(shoulder + dir * (along + part.Size.Y / 2), right, up)
+		along = along + part.Size.Y
+	end
+	return shoulder + dir * (along + Config.Ball.Radius * 0.9)
 end
 
 local function silhouette(model, vp)
@@ -557,7 +587,7 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color)
 		ball.Anchored = true
 		ball.Color = Color3.new(0, 0, 0)
 		ball.Material = Enum.Material.SmoothPlastic
-		ballPos = handBall(clone, ballPos)
+		ballPos = reachFor(clone, ballPos)
 		ball.CFrame = CFrame.new(ballPos)
 		ball.Parent = clone.Parent
 	end
@@ -629,7 +659,7 @@ function VFXController.darkFrame(entityId, ballPos, duration, color)
 		ball.Anchored = true
 		ball.Color = color or Color3.fromRGB(255, 200, 60)
 		ball.Material = Enum.Material.SmoothPlastic
-		ballPos = handBall(clone, ballPos)
+		ballPos = reachFor(clone, ballPos)
 		ball.CFrame = CFrame.new(ballPos)
 		ball.Parent = clone.Parent
 	end
