@@ -1565,11 +1565,12 @@ end
 print("== codes, lucky spins, daily rewards, gifts and events ==")
 do
 	local Economy = require("Economy")
-	-- codes: any case and spacing, RELEASE pays, unknown ones don't
-	local g, why, key = Economy.code("  ReLeAsE ", 100)
+	-- codes: any case and spacing, UPDATE2 pays, a retired one (RELEASE) and unknown ones don't
+	local g, why, key = Economy.code("  UpDaTe 2 ", 100)
 	local none, noneWhy = Economy.code("nope", 100)
-	check(g ~= nil and key == "release" and g.VP > 0 and g.Gold > 0 and g.Lucky >= 1 and none == nil and noneWhy == "unknown",
-		"the RELEASE code works typed any way and pays VP, Gold and a lucky spin; an unknown code pays nothing", g and Economy.describe(g) or tostring(why))
+	local old = Economy.code("release", 100)
+	check(g ~= nil and key == "update2" and g.VP > 0 and g.Gold > 0 and g.Lucky >= 1 and none == nil and noneWhy == "unknown" and old == nil,
+		"the UPDATE2 code works typed any way and pays VP, Gold and a lucky spin; RELEASE and unknown codes pay nothing", g and Economy.describe(g) or tostring(why))
 	-- a grant is made safe: no negatives, caps, real characters only, each once
 	local clean = Economy.cleanGrant({ VP = -50, Gold = 1e12, Lucky = 2.7, Chars = { "dante", "dante", "nobody", 5 } })
 	check(clean.VP == 0 and clean.Gold == Config.Admin.GiveMax.Gold and clean.Lucky == 2 and #clean.Chars == 1 and clean.Chars[1] == "dante",
@@ -1809,9 +1810,9 @@ print("== codes ==")
 do
 	local Economy = require("Economy")
 	local g1 = Economy.code(" Update1 ")
-	local g0 = Economy.code("RELEASE")
-	check(g1 and g1.VP == 350 and g1.Gold == 6000 and g1.Lucky == 3 and g0 and g0.VP == 500 and Economy.code("update 1") ~= nil,
-		"the codes RELEASE and UPDATE1 work in any case, spaces ignored")
+	local g0 = Economy.code("UPDATE2")
+	check(g1 and g1.VP == 350 and g1.Gold == 6000 and g1.Lucky == 3 and g0 and g0.VP == 500 and g0.Gold == 5000 and g0.Lucky == 1 and Economy.code("update 1") ~= nil and Economy.code("RELEASE") == nil,
+		"the codes UPDATE1 and UPDATE2 (RELEASE's rewards) work in any case, spaces ignored; RELEASE is retired")
 end
 
 print("== 2x luck ==")
