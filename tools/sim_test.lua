@@ -1860,7 +1860,7 @@ do
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
 end
 
-print("== Zero Point (Taeha: the ball slightly in front, above his head: ???, nearly straight, through the block) ==")
+print("== Zero Point (Taeho: the ball slightly in front, above his head: ???, nearly straight, through the block) ==")
 do
 	local th = Characters.derive(Characters.fromRoster(Roster.get("taeha"), "max"))
 	local yj = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))

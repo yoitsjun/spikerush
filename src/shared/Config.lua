@@ -980,7 +980,7 @@ Config.Abilities = {
 		DiveSpeed = 1.0, -- the plunge keeps this much of the speed
 		PowerBoost = 0.06, -- and it leaves the hand x (1 + this) faster
 	},
-	-- Taeha (the owner: "an ability focused on perfect contact... a perfect contact spike hits a ???
+	-- Taeho (the owner: "an ability focused on perfect contact... a perfect contact spike hits a ???
 	-- km/h... around [YeJun's] double spike power or maybe higher. a perfect spike plays the image
 	-- like i show you, but a normal one doesnt"; then, the PERFECT grade being "impossible": "change
 	-- how its achieved", "you need some leniency or else its not possible", "maybe do it if the

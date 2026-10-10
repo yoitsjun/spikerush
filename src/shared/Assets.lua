@@ -107,7 +107,7 @@ Assets.Sounds = {
 	Blades = "", -- Counter Edge: blades out and back in (the volley along her released spike)
 	CounterParry = "137580087669661", -- Parry3 (the owner's pick)
 	CounterReturn = "137628815514180", -- sword-slash-and-swing (the owner's pick)
-	-- Taeha and Seora (Creator Store, Pro Sound Effects, picked 2026-10-09); both spikes still
+	-- Taeho and Seora (Creator Store, Pro Sound Effects, picked 2026-10-09); both spikes still
 	-- play the owner's Spike crack under these
 	ZeroPoint = "9120729973", -- "Whoosh Impact 1": thick swish, hard reverberant impact (a Zero Point)
 	TalonDrop = "9120730138", -- "Whoosh Impact 4": a shorter swish into a hard hit (Talon Drop)
@@ -179,7 +179,7 @@ Assets.SoundFiles = {
 	["84321138018138"] = { gain = 0.8 }, -- BlackHoleHum: peak 501
 	["9043343896"] = { start = 1.0, gain = 1.5 }, -- BlackHoleSuck: swells from 1.32 s to the hard end at 2.07 s, peak 265
 	["1837830182"] = { gain = 0.56 }, -- BlackHoleBoom: peak 711
-	-- Taeha and Seora (2026-10-09): started on the hit, not the swish before it
+	-- Taeho and Seora (2026-10-09): started on the hit, not the swish before it
 	["9120729973"] = { start = 0.24, gain = 1.9 }, -- ZeroPoint: swish from 0.11 s, the hit at 0.32 s, peak 212
 	["9120730138"] = { start = 0.28, gain = 1.6 }, -- TalonDrop: swish from 0.23 s, the hit at 0.36 s, peak 249
 	["126761084927046"] = { start = 5.2, gain = 0.78 }, -- TsunamiRush: builds to a peak of 511 at 7.3 s
