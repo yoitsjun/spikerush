@@ -304,7 +304,7 @@ local function countSwing(entity)
 	end
 	local n = airSwings[entity.id] or 0
 	airSwings[entity.id] = n + 1
-	return true, n >= 1
+	return true, n == 1 -- only the jump's second swing (the owner: the third and later hit as usual)
 end
 
 function HitService.onRequest(plr, req)

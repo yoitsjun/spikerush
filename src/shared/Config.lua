@@ -784,7 +784,7 @@ Config.Abilities = {
 		Color = Color3.fromRGB(255, 225, 77),
 		SecondBoost = 0.18,
 		Passives = {
-			{ Name = "Double Swing", Blurb = "Swing again in the same jump: the second swing hits 18% harder." },
+			{ Name = "Double Swing", Blurb = "Swing again in the same jump: the second swing (only the second) hits 18% harder." },
 		},
 	},
 	Azure = {

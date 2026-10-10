@@ -514,7 +514,7 @@ local function takeSwing(info, opts)
 		return true
 	end
 	airSwings = airSwings + 1
-	if airSwings >= 2 and opts then
+	if airSwings == 2 and opts then -- (only the second: the server agrees)
 		opts.second = true
 	end
 	return true
