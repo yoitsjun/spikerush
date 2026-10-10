@@ -97,10 +97,14 @@ local function onScreen(obj)
 	return false
 end
 
-local function screenArea()
-	local cam = workspace.CurrentCamera
-	local vs = cam and cam.ViewportSize or Vector2.new(1920, 1080)
-	return math.max(1, vs.X * vs.Y)
+-- The area of the ScreenGui a button is drawn in (nil when it isn't laid out yet).
+local function layerArea(b)
+	local layer = b:FindFirstAncestorWhichIsA("LayerCollector")
+	local s = layer and layer.AbsoluteSize
+	if not s or s.X < 200 or s.Y < 200 then
+		return nil
+	end
+	return s.X * s.Y
 end
 
 local function usable(b, root)
@@ -114,9 +118,9 @@ local function usable(b, root)
 	if s.X < 4 or s.Y < 4 then
 		return false
 	end
-	if s.X * s.Y > HUGE * screenArea() then
-		b.Selectable = false -- a click-anywhere catcher: Roblox's navigation skips it from now on
-		return false
+	local area = layerArea(b)
+	if area and s.X * s.Y > HUGE * area then
+		return false -- a click-anywhere catcher
 	end
 	return onScreen(b)
 end
@@ -152,6 +156,10 @@ local function pick(root, o)
 end
 
 local function activeRoot()
+	local loading = player.PlayerGui:FindFirstChild("SpikeRushLoading")
+	if loading and loading:IsA("LayerCollector") and loading.Enabled then
+		return nil, nil -- the loading screen takes its own press
+	end
 	local best, bo = nil, nil
 	for obj, o in pairs(roots) do
 		if obj.Parent and onScreen(obj) and (not o.when or o.when()) then
