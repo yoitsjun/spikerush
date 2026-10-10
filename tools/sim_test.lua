@@ -666,9 +666,14 @@ do
 	check(ok5 and res5.meta.fail and path5.landing.pos.Z * side > C.SideDepth, "broken guard can't stop a strong spike: it flies out behind", describe(path5))
 	local slideRoot = vec(0, GROUND, side * 16 * K)
 	local slideBall = vec(0, slideRoot.Y - 2.2, slideRoot.Z - side * 4.2)
-	local ok6, res6 = receive(slideRoot, slideBall, { value = 0, max = 120 }, { diving = true })
+	local ok6, res6 = receive(slideRoot, slideBall, { value = 120, max = 120 }, { diving = true, stanceAge = 0.75 })
 	local path6 = BallPhysics.buildPath(res6.launch)
-	check(ok6 and not res6.meta.fail and not res6.meta.drain and path6.landing.pos.Z * side > 0, "slide receive works on a broken guard, no drain", string.format("q %.2f %s", res6.meta.quality, describe(path6)))
+	local slideShare = (res6.meta.drain or 0) / (res2.meta.drain or 1)
+	check(ok6 and not res6.meta.breaks and not res6.meta.knock and res6.meta.quality >= H.SlideQualityFloor and math.abs(slideShare - H.SlideDrainMul) < 0.05 and path6.landing.pos.Z * side > 0, "slide receive pays a fraction of a bump's drain, no knockback, at least Great", string.format("q %.2f, drain %.1f vs bump %.1f, %s", res6.meta.quality, res6.meta.drain or 0, res2.meta.drain or 0, describe(path6)))
+	local ok7, res7 = receive(slideRoot, slideBall, { value = 2, max = 120 }, { diving = true })
+	check(ok7 and res7.meta.breaks, "a slide can still break a nearly empty guard", res7.meta.grade)
+	local ok8, res8 = receive(slideRoot, slideBall, { value = 0, max = 120 }, { diving = true })
+	check(ok8 and res8.meta.fail, "a slide can't save a broken guard against a strong spike", res8.meta.grade)
 	-- the nerf: a 180 km/h spike costs real guard, perfect timing saves less on it, and it knocks
 	-- the receiver back
 	local A = Characters.stats("A")

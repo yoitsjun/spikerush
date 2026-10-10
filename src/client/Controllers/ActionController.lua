@@ -8,7 +8,7 @@
 --                  the press that tosses keeps charging while held, as does one after the toss).
 --   Receive ...... arms a receive stance; the touch happens automatically when the ball arrives.
 --                  Pressed a little early (not too early) = perfect timing = almost no stamina lost.
---   Slide/feint .. ground: slide receive (never costs stamina) / air: roll shot over the block.
+--   Slide/feint .. ground: slide receive (a fraction of the stamina) / air: roll shot over the block.
 --   Block ........ hold to charge, release to jump; the ball that passes your hands is blocked.
 --   Set .......... toward the net = quick, away = back, nothing = open. A receive on the second
 --                  touch sets too.
@@ -828,7 +828,12 @@ local function pressSlideFeint(info)
 			dir = mods.BallRenderer.getPath().landing.pos.Z - info.root.Z
 		end
 		if mods.MovementController.slide(dir) then
-			slideCheck = { until_ = os.clock() + P.SlideTime + 0.05, lastCheck = nil }
+			-- the whole dive, recovery included, plays the ball as a slide: a receive stance
+			-- (pressed or auto-assist) taking it first made it a normal bump, which drained
+			-- stamina and could break the guard (the owner: "sliding takes stamina", "and it
+			-- breaks guard")
+			stance = nil
+			slideCheck = { until_ = os.clock() + P.SlideTime + P.SlideRecover + 0.05, lastCheck = nil }
 			mods.AnimationController.pose(State.myId, "Slide", P.SlideTime + P.SlideRecover)
 			mods.AudioController.play("Slide")
 			Net.get("ActionFX"):FireServer("Slide")
@@ -1156,7 +1161,7 @@ end
 
 -- The armed receive stance fires at the first good contact point (sub-stepped).
 local function processStance(info, now)
-	if not stance then
+	if not stance or slideCheck then
 		return
 	end
 	if now - stance.t0 > P.ReceiveStance or not inPlay() then
@@ -1319,7 +1324,7 @@ end
 
 -- Receive assist: arms the stance automatically for a ball heading at you.
 local function autoAssist(info, now)
-	if not State.settings.assist or stance or not info.grounded or not inPlay() then
+	if not State.settings.assist or stance or slideCheck or not info.grounded or not inPlay() then
 		return
 	end
 	local BR = mods.BallRenderer

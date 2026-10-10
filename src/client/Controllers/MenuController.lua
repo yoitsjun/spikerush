@@ -985,7 +985,7 @@ local HELP_ROWS = {
 	{ "Move", { "A", "D" }, "Or the arrow keys. You only ever move along the court." },
 	{ "Spike", { "Space", "Z" }, "On the ground your run-up jump (Double approach in Settings: once to run in, again to jump), in the air the spike. J and left click too." },
 	{ "Receive", { "S", "K" }, "Press a little before the ball arrives: early is perfect. Right click works too." },
-	{ "Slide / feint", { "C", "Shift" }, "On the ground a diving receive that never costs stamina, in the air a roll shot." },
+	{ "Slide / feint", { "C", "Shift" }, "On the ground a diving receive that costs far less stamina, in the air a roll shot." },
 	{ "Block", { "W" }, "Hold near the net, then let go to jump. Longer holds jump higher." },
 	{ "Set", { "E", "V" }, "Hold toward the net for a quick, away for a back set, nothing for an open set." },
 	{ "Serve", { "F", "X" }, "F serves underhand and always goes in. Tap X to serve overhand, hold X to toss for a jump serve." },

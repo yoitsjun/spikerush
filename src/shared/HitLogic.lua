@@ -14,7 +14,8 @@
 --     leaping at the net smashes through a block with less Attack.
 -- Receives drain the receiving team's stamina (a guard meter) depending on ball speed and the
 -- receiver's Defense. Low stamina makes receives unreliable; a broken guard can't stop strong
--- spikes at all. Slides never drain stamina.
+-- spikes at all. Slides pay only Hits.SlideDrainMul of the drain and skip the knockback and the
+-- red-zone wobble, but they can still break the guard (and can't save a broken one).
 
 local Config = require(script.Parent.Config)
 local Court = require(script.Parent.Court)
@@ -1198,8 +1199,11 @@ function HitLogic.compute(input, ctx)
 		end
 		local perfect = heavy and not sliding and q >= H.PerfectAt
 		local drain = 0
-		if heavy and not sliding then
+		if heavy then
 			drain = HitLogic.drainFor(incomingKmh, stats) * (last.tierDrain or 1)
+			if sliding then
+				drain = drain * H.SlideDrainMul
+			end
 			if last.reaction then
 				drain = drain * (last.drainMul or 1)
 			end
@@ -1234,7 +1238,7 @@ function HitLogic.compute(input, ctx)
 			meta.knock = knock > 0 and knock or nil
 		end
 
-		if heavy and not sliding and stam.value <= 0 and incomingKmh >= ST.BreakFailKmh then
+		if heavy and stam.value <= 0 and incomingKmh >= ST.BreakFailKmh then
 			-- guard broken: the spike blasts straight off the arms and out behind
 			meta.fail = true
 			meta.grade = "BROKEN"
@@ -1247,7 +1251,7 @@ function HitLogic.compute(input, ctx)
 			local k = ST.LowQualityFloor + (1 - ST.LowQualityFloor) * (pct / ST.RedAt)
 			q = q * k
 		end
-		if heavy and not sliding and stam.value > 0 and stam.value - drain <= 0 then
+		if heavy and stam.value > 0 and stam.value - drain <= 0 then
 			-- this ball breaks the guard: it blasts off the arms and flies out behind the receiver
 			meta.breaks = true
 			meta.quality = 0

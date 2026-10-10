@@ -175,6 +175,9 @@ Config.Hits = {
 	SlidePassApex = 6 * M, -- was 5 m and a 0.62 floor before the slide buff
 	SlideQualityFloor = 0.8, -- a slide receive is always at least a Great
 	SlidePassDrift = 0.25, -- metres a slide pass lands deeper and its extra error (was 0.6)
+	-- a slide receive pays this fraction of a bump's guard drain (the owner: "it shouldnt be
+	-- invincible but right now its the same as a bump"); it can still break or fail on a broken guard
+	SlideDrainMul = 0.35,
 	PerfectStanceMin = 0.08, -- receive pressed this long before contact...
 	PerfectStanceMax = 0.42, -- ...up to this long = perfect timing
 
