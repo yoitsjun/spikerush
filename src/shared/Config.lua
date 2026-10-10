@@ -986,6 +986,8 @@ Config.Abilities = {
 		ZeroDz = { -0.3, 3.4 }, -- from level with the hand to well out in front
 		ZeroDy = { -1.6, 4.0 }, -- from about his head up past the top of his reach
 		ZeroKmh = { 228, 246 }, -- from an edge of the sweet spot to a clean contact (x Power)
+		-- his jump serves too (the owner: "let zero point work on serves"), a little slower
+		ZeroServeKmh = { 205, 225 },
 		Gravity = 0.35, -- gravity x this: a laser line
 		-- the owner: "play a small cutscene when he hits it and freeze on the frame of impact": the ball
 		-- holds on his hand this long (everyone sees it) while he hangs in the air and the camera cuts

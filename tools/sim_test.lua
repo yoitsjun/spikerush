@@ -1866,6 +1866,12 @@ do
 	check(ok and res.meta.zero and res.meta.grade == "PERFECT" and res.meta.breakAtk == 999 and res.meta.kmh >= 225 and res.meta.kmh <= 250 and res.meta.kmh >= double.meta.kmh - 5
 		and not path.flags.netTouch and path.landing.pos.Z * side < 0 and Court.inBounds(path.landing.pos),
 		"the ball in his sweet spot makes a Zero Point: about YeJun's double swing or more, and it lands in", string.format("%.1f km/h (YeJun's double swing %.1f), %s", ok and res.meta.kmh or 0, double.meta.kmh, ok and describe(path) or "-"))
+	-- his jump serve too: a little slower, from behind the end line, and it lands in
+	local sroot = vec(0, GROUND + Characters.jumpHeight(th, GROUND) + Characters.hangGain(), side * (C.SideDepth + 1))
+	local okS, serve = HitLogic.compute({ action = "Serve", t = 0, root = sroot, ball = ballAt(sroot, Z.SpikeCenterDz, Z.SpikeCenterDy), vy = 0, grounded = false }, ctx({ stats = th, ability = "ZeroPoint", touchNumber = 1 }))
+	local sPath = okS and BallPhysics.buildPath(serve.launch)
+	check(okS and serve.meta.hitType == "JumpServe" and serve.meta.zero and serve.meta.kmh >= 200 and serve.meta.kmh < res.meta.kmh and not sPath.flags.netTouch and sPath.landing.pos.Z * side < 0 and Court.inBounds(sPath.landing.pos),
+		"his jump serve can be a Zero Point too, a little slower, and it lands in", string.format("%.1f km/h, %s", okS and serve.meta.kmh or 0, okS and describe(sPath) or "-"))
 	-- the freeze frame: the ball holds on his hand for the cut-in; and his hitbox is bigger
 	local edge = ballAt(root, Z.SpikeCenterDz + Z.SpikeRadiusZ * th.Reach * 1.1, Z.SpikeCenterDy)
 	local okWide = spike(root, edge, { stats = th, ability = "ZeroPoint" })

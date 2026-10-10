@@ -666,9 +666,11 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	end
 	-- Zero Point: the ball slightly in front of his raised hand and above his head makes his spike
 	-- far faster, nearly straight and through the block (below)
-	local zero = kind == "Spike" and ctx.ability == "ZeroPoint" and HitLogic.zeroSpot(dz, dy, stats) and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
+	-- (his jump serves too, a little slower)
+	local zero = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "ZeroPoint" and HitLogic.zeroSpot(dz, dy, stats) and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
 	if zero then
-		kmh = lerp(ZERO.ZeroKmh[1], ZERO.ZeroKmh[2], qContact) * stats.Power
+		local range = kind == "JumpServe" and ZERO.ZeroServeKmh or ZERO.ZeroKmh
+		kmh = lerp(range[1], range[2], qContact) * stats.Power
 	end
 	local boom = kind == "Spike" and reaction(ctx)
 	if boom then
