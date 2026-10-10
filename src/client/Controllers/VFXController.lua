@@ -350,6 +350,17 @@ local function updateLines(dt)
 	end
 end
 
+-- Where the ball sits in a frozen frame: on the tip of the hitter's right hand in that pose (the
+-- owner: "its swinging right below the ball"), so the frame always shows the hit; `fallback`
+-- when the clone has no hand.
+local function handBall(clone, fallback)
+	local hand = clone and (clone:FindFirstChild("RightHand", true) or clone:FindFirstChild("Right Arm", true))
+	if not hand or not hand:IsA("BasePart") then
+		return fallback
+	end
+	return (hand.CFrame * CFrame.new(0, -(hand.Size.Y / 2 + Config.Ball.Radius * 0.8), 0)).Position
+end
+
 local function silhouette(model, vp)
 	local was = model.Archivable
 	model.Archivable = true
@@ -546,6 +557,7 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color)
 		ball.Anchored = true
 		ball.Color = Color3.new(0, 0, 0)
 		ball.Material = Enum.Material.SmoothPlastic
+		ballPos = handBall(clone, ballPos)
 		ball.CFrame = CFrame.new(ballPos)
 		ball.Parent = clone.Parent
 	end
@@ -617,6 +629,7 @@ function VFXController.darkFrame(entityId, ballPos, duration, color)
 		ball.Anchored = true
 		ball.Color = color or Color3.fromRGB(255, 200, 60)
 		ball.Material = Enum.Material.SmoothPlastic
+		ballPos = handBall(clone, ballPos)
 		ball.CFrame = CFrame.new(ballPos)
 		ball.Parent = clone.Parent
 	end
