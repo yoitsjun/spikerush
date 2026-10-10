@@ -24,8 +24,6 @@ local Util = require(Shared.Util)
 local BallPhysics = require(Shared.BallPhysics)
 local Spins = require(Shared.Spins)
 local Court = require(Shared.Court)
-local Characters = require(Shared.Characters)
-local HitLogic = require(Shared.HitLogic)
 local State = require(script.Parent.State)
 local Fx = require(script.Parent.Fx)
 
@@ -1430,7 +1428,7 @@ function VFXController.chargeOf(model)
 	return fx and math.min(fx.energy or 0, 1) or nil
 end
 
--- Skyward: her peak (the top of her jump this set) as a marker that stays over her, a pink line
+-- Skyward: her highest spike this set as a marker left where she met it, a pink line
 -- at that height with the metres on it (the owner: "make the top spike indicator stay there").
 local peakMarks = {} -- model -> { anchor, gui, text }
 local function updatePeaks()
@@ -1439,10 +1437,9 @@ local function updatePeaks()
 		for _, team in ipairs(Config.TeamOrder) do
 			for _, e in ipairs(State.roster(team)) do
 				local model = Util.modelOf(e.id)
-				local lift = model and model:GetAttribute("Lift")
-				local hrp = model and model:FindFirstChild("HumanoidRootPart")
-				local stats = lift and hrp and Characters.fromAttributes(model)
-				if stats then
+				local peak = model and model:GetAttribute("PeakM")
+				local py, pz = model and model:GetAttribute("PeakY"), model and model:GetAttribute("PeakZ")
+				if peak and py and pz then
 					seen[model] = true
 					local m = peakMarks[model]
 					if not m then
@@ -1473,12 +1470,10 @@ local function updatePeaks()
 						m = { anchor = anchor, gui = gui, text = text }
 						peakMarks[model] = m
 					end
-					local top = stats.ContactMaxM - (stats.Lift or 0) + HitLogic.skyLift(lift)
-					m.text.Text = string.format("%.2f m", top)
-					-- the line sits at her hitting point, in one place over her side's attack spot (the
-					-- owner: "dont make it move with the character")
-					local sideOf = State.sideOfEntity(e.id) or (hrp.Position.Z >= 0 and 1 or -1)
-					m.anchor.CFrame = CFrame.new(0, Characters.studsAt(top) + 0.8, sideOf * Config.Hits.OpenDepth)
+					-- right where her highest spike this set was met (the owner: "literally where her highest
+					-- spike was"), and it stays there until she beats it
+					m.text.Text = string.format("%.2f m", peak)
+					m.anchor.CFrame = CFrame.new(0, py + 0.8, pz)
 				end
 			end
 		end

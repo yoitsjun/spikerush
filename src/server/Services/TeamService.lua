@@ -326,6 +326,20 @@ function TeamService.setLift(e, value)
 	refreshBoosts(e.team)
 end
 
+-- Skyward: where her highest spike this set was met (metres, and the ball's world height and z),
+-- for the marker that stays there; nil clears it.
+function TeamService.setPeak(e, m, y, z)
+	e.peakM = m
+	local model = TeamService.getModel(e)
+	for _, inst in ipairs({ model or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("PeakM", m)
+			inst:SetAttribute("PeakY", m and y or nil)
+			inst:SetAttribute("PeakZ", m and z or nil)
+		end
+	end
+end
+
 -- A new set: meters that build over a set start again (Rising Sun follows the score).
 function TeamService.resetSetAbilities()
 	for _, e in pairs(TeamService.entities) do
@@ -333,6 +347,7 @@ function TeamService.resetSetAbilities()
 			TeamService.setCounter(e, 0)
 		elseif e.ability == "Skyward" then
 			TeamService.setLift(e, nil) -- back to the bottom of her climb
+			TeamService.setPeak(e, nil)
 		end
 	end
 end

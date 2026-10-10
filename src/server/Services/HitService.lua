@@ -269,6 +269,10 @@ function HitService.process(entity, input, opts)
 		if after > before then
 			TS.setLift(entity, after)
 		end
+		-- her highest spike this set, right where she met it (the marker stays there)
+		if meta.height and meta.height > (entity.peakM or 0) then
+			TS.setPeak(entity, meta.height, input.ball.Y, input.ball.Z)
+		end
 	end
 	if meta.firstStrike then
 		-- Feral Leap's first full charge of the match is spent (the client predicts from this too)
