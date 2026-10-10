@@ -1510,6 +1510,16 @@ local function onRequest(plr, op, a, b)
 		if l and l.state == "Open" and not l.cup and Lobbies.swap(l, plr.UserId) then
 			markDirty()
 		end
+	elseif op == "move" then
+		-- the host puts a player on the other team (swapping when it's full)
+		local l = LobbyService.lobbyOf(plr)
+		local target = tonumber(a)
+		if l and l.host == plr.UserId and target and Lobbies.hostMove(l, target) then
+			if target ~= plr.UserId then
+				notify(Players:GetPlayerByUserId(target), "The host moved you to the other team.")
+			end
+			markDirty()
+		end
 	elseif op == "kick" then
 		local l = LobbyService.lobbyOf(plr)
 		local target = tonumber(a)

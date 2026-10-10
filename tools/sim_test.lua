@@ -964,6 +964,15 @@ do
 	local sum = Lobbies.summary(custom, 1)
 	check(custom.points == 21 and custom.winBy == 1 and custom.sets == 3 and custom.timeouts == 4 and back.points == 21 and back.winBy == 1 and back.sets == 3 and back.timeouts == 4 and sum.points == 21 and sum.sets == 3,
 		"a custom lobby keeps its rules, shows them in its summary and takes them along to its own server")
+	-- the host moves players between the teams: across while there's room, a swap when it's full
+	local mv = Lobbies.new(46, 1, "a", Lobbies.settings({ mode = 2 }))
+	for _, u in ipairs({ 1, 2, 3 }) do Lobbies.seat(mv, u) end -- Home 1, 3; Away 2
+	local movedAcross = Lobbies.hostMove(mv, 3) and #mv.Home == 1 and #mv.Away == 2 and Lobbies.teamOf(mv, 3) == "Away"
+	Lobbies.seat(mv, 4) -- Home 1, 4; Away 2, 3
+	local swapped = Lobbies.hostMove(mv, 4) and Lobbies.teamOf(mv, 4) == "Away" and Lobbies.teamOf(mv, 3) == "Home" and #mv.Home == 2 and #mv.Away == 2
+	local qmv = Lobbies.new(47, 1, "a", Lobbies.settings({ mode = 2 })); qmv.quick = true; Lobbies.seat(qmv, 1); Lobbies.seat(qmv, 2)
+	check(movedAcross and swapped and not Lobbies.hostMove(qmv, 2) and not Lobbies.hostMove(mv, 99),
+		"the host moves a player to the other team, or swaps them with that spot when it's full; not in Quick Match")
 	-- the host picks the characters of the bot spots, from the whole roster
 	local pk = Lobbies.new(42, 1, "a", Lobbies.settings({ mode = 3 }))
 	Lobbies.seat(pk, 1, "Home")

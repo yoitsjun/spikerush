@@ -277,6 +277,28 @@ function Lobbies.swap(l, userId)
 	return true
 end
 
+-- The host moves a player to the other team (the owner: "custom match host can switch around
+-- player teams"): into the other team when it has room, else swapped with the player in the same
+-- spot there (or its last one). Returns whether anything moved.
+function Lobbies.hostMove(l, userId)
+	local side, i = Lobbies.teamOf(l, userId)
+	if not side or l.state ~= "Open" or l.quick or l.cup then
+		return false
+	end
+	local other = side == "Home" and "Away" or "Home"
+	if #l[other] < l.mode then
+		table.remove(l[side], i)
+		table.insert(l[other], userId)
+		return true
+	end
+	local j = math.min(i, #l[other])
+	if j < 1 then
+		return false
+	end
+	l[side][i], l[other][j] = l[other][j], l[side][i]
+	return true
+end
+
 -- Take a player out; the host passes to the next member. Returns true when nobody is left.
 function Lobbies.remove(l, userId)
 	local side, i = Lobbies.teamOf(l, userId)

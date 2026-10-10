@@ -4251,13 +4251,20 @@ local function buildMatch()
 		for s = 1, 3 do
 			local row = make("Frame", { Size = UDim2.new(1, -24, 0, 54), Position = UDim2.fromOffset(12, 56 + (s - 1) * 62), BackgroundColor3 = Gui.NAVY, BackgroundTransparency = 0.4, BorderSizePixel = 0 }, col)
 			make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.7, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, row)
-			local nm = Gui.label(row, { Text = "", display = true, TextSize = 21, RichText = true, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -164, 1, 0), Position = UDim2.fromOffset(14, 0) })
+			local nm = Gui.label(row, { Text = "", display = true, TextSize = 21, RichText = true, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -180, 1, 0), Position = UDim2.fromOffset(14, 0) })
 			local tag = Gui.plate(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -92, 0.5, 0), Size = UDim2.fromOffset(58, 22), Visible = false }, Gui.SIGNAL)
 			Gui.label(tag, { Text = "HOST", display = true, TextSize = 13, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
 			local kick = hairButton(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(76, 32), Visible = false }, "Remove", 14)
 			-- on a bot spot the host picks the character it plays
 			local pickB, pickL = hairButton(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(76, 32), Visible = false }, "Pick", 14)
-			local slot = { row = row, name = nm, tag = tag, kick = kick, pick = pickB, pickLabel = pickL }
+			-- the host moves a player to the other team (swapping with that spot when it's full)
+			local moveB = hairButton(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -90, 0.5, 0), Size = UDim2.fromOffset(76, 32), Visible = false }, "Move", 14)
+			local slot = { row = row, name = nm, tag = tag, kick = kick, pick = pickB, pickLabel = pickL, move = moveB }
+			onClick(moveB, function()
+				if slot.userId then
+					Net.get("Lobby"):FireServer("move", slot.userId)
+				end
+			end)
 			onClick(kick, function()
 				if slot.userId then
 					Net.get("Lobby"):FireServer("kick", slot.userId)
@@ -4545,6 +4552,7 @@ local function refreshMatch()
 					slot.name.TextColor3 = who.id == player.UserId and Gui.SIGNAL or Gui.CHALK
 					slot.tag.Visible = who.host == true
 					slot.kick.Visible = mine.isHost and who.id ~= player.UserId and mine.state == "Open"
+					slot.move.Visible = slot.kick.Visible and not mine.quick and not mine.cup
 				else
 					local pickId = mine.picks and mine.picks[team] and mine.picks[team][s] or ""
 					local pc = pickId ~= "" and Roster.get(pickId) or nil
@@ -4556,6 +4564,7 @@ local function refreshMatch()
 					slot.name.TextColor3 = Gui.DIM
 					slot.tag.Visible = false
 					slot.kick.Visible = false
+					slot.move.Visible = false
 				end
 				slot.pick.Visible = who == nil and mine.isHost and mine.fill and mine.picks ~= nil and mine.state == "Open"
 				local picked = mine.picks and mine.picks[team] and mine.picks[team][s] or ""
