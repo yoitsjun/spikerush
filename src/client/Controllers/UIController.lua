@@ -1811,8 +1811,13 @@ local function updateTimeout()
 	b.Visible = show
 	local f = ui.forfeit
 	f.Visible = show and State.phase() ~= "MatchEnd"
+	local fv = State.match.forfeitVote and State.match.forfeitVote[State.myTeam or ""]
 	if ui.forfeitArmed and os.clock() - ui.forfeitArmed < 3 then
 		ui.forfeitCap.Text = "Sure?"
+		ui.forfeitCap.TextColor3 = UI.Whistle
+	elseif fv then
+		ui.forfeitArmed = nil
+		ui.forfeitCap.Text = string.format("Forfeit %d/%d", fv[1], fv[2]) -- your team's vote so far
 		ui.forfeitCap.TextColor3 = UI.Whistle
 	else
 		ui.forfeitArmed = nil
@@ -2025,6 +2030,14 @@ local function onAnnounce(a)
 		end
 	elseif a.kind == "Forfeit" then
 		UIController.callout("Forfeit", teamColor(a.team), teamName(a.team) .. " gave up the match", 1.6)
+	elseif a.kind == "ForfeitVote" and a.team == State.myTeam then
+		-- your team's forfeit vote: everyone on it has to press Forfeit for it to count
+		local t = a.tally or { 0, 1 }
+		if a.off then
+			showHint(string.format("%s took back their forfeit vote (%d/%d)", a.name or "A teammate", t[1], t[2]))
+		else
+			showHint(string.format("%s votes to forfeit: %d/%d. Everyone on the team has to press Forfeit", a.name or "A teammate", t[1], t[2]))
+		end
 	elseif a.kind == "TimeoutCalled" then
 		if a.id == State.myId then
 			showHint("Timeout called for the next dead ball. " .. timeoutKey() .. " again to call it off")

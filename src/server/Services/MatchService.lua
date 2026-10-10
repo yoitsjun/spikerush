@@ -39,6 +39,7 @@ MatchService.rallyHits = {}
 MatchService.pendingTimeout = nil
 MatchService.lobby = nil -- the lobby playing on this court
 MatchService.aborted = false
+MatchService.forfeitVotes = { Home = {}, Away = {} } -- userId -> when they voted (MatchService.forfeitTally)
 MatchService.setWinners = {} -- the team that won each set so far
 MatchService.totals = { Home = 0, Away = 0 } -- points over the whole match
 MatchService.continueVotes = nil -- userId -> true (keep playing) / false (end), while voting
@@ -131,11 +132,39 @@ function MatchService.state()
 		timeoutPending = MatchService.pendingTimeout,
 		lobbyId = l and l.id,
 		continueVote = MatchService.continueVotes and { tallyContinue() } or nil,
+		forfeitVote = MatchService.forfeitTally(), -- per team: { votes, needed } while a vote is open
 		timeoutReady = MatchService.timeoutReady and { tallyReady() } or nil,
 		tutorial = l and l.tutorial or nil,
 		court = MatchService.court,
 		practice = MatchService.practice, -- the drill in play (PracticeService), or nil
 	}
+end
+
+-- A team's forfeit vote (the owner: "forfeits only count if the whole team votes yes"): the
+-- votes still standing (Match.ForfeitVoteTime) from players on the team, and how many it needs
+-- (every player on it: bots don't vote). Per team { votes, needed }, nil for a team with no vote.
+function MatchService.forfeitTally()
+	local TS = reg.TeamService
+	local out = nil
+	local now = os.clock()
+	for _, team in ipairs(Config.TeamOrder) do
+		local votes = MatchService.forfeitVotes and MatchService.forfeitVotes[team] or {}
+		local n, need = 0, 0
+		for _, m in ipairs(TS.members(team)) do
+			if not m.isBot and m.player then
+				need = need + 1
+				local t = votes[m.player.UserId]
+				if t and now - t < M.ForfeitVoteTime then
+					n = n + 1
+				end
+			end
+		end
+		if n > 0 then
+			out = out or {}
+			out[team] = { n, math.max(need, 1) }
+		end
+	end
+	return out
 end
 
 function MatchService.broadcast()
@@ -627,6 +656,7 @@ function MatchService.playMatch()
 	TS.resetStats()
 	MatchService.pendingTimeout = nil
 	MatchService.forfeitTeam = nil
+	MatchService.forfeitVotes = { Home = {}, Away = {} }
 	MatchService.aborted = false
 	MatchService.scores = { Home = 0, Away = 0 }
 	MatchService.lossStreak = { Home = 0, Away = 0 } -- points each team has lost in a row (stamina comes back faster)
@@ -811,7 +841,8 @@ function MatchService.init(r)
 		MatchService.continueVotes[plr.UserId] = keep == true
 		MatchService.broadcast()
 	end)
-	-- a player gives up the match for their team (the client asks twice before sending)
+	-- a player votes to give up the match for their team (the client asks twice before sending);
+	-- pressing again takes the vote back. It goes through once every player on the team voted
 	Net.get("Forfeit").OnServerEvent:Connect(function(plr)
 		local TS = reg.TeamService
 		local e = TS.entityForPlayer(plr)
@@ -819,8 +850,24 @@ function MatchService.init(r)
 		if not e or not TS.inMatch or MatchService.forfeitTeam or phase == "MatchEnd" or phase == "Intermission" then
 			return
 		end
-		MatchService.forfeitTeam = e.team
-		MatchService.announce({ kind = "Forfeit", team = e.team, name = e.name })
+		local votes = MatchService.forfeitVotes[e.team]
+		local now = os.clock()
+		if votes[plr.UserId] and now - votes[plr.UserId] < M.ForfeitVoteTime then
+			votes[plr.UserId] = nil
+			MatchService.announce({ kind = "ForfeitVote", team = e.team, name = e.name, off = true, tally = MatchService.forfeitTally()[e.team] })
+			MatchService.broadcast()
+			return
+		end
+		votes[plr.UserId] = now
+		local tally = MatchService.forfeitTally()[e.team]
+		if tally and tally[1] >= tally[2] then
+			MatchService.forfeitVotes[e.team] = {}
+			MatchService.forfeitTeam = e.team
+			MatchService.announce({ kind = "Forfeit", team = e.team, name = e.name })
+		else
+			MatchService.announce({ kind = "ForfeitVote", team = e.team, name = e.name, tally = tally })
+			MatchService.broadcast()
+		end
 	end)
 	Net.get("ClientReady").OnServerEvent:Connect(function(plr)
 		Net.get("MatchState"):FireClient(plr, MatchService.state())
