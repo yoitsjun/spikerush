@@ -1072,7 +1072,7 @@ Config.Match = {
 	Custom = { PointsMin = 3, PointsMax = 50, Sets = { 1, 3, 5 }, TimeoutsMax = 5 },
 	-- a forfeit counts as a win (record, streak, VP) for the other side only after this many points
 	-- were played in the match (MatchService.results)
-	ForfeitWinMinPoints = 10,
+	ForfeitWinMinPoints = 5, -- (the owner: "about 3 or 5")
 	-- the matchup intro (LineupController): a wipe opens each team's turn (Open for the first,
 	-- Wipe after), each team lined up in its poses for TeamTime, then both names meet for
 	-- VersusTime and it fades to the court; the pre-match wait covers all of it
