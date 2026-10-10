@@ -761,6 +761,8 @@ Config.TierColors = {
 	-- or maybe a different color altogether like green"): S- is a bright green, brighter than C's,
 	-- on its badges and in the recruit when you pull one
 	["S-"] = Color3.fromRGB(70, 240, 130),
+	-- the owner: "make this S+ red" (S+ is Mythic, whose pulls already glow red)
+	["S+"] = Color3.fromRGB(255, 55, 65),
 }
 
 -- Abilities come with a character (the Roster module). S+ wing spikers: Thunder Spiker, Azure Dragon or Feral Leap.
