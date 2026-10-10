@@ -496,7 +496,8 @@ end
 -- white between letterbox bars): while the ball holds on the hand, a close shot of the hitter
 -- and the ball in black on white, pushing in slowly; it snaps away as the ball fires.
 local freezeGui = nil
--- the screen the freeze frames draw on, emptied
+local freezeToken = nil -- the frame on screen now (an older one's cleanup leaves a newer one be)
+-- the screen the freeze frames draw on, emptied; returns the new frame's token
 local function freezeScreen()
 	if not freezeGui then
 		freezeGui = Instance.new("ScreenGui")
@@ -507,7 +508,8 @@ local function freezeScreen()
 		freezeGui.Parent = player:WaitForChild("PlayerGui")
 	end
 	freezeGui:ClearAllChildren()
-	return freezeGui
+	freezeToken = {}
+	return freezeToken
 end
 
 function VFXController.freezeFrame(entityId, ballPos, duration, color)
@@ -517,7 +519,7 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color)
 	if not cam or not hrp or duration <= 0.05 then
 		return false
 	end
-	freezeScreen()
+	local token = freezeScreen()
 	local bg = Instance.new("Frame")
 	bg.Size = UDim2.fromScale(1, 1)
 	bg.BackgroundColor3 = color or WHITE -- (Dante's First Strike: purple, the owner's call)
@@ -564,8 +566,10 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color)
 		TweenService:Create(bg, TweenInfo.new(0.08), { BackgroundTransparency = 1 }):Play()
 		TweenService:Create(vp, TweenInfo.new(0.08), { ImageTransparency = 1 }):Play()
 		task.delay(0.09, function()
-			freezeGui.Enabled = false
-			freezeGui:ClearAllChildren()
+			if freezeToken == token then
+				freezeGui.Enabled = false
+				freezeGui:ClearAllChildren()
+			end
 		end)
 	end)
 	return true
@@ -580,7 +584,7 @@ function VFXController.darkFrame(entityId, ballPos, duration, color)
 	if not cam or not model or duration <= 0.05 then
 		return false
 	end
-	freezeScreen()
+	local token = freezeScreen()
 	local shade = Instance.new("Frame")
 	shade.Size = UDim2.fromScale(1, 1)
 	shade.BackgroundColor3 = Color3.fromRGB(4, 4, 10)
@@ -635,8 +639,10 @@ function VFXController.darkFrame(entityId, ballPos, duration, color)
 		TweenService:Create(vp, out, { ImageTransparency = 1 }):Play()
 		TweenService:Create(glow, out, { ImageTransparency = 1 }):Play()
 		task.delay(0.11, function()
-			freezeGui.Enabled = false
-			freezeGui:ClearAllChildren()
+			if freezeToken == token then
+				freezeGui.Enabled = false
+				freezeGui:ClearAllChildren()
+			end
 		end)
 	end)
 	return true
@@ -1850,7 +1856,16 @@ local function onHit(snap)
 		if meta.zero then
 			-- Zero Point: the freeze frame while it holds, then the beam, the rings and a white burst;
 			-- nothing else on top of it
-			VFXController.freezeFrame(meta.id, pos, fires)
+			-- first the court goes dark around him, lit white with the ball glowing on his hand, then
+			-- the silhouette cut-in
+			local darkFor = math.min(Config.Abilities.ZeroPoint.FreezeDark, fires)
+			if VFXController.darkFrame(meta.id, pos, darkFor, WHITE) then
+				task.delay(darkFor, function()
+					VFXController.freezeFrame(meta.id, pos, fires - darkFor)
+				end)
+			else
+				VFXController.freezeFrame(meta.id, pos, fires)
+			end
 			task.delay(fires, function()
 				zeroBeam(snap.path)
 				Fx.play("PerfectImpact", pos, { color = WHITE, scale = 1.6 })
@@ -1882,11 +1897,7 @@ local function onHit(snap)
 		-- the S+ signature hits (a Thunder spike, a full Azure, a full Feral Leap): the court goes
 		-- dark around the hitter, lit white with the ball glowing on the hand, while it holds; the
 		-- rest of the hit plays as it fires (the owner's reference)
-		local dark = (meta.thunder or meta.pierce or meta.fullLeap) and not meta.firstStrike
-		if dark then
-			local col = meta.thunder and THUNDER or (meta.pierce and AZURE) or FERAL
-			dark = VFXController.darkFrame(meta.id, pos, fires, col)
-		end
+		local dark = false -- (the dark frame is Zero Point's alone now: the owner, "just the white spiker guy")
 		task.delay(dark and fires or 0, function()
 			if heavy or meta.thunder or meta.energy or meta.gauge then
 				local ring = meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL) or WHITE

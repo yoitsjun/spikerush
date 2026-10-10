@@ -155,7 +155,7 @@ Config.Hits = {
 	ContactWeight = 0.62, -- spike quality = contact * this + jump height * (1 - this)
 	HitStopPerfect = 0.1, -- the ball freezes on the hand this long: weight on a clean hit
 	HitStopGreat = 0.06,
-	HitStopThunder = 0.26, -- the S+ signature hits (Thunder, a full Azure, a full Feral Leap): a dark freeze frame on the hit (the owner's reference; was 0.13)
+	HitStopThunder = 0.13,
 
 	-- Feints (roll shots)
 	FeintKmh = 32,
@@ -990,7 +990,10 @@ Config.Abilities = {
 		-- the owner: "play a small cutscene when he hits it and freeze on the frame of impact": the ball
 		-- holds on his hand this long (everyone sees it) while he hangs in the air and the camera cuts
 		-- in on him, then it fires
-		Freeze = 0.45,
+		-- the first FreezeDark of it stops on the hit with the court gone dark and him lit white (the
+		-- owner's second reference, "just the white spiker guy"), the rest is the silhouette cut-in
+		Freeze = 0.6,
+		FreezeDark = 0.25,
 		DrainMul = 1.3, -- digging one costs this much more stamina
 	},
 	-- Seora (the owner: "a jump that starts low, but the higher spike point she gets the higher her
