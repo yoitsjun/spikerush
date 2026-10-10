@@ -155,7 +155,7 @@ Config.Hits = {
 	ContactWeight = 0.62, -- spike quality = contact * this + jump height * (1 - this)
 	HitStopPerfect = 0.1, -- the ball freezes on the hand this long: weight on a clean hit
 	HitStopGreat = 0.06,
-	HitStopThunder = 0.13,
+	HitStopThunder = 0.26, -- the S+ signature hits (Thunder, a full Azure, a full Feral Leap): a dark freeze frame on the hit (the owner's reference; was 0.13)
 
 	-- Feints (roll shots)
 	FeintKmh = 32,

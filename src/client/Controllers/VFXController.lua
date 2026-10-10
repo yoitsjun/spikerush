@@ -496,13 +496,8 @@ end
 -- white between letterbox bars): while the ball holds on the hand, a close shot of the hitter
 -- and the ball in black on white, pushing in slowly; it snaps away as the ball fires.
 local freezeGui = nil
-function VFXController.freezeFrame(entityId, ballPos, duration, color)
-	local cam = workspace.CurrentCamera
-	local model = Util.modelOf(entityId)
-	local hrp = model and model:FindFirstChild("HumanoidRootPart")
-	if not cam or not hrp or duration <= 0.05 then
-		return false
-	end
+-- the screen the freeze frames draw on, emptied
+local function freezeScreen()
 	if not freezeGui then
 		freezeGui = Instance.new("ScreenGui")
 		freezeGui.Name = "SpikeRushFreeze"
@@ -512,6 +507,17 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color)
 		freezeGui.Parent = player:WaitForChild("PlayerGui")
 	end
 	freezeGui:ClearAllChildren()
+	return freezeGui
+end
+
+function VFXController.freezeFrame(entityId, ballPos, duration, color)
+	local cam = workspace.CurrentCamera
+	local model = Util.modelOf(entityId)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not cam or not hrp or duration <= 0.05 then
+		return false
+	end
+	freezeScreen()
 	local bg = Instance.new("Frame")
 	bg.Size = UDim2.fromScale(1, 1)
 	bg.BackgroundColor3 = color or WHITE -- (Dante's First Strike: purple, the owner's call)
@@ -558,6 +564,77 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color)
 		TweenService:Create(bg, TweenInfo.new(0.08), { BackgroundTransparency = 1 }):Play()
 		TweenService:Create(vp, TweenInfo.new(0.08), { ImageTransparency = 1 }):Play()
 		task.delay(0.09, function()
+			freezeGui.Enabled = false
+			freezeGui:ClearAllChildren()
+		end)
+	end)
+	return true
+end
+
+-- The dark freeze frame (the S+ signature hits; the owner's reference: the court goes dark, the
+-- hitter lit white and the ball glowing in their hand): the same view as the game's camera, held
+-- while the ball holds on the hand.
+function VFXController.darkFrame(entityId, ballPos, duration, color)
+	local cam = workspace.CurrentCamera
+	local model = Util.modelOf(entityId)
+	if not cam or not model or duration <= 0.05 then
+		return false
+	end
+	freezeScreen()
+	local shade = Instance.new("Frame")
+	shade.Size = UDim2.fromScale(1, 1)
+	shade.BackgroundColor3 = Color3.fromRGB(4, 4, 10)
+	shade.BackgroundTransparency = 0.22
+	shade.BorderSizePixel = 0
+	shade.Parent = freezeGui
+	-- the hitter and the ball, lit white, over the dark
+	local vp = Instance.new("ViewportFrame")
+	vp.Size = UDim2.fromScale(1, 1)
+	vp.BackgroundTransparency = 1
+	vp.Ambient = Color3.fromRGB(235, 235, 245)
+	vp.LightColor = WHITE
+	vp.LightDirection = Vector3.new(1, -1, 0)
+	vp.Parent = freezeGui
+	local vcam = Instance.new("Camera")
+	vcam.CFrame = cam.CFrame
+	vcam.FieldOfView = cam.FieldOfView
+	vcam.Parent = vp
+	vp.CurrentCamera = vcam
+	local clone = silhouette(model, vp)
+	if clone then
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Color = Color3.fromRGB(245, 245, 250)
+			end
+		end
+		local ball = Instance.new("Part")
+		ball.Shape = Enum.PartType.Ball
+		ball.Size = Vector3.one * (Config.Ball.Radius * 2)
+		ball.Anchored = true
+		ball.Color = color or Color3.fromRGB(255, 200, 60)
+		ball.Material = Enum.Material.SmoothPlastic
+		ball.CFrame = CFrame.new(ballPos)
+		ball.Parent = clone.Parent
+	end
+	-- a soft glow where the hand meets the ball
+	local sp = cam:WorldToViewportPoint(ballPos)
+	local glow = Instance.new("ImageLabel")
+	glow.AnchorPoint = Vector2.new(0.5, 0.5)
+	glow.Position = UDim2.fromOffset(sp.X, sp.Y)
+	glow.Size = UDim2.fromOffset(cam.ViewportSize.Y * 0.28, cam.ViewportSize.Y * 0.28)
+	glow.BackgroundTransparency = 1
+	glow.Image = Assets.id(Assets.Fx.Glow) or ""
+	glow.ImageColor3 = WHITE
+	glow.ImageTransparency = 0.05
+	glow.ZIndex = 2
+	glow.Parent = freezeGui
+	freezeGui.Enabled = true
+	task.delay(duration, function()
+		local out = TweenInfo.new(0.1)
+		TweenService:Create(shade, out, { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(vp, out, { ImageTransparency = 1 }):Play()
+		TweenService:Create(glow, out, { ImageTransparency = 1 }):Play()
+		task.delay(0.11, function()
 			freezeGui.Enabled = false
 			freezeGui:ClearAllChildren()
 		end)
@@ -1802,88 +1879,102 @@ local function onHit(snap)
 				shaker.kick(-6)
 			end
 		end
-		if heavy or meta.thunder or meta.energy or meta.gauge then
-			local ring = meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL) or WHITE
-			boomRings(snap.path, ring, (meta.thunder or meta.fullLeap) and 3 or 2)
-			if close then
-				VFXController.neonStreaks(pos, meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL_HOT) or HOT)
-			end
+		-- the S+ signature hits (a Thunder spike, a full Azure, a full Feral Leap): the court goes
+		-- dark around the hitter, lit white with the ball glowing on the hand, while it holds; the
+		-- rest of the hit plays as it fires (the owner's reference)
+		local dark = (meta.thunder or meta.pierce or meta.fullLeap) and not meta.firstStrike
+		if dark then
+			local col = meta.thunder and THUNDER or (meta.pierce and AZURE) or FERAL
+			dark = VFXController.darkFrame(meta.id, pos, fires, col)
 		end
-		if meta.thunder then
-			Fx.play("ThunderImpact", pos)
-			for _ = 1, 3 do
-				local d = (vdir + Vector3.new(0, (math.random() - 0.5) * 1.2, (math.random() - 0.5) * 1.2)).Unit
-				bolt(pos, d, 7 + math.random() * 5, THUNDER)
-			end
-			thunderPath(snap.path)
-			if close then
-				VFXController.impactFrame(meta.id, THUNDER)
-				VFXController.speedLines(0.5, Color3.fromRGB(255, 244, 180), dirZ)
-				shaker.shake(0.75)
-				shaker.kick(-8)
-			end
-		elseif meta.energy then
-			local e = math.min(meta.energy, 1)
-			Fx.play("AzureImpact", pos, { scale = 0.7 + 0.4 * e })
-			if meta.pierce then
-				VFXController.popup(pos, "Pierce!", AZURE, 1.1)
-			end
-			if meta.overcharge then
-				VFXController.popup(pos, "Overcharged!", HOT, 0.9)
-			end
-			if close and e >= 0.9 then
-				VFXController.impactFrame(meta.id, Color3.fromRGB(40, 120, 255))
-				shaker.shake(0.7)
-				shaker.kick(-7)
-			elseif close then
-				shaker.shake(0.4)
-			end
-			if close then
-				VFXController.speedLines(0.35 + 0.2 * e, Color3.fromRGB(190, 240, 255), dirZ)
-			end
-		elseif meta.gauge then
-			-- Feral Leap: a magenta burst that grows with the charge; a full one freezes the frame,
-			-- and his first full one of the match says so
-			local g = meta.gauge
-			-- (a First Strike's freeze frame holds it all back until the ball fires)
-			task.delay(meta.firstStrike and fires or 0, function()
-				Fx.play("PerfectImpact", pos, { color = FERAL_HOT, scale = 0.8 + 0.5 * g })
-				if meta.firstStrike then
-					Fx.play("Burst", pos, { color = FERAL, scale = 1.3 })
-					VFXController.popup(pos + Vector3.new(0, 2.6, 0), "First Strike!", FERAL_HOT, 1.4)
+		task.delay(dark and fires or 0, function()
+			if heavy or meta.thunder or meta.energy or meta.gauge then
+				local ring = meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL) or WHITE
+				boomRings(snap.path, ring, (meta.thunder or meta.fullLeap) and 3 or 2)
+				if close then
+					VFXController.neonStreaks(pos, meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL_HOT) or HOT)
 				end
-				if close and (meta.fullLeap or g >= 0.9) then
-					if not meta.firstStrike then
-						VFXController.impactFrame(meta.id, FERAL)
+			end
+			if meta.thunder then
+				Fx.play("ThunderImpact", pos)
+				for _ = 1, 3 do
+					local d = (vdir + Vector3.new(0, (math.random() - 0.5) * 1.2, (math.random() - 0.5) * 1.2)).Unit
+					bolt(pos, d, 7 + math.random() * 5, THUNDER)
+				end
+				thunderPath(snap.path)
+				if close then
+					if not dark then
+						VFXController.impactFrame(meta.id, THUNDER)
 					end
-					shaker.shake(meta.firstStrike and 0.9 or 0.7)
-					shaker.kick(meta.firstStrike and -9 or -7)
-					if meta.firstStrike then
-						VFXController.flash(0.35, 0.25)
+					VFXController.speedLines(0.5, Color3.fromRGB(255, 244, 180), dirZ)
+					shaker.shake(0.75)
+					shaker.kick(-8)
+				end
+			elseif meta.energy then
+				local e = math.min(meta.energy, 1)
+				Fx.play("AzureImpact", pos, { scale = 0.7 + 0.4 * e })
+				if meta.pierce then
+					VFXController.popup(pos, "Pierce!", AZURE, 1.1)
+				end
+				if meta.overcharge then
+					VFXController.popup(pos, "Overcharged!", HOT, 0.9)
+				end
+				if close and e >= 0.9 then
+					if not dark then
+						VFXController.impactFrame(meta.id, Color3.fromRGB(40, 120, 255))
 					end
+					shaker.shake(0.7)
+					shaker.kick(-7)
 				elseif close then
-					shaker.shake(0.35 + 0.2 * g)
+					shaker.shake(0.4)
 				end
 				if close then
-					VFXController.speedLines(0.3 + 0.25 * g, FERAL_LIGHT, dirZ)
+					VFXController.speedLines(0.35 + 0.2 * e, Color3.fromRGB(190, 240, 255), dirZ)
 				end
-			end)
-		else
-			-- the attacker's spike colour (a V Points unlock) replaces the default hot pink
-			local tint = Spins.tint(Spins.equipped(model, "Color"))
-			local accent = tint or HOT
-			Fx.play(heavy and "PerfectImpact" or "SpikeImpact", pos, { color = tint or (heavy and HOT or nil) })
-			if close then
-				if heavy and meta.grade == "PERFECT" and kmh >= 132 then
-					VFXController.impactFrame(meta.id, accent)
+			elseif meta.gauge then
+				-- Feral Leap: a magenta burst that grows with the charge; a full one freezes the frame,
+				-- and his first full one of the match says so
+				local g = meta.gauge
+				-- (a First Strike's freeze frame holds it all back until the ball fires)
+				task.delay(meta.firstStrike and fires or 0, function()
+					Fx.play("PerfectImpact", pos, { color = FERAL_HOT, scale = 0.8 + 0.5 * g })
+					if meta.firstStrike then
+						Fx.play("Burst", pos, { color = FERAL, scale = 1.3 })
+						VFXController.popup(pos + Vector3.new(0, 2.6, 0), "First Strike!", FERAL_HOT, 1.4)
+					end
+					if close and (meta.fullLeap or g >= 0.9) then
+						if not meta.firstStrike and not dark then
+							VFXController.impactFrame(meta.id, FERAL)
+						end
+						shaker.shake(meta.firstStrike and 0.9 or 0.7)
+						shaker.kick(meta.firstStrike and -9 or -7)
+						if meta.firstStrike then
+							VFXController.flash(0.35, 0.25)
+						end
+					elseif close then
+						shaker.shake(0.35 + 0.2 * g)
+					end
+					if close then
+						VFXController.speedLines(0.3 + 0.25 * g, FERAL_LIGHT, dirZ)
+					end
+				end)
+			else
+				-- the attacker's spike colour (a V Points unlock) replaces the default hot pink
+				local tint = Spins.tint(Spins.equipped(model, "Color"))
+				local accent = tint or HOT
+				Fx.play(heavy and "PerfectImpact" or "SpikeImpact", pos, { color = tint or (heavy and HOT or nil) })
+				if close then
+					if heavy and meta.grade == "PERFECT" and kmh >= 132 then
+						VFXController.impactFrame(meta.id, accent)
+					end
+					if heavy then
+						VFXController.speedLines(0.35, WHITE, dirZ)
+						shaker.kick(-6)
+					end
+					shaker.shake(heavy and 0.55 or 0.25)
 				end
-				if heavy then
-					VFXController.speedLines(0.35, WHITE, dirZ)
-					shaker.kick(-6)
-				end
-				shaker.shake(heavy and 0.55 or 0.25)
 			end
-		end
+		end)
 		return
 	end
 

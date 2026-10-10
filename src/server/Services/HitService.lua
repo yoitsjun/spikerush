@@ -249,7 +249,7 @@ function HitService.process(entity, input, opts)
 	elseif meta.counterRelease then
 		TS.setCounter(entity, 0) -- her spike released it
 	end
-	if meta.zero or meta.firstStrike then
+	if meta.zero or meta.firstStrike or meta.thunder or meta.pierce or meta.fullLeap then
 		-- the freeze frame: the hitter hangs where they hit it while the ball holds on the hand
 		local root = TS.getRoot(entity)
 		if root and not root.Anchored then
