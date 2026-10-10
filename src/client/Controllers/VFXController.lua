@@ -350,14 +350,22 @@ local function updateLines(dt)
 	end
 end
 
--- The ball in a frozen frame sits on the tip of the hitter's right hand, in their real pose.
+-- The ball in a frozen frame sits on the tip of the hitter's hitting hand, in their real pose.
 -- The frames copy that pose a moment after the hit (the swing's first key is the reach up to the
 -- ball, AnimationController's SpikeReach; at the hit itself the arm is still down: the owner saw
 -- "ball appears below them"). `fallback` when there's no hand.
 local POSE_WAIT = 0.04
 local function handBall(clone, fallback)
-	local hand = clone and (clone:FindFirstChild("RightHand", true) or clone:FindFirstChild("Right Arm", true))
-	if not hand or not hand:IsA("BasePart") then
+	-- the hitting hand is the one reaching highest (the swing's arm; the owner: "the ball attaches
+	-- to the arm but the wrong one")
+	local hand = nil
+	for _, n in ipairs({ "RightHand", "LeftHand", "Right Arm", "Left Arm" }) do
+		local part = clone and clone:FindFirstChild(n, true)
+		if part and part:IsA("BasePart") and (not hand or part.Position.Y > hand.Position.Y) then
+			hand = part
+		end
+	end
+	if not hand then
 		return fallback
 	end
 	return (hand.CFrame * CFrame.new(0, -(hand.Size.Y / 2 + Config.Ball.Radius * 0.8), 0)).Position
