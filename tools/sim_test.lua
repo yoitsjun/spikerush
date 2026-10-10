@@ -439,7 +439,7 @@ do
 	local ids, okShape, okAbility, okLimits = {}, true, true, true
 	local tallestSE, shortestMB, notes = 0, 999, {}
 	local want = {
-		WS = { Adrenaline = true, RisingSun = true, Counter = true, Plunge = true },
+		WS = { Adrenaline = true, RisingSun = true, Counter = true, Plunge = true, Skyward = true },
 		MB = { IronWall = true, RallyCry = true },
 		SE = { ChainReaction = true, Vector = true, Turnabout = true },
 	}
@@ -450,7 +450,7 @@ do
 			okLimits = okLimits and c[k] >= Config.Stats.Min and c[k] <= Config.Stats.Max
 		end
 		if c.Tier == "S+" then
-			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint" or c.Ability == "Skyward")
+			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint")
 		elseif c.Tier == "S" then
 			okAbility = okAbility and want[c.Role][c.Ability or ""] == true and Config.Abilities[c.Ability].Role == c.Role
 		else
@@ -471,7 +471,7 @@ do
 		end
 	end
 	check(okLimits and #Roster >= 30, "every roster character is valid and unique", #Roster .. " characters")
-	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap, Zero Point or Skyward, S characters one of their role's abilities, the rest none")
+	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap or Zero Point, S characters one of their role's abilities, the rest none")
 	local topId, topAtk, nextAtk = nil, 0, 0
 	for _, c in ipairs(Roster) do
 		if c.Attack > topAtk then

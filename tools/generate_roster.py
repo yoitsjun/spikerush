@@ -6,8 +6,8 @@ four stats and possibly an ability:
   * WS: the highest Attack and Jump (up to 210 / 190 at the very top).
   * MB: the tallest, with a big Jump (about 180) and less Attack (about 170).
   * SE: Speed and Defense (160 to 180 at the top), light on Attack and Jump.
-Abilities come with the character: S+ wing spikers have Thunder Spiker, Azure Dragon, Feral Leap, Zero Point or Skyward;
-S characters have one of their role's abilities (WS Adrenaline, Rising Sun, Counter Edge or Plunge Spin;
+Abilities come with the character: S+ wing spikers have Thunder Spiker, Azure Dragon, Feral Leap or Zero Point;
+S characters have one of their role's abilities (WS Adrenaline, Rising Sun, Counter Edge, Plunge Spin or Skyward;
 MB Iron Wall or Rally Cry; SE Chain Reaction, Vector Set or Turnabout); everyone else has none.
 
 The top characters are hand-set (the owner named YeJun: Thunder, 190 Jump and 210 Attack; he
@@ -74,7 +74,7 @@ FIXED = [
     # Skyward (the owner: "a jump that starts low, but the higher spike point she gets the higher
     # her jump increases... a high max jump, than even yejun. at her peak, maybe 4.7-4.8"): her
     # Jump here is the middle of her climb (Config.Abilities.Skyward moves her hitting point)
-    {"Name": "Seora", "Role": "WS", "Tier": "S+", "Height": 178, "Attack": 196, "Defense": 118, "Speed": 150, "Jump": 196, "Ability": "Skyward"},
+    {"Name": "Seora", "Role": "WS", "Tier": "S", "Height": 178, "Attack": 196, "Defense": 118, "Speed": 150, "Jump": 196, "Ability": "Skyward"},
 ]
 
 # free for everyone: a D-tier character in each role

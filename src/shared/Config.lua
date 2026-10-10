@@ -1014,7 +1014,8 @@ Config.Abilities = {
 	-- can't clear the tape: it always comes down just over the net on their side.
 	Skyward = {
 		Name = "Skyward",
-		Tier = "S+",
+		Tier = "S", -- (the owner dropped Seora to S, keeping her Attack climb)
+		Role = "WS",
 		Blurb = "Your jump starts low and climbs: every spike raises your hitting point and your Attack, most when you meet it at the very top (up to about 4.75 m and +24 Attack maxed), until the set ends.",
 		Color = Color3.fromRGB(255, 120, 200),
 		StartLift = -0.45, -- metres on her hitting point at the start of a set
@@ -1030,7 +1031,7 @@ Config.Abilities = {
 		},
 	},
 }
-Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Skyward", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },
