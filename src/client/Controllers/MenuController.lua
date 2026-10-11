@@ -4117,7 +4117,21 @@ local function buildMatch()
 		local stateLabel = Gui.label(state, { Text = "", display = true, TextSize = 15, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
 		local join, joinPlate = Gui.plateButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(140, 44) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
 		local joinLabel = Gui.label(join, { Text = "Join", display = true, TextSize = 20, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
-		local entry = { frame = r, host = host, detail = detail, count = count, state = state, stateLabel = stateLabel, join = join, joinPlate = joinPlate, joinLabel = joinLabel }
+		-- a match being played: Spectate, next to Join, in the state plate's place
+		local watch = Gui.plateButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -164, 0.5, 0), Size = UDim2.fromOffset(130, 44), Visible = false }, Gui.NAVY_LIGHT, Gui.SIGNAL_HOT)
+		Gui.label(watch, { Text = "Spectate", display = true, TextSize = 19, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+		local entry = { frame = r, host = host, detail = detail, count = count, state = state, stateLabel = stateLabel, join = join, joinPlate = joinPlate, joinLabel = joinLabel, watch = watch }
+		onClick(watch, function()
+			local l = entry.lobby
+			if not l then
+				return
+			end
+			if l.remote then
+				Net.get("Lobby"):FireServer("watch", l.id)
+			else
+				MenuController.spectate(true) -- on this server's court
+			end
+		end)
 		onClick(join, function()
 			local l = entry.lobby
 			if not l then
@@ -4491,6 +4505,10 @@ local function refreshMatch()
 			row.stateLabel.Text = STATE_TEXT[l.state] or l.state
 			Gui.tint(row.state, l.state == "Open" and Color3.fromRGB(34, 150, 96) or Gui.NAVY_LIGHT)
 			local can = l.state == "Open" and l.count < l.capacity and not l.mine
+			-- spectate: a match here (on this court) or one another server lists as watchable
+			local watchable = l.state == "Playing" and not l.mine and not l.locked and (l.watch == true or not l.remote)
+			row.watch.Visible = watchable
+			row.state.Visible = not watchable
 			row.joinLabel.Text = l.mine and "Joined" or (l.locked and "Password" or "Join")
 			row.join.Active = can
 			Gui.fade(row.joinPlate, can and 0 or 0.55)
@@ -4629,7 +4647,6 @@ local MATCH_CARDS = {
 	{ key = "1", mode = 1, title = "1v1", icon = "IconAttack", art = "MatchRooftop" },
 	{ key = "Cups", title = "Tournaments", icon = "IconStar", art = "MatchColosseum", strip = "Pay in, win big" },
 	{ key = "Lobbies", title = "Lobbies", icon = "IconHome", art = "MatchNationals", strip = "Public, friends and private" },
-	{ key = "Spectate", title = "Spectate", icon = "IconPlayers", art = "MatchArena", strip = "Watch the match on this court" },
 	{ key = "Custom", title = "Custom", icon = "IconSettings", art = "MatchColosseum", strip = "Host your own lobby" },
 	{ key = "Practice", title = "Practice", icon = "IconJump", art = "MatchPractice", strip = "Drills and the tutorial" },
 }
@@ -4653,10 +4670,6 @@ local function pickMatchCard(c)
 	local mine = lobbies.mine
 	if mine and (mine.tutorial or mine.practice) then
 		mine = nil
-	end
-	if c.key == "Spectate" then
-		MenuController.spectate(true)
-		return
 	end
 	if c.key ~= "Practice" and Extra.mustTutorial() then
 		toast("Play the tutorial first: it's quick, and it pays.")
@@ -4830,13 +4843,6 @@ local function refreshMatchScreen(prof)
 				text = string.format("%d waiting", waiting[c.mode])
 			else
 				text = "Bots fill empty spots"
-			end
-		elseif c.key == "Spectate" then
-			local m = State.match
-			if m.inMatch and not m.practice and not State.isPlaying then
-				text, hot = string.format("Live: %d - %d", (m.scores and m.scores.Home) or 0, (m.scores and m.scores.Away) or 0), true
-			else
-				text = "No match on this court"
 			end
 		elseif c.key == "Lobbies" then
 			if mine and not mine.quick and not mine.isHost then
@@ -6113,8 +6119,9 @@ function MenuController.shown()
 end
 
 -- Spectate the match on this server's court (on), or stop (off): the menus hide and the match
--- plays out on screen; back to the menus when it ends. A match in another server (a reserved one)
--- can't be watched from here.
+-- plays out on screen; back to the menus when it ends. From Lobbies' Spectate buttons; a match in
+-- another server takes you to its server first (LobbyService "watch"), and stopping there takes
+-- you back to a public server ("home").
 function MenuController.spectate(on)
 	if on then
 		local m = State.match
@@ -6122,7 +6129,7 @@ function MenuController.spectate(on)
 			return
 		end
 		if not m.inMatch or m.practice then
-			toast("No match on this court right now. Matches in other servers can't be watched from here.")
+			toast("That match has finished.")
 			return
 		end
 		State.spectating = true
@@ -6130,6 +6137,9 @@ function MenuController.spectate(on)
 	else
 		State.spectating = false
 		setShown(not State.isPlaying)
+		if player:GetAttribute("Watching") then
+			Net.get("Lobby"):FireServer("home")
+		end
 	end
 	State.signals.Match:Fire()
 end
@@ -6253,6 +6263,13 @@ function MenuController.init(m)
 		-- a spectator goes back to the menus when the match ends (or when they're put in one)
 		if State.spectating and (not State.match.inMatch or State.isPlaying) then
 			State.spectating = false
+			if player:GetAttribute("Watching") and not State.isPlaying then
+				Net.get("Lobby"):FireServer("home")
+			end
+		end
+		-- sent here to spectate (from another server's Lobbies): watch as soon as the match is on
+		if player:GetAttribute("Watching") and not State.spectating and not State.isPlaying and State.match.inMatch and not State.match.practice then
+			State.spectating = true
 		end
 		setShown(not State.isPlaying and not State.spectating)
 		MenuController.refresh()

@@ -254,10 +254,16 @@ local function fixHost(l)
 	end
 end
 
+-- A match other servers' players can spectate (the owner: "if you click lobbies there is a
+-- spectate option right next to it"): one playing in this reserved server, not private.
+local function watchable(l)
+	return l.state == "Playing" and l.watchCode ~= nil and l.privacy ~= "Private"
+end
+
 -- Whether a lobby goes in the shared list: not hidden (practice), open, or holding players from
 -- elsewhere (they read it), or started with their reserved server's code.
 local function shared(l)
-	return net.on and not l.hidden and not l.cup and lobbies[l.id] == l and (l.state == "Open" or hasRemote(l) or l.launch ~= nil)
+	return net.on and not l.hidden and not l.cup and lobbies[l.id] == l and (l.state == "Open" or hasRemote(l) or l.launch ~= nil or watchable(l))
 end
 
 local function writeEntry(l, expire)
@@ -267,7 +273,7 @@ local function writeEntry(l, expire)
 	end
 	l.writing, l.viewDirty, l.listed = true, false, true
 	l.writtenAt = os.clock()
-	local entry = { fv = G.Format, job = net.job, view = l.view, code = l.launch and l.launch.code or nil, x = l.launch and l.launch.x or nil }
+	local entry = { fv = G.Format, job = net.job, view = l.view, code = l.launch and l.launch.code or nil, x = l.launch and l.launch.x or nil, wc = watchable(l) and l.watchCode or nil }
 	task.spawn(function()
 		local ok, err = pcall(function()
 			net.map:SetAsync(l.gid, entry, expire or G.Expire)
@@ -408,7 +414,8 @@ local function teleportPlayers(list, code, export)
 	end
 	local options = Instance.new("TeleportOptions")
 	options.ReservedServerAccessCode = code
-	options:SetTeleportData({ spikeRushLobby = export })
+	-- (the code too: the reserved server lists its match for spectators with it)
+	options:SetTeleportData({ spikeRushLobby = export, spikeRushCode = code })
 	return pcall(function()
 		TeleportService:TeleportAsync(game.PlaceId, list, options)
 	end)
@@ -1021,9 +1028,15 @@ local function onArrive(plr)
 		local join = plr:GetJoinData()
 		data = join and join.TeleportData
 	end)
+	if type(data) == "table" and data.spikeRushWatch == true then
+		plr:SetAttribute("Watching", true) -- came to spectate: the client watches the court
+		return
+	end
 	if not arrival and type(data) == "table" and data.spikeRushLobby then
 		local l = Lobbies.import(data.spikeRushLobby, newId())
 		if l then
+			local code = data.spikeRushCode
+			l.watchCode = (type(code) == "string" and #code > 0 and #code <= 200) and code or nil
 			l.state = "Arriving"
 			l.arriveBy = Util.now() + L.ArriveTimeout
 			l.Home, l.Away = {}, {}
@@ -1367,9 +1380,11 @@ local function payloadFor(plr)
 		for g, e in pairs(net.dir) do
 			local v = e.view
 			local mine = r ~= nil and r.g == g
-			if (v.state == "Open" or mine) and not v.hidden and (v.privacy ~= "Friends" or isFriend(plr, tonumber(v.host))) then
+			local live = v.state == "Playing" and type(e.wc) == "string"
+			if (v.state == "Open" or mine or live) and not v.hidden and (v.privacy ~= "Friends" or isFriend(plr, tonumber(v.host))) then
 				local s = Lobbies.remoteSummary(v, g, plr.UserId)
 				s.mine = mine
+				s.watch = live or nil
 				table.insert(others, s)
 			end
 		end
@@ -1492,6 +1507,51 @@ local function onRequest(plr, op, a, b)
 		end
 	elseif op == "start" then
 		LobbyService.start(plr)
+	elseif op == "watch" then
+		-- spectate a match in another server: off to its reserved server, marked as a spectator
+		local e = type(a) == "string" and net.dir[a]
+		if remote or LobbyService.lobbyOf(plr) then
+			notify(plr, "Leave your lobby first.")
+			return
+		end
+		if not (e and e.view.state == "Playing" and type(e.wc) == "string") then
+			notify(plr, "That match has finished.")
+			return
+		end
+		if e.view.privacy == "Friends" and not isFriend(plr, tonumber(e.view.host)) then
+			return
+		end
+		if not canTeleportAcross() then
+			notify(plr, "Spectating a match in another server works in the live game, not in Studio.")
+			return
+		end
+		if plr:GetAttribute("WatchGoing") then
+			return
+		end
+		plr:SetAttribute("WatchGoing", true)
+		notify(plr, "Taking you to the match...")
+		reg.ProfileService.save(plr)
+		local options = Instance.new("TeleportOptions")
+		options.ReservedServerAccessCode = e.wc
+		options:SetTeleportData({ spikeRushWatch = true })
+		local ok = pcall(function()
+			TeleportService:TeleportAsync(game.PlaceId, { plr }, options)
+		end)
+		if not ok then
+			plr:SetAttribute("WatchGoing", nil)
+			notify(plr, "Couldn't take you to that match.")
+		end
+	elseif op == "home" then
+		-- a spectator done watching in a reserved server goes back to a public one
+		if LobbyService.reserved and plr:GetAttribute("Watching") and not LobbyService.lobbyOf(plr) then
+			reg.ProfileService.save(plr)
+			local ok = pcall(function()
+				TeleportService:TeleportAsync(game.PlaceId, { plr })
+			end)
+			if not ok then
+				notify(plr, "Couldn't take you back. Rejoin the game to play.")
+			end
+		end
 	elseif op == "bots" then
 		-- the first player in a Quick Match queue (its host: whoever opened it, then the next one
 		-- if they leave; always in this server) can start it now, bots in the empty spots

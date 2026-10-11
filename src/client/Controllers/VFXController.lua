@@ -1192,15 +1192,15 @@ local function jumpMeshes(foot, key, tint, k, model)
 		meshFx("FX_Spiral", floor, WHITE, 0.35 * k, 0.9 * k, 0.5, { base = true, spin = 220, alpha = 0.35 })
 		meshFx("FX_Ring", floor, Color3.fromRGB(210, 235, 255), 0.4 * k, 1.5 * k, 0.4, { alpha = 0.2 })
 	elseif key == "Frost" then
-		-- Blox Fruits' Frost Surge: one big mass of clean solid ice bursts up under you, a second
-		-- one races out toward the net, they hold, then shatter; snow smoke rolls off
+		-- Blox Fruits' Frost Surge, kept at your feet (the owner: "just a ring on your feet"): a big
+		-- mass of clean solid ice bursts up under you with a ring of ice spikes round it, leaning
+		-- out, they hold, then shatter; snow smoke rolls off
 		local ICE = Color3.fromRGB(175, 228, 255)
 		meshFx("FX_IceMass", floor * CFrame.Angles(0, math.random() * 6.28, 0), ICE, 0.05, 0.62 * k, 1.25, { plain = true, base = true, grow = 0.13, hold = 0.75, shrink = 0.55, ease = Enum.EasingStyle.Back })
-		local toward = foot.Z > 0 and -1 or 1
-		task.delay(0.1, meshFx, "FX_IceMass", CFrame.new(foot.X, 0.15, foot.Z + toward * 5 * k) * CFrame.Angles(0, math.random() * 6.28, 0), ICE, 0.05, 0.45 * k, 1.1, { plain = true, base = true, grow = 0.12, hold = 0.6, shrink = 0.55, ease = Enum.EasingStyle.Back })
-		for i = 1, 4 do
-			local at = CFrame.new(foot.X + (math.random() - 0.5) * 1.2, 0.15, foot.Z + toward * (7 + i * 1.8) * k) * CFrame.Angles(0, math.random() * 6.28, math.rad(math.random(-15, 15)))
-			task.delay(0.15 + i * 0.05, meshFx, "FX_Ice", at, ICE, 0.05, (0.55 - i * 0.07) * k, 0.9, { plain = true, base = true, grow = 0.1, hold = 0.45, shrink = 0.5, ease = Enum.EasingStyle.Back })
+		for i = 1, 10 do
+			local a = math.rad(i * 36 + math.random(-8, 8))
+			local at = floor * CFrame.Angles(0, a, 0) * CFrame.new(2.6 * k, 0, 0) * CFrame.Angles(0, math.random() * 6.28, 0) * CFrame.Angles(0, 0, math.rad(-(18 + math.random(0, 14))))
+			task.delay(0.04 + i * 0.015, meshFx, "FX_Ice", at, ICE, 0.05, (0.45 + math.random() * 0.2) * k, 1.0, { plain = true, base = true, grow = 0.1, hold = 0.55, shrink = 0.5, ease = Enum.EasingStyle.Back })
 		end
 		meshFx("FX_Ring", floor, Color3.fromRGB(200, 240, 255), 0.3 * k, 1.8 * k, 0.6)
 		smokePuffs(foot, 6, k, Color3.fromRGB(235, 248, 255))
