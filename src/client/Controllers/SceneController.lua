@@ -1061,7 +1061,7 @@ local function updatePractice(now)
 	-- the jump effect at takeoff, once a loop
 	if t >= TAKEOFF and p.jumpCycle ~= cycle then
 		p.jumpCycle = cycle
-		mods.VFXController.jumpEffect(PRACTICE + Vector3.new(0, 0.25, 0), p.opts.jump, p.ball.tint, true)
+		mods.VFXController.jumpEffect(PRACTICE + Vector3.new(0, 0.25, 0), p.opts.jump, p.ball.tint, true, p.rig and p.rig.model)
 	end
 	local b = p.ball
 	local hand = base + Vector3.new(0, 3.1, -1.4)

@@ -241,14 +241,30 @@ local function meshFx(name, cf, color, from, to, life, opts)
 	end
 	p.CFrame = at(from, 0)
 	p.Parent = fxFolder
-	local info = TweenInfo.new(life, opts.ease or Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	-- opts.grow: it grows in that long (then holds); the fade takes the rest of `life`, after
+	-- opts.hold seconds when given
+	local growT = opts.grow or life
+	local info = TweenInfo.new(growT, opts.ease or Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	if sm then
 		TweenService:Create(sm, info, { Scale = scaleOf(to) }):Play()
 		TweenService:Create(p, info, { CFrame = at(to, opts.spin or 0) }):Play()
 	else
 		TweenService:Create(p, info, { Size = size * to, CFrame = at(to, opts.spin or 0) }):Play()
 	end
-	TweenService:Create(p, TweenInfo.new(life, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
+	local holdT = opts.hold or 0
+	local fade = TweenService:Create(p, TweenInfo.new(math.max(life - holdT, 0.05), Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 })
+	if holdT > 0 then
+		task.delay(holdT, function()
+			if p.Parent then
+				fade:Play()
+				if opts.shrink and sm then
+					TweenService:Create(sm, TweenInfo.new(life - holdT, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = scaleOf(to * opts.shrink) }):Play()
+				end
+			end
+		end)
+	else
+		fade:Play()
+	end
 	task.delay(life + 0.05, function()
 		p:Destroy()
 	end)
@@ -257,6 +273,141 @@ end
 
 -- the side camera looks along +x: this turns a mesh drawn in its XY plane to face it
 local FACE_CAMERA = CFrame.Angles(0, math.rad(90), 0)
+
+-- Rubble (Blox Fruits' big hits throw the ground up): `n` chunks flung up and out from `pos`,
+-- spinning, falling back, then gone.
+local function rubble(pos, n, k, color)
+	local tpl = meshTemplate("FX_Rock")
+	if not tpl then
+		return
+	end
+	for _ = 1, n do
+		local p = tpl:Clone()
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Material = Enum.Material.Slate
+		p.Color = color or Color3.fromRGB(96, 88, 82)
+		p.Size = tpl.Size * (0.25 + math.random() * 0.45) * k
+		local a = math.random() * math.pi * 2
+		local vel = Vector3.new(math.cos(a) * (6 + math.random() * 10), 22 + math.random() * 16, math.sin(a) * (6 + math.random() * 10)) * k
+		local spin = CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
+		local start = pos + Vector3.new(0, 0.4, 0)
+		local born = os.clock()
+		p.CFrame = CFrame.new(start) * spin
+		p.Parent = fxFolder
+		local conn
+		conn = RunService.Heartbeat:Connect(function()
+			local t = os.clock() - born
+			if t > 1.1 or not p.Parent then
+				conn:Disconnect()
+				p:Destroy()
+				return
+			end
+			local at = start + vel * t + Vector3.new(0, -workspace.Gravity * 0.45 * t * t, 0)
+			if at.Y < 0.3 then
+				at = Vector3.new(at.X, 0.3, at.Z)
+			end
+			p.CFrame = CFrame.new(at) * spin * CFrame.Angles(t * 7, t * 5, 0)
+			p.Transparency = math.clamp((t - 0.8) / 0.3, 0, 1)
+		end)
+	end
+end
+
+-- Effects that ride on a character (Inferno's blaze): `update(dt, t)` each frame for `life`
+-- seconds while the model's root exists; parts made by it are destroyed after.
+local function follow(model, life, update, cleanup)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+	local born = os.clock()
+	local conn
+	conn = RunService.Heartbeat:Connect(function(dt)
+		local t = os.clock() - born
+		if t > life or not hrp.Parent then
+			conn:Disconnect()
+			cleanup()
+			return
+		end
+		update(hrp, t)
+	end)
+end
+
+-- A held mesh part (no tweens): the textured card or the plain mesh, tinted. Returns the part,
+-- its SpecialMesh (or nil) and a function setting its size factor.
+local function heldMesh(name, color, glow)
+	local t = meshTemplate(name)
+	if not t then
+		return nil
+	end
+	local size = t.Size
+	local native = t.MeshSize.Magnitude > 0 and t.MeshSize or size
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Size = Vector3.new(0.05, 0.05, 0.05)
+	p.Transparency = 0
+	local sm = Instance.new("SpecialMesh")
+	sm.MeshType = Enum.MeshType.FileMesh
+	sm.MeshId = t.MeshId
+	sm.TextureId = t.TextureID
+	local g = glow or 1.6
+	sm.VertexColor = Vector3.new(color.R * g, color.G * g, color.B * g)
+	sm.Parent = p
+	p.Material = Enum.Material.SmoothPlastic
+	local function setScale(k)
+		sm.Scale = Vector3.new(size.X / native.X, size.Y / native.Y, size.Z / native.Z) * k
+	end
+	setScale(1)
+	p.Parent = fxFolder
+	return p, sm, setScale
+end
+
+-- Inferno's blaze (the owner: "swirling fire around it while you rise, like a blaze from
+-- minecraft"): three rings of flame rods orbiting the body through the jump, each ring its own
+-- way and speed, bobbing, then burning out.
+local function blaze(model, color, k)
+	local rods = {}
+	for ring = 1, 3 do
+		for i = 1, 4 do
+			local p, _, setScale = heldMesh("FX_Flame", (ring == 2) and Color3.fromRGB(255, 210, 80) or color, 1.8)
+			if p then
+				table.insert(rods, { p = p, setScale = setScale, ring = ring, phase = (i - 1) * math.pi / 2 + ring * 0.6 })
+			end
+		end
+	end
+	if #rods == 0 then
+		return
+	end
+	local LIFE = 1.4
+	follow(model, LIFE, function(hrp, t)
+		local grow = math.clamp(t / 0.18, 0, 1)
+		local fadeOut = math.clamp((t - (LIFE - 0.45)) / 0.45, 0, 1)
+		for _, r in ipairs(rods) do
+			local dir = r.ring == 2 and -1 or 1
+			local speed = (r.ring == 2 and 7 or 5.2) * dir
+			local a = r.phase + t * speed
+			local radius = (2.1 + (r.ring == 2 and 0.5 or 0)) * k
+			local h = (r.ring - 2) * 1.7 * k + math.sin(t * 9 + r.phase) * 0.25
+			local pos = hrp.Position + Vector3.new(math.cos(a) * radius, h, math.sin(a) * radius)
+			-- each rod stands up and leans into its orbit
+			r.p.CFrame = CFrame.new(pos) * CFrame.Angles(0, -a, 0) * CFrame.Angles(math.rad(18) * dir, 0, 0) * CFrame.new(0, -1.1 * k, 0)
+			r.setScale((0.25 + 0.35 * grow) * k * (1 + 0.12 * math.sin(t * 13 + r.phase)))
+			r.p.Transparency = 0.05 + 0.95 * fadeOut
+		end
+	end, function()
+		for _, r in ipairs(rods) do
+			r.p:Destroy()
+		end
+	end)
+end
 
 -- A pillar of light shooting up out of the floor and thinning away.
 local function lightPillar(pos, color, height, width)
@@ -878,7 +1029,7 @@ local JUMP_COLORS = {
 local RAINBOW = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }
 
 -- The jump effects' mesh layer (when the meshes are in): rings, flames, bolts, shards and swirls.
-local function jumpMeshes(foot, key, tint, k)
+local function jumpMeshes(foot, key, tint, k, model)
 	local floor = CFrame.new(foot.X, 0.15, foot.Z)
 	local c = JUMP_COLORS[key] or tint or WHITE
 	if key == "Sparks" then
@@ -887,15 +1038,29 @@ local function jumpMeshes(foot, key, tint, k)
 		meshFx("FX_Spiral", floor, WHITE, 0.35 * k, 0.9 * k, 0.5, { base = true, spin = 220, alpha = 0.35 })
 		meshFx("FX_Ring", floor, Color3.fromRGB(210, 235, 255), 0.4 * k, 1.5 * k, 0.4, { alpha = 0.2 })
 	elseif key == "Frost" then
-		for i = 1, 7 do
-			local a = math.rad(i * 360 / 7 + math.random(-12, 12))
-			local tilt = CFrame.Angles(0, a, 0) * CFrame.new(1.6 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-35))
-			meshFx("FX_Shard", floor * tilt, c, 0.2 * k, 1.1 * k, 0.6, { base = true, alpha = 0.1, ease = Enum.EasingStyle.Back })
+		-- big ice (the owner: "the frost is a little small. make it bigger"): crystals taller than
+		-- you erupt in a ring, lean out, hold, then shatter away; a frost ring and glints
+		local n = 11
+		for i = 1, n do
+			local a = math.rad(i * 360 / n + math.random(-10, 10))
+			local r = (2.2 + math.random() * 1.6) * k
+			local lean = math.random(18, 38)
+			local place = CFrame.Angles(0, a, 0) * CFrame.new(r, 0, 0) * CFrame.Angles(0, 0, math.rad(-lean))
+			local tall = (0.55 + math.random() * 0.7) * k
+			task.delay(i * 0.015, meshFx, "FX_Ice", floor * place, i % 3 == 0 and WHITE or c, 0.05, tall, 1.05, { base = true, grow = 0.18, hold = 0.55, shrink = 0.6, ease = Enum.EasingStyle.Back, alpha = 0.05, glow = 1.2 })
 		end
-		meshFx("FX_Ring", floor, c, 0.3 * k, 1.2 * k, 0.45, { alpha = 0.15 })
+		for i = 1, 3 do -- a tight cluster under the jumper
+			local place = CFrame.Angles(0, math.rad(i * 120), 0) * CFrame.new(0.6 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-12))
+			meshFx("FX_Ice", floor * place, WHITE, 0.05, (0.8 + 0.2 * i) * k, 1.05, { base = true, grow = 0.2, hold = 0.55, shrink = 0.6, ease = Enum.EasingStyle.Back, alpha = 0.1, glow = 1.3 })
+		end
+		meshFx("FX_Ring", floor, c, 0.3 * k, 1.9 * k, 0.8, { alpha = 0.1, grow = 0.3, hold = 0.3 })
+		meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), Color3.fromRGB(200, 240, 255), 0.3 * k, 1.2 * k, 0.9, { alpha = 0.35, spin = 90, grow = 0.4, hold = 0.3 })
 	elseif key == "Shadow" then
-		meshFx("FX_Dome", floor, Color3.fromRGB(30, 10, 50), 0.15 * k, 0.75 * k, 0.45, { alpha = 0.25, material = Enum.Material.SmoothPlastic })
-		meshFx("FX_Ring", floor, c, 0.3 * k, 1.3 * k, 0.45, { alpha = 0.1 })
+		-- a dark vortex opening under you (Blox Fruits' Dark): the swirl, a shell and a purple rim
+		meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), c, 0.2 * k, 1.5 * k, 1.0, { spin = -260, grow = 0.45, hold = 0.35, glow = 1.4 })
+		meshFx("FX_Vortex", floor * CFrame.new(0, 0.08, 0), Color3.fromRGB(20, 0, 40), 0.15 * k, 1.1 * k, 1.0, { spin = -400, grow = 0.4, hold = 0.35, glow = 0.6, alpha = 0.2 })
+		meshFx("FX_Dome", floor, Color3.fromRGB(70, 20, 120), 0.15 * k, 0.8 * k, 0.6, { alpha = 0.35 })
+		meshFx("FX_Ring", floor, c, 0.3 * k, 1.6 * k, 0.6, { alpha = 0.1 })
 	elseif key == "Fire" or key == "Inferno" then
 		local hot = key == "Inferno"
 		local n = hot and 12 or 8
@@ -908,16 +1073,27 @@ local function jumpMeshes(foot, key, tint, k)
 			task.delay(i * 0.018, meshFx, "FX_Flame", floor * place, tone, 0.3 * k, tall, hot and 0.9 or 0.75, { base = true, spin = 40, rise = 1.5 * k, alpha = 0.05 })
 		end
 		if hot then
+			-- Inferno: a fire column at takeoff, and the blaze rides you up
 			meshFx("FX_Column", floor, c, 0.3 * k, 1.15 * k, 0.9, { base = true, spin = 160, alpha = 0.1 })
-			meshFx("FX_Spiral", floor, Color3.fromRGB(255, 200, 70), 0.4 * k, 1.1 * k, 0.8, { base = true, spin = 300, alpha = 0.15 })
-			meshFx("FX_Dome", floor, Color3.fromRGB(255, 120, 30), 0.2 * k, 0.85 * k, 0.6, { alpha = 0.3 })
+			meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), Color3.fromRGB(255, 150, 40), 0.3 * k, 1.3 * k, 0.8, { spin = 300, grow = 0.4, hold = 0.2 })
+			if model then
+				blaze(model, c, k)
+			end
 		end
 		meshFx("FX_Ring", floor, c, 0.3 * k, 1.5 * k, 0.6)
 	elseif key == "Lightning" or key == "Storm" then
-		local n = key == "Storm" and 4 or 2
-		local h = (key == "Storm" and 22 or 16) * k
+		local storm = key == "Storm"
+		if storm then
+			-- Blox Fruits' Rumble: a pillar of light, bolts crackling round it, the ground thrown up
+			meshFx("FX_Column", floor, Color3.fromRGB(150, 235, 255), 0.4 * k, 1.6 * k, 0.75, { base = true, spin = 220, grow = 0.18, hold = 0.25, glow = 2.2 })
+			meshFx("FX_Column", floor, WHITE, 0.25 * k, 1.0 * k, 0.6, { base = true, spin = -260, grow = 0.15, hold = 0.2, glow = 2.4, alpha = 0.2 })
+			meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), c, 0.3 * k, 1.6 * k, 0.8, { spin = 200, grow = 0.3, hold = 0.25, glow = 2 })
+			rubble(foot, 7, k)
+		end
+		local n = storm and 6 or 2
+		local h = (storm and 22 or 16) * k
 		for i = 1, n do
-			local x = (math.random() - 0.5) * (key == "Storm" and 7 or 4)
+			local x = (math.random() - 0.5) * (storm and 9 or 4)
 			-- a bolt from the sky down to the floor: its top above, its tip at the feet
 			local tpl = meshTemplate("FX_Bolt")
 			if tpl then
@@ -936,11 +1112,11 @@ local function jumpMeshes(foot, key, tint, k)
 	end
 end
 
-function VFXController.jumpEffect(foot, key, tint, big)
+function VFXController.jumpEffect(foot, key, tint, big, model)
 	local k = big and 1 or 0.7
 	local up = Vector3.new(0, 1, 0)
 	local c = JUMP_COLORS[key]
-	jumpMeshes(foot, key, tint, k)
+	jumpMeshes(foot, key, tint, k, model)
 	if key == "Sparks" then
 		shards(foot + up, tint or WHITE, math.floor(16 * k), 60)
 		Fx.play("Glints", foot + up * 1.5, { color = tint or WHITE, scale = k })
@@ -1005,7 +1181,7 @@ function VFXController.boom(entityId, kind)
 	-- their jump effect (a cosmetic), on top of the dust or the boom
 	local jumpKey = Spins.equipped(model, "Jump").Key
 	if jumpKey ~= "Plain" then
-		VFXController.jumpEffect(foot, jumpKey, Spins.tint(Spins.equipped(model, "Color")), kind == "Spike" or kind == "Serve" or VFXController.hasBoom(model))
+		VFXController.jumpEffect(foot, jumpKey, Spins.tint(Spins.equipped(model, "Color")), kind == "Spike" or kind == "Serve" or VFXController.hasBoom(model), model)
 	end
 	if not VFXController.hasBoom(model) then
 		Fx.play("Dust", foot, { n = 3, scale = 0.7 })
@@ -1025,6 +1201,7 @@ function VFXController.boom(entityId, kind)
 	floorRing(foot, color, 16 * k)
 	meshFx("FX_Ring", CFrame.new(foot.X, 0.15, foot.Z), color, 0.3 * k, 1.9 * k, 0.45)
 	meshFx("FX_Dome", CFrame.new(foot.X, 0.15, foot.Z), WHITE, 0.15 * k, 0.6 * k, 0.3, { alpha = 0.45 })
+	rubble(foot, big and 6 or 3, k)
 	task.delay(0.07, floorRing, foot, WHITE, 10 * k)
 	starburst(foot + Vector3.new(0, 1, 0), color, 9 * k)
 	shards(foot + Vector3.new(0, 0.6, 0), color, math.floor(18 * k), 70)

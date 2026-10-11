@@ -101,3 +101,28 @@ save("fx_bolt.png", np.clip(alpha, 0, 1), white=np.clip(1 - d * 0.5, 0, 1))
 cols = smooth_noise(N, 6, octaves=4, seed=9)
 alpha = np.clip((cols - 0.3) * 1.8, 0, 1) * np.sin(np.pi * u) ** 0.7
 save("fx_beam.png", alpha)
+
+# --- the second set (the owner: "start taking a ton of inspiration from blox fruits") ----------
+
+# a vortex disc: spiral arms winding into a bright core (u, v are the disc's own coordinates:
+# the mesh maps them straight across its face), alpha falling off at the rim
+x = (u - 0.5) * 2
+y = (v - 0.5) * 2
+rad = np.sqrt(x * x + y * y)
+ang = np.arctan2(y, x)
+swirl_noise = smooth_noise(N, 6, octaves=3, seed=11)
+arms = 0.5 + 0.5 * np.sin(ang * 3 + rad * 9 + swirl_noise * 2.5)
+arms = np.clip((arms - 0.35) * 1.8, 0, 1)
+rim = np.clip((1 - rad) * 3, 0, 1)
+core = np.clip(1 - rad * 3.5, 0, 1)
+alpha = np.clip(arms * rim * (0.55 + 0.45 * swirl_noise) + core, 0, 1)
+save("fx_vortex.png", alpha, white=np.clip(0.55 + 0.45 * arms + core, 0, 1))
+
+# ice: a frosty crystal face, bright edges and cracks, mostly opaque (u across, v up)
+cracks = smooth_noise(N, 10, octaves=4, seed=12)
+crack_lines = np.clip(1 - np.abs(cracks - 0.5) * 14, 0, 1)
+facet = 0.55 + 0.45 * v
+edge_glow = np.clip(1 - np.minimum(u, 1 - u) * 6, 0, 1)
+white = np.clip(facet * 0.7 + crack_lines * 0.5 + edge_glow * 0.4, 0, 1)
+alpha = np.clip(0.72 + 0.28 * (crack_lines + edge_glow), 0, 1)
+save("fx_ice.png", alpha, white=white)
