@@ -1472,6 +1472,8 @@ Config.QuickChat = {
 	-- sob, skull, laughing, fire, steam, cool, clown, clap, scream, pray, thinking, 100, angry,
 	-- cold, salute, mind blown, eyes, goat, heart, sleepy, handshake, muscle, target, zap
 	Emojis = { "\u{1F62D}", "\u{1F480}", "\u{1F602}", "\u{1F525}", "\u{1F624}", "\u{1F60E}", "\u{1F921}", "\u{1F44F}", "\u{1F631}", "\u{1F64F}", "\u{1F914}", "\u{1F4AF}", "\u{1F621}", "\u{1F976}", "\u{1FAE1}", "\u{1F92F}", "\u{1F440}", "\u{1F410}", "\u{2764}", "\u{1F634}", "\u{1F91D}", "\u{1F4AA}", "\u{1F3AF}", "\u{26A1}" },
+	-- the wheel's 8 to start with (P: a phrase, E: an emoji, by number; Settings' quickWheel)
+	Wheel = { "P1", "P2", "P5", "P4", "P3", "E1", "E2", "E4" },
 	Show = 3,
 	Burst = 3,
 	Window = 6,

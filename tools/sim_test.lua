@@ -1718,6 +1718,11 @@ do
 		for _, p in ipairs(QC.Phrases) do
 			has[p] = true
 		end
+		local Settings = require("Settings")
+		local w = Settings.quickWheel({ "E3", "bogus", "P99", "P10" })
+		local cleaned = Settings.clean({ quickWheel = { "E2" } }).quickWheel
+		check(#w == 8 and w[1] == "E3" and w[2] == QC.Wheel[2] and w[3] == QC.Wheel[3] and w[4] == "P10" and cleaned[1] == "E2" and #cleaned == 8 and Settings.quickPick("E2") == "Emoji",
+			"quick chat wheel: 8 slots, your picks kept, bad ones back to the default")
 		check(has["Nice play!"] and has["Set me!"] and has["Lag"] and has["Ref!"] and has["GG"] and #QC.Phrases >= 20 and #QC.Emojis >= 20 and QC.Burst >= 1 and QC.Gap > 0 and QC.Window > QC.Gap,
 			"quick chat: the asked-for phrases and more, 20+ emojis, a rate limit", #QC.Phrases .. " phrases, " .. #QC.Emojis .. " emojis")
 	end

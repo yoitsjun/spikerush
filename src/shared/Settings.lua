@@ -75,6 +75,37 @@ function Settings.clean(t)
 		end
 		out.keys = keys
 	end
+	-- the quick chat wheel's 8 picks
+	if type(t.quickWheel) == "table" then
+		out.quickWheel = Settings.quickWheel(t.quickWheel)
+	end
+	return out
+end
+
+-- A quick chat wheel pick ("P3": phrase 3, "E1": emoji 1) as its kind and number, or nil.
+function Settings.quickPick(pick)
+	if type(pick) ~= "string" then
+		return nil
+	end
+	local k, n = string.match(pick, "^([PE])(%d+)$")
+	n = tonumber(n)
+	local QC = Config.QuickChat
+	if k == "P" and n and QC.Phrases[n] then
+		return "Phrase", n
+	elseif k == "E" and n and QC.Emojis[n] then
+		return "Emoji", n
+	end
+	return nil
+end
+
+-- A wheel's 8 picks from a saved list: each valid one kept, the rest from the default wheel.
+function Settings.quickWheel(list)
+	local out = {}
+	local Wheel = Config.QuickChat.Wheel
+	for i = 1, #Wheel do
+		local p = type(list) == "table" and list[i] or nil
+		out[i] = Settings.quickPick(p) and p or Wheel[i]
+	end
 	return out
 end
 

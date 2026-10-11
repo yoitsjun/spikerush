@@ -145,6 +145,9 @@ local function press(action)
 		end
 		return
 	end
+	if mods.QuickChat and mods.QuickChat.isOpen() then
+		return -- (the wheel takes 1 to 8 and A while it's open)
+	end
 	held[action] = true
 	mods.ActionController.press(action)
 end

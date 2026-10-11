@@ -1,16 +1,22 @@
 -- Quick chat (the owner: "like volleyball legends where you can have prewritten phrases like
--- 'nice play' 'set me' 'lag' 'ref' 'gg'... but also emojis"): a panel of phrases and emojis
--- (Config.QuickChat), opened with its button (on screen in a match), its key (G, Settings >
--- Controls) or a controller's right stick click. A pick goes to the server (QuickChatService),
--- which pops it in a bubble over that player's head on every screen.
+-- 'nice play' 'set me' 'lag' 'ref' 'gg'... but also emojis", then "make it a wheel where you pick
+-- around 8"): a wheel of your 8 (Settings' quickWheel, Config.QuickChat.Wheel at first), opened
+-- with its button (on screen in a match), its key (G, Settings > Controls) or a controller's right
+-- stick click. Point at a slice (the mouse or the right stick) and click or press A, or press 1 to
+-- 8. Edit swaps any slot for any of the phrases and emojis. A pick goes to the server
+-- (QuickChatService), which pops it in a bubble over that player's head on every screen.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ContextActionService = game:GetService("ContextActionService")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Net = require(Shared.Net)
+local Settings = require(Shared.Settings)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
 
@@ -20,50 +26,200 @@ local mods
 local player = Players.LocalPlayer
 local make = Gui.make
 local QC = Config.QuickChat
+local SLOTS = 8
+local RADIUS = 150
 
-local gui, panel, button
-local tab = "Phrase"
-local pages = {}
-local tabButtons = {}
-local bubbles = {} -- userId -> the bubble showing over their head
+local gui, button, wheel, editor
+local slots = {} -- the wheel's slices: { frame, plate, label, num, scale }
+local hot = nil -- the slice pointed at
+local bubbles = {} -- userId -> the bubble over their head
+local editSlot = 1
+local editSlots = {}
 
-local function send(kind, i)
-	Net.get("QuickChat"):FireServer(kind, i)
+-- your wheel: 8 picks like "P3" (phrase 3) or "E1" (emoji 1)
+local function picks()
+	return Settings.quickWheel(State.settings.quickWheel)
+end
+
+local function textOf(pick)
+	local kind, i = Settings.quickPick(pick)
+	if kind == "Phrase" then
+		return QC.Phrases[i], false
+	elseif kind == "Emoji" then
+		return QC.Emojis[i], true
+	end
+	return "", false
+end
+
+local function send(pick)
+	local kind, i = Settings.quickPick(pick)
+	if kind then
+		Net.get("QuickChat"):FireServer(kind, i)
+	end
 	QuickChat.close()
 end
 
-local function setTab(key)
-	tab = key
-	for k, page in pairs(pages) do
-		page.Visible = k == key
+------------------------------------------------------------------------------------------
+-- the wheel
+------------------------------------------------------------------------------------------
+
+local function setHot(i)
+	hot = i
+	for n, s in ipairs(slots) do
+		Gui.tint(s.plate, n == i and Gui.SIGNAL or Gui.NAVY)
+		s.label.TextColor3 = n == i and Gui.LINE or Gui.CHALK
+		s.scale.Scale = n == i and 1.12 or 1
 	end
-	for k, t in pairs(tabButtons) do
-		Gui.tint(t.plate, k == key and Gui.SIGNAL or Gui.NAVY_LIGHT)
-		t.label.TextColor3 = k == key and Gui.LINE or Gui.CHALK
+end
+
+local function refreshWheel()
+	for n, s in ipairs(slots) do
+		local text, emoji = textOf(picks()[n])
+		s.label.Text = text
+		s.label.TextScaled = emoji
+		s.label.TextSize = 18
 	end
+end
+
+-- The slice a direction points at (up is slot 1, then clockwise), or nil near the middle.
+local function sliceOf(v, dead)
+	if v.Magnitude < dead then
+		return nil
+	end
+	local a = math.deg(math.atan2(v.X, -v.Y)) % 360
+	return math.floor((a + 360 / SLOTS / 2) % 360 / (360 / SLOTS)) + 1
+end
+
+local stickDir = Vector2.zero
+local NUMBER_KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight }
+
+local function onWheelInput(_, state, input)
+	if state ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Sink
+	end
+	local kc = input.KeyCode
+	for n, k in ipairs(NUMBER_KEYS) do
+		if kc == k then
+			send(picks()[n])
+			return Enum.ContextActionResult.Sink
+		end
+	end
+	if kc == Enum.KeyCode.ButtonA or kc == Enum.KeyCode.ButtonR3 then
+		if hot then
+			send(picks()[hot])
+		elseif kc == Enum.KeyCode.ButtonR3 then
+			QuickChat.close()
+		end
+	elseif kc == Enum.KeyCode.ButtonB or kc == Enum.KeyCode.Escape then
+		QuickChat.close()
+	end
+	return Enum.ContextActionResult.Sink
+end
+
+function QuickChat.isOpen()
+	return wheel ~= nil and wheel.Visible
 end
 
 function QuickChat.open()
-	if not panel then
+	if not wheel then
 		return
 	end
-	panel.Visible = true -- (a PadNav root: a controller picks it up when it shows)
-	setTab(tab)
+	editor.Visible = false
+	refreshWheel()
+	setHot(nil)
+	stickDir = Vector2.zero
+	wheel.Visible = true
+	local sc = wheel:FindFirstChildOfClass("UIScale")
+	sc.Scale = 0.6
+	TweenService:Create(sc, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	local keys = { Enum.KeyCode.ButtonA, Enum.KeyCode.ButtonB, Enum.KeyCode.ButtonR3, Enum.KeyCode.Escape }
+	for _, k in ipairs(NUMBER_KEYS) do
+		table.insert(keys, k)
+	end
+	ContextActionService:BindActionAtPriority("SpikeRushQuickWheel", onWheelInput, false, Enum.ContextActionPriority.High.Value + 10, table.unpack(keys))
 end
 
 function QuickChat.close()
-	if panel then
-		panel.Visible = false
+	if wheel then
+		wheel.Visible = false
 	end
+	if editor then
+		editor.Visible = false
+	end
+	ContextActionService:UnbindAction("SpikeRushQuickWheel")
 end
 
 function QuickChat.toggle()
-	if panel and panel.Visible then
+	if QuickChat.isOpen() or (editor and editor.Visible) then
 		QuickChat.close()
 	else
 		QuickChat.open()
 	end
 end
+
+local function updateWheel()
+	if not QuickChat.isOpen() then
+		return
+	end
+	-- the right stick points; else the mouse, from the wheel's middle
+	local ok, state = pcall(function()
+		return UserInputService:GetGamepadState(Enum.UserInputType.Gamepad1)
+	end)
+	if ok then
+		for _, s in ipairs(state) do
+			if s.KeyCode == Enum.KeyCode.Thumbstick2 then
+				stickDir = Vector2.new(s.Position.X, -s.Position.Y)
+			end
+		end
+	end
+	if stickDir.Magnitude > 0.5 then
+		local n = sliceOf(stickDir, 0.5)
+		if n ~= hot then
+			setHot(n)
+		end
+		return
+	end
+	local mid = wheel.AbsolutePosition + wheel.AbsoluteSize / 2
+	local n = sliceOf(UserInputService:GetMouseLocation() - mid, 50)
+	if n ~= hot then
+		setHot(n)
+	end
+end
+
+------------------------------------------------------------------------------------------
+-- the editor: your 8 slots along the top, every phrase and emoji under them
+------------------------------------------------------------------------------------------
+
+local function refreshEditor()
+	for n, s in ipairs(editSlots) do
+		local text, emoji = textOf(picks()[n])
+		s.label.Text = text
+		s.label.TextScaled = emoji
+		Gui.tint(s.plate, n == editSlot and Gui.SIGNAL or Gui.NAVY_LIGHT)
+		s.label.TextColor3 = n == editSlot and Gui.LINE or Gui.CHALK
+	end
+end
+
+local function assign(pick)
+	local list = table.clone(picks())
+	list[editSlot] = pick
+	State.setSetting("quickWheel", list)
+	editSlot = editSlot % SLOTS + 1
+	refreshEditor()
+	refreshWheel()
+end
+
+local function openEditor()
+	wheel.Visible = false
+	ContextActionService:UnbindAction("SpikeRushQuickWheel")
+	editSlot = 1
+	refreshEditor()
+	editor.Visible = true
+end
+
+------------------------------------------------------------------------------------------
+-- the bubbles
+------------------------------------------------------------------------------------------
 
 -- A bubble over a player's head: a phrase on a plate, or a big emoji; it pops in, holds, fades.
 local function showBubble(userId, kind, i)
@@ -89,7 +245,6 @@ local function showBubble(userId, kind, i)
 		LightInfluence = 0,
 		Size = emoji and UDim2.fromOffset(72, 72) or UDim2.fromOffset(240, 46),
 		StudsOffset = Vector3.new(0, emoji and 3.6 or 3.2, 0),
-		ResetOnSpawn = false,
 	}, gui)
 	local scale = make("UIScale", { Scale = 0.3 }, b)
 	if emoji then
@@ -117,6 +272,10 @@ local function showBubble(userId, kind, i)
 	end)
 end
 
+------------------------------------------------------------------------------------------
+-- building
+------------------------------------------------------------------------------------------
+
 local function build()
 	gui = make("ScreenGui", { Name = "SpikeRushQuickChat", ResetOnSpawn = false, DisplayOrder = 8, IgnoreGuiInset = true }, player:WaitForChild("PlayerGui"))
 
@@ -127,45 +286,76 @@ local function build()
 	button:SetAttribute("NoNav", true)
 	button.MouseButton1Click:Connect(QuickChat.toggle)
 
-	-- the panel: Phrases and Emojis tabs, a grid of each
-	panel = Gui.card(gui, { Name = "QuickChatPanel", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 84, 0.5, 0), Size = UDim2.fromOffset(470, 420), Visible = false, BackgroundTransparency = 0.08 })
-	Gui.label(panel, { Text = "Quick chat", display = true, TextSize = 24, Position = UDim2.fromOffset(18, 10), Size = UDim2.fromOffset(200, 32) })
-	local close = Gui.plateButton(panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 10), Size = UDim2.fromOffset(84, 32) }, Gui.NAVY_LIGHT, Gui.BLUE_HOT)
-	Gui.label(close, { Text = "Close", display = true, TextSize = 16, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3 })
-	close.MouseButton1Click:Connect(QuickChat.close)
-	for n, def in ipairs({ { "Phrase", "Phrases" }, { "Emoji", "Emojis" } }) do
-		local t, plate = Gui.plateButton(panel, { Position = UDim2.fromOffset(16 + (n - 1) * 130, 52), Size = UDim2.fromOffset(122, 34) }, Gui.NAVY_LIGHT, Gui.SIGNAL_HOT)
-		local l = Gui.label(t, { Text = def[2], display = true, TextSize = 17, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3 })
-		t.MouseButton1Click:Connect(function()
-			setTab(def[1])
+	-- the wheel: 8 slices round a hub with Edit in it
+	wheel = make("Frame", { Name = "QuickWheel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(RADIUS * 2 + 150, RADIUS * 2 + 90), BackgroundTransparency = 1, Visible = false }, gui)
+	make("UIScale", { Scale = 1 }, wheel)
+	local ring = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(RADIUS * 2 + 40, RADIUS * 2 + 40), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.45, BorderSizePixel = 0 }, wheel)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, ring)
+	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1.5, Transparency = 0.3 }, ring)
+	local hub = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(112, 112), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0 }, wheel)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, hub)
+	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1.5 }, hub)
+	Gui.label(hub, { Text = "QUICK CHAT", display = true, TextSize = 15, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 24), TextXAlignment = Enum.TextXAlignment.Center })
+	local edit = Gui.plateButton(hub, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 56), Size = UDim2.fromOffset(78, 30) }, Gui.NAVY_LIGHT, Gui.BLUE_HOT)
+	Gui.label(edit, { Text = "Edit", display = true, TextSize = 15, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3 })
+	edit.MouseButton1Click:Connect(openEditor)
+	for n = 1, SLOTS do
+		local a = math.rad((n - 1) * 360 / SLOTS)
+		local f = make("TextButton", { Name = "Slot" .. n, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, math.sin(a) * RADIUS, 0.5, -math.cos(a) * RADIUS), Size = UDim2.fromOffset(130, 54), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, wheel)
+		local sc = make("UIScale", { Scale = 1 }, f)
+		local plate = Gui.plate(f, { Size = UDim2.fromScale(1, 1) }, Gui.NAVY)
+		local label = Gui.label(f, { Text = "", display = true, TextSize = 18, Size = UDim2.new(1, -16, 1, -10), Position = UDim2.fromOffset(8, 5), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 })
+		local num = Gui.label(f, { Text = tostring(n), TextSize = 12, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(16, 14), Position = UDim2.fromOffset(8, 2), ZIndex = 4 })
+		f.MouseButton1Click:Connect(function()
+			send(picks()[n])
 		end)
-		tabButtons[def[1]] = { plate = plate, label = l }
+		slots[n] = { frame = f, plate = plate, label = label, num = num, scale = sc }
 	end
-	for _, kind in ipairs({ "Phrase", "Emoji" }) do
-		local emoji = kind == "Emoji"
-		local page = make("ScrollingFrame", { Position = UDim2.fromOffset(12, 96), Size = UDim2.new(1, -24, 1, -108), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false }, panel)
-		make("UIGridLayout", { CellSize = emoji and UDim2.fromOffset(62, 62) or UDim2.fromOffset(140, 40), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }, page)
-		for i, text in ipairs(emoji and QC.Emojis or QC.Phrases) do
-			local b = make("TextButton", { LayoutOrder = i, BackgroundColor3 = Gui.NAVY, BackgroundTransparency = 0.15, AutoButtonColor = true, Text = "", BorderSizePixel = 0 }, page)
+
+	-- the editor: your slots along the top (the yellow one gets the next pick), everything under
+	editor = Gui.card(gui, { Name = "QuickChatEditor", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(620, 520), Visible = false, BackgroundTransparency = 0.06 })
+	Gui.label(editor, { Text = "Your quick chat wheel", display = true, TextSize = 24, Position = UDim2.fromOffset(18, 10), Size = UDim2.fromOffset(360, 32) })
+	Gui.label(editor, { Text = "Pick a slot, then what goes in it.", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(18, 40), Size = UDim2.fromOffset(360, 20) })
+	local done = Gui.plateButton(editor, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(96, 34) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	Gui.label(done, { Text = "Done", display = true, TextSize = 17, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3 })
+	done.MouseButton1Click:Connect(QuickChat.open)
+	local reset = Gui.plateButton(editor, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -116, 0, 12), Size = UDim2.fromOffset(96, 34) }, Gui.NAVY_LIGHT, Gui.BLUE_HOT)
+	Gui.label(reset, { Text = "Reset", display = true, TextSize = 17, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3 })
+	reset.MouseButton1Click:Connect(function()
+		State.setSetting("quickWheel", table.clone(QC.Wheel))
+		editSlot = 1
+		refreshEditor()
+		refreshWheel()
+	end)
+	for n = 1, SLOTS do
+		local b, plate = Gui.plateButton(editor, { Position = UDim2.fromOffset(14 + (n - 1) * 74, 70), Size = UDim2.fromOffset(70, 44) }, Gui.NAVY_LIGHT, Gui.SIGNAL_HOT)
+		local label = Gui.label(b, { Text = "", display = true, TextSize = 13, Size = UDim2.new(1, -8, 1, -6), Position = UDim2.fromOffset(4, 3), TextXAlignment = Enum.TextXAlignment.Center, TextWrapped = true, ZIndex = 3 })
+		b.MouseButton1Click:Connect(function()
+			editSlot = n
+			refreshEditor()
+		end)
+		editSlots[n] = { plate = plate, label = label }
+	end
+	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(12, 126), Size = UDim2.new(1, -24, 1, -138), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, editor)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(140, 40), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	local order = 0
+	for _, kind in ipairs({ "P", "E" }) do
+		for i, text in ipairs(kind == "P" and QC.Phrases or QC.Emojis) do
+			order = order + 1
+			local b = make("TextButton", { LayoutOrder = order, BackgroundColor3 = Gui.NAVY, BackgroundTransparency = 0.15, AutoButtonColor = true, Text = "", BorderSizePixel = 0 }, list)
 			make("UICorner", { CornerRadius = UDim.new(0, 8) }, b)
-			if emoji then
-				Gui.label(b, { Text = text, TextScaled = true, Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), TextXAlignment = Enum.TextXAlignment.Center })
-			else
-				Gui.label(b, { Text = text, display = true, TextSize = 17, TextScaled = false, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, TextTruncate = Enum.TextTruncate.AtEnd })
-			end
+			Gui.label(b, { Text = text, display = kind == "P", TextSize = kind == "P" and 16 or 26, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, TextTruncate = Enum.TextTruncate.AtEnd })
 			Gui.pressSound(b)
 			b.MouseButton1Click:Connect(function()
-				send(kind, i)
+				assign(kind .. i)
 			end)
 		end
-		pages[kind] = page
 	end
-	setTab("Phrase")
 end
 
 local function refreshButton()
 	if button then
-		-- (the panel itself works anywhere, G opens it in the menus too)
+		-- (the wheel itself works anywhere: G opens it in the menus too)
 		button.Visible = State.watching() == true
 	end
 end
@@ -173,8 +363,9 @@ end
 function QuickChat.init(m)
 	mods = m
 	build()
+	refreshWheel()
 	if mods.PadNav then
-		mods.PadNav.root(panel, { prio = 30, back = QuickChat.close })
+		mods.PadNav.root(editor, { prio = 30, back = QuickChat.close })
 	end
 	Net.get("QuickChat").OnClientEvent:Connect(function(userId, kind, i)
 		if type(userId) == "number" and (kind == "Phrase" or kind == "Emoji") and type(i) == "number" then
@@ -182,6 +373,12 @@ function QuickChat.init(m)
 		end
 	end)
 	State.signals.Match:Connect(refreshButton)
+	State.signals.Settings:Connect(function(key)
+		if key == "quickWheel" then
+			refreshWheel()
+		end
+	end)
+	RunService.RenderStepped:Connect(updateWheel)
 	refreshButton()
 end
 
