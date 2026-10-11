@@ -1171,13 +1171,13 @@ local function jumpMeshes(foot, key, tint, k, model)
 		shockBubble(foot + Vector3.new(0, 1, 0), Color3.fromRGB(235, 242, 255), 0.9 * k, 0.45)
 		groundMark("FX_Crack", foot, Color3.fromRGB(30, 34, 45), 0.8 * k, 1.2, 0.8)
 		slabRing(foot, 8, 3.4 * k, 0.8 * k)
-		rubble(foot, 6, k)
+		rubble(foot, 7, k, nil, 0.3)
 		meshFx("FX_Ring", floor, c, 0.3 * k, 1.8 * k, 0.45, { alpha = 0.1 })
 	elseif key == "Magma" then
 		-- Magma: a pool of lava splashes out under you, glowing inside a black scorch, red flames
 		-- with black ones inside them, molten rock flung up
 		groundMark("FX_Scorch", foot, Color3.fromRGB(25, 12, 8), 0.85 * k, 1.5, 0.9)
-		meshFx("FX_Scorch", CFrame.new(foot.X, 0.1, foot.Z) * CFrame.Angles(0, math.random() * 6.28, 0), Color3.fromRGB(255, 90, 20), 0.2 * k, 0.6 * k, 1.8, { grow = 0.18, hold = 1.0, glow = 2.2, alpha = 0.05 })
+		meshFx("FX_Scorch", CFrame.new(foot.X, 0.1, foot.Z) * CFrame.Angles(0, math.random() * 6.28, 0), Color3.fromRGB(255, 55, 10), 0.2 * k, 0.6 * k, 1.8, { grow = 0.18, hold = 1.0, glow = 1.3, alpha = 0.05 })
 		for i = 1, 8 do
 			local a = math.rad(i * 45 + math.random(-12, 12))
 			local place = CFrame.Angles(0, a, 0) * CFrame.new(1.6 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-14))
