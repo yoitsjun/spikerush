@@ -62,6 +62,7 @@ State.settings = {
 	doubleApproach = false, -- Spike on the ground starts a run-up and a second press jumps
 	setterAim = true, -- as the setter, aim where your set goes (SetterAim)
 	touchLayout = {}, -- touch buttons you moved or resized: name -> { x, y, size }
+	tour = 0, -- the menu tour after the tutorial: the step you're on (4: done)
 }
 
 State.signals = {

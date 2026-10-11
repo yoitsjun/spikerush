@@ -1822,6 +1822,11 @@ function UIController.toggleSettings(belowY)
 	fitSettings()
 end
 
+-- Whether the settings panel is open (the menu tour's Settings step).
+function UIController.settingsOpen()
+	return ui.settings ~= nil and ui.settings.Visible
+end
+
 local function updateTimeout()
 	local b = ui.timeout
 	-- practice has no timeouts, and the coach's "Back to the menu" leaves it (the coach sits here)
@@ -2024,7 +2029,9 @@ local function onAnnounce(a)
 		end
 	elseif a.kind == "Drill" then
 		local d = Tutorial.drill(a.drill)
-		if a.finished then
+		if a.cue == "Jump" then
+			UIController.callout("Jump!", UI.Spark, "Let go of Block now", 0.6)
+		elseif a.finished then
 			UIController.callout("Done!", UI.Spark, a.tutorial and "Tutorial complete" or "Drill complete", 2)
 		elseif a.start and d then
 			UIController.callout(d.title, UI.Spark, d.inARow and string.format("%d in a row", d.goal) or string.format("%d to finish", d.goal), 1.4)

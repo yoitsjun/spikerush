@@ -27,7 +27,14 @@ local player = Players.LocalPlayer
 local make = Gui.make
 local QC = Config.QuickChat
 local SLOTS = 8
-local RADIUS = 150
+-- rounded slices far enough apart that neighbours never overlap (the owner: the old square ones
+-- clumped up and covered each other's text)
+local RADIUS = 215
+local SLICE = Vector2.new(160, 58)
+-- the bubble sits above the name tag (UIController's tagFor: 58 px tall, 2.6 studs over the
+-- head), measured in pixels so it clears the tag at any distance
+local TAG_HALF = 29
+local BUBBLE_H = 210
 
 local gui, button, wheel, editor
 local slots = {} -- the wheel's slices: { frame, plate, label, num, scale }
@@ -66,9 +73,10 @@ end
 local function setHot(i)
 	hot = i
 	for n, s in ipairs(slots) do
-		Gui.tint(s.plate, n == i and Gui.SIGNAL or Gui.NAVY)
+		s.plate.BackgroundColor3 = n == i and Gui.SIGNAL or Gui.NAVY
+		s.stroke.Color = n == i and Gui.LINE or Gui.HAIRLINE
 		s.label.TextColor3 = n == i and Gui.LINE or Gui.CHALK
-		s.scale.Scale = n == i and 1.12 or 1
+		s.scale.Scale = n == i and 1.08 or 1
 	end
 end
 
@@ -76,8 +84,7 @@ local function refreshWheel()
 	for n, s in ipairs(slots) do
 		local text, emoji = textOf(picks()[n])
 		s.label.Text = text
-		s.label.TextScaled = emoji
-		s.label.TextSize = 18
+		s.size.MaxTextSize = emoji and 34 or 20
 	end
 end
 
@@ -130,8 +137,14 @@ function QuickChat.open()
 	stickDir = Vector2.zero
 	wheel.Visible = true
 	local sc = wheel:FindFirstChildOfClass("UIScale")
-	sc.Scale = 0.6
-	TweenService:Create(sc, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	-- shrunk to fit a small screen (a phone held sideways)
+	local screen = gui.AbsoluteSize
+	local fit = 1
+	if screen.X > 10 and screen.Y > 10 then
+		fit = math.min(1, (screen.X - 24) / wheel.Size.X.Offset, (screen.Y - 24) / wheel.Size.Y.Offset)
+	end
+	sc.Scale = 0.6 * fit
+	TweenService:Create(sc, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = fit }):Play()
 	local keys = { Enum.KeyCode.ButtonA, Enum.KeyCode.ButtonB, Enum.KeyCode.ButtonR3, Enum.KeyCode.Escape }
 	for _, k in ipairs(NUMBER_KEYS) do
 		table.insert(keys, k)
@@ -238,23 +251,27 @@ local function showBubble(userId, kind, i)
 	if not text then
 		return
 	end
+	-- centred where the name tag is (2.6 studs over the head), the bubble in its top part
+	-- (a BillboardGui only renders straight under PlayerGui, never inside a ScreenGui)
 	local b = make("BillboardGui", {
 		Name = "SpikeRushQuickChat",
 		Adornee = head,
 		AlwaysOnTop = true,
 		LightInfluence = 0,
-		Size = emoji and UDim2.fromOffset(72, 72) or UDim2.fromOffset(240, 46),
-		StudsOffset = Vector3.new(0, emoji and 3.6 or 3.2, 0),
-	}, gui)
+		ResetOnSpawn = false,
+		Size = UDim2.fromOffset(320, BUBBLE_H),
+		StudsOffsetWorldSpace = Vector3.new(0, 2.6, 0),
+	}, player:WaitForChild("PlayerGui"))
+	local bottom = UDim2.new(0.5, 0, 0, BUBBLE_H / 2 - TAG_HALF - 8)
 	local scale = make("UIScale", { Scale = 0.3 }, b)
 	if emoji then
-		Gui.label(b, { Text = text, TextScaled = true, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+		Gui.label(b, { Text = text, TextScaled = true, AnchorPoint = Vector2.new(0.5, 1), Position = bottom, Size = UDim2.fromOffset(64, 64), TextXAlignment = Enum.TextXAlignment.Center })
 	else
-		local plate = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), Size = UDim2.fromOffset(0, 38), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.1, BorderSizePixel = 0 }, b)
-		make("UICorner", { CornerRadius = UDim.new(0, 10) }, plate)
+		local plate = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = bottom, Size = UDim2.fromOffset(0, 40), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.08, BorderSizePixel = 0 }, b)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, plate)
 		make("UIStroke", { Color = plr == player and Gui.SIGNAL or Gui.CHALK, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, plate)
-		make("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, plate)
-		Gui.label(plate, { Text = text, display = true, TextSize = 22, TextColor3 = Gui.CHALK, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 38), TextXAlignment = Enum.TextXAlignment.Center })
+		make("UIPadding", { PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0, 18) }, plate)
+		Gui.label(plate, { Text = text, display = true, TextSize = 22, TextColor3 = Gui.CHALK, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40), TextXAlignment = Enum.TextXAlignment.Center })
 	end
 	bubbles[userId] = b
 	TweenService:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
@@ -288,9 +305,9 @@ local function build()
 	button.MouseButton1Click:Connect(QuickChat.toggle)
 
 	-- the wheel: 8 slices round a hub with Edit in it
-	wheel = make("Frame", { Name = "QuickWheel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(RADIUS * 2 + 150, RADIUS * 2 + 90), BackgroundTransparency = 1, Visible = false }, gui)
+	wheel = make("Frame", { Name = "QuickWheel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(RADIUS * 2 + SLICE.X + 10, RADIUS * 2 + SLICE.Y + 20), BackgroundTransparency = 1, Visible = false }, gui)
 	make("UIScale", { Scale = 1 }, wheel)
-	local ring = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(RADIUS * 2 + 40, RADIUS * 2 + 40), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.45, BorderSizePixel = 0 }, wheel)
+	local ring = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(RADIUS * 2 + 50, RADIUS * 2 + 50), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.45, BorderSizePixel = 0 }, wheel)
 	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, ring)
 	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1.5, Transparency = 0.3 }, ring)
 	local hub = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(112, 112), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0 }, wheel)
@@ -302,15 +319,19 @@ local function build()
 	edit.MouseButton1Click:Connect(openEditor)
 	for n = 1, SLOTS do
 		local a = math.rad((n - 1) * 360 / SLOTS)
-		local f = make("TextButton", { Name = "Slot" .. n, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, math.sin(a) * RADIUS, 0.5, -math.cos(a) * RADIUS), Size = UDim2.fromOffset(130, 54), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, wheel)
+		local f = make("TextButton", { Name = "Slot" .. n, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, math.sin(a) * RADIUS, 0.5, -math.cos(a) * RADIUS), Size = UDim2.fromOffset(SLICE.X, SLICE.Y), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, wheel)
 		local sc = make("UIScale", { Scale = 1 }, f)
-		local plate = Gui.plate(f, { Size = UDim2.fromScale(1, 1) }, Gui.NAVY)
-		local label = Gui.label(f, { Text = "", display = true, TextSize = 18, Size = UDim2.new(1, -16, 1, -10), Position = UDim2.fromOffset(8, 5), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 })
-		local num = Gui.label(f, { Text = tostring(n), TextSize = 12, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(16, 14), Position = UDim2.fromOffset(8, 2), ZIndex = 4 })
+		-- a rounded pill; a long phrase wraps and shrinks to fit inside it
+		local plate = make("Frame", { Name = "Pill", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Gui.NAVY, BackgroundTransparency = 0.05, BorderSizePixel = 0, ZIndex = 3 }, f)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, plate)
+		local stroke = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, plate)
+		local label = Gui.label(f, { Text = "", display = true, TextScaled = true, TextWrapped = true, Size = UDim2.new(1, -48, 1, -12), Position = UDim2.fromOffset(30, 6), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 })
+		local size = make("UITextSizeConstraint", { MaxTextSize = 20, MinTextSize = 10 }, label)
+		local num = Gui.label(f, { Text = tostring(n), TextSize = 13, TextColor3 = Gui.DIM, AnchorPoint = Vector2.new(0, 0.5), Size = UDim2.fromOffset(14, 16), Position = UDim2.new(0, 14, 0.5, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 })
 		f.MouseButton1Click:Connect(function()
 			send(picks()[n])
 		end)
-		slots[n] = { frame = f, plate = plate, label = label, num = num, scale = sc }
+		slots[n] = { frame = f, plate = plate, stroke = stroke, label = label, size = size, num = num, scale = sc }
 	end
 
 	-- the editor: your slots along the top (the yellow one gets the next pick), everything under

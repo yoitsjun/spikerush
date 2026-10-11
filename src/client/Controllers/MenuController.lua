@@ -814,6 +814,7 @@ local function buildHome()
 		matchPos = matchPos,
 		matchSub = matchSub,
 		rSub = rSub,
+		recruitBtn = recruit,
 		rejoin = rejoin,
 		featured = 1,
 		stats = stats,
@@ -6163,6 +6164,184 @@ local function onProfile(prof)
 	MenuController.refresh()
 end
 
+------------------------------------------------------------------------------------------
+-- The menu tour (the owner: "in the tutorial after the playing, continue it forward in the home
+-- menu. this should guide you through recruiting, settings menu, and playing your first match"):
+-- after the drills, a coach card walks you through three steps, a pulsing ring on the button to
+-- press. Settings' `tour` keeps the step (0: not started, 1 Recruit, 2 Settings, 3 Match, 4
+-- done), so it picks up where you left it; Skip ends it, and so does your first match.
+------------------------------------------------------------------------------------------
+
+local TOUR_DONE = 4
+
+function Extra.setTour(n)
+	State.setSetting("tour", n)
+end
+
+-- The tour runs for a player who finished the tutorial and hasn't played a match yet.
+function Extra.tourOn(prof)
+	prof = prof or profile()
+	local n = math.floor(State.settings.tour or 0)
+	if n >= TOUR_DONE or not prof.tutorial or prof.tutorial.done ~= true then
+		return false
+	end
+	return ((prof.record and prof.record.matches) or 0) == 0
+end
+
+function Extra.buildTour()
+	local tg = make("ScreenGui", { Name = "SpikeRushTour", ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 30 }, player:WaitForChild("PlayerGui"))
+	local tc = make("Frame", { Name = "Canvas", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(1600, 900), BackgroundTransparency = 1 }, tg)
+	local tcScale = make("UIScale", {}, tc)
+	-- the coach card: a dark hairline card with a signal-yellow tab
+	local card = Gui.card(tc, { Name = "TourCard", AnchorPoint = Vector2.new(1, 1), Size = UDim2.fromOffset(520, 150), Visible = false, BackgroundTransparency = 0.04 })
+	make("Frame", { Size = UDim2.new(0, 6, 1, 0), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0 }, card)
+	local step = Gui.label(card, { Text = "", display = true, TextSize = 15, TextColor3 = Gui.SIGNAL, Position = UDim2.fromOffset(22, 10), Size = UDim2.fromOffset(300, 18) })
+	local title = Gui.label(card, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Position = UDim2.fromOffset(22, 28), Size = UDim2.new(1, -44, 0, 30) })
+	local body = Gui.label(card, { Text = "", TextSize = 16, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextColor3 = Gui.CHALK, Position = UDim2.fromOffset(22, 62), Size = UDim2.new(1, -44, 0, 44) })
+	local nextB, nextL = actionPlate(card, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -12), Size = UDim2.fromOffset(130, 34) }, "Next", 18)
+	local skip = make("TextButton", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 22, 1, -12), Size = UDim2.fromOffset(110, 30), BackgroundTransparency = 1, Text = "Skip tour", FontFace = Gui.body(), TextSize = 15, TextColor3 = Gui.DIM, TextXAlignment = Enum.TextXAlignment.Left }, card)
+	-- up to three pulsing rings round the buttons to press (in screen pixels, over everything)
+	local rings = {}
+	for i = 1, 3 do
+		local r = make("Frame", { Name = "TourRing" .. i, BackgroundTransparency = 1, Visible = false }, tg)
+		make("UICorner", { CornerRadius = UDim.new(0, 12) }, r)
+		local s = make("UIStroke", { Color = Gui.SIGNAL, Thickness = 4, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, r)
+		rings[i] = { frame = r, stroke = s }
+	end
+	ui.tour = { gui = tg, canvas = tc, scale = tcScale, card = card, step = step, title = title, body = body, nextB = nextB, nextL = nextL, skip = skip, rings = rings, onNext = nil }
+	onClick(nextB, function()
+		local fn = ui.tour.onNext
+		if fn then
+			fn()
+		end
+	end)
+	onClick(skip, function()
+		Extra.setTour(TOUR_DONE)
+		if mods.UIController.settingsOpen() then
+			mods.UIController.toggleSettings()
+		end
+		toast("Tour skipped. Help (top right) has the controls any time.")
+	end)
+	-- your first match ends the tour
+	State.signals.Match:Connect(function()
+		if State.isPlaying and State.match.inMatch and type(State.match.practice) ~= "table" and State.profile and Extra.tourOn() then
+			Extra.setTour(TOUR_DONE)
+		end
+	end)
+end
+
+-- What the tour shows right now: { n, title, body, targets, next = fn | nil, at = "right" |
+-- "center" | "left" }, or nil when it's hidden.
+function Extra.tourNow()
+	if not shown or seqActive or Extra.howToLocked or not State.profile or not Extra.tourOn() then
+		return nil
+	end
+	local n = math.max(1, math.floor(State.settings.tour or 0))
+	local mine = lobbies.mine
+	if mine and (mine.tutorial or mine.practice) then
+		mine = nil
+	end
+	local function homeTab()
+		local pg = ui.pages[screen]
+		local nav = pg and pg:FindFirstChild("Nav")
+		return nav and nav:FindFirstChild("Home")
+	end
+	if n == 1 then
+		local s = { n = 1, title = "Recruit players" }
+		if screen == "home" then
+			s.body = "Your tutorial reward came with free recruits. Press Recruit Player."
+			s.targets = { ui.home.recruitBtn }
+		elseif screen == "recruit" then
+			s.body = "Press Recruit x1: free recruits go first. Who you pull joins your team in Players."
+			s.targets = { ui.recruit.x1 }
+			s.next = function()
+				Extra.setTour(2)
+				MenuController.go("home")
+			end
+		else
+			s.body = "Head back Home, then press Recruit Player."
+			s.targets = { homeTab() }
+		end
+		return s
+	elseif n == 2 then
+		local s = { n = 2, title = "Settings" }
+		if mods.UIController.settingsOpen() then
+			s.body = "Controls changes any key. The switches turn the landing marker, camera shake and more on or off."
+			s.at = "left"
+			s.next = function()
+				mods.UIController.toggleSettings()
+				Extra.setTour(3)
+			end
+		else
+			local pg = ui.pages[screen]
+			local side = pg and pg:FindFirstChild("Side")
+			s.body = "Open Settings (top right) to change your keys and the camera, any time."
+			s.targets = { side and side:FindFirstChild("Settings") }
+		end
+		return s
+	end
+	local s = { n = 3, title = "Your first match" }
+	if mine then
+		s.body = "You're in! The match starts in a moment; bots fill any empty spots."
+	elseif screen == "match" then
+		local cards = ui.matchScreen.cards
+		s.body = "Pick 1v1, 2v2 or 3v3 for a quick match. Bots fill any empty spots."
+		s.targets = { cards["1"].button, cards["2"].button, cards["3"].button }
+		s.at = "center"
+	elseif screen == "home" then
+		s.body = "Press Match to play. Matches pay Gold and V Points."
+		s.targets = { ui.home.match }
+	else
+		s.body = "Head back Home, then press Match."
+		s.targets = { homeTab() }
+	end
+	return s
+end
+
+-- Every frame: the card's text and place, and the rings on their buttons.
+function Extra.updateTour()
+	local t = ui.tour
+	if not t then
+		return
+	end
+	local s = Extra.tourNow()
+	t.card.Visible = s ~= nil
+	t.onNext = s and s.next or nil
+	local targets = (s and s.targets) or {}
+	local pulse = 0.5 + 0.5 * math.sin(os.clock() * 6)
+	local origin = t.gui.AbsolutePosition
+	for i, r in ipairs(t.rings) do
+		local target = targets[i]
+		local on = target ~= nil and target.Visible and target.AbsoluteSize.X > 0
+		r.frame.Visible = on
+		if on then
+			local pad = 6 + 4 * pulse
+			r.frame.Position = UDim2.fromOffset(target.AbsolutePosition.X - origin.X - pad, target.AbsolutePosition.Y - origin.Y - pad)
+			r.frame.Size = UDim2.fromOffset(target.AbsoluteSize.X + pad * 2, target.AbsoluteSize.Y + pad * 2)
+			r.stroke.Transparency = 0.35 * pulse
+		end
+	end
+	if not s then
+		return
+	end
+	t.step.Text = string.format("GETTING STARTED  %d / 3", s.n)
+	t.title.Text = s.title
+	t.body.Text = s.body
+	t.nextB.Visible = s.next ~= nil
+	local at = s.at or "right"
+	if at == "center" then
+		t.card.AnchorPoint = Vector2.new(0.5, 1)
+		t.card.Position = UDim2.new(0.5, 0, 1, -M)
+	elseif at == "left" then
+		t.card.AnchorPoint = Vector2.new(0, 1)
+		t.card.Position = UDim2.new(0, M, 1, -M)
+	else
+		-- above the bottom-right buttons (Recruit Player and Match; Recruit x1 and x10)
+		t.card.AnchorPoint = Vector2.new(1, 1)
+		t.card.Position = UDim2.new(1, -M, 1, -M - 136)
+	end
+end
+
 local function layout()
 	local cam = workspace.CurrentCamera
 	if not cam then
@@ -6178,6 +6357,10 @@ local function layout()
 	end
 	canvasScale.Scale = s
 	canvas.Size = UDim2.fromOffset(vs.X / s, vs.Y / s)
+	if ui.tour then
+		ui.tour.scale.Scale = s
+		ui.tour.canvas.Size = canvas.Size
+	end
 	placeHome()
 	placeHeaders()
 end
@@ -6234,6 +6417,7 @@ function MenuController.init(m)
 	Extra.buildGift()
 	Extra.buildAdmin()
 	Extra.buildCups()
+	Extra.buildTour()
 
 	-- the toast: a dark hairline card with a signal-yellow tab, under the nav
 	local tf = make("Frame", { Name = "Toast", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 100), Size = UDim2.fromOffset(660, 50), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.1, BorderSizePixel = 0, Visible = false, ZIndex = 40 }, canvas)
@@ -6325,6 +6509,7 @@ function MenuController.init(m)
 	-- slow ticks: countdowns, the featured recruit and tips rotating
 	local acc, tick = 0, 0
 	RunService.RenderStepped:Connect(function(dt)
+		Extra.updateTour()
 		-- the timeout window closes with the timeout (or its Close button)
 		if swapMode and (not ui.swap.modal.root.Visible or not State.isPlaying or State.phase() ~= "Timeout") then
 			closeSwap()

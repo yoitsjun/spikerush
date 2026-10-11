@@ -1863,6 +1863,22 @@ do
 		end
 	end
 	check(worst > 0 and PRc.BotTier == "D", "practice bots are D tier, and the block drill's spike is reachable by every character, fresh", string.format("least room %.2f studs (%s)", worst, worstName))
+
+	-- their setter's set (PracticeService.setAndAttack) comes down on the attacker's hand, on
+	-- their side, late enough for the attacker's jump and a read of it
+	local side = Court.sideOf("Away")
+	local spot = Court.formationSpot("Offense", "SE", side)
+	local hand = Vector3.new(0, GROUND + 3.2, spot.Z)
+	local p = Vector3.new(0, Config.Court.NetTop + PRc.AttackAboveNet, side * PRc.AttackDepth)
+	local g = Config.Ball.Gravity * Config.Hits.SetGravityScale
+	local v, T = HitLogic.solveArc(hand, p, math.max(hand.Y, p.Y) + PRc.DrillSetRise, g)
+	local path = BallPhysics.buildPath(BallPhysics.newLaunch(hand, v, Vector3.new(0, -g, 0), 0))
+	local at = BallPhysics.positionAt(path, T)
+	local own = true
+	for i = 0, 10 do
+		own = own and BallPhysics.positionAt(path, T * i / 10).Z * side > 0
+	end
+	check((at - p).Magnitude < 0.3 and own and T > PRc.AttackWindup + 0.6 and T < 2.5, "the drill's set reaches their attacker's hand on their side, with time to read it", string.format("%.2f s, off by %.2f studs", T, (at - p).Magnitude))
 end
 
 print("== codes ==")
@@ -2086,7 +2102,7 @@ do
 			return Settings.keysText({}, action, " or ")
 		end), "[{}]")
 	end
-	check(line == "Hold G at the net and let go to jump as they swing." and all, "the tutorial's keyboard lines show your keys", line)
+	check(line == "Watch the set. Hold G at the net and let go when their attacker jumps." and all, "the tutorial's keyboard lines show your keys", line)
 	check(spikeKeys == "G" and blockKeys == "W / Up" and Settings.keysText({}, "SlideFeint") == "C / L Shift / R Shift / L", "the keys an action is on read as text", spikeKeys .. " | " .. blockKeys)
 end
 

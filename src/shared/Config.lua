@@ -1334,7 +1334,7 @@ Config.Tutorial = {
 }
 
 -- Practice drills (PracticeService). The court is a 2v2: you and a setter on your side, their
--- attacker on the other. Bots stand still; a drill moves only the one it needs.
+-- setter and attacker on the other. Bots stand still; a drill moves only the one it needs.
 Config.Practice = {
 	Mode = 2,
 	-- the practice partners (their sets and spikes are scripted, so the tier is mostly the look;
@@ -1346,6 +1346,7 @@ Config.Practice = {
 	ServeTimeout = 45, -- the serve drill waits this long for your serve (then just offers it again)
 	PauseAfter = 1.3, -- seconds to watch the ball after a rep before the next one
 	AttackWindup = 0.5, -- the attacker's jump before it swings
+	DrillSetRise = 3.5 * M, -- their setter's set (block and dig drills) peaks this far over the attacker's hand
 	AttackDepth = 1.2 * M, -- how far from the net the attacker hits
 	AttackAboveNet = 1.2 * M, -- the lowest the attack leaves the hand, above the net top
 	BlockKmh = { 90, 110 },
@@ -1447,7 +1448,8 @@ Config.Bots = {
 -- State.settings holds the defaults and the live values).
 Config.Settings = {
 	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach", "setterAim" },
-	Numbers = { shake = { 0, 1 } },
+	-- tour: the menu tour's step after the tutorial (MenuController; 4 is done)
+	Numbers = { shake = { 0, 1 }, tour = { 0, 4 } },
 	-- touch buttons can be moved (x, y: the centre as a fraction of the screen) and resized
 	Touch = {
 		Buttons = { "A", "B", "C", "Set", "Skill1", "Skill2", "Skill3" },

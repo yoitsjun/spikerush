@@ -3,9 +3,9 @@
 -- needs it, judges one touch or one landing, and resets. The bots stand still (BotService skips
 -- them while MatchService.practice is set); a drill moves only the one it needs.
 --   spike  a bot setter on your side sets you: your spike has to land in their court
---   block  their attacker at the net spikes: your block has to touch it
+--   block  their setter sets their attacker at the net, who spikes: your block has to touch it
 --   serve  the ball is in your hands: the serve has to land in their court (in a row)
---   dig    their attacker spikes at you: your receive has to keep it up (in a row)
+--   dig    their setter sets their attacker, who spikes at you: your receive has to keep it up (in a row)
 -- The tutorial runs all four in order and ticks each finished drill (ProfileService's reward
 -- once all four are done); a single drill from the Practice tab runs once to its goal.
 -- MatchService.practice (in the match state) tells the clients' coach panel what's on.
@@ -100,8 +100,10 @@ local function blockTop(me)
 end
 
 -- Their attacker's spike: a jump at the net, then the ball off its hand at `kmh` onto `target`
--- (a spot on your floor). maxY: the highest it may leave the hand (the block drill).
-local function attack(attacker, target, kmh, maxY)
+-- (a spot on your floor). maxY: the highest it may leave the hand (the block drill). from: where
+-- it leaves the hand (where their setter's set comes down), else worked out from the jump.
+-- onJump: called as the attacker leaves the floor (the block drill's "Jump!" cue).
+local function attack(attacker, target, kmh, maxY, from, onJump)
 	local TS = reg.TeamService
 	local model = TS.getModel(attacker)
 	local hum = model and model:FindFirstChildOfClass("Humanoid")
@@ -109,14 +111,20 @@ local function attack(attacker, target, kmh, maxY)
 		hum.Jump = true
 	end
 	reg.HitService.fx(attacker.id, "Jump", "Spike")
+	if onJump then
+		onJump()
+	end
 	task.wait(PR.AttackWindup)
 	local root = TS.getRoot(attacker)
 	local side = Court.sideOf(attacker.team)
-	local y = math.max(root and root.Position.Y + 3.4 or 0, C.NetTop + PR.AttackAboveNet)
-	if maxY then
-		y = math.max(math.min(y, maxY - PR.BlockReachMargin), C.NetTop + PR.BlockAboveNet)
+	local p = from
+	if not p then
+		local y = math.max(root and root.Position.Y + 3.4 or 0, C.NetTop + PR.AttackAboveNet)
+		if maxY then
+			y = math.max(math.min(y, maxY - PR.BlockReachMargin), C.NetTop + PR.BlockAboveNet)
+		end
+		p = Vector3.new(0, y, side * PR.AttackDepth)
 	end
-	local p = Vector3.new(0, y, side * PR.AttackDepth)
 	local g = Config.Ball.Gravity
 	local T = (target - p).Magnitude / (kmh / 3.6 * SPM)
 	local v = (target - p) / T + Vector3.new(0, 0.5 * g * T, 0)
@@ -129,6 +137,50 @@ local function attack(attacker, target, kmh, maxY)
 		kmh = math.floor(kmh),
 		t = now,
 	}, HitLogic.nextTouch({ count = 0 }, attacker.team, attacker.id, "Spike"))
+end
+
+-- Where their attacker's spike leaves the hand: its top contact, kept under your block's reach
+-- in the block drill (maxY) and over the tape.
+local function attackPoint(attacker, maxY)
+	local side = Court.sideOf(attacker.team)
+	local top = attacker.charStats and attacker.charStats.contactMaxStuds or 0
+	local y = math.max(top, C.NetTop + PR.AttackAboveNet)
+	if maxY then
+		y = math.max(math.min(y, maxY - PR.BlockReachMargin), C.NetTop + PR.BlockAboveNet)
+	end
+	return Vector3.new(0, y, side * PR.AttackDepth)
+end
+
+-- Their setter sets their attacker, who jumps as the set comes down and spikes it: the set
+-- going up shows you when the swing comes (the owner: players didn't know when to jump on the
+-- block drill). With no setter over there, the attacker just spikes.
+local function setAndAttack(setter, attacker, target, kmh, maxY, onJump, stillOn)
+	if not setter then
+		attack(attacker, target, kmh, maxY, nil, onJump)
+		return
+	end
+	local p = attackPoint(attacker, maxY)
+	local root = reg.TeamService.getRoot(setter)
+	local side = Court.sideOf(setter.team)
+	local hand = Vector3.new(0, (root and root.Position.Y or P.RootGround) + 3.2, root and root.Position.Z or side * 0.9 * SPM)
+	local g = Config.Ball.Gravity * Config.Hits.SetGravityScale
+	local v, T = HitLogic.solveArc(hand, p, math.max(hand.Y, p.Y) + PR.DrillSetRise, g)
+	local now = Util.now()
+	local touch = HitLogic.nextTouch(HitLogic.nextTouch({ count = 0 }, setter.team, "Pass", "Bump"), setter.team, setter.id, "Set")
+	reg.BallService.launch(BallPhysics.newLaunch(hand, v, Vector3.new(0, -g, 0), now), {
+		hitType = "Set",
+		setType = "Open",
+		id = setter.id,
+		name = setter.name,
+		team = setter.team,
+		targetId = attacker.id,
+		quality = 1,
+		t = now,
+	}, touch)
+	task.wait(math.max(0, T - PR.AttackWindup))
+	if stillOn() then
+		attack(attacker, target, kmh, maxY, p, onJump)
+	end
 end
 
 local function between(range)
@@ -166,7 +218,7 @@ local function onDead(landing, flags, last)
 end
 
 -- Everyone to their spots for a rep of `drill`: the ones it doesn't use stand back.
-local function setUp(drill, me, setter, attacker)
+local function setUp(drill, me, setter, attacker, theirSetter)
 	local home, away = Court.sideOf(HOME), Court.sideOf(AWAY)
 	for _, e in ipairs(reg.TeamService.members(HOME)) do
 		if e ~= me then
@@ -182,18 +234,20 @@ local function setUp(drill, me, setter, attacker)
 		if setter then
 			place(setter, Court.formationSpot("Offense", "SE", home))
 		end
-	elseif d == "block" then
-		place(me, Court.spot(home, P.BlockReach * 0.5, me.role))
+	elseif d == "block" or d == "dig" then
+		if d == "block" then
+			place(me, Court.spot(home, P.BlockReach * 0.5, me.role))
+		else
+			place(me, Court.formationSpot("Receive", "WS", home))
+		end
 		if attacker then
 			place(attacker, Court.spot(away, PR.AttackDepth, attacker.role))
+		end
+		if theirSetter then
+			place(theirSetter, Court.formationSpot("Offense", "SE", away))
 		end
 	elseif d == "serve" then
 		place(me, Court.serveSpot(home, me.role))
-	elseif d == "dig" then
-		place(me, Court.formationSpot("Receive", "WS", home))
-		if attacker then
-			place(attacker, Court.spot(away, PR.AttackDepth, attacker.role))
-		end
 	end
 end
 
@@ -212,10 +266,11 @@ local function runDrill(drill, plr, status, stillOn)
 		local me = TS.entityForPlayer(plr)
 		local setter = me and mate(HOME, me.id)
 		local attacker = mate(AWAY, nil)
+		local theirSetter = attacker and mate(AWAY, attacker.id)
 		BS.hide()
 		TS.fillStamina(HOME)
 		MS.serverId = nil
-		setUp(drill, me, setter, attacker)
+		setUp(drill, me, setter, attacker, theirSetter)
 		rep = { drill = drill, playerId = me.id, outcome = nil }
 		MS.setPhase("PreServe", PR.FeedDelay)
 		task.wait(PR.FeedDelay)
@@ -228,7 +283,9 @@ local function runDrill(drill, plr, status, stillOn)
 			feedSet(setter, me)
 		elseif drill.id == "block" and attacker then
 			MS.setPhase("Rally", 0)
-			attack(attacker, Vector3.new(0, Config.Ball.Radius, Court.sideOf(HOME) * between(PR.BlockTargetDepth)), between(PR.BlockKmh), blockTop(me))
+			setAndAttack(theirSetter, attacker, Vector3.new(0, Config.Ball.Radius, Court.sideOf(HOME) * between(PR.BlockTargetDepth)), between(PR.BlockKmh), blockTop(me), function()
+				MS.announce({ kind = "Drill", drill = drill.id, cue = "Jump" })
+			end, stillOn)
 		elseif drill.id == "serve" then
 			-- you serve: clients only take serve input (the toss, X, F) from the match's server
 			MS.servingTeam = HOME
@@ -240,7 +297,7 @@ local function runDrill(drill, plr, status, stillOn)
 			MS.setPhase("Rally", 0)
 			local root = TS.getRoot(me)
 			local z = root and root.Position.Z or Court.formationSpot("Receive", "WS", Court.sideOf(HOME)).Z
-			attack(attacker, Vector3.new(0, Config.Ball.Radius, z + (rng:NextNumber() * 2 - 1) * 1.5), between(PR.DigKmh))
+			setAndAttack(theirSetter, attacker, Vector3.new(0, Config.Ball.Radius, z + (rng:NextNumber() * 2 - 1) * 1.5), between(PR.DigKmh), nil, nil, stillOn)
 		end
 		local t0 = os.clock()
 		while rep.outcome == nil and stillOn() and os.clock() - t0 < timeout do
@@ -269,7 +326,7 @@ local function runDrill(drill, plr, status, stillOn)
 	return false
 end
 
--- A practice lobby's turn on the court: set up a 2v2 (you and a setter, their attacker), then
+-- A practice lobby's turn on the court: set up a 2v2 (you and a setter, their setter and attacker), then
 -- run the drill (or the tutorial's four) until done or you leave.
 function PracticeService.run(lobby)
 	local TS, BS, MS, LS = reg.TeamService, reg.BallService, reg.MatchService, reg.LobbyService
