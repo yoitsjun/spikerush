@@ -126,3 +126,29 @@ edge_glow = np.clip(1 - np.minimum(u, 1 - u) * 6, 0, 1)
 white = np.clip(facet * 0.7 + crack_lines * 0.5 + edge_glow * 0.4, 0, 1)
 alpha = np.clip(0.72 + 0.28 * (crack_lines + edge_glow), 0, 1)
 save("fx_ice.png", alpha, white=white)
+
+# --- the third set (the Blox Fruits study: "the ground remembers", volumes, shock bubbles) -------
+
+# a scorch mark: a burnt blot with a ragged edge and darker flecks (tinted near black in game)
+blot = smooth_noise(N, 5, octaves=4, seed=13)
+edge_r = 0.62 + 0.28 * (blot - 0.5)
+alpha = np.clip((edge_r - rad) * 5, 0, 1) * (0.7 + 0.3 * smooth_noise(N, 14, octaves=2, seed=14))
+save("fx_scorch.png", alpha)
+
+# cracks: jagged lines radiating out from the centre, thinner toward the ends
+spokes = np.abs(np.sin(ang * 5 + 2.2 * smooth_noise(N, 6, octaves=3, seed=15)))
+crack = np.clip(1 - spokes * (14 + 30 * rad), 0, 1)
+web = np.clip(1 - np.abs(smooth_noise(N, 9, octaves=3, seed=16) - 0.5) * 22, 0, 1) * np.clip(1 - rad * 1.3, 0, 1) * 0.7
+alpha = np.clip((crack + web) * np.clip((1 - rad) * 2.5, 0, 1), 0, 1)
+save("fx_crack.png", alpha)
+
+# a shock bubble: speed lines streaking along u, brightest at one edge band of v (the leading rim)
+lines2 = np.clip((smooth_noise(N, 12, octaves=2, seed=17)[:, :1].repeat(N, axis=1) - 0.45) * 3, 0, 1)
+band = np.clip(1 - np.abs(v - 0.55) * 2.2, 0, 1) ** 1.5
+alpha = np.clip(lines2 * band * 0.9 + band * 0.15, 0, 1)
+save("fx_bubble.png", alpha)
+
+# a smoke puff: a soft billowy blob with lumpy edges
+puff = smooth_noise(N, 4, octaves=5, seed=18)
+alpha = np.clip((0.75 + 0.35 * (puff - 0.5) - rad) * 2.6, 0, 1) * (0.6 + 0.4 * puff)
+save("fx_smoke.png", alpha, white=0.8 + 0.2 * puff)

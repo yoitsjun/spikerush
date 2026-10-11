@@ -221,6 +221,9 @@ local function meshFx(name, cf, color, from, to, life, opts)
 	p.Transparency = opts.alpha or 0
 	local function at(k, turn)
 		local c = cf * CFrame.Angles(0, math.rad(turn or 0), 0)
+		if opts.post then
+			c = c * opts.post
+		end
 		if opts.base then
 			c = c * CFrame.new(0, size.Y * k / 2, 0)
 		end
@@ -276,7 +279,7 @@ local FACE_CAMERA = CFrame.Angles(0, math.rad(90), 0)
 
 -- Rubble (Blox Fruits' big hits throw the ground up): `n` chunks flung up and out from `pos`,
 -- spinning, falling back, then gone.
-local function rubble(pos, n, k, color)
+local function rubble(pos, n, k, color, size)
 	local tpl = meshTemplate("FX_Rock")
 	if not tpl then
 		return
@@ -290,7 +293,7 @@ local function rubble(pos, n, k, color)
 		p.CastShadow = false
 		p.Material = Enum.Material.Slate
 		p.Color = color or Color3.fromRGB(96, 88, 82)
-		p.Size = tpl.Size * (0.25 + math.random() * 0.45) * k
+		p.Size = tpl.Size * (0.25 + math.random() * 0.45) * k * (size or 1)
 		local a = math.random() * math.pi * 2
 		local vel = Vector3.new(math.cos(a) * (6 + math.random() * 10), 22 + math.random() * 16, math.sin(a) * (6 + math.random() * 10)) * k
 		local spin = CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
@@ -368,6 +371,60 @@ local function heldMesh(name, color, glow)
 	setScale(1)
 	p.Parent = fxFolder
 	return p, sm, setScale
+end
+
+-- The Blox Fruits study (Spike Rush/References in the owner's notes): the ground remembers (scorch
+-- marks, cracks, slabs pushed up), volumes (shock bubbles, smoke), the scene darkens before a big
+-- hit, and bright cores get a dark edge and dark flecks.
+
+-- A mark left on the floor: FX_Scorch or FX_Crack, `size` times its 10 studs, held then faded.
+local function groundMark(name, pos, color, size, hold, fade)
+	return meshFx(name, CFrame.new(pos.X, 0.07 + math.random() * 0.02, pos.Z) * CFrame.Angles(0, math.random() * 6.28, 0), color, size, size, hold + fade, { hold = hold, glow = 0.7, alpha = 0.05 })
+end
+
+-- Stone slabs pushed up out of the floor in a ring, leaning out, held, then sinking.
+local function slabRing(pos, n, radius, k, color)
+	for i = 1, n do
+		local a = math.rad(i * 360 / n + math.random(-8, 8))
+		local place = CFrame.new(pos.X, 0, pos.Z) * CFrame.Angles(0, a, 0) * CFrame.new(radius, -0.4, 0) * CFrame.Angles(0, math.rad(90), math.rad(-(20 + math.random(0, 22))))
+		local tall = (0.55 + math.random() * 0.6) * k
+		task.delay(i * 0.012, meshFx, "FX_Slab", place, color or Color3.fromRGB(110, 102, 96), 0.05, tall, 1.9, { base = true, grow = 0.16, hold = 1.3, ease = Enum.EasingStyle.Back, material = Enum.Material.Slate, glow = 1 })
+	end
+end
+
+-- A see-through shock bubble with speed lines, out from `pos`.
+local function shockBubble(pos, color, size, life)
+	meshFx("FX_Bubble", CFrame.new(pos) * CFrame.Angles(0, math.random() * 6.28, 0), color, 0.1, size, life or 0.45, { alpha = 0.25, spin = 70, glow = 1.6 })
+end
+
+-- Soft smoke puffs rolling up around `pos`.
+local function smokePuffs(pos, n, k, color)
+	for i = 1, n do
+		local a = math.random() * 6.28
+		local r = (0.6 + math.random() * 2.2) * k
+		local at = CFrame.new(pos.X + math.cos(a) * r, 0.1, pos.Z + math.sin(a) * r) * CFrame.Angles(0, math.random() * 6.28, 0)
+		task.delay(i * 0.03, meshFx, "FX_Smoke", at, color or Color3.fromRGB(225, 225, 230), (0.25 + math.random() * 0.2) * k, (0.6 + math.random() * 0.5) * k, 1.1, { base = true, rise = 2.5 * k, spin = 40, alpha = 0.25, glow = 1.1 })
+	end
+end
+
+-- The scene darkens a moment before a big hit (only for players on court).
+local function dim(amount, dur)
+	if State.isPlaying ~= true then -- (on court only, like the other screen-wide effects)
+		return
+	end
+	local cc = Instance.new("ColorCorrectionEffect")
+	cc.Brightness = 0
+	cc.Saturation = 0
+	cc.Parent = game:GetService("Lighting")
+	local down = TweenService:Create(cc, TweenInfo.new(dur * 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Brightness = -amount, Saturation = -0.35 })
+	down:Play()
+	task.delay(dur * 0.5, function()
+		local up = TweenService:Create(cc, TweenInfo.new(dur * 0.5), { Brightness = 0, Saturation = 0 })
+		up.Completed:Connect(function()
+			cc:Destroy()
+		end)
+		up:Play()
+	end)
 end
 
 -- Inferno's blaze (the owner: "swirling fire around it while you rise, like a blaze from
@@ -1055,6 +1112,13 @@ local function jumpMeshes(foot, key, tint, k, model)
 		end
 		meshFx("FX_Ring", floor, c, 0.3 * k, 1.9 * k, 0.8, { alpha = 0.1, grow = 0.3, hold = 0.3 })
 		meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), Color3.fromRGB(200, 240, 255), 0.3 * k, 1.2 * k, 0.9, { alpha = 0.35, spin = 90, grow = 0.4, hold = 0.3 })
+		-- a line of ice spikes racing toward the net (Yeti's Arctic Slam), and snow smoke
+		local toward = foot.Z > 0 and -1 or 1
+		for i = 1, 6 do
+			local at = CFrame.new(foot.X + (math.random() - 0.5) * 0.8, 0.15, foot.Z + toward * (2.5 + i * 1.9) * k) * CFrame.Angles(0, math.random() * 6.28, math.rad(math.random(-14, 14)))
+			task.delay(0.05 + i * 0.045, meshFx, "FX_Ice", at, i % 2 == 0 and Color3.fromRGB(215, 245, 255) or c, 0.05, (0.35 + i * 0.07) * k, 0.95, { base = true, grow = 0.14, hold = 0.45, shrink = 0.5, ease = Enum.EasingStyle.Back, glow = 1.7 })
+		end
+		smokePuffs(foot, 5, k, Color3.fromRGB(230, 245, 255))
 	elseif key == "Shadow" then
 		-- a dark vortex opening under you (Blox Fruits' Dark): the swirl, a shell and a purple rim
 		meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), c, 0.3 * k, 2.1 * k, 1.1, { spin = -260, grow = 0.45, hold = 0.4, glow = 2.0 })
@@ -1082,6 +1146,9 @@ local function jumpMeshes(foot, key, tint, k, model)
 			end
 		end
 		meshFx("FX_Ring", floor, c, 0.3 * k, 1.5 * k, 0.6)
+		-- the floor is left scorched (Dragon), and dark ash flies with the flames
+		groundMark("FX_Scorch", foot, Color3.fromRGB(28, 16, 10), (hot and 0.75 or 0.55) * k, 1.4, 0.9)
+		rubble(foot, hot and 6 or 4, k, Color3.fromRGB(25, 15, 12), 0.25)
 	elseif key == "Lightning" or key == "Storm" then
 		local storm = key == "Storm"
 		if storm then
@@ -1091,6 +1158,12 @@ local function jumpMeshes(foot, key, tint, k, model)
 			meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), c, 0.3 * k, 1.6 * k, 0.8, { spin = 200, grow = 0.3, hold = 0.25, glow = 2 })
 			rubble(foot, 7, k)
 		end
+		if storm then
+			dim(0.35, 0.7) -- the sky darkens before it strikes (Judgement of the Sky)
+			slabRing(foot, 9, 4 * k, k)
+			groundMark("FX_Crack", foot, Color3.fromRGB(30, 40, 55), 0.9 * k, 1.4, 0.8)
+		end
+		groundMark("FX_Scorch", foot, Color3.fromRGB(16, 20, 32), (storm and 0.7 or 0.45) * k, 1.0, 0.7)
 		local n = storm and 6 or 2
 		local h = (storm and 22 or 16) * k
 		for i = 1, n do
@@ -1203,6 +1276,9 @@ function VFXController.boom(entityId, kind)
 	meshFx("FX_Ring", CFrame.new(foot.X, 0.15, foot.Z), color, 0.3 * k, 1.9 * k, 0.45)
 	meshFx("FX_Dome", CFrame.new(foot.X, 0.15, foot.Z), WHITE, 0.15 * k, 0.6 * k, 0.3, { alpha = 0.45 })
 	rubble(foot, big and 6 or 3, k)
+	shockBubble(foot + Vector3.new(0, 1, 0), color, 0.75 * k, 0.4)
+	groundMark("FX_Crack", foot, Color3.fromRGB(40, 36, 34), 0.6 * k, 1.1, 0.7)
+	smokePuffs(foot, big and 6 or 3, k)
 	task.delay(0.07, floorRing, foot, WHITE, 10 * k)
 	starburst(foot + Vector3.new(0, 1, 0), color, 9 * k)
 	shards(foot + Vector3.new(0, 0.6, 0), color, math.floor(18 * k), 70)
@@ -2281,7 +2357,20 @@ local function onHit(snap)
 		-- the swing's slash: a crescent through the contact, facing the camera, in the spike colour
 		local slashColor = Spins.tint(model and Spins.equipped(model, "Color")) or WHITE
 		local big = kmh >= 120
-		meshFx("FX_Slash", CFrame.new(pos) * FACE_CAMERA * CFrame.Angles(0, 0, math.rad(dirZ > 0 and -35 or 215)), slashColor, 0.35, big and 0.85 or 0.65, 0.22, { alpha = 0.05 })
+		local turn = CFrame.Angles(0, 0, math.rad(dirZ > 0 and -35 or 215))
+		-- a dark edge just behind the bright one (Kitsune's two-tone slashes); the camera looks
+		-- along +x, so behind is +x
+		meshFx("FX_Slash", CFrame.new(pos + Vector3.new(0.3, 0, 0)) * FACE_CAMERA * turn, Color3.fromRGB(18, 10, 30), 0.4, big and 0.98 or 0.75, 0.26, { alpha = 0.05, glow = 0.6 })
+		meshFx("FX_Slash", CFrame.new(pos) * FACE_CAMERA * turn, slashColor, 0.35, big and 0.85 or 0.65, 0.22, { alpha = 0.05 })
+		if big then
+			rubble(pos, 5, 0.6, Color3.fromRGB(16, 10, 22), 0.22) -- dark flecks thrown off the hit
+		end
+		if meta.gauge then
+			-- a Feral Leap spike sweeps a ring of slashes round the hitter (Kitsune's spin)
+			for i = 1, 3 do
+				meshFx("FX_Slash", CFrame.new(pos) * CFrame.Angles(0, math.rad(i * 120), 0), FERAL, 0.3, 0.8, 0.3, { post = CFrame.Angles(math.rad(90), 0, 0), spin = 160, alpha = 0.1 })
+			end
+		end
 		if big then
 			meshFx("FX_Crown", CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(dirZ > 0 and -90 or 90)), slashColor, 0.2, 0.7, 0.25, { alpha = 0.1 })
 		end
@@ -3079,10 +3168,25 @@ local function blackHole(pos, tint, k)
 		local b = windBeam(holder, i % 2 == 0 and WHITE or color, 1.4 * k, 0.2, -3)
 		beams[i] = { b = b, a = i / 9 * math.pi * 2, tilt = (math.random() - 0.5) * 1.2 }
 	end
+	-- Gravity's vortex (the owner's reference): swirling arms round the core, a white star glint
+	-- in it, and dark flecks pulled in with the bright ones
+	local arms = {}
+	for i, spec in ipairs({ { color, 2.2, 1 }, { Color3.fromRGB(20, 0, 35), 0.8, -1.4 } }) do
+		local p, _, setScale = heldMesh("FX_Vortex", spec[1], spec[2])
+		if p then
+			arms[i] = { p = p, setScale = setScale, dir = spec[3] }
+		end
+	end
+	task.spawn(function()
+		for _ = 1, 8 do
+			Fx.play("Star", center, { color = WHITE, scale = 1.6 * k })
+			task.wait(0.4)
+		end
+	end)
 	local bits = {}
 	for i = 1, 40 do
 		local b = take(Enum.PartType.Ball)
-		b.Color = i % 3 == 0 and WHITE or color
+		b.Color = i % 3 == 0 and WHITE or (i % 3 == 1 and Color3.fromRGB(12, 4, 22) or color)
 		b.Transparency = 0
 		local s = (0.3 + math.random() * 0.5) * k
 		b.Size = Vector3.new(s, s, s)
@@ -3109,6 +3213,11 @@ local function blackHole(pos, tint, k)
 			well.Size = Vector3.new(0.3, 26 * k * s + 0.1, 26 * k * s + 0.1)
 			well.CFrame = tiltCF * CFrame.Angles(0, e * 3, math.rad(90))
 			well.Transparency = 0.3 + 0.7 * (1 - s)
+		end
+		for _, arm in ipairs(arms) do
+			arm.setScale(3.1 * k * s * (arm.dir > 0 and 1 or 0.7) + 0.01)
+			arm.p.CFrame = tiltCF * CFrame.new(0, 0.4, 0) * CFrame.Angles(0, -e * 2.6 * arm.dir, 0)
+			arm.p.Transparency = 1 - s
 		end
 		swirl.Size = Vector3.new(30 * k * s + 0.1, 0.05, 30 * k * s + 0.1)
 		swirl.CFrame = tiltCF * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, -e * 2.4, 0)
@@ -3148,6 +3257,9 @@ local function blackHole(pos, tint, k)
 			end
 			swirl:Destroy()
 			swirl2:Destroy()
+			for _, arm in ipairs(arms) do
+				arm.p:Destroy()
+			end
 			holder:Destroy()
 			rim.Material = Enum.Material.Neon
 			release(rim)
@@ -3357,6 +3469,12 @@ local function crater(pos, tint, k)
 		up:Play()
 		rocks[i] = r
 	end
+	-- the ground remembers (Gravity's Asteroid Crash): slabs pushed up round the rim, the floor
+	-- cracked and scorched out past it, smoke rolling off
+	slabRing(pos, 12, radius * 1.15, 1.4 * k, Color3.fromRGB(96, 86, 80))
+	groundMark("FX_Crack", pos, Color3.fromRGB(35, 28, 26), 2.4 * k, 5.5, 1.2)
+	groundMark("FX_Scorch", pos, Color3.fromRGB(26, 16, 12), 1.9 * k, 5.5, 1.2)
+	smokePuffs(pos, 10, 2 * k, color:Lerp(WHITE, 0.55))
 	sfx("CraterSlam", pos)
 	task.delay(0.5, sfx, "CraterRubble", pos)
 	task.delay(0.9, sfx, "CraterLava", pos)
