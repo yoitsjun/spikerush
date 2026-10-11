@@ -520,6 +520,11 @@ local function applyStyle(meta)
 		sparkleOn = true
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 230, 210))
 	end
+	-- a colour that can't glow (Black): its trail is drawn unlit
+	if colorItem and colorItem.Emission and not (meta.thunder or meta.energy or gauge or meta.reaction) then
+		trail.LightEmission = colorItem.Emission
+		core.Enabled = false
+	end
 	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or (meta.plunge and Config.Abilities.Plunge.Color) or Color3.fromRGB(255, 90, 110)
 	-- a solid trail (White, Black, Rainbow) is the ribbon in its own colours; an ability's spike
 	-- keeps the ability's look

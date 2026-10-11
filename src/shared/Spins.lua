@@ -448,6 +448,9 @@ function Spins.tintSequence(item)
 	if not item or not item.Color then
 		return nil
 	end
+	if type(item.Trail) == "table" and #item.Trail >= 2 then
+		return ColorSequence.new(item.Trail[1], item.Trail[2]) -- (Black: its own unlit trail)
+	end
 	if item.Key == "Prism" then
 		local keys = {}
 		for i = 0, 6 do

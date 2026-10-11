@@ -911,7 +911,7 @@ local function styleBall(b, colorKey, trailKey)
 	b.trail.Color = Spins.tintSequence(colorItem) or ColorSequence.new(Color3.fromRGB(255, 40, 140), Color3.fromRGB(255, 90, 70))
 	b.trail.Transparency = fadeSeq(0.12)
 	b.trail.Lifetime = 0.6
-	b.trail.LightEmission = 0.9
+	b.trail.LightEmission = (colorItem and colorItem.Emission) or 0.9
 	b.trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.6) })
 	b.coreTrail.Lifetime = 0.3
 	b.sparkleOn = true

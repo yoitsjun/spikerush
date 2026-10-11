@@ -882,6 +882,77 @@ function VFXController.boom(entityId, kind)
 end
 
 
+-- Swing trails (the owner: "this effect is pretty cool. it traces your arms motion"): a streak
+-- from the fingertips to the forearm on each arm, on while you swing (a spike or serve jump, and
+-- the follow-through of every touch), in your spike colour (white without one). One Trail per
+-- arm, made once per character and only switched on and off: cheap however many play.
+local swingTrails = setmetatable({}, { __mode = "k" }) -- model -> { trails, untilT }
+local SWING_ARMS = { { "LeftHand", "LeftLowerArm" }, { "RightHand", "RightLowerArm" }, { "Left Arm", "Left Arm" }, { "Right Arm", "Right Arm" } }
+
+local function swingTrailsOf(model)
+	local st = swingTrails[model]
+	if st then
+		return st
+	end
+	st = { trails = {}, untilT = 0 }
+	for _, pair in ipairs(SWING_ARMS) do
+		local hand = model:FindFirstChild(pair[1])
+		local fore = model:FindFirstChild(pair[2])
+		if hand and fore and hand:IsA("BasePart") and fore:IsA("BasePart") then
+			local tip = Instance.new("Attachment")
+			tip.Name = "SwingTip"
+			tip.Position = Vector3.new(0, -hand.Size.Y / 2, 0)
+			tip.Parent = hand
+			local back = Instance.new("Attachment")
+			back.Name = "SwingBack"
+			back.Position = fore == hand and Vector3.new(0, hand.Size.Y * 0.1, 0) or Vector3.zero
+			back.Parent = fore
+			local t = Instance.new("Trail")
+			t.Name = "SwingTrail"
+			t.Attachment0 = tip
+			t.Attachment1 = back
+			t.FaceCamera = true
+			t.Lifetime = 0.16
+			t.MinLength = 0.05
+			t.LightEmission = 1
+			t.LightInfluence = 0
+			t.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(0.6, 0.6), NumberSequenceKeypoint.new(1, 1) })
+			t.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.25) })
+			t.Enabled = false
+			t.Parent = hand
+			table.insert(st.trails, t)
+		end
+	end
+	swingTrails[model] = st
+	return st
+end
+
+-- Switch a character's swing trails on for `seconds` (longer calls stretch it).
+function VFXController.swingTrail(model, seconds)
+	if not model or not model.Parent then
+		return
+	end
+	local st = swingTrailsOf(model)
+	local tint = Spins.tint(Spins.equipped(model, "Color"))
+	local color = ColorSequence.new(WHITE, tint or Color3.fromRGB(215, 230, 255))
+	for _, t in ipairs(st.trails) do
+		t.Color = color
+		t.Enabled = true
+	end
+	local untilT = os.clock() + seconds
+	if untilT <= st.untilT then
+		return
+	end
+	st.untilT = untilT
+	task.delay(seconds, function()
+		if os.clock() >= st.untilT - 0.01 then
+			for _, t in ipairs(st.trails) do
+				t.Enabled = false
+			end
+		end
+	end)
+end
+
 -- The charging hand: an energy orb, swirling sparks and a light on the hitting hand.
 local function handFx(model, hrp)
 	local hand = model:FindFirstChild("RightHand") or model:FindFirstChild("Right Arm") or hrp
@@ -1873,6 +1944,7 @@ local function onHit(snap)
 	local shaker = mods.CameraController
 	local model = meta.id and Util.modelOf(meta.id)
 	if model then
+		VFXController.swingTrail(model, 0.28) -- the follow-through
 		setAura(model, false)
 		if meta.gauge and arcs[model] and arcs[model].remote then
 			dropArc(model) -- a Feral Leap's arc goes with its spike (mine goes when the gauge is spent)
@@ -3208,6 +3280,11 @@ function VFXController.init(m)
 			VFXController.ability(entityId, extra)
 		elseif kind == "Jump" then
 			VFXController.boom(entityId, extra)
+			if model and (extra == "Spike" or extra == "Serve") then
+				VFXController.swingTrail(model, 1.1)
+			end
+		elseif kind == "Whiff" and model then
+			VFXController.swingTrail(model, 0.35)
 		elseif kind == "Charge" and model then
 			setAura(model, true, 0, true)
 		elseif kind == "ChargeEnd" and model then

@@ -469,6 +469,11 @@ Config.Cosmetics = {
 		{ Key = "Gold", Name = "Gold", Rarity = "Epic", Color = Color3.fromRGB(255, 210, 60) },
 		{ Key = "Void", Name = "Void", Rarity = "Epic", Color = Color3.fromRGB(120, 50, 200) },
 		{ Key = "Prism", Name = "Prism", Rarity = "Legendary", Color = Color3.fromRGB(255, 120, 220) },
+		-- white and black are colours, not trails (the owner: "why is white and black in trails it
+		-- should be in colors"). Black's trail is drawn without glow (black light is invisible) and
+		-- its impacts in a smoky dark grey
+		{ Key = "White", Name = "Pure White", Rarity = "Rare", Color = Color3.fromRGB(255, 255, 255) },
+		{ Key = "Black", Name = "Jet Black", Rarity = "Epic", Color = Color3.fromRGB(78, 76, 92), Trail = { Color3.fromRGB(6, 6, 10), Color3.fromRGB(44, 42, 56) }, Emission = 0 },
 	},
 	Trail = {
 		{ Key = "Ribbon", Name = "Ribbon", Rarity = "Common" },
@@ -477,10 +482,7 @@ Config.Cosmetics = {
 		{ Key = "Flame", Name = "Flame", Rarity = "Epic" },
 		{ Key = "Lightning", Name = "Lightning", Rarity = "Epic" },
 		{ Key = "Stardust", Name = "Stardust", Rarity = "Legendary" },
-		-- solid ribbons in their own colours, whatever the spike colour (the owner: "add white trails
-		-- and black trails... colored trails"); Emission 0 keeps black from vanishing in the light
-		{ Key = "White", Name = "Pure White", Rarity = "Rare", Solid = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(215, 228, 255) }, Emission = 1 },
-		{ Key = "Black", Name = "Jet Black", Rarity = "Rare", Solid = { Color3.fromRGB(8, 8, 12), Color3.fromRGB(46, 44, 58) }, Emission = 0 },
+		-- a solid ribbon in its own colours, whatever the spike colour (the owner: "colored trails")
 		{ Key = "Rainbow", Name = "Rainbow", Rarity = "Legendary", Solid = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }, Emission = 0.7 },
 	},
 	-- what bursts from your feet on every jump (the owner: "maybe add jump effects too... lightning
