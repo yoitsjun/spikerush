@@ -3681,7 +3681,9 @@ local function puppet(model)
 		return nil
 	end
 	for _, d in ipairs(c:GetDescendants()) do
-		if d:IsA("LuaSourceContainer") or d:IsA("Sound") or d:IsA("BillboardGui") or d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") or d:IsA("Highlight") or d:IsA("ForceField") then
+		-- (movers like the jump hang's force go too: on a loose copy they blow it apart)
+		local mover = d:IsA("BodyMover") or (d:IsA("Constraint") and not (d:IsA("AnimationConstraint") or d:IsA("BallSocketConstraint") or d:IsA("RigidConstraint")))
+		if mover or d:IsA("LuaSourceContainer") or d:IsA("Sound") or d:IsA("BillboardGui") or d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") or d:IsA("Highlight") or d:IsA("ForceField") then
 			d:Destroy()
 		elseif d:IsA("BasePart") then
 			d.CanCollide = false
@@ -3731,10 +3733,16 @@ local function hideLocally(model)
 end
 
 -- Turn a puppet into a ragdoll: every joint a limited ball socket, the limbs colliding (with the
--- floor and each other), the root light and passing through.
+-- floor and each other), the root light and passing through. (Avatars on the new joints have
+-- an AnimationConstraint posing each joint and a ball socket beside it: the pose lets go.)
 local function ragdoll(c)
 	for _, m in ipairs(c:GetDescendants()) do
-		if m:IsA("Motor6D") and m.Part0 and m.Part1 then
+		if m:IsA("AnimationConstraint") then
+			m.Enabled = false
+		elseif m:IsA("BallSocketConstraint") then
+			m.Enabled = true
+			m.LimitsEnabled = true
+		elseif m:IsA("Motor6D") and m.Part0 and m.Part1 then
 			local a0 = Instance.new("Attachment")
 			a0.CFrame = m.C0
 			a0.Parent = m.Part0
@@ -3798,11 +3806,12 @@ local function fadeModel(c, t)
 	end
 end
 
--- The joint a giant lifts its leg with (R15 hip and knee, or R6's hip).
+-- The joints a giant lifts its leg with (R15 hip and knee, or R6's hip): Motor6Ds, or the new
+-- joints' AnimationConstraints.
 local function legJoints(c)
 	local hip, knee
 	for _, m in ipairs(c:GetDescendants()) do
-		if m:IsA("Motor6D") then
+		if m:IsA("Motor6D") or m:IsA("AnimationConstraint") then
 			if m.Name == "RightHip" or m.Name == "Right Hip" then
 				hip = m
 			elseif m.Name == "RightKnee" then
@@ -3828,6 +3837,8 @@ local function giantStomp(model, pos, dirZ, tint, k, victims)
 	for _, p in ipairs(g:GetDescendants()) do
 		if p:IsA("BasePart") then
 			p.Anchored = p == root
+		elseif p:IsA("AnimationConstraint") then
+			p.IsKinematic = true -- held rigid (a giant's limbs would sag on the physical joints)
 		end
 	end
 	g:PivotTo(CFrame.new(0, -400, 0))
@@ -3836,9 +3847,10 @@ local function giantStomp(model, pos, dirZ, tint, k, victims)
 	pcall(function()
 		g:ScaleTo(size)
 	end)
-	-- where its feet are, below the root
-	local box, ext = g:GetBoundingBox()
-	local feet = root.Position.Y - (box.Position.Y - ext.Y / 2)
+	-- how high its root stands (the joints catch up with the new size a frame later, so from the
+	-- Humanoid: R15's hip height, R6's two-stud legs)
+	local hum = g:FindFirstChildOfClass("Humanoid")
+	local feet = root.Size.Y / 2 + ((hum and hum.RigType == Enum.HumanoidRigType.R15) and hum.HipHeight or 2 * size)
 	-- it stands just back from the spot, facing the way the attack went, its right foot over it
 	local face = CFrame.lookAt(Vector3.zero, Vector3.new(0, 0, dirZ or 1))
 	local stand = CFrame.new(pos.X, feet, pos.Z - (dirZ or 1) * size * 0.4) * face.Rotation
