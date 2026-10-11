@@ -15,6 +15,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -3750,6 +3751,7 @@ local function ragdoll(c)
 			a1.CFrame = m.C1
 			a1.Parent = m.Part1
 			local b = Instance.new("BallSocketConstraint")
+			b.Name = m.Name .. "BallSocket" -- (World Slash cuts the Waist's)
 			b.Attachment0 = a0
 			b.Attachment1 = a1
 			b.LimitsEnabled = true
@@ -3974,6 +3976,600 @@ local function giantStomp(model, pos, dirZ, tint, k, victims)
 end
 
 ------------------------------------------------------------------------------------------
+-- big score effects that take over the screen (the owner: "a cross map freeze with camera
+-- effects", "domain expansions... that take the camera", "a world cutting slash... that sweeps
+-- across the court and slices the enemies in half") and four after Rocket League's goal
+-- explosions (fireworks, an electric dome, a comic burst, confetti). Our own art and names.
+------------------------------------------------------------------------------------------
+
+-- Every character on the court (both teams), or just `model` outside a match.
+local function courtModels(model)
+	local list = {}
+	for _, team in ipairs(Config.TeamOrder) do
+		for _, e in ipairs(State.roster(team)) do
+			local m = Util.modelOf(e.id)
+			if m then
+				table.insert(list, m)
+			end
+		end
+	end
+	if #list == 0 and model then
+		table.insert(list, model)
+	end
+	return list
+end
+
+-- The camera for `life` seconds along path(t) -> CFrame (or nil to leave it). Only for someone
+-- watching the court, or the Locker's preview (`always`).
+local function takeCamera(life, path, always)
+	if not (always or onCourt()) then
+		return
+	end
+	local cam = workspace.CurrentCamera
+	local name = "SpikeRushFxCam" .. tostring(math.random(1, 1e6))
+	local born = os.clock()
+	RunService:BindToRenderStep(name, Enum.RenderPriority.Last.Value + 2, function()
+		local t = os.clock() - born
+		if t > life then
+			RunService:UnbindFromRenderStep(name)
+			return
+		end
+		local cf = path(t)
+		if cf then
+			cam.CFrame = cf
+		end
+	end)
+end
+
+-- A full-screen layer on the effects' ScreenGui, removed after `life` seconds.
+local function screenLayer(life)
+	local f = Instance.new("Frame")
+	f.Size = UDim2.fromScale(1, 1)
+	f.BackgroundTransparency = 1
+	f.BorderSizePixel = 0
+	f.ZIndex = 4
+	f.Parent = screen
+	task.delay(life, function()
+		f:Destroy()
+	end)
+	return f
+end
+
+local function edgeGlow(parent, color, side, depth)
+	local g = Instance.new("Frame")
+	g.BorderSizePixel = 0
+	g.BackgroundColor3 = color
+	local grad = Instance.new("UIGradient")
+	grad.Transparency = NumberSequence.new(0, 1)
+	if side == "top" then
+		g.Size = UDim2.new(1, 0, depth, 0)
+		grad.Rotation = 90
+	elseif side == "bottom" then
+		g.Size = UDim2.new(1, 0, depth, 0)
+		g.Position = UDim2.fromScale(0, 1 - depth)
+		grad.Rotation = -90
+	elseif side == "left" then
+		g.Size = UDim2.new(depth, 0, 1, 0)
+	else
+		g.Size = UDim2.new(depth, 0, 1, 0)
+		g.Position = UDim2.fromScale(1 - depth, 0)
+		grad.Rotation = 180
+	end
+	grad.Parent = g
+	g.Parent = parent
+	return g
+end
+
+-- A colour grade on the whole picture: tinted in over `inT`, held, out over `outT`.
+local function gradeFor(tint, saturation, brightness, inT, hold, outT)
+	local cc = Instance.new("ColorCorrectionEffect")
+	cc.TintColor = WHITE
+	cc.Parent = Lighting
+	TweenService:Create(cc, TweenInfo.new(inT), { TintColor = tint, Saturation = saturation, Brightness = brightness or 0, Contrast = 0.15 }):Play()
+	task.delay(inT + hold, function()
+		TweenService:Create(cc, TweenInfo.new(outT), { TintColor = WHITE, Saturation = 0, Brightness = 0, Contrast = 0 }):Play()
+		task.delay(outT + 0.05, function()
+			cc:Destroy()
+		end)
+	end)
+end
+
+-- Deep Freeze (Rocket League's arena freeze): a blast of ice at the spot, frost sweeping the whole
+-- court with crystals bursting up along its front, every player frozen in a block of ice, the lens
+-- frosting over and the picture going cold and blue; then it all shatters.
+local FREEZE_HOLD = 1.7
+local function deepFreeze(pos, tint, k, model, always)
+	local ICE = Color3.fromRGB(175, 228, 255)
+	local floor = CFrame.new(pos.X, 0.15, pos.Z)
+	meshFx("FX_IceMass", floor * CFrame.Angles(0, math.random() * 6.28, 0), ICE, 0.05, 0.8 * k / 2, FREEZE_HOLD + 0.7, { plain = true, base = true, grow = 0.14, hold = FREEZE_HOLD, shrink = 0.5, ease = Enum.EasingStyle.Back })
+	-- the sheet of ice spreading over the floor
+	local sheet = take(Enum.PartType.Cylinder)
+	sheet.Material = Enum.Material.Ice
+	sheet.Color = Color3.fromRGB(205, 238, 255)
+	sheet.Transparency = 0.25
+	sheet.Size = Vector3.new(0.12, 2, 2)
+	sheet.CFrame = CFrame.new(pos.X, 0.1, pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+	TweenService:Create(sheet, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.12, 150, 150) }):Play()
+	task.delay(FREEZE_HOLD + 0.2, function()
+		TweenService:Create(sheet, TweenInfo.new(0.4), { Transparency = 1 }):Play()
+		task.delay(0.45, function()
+			sheet.Material = Enum.Material.Neon
+			release(sheet)
+		end)
+	end)
+	-- crystals bursting up along the frost's front, ring after ring
+	for ring = 1, 5 do
+		local r = ring * 7
+		local n = 6 + ring * 3
+		for i = 1, n do
+			local a = math.rad(i * 360 / n + math.random(-10, 10))
+			local at = CFrame.new(pos.X + math.cos(a) * r, 0.15, pos.Z + math.sin(a) * r) * CFrame.Angles(0, math.random() * 6.28, math.rad(math.random(-20, 20)))
+			task.delay(ring * 0.1, meshFx, "FX_Ice", at, ICE, 0.05, (0.5 + math.random() * 0.5) * k / 2, FREEZE_HOLD + 0.6 - ring * 0.1, { plain = true, base = true, grow = 0.1, hold = FREEZE_HOLD - ring * 0.1, shrink = 0.5, ease = Enum.EasingStyle.Back })
+		end
+	end
+	shockDisc(pos, Color3.fromRGB(215, 242, 255), 60, 0.8)
+	floorRing(pos, ICE, 90)
+	smokePuffs(pos, 16, k / 2, Color3.fromRGB(235, 248, 255))
+	-- every player frozen in a block of ice
+	local blocks = {}
+	for _, m in ipairs(courtModels(model)) do
+		local ok, cf, size = pcall(function()
+			return m:GetBoundingBox()
+		end)
+		if ok and size.Magnitude < 40 then
+			local b = take(Enum.PartType.Block)
+			b.Material = Enum.Material.Ice
+			b.Color = Color3.fromRGB(190, 232, 255)
+			b.Transparency = 1
+			b.Size = size * 1.18 + Vector3.new(0.6, 0.4, 0.6)
+			b.CFrame = cf * CFrame.Angles(0, math.rad(math.random(-8, 8)), 0)
+			table.insert(blocks, b)
+			local d = (m:GetPivot().Position - pos).Magnitude
+			task.delay(0.05 + d / 120, function()
+				TweenService:Create(b, TweenInfo.new(0.15), { Transparency = 0.35 }):Play()
+			end)
+		end
+	end
+	task.delay(FREEZE_HOLD, function()
+		for _, b in ipairs(blocks) do
+			rubble(b.Position - Vector3.new(0, b.Size.Y / 2, 0), 6, 0.8, ICE, 0.25)
+			b.Material = Enum.Material.Neon
+			release(b)
+		end
+		sfx("ScoreDebris", pos)
+		if onCourt() or always then
+			VFXController.flash(0.35, 0.25)
+		end
+	end)
+	-- the lens: frost creeping in from the edges, the picture cold and blue
+	if onCourt() or always then
+		local layer = screenLayer(FREEZE_HOLD + 0.5)
+		for _, side in ipairs({ "top", "bottom", "left", "right" }) do
+			local g = edgeGlow(layer, Color3.fromRGB(225, 245, 255), side, 0.01)
+			local grow = (side == "top" or side == "bottom") and { Size = UDim2.new(1, 0, 0.3, 0) } or { Size = UDim2.new(0.22, 0, 1, 0) }
+			if side == "bottom" then
+				grow.Position = UDim2.fromScale(0, 0.7)
+			elseif side == "right" then
+				grow.Position = UDim2.fromScale(0.78, 0)
+			end
+			TweenService:Create(g, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), grow):Play()
+			task.delay(FREEZE_HOLD, function()
+				TweenService:Create(g, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+			end)
+		end
+		gradeFor(Color3.fromRGB(190, 225, 255), -0.45, 0.05, 0.3, FREEZE_HOLD - 0.2, 0.35)
+		mods.CameraController.shake(0.9)
+		mods.CameraController.kick(-8)
+		VFXController.flash(0.4, 0.25)
+	end
+	sfx("ScoreImpact", pos)
+	sfx("ScoreShockwave", pos)
+end
+
+-- Endless Void (a domain expansion): the court is swallowed by a starry void, galaxy streams
+-- turning round it and a blinding light behind the scorer; the camera pushes in on them, circles,
+-- then the void shatters and the court comes back.
+local VOID_LIFE = 2.8
+local function endlessVoid(pos, tint, k, model, always)
+	local center = Vector3.new(0, 0, pos.Z > 0 and -8 or 8)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	local focus = hrp and hrp.Position or (pos + Vector3.new(0, 4, 0))
+	local parts = {}
+	-- the void: a black box of thin walls round the court (a thin wall shows from inside)
+	local W, L, H = 70, 90, 60
+	local walls = {
+		{ Vector3.new(0, H, 0), Vector3.new(W * 2, 0.4, L * 2) },
+		{ Vector3.new(0, 0.06, 0), Vector3.new(W * 2, 0.1, L * 2) },
+		{ Vector3.new(W, H / 2, 0), Vector3.new(0.4, H, L * 2) },
+		{ Vector3.new(-W, H / 2, 0), Vector3.new(0.4, H, L * 2) },
+		{ Vector3.new(0, H / 2, L), Vector3.new(W * 2, H, 0.4) },
+		{ Vector3.new(0, H / 2, -L), Vector3.new(W * 2, H, 0.4) },
+	}
+	for _, w in ipairs(walls) do
+		local p = take(Enum.PartType.Block)
+		p.Material = Enum.Material.SmoothPlastic
+		p.Color = Color3.fromRGB(4, 4, 10)
+		p.Size = w[2]
+		p.CFrame = CFrame.new(w[1])
+		p.Transparency = 1
+		table.insert(parts, p)
+		TweenService:Create(p, TweenInfo.new(0.25), { Transparency = 0 }):Play()
+	end
+	-- stars everywhere
+	for i = 1, 90 do
+		local s = take(Enum.PartType.Ball)
+		s.Material = Enum.Material.Neon
+		local blue = math.random() < 0.4
+		s.Color = blue and Color3.fromRGB(140, 200, 255) or WHITE
+		local d = 0.15 + math.random() * 0.5
+		s.Size = Vector3.new(d, d, d)
+		s.CFrame = CFrame.new((math.random() - 0.5) * W * 1.9, 2 + math.random() * (H - 4), (math.random() - 0.5) * L * 1.9)
+		s.Transparency = 1
+		table.insert(parts, s)
+		task.delay(0.1 + math.random() * 0.4, function()
+			TweenService:Create(s, TweenInfo.new(0.2), { Transparency = 0 }):Play()
+		end)
+	end
+	-- galaxy streams turning round it, a blinding light behind the scorer
+	for i = 1, 3 do
+		local col = i == 2 and Color3.fromRGB(180, 120, 255) or Color3.fromRGB(110, 190, 255)
+		local at = CFrame.new(center + Vector3.new(0, 18 + i * 6, 0)) * CFrame.Angles(math.rad(70 + i * 12), math.rad(i * 50), 0)
+		meshFx("FX_Vortex", at, col, 2 + i, 4 + i, VOID_LIFE, { spin = 90 + i * 30, grow = 0.6, hold = VOID_LIFE - 0.6, alpha = 0.15, glow = 2 })
+	end
+	flare(focus + Vector3.new(0, 2, 6), Color3.fromRGB(230, 240, 255), 40, 1.2)
+	Fx.play("JumpStorm", focus, { scale = 2 })
+	gradeFor(Color3.fromRGB(215, 225, 255), -0.2, 0.05, 0.2, VOID_LIFE - 0.5, 0.3)
+	sfx("BlackHoleBoom", pos)
+	-- the camera: in on the scorer's face, round them, back out
+	takeCamera(VOID_LIFE, function(t)
+		local r = hrp and hrp.Parent and hrp.Position or focus
+		local a = math.rad(-30 + t * 50)
+		local dist = 16 - math.min(t, 1.2) * 7
+		local eye = r + Vector3.new(math.sin(a) * dist, 2.5 + t * 0.6, math.cos(a) * dist)
+		return CFrame.lookAt(eye, r + Vector3.new(0, 1.8, 0))
+	end, always)
+	if onCourt() or always then
+		VFXController.flash(0.6, 0.35)
+	end
+	-- the void shatters
+	task.delay(VOID_LIFE - 0.3, function()
+		if onCourt() or always then
+			VFXController.flash(0.7, 0.3)
+		end
+		sfx("ScoreDebris", pos)
+		for _, p in ipairs(parts) do
+			TweenService:Create(p, TweenInfo.new(0.25), { Transparency = 1 }):Play()
+		end
+		task.delay(0.3, function()
+			for _, p in ipairs(parts) do
+				p.Material = Enum.Material.Neon
+				release(p)
+			end
+		end)
+	end)
+end
+
+-- The joint at a character's waist (R15's Waist, R6's Root joint), Motor6D or the new joints.
+local function cutAtWaist(c)
+	local done = false
+	for _, m in ipairs(c:GetDescendants()) do
+		if (m:IsA("Motor6D") or m:IsA("AnimationConstraint") or m:IsA("BallSocketConstraint")) and (m.Name == "Waist" or m.Name == "WaistBallSocket") then
+			m:Destroy()
+			done = true
+		end
+	end
+	return done
+end
+
+-- World Slash: a slash big enough to cut the world sweeps across the scored-on court; a line of
+-- light hangs where it passed, the screen cuts white, and the opponents fall apart in two at the
+-- waist (copies of them; no gore, a glowing cut).
+local function worldSlash(pos, dirZ, tint, k, model, victims, always)
+	dirZ = dirZ or 1
+	local RED = Color3.fromRGB(255, 40, 60)
+	local half = dirZ > 0 and 1 or -1
+	local y = 3.2
+	-- the sweep: a giant dark slash with a red edge crossing the court along z
+	local from, to = 2 * half, 34 * half
+	for i, spec in ipairs({ { Color3.fromRGB(12, 4, 10), 0.6, 0 }, { RED, 2, 0.02 }, { WHITE, 2, 0.04 } }) do
+		task.delay(spec[3], function()
+			local p = meshFx("FX_Slash", CFrame.new(0, y, from) * CFrame.Angles(0, math.rad(90), 0) * CFrame.Angles(0, 0, math.rad(90)), spec[1], 9 - i, 9 - i, 0.45, { glow = spec[2], alpha = 0.02 })
+			if p then
+				TweenService:Create(p, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(0, y, to) * CFrame.Angles(0, math.rad(90), 0) * CFrame.Angles(0, 0, math.rad(90)) }):Play()
+			end
+		end)
+	end
+	-- the line hanging where it cut: a thin glowing bar across the court
+	local line = take(Enum.PartType.Block)
+	line.Material = Enum.Material.Neon
+	line.Color = WHITE
+	line.Size = Vector3.new(80, 0.12, 0.12)
+	line.CFrame = CFrame.new(0, y, (from + to) / 2)
+	line.Transparency = 0
+	TweenService:Create(line, TweenInfo.new(0.3), { Size = Vector3.new(80, 0.12, math.abs(to - from)) }):Play()
+	task.delay(0.9, function()
+		TweenService:Create(line, TweenInfo.new(0.4), { Transparency = 1, Size = Vector3.new(80, 0.02, math.abs(to - from)) }):Play()
+		task.delay(0.45, release, line)
+	end)
+	sfx("ScoreImpact", pos)
+	-- the opponents in two: copies, cut at the waist, the top sliding off
+	local list = victims
+	if not list then
+		list = {}
+		for i = 1, 3 do
+			table.insert(list, false)
+		end
+	end
+	local dolls, undo = {}, {}
+	for i, v in ipairs(list) do
+		local d = puppet(v or model)
+		if d then
+			if v then
+				d:PivotTo(v:GetPivot())
+				table.insert(undo, hideLocally(v))
+			else
+				d:PivotTo(CFrame.new((i - 2) * 6, 3, pos.Z + half * 4) * CFrame.Angles(0, half > 0 and math.pi or 0, 0))
+			end
+			d.Parent = fxFolder
+			for _, p in ipairs(d:GetDescendants()) do
+				if p:IsA("BasePart") then
+					p.Anchored = true
+				end
+			end
+			table.insert(dolls, d)
+		end
+	end
+	task.delay(0.22, function()
+		for _, d in ipairs(dolls) do
+			ragdoll(d)
+			cutAtWaist(d)
+			local top = d:FindFirstChild("UpperTorso") or d:FindFirstChild("Torso")
+			local root = d:FindFirstChild("HumanoidRootPart")
+			if top then
+				local spin = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5) * 6
+				for _, p in ipairs(d:GetDescendants()) do
+					if p:IsA("BasePart") then
+						local upper = p.Position.Y > (root and root.Position.Y or p.Position.Y)
+						p.AssemblyLinearVelocity = upper and Vector3.new((math.random() - 0.5) * 10, 14, half * 12) or Vector3.new(0, -2, 0)
+						if upper then
+							p.AssemblyAngularVelocity = spin
+						end
+					end
+				end
+				Fx.play("Sparks", top.Position, { color = RED, n = 14 })
+				starburst(top.Position, RED, 6)
+			end
+		end
+	end)
+	task.delay(3.0, function()
+		for _, d in ipairs(dolls) do
+			fadeModel(d, 0.35)
+		end
+		task.delay(0.4, function()
+			for _, d in ipairs(dolls) do
+				d:Destroy()
+			end
+			for _, f in ipairs(undo) do
+				f()
+			end
+		end)
+	end)
+	-- the screen: letterbox bars, a white cut straight across, a red grade
+	if onCourt() or always then
+		local layer = screenLayer(1.4)
+		for _, top in ipairs({ true, false }) do
+			local bar = Instance.new("Frame")
+			bar.BackgroundColor3 = Color3.new(0, 0, 0)
+			bar.BorderSizePixel = 0
+			bar.Size = UDim2.new(1, 0, 0, 0)
+			bar.AnchorPoint = Vector2.new(0, top and 0 or 1)
+			bar.Position = UDim2.fromScale(0, top and 0 or 1)
+			bar.Parent = layer
+			TweenService:Create(bar, TweenInfo.new(0.18), { Size = UDim2.new(1, 0, 0.12, 0) }):Play()
+			task.delay(1.1, function()
+				TweenService:Create(bar, TweenInfo.new(0.25), { Size = UDim2.new(1, 0, 0, 0) }):Play()
+			end)
+		end
+		local cut = Instance.new("Frame")
+		cut.BackgroundColor3 = WHITE
+		cut.BorderSizePixel = 0
+		cut.AnchorPoint = Vector2.new(0.5, 0.5)
+		cut.Position = UDim2.fromScale(0.5, 0.52)
+		cut.Size = UDim2.new(0, 0, 0, 6)
+		cut.Rotation = -4
+		cut.Parent = layer
+		TweenService:Create(cut, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new(1.2, 0, 0, 6) }):Play()
+		task.delay(0.35, function()
+			TweenService:Create(cut, TweenInfo.new(0.3), { BackgroundTransparency = 1, Size = UDim2.new(1.2, 0, 0, 1) }):Play()
+		end)
+		gradeFor(Color3.fromRGB(255, 200, 205), -0.35, 0, 0.1, 0.8, 0.4)
+		mods.CameraController.shake(1.1)
+		mods.CameraController.kick(-10)
+		task.delay(0.22, VFXController.flash, 0.45, 0.2)
+	end
+end
+
+-- Fireworks: rockets streak up from round the spot and burst in colours over the court.
+local function fireworks(pos, tint, k)
+	local cols = { tint or Color3.fromRGB(255, 70, 90), Color3.fromRGB(255, 210, 60), Color3.fromRGB(80, 200, 255), Color3.fromRGB(180, 90, 255), Color3.fromRGB(90, 255, 140) }
+	for i = 1, 8 do
+		task.delay((i - 1) * 0.13, function()
+			local col = cols[(i - 1) % #cols + 1]
+			local start = pos + Vector3.new((math.random() - 0.5) * 10, 0.5, (math.random() - 0.5) * 10)
+			local top = start + Vector3.new((math.random() - 0.5) * 8, 20 + math.random() * 14, (math.random() - 0.5) * 8)
+			local rocket = take(Enum.PartType.Ball)
+			rocket.Color = col
+			rocket.Size = Vector3.new(0.7, 0.7, 0.7)
+			rocket.CFrame = CFrame.new(start)
+			rocket.Transparency = 0
+			local a0 = Instance.new("Attachment")
+			a0.Position = Vector3.new(0, 0.3, 0)
+			a0.Parent = rocket
+			local a1 = Instance.new("Attachment")
+			a1.Position = Vector3.new(0, -0.3, 0)
+			a1.Parent = rocket
+			local trail = Instance.new("Trail")
+			trail.Attachment0 = a0
+			trail.Attachment1 = a1
+			trail.Color = ColorSequence.new(WHITE, col)
+			trail.Lifetime = 0.35
+			trail.LightEmission = 1
+			trail.Transparency = NumberSequence.new(0, 1)
+			trail.Parent = rocket
+			TweenService:Create(rocket, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(top) }):Play()
+			task.delay(0.5, function()
+				trail:Destroy()
+				a0:Destroy()
+				a1:Destroy()
+				release(rocket)
+				starburst(top, col, 16)
+				Fx.play("Sparks", top, { color = col, n = 26, scale = 1.5 })
+				Fx.play("Glints", top, { color = col, scale = 2.5, count = 4 })
+				Fx.play("JumpRadiant", top, { scale = 1.2 })
+				sfx("ScoreSparkle", top)
+			end)
+		end)
+	end
+	floorRing(pos, cols[1], 24)
+	sfx("ScoreImpact", pos)
+end
+
+-- Tesla Dome: a dome of electricity snaps over the spot, a bright core in it, bolts arcing from
+-- the dome down to the floor all round, then it bursts.
+local function teslaDome(pos, tint, k)
+	local c = Color3.fromRGB(90, 200, 255)
+	local floor = CFrame.new(pos.X, 0.15, pos.Z)
+	meshFx("FX_Dome", floor, c, 0.2 * k, 1.3 * k, 1.5, { alpha = 0.4, grow = 0.18, hold = 0.9, glow = 1.9, spin = 40 })
+	meshFx("FX_Bubble", CFrame.new(pos + Vector3.new(0, 4 * k / 2, 0)), WHITE, 0.05, 0.22 * k, 1.2, { alpha = 0.15, spin = 220, grow = 0.2, hold = 0.7, glow = 2 })
+	local R = 6.5 * k
+	for i = 1, 14 do
+		task.delay(0.1 + i * 0.06, function()
+			local a = math.random() * 6.28
+			local rim = pos + Vector3.new(math.cos(a) * R * 0.5, 3 * k + math.random() * 2, math.sin(a) * R * 0.5)
+			local hit = pos + Vector3.new(math.cos(a) * R * (1 + math.random() * 0.4), 0.2, math.sin(a) * R * (1 + math.random() * 0.4))
+			local dir = hit - rim
+			bolt(rim, dir.Unit, dir.Magnitude, i % 3 == 0 and WHITE or c)
+			Fx.play("Sparks", hit, { color = c, n = 6 })
+			groundMark("FX_Scorch", hit, Color3.fromRGB(16, 20, 32), 0.2, 0.8, 0.5)
+		end)
+	end
+	Fx.play("JumpStorm", pos + Vector3.new(0, 2, 0), { scale = k / 1.5 })
+	task.delay(1.05, function()
+		Fx.play("ThunderImpact", pos + Vector3.new(0, 3, 0), { scale = k })
+		floorRing(pos, c, 18 * k)
+		if near(pos) then
+			mods.CameraController.shake(0.7)
+		end
+	end)
+	sfx("ScoreThunder", pos)
+end
+
+-- Ka-Pow: a giant comic-book burst with a sound word in it, speed lines round it.
+local POW_WORDS = { "KA-POW!", "BAM!", "WHAM!", "SPIKE!", "BOOM!" }
+local function comicPow(pos, tint, k)
+	local gui, anchor = billboard(pos + Vector3.new(0, 7 * k / 2, 0), 22 * k / 2)
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0.2
+	scale.Parent = gui
+	local back = Instance.new("ImageLabel")
+	back.BackgroundTransparency = 1
+	back.Size = UDim2.fromScale(1, 1)
+	back.Image = Assets.id(Assets.Fx.HitBurst) or ""
+	back.ImageColor3 = tint or Color3.fromRGB(255, 70, 60)
+	back.Rotation = math.random(-15, 15)
+	back.Parent = gui
+	local word = Instance.new("TextLabel")
+	word.BackgroundTransparency = 1
+	word.AnchorPoint = Vector2.new(0.5, 0.5)
+	word.Position = UDim2.fromScale(0.5, 0.5)
+	word.Size = UDim2.fromScale(0.85, 0.45)
+	word.Rotation = math.random(-12, -4)
+	word.FontFace = DISPLAY
+	word.TextScaled = true
+	word.Text = POW_WORDS[math.random(#POW_WORDS)]
+	word.TextColor3 = Color3.fromRGB(255, 230, 60)
+	word.Parent = gui
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(20, 10, 10)
+	stroke.Thickness = 5
+	stroke.Parent = word
+	TweenService:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	task.delay(1.1, function()
+		TweenService:Create(scale, TweenInfo.new(0.2), { Scale = 1.3 }):Play()
+		TweenService:Create(back, TweenInfo.new(0.2), { ImageTransparency = 1 }):Play()
+		TweenService:Create(word, TweenInfo.new(0.2), { TextTransparency = 1 }):Play()
+		TweenService:Create(stroke, TweenInfo.new(0.2), { Transparency = 1 }):Play()
+		task.delay(0.25, function()
+			gui:Destroy()
+			release(anchor)
+		end)
+	end)
+	Fx.play("PerfectImpact", pos + Vector3.new(0, 3, 0), { color = tint, scale = 1.8 })
+	Fx.play("JumpQuake", pos + Vector3.new(0, 1, 0), { scale = k / 2 })
+	floorRing(pos, tint or Color3.fromRGB(255, 220, 60), 22)
+	sfx("ScoreImpact", pos)
+	if near(pos) then
+		mods.CameraController.shake(0.6)
+	end
+end
+
+-- Confetti Cannon: two blasts of confetti from the spot, the pieces fluttering down and fading.
+local CONFETTI = { Color3.fromRGB(255, 70, 90), Color3.fromRGB(255, 205, 50), Color3.fromRGB(70, 200, 255), Color3.fromRGB(150, 90, 255), Color3.fromRGB(80, 235, 130), WHITE }
+local function confetti(pos, tint, k)
+	local bits = {}
+	for blast = 1, 2 do
+		for i = 1, 40 do
+			local p = take(Enum.PartType.Block)
+			p.Material = Enum.Material.SmoothPlastic
+			p.Color = CONFETTI[math.random(#CONFETTI)]
+			p.Size = Vector3.new(0.5, 0.05, 0.32)
+			p.Transparency = 0
+			local a = math.random() * 6.28
+			local out = (6 + math.random() * 12) * k / 2
+			table.insert(bits, { p = p, at = pos + Vector3.new(0, 0.6, 0), v = Vector3.new(math.cos(a) * out, (26 + math.random() * 18) * k / 2, math.sin(a) * out), spin = Vector3.new(math.random() * 8, math.random() * 8, math.random() * 8), delay = (blast - 1) * 0.25, rot = CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6) })
+			p.CFrame = PARKED
+		end
+	end
+	local LIFE = 2.8
+	local born = os.clock()
+	local last = born
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local now = os.clock()
+		local dt = math.min(now - last, 0.05)
+		last = now
+		local t = now - born
+		if t > LIFE then
+			conn:Disconnect()
+			for _, b in ipairs(bits) do
+				b.p.Material = Enum.Material.Neon
+				release(b.p)
+			end
+			return
+		end
+		for _, b in ipairs(bits) do
+			if t >= b.delay then
+				-- gravity, heavy air drag (it flutters) and a sway
+				b.v = b.v + Vector3.new(0, -40 * dt, 0)
+				b.v = b.v * (1 - math.min(2.6 * dt, 0.5))
+				b.at = b.at + b.v * dt + Vector3.new(math.sin(t * 6 + b.spin.X) * 0.03, 0, math.cos(t * 5 + b.spin.Y) * 0.03)
+				if b.at.Y < 0.1 then
+					b.at = Vector3.new(b.at.X, 0.1, b.at.Z)
+					b.v = Vector3.zero
+				end
+				b.rot = b.rot * CFrame.Angles(b.spin.X * dt, b.spin.Y * dt, b.spin.Z * dt)
+				b.p.CFrame = CFrame.new(b.at) * b.rot
+				b.p.Transparency = math.clamp((t - (LIFE - 0.6)) / 0.6, 0, 1)
+			end
+		end
+	end)
+	Fx.play("Sparks", pos + Vector3.new(0, 1, 0), { color = tint, n = 20 })
+	starburst(pos + Vector3.new(0, 2, 0), tint or Color3.fromRGB(255, 205, 50), 12)
+	sfx("ScoreSparkle", pos)
+	sfx("ScoreImpact", pos)
+end
+
+------------------------------------------------------------------------------------------
 -- more score effects (the owner: "add some more scoring effects")
 ------------------------------------------------------------------------------------------
 
@@ -4058,7 +4654,22 @@ end
 -- attack travelled along z, the scale and the point's callout. False for Dust, the plain floor
 -- impact.
 local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
-	if effect == "Giant" then
+	local always = reason == nil -- (the Locker's preview: the screen effects show there too)
+	if effect == "Freeze" then
+		deepFreeze(pos, tint, k or 1, model, always)
+	elseif effect == "Void" then
+		endlessVoid(pos, tint, k or 1, model, always)
+	elseif effect == "WorldSlash" then
+		worldSlash(pos, dirZ, tint, k or 1, model, victims, always)
+	elseif effect == "Fireworks" then
+		fireworks(pos, tint, k or 1)
+	elseif effect == "Tesla" then
+		teslaDome(pos, tint, k or 1)
+	elseif effect == "Pow" then
+		comicPow(pos, tint, k or 1)
+	elseif effect == "Confetti" then
+		confetti(pos, tint, k or 1)
+	elseif effect == "Giant" then
 		if not model then
 			return false
 		end
