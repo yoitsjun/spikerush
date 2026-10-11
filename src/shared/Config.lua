@@ -466,14 +466,14 @@ Config.Cosmetics = {
 		{ Key = "Lime", Name = "Lime", Rarity = "Rare", Color = Color3.fromRGB(150, 255, 80) },
 		{ Key = "Violet", Name = "Violet", Rarity = "Rare", Color = Color3.fromRGB(175, 95, 255) },
 		{ Key = "Aqua", Name = "Aqua", Rarity = "Rare", Color = Color3.fromRGB(60, 230, 255) },
-		{ Key = "Gold", Name = "Gold", Rarity = "Epic", Color = Color3.fromRGB(255, 210, 60) },
-		{ Key = "Void", Name = "Void", Rarity = "Epic", Color = Color3.fromRGB(120, 50, 200) },
-		{ Key = "Prism", Name = "Prism", Rarity = "Legendary", Color = Color3.fromRGB(255, 120, 220) },
 		-- white and black are colours, not trails (the owner: "why is white and black in trails it
 		-- should be in colors"). Black's trail is drawn without glow (black light is invisible) and
 		-- its impacts in a smoky dark grey
 		{ Key = "White", Name = "Pure White", Rarity = "Rare", Color = Color3.fromRGB(255, 255, 255) },
+		{ Key = "Gold", Name = "Gold", Rarity = "Epic", Color = Color3.fromRGB(255, 210, 60) },
+		{ Key = "Void", Name = "Void", Rarity = "Epic", Color = Color3.fromRGB(120, 50, 200) },
 		{ Key = "Black", Name = "Jet Black", Rarity = "Epic", Color = Color3.fromRGB(78, 76, 92), Trail = { Color3.fromRGB(6, 6, 10), Color3.fromRGB(44, 42, 56) }, Emission = 0 },
+		{ Key = "Prism", Name = "Prism", Rarity = "Legendary", Color = Color3.fromRGB(255, 120, 220) },
 	},
 	Trail = {
 		{ Key = "Ribbon", Name = "Ribbon", Rarity = "Common" },
@@ -488,23 +488,24 @@ Config.Cosmetics = {
 	-- what bursts from your feet on every jump (the owner: "maybe add jump effects too... lightning
 	-- effects when you jump, fire when you jump"): VFXController.jumpEffect, on top of the usual dust
 	-- or boom; the Locker's practice jump previews it
+	-- (each list runs Common to Mythic: the owner's "organize please")
 	Jump = {
 		{ Key = "Plain", Name = "Plain", Rarity = "Common" },
 		{ Key = "Sparks", Name = "Sparks", Rarity = "Common" },
 		{ Key = "Wind", Name = "Gust", Rarity = "Common" },
 		{ Key = "Frost", Name = "Frost", Rarity = "Rare" },
 		{ Key = "Shadow", Name = "Shadow", Rarity = "Rare" },
+		-- (Tremor, Eruption, Radiance, Foxfire, Blue Phoenix: the Blox Fruits pass, the owner's "and
+		-- add more", each built on the look of a different fruit's moves, our own art and names)
+		{ Key = "Quake", Name = "Tremor", Rarity = "Rare" },
 		{ Key = "Fire", Name = "Fire", Rarity = "Epic" },
 		{ Key = "Lightning", Name = "Lightning", Rarity = "Epic" },
+		{ Key = "Magma", Name = "Eruption", Rarity = "Epic" },
 		{ Key = "Rainbow", Name = "Rainbow", Rarity = "Legendary" },
 		{ Key = "Storm", Name = "Thunderstorm", Rarity = "Legendary" },
-		{ Key = "Inferno", Name = "Inferno", Rarity = "Mythic" },
-		-- the Blox Fruits pass (the owner: "and add more"): each built on the look of a different
-		-- fruit's moves, our own art and names
-		{ Key = "Quake", Name = "Tremor", Rarity = "Rare" },
-		{ Key = "Magma", Name = "Eruption", Rarity = "Epic" },
 		{ Key = "Radiant", Name = "Radiance", Rarity = "Legendary" },
 		{ Key = "Foxfire", Name = "Foxfire", Rarity = "Legendary" },
+		{ Key = "Inferno", Name = "Inferno", Rarity = "Mythic" },
 		{ Key = "Phoenix", Name = "Blue Phoenix", Rarity = "Mythic" },
 		{ Key = "Angel", Name = "Angel", Rarity = "Mythic" }, -- the owner: "add an angel jump effect with angel wings"
 	},
@@ -512,13 +513,13 @@ Config.Cosmetics = {
 		{ Key = "Dust", Name = "Dust", Rarity = "Common" },
 		{ Key = "Shockwave", Name = "Shockwave", Rarity = "Common" },
 		{ Key = "Fire", Name = "Fire Explosion", Rarity = "Rare" },
-		{ Key = "Meteor", Name = "Meteor Strike", Rarity = "Epic" },
-		{ Key = "Thunderbolt", Name = "Thunderbolt", Rarity = "Legendary" },
 		-- the owner, after Volleyball Legends: "a tornado", "an explosion displaying stats", "a black
 		-- hole", "a tsunami that covers the map", "like rocket league where the explosion alters the
 		-- map for a bit" (VFXController's playScore)
 		{ Key = "Speed", Name = "Speed Burst", Rarity = "Rare" },
+		{ Key = "Meteor", Name = "Meteor Strike", Rarity = "Epic" },
 		{ Key = "Crater", Name = "Crater", Rarity = "Epic" },
+		{ Key = "Thunderbolt", Name = "Thunderbolt", Rarity = "Legendary" },
 		{ Key = "Tornado", Name = "Tornado", Rarity = "Legendary" },
 		{ Key = "Tsunami", Name = "Tsunami", Rarity = "Legendary" },
 		{ Key = "BlackHole", Name = "Black Hole", Rarity = "Mythic" },
