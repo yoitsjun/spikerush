@@ -28,6 +28,7 @@ Net.Names = {
 	"Admin", -- the admin panel: client -> server ops, server -> client replies (AdminService)
 	"Notice", -- server -> client: announcements and events starting, shown to everyone
 	"PlayerProfile", -- server -> client: a player's public profile (asked with Profile "profileOf")
+	"QuickChat", -- client -> server: (kind, number); server -> everyone: (userId, kind, number)
 }
 
 local cache = {}

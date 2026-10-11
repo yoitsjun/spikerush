@@ -26,6 +26,7 @@ local order = {
 	"LobbyService",
 	"MatchService",
 	"PracticeService",
+	"QuickChatService",
 }
 
 for _, name in ipairs(order) do

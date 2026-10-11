@@ -1464,8 +1464,22 @@ Config.Settings = {
 -- the keys a player may pick: Roblox's own (Escape, chat's Slash, the console's F9, the player
 -- list's Tab) and 1 and 2 (your AI teammates' abilities) aren't. The mouse buttons and a
 -- controller stay as they are.
+-- Quick chat (QuickChatService, the client's QuickChat; the owner: "prewritten phrases like 'nice
+-- play' 'set me' 'lag' 'ref' 'gg'... but also emojis... make some more"): picked by number, shown
+-- over the sender's head for Show seconds; at most Burst in Window seconds, Gap apart
+Config.QuickChat = {
+	Phrases = { "Nice play!", "Set me!", "Lag", "Ref!", "GG", "Nice set!", "Nice spike!", "What a block!", "What a save!", "Mine!", "Yours!", "My bad", "Cover me!", "Watch the tip!", "Let's go!", "Clutch!", "Unlucky", "Thanks!", "Calculated.", "Wow!", "One more!", "Too fast", "Defense!", "Comeback time" },
+	-- sob, skull, laughing, fire, steam, cool, clown, clap, scream, pray, thinking, 100, angry,
+	-- cold, salute, mind blown, eyes, goat, heart, sleepy, handshake, muscle, target, zap
+	Emojis = { "\u{1F62D}", "\u{1F480}", "\u{1F602}", "\u{1F525}", "\u{1F624}", "\u{1F60E}", "\u{1F921}", "\u{1F44F}", "\u{1F631}", "\u{1F64F}", "\u{1F914}", "\u{1F4AF}", "\u{1F621}", "\u{1F976}", "\u{1FAE1}", "\u{1F92F}", "\u{1F440}", "\u{1F410}", "\u{2764}", "\u{1F634}", "\u{1F91D}", "\u{1F4AA}", "\u{1F3AF}", "\u{26A1}" },
+	Show = 3,
+	Burst = 3,
+	Window = 6,
+	Gap = 0.8,
+}
+
 Config.Controls = {
-	Order = { "MoveLeft", "MoveRight", "Spike", "Receive", "SlideFeint", "Block", "Set", "Serve", "EasyServe", "Ability", "Timeout" },
+	Order = { "MoveLeft", "MoveRight", "Spike", "Receive", "SlideFeint", "Block", "Set", "Serve", "EasyServe", "Ability", "Timeout", "QuickChat" },
 	Names = {
 		MoveLeft = "Move left",
 		MoveRight = "Move right",
@@ -1478,6 +1492,7 @@ Config.Controls = {
 		EasyServe = "Easy serve",
 		Ability = "Ability",
 		Timeout = "Timeout",
+		QuickChat = "Quick chat",
 	},
 	Defaults = {
 		MoveLeft = { "A", "Left" },
@@ -1491,6 +1506,7 @@ Config.Controls = {
 		EasyServe = { "F" },
 		Ability = { "Q" },
 		Timeout = { "T" },
+		QuickChat = { "G" },
 	},
 	Allowed = {
 		"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
@@ -1514,6 +1530,7 @@ Config.Controls = {
 		EasyServe = "A slow underhand serve that lands in",
 		Ability = "Your character's active ability",
 		Timeout = "In a match: refills stamina, change who serves",
+		QuickChat = "Phrases and emojis over your head",
 	},
 	-- a controller's buttons (what each does), and the menus on a controller (PadNav), for the same
 	-- card (the owner: "make a controller tutorial aswell")
@@ -1529,6 +1546,7 @@ Config.Controls = {
 		{ "Ability", "L2", "Your character's active ability" },
 		{ "Teammates' abilities", "D-pad left / right", "Your AI teammates' active abilities" },
 		{ "Timeout", "Select", "In a match: refills stamina, change who serves" },
+		{ "Quick chat", "Right stick click", "Phrases and emojis over your head" },
 		{ "Settings and Forfeit", "D-pad down", "In a match; B closes it" },
 		{ "Menus", "D-pad or stick, A", "Move the yellow outline; A presses" },
 		{ "Back and tabs", "B, LB / RB", "B goes back or closes; LB and RB switch tabs" },

@@ -49,6 +49,7 @@ local order = {
 	"MobileControls",
 	"CrowdController",
 	"PadNav",
+	"QuickChat",
 }
 
 local mods = { State = State }

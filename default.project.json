@@ -43,6 +43,9 @@
         "Activity": {
           "$className": "RemoteEvent"
         },
+        "QuickChat": {
+          "$className": "RemoteEvent"
+        },
         "Continue": {
           "$className": "RemoteEvent"
         },

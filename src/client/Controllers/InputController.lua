@@ -51,6 +51,7 @@ local FIXED = {
 	[Enum.KeyCode.ButtonR1] = "SlideFeint",
 	[Enum.KeyCode.ButtonL1] = "Set",
 	[Enum.KeyCode.ButtonSelect] = "Timeout",
+	[Enum.KeyCode.ButtonR3] = "QuickChat",
 }
 
 local MOUSE = {
@@ -138,6 +139,12 @@ function InputController.keyboardAxis()
 end
 
 local function press(action)
+	if action == "QuickChat" then
+		if mods.QuickChat then
+			mods.QuickChat.toggle()
+		end
+		return
+	end
 	held[action] = true
 	mods.ActionController.press(action)
 end

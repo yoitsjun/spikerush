@@ -1711,6 +1711,16 @@ do
 	local function met(key)
 		return Cards.met(Cards.get(key), st)
 	end
+	-- quick chat: the owner's phrases are in, more than them, emojis too, and a spam limit
+	do
+		local QC = require("Config").QuickChat
+		local has = {}
+		for _, p in ipairs(QC.Phrases) do
+			has[p] = true
+		end
+		check(has["Nice play!"] and has["Set me!"] and has["Lag"] and has["Ref!"] and has["GG"] and #QC.Phrases >= 20 and #QC.Emojis >= 20 and QC.Burst >= 1 and QC.Gap > 0 and QC.Window > QC.Gap,
+			"quick chat: the asked-for phrases and more, 20+ emojis, a rate limit", #QC.Phrases .. " phrases, " .. #QC.Emojis .. " emojis")
+	end
 	-- Dev Defeater: a win over a developer's team
 	local devSt = Cards.stats({ record = { devWins = 1 } }, 0)
 	check(Cards.met(Cards.get("DevDefeater"), devSt) and not Cards.met(Cards.get("DevDefeater"), Cards.stats({ record = {} }, 0)),
