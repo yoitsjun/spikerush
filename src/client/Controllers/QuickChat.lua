@@ -165,10 +165,8 @@ end
 
 local function refreshButton()
 	if button then
+		-- (the panel itself works anywhere, G opens it in the menus too)
 		button.Visible = State.watching() == true
-		if not button.Visible then
-			QuickChat.close()
-		end
 	end
 end
 
