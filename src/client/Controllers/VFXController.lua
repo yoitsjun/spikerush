@@ -1047,20 +1047,21 @@ local function jumpMeshes(foot, key, tint, k, model)
 			local lean = math.random(18, 38)
 			local place = CFrame.Angles(0, a, 0) * CFrame.new(r, 0, 0) * CFrame.Angles(0, 0, math.rad(-lean))
 			local tall = (0.55 + math.random() * 0.7) * k
-			task.delay(i * 0.015, meshFx, "FX_Ice", floor * place, i % 3 == 0 and WHITE or c, 0.05, tall, 1.05, { base = true, grow = 0.18, hold = 0.55, shrink = 0.6, ease = Enum.EasingStyle.Back, alpha = 0.05, glow = 1.2 })
+			task.delay(i * 0.015, meshFx, "FX_Ice", floor * place, i % 3 == 0 and Color3.fromRGB(215, 245, 255) or c, 0.05, tall, 1.05, { base = true, grow = 0.18, hold = 0.55, shrink = 0.6, ease = Enum.EasingStyle.Back, alpha = 0.05, glow = 1.7 })
 		end
 		for i = 1, 3 do -- a tight cluster under the jumper
 			local place = CFrame.Angles(0, math.rad(i * 120), 0) * CFrame.new(0.6 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-12))
-			meshFx("FX_Ice", floor * place, WHITE, 0.05, (0.8 + 0.2 * i) * k, 1.05, { base = true, grow = 0.2, hold = 0.55, shrink = 0.6, ease = Enum.EasingStyle.Back, alpha = 0.1, glow = 1.3 })
+			meshFx("FX_Ice", floor * place, Color3.fromRGB(215, 245, 255), 0.05, (0.8 + 0.2 * i) * k, 1.05, { base = true, grow = 0.2, hold = 0.55, shrink = 0.6, ease = Enum.EasingStyle.Back, alpha = 0.1, glow = 1.8 })
 		end
 		meshFx("FX_Ring", floor, c, 0.3 * k, 1.9 * k, 0.8, { alpha = 0.1, grow = 0.3, hold = 0.3 })
 		meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), Color3.fromRGB(200, 240, 255), 0.3 * k, 1.2 * k, 0.9, { alpha = 0.35, spin = 90, grow = 0.4, hold = 0.3 })
 	elseif key == "Shadow" then
 		-- a dark vortex opening under you (Blox Fruits' Dark): the swirl, a shell and a purple rim
-		meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), c, 0.2 * k, 1.5 * k, 1.0, { spin = -260, grow = 0.45, hold = 0.35, glow = 1.4 })
-		meshFx("FX_Vortex", floor * CFrame.new(0, 0.08, 0), Color3.fromRGB(20, 0, 40), 0.15 * k, 1.1 * k, 1.0, { spin = -400, grow = 0.4, hold = 0.35, glow = 0.6, alpha = 0.2 })
-		meshFx("FX_Dome", floor, Color3.fromRGB(70, 20, 120), 0.15 * k, 0.8 * k, 0.6, { alpha = 0.35 })
-		meshFx("FX_Ring", floor, c, 0.3 * k, 1.6 * k, 0.6, { alpha = 0.1 })
+		meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), c, 0.3 * k, 2.1 * k, 1.1, { spin = -260, grow = 0.45, hold = 0.4, glow = 2.0 })
+		meshFx("FX_Vortex", floor * CFrame.new(0, 0.08, 0), Color3.fromRGB(25, 5, 45), 0.2 * k, 1.5 * k, 1.1, { spin = -420, grow = 0.4, hold = 0.4, glow = 0.8 })
+		meshFx("FX_Spiral", floor, Color3.fromRGB(150, 70, 255), 0.3 * k, 1.0 * k, 0.9, { base = true, spin = -320, grow = 0.35, hold = 0.25, glow = 1.6, alpha = 0.1 })
+		meshFx("FX_Dome", floor, Color3.fromRGB(60, 15, 110), 0.15 * k, 0.9 * k, 0.7, { alpha = 0.2, glow = 1.2 })
+		meshFx("FX_Ring", floor, c, 0.3 * k, 2.0 * k, 0.7, { alpha = 0.05, glow = 2 })
 	elseif key == "Fire" or key == "Inferno" then
 		local hot = key == "Inferno"
 		local n = hot and 12 or 8
@@ -1085,8 +1086,8 @@ local function jumpMeshes(foot, key, tint, k, model)
 		local storm = key == "Storm"
 		if storm then
 			-- Blox Fruits' Rumble: a pillar of light, bolts crackling round it, the ground thrown up
-			meshFx("FX_Column", floor, Color3.fromRGB(150, 235, 255), 0.4 * k, 1.6 * k, 0.75, { base = true, spin = 220, grow = 0.18, hold = 0.25, glow = 2.2 })
-			meshFx("FX_Column", floor, WHITE, 0.25 * k, 1.0 * k, 0.6, { base = true, spin = -260, grow = 0.15, hold = 0.2, glow = 2.4, alpha = 0.2 })
+			meshFx("FX_Column", floor, Color3.fromRGB(90, 220, 255), 0.4 * k, 1.6 * k, 0.75, { base = true, spin = 220, grow = 0.18, hold = 0.25, glow = 1.9 })
+			meshFx("FX_Column", floor, Color3.fromRGB(200, 250, 255), 0.25 * k, 1.0 * k, 0.6, { base = true, spin = -260, grow = 0.15, hold = 0.2, glow = 1.5, alpha = 0.45 })
 			meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), c, 0.3 * k, 1.6 * k, 0.8, { spin = 200, grow = 0.3, hold = 0.25, glow = 2 })
 			rubble(foot, 7, k)
 		end

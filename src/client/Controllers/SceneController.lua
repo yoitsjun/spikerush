@@ -913,6 +913,12 @@ local function styleBall(b, colorKey, trailKey)
 	b.trail.Lifetime = 0.6
 	b.trail.LightEmission = (colorItem and colorItem.Emission) or 0.9
 	b.trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.6) })
+	b.dark = colorItem ~= nil and colorItem.Emission ~= nil -- (no white core inside a black trail)
+	b.coreTrail.Enabled = not b.dark
+	if colorItem and colorItem.Emission then
+		b.trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(0.5, 0.5), NumberSequenceKeypoint.new(1, 1) })
+		b.trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(1, 0.05) })
+	end
 	b.coreTrail.Lifetime = 0.3
 	b.sparkleOn = true
 	b.sparkles.Rate = 80
@@ -956,7 +962,7 @@ end
 
 local function launchFx(b, on)
 	b.trail.Enabled = on
-	b.coreTrail.Enabled = on
+	b.coreTrail.Enabled = on and not b.dark
 	b.sparkles.Enabled = on and b.sparkleOn
 	b.aura.Enabled = on and b.auraOn
 	b.glow.Brightness = on and 3 or 0

@@ -523,6 +523,8 @@ local function applyStyle(meta)
 	-- a colour that can't glow (Black): its trail is drawn unlit
 	if colorItem and colorItem.Emission and not (meta.thunder or meta.energy or gauge or meta.reaction) then
 		trail.LightEmission = colorItem.Emission
+		trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(0.5, 0.5), NumberSequenceKeypoint.new(1, 1) })
+		trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(1, 0.05) })
 		core.Enabled = false
 	end
 	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or (meta.plunge and Config.Abilities.Plunge.Color) or Color3.fromRGB(255, 90, 110)
