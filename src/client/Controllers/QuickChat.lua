@@ -47,11 +47,8 @@ function QuickChat.open()
 	if not panel then
 		return
 	end
-	panel.Visible = true
+	panel.Visible = true -- (a PadNav root: a controller picks it up when it shows)
 	setTab(tab)
-	if mods and mods.PadNav then
-		mods.PadNav.set(panel)
-	end
 end
 
 function QuickChat.close()
