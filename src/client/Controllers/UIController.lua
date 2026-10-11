@@ -1814,6 +1814,9 @@ function UIController.toggleSettings(belowY)
 		return
 	end
 	sp.Visible = not sp.Visible
+	if not sp.Visible and ui.keys and ui.keys.Visible then
+		Keys.close() -- Controls closes with it (it stayed open behind the menus)
+	end
 	gui.DisplayOrder = sp.Visible and 25 or 10
 	if belowY then
 		local inset = GuiService:GetGuiInset()

@@ -6178,11 +6178,16 @@ function Extra.setTour(n)
 	State.setSetting("tour", n)
 end
 
--- The tour runs for a player who finished the tutorial and hasn't played a match yet.
+-- The tour runs for a player who finished the tutorial and hasn't played a match yet (or, for
+-- tests, with Studio's ForceTour workspace attribute).
 function Extra.tourOn(prof)
 	prof = prof or profile()
 	local n = math.floor(State.settings.tour or 0)
-	if n >= TOUR_DONE or not prof.tutorial or prof.tutorial.done ~= true then
+	if n >= TOUR_DONE then
+		return false
+	elseif workspace:GetAttribute("ForceTour") == true and RunService:IsStudio() then
+		return true
+	elseif not prof.tutorial or prof.tutorial.done ~= true then
 		return false
 	end
 	return ((prof.record and prof.record.matches) or 0) == 0
@@ -6254,6 +6259,7 @@ function Extra.tourNow()
 		elseif screen == "recruit" then
 			s.body = "Press Recruit x1: free recruits go first. Who you pull joins your team in Players."
 			s.targets = { ui.recruit.x1 }
+			s.at = "left" -- clear of the pity and Lucky panels over the recruit buttons
 			s.next = function()
 				Extra.setTour(2)
 				MenuController.go("home")
@@ -6266,7 +6272,7 @@ function Extra.tourNow()
 	elseif n == 2 then
 		local s = { n = 2, title = "Settings" }
 		if mods.UIController.settingsOpen() then
-			s.body = "Controls changes any key. The switches turn the landing marker, camera shake and more on or off."
+			s.body = "Edit (by Controls) changes any key. The switches turn the landing marker, camera shake and more on or off."
 			s.at = "left"
 			s.next = function()
 				mods.UIController.toggleSettings()
