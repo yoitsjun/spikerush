@@ -193,7 +193,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -1039,7 +1039,7 @@ local function wipeStats(plr, profile, id)
 	if seenMail(profile, id) then
 		return false
 	end
-	profile.record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0 }
+	profile.record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }
 	profile.winStreak = 0
 	profile.bestStreak = 0
 	table.insert(profile.mailSeen, 1, id)
@@ -1339,9 +1339,10 @@ function ProfileService.spendVP(plr, vp)
 end
 
 -- A finished match: a win extends the win streak, a loss (or a forfeit) ends it, and the
--- career counters add this match's wins, spike kills, aces and blocks (`st`, the match stats).
--- Returns the streak after this match.
-function ProfileService.recordResult(plr, won, st)
+-- career counters add this match's wins, spike kills, aces and blocks (`st`, the match stats);
+-- `beatDev`: a win over a team with a developer on it (the Dev Defeater card). Returns the streak
+-- after this match.
+function ProfileService.recordResult(plr, won, st, beatDev)
 	local profile = profiles[plr]
 	if not profile then
 		return nil
@@ -1351,6 +1352,9 @@ function ProfileService.recordResult(plr, won, st)
 	local r = profile.record
 	r.matches = r.matches + 1
 	r.wins = r.wins + (won and 1 or 0)
+	if won and beatDev then
+		r.devWins = (r.devWins or 0) + 1
+	end
 	if st then
 		r.kills = r.kills + (st.kills or 0)
 		r.aces = r.aces + (st.aces or 0)

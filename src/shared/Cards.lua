@@ -69,6 +69,7 @@ function Cards.stats(profile, owned)
 		blocks = whole(rec.blocks),
 		matches = whole(rec.matches),
 		mvps = whole(rec.mvps),
+		devWins = whole(rec.devWins),
 		bestStreak = whole(profile.bestStreak),
 		winStreak = whole(profile.winStreak),
 		owned = whole(owned),

@@ -1711,6 +1711,10 @@ do
 	local function met(key)
 		return Cards.met(Cards.get(key), st)
 	end
+	-- Dev Defeater: a win over a developer's team
+	local devSt = Cards.stats({ record = { devWins = 1 } }, 0)
+	check(Cards.met(Cards.get("DevDefeater"), devSt) and not Cards.met(Cards.get("DevDefeater"), Cards.stats({ record = {} }, 0)),
+		"the Dev Defeater card unlocks with one win over a developer's team")
 	check(met("OnFire") and not met("Unstoppable") and met("Winner") and met("Champion") and not met("SpikeMachine") and met("MVP") and met("Collector") and not met("Veteran") and met("Top3") and not met("Number1"),
 		"cards unlock by achievement: best streak 6 (not 10), 120 wins, 30 MVPs, 22 recruits, #2 on a board (not #1)")
 	local have, need = Cards.progress(Cards.get("SpikeMachine"), st)

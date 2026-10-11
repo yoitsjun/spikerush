@@ -649,6 +649,10 @@ Config.Cards = {
 		-- earned; Big is drawn across the card and Avatar puts your own avatar, mid-spike, over it
 		{ Key = "Creator", Name = "Content Creator", Stat = "grant", Grant = true, Goal = "Given to content creators",
 			Look = { Base = Color3.fromRGB(26, 8, 48), Sweep = Color3.fromRGB(150, 50, 255), Accent = Color3.fromRGB(255, 110, 230), Edge = Color3.fromRGB(200, 120, 255), Pattern = "stripes", Big = "CONTENT\nCREATOR", Avatar = true } },
+		-- the owner: "add a dev defeater card": win a full match against a team with a developer
+		-- on it (Config.Developers)
+		{ Key = "DevDefeater", Name = "Dev Defeater", Stat = "devWins", Need = 1, Goal = "Beat a developer's team in a match",
+			Look = { Base = Color3.fromRGB(34, 4, 8), Sweep = Color3.fromRGB(235, 30, 50), Accent = Color3.fromRGB(255, 235, 235), Edge = Color3.fromRGB(255, 70, 80), Pattern = "rays", Big = "DEV\nDEFEATER" } },
 		-- the VIP game pass's card (Config.Passes.VIP): given with the pass, never earned
 		{ Key = "VIP", Name = "VIP", Stat = "grant", Grant = true, Goal = "Comes with the VIP game pass",
 			Look = { Base = Color3.fromRGB(20, 14, 2), Sweep = Color3.fromRGB(255, 196, 40), Accent = Color3.fromRGB(255, 245, 200), Edge = Color3.fromRGB(255, 220, 100), Pattern = "stars", Big = "VIP" } },

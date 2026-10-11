@@ -530,6 +530,15 @@ local function results(winner, forfeitTeam)
 	-- side that forfeits still takes its loss.
 	local played = (MatchService.totals.Home or 0) + (MatchService.totals.Away or 0)
 	local hollow = forfeitTeam ~= nil and played < M.ForfeitWinMinPoints
+	-- the teams with a developer on them (beating one earns the Dev Defeater card)
+	local devTeam = {}
+	for _, team in ipairs(Config.TeamOrder) do
+		for _, e in ipairs(reg.TeamService.members(team)) do
+			if e.player and reg.ProfileService.isDev(e.player) then
+				devTeam[team] = true
+			end
+		end
+	end
 	for _, team in ipairs(Config.TeamOrder) do
 		for _, e in ipairs(reg.TeamService.members(team)) do
 			local st = e.stats
@@ -543,7 +552,13 @@ local function results(winner, forfeitTeam)
 				local won = team == winner
 				local empty = hollow and team ~= forfeitTeam -- the other side of an early forfeit
 				if counts and not empty then
-					streak = reg.ProfileService.recordResult(e.player, won, st)
+					local beatDev = false
+					for t in pairs(devTeam) do
+						if t ~= team then
+							beatDev = true
+						end
+					end
+					streak = reg.ProfileService.recordResult(e.player, won, st, beatDev)
 				end
 				if team ~= forfeitTeam and not cup and not empty then
 					local plays = st.kills + st.aces + st.blocks

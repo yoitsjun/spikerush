@@ -24,6 +24,7 @@ local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
 local Characters = require(Shared.Characters)
 local Util = require(Shared.Util)
+local Cards = require(Shared.Cards)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
 
@@ -169,10 +170,33 @@ local function newScene(parent, entries, color, opts)
 			-- position, display their highest on top of their head"); gold, silver, bronze for a top 3
 			local uid = type(e.id) == "string" and string.sub(e.id, 1, 2) == "P_" and tonumber(string.sub(e.id, 3))
 			local plr = uid and Players:GetPlayerByUserId(uid)
+			-- their title (the owner: "add titles for the intro. these can basically just be the same
+			-- as playercards"): the player card they wear, by name, in its colours, over the name
+			local model = Util.modelOf(e.id)
+			local card = model and Cards.get(model:GetAttribute("PlayerCard"))
+			local above = -2
+			if card and card.Key ~= Cards.default() then
+				local look = Cards.look(card, color, plr and tonumber(plr:GetAttribute("BoardRank")))
+				local plate = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, -2), Size = UDim2.fromOffset(0, 24), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = look.Base, BorderSizePixel = 0, ZIndex = names.ZIndex }, slot.tag)
+				make("UIGradient", { Rotation = 0, Color = ColorSequence.new(look.Base, look.Sweep or look.Base) }, plate)
+				make("UIStroke", { Color = look.Edge or look.Accent, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, plate)
+				make("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }, plate)
+				label(plate, {
+					Text = string.upper(card.Name),
+					display = true,
+					TextSize = 17,
+					TextColor3 = look.Accent,
+					TextStrokeTransparency = 0.5,
+					AutomaticSize = Enum.AutomaticSize.X,
+					Size = UDim2.fromOffset(0, 24),
+					ZIndex = names.ZIndex + 1,
+				})
+				above = -30
+			end
 			local rank = plr and tonumber(plr:GetAttribute("BoardRank"))
 			if rank then
 				local color = Config.Cards.RankColors[rank] or Gui.CHALK
-				local badge = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, -2), Size = UDim2.fromOffset(0, 26), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = names.ZIndex }, slot.tag)
+				local badge = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, above), Size = UDim2.fromOffset(0, 26), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = names.ZIndex }, slot.tag)
 				make("UICorner", { CornerRadius = UDim.new(0, 6) }, badge)
 				make("UIStroke", { Color = color, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, badge)
 				make("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }, badge)
