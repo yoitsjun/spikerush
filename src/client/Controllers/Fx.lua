@@ -91,6 +91,21 @@ local CRATER = { t = "Crater", n = 1, life = { 1.6, 1.6 }, size = 14, alpha = { 
 local BOLT = { t = "Bolt", n = 1, life = { 0.14, 0.18 }, size = 10, alpha = { { 0, 0 }, { 0.6, 0 }, { 1, 1 } }, aim = true, z = 2.5, tint = 0.25, color = THUNDER }
 local SPARKLE = { t = "Sparkle", n = 1, life = { 0.25, 0.45 }, size = { { 0, 0 }, { 0.3, 1.6 }, { 1, 0 } }, rot = { 0, 90 }, z = 1, tint = 0.6 }
 
+-- our own toon flipbooks (the owner: "make them look more similar to blox fruits"): a bold shape,
+-- a white core and a grey band, played once over each particle's life. The jump kits pile many
+-- of them up into one volume, two colours each (a hot core layer inside a deeper outer one), as
+-- Blox Fruits' fire, smoke and lightning do.
+local TFIRE = { t = "ToonFire", grid = "Grid4x4", n = 14, life = { 0.5, 0.8 }, size = { { 0, 3 }, { 0.35, 5.5 }, { 1, 4 } }, speed = { 6, 16 }, spread = 70, drag = 3, accel = Vector3.new(0, 14, 0), rot = { -20, 20 }, glow = 0.5, z = 1.5 }
+local TCORE = layer(TFIRE, { n = 8, d = 0.04, size = { { 0, 2 }, { 0.35, 3.5 }, { 1, 2 } }, speed = { 4, 11 }, glow = 1, z = 2 })
+local TSMOKE = { t = "ToonSmoke", grid = "Grid4x4", n = 8, life = { 0.7, 1.1 }, size = { { 0, 2.5 }, { 1, 6 } }, speed = { 8, 18 }, spread = 85, drag = 4, accel = Vector3.new(0, 4, 0), rot = { 0, 360 }, glow = 0, z = 0.5 }
+local TSPARK = { t = "ToonSpark", grid = "Grid4x4", n = 6, life = { 0.35, 0.55 }, size = { { 0, 2 }, { 1, 3 } }, speed = { 10, 24 }, spread = 180, drag = 5, rot = { -10, 10 }, z = 2.5 }
+local TELEC = { t = "ToonElectric", grid = "Grid4x4", n = 4, life = { 0.3, 0.45 }, size = { { 0, 6 }, { 1, 8 } }, speed = { 0, 4 }, spread = 180, rot = { 0, 360 }, z = 2 }
+local TBURST = { t = "ToonBurst", grid = "Grid4x4", n = 1, life = { 0.3, 0.3 }, size = 10, rot = { 0, 360 }, z = 3 }
+local function two(hot, deep)
+	return { hot, deep }
+end
+local C = Color3.fromRGB
+
 local KITS = {
 	-- building blocks
 	Star = { STAR },
@@ -188,6 +203,95 @@ local KITS = {
 		layer(SPIKY, { size = { { 0, 3 }, { 1, 18 } } }),
 		layer(RADIAL, { size = { { 0, 5 }, { 1, 22 } } }),
 		layer(PUFFS, { n = 14, speed = { 14, 30 }, size = { { 0, 3 }, { 1, 7 } } }),
+	},
+
+	-- the jump effects' volumes (VFXController.jumpEffect plays "Jump" .. key), each after a Blox
+	-- Fruits move: our own textures, their layering
+	JumpFire = {
+		layer(TFIRE, { color = two(C(255, 140, 40), C(220, 40, 10)) }),
+		layer(TCORE, { color = two(C(255, 250, 200), C(255, 190, 50)) }),
+		layer(TBURST, { color = C(255, 200, 90), size = 8 }),
+		layer(EMBERS, { n = 14 }),
+		layer(TSMOKE, { n = 5, d = 0.18, color = C(60, 45, 40) }),
+	},
+	JumpInferno = {
+		layer(TFIRE, { n = 22, speed = { 8, 22 }, size = { { 0, 4 }, { 0.35, 7.5 }, { 1, 5 } }, color = two(C(255, 130, 30), C(210, 30, 10)) }),
+		layer(TCORE, { n = 12, size = { { 0, 3 }, { 0.35, 5 }, { 1, 3 } }, color = two(C(255, 252, 215), C(255, 200, 60)) }),
+		layer(FIREBALL, { n = 2, d = 0.05 }),
+		layer(TBURST, { color = C(255, 210, 100), size = 12 }),
+		layer(EMBERS, { n = 22, speed = { 20, 40 } }),
+		layer(TSMOKE, { n = 8, d = 0.2, size = { { 0, 3 }, { 1, 8 } }, color = C(55, 40, 35) }),
+		light = { C(255, 130, 40), 5, 24, 0.6 },
+	},
+	JumpShadow = {
+		layer(TFIRE, { color = two(C(205, 130, 255), C(110, 40, 220)), glow = 0.6 }),
+		layer(TCORE, { color = C(30, 8, 50), glow = 0 }),
+		layer(TSPARK, { n = 5, color = C(215, 170, 255) }),
+		layer(TSMOKE, { n = 7, d = 0.12, color = C(45, 25, 70) }),
+	},
+	JumpFrost = {
+		layer(TSMOKE, { n = 11, color = C(235, 248, 255), glow = 0.15, size = { { 0, 3 }, { 1, 7 } }, speed = { 10, 22 } }),
+		layer(TBURST, { color = C(200, 240, 255), size = 9 }),
+		layer(TSPARK, { n = 8, color = C(190, 240, 255) }),
+		layer(GLINTS, { n = 4, color = C(220, 248, 255) }),
+	},
+	JumpLightning = {
+		layer(TBURST, { color = C(255, 245, 160), size = 9 }),
+		layer(TELEC, { color = C(255, 236, 90) }),
+		layer(ARCS, { n = 2 }),
+		layer(TSPARK, { n = 5, color = C(255, 245, 170) }),
+	},
+	JumpStorm = {
+		layer(TBURST, { color = C(200, 245, 255), size = 13 }),
+		layer(TBURST, { d = 0.08, color = C(90, 210, 255), size = 16 }),
+		layer(TELEC, { n = 7, size = { { 0, 8 }, { 1, 11 } }, color = C(120, 230, 255) }),
+		layer(ARCS, { n = 4, size = 9, color = C(150, 235, 255) }),
+		layer(TSPARK, { n = 8, color = C(200, 250, 255) }),
+		layer(TSMOKE, { n = 6, d = 0.1, color = C(50, 60, 80) }),
+		light = { C(120, 220, 255), 6, 28, 0.4 },
+	},
+	-- Light: a golden star flare over a burst, rays and sparkles
+	JumpRadiant = {
+		layer(TBURST, { color = C(255, 240, 150), size = 12 }),
+		layer(TSPARK, { n = 1, d = 0.05, life = { 0.55, 0.55 }, speed = { 0, 0 }, size = { { 0, 4 }, { 0.3, 15 }, { 1, 8 } }, color = C(255, 250, 200), z = 3.5 }),
+		layer(TSPARK, { n = 10, color = C(255, 230, 110), speed = { 14, 30 } }),
+		layer(RADIAL, { color = C(255, 225, 120) }),
+		layer(GLOW, { color = C(255, 220, 120), size = { { 0, 4 }, { 1, 12 } } }),
+		light = { C(255, 225, 130), 6, 26, 0.5 },
+	},
+	-- Magma: red fire with black clots in it, black smoke, molten embers and a glowing crack
+	JumpMagma = {
+		layer(TFIRE, { n = 16, color = two(C(255, 110, 30), C(200, 20, 10)) }),
+		layer(TCORE, { n = 6, color = C(40, 12, 8), glow = 0 }),
+		layer(TSMOKE, { n = 9, d = 0.08, color = C(30, 22, 22), size = { { 0, 3 }, { 1, 8 } } }),
+		layer(EMBERS, { n = 20, color = C(255, 90, 30) }),
+		layer(CRACK, { color = C(255, 90, 30), size = 10 }),
+		light = { C(255, 80, 30), 5, 22, 0.8 },
+	},
+	-- Kitsune's blue fire: tall fox flames licking straight up, white at the heart
+	JumpFoxfire = {
+		layer(TFIRE, { n = 16, spread = 30, accel = Vector3.new(0, 26, 0), size = { { 0, 2.5 }, { 0.35, 5 }, { 1, 3 } }, color = two(C(140, 215, 255), C(40, 70, 255)), glow = 0.8 }),
+		layer(TCORE, { spread = 25, accel = Vector3.new(0, 24, 0), color = two(C(245, 252, 255), C(150, 220, 255)) }),
+		layer(TBURST, { color = C(170, 225, 255), size = 9 }),
+		layer(TSPARK, { n = 6, color = C(200, 235, 255) }),
+		light = { C(90, 160, 255), 5, 22, 0.5 },
+	},
+	-- Phoenix's blue flames: cyan and gold fire bursting together, sparkles
+	JumpPhoenix = {
+		layer(TFIRE, { n = 14, spread = 90, color = two(C(170, 250, 255), C(30, 170, 255)), glow = 0.8 }),
+		layer(TFIRE, { n = 10, d = 0.03, spread = 90, size = { { 0, 2.5 }, { 0.35, 4.5 }, { 1, 3 } }, color = two(C(255, 250, 170), C(255, 190, 40)), glow = 0.9 }),
+		layer(TBURST, { color = C(220, 250, 255), size = 12 }),
+		layer(TSPARK, { n = 10, color = C(255, 240, 150), speed = { 14, 30 } }),
+		layer(SPARKLE, { n = 6, color = C(170, 245, 255) }),
+		light = { C(80, 200, 255), 6, 26, 0.6 },
+	},
+	-- Quake: a white shock burst and dust thrown out low, rocks flying
+	JumpQuake = {
+		layer(TBURST, { color = C(245, 248, 255), size = 12 }),
+		layer(TSMOKE, { n = 10, spread = 90, speed = { 14, 28 }, color = DUST }),
+		layer(ROCKS, { n = 8 }),
+		layer(WAVE, { color = C(235, 240, 255), size = { { 0, 2 }, { 1, 16 } } }),
+		layer(DISC, { color = C(220, 230, 255), size = { { 0, 2 }, { 1, 12 } } }),
 	},
 
 	-- held kits (Fx.attach): the ball's trails, the falling meteor, auras

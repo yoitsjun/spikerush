@@ -335,6 +335,13 @@ Assets.Fx = {
 	Shock = "90810996100926", -- a glowing ring with a hot rim, laid on the floor
 	Flare = "72648189689787", -- a six-point lens flare
 	StatCard = "109112222614632", -- the slanted stat plate behind Speed Burst's number
+	-- our own toon flipbooks for the jump effects (tools/generate_fx_flipbooks.py, the PNGs in
+	-- art/tex): 4x4, white cores with a grey band, tinted in code
+	ToonFire = "86485033681728", -- a fire puff blooming, licking up and burning away
+	ToonSmoke = "75110203932548", -- a cel-shaded smoke puff billowing and eroding
+	ToonSpark = "115949917960267", -- a four-point star flaring and shrinking
+	ToonElectric = "115855857218883", -- jagged bolts crackling out, new ones every frame
+	ToonBurst = "108360852617432", -- a spiky star blast ringing out
 }
 
 -- The ball skins' textures (tools/generate_ball_skins.py, the PNGs in assets/balls): equirectangular

@@ -499,6 +499,13 @@ Config.Cosmetics = {
 		{ Key = "Rainbow", Name = "Rainbow", Rarity = "Legendary" },
 		{ Key = "Storm", Name = "Thunderstorm", Rarity = "Legendary" },
 		{ Key = "Inferno", Name = "Inferno", Rarity = "Mythic" },
+		-- the Blox Fruits pass (the owner: "and add more"): each built on the look of a different
+		-- fruit's moves, our own art and names
+		{ Key = "Quake", Name = "Tremor", Rarity = "Rare" },
+		{ Key = "Magma", Name = "Eruption", Rarity = "Epic" },
+		{ Key = "Radiant", Name = "Radiance", Rarity = "Legendary" },
+		{ Key = "Foxfire", Name = "Foxfire", Rarity = "Legendary" },
+		{ Key = "Phoenix", Name = "Blue Phoenix", Rarity = "Mythic" },
 	},
 	Effect = {
 		{ Key = "Dust", Name = "Dust", Rarity = "Common" },
