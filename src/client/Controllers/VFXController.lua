@@ -4176,7 +4176,7 @@ local function endlessVoid(pos, tint, k, model, always)
 	local focus = hrp and hrp.Position or (pos + Vector3.new(0, 4, 0))
 	local parts = {}
 	-- the void: a black box of thin walls round the court (a thin wall shows from inside)
-	local W, L, H = 70, 90, 60
+	local W, L, H = 25, 42, 40 -- (inside the stands)
 	local walls = {
 		{ Vector3.new(0, H, 0), Vector3.new(W * 2, 0.4, L * 2) },
 		{ Vector3.new(0, 0.06, 0), Vector3.new(W * 2, 0.1, L * 2) },
@@ -4222,11 +4222,12 @@ local function endlessVoid(pos, tint, k, model, always)
 	sfx("BlackHoleBoom", pos)
 	-- the camera: in on the scorer's face, round them, back out
 	takeCamera(VOID_LIFE, function(t)
-		local r = hrp and hrp.Parent and hrp.Position or focus
-		local a = math.rad(-30 + t * 50)
+		-- in front of them (their facing), pushing in and turning round
+		local base = (hrp and hrp.Parent) and hrp.CFrame or CFrame.new(focus)
+		local r = base.Position
 		local dist = 16 - math.min(t, 1.2) * 7
-		local eye = r + Vector3.new(math.sin(a) * dist, 2.5 + t * 0.6, math.cos(a) * dist)
-		return CFrame.lookAt(eye, r + Vector3.new(0, 1.8, 0))
+		local eye = (base * CFrame.Angles(0, math.rad(-35 + t * 45), 0) * CFrame.new(0, 1.6 + t * 0.4, -dist)).Position
+		return CFrame.lookAt(eye, r + Vector3.new(0, 1.6, 0))
 	end, always)
 	if onCourt() or always then
 		VFXController.flash(0.6, 0.35)
@@ -4283,12 +4284,13 @@ local function worldSlash(pos, dirZ, tint, k, model, victims, always)
 	local line = take(Enum.PartType.Block)
 	line.Material = Enum.Material.Neon
 	line.Color = WHITE
-	line.Size = Vector3.new(80, 0.12, 0.12)
-	line.CFrame = CFrame.new(0, y, (from + to) / 2)
+	line.Size = Vector3.new(0.18, 0.18, 0.2)
+	line.CFrame = CFrame.new(0, y, from)
 	line.Transparency = 0
-	TweenService:Create(line, TweenInfo.new(0.3), { Size = Vector3.new(80, 0.12, math.abs(to - from)) }):Play()
+	local len = math.abs(to - from)
+	TweenService:Create(line, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.18, 0.18, len), CFrame = CFrame.new(0, y, (from + to) / 2) }):Play()
 	task.delay(0.9, function()
-		TweenService:Create(line, TweenInfo.new(0.4), { Transparency = 1, Size = Vector3.new(80, 0.02, math.abs(to - from)) }):Play()
+		TweenService:Create(line, TweenInfo.new(0.4), { Transparency = 1, Size = Vector3.new(0.04, 0.04, len) }):Play()
 		task.delay(0.45, release, line)
 	end)
 	sfx("ScoreImpact", pos)
