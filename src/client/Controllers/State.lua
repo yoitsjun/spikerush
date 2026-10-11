@@ -35,6 +35,15 @@ State.myTeam = nil
 State.mySide = 1
 State.myRole = "Solo"
 State.isPlaying = false
+-- Watching the match on this server's court from the menus' Spectate (the owner: "add a spectate
+-- button next to lobbies so you can watch ongoing matches"): the HUD, the camera and the effects
+-- treat a spectator like a player, without any of the controls.
+State.spectating = false
+
+-- Whether this client is watching the court: playing on it, or spectating.
+function State.watching()
+	return State.isPlaying or State.spectating
+end
 -- A touch device. In Studio the workspace attribute ForceTouch pretends to be one, so the touch
 -- controls show and take mouse clicks (testing them without the device emulator).
 State.isMobile = (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)

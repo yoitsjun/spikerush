@@ -68,7 +68,7 @@ local function desired(now)
 	local BR = mods.BallRenderer
 	local ballPos = BR.renderPosition()
 	local ballVisible = ballPos.Y > -100
-	local root = myRoot()
+	local root = (not State.spectating) and myRoot() or nil -- (a spectator's own character isn't on court)
 	local dist = DIST
 
 	-- dramatic angle on the landing spot right after a point
@@ -80,7 +80,7 @@ local function desired(now)
 	end
 
 	-- lobby: follow yourself along the court
-	if not State.isPlaying then
+	if not State.watching() then
 		local z = root and root.Position.Z * 0.7 or 0
 		local pos, look = side(z, 18, dist, 0, 8)
 		return pos, look, BASE_FOV
@@ -166,8 +166,8 @@ local function update(dt)
 	end
 	local now = os.clock()
 	local pos, look, fov
-	local zoomedOut = State.isPlaying and not State.settings.followCam
-	if pointCam and pointCam.target and now < pointCam.untilT and State.isPlaying then
+	local zoomedOut = State.watching() and not State.settings.followCam
+	if pointCam and pointCam.target and now < pointCam.untilT and State.watching() then
 		if pointCam.landing and now < pointCam.landingUntil then
 			-- the score blast first, where the point landed (VFXController's celebrate)
 			local f = pointCam.landing

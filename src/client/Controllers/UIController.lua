@@ -276,7 +276,7 @@ local function refreshTopBar()
 		t.serveDot.Position = UDim2.fromOffset(410 - 36 - 38 - 20, 59)
 	end
 	-- someone else's match on this court stays out of the menus
-	local mine = m.inMatch == true and State.isPlaying
+	local mine = m.inMatch == true and State.watching()
 	t.serveDot.Visible = mine
 	t.bar.Visible = mine
 	t.readout.Visible = mine -- the last attack stays off the menus (benched, or someone else's match)
@@ -684,7 +684,9 @@ local function refreshTags()
 	for _, info in ipairs(allModels()) do
 		local m = info.model
 		seen[m] = true
-		local away = State.isPlaying and info.plr ~= nil and info.plr ~= player and State.entry("P_" .. tostring(info.plr.UserId)) == nil
+		-- players who aren't on court are hidden while you watch it (a spectator hides too)
+		local away = info.plr ~= nil and State.entry("P_" .. tostring(info.plr.UserId)) == nil
+			and ((State.isPlaying and info.plr ~= player) or State.spectating)
 		if away or (ui.hidden or {})[m] then
 			setHidden(m, away) -- again every refresh while away: accessories load in late
 		end
@@ -1318,6 +1320,22 @@ end
 -- after a set: keep playing for the extra set rewards, or end the match
 ------------------------------------------------------------------------------------------
 
+-- Spectating: a bar under the score with Leave (a controller: A or B).
+local function buildSpectate()
+	local f = panel(gui, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 96), Size = UDim2.fromOffset(330, 46), Visible = false })
+	edge(f, Gui.SIGNAL, 0.2)
+	label(f, { Text = "SPECTATING", Font = Enum.Font.GothamBlack, TextSize = 18, TextColor3 = UI.Spark, Size = UDim2.new(1, -150, 1, 0), Position = UDim2.fromOffset(16, 0) })
+	local leave = button(f, "Leave", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(120, 32), TextSize = 15 })
+	Gui.pressSound(leave)
+	local function stop()
+		click()
+		mods.MenuController.spectate(false)
+	end
+	leave.MouseButton1Click:Connect(stop)
+	mods.PadNav.root(f, { prio = 22, first = leave, back = stop })
+	ui.spectate = f
+end
+
 local function buildContinue()
 	local f = panel(gui, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.58), Size = UDim2.fromOffset(540, 200), Visible = false })
 	edge(f, Gui.SIGNAL, 0.1)
@@ -1344,6 +1362,7 @@ local function buildContinue()
 end
 
 local function updateContinue()
+	ui.spectate.Visible = State.spectating == true
 	local c = ui.again
 	local show = State.isPlaying and State.phase() == "Continue"
 	c.frame.Visible = show
@@ -1989,7 +2008,7 @@ local function scorerPerks(a)
 end
 
 local function onAnnounce(a)
-	if not State.isPlaying and a.kind ~= "StandIn" then
+	if not State.watching() and a.kind ~= "StandIn" then
 		return -- a match you're not in (you're in the menus)
 	end
 	if a.kind == "Point" then
@@ -2314,6 +2333,7 @@ function UIController.init(m)
 	buildRotation()
 	buildCoach()
 	buildContinue()
+	buildSpectate()
 	buildNotice()
 	Net.get("Notice").OnClientEvent:Connect(UIController.notice)
 

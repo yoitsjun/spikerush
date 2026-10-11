@@ -597,7 +597,7 @@ end
 -- players on court: everyone else in the server (menus, the lobby) gets them too otherwise (the
 -- owner: "the taeho impact is showing accross all servers even if youre not playing").
 local function onCourt()
-	return State.isPlaying == true
+	return State.watching() == true
 end
 
 function VFXController.flash(strength, duration)

@@ -4629,6 +4629,7 @@ local MATCH_CARDS = {
 	{ key = "1", mode = 1, title = "1v1", icon = "IconAttack", art = "MatchRooftop" },
 	{ key = "Cups", title = "Tournaments", icon = "IconStar", art = "MatchColosseum", strip = "Pay in, win big" },
 	{ key = "Lobbies", title = "Lobbies", icon = "IconHome", art = "MatchNationals", strip = "Public, friends and private" },
+	{ key = "Spectate", title = "Spectate", icon = "IconPlayers", art = "MatchArena", strip = "Watch the match on this court" },
 	{ key = "Custom", title = "Custom", icon = "IconSettings", art = "MatchColosseum", strip = "Host your own lobby" },
 	{ key = "Practice", title = "Practice", icon = "IconJump", art = "MatchPractice", strip = "Drills and the tutorial" },
 }
@@ -4652,6 +4653,10 @@ local function pickMatchCard(c)
 	local mine = lobbies.mine
 	if mine and (mine.tutorial or mine.practice) then
 		mine = nil
+	end
+	if c.key == "Spectate" then
+		MenuController.spectate(true)
+		return
 	end
 	if c.key ~= "Practice" and Extra.mustTutorial() then
 		toast("Play the tutorial first: it's quick, and it pays.")
@@ -4825,6 +4830,13 @@ local function refreshMatchScreen(prof)
 				text = string.format("%d waiting", waiting[c.mode])
 			else
 				text = "Bots fill empty spots"
+			end
+		elseif c.key == "Spectate" then
+			local m = State.match
+			if m.inMatch and not m.practice and not State.isPlaying then
+				text, hot = string.format("Live: %d - %d", (m.scores and m.scores.Home) or 0, (m.scores and m.scores.Away) or 0), true
+			else
+				text = "No match on this court"
 			end
 		elseif c.key == "Lobbies" then
 			if mine and not mine.quick and not mine.isHost then
@@ -6100,6 +6112,28 @@ function MenuController.shown()
 	return shown
 end
 
+-- Spectate the match on this server's court (on), or stop (off): the menus hide and the match
+-- plays out on screen; back to the menus when it ends. A match in another server (a reserved one)
+-- can't be watched from here.
+function MenuController.spectate(on)
+	if on then
+		local m = State.match
+		if State.isPlaying then
+			return
+		end
+		if not m.inMatch or m.practice then
+			toast("No match on this court right now. Matches in other servers can't be watched from here.")
+			return
+		end
+		State.spectating = true
+		setShown(false)
+	else
+		State.spectating = false
+		setShown(not State.isPlaying)
+	end
+	State.signals.Match:Fire()
+end
+
 local function onProfile(prof)
 	Extra.profileAt = os.clock()
 	local r = prof.reveal
@@ -6216,7 +6250,11 @@ function MenuController.init(m)
 
 	State.signals.Profile:Connect(onProfile)
 	State.signals.Match:Connect(function()
-		setShown(not State.isPlaying)
+		-- a spectator goes back to the menus when the match ends (or when they're put in one)
+		if State.spectating and (not State.match.inMatch or State.isPlaying) then
+			State.spectating = false
+		end
+		setShown(not State.isPlaying and not State.spectating)
 		MenuController.refresh()
 	end)
 	State.signals.Announce:Connect(function(a)
