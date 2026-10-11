@@ -282,7 +282,9 @@ end
 -- Anything high on the far wall runs into the HUD's scoreboard as the camera climbs with the
 -- ball; down here they stay in the lower half of the frame at every camera height.
 -- spec = { frame, material, z, w, h }
-local SCREEN_BASE = 3.2 -- clear of the LED boards in front
+-- up over the players' heads (the owner: "text covers map": at 3.2 they sat behind the court and
+-- covered the players in closer camera shots)
+local SCREEN_BASE = 12.5
 local function screens(scene, spec)
 	local jumbo = Instance.new("Model")
 	jumbo.Name = "Jumbotron"

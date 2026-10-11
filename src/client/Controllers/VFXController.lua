@@ -3902,6 +3902,7 @@ local function giantStomp(model, pos, dirZ, tint, k, victims)
 		sfx("ScoreImpact", floor)
 		if big then
 			sfx("ScoreShockwave", floor)
+			sfx("ScoreRumble", floor)
 		end
 		if near(floor) then
 			mods.CameraController.shake(big and 1.3 or 0.9)
@@ -4162,7 +4163,7 @@ local function deepFreeze(pos, tint, k, model, always)
 		mods.CameraController.kick(-8)
 		VFXController.flash(0.4, 0.25)
 	end
-	sfx("ScoreImpact", pos)
+	sfx("ScoreFreeze", pos)
 	sfx("ScoreShockwave", pos)
 end
 
@@ -4293,7 +4294,8 @@ local function worldSlash(pos, dirZ, tint, k, model, victims, always)
 		TweenService:Create(line, TweenInfo.new(0.4), { Transparency = 1, Size = Vector3.new(0.04, 0.04, len) }):Play()
 		task.delay(0.45, release, line)
 	end)
-	sfx("ScoreImpact", pos)
+	sfx("ScoreSlash", pos)
+	task.delay(0.22, sfx, "ScoreImpact", pos)
 	-- the opponents in two: copies, cut at the waist, the top sliding off
 	local list = victims
 	if not list then
@@ -4418,6 +4420,7 @@ local function fireworks(pos, tint, k)
 			trail.LightEmission = 1
 			trail.Transparency = NumberSequence.new(0, 1)
 			trail.Parent = rocket
+			sfx("FireworkLaunch", start)
 			TweenService:Create(rocket, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(top) }):Play()
 			task.delay(0.5, function()
 				trail:Destroy()
@@ -4428,7 +4431,7 @@ local function fireworks(pos, tint, k)
 				Fx.play("Sparks", top, { color = col, n = 26, scale = 1.5 })
 				Fx.play("Glints", top, { color = col, scale = 2.5, count = 4 })
 				Fx.play("JumpRadiant", top, { scale = 1.2 })
-				sfx("ScoreSparkle", top)
+				sfx("FireworkBurst", top)
 			end)
 		end)
 	end
@@ -4463,7 +4466,8 @@ local function teslaDome(pos, tint, k)
 			mods.CameraController.shake(0.7)
 		end
 	end)
-	sfx("ScoreThunder", pos)
+	sfx("ScoreTesla", pos)
+	task.delay(1.05, sfx, "ScoreThunder", pos)
 end
 
 -- Ka-Pow: a giant comic-book burst with a sound word in it, speed lines round it.
@@ -4509,7 +4513,7 @@ local function comicPow(pos, tint, k)
 	Fx.play("PerfectImpact", pos + Vector3.new(0, 3, 0), { color = tint, scale = 1.8 })
 	Fx.play("JumpQuake", pos + Vector3.new(0, 1, 0), { scale = k / 2 })
 	floorRing(pos, tint or Color3.fromRGB(255, 220, 60), 22)
-	sfx("ScoreImpact", pos)
+	sfx("ScorePow", pos)
 	if near(pos) then
 		mods.CameraController.shake(0.6)
 	end
@@ -4567,8 +4571,8 @@ local function confetti(pos, tint, k)
 	end)
 	Fx.play("Sparks", pos + Vector3.new(0, 1, 0), { color = tint, n = 20 })
 	starburst(pos + Vector3.new(0, 2, 0), tint or Color3.fromRGB(255, 205, 50), 12)
+	sfx("ScoreConfetti", pos)
 	sfx("ScoreSparkle", pos)
-	sfx("ScoreImpact", pos)
 end
 
 ------------------------------------------------------------------------------------------
@@ -4602,7 +4606,7 @@ local function iceAge(pos, tint, k)
 	shockDisc(pos, Color3.fromRGB(200, 240, 255), 12 * k, 0.7)
 	smokePuffs(pos, 14, k, Color3.fromRGB(235, 248, 255))
 	Fx.play("JumpFrost", pos + Vector3.new(0, 1, 0), { scale = k })
-	sfx("ScoreDebris", pos)
+	sfx("ScoreFreeze", pos)
 	if near(pos) then
 		mods.CameraController.shake(0.7)
 	end
@@ -4623,7 +4627,7 @@ local function holyStrike(pos, tint, k)
 	featherFall(pos, 26, k)
 	flare(pos + Vector3.new(0, 6, 0), GOLD, 26 * k, 0.6)
 	Fx.play("JumpAngel", pos + Vector3.new(0, 1, 0), { scale = k })
-	sfx("ScoreSparkle", pos)
+	sfx("ScoreHoly", pos)
 	sfx("ScoreImpact", pos)
 	if near(pos) then
 		VFXController.flash(0.4, 0.3)
@@ -4645,7 +4649,7 @@ local function volcano(pos, tint, k)
 	Fx.play("JumpMagma", pos + Vector3.new(0, 1, 0), { scale = k })
 	task.delay(0.15, Fx.play, "JumpMagma", pos + Vector3.new(0, 6 * k / 2, 0), { scale = k * 0.8 })
 	sfx("ScoreFire", pos)
-	sfx("ScoreDebris", pos)
+	sfx("ScoreRumble", pos)
 	if near(pos) then
 		mods.CameraController.shake(1)
 		mods.CameraController.kick(-6)

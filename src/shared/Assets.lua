@@ -91,6 +91,17 @@ Assets.Sounds = {
 	SpeedSlam = "102243658312648", -- "combat_melee_REALLYheavyPUNCH": the number slamming down
 	ScoreFire = "124035544468314", -- "Long Flame": the Fire Explosion score effect
 	MeteorWhoosh = "9125920594", -- the searing whoosh again: the meteor ripping down
+	-- the newer score effects' own (Creator Store, picked 2026-10-10; the owner: "fireworks should
+	-- use a firework sfx")
+	FireworkLaunch = "84790178390954", -- "firework_fly": a rocket whistling up
+	FireworkBurst = "83996729056576", -- "Firework Explosion": a crackling burst
+	ScoreFreeze = "9125611419", -- Pro Sound Effects: ice crackling as it freezes (Deep Freeze, Ice Age)
+	ScoreTesla = "9114277402", -- Pro Sound Effects: electric zaps (Tesla Dome)
+	ScorePow = "7468131335", -- "Cartoon Punch" (Ka-Pow)
+	ScoreConfetti = "7368630054", -- "Party Popper" (Confetti Cannon)
+	ScoreSlash = "5789211405", -- a fast blade whoosh with a ring (World Slash)
+	ScoreHoly = "121538758381608", -- "Angelical choir" (Holy Strike)
+	ScoreRumble = "9113217388", -- Pro Sound Effects: avalanche crash, boulders rumbling (Volcano, Giant Stomp)
 	StuffSlam = "9120256647", -- Pro Sound Effects: metal impact
 	Whistle = "9118113825", -- Pro Sound Effects: referee whistle, single blast
 	Timeout = "",
@@ -179,6 +190,16 @@ Assets.SoundFiles = {
 	["84321138018138"] = { gain = 0.8 }, -- BlackHoleHum: peak 501
 	["9043343896"] = { start = 1.0, gain = 1.5 }, -- BlackHoleSuck: swells from 1.32 s to the hard end at 2.07 s, peak 265
 	["1837830182"] = { gain = 0.56 }, -- BlackHoleBoom: peak 711
+	-- the newer score effects' (measured 2026-10-10)
+	["84790178390954"] = { gain = 1.6 }, -- FireworkLaunch: peak 254
+	["83996729056576"] = { gain = 1.9 }, -- FireworkBurst: peak 213
+	["9125611419"] = { start = 0.2, gain = 0.7 }, -- ScoreFreeze: from 0.23 s, peak 574
+	["9114277402"] = { start = 0.12, gain = 2.4 }, -- ScoreTesla: from 0.15 s, peak 164
+	["7468131335"] = { gain = 0.75 }, -- ScorePow: peak 532
+	["7368630054"] = { gain = 1.05 }, -- ScoreConfetti: peak 383
+	["5789211405"] = { gain = 1.8 }, -- ScoreSlash: peak 219
+	["121538758381608"] = { gain = 1.45 }, -- ScoreHoly: peak 273
+	["9113217388"] = { start = 0.14, gain = 1.25 }, -- ScoreRumble: from 0.17 s, peak 323
 	-- Taeho and Seora (2026-10-09): started on the hit, not the swish before it
 	["9120729973"] = { start = 0.24, gain = 1.9 }, -- ZeroPoint: swish from 0.11 s, the hit at 0.32 s, peak 212
 	["9120730138"] = { start = 0.28, gain = 1.6 }, -- TalonDrop: swish from 0.23 s, the hit at 0.36 s, peak 249

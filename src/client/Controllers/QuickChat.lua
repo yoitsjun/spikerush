@@ -280,7 +280,8 @@ local function build()
 	gui = make("ScreenGui", { Name = "SpikeRushQuickChat", ResetOnSpawn = false, DisplayOrder = 40, IgnoreGuiInset = true }, player:WaitForChild("PlayerGui"))
 
 	-- the button (in a match or spectating): a speech bubble
-	button = make("TextButton", { Name = "QuickChatButton", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 16, 0.42, 0), Size = UDim2.fromOffset(56, 56), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.25, Text = "\u{1F4AC}", TextSize = 30, AutoButtonColor = false, Visible = false }, gui)
+	-- (on the right edge: on the left it covered the ability buttons)
+	button = make("TextButton", { Name = "QuickChatButton", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.36, 0), Size = UDim2.fromOffset(56, 56), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.25, Text = "\u{1F4AC}", TextSize = 30, AutoButtonColor = false, Visible = false }, gui)
 	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, button)
 	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, button)
 	button:SetAttribute("NoNav", true)
