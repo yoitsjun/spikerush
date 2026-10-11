@@ -1073,13 +1073,14 @@ end
 ------------------------------------------------------------------------------------------
 
 local PLAYER_BANNERS = { "Char" }
-local COSMETIC_BANNERS = { "Style", "Color", "Trail", "Effect", "Pose", "Ball" }
+local COSMETIC_BANNERS = { "Style", "Color", "Trail", "Jump", "Effect", "Pose", "Ball" }
 -- each banner's card stock (a flat colour under halftone and a gloss streak) and its icon
 local BANNER_ART = {
 	Char = { color = Color3.fromRGB(214, 138, 40), icon = "IconPlayers" },
 	Style = { color = Color3.fromRGB(58, 108, 214), icon = "IconJump" },
 	Color = { color = Color3.fromRGB(164, 70, 196), icon = "IconStar" },
 	Trail = { color = Color3.fromRGB(28, 150, 164), icon = "IconSpeed" },
+	Jump = { color = Color3.fromRGB(226, 104, 34), icon = "IconJump" },
 	Effect = { color = Color3.fromRGB(206, 62, 62), icon = "IconAttack" },
 	Pose = { color = Color3.fromRGB(58, 156, 88), icon = "IconRanks" },
 	Ball = { color = Color3.fromRGB(224, 176, 30), icon = "IconStar" },
@@ -3268,7 +3269,7 @@ local function buildLocker()
 	make("UICorner", { CornerRadius = UDim.new(0, 8) }, panel)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, panel)
 	-- short names, so a sixth tab fits: the player cards (unlocked by achievements, not spins)
-	local short = { Style = "Style", Color = "Color", Trail = "Trail", Effect = "Effect", Pose = "Pose", Ball = "Ball" }
+	local short = { Style = "Style", Color = "Color", Trail = "Trail", Jump = "Jump", Effect = "Effect", Pose = "Pose", Ball = "Ball" }
 	local kinds = {}
 	for _, kind in ipairs(COS.Kinds) do
 		table.insert(kinds, { key = kind, text = short[kind] or SP.Banners[kind].Name })
@@ -3516,7 +3517,7 @@ local function refreshLocker(prof)
 	if o.posing then
 		L.caption.Text = string.format("<b>Preview</b>   %s  (the matchup intro, and after a win)", nm("Pose", o.pose))
 	else
-		L.caption.Text = string.format("<b>Preview</b>   %s  /  %s  /  %s  /  %s  /  %s", nm("Style", o.style), nm("Color", o.color), nm("Trail", o.trail), nm("Effect", o.effect), nm("Ball", o.ball))
+		L.caption.Text = string.format("<b>Preview</b>   %s  /  %s  /  %s  /  %s  /  %s  /  %s", nm("Style", o.style), nm("Color", o.color), nm("Trail", o.trail), nm("Jump", o.jump), nm("Effect", o.effect), nm("Ball", o.ball))
 	end
 	if shown and screen == "locker" then
 		mods.SceneController.setPractice(o)

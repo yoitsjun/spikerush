@@ -413,6 +413,26 @@ function Spins.equipped(model, kind)
 	return Spins.resolve(kind, key)
 end
 
+-- A solid trail's look (White, Black, Rainbow: Config.Cosmetics.Trail's Solid): its colour
+-- sequence and light emission, or nil for the trails drawn in the spike's colour.
+function Spins.solidTrail(item)
+	if not item or type(item.Solid) ~= "table" or #item.Solid == 0 then
+		return nil
+	end
+	local list = item.Solid
+	local seq
+	if #list == 1 then
+		seq = ColorSequence.new(list[1])
+	else
+		local kps = {}
+		for i, c in ipairs(list) do
+			table.insert(kps, ColorSequenceKeypoint.new((i - 1) / (#list - 1), c))
+		end
+		seq = ColorSequence.new(kps)
+	end
+	return seq, item.Emission or 0.8
+end
+
 -- A colour item's tint (nil for the classic look). Prism cycles through the hues.
 function Spins.tint(item, t)
 	if not item or not item.Color then

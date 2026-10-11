@@ -388,12 +388,13 @@ Config.Rarity = {
 -- turns into VP (SellValue).
 Config.Spins = {
 	Costs = { [1] = 50, [10] = 500 },
-	Order = { "Char", "Style", "Color", "Trail", "Effect", "Pose", "Ball" },
+	Order = { "Char", "Style", "Color", "Trail", "Jump", "Effect", "Pose", "Ball" },
 	Banners = {
 		Char = { Name = "Characters", Blurb = "Named characters with their own role, stats, height and ability." },
 		Style = { Name = "Spike style", Blurb = "Unlocks spike animations." },
 		Color = { Name = "Spike color", Blurb = "Unlocks the colour of your spikes and their impact." },
 		Trail = { Name = "Trail", Blurb = "Unlocks the trail your spikes leave." },
+		Jump = { Name = "Jump effect", Blurb = "Unlocks what bursts from your feet every time you jump." },
 		Effect = { Name = "Score effect", Blurb = "Unlocks what happens where your attack lands for a point." },
 		Pose = { Name = "Intro pose", Blurb = "Unlocks how you pose when the teams line up, and after a win." },
 		Ball = { Name = "Ball skin", Blurb = "Unlocks the ball's look for every rally you serve." },
@@ -443,8 +444,8 @@ Config.Developers = {
 
 -- Unlockables. The first item of each list is owned by everyone and equipped by default.
 Config.Cosmetics = {
-	Kinds = { "Style", "Color", "Trail", "Effect", "Pose", "Ball" },
-	Attribute = { Style = "SpikeStyle", Color = "SpikeColor", Trail = "SpikeTrail", Effect = "ScoreEffect", Pose = "IntroPose", Ball = "BallSkin" },
+	Kinds = { "Style", "Color", "Trail", "Jump", "Effect", "Pose", "Ball" },
+	Attribute = { Style = "SpikeStyle", Color = "SpikeColor", Trail = "SpikeTrail", Jump = "JumpEffect", Effect = "ScoreEffect", Pose = "IntroPose", Ball = "BallSkin" },
 	Style = {
 		{ Key = "Classic", Name = "Classic", Rarity = "Common" },
 		{ Key = "Bow", Name = "Full Bow", Rarity = "Rare" },
@@ -476,6 +477,26 @@ Config.Cosmetics = {
 		{ Key = "Flame", Name = "Flame", Rarity = "Epic" },
 		{ Key = "Lightning", Name = "Lightning", Rarity = "Epic" },
 		{ Key = "Stardust", Name = "Stardust", Rarity = "Legendary" },
+		-- solid ribbons in their own colours, whatever the spike colour (the owner: "add white trails
+		-- and black trails... colored trails"); Emission 0 keeps black from vanishing in the light
+		{ Key = "White", Name = "Pure White", Rarity = "Rare", Solid = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(215, 228, 255) }, Emission = 1 },
+		{ Key = "Black", Name = "Jet Black", Rarity = "Rare", Solid = { Color3.fromRGB(8, 8, 12), Color3.fromRGB(46, 44, 58) }, Emission = 0 },
+		{ Key = "Rainbow", Name = "Rainbow", Rarity = "Legendary", Solid = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }, Emission = 0.7 },
+	},
+	-- what bursts from your feet on every jump (the owner: "maybe add jump effects too... lightning
+	-- effects when you jump, fire when you jump"): VFXController.jumpEffect, on top of the usual dust
+	-- or boom; the Locker's practice jump previews it
+	Jump = {
+		{ Key = "Plain", Name = "Plain", Rarity = "Common" },
+		{ Key = "Sparks", Name = "Sparks", Rarity = "Common" },
+		{ Key = "Wind", Name = "Gust", Rarity = "Common" },
+		{ Key = "Frost", Name = "Frost", Rarity = "Rare" },
+		{ Key = "Shadow", Name = "Shadow", Rarity = "Rare" },
+		{ Key = "Fire", Name = "Fire", Rarity = "Epic" },
+		{ Key = "Lightning", Name = "Lightning", Rarity = "Epic" },
+		{ Key = "Rainbow", Name = "Rainbow", Rarity = "Legendary" },
+		{ Key = "Storm", Name = "Thunderstorm", Rarity = "Legendary" },
+		{ Key = "Inferno", Name = "Inferno", Rarity = "Mythic" },
 	},
 	Effect = {
 		{ Key = "Dust", Name = "Dust", Rarity = "Common" },

@@ -521,6 +521,19 @@ local function applyStyle(meta)
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 230, 210))
 	end
 	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or (meta.plunge and Config.Abilities.Plunge.Color) or Color3.fromRGB(255, 90, 110)
+	-- a solid trail (White, Black, Rainbow) is the ribbon in its own colours; an ability's spike
+	-- keeps the ability's look
+	local solid, emission = Spins.solidTrail(Spins.resolve("Trail", trailKey))
+	if solid then
+		if not (meta.thunder or meta.energy or gauge or meta.reaction) then
+			trail.Color = solid
+			trail.LightEmission = emission
+			trail.Transparency = fade(emission < 0.1 and 0.02 or 0.08)
+			trail.Lifetime = trail.Lifetime * 1.25
+			core.Enabled = emission > 0.1 -- (a white core would show through a black trail)
+		end
+		trailKey = "Ribbon"
+	end
 	if trailKey ~= "Ribbon" then
 		-- the unlock's kit (flames, glints, stardust, arcs, a comet's glow) rides the ball; a
 		-- flame keeps its own orange unless the spike has a colour

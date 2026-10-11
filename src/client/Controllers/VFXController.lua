@@ -770,6 +770,74 @@ function VFXController.hasBoom(model)
 	return model ~= nil and (model:GetAttribute("Jump") or 0) >= Config.Player.BoomJumpMin
 end
 
+-- A jump effect (Config.Cosmetics.Jump) at `foot`: `key` the item, `tint` the spike colour (some
+-- use it), `big` a full-size one (a spike or serve jump, a boom jump, the Locker's preview).
+local JUMP_COLORS = {
+	Frost = Color3.fromRGB(150, 225, 255),
+	Shadow = Color3.fromRGB(120, 60, 200),
+	Fire = Color3.fromRGB(255, 130, 40),
+	Lightning = Color3.fromRGB(255, 236, 90),
+	Storm = Color3.fromRGB(140, 200, 255),
+	Inferno = Color3.fromRGB(255, 80, 20),
+}
+local RAINBOW = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }
+
+function VFXController.jumpEffect(foot, key, tint, big)
+	local k = big and 1 or 0.7
+	local up = Vector3.new(0, 1, 0)
+	local c = JUMP_COLORS[key]
+	if key == "Sparks" then
+		shards(foot + up, tint or WHITE, math.floor(16 * k), 60)
+		Fx.play("Glints", foot + up * 1.5, { color = tint or WHITE, scale = k })
+	elseif key == "Wind" then
+		floorRing(foot, WHITE, 13 * k)
+		task.delay(0.08, floorRing, foot, Color3.fromRGB(200, 230, 255), 8 * k)
+		Fx.play("Dust", foot, { n = math.floor(10 * k), scale = 1.3 * k })
+	elseif key == "Frost" then
+		floorRing(foot, c, 12 * k)
+		Fx.play("Glints", foot + up * 1.2, { color = c, scale = 1.2 * k })
+		shards(foot + up * 0.6, c, math.floor(14 * k), 45)
+		burst(foot + up, c, 5 * k)
+	elseif key == "Shadow" then
+		Fx.play("Dust", foot, { n = math.floor(14 * k), scale = 1.4 * k, color = Color3.fromRGB(40, 20, 60) })
+		floorRing(foot, c, 11 * k)
+		burst(foot + up, c, 4 * k)
+	elseif key == "Fire" then
+		Fx.play("Fire", foot + up, { scale = 1.2 * k, color = c })
+		floorRing(foot, c, 11 * k)
+		burst(foot + up, c, 6 * k)
+	elseif key == "Lightning" then
+		for i = 1, big and 3 or 2 do
+			local x = (math.random() - 0.5) * 3
+			task.delay((i - 1) * 0.05, bolt, foot + Vector3.new(0, 16 * k, x), Vector3.new(0, -1, 0), 16 * k, c)
+		end
+		Fx.play("Electric", foot + up, { color = c, scale = k })
+		floorRing(foot, c, 12 * k)
+	elseif key == "Rainbow" then
+		for i, col in ipairs(RAINBOW) do
+			task.delay((i - 1) * 0.035, floorRing, foot, col, (6 + i * 1.6) * k)
+		end
+		shards(foot + up, RAINBOW[math.random(#RAINBOW)], math.floor(12 * k), 55)
+	elseif key == "Storm" then
+		for i = 1, big and 4 or 2 do
+			local x = (math.random() - 0.5) * 6
+			task.delay((i - 1) * 0.06, bolt, foot + Vector3.new(0, 20 * k, x), Vector3.new(0, -1, 0), 20 * k, c)
+		end
+		Fx.play("Electric", foot + up, { color = c, scale = 1.3 * k })
+		floorRing(foot, c, 16 * k)
+		task.delay(0.08, floorRing, foot, WHITE, 10 * k)
+		shards(foot + up, c, math.floor(18 * k), 70)
+	elseif key == "Inferno" then
+		Fx.play("Fire", foot + up, { scale = 1.7 * k, color = c })
+		task.delay(0.06, function()
+			Fx.play("Fire", foot + up * 2.5, { scale = 1.2 * k, color = Color3.fromRGB(255, 200, 60) })
+		end)
+		lightPillar(foot, c, 14 * k, 2.4 * k)
+		floorRing(foot, c, 15 * k)
+		burst(foot + up, c, 8 * k)
+	end
+end
+
 function VFXController.boom(entityId, kind)
 	local model = Util.modelOf(entityId)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
@@ -780,6 +848,11 @@ function VFXController.boom(entityId, kind)
 	local foot = Vector3.new(p.X, 0.25, p.Z)
 	-- your own jump sound (the Custom sound effects perk) on every jump; the boom's otherwise
 	local own = entityId == State.myId and mods ~= nil and mods.AudioController.custom(entityId, "SoundJump", { volume = 0.7 })
+	-- their jump effect (a cosmetic), on top of the dust or the boom
+	local jumpKey = Spins.equipped(model, "Jump").Key
+	if jumpKey ~= "Plain" then
+		VFXController.jumpEffect(foot, jumpKey, Spins.tint(Spins.equipped(model, "Color")), kind == "Spike" or kind == "Serve" or VFXController.hasBoom(model))
+	end
 	if not VFXController.hasBoom(model) then
 		Fx.play("Dust", foot, { n = 3, scale = 0.7 })
 		return

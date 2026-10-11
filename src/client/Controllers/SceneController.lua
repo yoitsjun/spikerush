@@ -924,6 +924,15 @@ local function styleBall(b, colorKey, trailKey)
 		b.kit.set(false)
 	end
 	b.kit = nil
+	-- a solid trail (White, Black, Rainbow) is the ribbon in its own colours
+	local solid, emission = Spins.solidTrail(Spins.resolve("Trail", trailKey))
+	if solid then
+		b.trail.Color = solid
+		b.trail.LightEmission = emission
+		b.trail.Lifetime = 0.75
+		b.prism = false
+		trailKey = "Ribbon"
+	end
 	if trailKey and trailKey ~= "Ribbon" then
 		-- the unlock's hand-drawn kit rides the ball, as in a match (BallRenderer)
 		local kit = b.kits[trailKey]
@@ -1049,6 +1058,11 @@ local function updatePractice(now)
 	local joints, up = practicePose(p, t)
 	local base = PRACTICE + Vector3.new(0, groundOffset(p.rig) + up, 0)
 	mods.AnimationController.poseModel(p.rig, joints, CFrame.new(base))
+	-- the jump effect at takeoff, once a loop
+	if t >= TAKEOFF and p.jumpCycle ~= cycle then
+		p.jumpCycle = cycle
+		mods.VFXController.jumpEffect(PRACTICE + Vector3.new(0, 0.25, 0), p.opts.jump, p.ball.tint, true)
+	end
 	local b = p.ball
 	local hand = base + Vector3.new(0, 3.1, -1.4)
 	local drop = TAKEOFF + 0.1
