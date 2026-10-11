@@ -101,6 +101,8 @@ Assets.Sounds = {
 	ScoreConfetti = "7368630054", -- "Party Popper" (Confetti Cannon)
 	ScoreSlash = "5789211405", -- a fast blade whoosh with a ring (World Slash)
 	ScoreHoly = "121538758381608", -- "Angelical choir" (Holy Strike)
+	MeteorFall = "118217695193917", -- "fireball whoosh": each of Meteor Shower's meteors coming down
+	MeteorImpact = "112627943804905", -- "Rock Explosion 1": each one landing
 	ScoreRumble = "9113217388", -- Pro Sound Effects: avalanche crash, boulders rumbling (Volcano, Giant Stomp)
 	StuffSlam = "9120256647", -- Pro Sound Effects: metal impact
 	Whistle = "9118113825", -- Pro Sound Effects: referee whistle, single blast
@@ -200,6 +202,8 @@ Assets.SoundFiles = {
 	["5789211405"] = { gain = 1.8 }, -- ScoreSlash: peak 219
 	["121538758381608"] = { gain = 1.45 }, -- ScoreHoly: peak 273
 	["9113217388"] = { start = 0.14, gain = 1.25 }, -- ScoreRumble: from 0.17 s, peak 323
+	["118217695193917"] = { start = 0.1, gain = 1.15 }, -- MeteorFall: from 0.13 s, peak 346
+	["112627943804905"] = { gain = 0.9 }, -- MeteorImpact: peak 446
 	-- Taeho and Seora (2026-10-09): started on the hit, not the swish before it
 	["9120729973"] = { start = 0.24, gain = 1.9 }, -- ZeroPoint: swish from 0.11 s, the hit at 0.32 s, peak 212
 	["9120730138"] = { start = 0.28, gain = 1.6 }, -- TalonDrop: swish from 0.23 s, the hit at 0.36 s, peak 249

@@ -2844,8 +2844,9 @@ local function sfx(key, pos, fadeAt)
 	return sound
 end
 
--- The meteor: a burning rock drops out of the sky onto the spot, then the crater (k: bigger).
-local function meteorStrike(pos, dirZ, tint, k)
+-- The meteor: a burning rock drops out of the sky onto the spot, then the crater (k: bigger;
+-- `quiet`: no whoosh, Meteor Shower plays its own).
+local function meteorStrike(pos, dirZ, tint, k, quiet)
 	k = k or 1
 	local rock = take(Enum.PartType.Ball)
 	rock.Material = Enum.Material.Basalt
@@ -2858,7 +2859,9 @@ local function meteorStrike(pos, dirZ, tint, k)
 	att.Parent = rock
 	local flames = Fx.attach("MeteorTrail", att)
 	flames.set(true, tint)
-	sfx("MeteorWhoosh", pos)
+	if not quiet then
+		sfx("MeteorWhoosh", pos)
+	end
 	local t0 = os.clock()
 	local fall = 0.34
 	local conn
@@ -4583,7 +4586,16 @@ end
 local function meteorShower(pos, dirZ, tint, k)
 	for i = 1, 8 do
 		local off = Vector3.new((math.random() - 0.5) * 22, 0, (dirZ or 1) * math.random() * 14 - (dirZ or 1) * 3)
-		task.delay((i - 1) * 0.11, meteorStrike, pos + off, dirZ, tint, k * 0.42)
+		local at = pos + off
+		task.delay((i - 1) * 0.11, function()
+			-- a fireball whoosh for every other one coming down (eight at once would be a wall of
+			-- noise), a rock explosion as each lands
+			if i % 2 == 1 then
+				sfx("MeteorFall", at)
+			end
+			meteorStrike(at, dirZ, tint, k * 0.42, true)
+			task.delay(0.34, sfx, "MeteorImpact", at)
+		end)
 	end
 end
 
