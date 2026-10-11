@@ -195,7 +195,7 @@ local function meshFx(name, cf, color, from, to, life, opts)
 	opts = opts or {}
 	local size = t.Size
 	local p, sm
-	if t.TextureID ~= "" then
+	if t.TextureID ~= "" and not opts.plain then
 		-- a soft textured card: a plain part wearing the mesh, its white texture tinted
 		p = Instance.new("Part")
 		p.Name = name
@@ -207,10 +207,13 @@ local function meshFx(name, cf, color, from, to, life, opts)
 		local glow = opts.glow or 1.6 -- over 1 brightens the texture toward a glow
 		sm.VertexColor = Vector3.new(color.R * glow, color.G * glow, color.B * glow)
 		sm.Parent = p
-		p.Material = opts.material or Enum.Material.SmoothPlastic
+		p.Material = opts.material or Enum.Material.Neon
 	else
 		p = t:Clone()
-		p.Material = opts.material or Enum.Material.Neon
+		if opts.plain then
+			p.TextureID = "" -- a solid shape (ice): its colour and the light do the work
+		end
+		p.Material = opts.material or (opts.plain and Enum.Material.SmoothPlastic or Enum.Material.Neon)
 		p.Color = color
 	end
 	p.Anchored = true
@@ -218,7 +221,9 @@ local function meshFx(name, cf, color, from, to, life, opts)
 	p.CanQuery = false
 	p.CanTouch = false
 	p.CastShadow = false
-	p.Transparency = opts.alpha or 0
+	-- (a textured card needs a touch of transparency: at 0 Roblox ignores the texture's alpha and
+	-- draws the whole card, the owner's "solid block")
+	p.Transparency = sm and math.max(opts.alpha or 0, 0.02) or (opts.alpha or 0)
 	local function at(k, turn)
 		local c = cf * CFrame.Angles(0, math.rad(turn or 0), 0)
 		if opts.post then
@@ -356,7 +361,7 @@ local function heldMesh(name, color, glow)
 	p.CanTouch = false
 	p.CastShadow = false
 	p.Size = Vector3.new(0.05, 0.05, 0.05)
-	p.Transparency = 0
+	p.Transparency = 0.02
 	local sm = Instance.new("SpecialMesh")
 	sm.MeshType = Enum.MeshType.FileMesh
 	sm.MeshId = t.MeshId
@@ -364,7 +369,7 @@ local function heldMesh(name, color, glow)
 	local g = glow or 1.6
 	sm.VertexColor = Vector3.new(color.R * g, color.G * g, color.B * g)
 	sm.Parent = p
-	p.Material = Enum.Material.SmoothPlastic
+	p.Material = Enum.Material.Neon
 	local function setScale(k)
 		sm.Scale = Vector3.new(size.X / native.X, size.Y / native.Y, size.Z / native.Z) * k
 	end
@@ -407,26 +412,6 @@ local function smokePuffs(pos, n, k, color)
 	end
 end
 
--- The scene darkens a moment before a big hit (only for players on court).
-local function dim(amount, dur)
-	if State.isPlaying ~= true then -- (on court only, like the other screen-wide effects)
-		return
-	end
-	local cc = Instance.new("ColorCorrectionEffect")
-	cc.Brightness = 0
-	cc.Saturation = 0
-	cc.Parent = game:GetService("Lighting")
-	local down = TweenService:Create(cc, TweenInfo.new(dur * 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Brightness = -amount, Saturation = -0.35 })
-	down:Play()
-	task.delay(dur * 0.5, function()
-		local up = TweenService:Create(cc, TweenInfo.new(dur * 0.5), { Brightness = 0, Saturation = 0 })
-		up.Completed:Connect(function()
-			cc:Destroy()
-		end)
-		up:Play()
-	end)
-end
-
 -- Inferno's blaze (the owner: "swirling fire around it while you rise, like a blaze from
 -- minecraft"): three rings of flame rods orbiting the body through the jump, each ring its own
 -- way and speed, bobbing, then burning out.
@@ -457,7 +442,7 @@ local function blaze(model, color, k)
 			-- each rod stands up and leans into its orbit
 			r.p.CFrame = CFrame.new(pos) * CFrame.Angles(0, -a, 0) * CFrame.Angles(math.rad(18) * dir, 0, 0) * CFrame.new(0, -1.1 * k, 0)
 			r.setScale((0.25 + 0.35 * grow) * k * (1 + 0.12 * math.sin(t * 13 + r.phase)))
-			r.p.Transparency = 0.05 + 0.95 * fadeOut
+			r.p.Transparency = 0.02 + 0.98 * fadeOut
 		end
 	end, function()
 		for _, r in ipairs(rods) do
@@ -1095,52 +1080,45 @@ local function jumpMeshes(foot, key, tint, k, model)
 		meshFx("FX_Spiral", floor, WHITE, 0.35 * k, 0.9 * k, 0.5, { base = true, spin = 220, alpha = 0.35 })
 		meshFx("FX_Ring", floor, Color3.fromRGB(210, 235, 255), 0.4 * k, 1.5 * k, 0.4, { alpha = 0.2 })
 	elseif key == "Frost" then
-		-- big ice (the owner: "the frost is a little small. make it bigger"): crystals taller than
-		-- you erupt in a ring, lean out, hold, then shatter away; a frost ring and glints
-		local n = 11
-		for i = 1, n do
-			local a = math.rad(i * 360 / n + math.random(-10, 10))
-			local r = (2.2 + math.random() * 1.6) * k
-			local lean = math.random(18, 38)
-			local place = CFrame.Angles(0, a, 0) * CFrame.new(r, 0, 0) * CFrame.Angles(0, 0, math.rad(-lean))
-			local tall = (0.55 + math.random() * 0.7) * k
-			task.delay(i * 0.015, meshFx, "FX_Ice", floor * place, i % 3 == 0 and Color3.fromRGB(215, 245, 255) or c, 0.05, tall, 1.05, { base = true, grow = 0.18, hold = 0.55, shrink = 0.6, ease = Enum.EasingStyle.Back, alpha = 0.05, glow = 1.7 })
-		end
-		for i = 1, 3 do -- a tight cluster under the jumper
-			local place = CFrame.Angles(0, math.rad(i * 120), 0) * CFrame.new(0.6 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-12))
-			meshFx("FX_Ice", floor * place, Color3.fromRGB(215, 245, 255), 0.05, (0.8 + 0.2 * i) * k, 1.05, { base = true, grow = 0.2, hold = 0.55, shrink = 0.6, ease = Enum.EasingStyle.Back, alpha = 0.1, glow = 1.8 })
-		end
-		meshFx("FX_Ring", floor, c, 0.3 * k, 1.9 * k, 0.8, { alpha = 0.1, grow = 0.3, hold = 0.3 })
-		meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), Color3.fromRGB(200, 240, 255), 0.3 * k, 1.2 * k, 0.9, { alpha = 0.35, spin = 90, grow = 0.4, hold = 0.3 })
-		-- a line of ice spikes racing toward the net (Yeti's Arctic Slam), and snow smoke
+		-- Blox Fruits' Frost Surge: one big mass of clean solid ice bursts up under you, a second
+		-- one races out toward the net, they hold, then shatter; snow smoke rolls off
+		local ICE = Color3.fromRGB(175, 228, 255)
+		meshFx("FX_IceMass", floor * CFrame.Angles(0, math.random() * 6.28, 0), ICE, 0.05, 0.62 * k, 1.25, { plain = true, base = true, grow = 0.13, hold = 0.75, shrink = 0.55, ease = Enum.EasingStyle.Back })
 		local toward = foot.Z > 0 and -1 or 1
-		for i = 1, 6 do
-			local at = CFrame.new(foot.X + (math.random() - 0.5) * 0.8, 0.15, foot.Z + toward * (2.5 + i * 1.9) * k) * CFrame.Angles(0, math.random() * 6.28, math.rad(math.random(-14, 14)))
-			task.delay(0.05 + i * 0.045, meshFx, "FX_Ice", at, i % 2 == 0 and Color3.fromRGB(215, 245, 255) or c, 0.05, (0.35 + i * 0.07) * k, 0.95, { base = true, grow = 0.14, hold = 0.45, shrink = 0.5, ease = Enum.EasingStyle.Back, glow = 1.7 })
+		task.delay(0.1, meshFx, "FX_IceMass", CFrame.new(foot.X, 0.15, foot.Z + toward * 5 * k) * CFrame.Angles(0, math.random() * 6.28, 0), ICE, 0.05, 0.45 * k, 1.1, { plain = true, base = true, grow = 0.12, hold = 0.6, shrink = 0.55, ease = Enum.EasingStyle.Back })
+		for i = 1, 4 do
+			local at = CFrame.new(foot.X + (math.random() - 0.5) * 1.2, 0.15, foot.Z + toward * (7 + i * 1.8) * k) * CFrame.Angles(0, math.random() * 6.28, math.rad(math.random(-15, 15)))
+			task.delay(0.15 + i * 0.05, meshFx, "FX_Ice", at, ICE, 0.05, (0.55 - i * 0.07) * k, 0.9, { plain = true, base = true, grow = 0.1, hold = 0.45, shrink = 0.5, ease = Enum.EasingStyle.Back })
 		end
-		smokePuffs(foot, 5, k, Color3.fromRGB(230, 245, 255))
+		meshFx("FX_Ring", floor, Color3.fromRGB(200, 240, 255), 0.3 * k, 1.8 * k, 0.6)
+		smokePuffs(foot, 6, k, Color3.fromRGB(235, 248, 255))
 	elseif key == "Shadow" then
-		-- a dark vortex opening under you (Blox Fruits' Dark): the swirl, a shell and a purple rim
-		meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), c, 0.3 * k, 2.1 * k, 1.1, { spin = -260, grow = 0.45, hold = 0.4, glow = 2.0 })
-		meshFx("FX_Vortex", floor * CFrame.new(0, 0.08, 0), Color3.fromRGB(25, 5, 45), 0.2 * k, 1.5 * k, 1.1, { spin = -420, grow = 0.4, hold = 0.4, glow = 0.8 })
-		meshFx("FX_Spiral", floor, Color3.fromRGB(150, 70, 255), 0.3 * k, 1.0 * k, 0.9, { base = true, spin = -320, grow = 0.35, hold = 0.25, glow = 1.6, alpha = 0.1 })
-		meshFx("FX_Dome", floor, Color3.fromRGB(60, 15, 110), 0.15 * k, 0.9 * k, 0.7, { alpha = 0.2, glow = 1.2 })
-		meshFx("FX_Ring", floor, c, 0.3 * k, 2.0 * k, 0.7, { alpha = 0.05, glow = 2 })
+		-- dark flames: a ring of deep purple tongues with black ones inside them (two-tone), a
+		-- dark crown of spikes and dark smoke
+		for i = 1, 8 do
+			local a = math.rad(i * 45 + math.random(-10, 10))
+			local place = CFrame.Angles(0, a, 0) * CFrame.new(1.7 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-12))
+			task.delay(i * 0.015, meshFx, "FX_Flame", floor * place, Color3.fromRGB(150, 70, 255), 0.3 * k, 1.35 * k, 0.75, { base = true, spin = 40, rise = 1.2 * k })
+			task.delay(i * 0.015 + 0.03, meshFx, "FX_Flame", floor * place * CFrame.new(0, 0, 0.05), Color3.fromRGB(20, 5, 35), 0.25 * k, 0.9 * k, 0.7, { base = true, spin = 40, rise = 1.0 * k, glow = 0.7 })
+		end
+		meshFx("FX_Crown", floor, Color3.fromRGB(60, 20, 110), 0.3 * k, 0.9 * k, 0.6, { base = true, spin = 30, glow = 1.2 })
+		meshFx("FX_Ring", floor, c, 0.3 * k, 1.7 * k, 0.6)
+		smokePuffs(foot, 5, k, Color3.fromRGB(45, 25, 70))
 	elseif key == "Fire" or key == "Inferno" then
+		-- anime fire, two-tone: each red-orange tongue has a yellow one inside it
 		local hot = key == "Inferno"
 		local n = hot and 12 or 8
 		local r = hot and 2.2 or 1.6
 		for i = 1, n do
 			local a = math.rad(i * 360 / n + math.random(-12, 12))
 			local place = CFrame.Angles(0, a, 0) * CFrame.new(r * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-14 + math.random(-6, 6)))
-			local tone = (i % 3 == 0) and Color3.fromRGB(255, 220, 90) or c
 			local tall = (hot and 1.9 or 1.4) * k * (0.8 + math.random() * 0.4)
-			task.delay(i * 0.018, meshFx, "FX_Flame", floor * place, tone, 0.3 * k, tall, hot and 0.9 or 0.75, { base = true, spin = 40, rise = 1.5 * k, alpha = 0.05 })
+			task.delay(i * 0.018, meshFx, "FX_Flame", floor * place, Color3.fromRGB(255, 80, 20), 0.3 * k, tall, hot and 0.9 or 0.75, { base = true, spin = 40, rise = 1.5 * k, glow = 1.5 })
+			task.delay(i * 0.018 + 0.02, meshFx, "FX_Flame", floor * place * CFrame.new(-0.05, 0, 0), Color3.fromRGB(255, 215, 70), 0.2 * k, tall * 0.6, hot and 0.8 or 0.65, { base = true, spin = 40, rise = 1.3 * k, glow = 1.6 })
 		end
 		if hot then
 			-- Inferno: a fire column at takeoff, and the blaze rides you up
-			meshFx("FX_Column", floor, c, 0.3 * k, 1.15 * k, 0.9, { base = true, spin = 160, alpha = 0.1 })
-			meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), Color3.fromRGB(255, 150, 40), 0.3 * k, 1.3 * k, 0.8, { spin = 300, grow = 0.4, hold = 0.2 })
+			meshFx("FX_Column", floor, c, 0.3 * k, 1.15 * k, 0.9, { base = true, spin = 160 })
 			if model then
 				blaze(model, c, k)
 			end
@@ -1155,11 +1133,9 @@ local function jumpMeshes(foot, key, tint, k, model)
 			-- Blox Fruits' Rumble: a pillar of light, bolts crackling round it, the ground thrown up
 			meshFx("FX_Column", floor, Color3.fromRGB(90, 220, 255), 0.4 * k, 1.6 * k, 0.75, { base = true, spin = 220, grow = 0.18, hold = 0.25, glow = 1.9 })
 			meshFx("FX_Column", floor, Color3.fromRGB(200, 250, 255), 0.25 * k, 1.0 * k, 0.6, { base = true, spin = -260, grow = 0.15, hold = 0.2, glow = 1.5, alpha = 0.45 })
-			meshFx("FX_Vortex", floor * CFrame.new(0, 0.05, 0), c, 0.3 * k, 1.6 * k, 0.8, { spin = 200, grow = 0.3, hold = 0.25, glow = 2 })
 			rubble(foot, 7, k)
 		end
 		if storm then
-			dim(0.35, 0.7) -- the sky darkens before it strikes (Judgement of the Sky)
 			slabRing(foot, 9, 4 * k, k)
 			groundMark("FX_Crack", foot, Color3.fromRGB(30, 40, 55), 0.9 * k, 1.4, 0.8)
 		end
@@ -3217,7 +3193,7 @@ local function blackHole(pos, tint, k)
 		for _, arm in ipairs(arms) do
 			arm.setScale(3.1 * k * s * (arm.dir > 0 and 1 or 0.7) + 0.01)
 			arm.p.CFrame = tiltCF * CFrame.new(0, 0.4, 0) * CFrame.Angles(0, -e * 2.6 * arm.dir, 0)
-			arm.p.Transparency = 1 - s
+			arm.p.Transparency = math.max(1 - s, 0.02)
 		end
 		swirl.Size = Vector3.new(30 * k * s + 0.1, 0.05, 30 * k * s + 0.1)
 		swirl.CFrame = tiltCF * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, -e * 2.4, 0)
