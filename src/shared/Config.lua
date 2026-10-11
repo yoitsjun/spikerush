@@ -506,6 +506,7 @@ Config.Cosmetics = {
 		{ Key = "Radiant", Name = "Radiance", Rarity = "Legendary" },
 		{ Key = "Foxfire", Name = "Foxfire", Rarity = "Legendary" },
 		{ Key = "Phoenix", Name = "Blue Phoenix", Rarity = "Mythic" },
+		{ Key = "Angel", Name = "Angel", Rarity = "Mythic" }, -- the owner: "add an angel jump effect with angel wings"
 	},
 	Effect = {
 		{ Key = "Dust", Name = "Dust", Rarity = "Common" },

@@ -285,6 +285,15 @@ local KITS = {
 		layer(SPARKLE, { n = 6, color = C(170, 245, 255) }),
 		light = { C(80, 200, 255), 6, 26, 0.6 },
 	},
+	-- Angel: a soft white flash, gold sparkles and holy glints
+	JumpAngel = {
+		layer(TBURST, { color = C(255, 248, 225), size = 10 }),
+		layer(GLOW, { color = C(255, 240, 200), size = { { 0, 5 }, { 1, 14 } } }),
+		layer(TSPARK, { n = 10, color = C(255, 225, 120), speed = { 8, 20 } }),
+		layer(GLINTS, { n = 5, color = C(255, 250, 230) }),
+		layer(RADIAL, { color = C(255, 235, 170) }),
+		light = { C(255, 240, 200), 5, 24, 0.7 },
+	},
 	-- Quake: a white shock burst and dust thrown out low, rocks flying
 	JumpQuake = {
 		layer(TBURST, { color = C(245, 248, 255), size = 12 }),

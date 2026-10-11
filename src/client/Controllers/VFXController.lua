@@ -451,37 +451,108 @@ local function blaze(model, color, k)
 	end)
 end
 
--- Blue Phoenix's wings: a blue crescent and a gold one inside it on each side, opening out of the
--- back in the camera's plane (the side camera sees them whole) and beating once as you rise.
-local function phoenixWings(model, k)
+-- Wings (Blue Phoenix, Angel; the owner: "more like actual wings"): FX_Wing is one right wing
+-- drawn on a card, its shoulder at WING_ROOT. A pair opens out of the back, swept back a little so
+-- they read from the side camera and from behind, then beats as you rise and fades. `inner` (a
+-- colour or nil) lays a smaller second pair over them in another colour.
+local WING_ROOT = Vector2.new(0.06, 0.42 / 0.66) -- the shoulder on the card (x right, y down)
+local WING_SWEEP = math.rad(35)
+local function wings(model, k, outer, inner, life)
+	local tpl = meshTemplate("FX_Wing")
+	if not tpl then
+		return
+	end
+	-- the shoulder's offset from the card's centre, in studs at scale 1
+	local root = Vector3.new((WING_ROOT.X - 0.5) * tpl.Size.X, (0.5 - WING_ROOT.Y) * tpl.Size.Y, 0)
 	local parts = {}
 	for _, side in ipairs({ -1, 1 }) do
-		for n, col in ipairs({ Color3.fromRGB(40, 190, 255), Color3.fromRGB(255, 205, 60) }) do
-			local p, _, setScale = heldMesh("FX_Slash", col, 1.9)
-			if p then
-				table.insert(parts, { p = p, setScale = setScale, side = side, inner = n == 2 })
+		for n, col in ipairs({ outer, inner or false }) do
+			if col then
+				local p, _, setScale = heldMesh("FX_Wing", col, n == 1 and 1.5 or 1.8)
+				if p then
+					table.insert(parts, { p = p, setScale = setScale, side = side, inner = n == 2 })
+				end
 			end
 		end
 	end
 	if #parts == 0 then
 		return
 	end
-	local LIFE = 1.2
-	follow(model, LIFE, function(hrp, t)
-		local open = math.clamp(t / 0.2, 0, 1)
-		local beat = math.sin(t * 8) * 0.3 * (1 - t / LIFE)
-		local fadeOut = math.clamp((t - (LIFE - 0.35)) / 0.35, 0, 1)
+	follow(model, life, function(hrp, t)
+		local open = 1 - (1 - math.clamp(t / 0.22, 0, 1)) ^ 3
+		local beat = math.sin(t * 9) * math.rad(18) * math.clamp(1 - t / life, 0, 1)
+		local raise = math.rad(-45) * (1 - open) + math.rad(8) + beat
+		local fadeOut = math.clamp((t - (life - 0.35)) / 0.35, 0, 1)
+		local back = hrp.CFrame * CFrame.new(0, 0.9, 0.55)
 		for _, w in ipairs(parts) do
-			local spread = math.rad(30 + 45 * open) + beat
-			local s = (w.inner and 0.7 or 1.0) * k * (0.4 + 0.6 * open)
-			local flip = w.side > 0 and CFrame.Angles(0, math.pi, 0) or CFrame.new() -- (curving out)
-			w.p.CFrame = CFrame.new(hrp.Position + Vector3.new(w.inner and -0.05 or 0, 0.6, 0)) * CFrame.Angles(w.side * spread, 0, 0) * FACE_CAMERA * flip * CFrame.new(0, 4 * s, 0)
-			w.setScale(s)
+			local sc = (w.inner and 0.72 or 1) * k * (0.35 + 0.65 * open)
+			local turn = w.side > 0 and CFrame.Angles(0, -WING_SWEEP, 0) or CFrame.Angles(0, WING_SWEEP, 0) * CFrame.Angles(0, math.pi, 0)
+			local cf = back * CFrame.new(w.side * 0.35, 0, 0) * turn * CFrame.Angles(0, 0, raise) * CFrame.new(-root * sc)
+			if w.inner then
+				cf = cf * CFrame.new(0, 0, -0.08)
+			end
+			w.p.CFrame = cf
+			w.setScale(sc)
 			w.p.Transparency = 0.02 + 0.98 * fadeOut
 		end
 	end, function()
 		for _, w in ipairs(parts) do
 			w.p:Destroy()
+		end
+	end)
+end
+
+-- Angel's halo: a gold ring floating over the head through the jump.
+local function halo(model, k, life)
+	local tpl = meshTemplate("FX_Ring")
+	local p, _, setScale = heldMesh("FX_Ring", Color3.fromRGB(255, 215, 90), 2)
+	if not (tpl and p) then
+		return
+	end
+	local size = 1.9 * k / math.max(tpl.Size.X, 0.1)
+	follow(model, life, function(hrp, t)
+		local grow = 1 - (1 - math.clamp(t / 0.2, 0, 1)) ^ 3
+		local fadeOut = math.clamp((t - (life - 0.35)) / 0.35, 0, 1)
+		p.CFrame = hrp.CFrame * CFrame.new(0, 3.3 + 0.12 * math.sin(t * 6), 0.15) * CFrame.Angles(math.rad(-12), t * 2, 0)
+		setScale(size * (0.3 + 0.7 * grow))
+		p.Transparency = 0.02 + 0.98 * fadeOut
+	end, function()
+		p:Destroy()
+	end)
+end
+
+-- Loose feathers (FX_Feather) drifting down round `pos`: rocking side to side and turning as they
+-- fall, then fading.
+local function featherFall(pos, n, k)
+	local list = {}
+	for i = 1, n do
+		local p, _, setScale = heldMesh("FX_Feather", WHITE, 1.3)
+		if not p then
+			return
+		end
+		setScale((0.7 + math.random() * 0.5) * k)
+		local a = math.random() * 6.28
+		local r = (0.5 + math.random() * 3) * k
+		table.insert(list, { p = p, at = pos + Vector3.new(math.cos(a) * r, (3 + math.random() * 5) * k, math.sin(a) * r), phase = math.random() * 6.28, fall = 2.2 + math.random() * 1.6, spin = (math.random() - 0.5) * 4, delay = i * 0.03 })
+	end
+	local LIFE = 1.9
+	local born = os.clock()
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - born
+		if t > LIFE then
+			conn:Disconnect()
+			for _, f in ipairs(list) do
+				f.p:Destroy()
+			end
+			return
+		end
+		for _, f in ipairs(list) do
+			local ft = math.max(t - f.delay, 0)
+			local sway = math.sin(ft * 3.2 + f.phase)
+			local where = f.at + Vector3.new(sway * 0.8, -f.fall * ft, math.cos(ft * 2.1 + f.phase) * 0.5)
+			f.p.CFrame = CFrame.new(where) * CFrame.Angles(0, f.phase + ft * f.spin, sway * 0.6)
+			f.p.Transparency = 0.02 + 0.98 * math.clamp((t - (LIFE - 0.5)) / 0.5, 0, 1)
 		end
 	end)
 end
@@ -1107,6 +1178,7 @@ local JUMP_COLORS = {
 	Radiant = Color3.fromRGB(255, 220, 90),
 	Foxfire = Color3.fromRGB(80, 150, 255),
 	Phoenix = Color3.fromRGB(60, 200, 255),
+	Angel = Color3.fromRGB(255, 236, 190),
 }
 local RAINBOW = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }
 
@@ -1240,11 +1312,22 @@ local function jumpMeshes(foot, key, tint, k, model)
 			task.delay(0.05 + i * 0.04, meshFx, "FX_Bubble", at, Color3.fromRGB(90, 150, 255), 0.02, 0.1 * k, 1.0, { rise = 4 * k, grow = 0.2, glow = 2, alpha = 0.03 })
 		end
 		meshFx("FX_Ring", floor, c, 0.3 * k, 1.7 * k, 0.5, { glow = 1.8 })
+	elseif key == "Angel" then
+		-- Angel: white wings with gold inner feathers open from your back, a gold halo over your
+		-- head, a soft beam of light down on you, and feathers drifting down
+		if model then
+			wings(model, k, WHITE, Color3.fromRGB(255, 225, 140), 1.5)
+			halo(model, k, 1.5)
+		end
+		lightPillar(foot, Color3.fromRGB(255, 248, 220), 34 * k, 3.2 * k)
+		meshFx("FX_Ring", floor, Color3.fromRGB(255, 220, 120), 0.3 * k, 1.9 * k, 0.7, { glow = 2 })
+		task.delay(0.06, meshFx, "FX_Ring", floor, WHITE, 0.2 * k, 1.2 * k, 0.5, { glow = 1.6 })
+		featherFall(foot, 12, k)
 	elseif key == "Phoenix" then
 		-- Phoenix: blue and gold wings open out of your back and beat once, inside a glassy dome
 		-- of blue flame, gold and cyan rings on the floor
 		if model then
-			phoenixWings(model, k)
+			wings(model, k, Color3.fromRGB(40, 190, 255), Color3.fromRGB(255, 205, 60), 1.3)
 		end
 		meshFx("FX_Dome", floor, c, 0.2 * k, 1.0 * k, 0.7, { alpha = 0.4, grow = 0.18, glow = 1.9 })
 		meshFx("FX_Ring", floor, Color3.fromRGB(255, 210, 70), 0.3 * k, 2.0 * k, 0.6, { glow = 2 })
