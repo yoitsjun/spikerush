@@ -163,6 +163,64 @@ local function starburst(pos, color, size)
 	end
 end
 
+-- Mesh effects (the owner: "make everything as cool as possible", meshes made in Blender:
+-- art/SpikeRushFX.blend, imported as ReplicatedStorage.FxMeshes): glowing Neon shapes that grow,
+-- turn and fade. Without the meshes every caller falls back to its particles alone.
+--   FX_Slash  a crescent blade, in the mesh's XY plane (turned to face the camera here)
+--   FX_Ring   a flat floor ring        FX_Dome   an open half shell, rim on the floor
+--   FX_Bolt   a jagged bolt hanging down from its top    FX_Flame a flame tongue, base down
+--   FX_Spiral a rising swirl, base down                  FX_Crown spikes splayed up and out
+--   FX_Shard  an ice crystal, base down
+local meshFolder = nil
+local function meshTemplate(name)
+	if not meshFolder or not meshFolder.Parent then
+		meshFolder = ReplicatedStorage:FindFirstChild("FxMeshes")
+	end
+	local t = meshFolder and meshFolder:FindFirstChild(name, true)
+	return (t and t:IsA("MeshPart")) and t or nil
+end
+
+-- Spawn mesh `name` at `cf` (its centre, or its base with opts.base), `color`, growing from
+-- `from` to `to` times its size over `life` seconds while it fades from opts.alpha (0) to 1,
+-- turning opts.spin degrees about its own up axis. opts.material (Neon). Returns the part or nil.
+local function meshFx(name, cf, color, from, to, life, opts)
+	local t = meshTemplate(name)
+	if not t then
+		return nil
+	end
+	opts = opts or {}
+	local p = t:Clone()
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Material = opts.material or Enum.Material.Neon
+	p.Color = color
+	p.Transparency = opts.alpha or 0
+	local size = t.Size
+	local function at(k, turn)
+		local c = cf * CFrame.Angles(0, math.rad(turn or 0), 0)
+		if opts.base then
+			c = c * CFrame.new(0, size.Y * k / 2, 0)
+		end
+		return c
+	end
+	p.Size = size * from
+	p.CFrame = at(from, 0)
+	p.Parent = fxFolder
+	local info = TweenInfo.new(life, opts.ease or Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	TweenService:Create(p, info, { Size = size * to, CFrame = at(to, opts.spin or 0) }):Play()
+	TweenService:Create(p, TweenInfo.new(life, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
+	task.delay(life + 0.05, function()
+		p:Destroy()
+	end)
+	return p
+end
+
+-- the side camera looks along +x: this turns a mesh drawn in its XY plane to face it
+local FACE_CAMERA = CFrame.Angles(0, math.rad(90), 0)
+
 -- A pillar of light shooting up out of the floor and thinning away.
 local function lightPillar(pos, color, height, width)
 	local p = take(Enum.PartType.Cylinder)
@@ -782,10 +840,67 @@ local JUMP_COLORS = {
 }
 local RAINBOW = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }
 
+-- The jump effects' mesh layer (when the meshes are in): rings, flames, bolts, shards and swirls.
+local function jumpMeshes(foot, key, tint, k)
+	local floor = CFrame.new(foot.X, 0.15, foot.Z)
+	local c = JUMP_COLORS[key] or tint or WHITE
+	if key == "Sparks" then
+		meshFx("FX_Crown", floor, tint or WHITE, 0.25 * k, 0.8 * k, 0.3, { base = true, spin = 40 })
+	elseif key == "Wind" then
+		meshFx("FX_Spiral", floor, WHITE, 0.35 * k, 0.9 * k, 0.5, { base = true, spin = 220, alpha = 0.35 })
+		meshFx("FX_Ring", floor, Color3.fromRGB(210, 235, 255), 0.4 * k, 1.5 * k, 0.4, { alpha = 0.2 })
+	elseif key == "Frost" then
+		for i = 1, 7 do
+			local a = math.rad(i * 360 / 7 + math.random(-12, 12))
+			local tilt = CFrame.Angles(0, a, 0) * CFrame.new(1.6 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-35))
+			meshFx("FX_Shard", floor * tilt, c, 0.2 * k, 1.1 * k, 0.6, { base = true, alpha = 0.1, ease = Enum.EasingStyle.Back })
+		end
+		meshFx("FX_Ring", floor, c, 0.3 * k, 1.2 * k, 0.45, { alpha = 0.15 })
+	elseif key == "Shadow" then
+		meshFx("FX_Dome", floor, Color3.fromRGB(30, 10, 50), 0.15 * k, 0.75 * k, 0.45, { alpha = 0.25, material = Enum.Material.SmoothPlastic })
+		meshFx("FX_Ring", floor, c, 0.3 * k, 1.3 * k, 0.45, { alpha = 0.1 })
+	elseif key == "Fire" or key == "Inferno" then
+		local n = key == "Inferno" and 10 or 7
+		local r = key == "Inferno" and 2.4 or 1.8
+		for i = 1, n do
+			local a = math.rad(i * 360 / n + math.random(-10, 10))
+			local place = CFrame.Angles(0, a, 0) * CFrame.new(r * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-18))
+			local tone = (i % 2 == 0) and c or Color3.fromRGB(255, 200, 60)
+			task.delay(i * 0.012, meshFx, "FX_Flame", floor * place, tone, 0.2 * k, (key == "Inferno" and 1.5 or 1.1) * k, 0.5, { base = true, spin = 30 })
+		end
+		if key == "Inferno" then
+			meshFx("FX_Spiral", floor, c, 0.4 * k, 1.1 * k, 0.6, { base = true, spin = 300, alpha = 0.2 })
+			meshFx("FX_Dome", floor, Color3.fromRGB(255, 120, 30), 0.2 * k, 0.8 * k, 0.4, { alpha = 0.4 })
+		end
+		meshFx("FX_Ring", floor, c, 0.3 * k, 1.4 * k, 0.4)
+	elseif key == "Lightning" or key == "Storm" then
+		local n = key == "Storm" and 4 or 2
+		local h = (key == "Storm" and 22 or 16) * k
+		for i = 1, n do
+			local x = (math.random() - 0.5) * (key == "Storm" and 7 or 4)
+			-- a bolt from the sky down to the floor: its top above, its tip at the feet
+			local tpl = meshTemplate("FX_Bolt")
+			if tpl then
+				local s = h / math.max(tpl.Size.Y, 0.1)
+				task.delay((i - 1) * 0.05, meshFx, "FX_Bolt", CFrame.new(foot.X, h / 2, foot.Z + x) * FACE_CAMERA * CFrame.Angles(0, math.rad(math.random(-20, 20)), 0), i % 2 == 0 and WHITE or c, s, s, 0.28, { alpha = 0 })
+			end
+		end
+		if key == "Storm" then
+			meshFx("FX_Dome", floor, c, 0.2 * k, 0.9 * k, 0.4, { alpha = 0.45 })
+		end
+		meshFx("FX_Ring", floor, c, 0.3 * k, 1.5 * k, 0.4)
+	elseif key == "Rainbow" then
+		for i, col in ipairs(RAINBOW) do
+			task.delay((i - 1) * 0.04, meshFx, "FX_Ring", floor, col, 0.2 * k, (0.8 + i * 0.18) * k, 0.45, { alpha = 0.1 })
+		end
+	end
+end
+
 function VFXController.jumpEffect(foot, key, tint, big)
 	local k = big and 1 or 0.7
 	local up = Vector3.new(0, 1, 0)
 	local c = JUMP_COLORS[key]
+	jumpMeshes(foot, key, tint, k)
 	if key == "Sparks" then
 		shards(foot + up, tint or WHITE, math.floor(16 * k), 60)
 		Fx.play("Glints", foot + up * 1.5, { color = tint or WHITE, scale = k })
@@ -869,6 +984,8 @@ function VFXController.boom(entityId, kind)
 	local k = big and 1 or 0.55
 	Fx.play("JumpBoom", foot, { scale = 1.6 * k, count = 1.4 * k })
 	floorRing(foot, color, 16 * k)
+	meshFx("FX_Ring", CFrame.new(foot.X, 0.15, foot.Z), color, 0.3 * k, 1.9 * k, 0.45)
+	meshFx("FX_Dome", CFrame.new(foot.X, 0.15, foot.Z), WHITE, 0.15 * k, 0.6 * k, 0.3, { alpha = 0.45 })
 	task.delay(0.07, floorRing, foot, WHITE, 10 * k)
 	starburst(foot + Vector3.new(0, 1, 0), color, 9 * k)
 	shards(foot + Vector3.new(0, 0.6, 0), color, math.floor(18 * k), 70)
@@ -1943,6 +2060,15 @@ local function onHit(snap)
 	local close = mine or near(pos)
 	local shaker = mods.CameraController
 	local model = meta.id and Util.modelOf(meta.id)
+	if ht == "Spike" or ht == "JumpServe" then
+		-- the swing's slash: a crescent through the contact, facing the camera, in the spike colour
+		local slashColor = Spins.tint(model and Spins.equipped(model, "Color")) or WHITE
+		local big = kmh >= 120
+		meshFx("FX_Slash", CFrame.new(pos) * FACE_CAMERA * CFrame.Angles(0, 0, math.rad(dirZ > 0 and -35 or 215)), slashColor, 0.35, big and 0.85 or 0.65, 0.22, { alpha = 0.05 })
+		if big then
+			meshFx("FX_Crown", CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(dirZ > 0 and -90 or 90)), slashColor, 0.2, 0.7, 0.25, { alpha = 0.1 })
+		end
+	end
 	if model then
 		VFXController.swingTrail(model, 0.28) -- the follow-through
 		setAura(model, false)
