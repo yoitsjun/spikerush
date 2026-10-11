@@ -472,9 +472,9 @@ local function phoenixWings(model, k)
 		local beat = math.sin(t * 8) * 0.3 * (1 - t / LIFE)
 		local fadeOut = math.clamp((t - (LIFE - 0.35)) / 0.35, 0, 1)
 		for _, w in ipairs(parts) do
-			local spread = math.rad(15 + 40 * open) + beat
-			local s = (w.inner and 0.5 or 0.75) * k * (0.4 + 0.6 * open)
-			local flip = w.side < 0 and CFrame.Angles(0, math.pi, 0) or CFrame.new()
+			local spread = math.rad(30 + 45 * open) + beat
+			local s = (w.inner and 0.7 or 1.0) * k * (0.4 + 0.6 * open)
+			local flip = w.side > 0 and CFrame.Angles(0, math.pi, 0) or CFrame.new() -- (curving out)
 			w.p.CFrame = CFrame.new(hrp.Position + Vector3.new(w.inner and -0.05 or 0, 0.6, 0)) * CFrame.Angles(w.side * spread, 0, 0) * FACE_CAMERA * flip * CFrame.new(0, 4 * s, 0)
 			w.setScale(s)
 			w.p.Transparency = 0.02 + 0.98 * fadeOut
@@ -1231,8 +1231,8 @@ local function jumpMeshes(foot, key, tint, k, model)
 		local mid = foot + Vector3.new(0, 2.2 * k, 0)
 		for i = 1, 3 do
 			local turn = CFrame.new(mid) * CFrame.Angles(0, math.rad(i * 120), 0)
-			task.delay(0.03 * i, meshFx, "FX_Slash", turn * CFrame.new(0, -0.15, 0), Color3.fromRGB(15, 10, 40), 0.45 * k, 1.25 * k, 0.34, { post = CFrame.Angles(math.rad(90), 0, 0), spin = 220, glow = 0.6 })
-			task.delay(0.03 * i + 0.01, meshFx, "FX_Slash", turn, i == 2 and WHITE or c, 0.4 * k, 1.15 * k, 0.32, { post = CFrame.Angles(math.rad(90), 0, 0), spin = 220, alpha = 0.03, glow = 2 })
+			task.delay(0.03 * i, meshFx, "FX_Slash", turn * CFrame.new(0, -0.15, 0), Color3.fromRGB(15, 10, 40), 0.6 * k, 1.75 * k, 0.4, { post = CFrame.Angles(math.rad(90), 0, 0), spin = 220, glow = 0.6 })
+			task.delay(0.03 * i + 0.01, meshFx, "FX_Slash", turn, i == 2 and WHITE or c, 0.55 * k, 1.6 * k, 0.38, { post = CFrame.Angles(math.rad(90), 0, 0), spin = 220, alpha = 0.03, glow = 2 })
 		end
 		for i = 1, 6 do
 			local a = math.rad(i * 60 + math.random(-15, 15))

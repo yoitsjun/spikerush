@@ -270,17 +270,17 @@ local KITS = {
 	},
 	-- Kitsune's blue fire: tall fox flames licking straight up, white at the heart
 	JumpFoxfire = {
-		layer(TFIRE, { n = 16, spread = 30, accel = Vector3.new(0, 26, 0), size = { { 0, 2.5 }, { 0.35, 5 }, { 1, 3 } }, color = two(C(140, 215, 255), C(40, 70, 255)), glow = 0.8 }),
-		layer(TCORE, { spread = 25, accel = Vector3.new(0, 24, 0), color = two(C(245, 252, 255), C(150, 220, 255)) }),
-		layer(TBURST, { color = C(170, 225, 255), size = 9 }),
+		layer(TFIRE, { n = 14, spread = 30, accel = Vector3.new(0, 26, 0), size = { { 0, 2.5 }, { 0.35, 4.5 }, { 1, 2.5 } }, color = two(C(70, 150, 255), C(25, 40, 210)), glow = 0.25 }),
+		layer(TCORE, { n = 5, spread = 25, accel = Vector3.new(0, 24, 0), color = two(C(190, 230, 255), C(80, 150, 255)), glow = 0.5 }),
+		layer(TBURST, { color = C(90, 160, 255), size = 7 }),
 		layer(TSPARK, { n = 6, color = C(200, 235, 255) }),
 		light = { C(90, 160, 255), 5, 22, 0.5 },
 	},
 	-- Phoenix's blue flames: cyan and gold fire bursting together, sparkles
 	JumpPhoenix = {
-		layer(TFIRE, { n = 14, spread = 90, color = two(C(170, 250, 255), C(30, 170, 255)), glow = 0.8 }),
-		layer(TFIRE, { n = 10, d = 0.03, spread = 90, size = { { 0, 2.5 }, { 0.35, 4.5 }, { 1, 3 } }, color = two(C(255, 250, 170), C(255, 190, 40)), glow = 0.9 }),
-		layer(TBURST, { color = C(220, 250, 255), size = 12 }),
+		layer(TFIRE, { n = 14, spread = 90, color = two(C(80, 220, 255), C(20, 120, 255)), glow = 0.3 }),
+		layer(TFIRE, { n = 10, d = 0.03, spread = 90, size = { { 0, 2.5 }, { 0.35, 4.5 }, { 1, 3 } }, color = two(C(255, 230, 110), C(255, 160, 20)), glow = 0.35 }),
+		layer(TBURST, { color = C(120, 220, 255), size = 10 }),
 		layer(TSPARK, { n = 10, color = C(255, 240, 150), speed = { 14, 30 } }),
 		layer(SPARKLE, { n = 6, color = C(170, 245, 255) }),
 		light = { C(80, 200, 255), 6, 26, 0.6 },
