@@ -198,6 +198,7 @@ local function meshFx(name, cf, color, from, to, life, opts)
 	if t.TextureID ~= "" then
 		-- a soft textured card: a plain part wearing the mesh, its white texture tinted
 		p = Instance.new("Part")
+		p.Name = name
 		p.Size = Vector3.new(0.05, 0.05, 0.05)
 		sm = Instance.new("SpecialMesh")
 		sm.MeshType = Enum.MeshType.FileMesh
