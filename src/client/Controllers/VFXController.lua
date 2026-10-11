@@ -481,7 +481,7 @@ local function wings(model, k, outer, inner, life)
 	follow(model, life, function(hrp, t)
 		local open = 1 - (1 - math.clamp(t / 0.22, 0, 1)) ^ 3
 		local beat = math.sin(t * 9) * math.rad(18) * math.clamp(1 - t / life, 0, 1)
-		local raise = math.rad(-45) * (1 - open) + math.rad(8) + beat
+		local raise = math.rad(-45) * (1 - open) + math.rad(22) + beat
 		local fadeOut = math.clamp((t - (life - 0.35)) / 0.35, 0, 1)
 		local back = hrp.CFrame * CFrame.new(0, 0.9, 0.55)
 		for _, w in ipairs(parts) do
@@ -557,13 +557,13 @@ local function featherFall(pos, n, k)
 	end)
 end
 
--- A pillar of light shooting up out of the floor and thinning away.
-local function lightPillar(pos, color, height, width)
+-- A pillar of light shooting up out of the floor and thinning away (`alpha`: its see-through).
+local function lightPillar(pos, color, height, width, alpha)
 	local p = take(Enum.PartType.Cylinder)
 	p.Color = color
 	p.Size = Vector3.new(0.5, width, width)
 	p.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90))
-	p.Transparency = 0.1
+	p.Transparency = alpha or 0.1
 	local up = TweenService:Create(p, TweenInfo.new(0.16, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
 		Size = Vector3.new(height, width, width),
 		CFrame = CFrame.new(pos + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
@@ -1319,7 +1319,7 @@ local function jumpMeshes(foot, key, tint, k, model)
 			wings(model, k, WHITE, Color3.fromRGB(255, 225, 140), 1.5)
 			halo(model, k, 1.5)
 		end
-		lightPillar(foot, Color3.fromRGB(255, 248, 220), 34 * k, 3.2 * k)
+		lightPillar(foot, Color3.fromRGB(255, 248, 220), 34 * k, 1.1 * k, 0.6) -- (thin and see-through: the wings stay in view)
 		meshFx("FX_Ring", floor, Color3.fromRGB(255, 220, 120), 0.3 * k, 1.9 * k, 0.7, { glow = 2 })
 		task.delay(0.06, meshFx, "FX_Ring", floor, WHITE, 0.2 * k, 1.2 * k, 0.5, { glow = 1.6 })
 		featherFall(foot, 12, k)
