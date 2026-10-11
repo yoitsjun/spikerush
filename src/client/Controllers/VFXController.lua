@@ -163,9 +163,13 @@ local function starburst(pos, color, size)
 	end
 end
 
--- Mesh effects (the owner: "make everything as cool as possible", meshes made in Blender:
--- art/SpikeRushFX.blend, imported as ReplicatedStorage.FxMeshes): glowing Neon shapes that grow,
--- turn and fade. Without the meshes every caller falls back to its particles alone.
+-- Mesh effects (the owner: "make everything as cool as possible", then "i dont like hows its like
+-- a solid block"): Blender meshes (art/SpikeRushFX.blend) imported as ReplicatedStorage.FxMeshes,
+-- drawn as soft textured cards (art/tex, tools/generate_fx_mesh_textures.py: white with feathered
+-- alpha), tinted per effect through a SpecialMesh's VertexColor, growing, turning and fading.
+-- A mesh imported without its texture is drawn as plain Neon. Without the meshes every caller
+-- falls back to its particles alone.
+--   FX_Column an open tube of rising streaks (fire pillars, light), base down
 --   FX_Slash  a crescent blade, in the mesh's XY plane (turned to face the camera here)
 --   FX_Ring   a flat floor ring        FX_Dome   an open half shell, rim on the floor
 --   FX_Bolt   a jagged bolt hanging down from its top    FX_Flame a flame tongue, base down
@@ -189,28 +193,60 @@ local function meshFx(name, cf, color, from, to, life, opts)
 		return nil
 	end
 	opts = opts or {}
-	local p = t:Clone()
+	local size = t.Size
+	local p, sm
+	if t.TextureID ~= "" then
+		-- a soft textured card: a plain part wearing the mesh, its white texture tinted
+		p = Instance.new("Part")
+		p.Size = Vector3.new(0.05, 0.05, 0.05)
+		sm = Instance.new("SpecialMesh")
+		sm.MeshType = Enum.MeshType.FileMesh
+		sm.MeshId = t.MeshId
+		sm.TextureId = t.TextureID
+		local glow = opts.glow or 1.6 -- over 1 brightens the texture toward a glow
+		sm.VertexColor = Vector3.new(color.R * glow, color.G * glow, color.B * glow)
+		sm.Parent = p
+		p.Material = opts.material or Enum.Material.SmoothPlastic
+	else
+		p = t:Clone()
+		p.Material = opts.material or Enum.Material.Neon
+		p.Color = color
+	end
 	p.Anchored = true
 	p.CanCollide = false
 	p.CanQuery = false
 	p.CanTouch = false
 	p.CastShadow = false
-	p.Material = opts.material or Enum.Material.Neon
-	p.Color = color
 	p.Transparency = opts.alpha or 0
-	local size = t.Size
 	local function at(k, turn)
 		local c = cf * CFrame.Angles(0, math.rad(turn or 0), 0)
 		if opts.base then
 			c = c * CFrame.new(0, size.Y * k / 2, 0)
 		end
+		if opts.rise then
+			c = c + Vector3.new(0, opts.rise * (k - from) / math.max(to - from, 1e-3), 0)
+		end
 		return c
 	end
-	p.Size = size * from
+	-- (a mesh's native size: the SpecialMesh scales it)
+	local native = t.MeshSize.Magnitude > 0 and t.MeshSize or size
+	local function scaleOf(k)
+		return Vector3.new(size.X / native.X, size.Y / native.Y, size.Z / native.Z) * k
+	end
+	if sm then
+		sm.Scale = scaleOf(from)
+	else
+		p.Size = size * from
+	end
 	p.CFrame = at(from, 0)
 	p.Parent = fxFolder
 	local info = TweenInfo.new(life, opts.ease or Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-	TweenService:Create(p, info, { Size = size * to, CFrame = at(to, opts.spin or 0) }):Play()
+	if sm then
+		TweenService:Create(sm, info, { Scale = scaleOf(to) }):Play()
+		TweenService:Create(p, info, { CFrame = at(to, opts.spin or 0) }):Play()
+	else
+		TweenService:Create(p, info, { Size = size * to, CFrame = at(to, opts.spin or 0) }):Play()
+	end
 	TweenService:Create(p, TweenInfo.new(life, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
 	task.delay(life + 0.05, function()
 		p:Destroy()
@@ -860,19 +896,22 @@ local function jumpMeshes(foot, key, tint, k)
 		meshFx("FX_Dome", floor, Color3.fromRGB(30, 10, 50), 0.15 * k, 0.75 * k, 0.45, { alpha = 0.25, material = Enum.Material.SmoothPlastic })
 		meshFx("FX_Ring", floor, c, 0.3 * k, 1.3 * k, 0.45, { alpha = 0.1 })
 	elseif key == "Fire" or key == "Inferno" then
-		local n = key == "Inferno" and 10 or 7
-		local r = key == "Inferno" and 2.4 or 1.8
+		local hot = key == "Inferno"
+		local n = hot and 12 or 8
+		local r = hot and 2.2 or 1.6
 		for i = 1, n do
-			local a = math.rad(i * 360 / n + math.random(-10, 10))
-			local place = CFrame.Angles(0, a, 0) * CFrame.new(r * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-18))
-			local tone = (i % 2 == 0) and c or Color3.fromRGB(255, 200, 60)
-			task.delay(i * 0.012, meshFx, "FX_Flame", floor * place, tone, 0.2 * k, (key == "Inferno" and 1.5 or 1.1) * k, 0.5, { base = true, spin = 30 })
+			local a = math.rad(i * 360 / n + math.random(-12, 12))
+			local place = CFrame.Angles(0, a, 0) * CFrame.new(r * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-14 + math.random(-6, 6)))
+			local tone = (i % 3 == 0) and Color3.fromRGB(255, 220, 90) or c
+			local tall = (hot and 1.9 or 1.4) * k * (0.8 + math.random() * 0.4)
+			task.delay(i * 0.018, meshFx, "FX_Flame", floor * place, tone, 0.3 * k, tall, hot and 0.9 or 0.75, { base = true, spin = 40, rise = 1.5 * k, alpha = 0.05 })
 		end
-		if key == "Inferno" then
-			meshFx("FX_Spiral", floor, c, 0.4 * k, 1.1 * k, 0.6, { base = true, spin = 300, alpha = 0.2 })
-			meshFx("FX_Dome", floor, Color3.fromRGB(255, 120, 30), 0.2 * k, 0.8 * k, 0.4, { alpha = 0.4 })
+		if hot then
+			meshFx("FX_Column", floor, c, 0.3 * k, 1.15 * k, 0.9, { base = true, spin = 160, alpha = 0.1 })
+			meshFx("FX_Spiral", floor, Color3.fromRGB(255, 200, 70), 0.4 * k, 1.1 * k, 0.8, { base = true, spin = 300, alpha = 0.15 })
+			meshFx("FX_Dome", floor, Color3.fromRGB(255, 120, 30), 0.2 * k, 0.85 * k, 0.6, { alpha = 0.3 })
 		end
-		meshFx("FX_Ring", floor, c, 0.3 * k, 1.4 * k, 0.4)
+		meshFx("FX_Ring", floor, c, 0.3 * k, 1.5 * k, 0.6)
 	elseif key == "Lightning" or key == "Storm" then
 		local n = key == "Storm" and 4 or 2
 		local h = (key == "Storm" and 22 or 16) * k
@@ -947,7 +986,6 @@ function VFXController.jumpEffect(foot, key, tint, big)
 		task.delay(0.06, function()
 			Fx.play("Fire", foot + up * 2.5, { scale = 1.2 * k, color = Color3.fromRGB(255, 200, 60) })
 		end)
-		lightPillar(foot, c, 14 * k, 2.4 * k)
 		floorRing(foot, c, 15 * k)
 		burst(foot + up, c, 8 * k)
 	end
