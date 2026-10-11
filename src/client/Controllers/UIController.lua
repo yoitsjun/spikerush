@@ -1320,9 +1320,9 @@ end
 -- after a set: keep playing for the extra set rewards, or end the match
 ------------------------------------------------------------------------------------------
 
--- Spectating: a bar under the score with Leave (a controller: A or B).
+-- Spectating: a bar along the bottom with Leave (a controller: A or B).
 local function buildSpectate()
-	local f = panel(gui, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 96), Size = UDim2.fromOffset(330, 46), Visible = false })
+	local f = panel(gui, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -18), Size = UDim2.fromOffset(330, 46), Visible = false }) -- (bottom: the speed readout sits under the score)
 	edge(f, Gui.SIGNAL, 0.2)
 	label(f, { Text = "SPECTATING", Font = Enum.Font.GothamBlack, TextSize = 18, TextColor3 = UI.Spark, Size = UDim2.new(1, -150, 1, 0), Position = UDim2.fromOffset(16, 0) })
 	local leave = button(f, "Leave", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(120, 32), TextSize = 15 })
