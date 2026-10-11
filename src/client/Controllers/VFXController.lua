@@ -451,6 +451,41 @@ local function blaze(model, color, k)
 	end)
 end
 
+-- Blue Phoenix's wings: a blue crescent and a gold one inside it on each side, opening out of the
+-- back in the camera's plane (the side camera sees them whole) and beating once as you rise.
+local function phoenixWings(model, k)
+	local parts = {}
+	for _, side in ipairs({ -1, 1 }) do
+		for n, col in ipairs({ Color3.fromRGB(40, 190, 255), Color3.fromRGB(255, 205, 60) }) do
+			local p, _, setScale = heldMesh("FX_Slash", col, 1.9)
+			if p then
+				table.insert(parts, { p = p, setScale = setScale, side = side, inner = n == 2 })
+			end
+		end
+	end
+	if #parts == 0 then
+		return
+	end
+	local LIFE = 1.2
+	follow(model, LIFE, function(hrp, t)
+		local open = math.clamp(t / 0.2, 0, 1)
+		local beat = math.sin(t * 8) * 0.3 * (1 - t / LIFE)
+		local fadeOut = math.clamp((t - (LIFE - 0.35)) / 0.35, 0, 1)
+		for _, w in ipairs(parts) do
+			local spread = math.rad(15 + 40 * open) + beat
+			local s = (w.inner and 0.5 or 0.75) * k * (0.4 + 0.6 * open)
+			local flip = w.side < 0 and CFrame.Angles(0, math.pi, 0) or CFrame.new()
+			w.p.CFrame = CFrame.new(hrp.Position + Vector3.new(w.inner and -0.05 or 0, 0.6, 0)) * CFrame.Angles(w.side * spread, 0, 0) * FACE_CAMERA * flip * CFrame.new(0, 4 * s, 0)
+			w.setScale(s)
+			w.p.Transparency = 0.02 + 0.98 * fadeOut
+		end
+	end, function()
+		for _, w in ipairs(parts) do
+			w.p:Destroy()
+		end
+	end)
+end
+
 -- A pillar of light shooting up out of the floor and thinning away.
 local function lightPillar(pos, color, height, width)
 	local p = take(Enum.PartType.Cylinder)
@@ -1098,42 +1133,37 @@ local function jumpMeshes(foot, key, tint, k, model)
 		meshFx("FX_Ring", floor, Color3.fromRGB(200, 240, 255), 0.3 * k, 1.8 * k, 0.6)
 		smokePuffs(foot, 6, k, Color3.fromRGB(235, 248, 255))
 	elseif key == "Shadow" then
-		-- dark flames: a ring of deep purple tongues with black ones inside them (two-tone), a
-		-- dark crown of spikes and dark smoke
-		for i = 1, 8 do
-			local a = math.rad(i * 45 + math.random(-10, 10))
-			local place = CFrame.Angles(0, a, 0) * CFrame.new(1.7 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-12))
-			task.delay(i * 0.015, meshFx, "FX_Flame", floor * place, Color3.fromRGB(150, 70, 255), 0.3 * k, 1.35 * k, 0.75, { base = true, spin = 40, rise = 1.2 * k })
-			task.delay(i * 0.015 + 0.03, meshFx, "FX_Flame", floor * place * CFrame.new(0, 0, 0.05), Color3.fromRGB(20, 5, 35), 0.25 * k, 0.9 * k, 0.7, { base = true, spin = 40, rise = 1.0 * k, glow = 0.7 })
+		-- shadow spikes: jagged black crystals stab up out of the floor all round you, leaning out,
+		-- a few lit violet, over a dark stain and under a violet spike crown
+		for i = 1, 10 do
+			local a = math.rad(i * 36 + math.random(-12, 12))
+			local r = (1.1 + math.random() * 1.8) * k
+			local at = CFrame.new(foot.X, 0.1, foot.Z) * CFrame.Angles(0, a, 0) * CFrame.new(r, 0, 0) * CFrame.Angles(0, 0, math.rad(-(14 + math.random(0, 26))))
+			local lit = i % 3 == 0
+			task.delay(i * 0.02, meshFx, "FX_Shard", at, lit and Color3.fromRGB(170, 100, 255) or Color3.fromRGB(28, 12, 45), 0.1, (1.5 + math.random() * 1.1) * k, 0.95, { plain = true, material = lit and Enum.Material.Neon or Enum.Material.SmoothPlastic, base = true, grow = 0.1, hold = 0.5, ease = Enum.EasingStyle.Back })
 		end
-		meshFx("FX_Crown", floor, Color3.fromRGB(60, 20, 110), 0.3 * k, 0.9 * k, 0.6, { base = true, spin = 30, glow = 1.2 })
-		meshFx("FX_Ring", floor, c, 0.3 * k, 1.7 * k, 0.6)
-		smokePuffs(foot, 5, k, Color3.fromRGB(45, 25, 70))
-	elseif key == "Fire" or key == "Inferno" then
-		-- anime fire, two-tone: each red-orange tongue has a yellow one inside it
-		local hot = key == "Inferno"
-		local n = hot and 12 or 8
-		local r = hot and 2.2 or 1.6
-		for i = 1, n do
-			local a = math.rad(i * 360 / n + math.random(-12, 12))
-			local place = CFrame.Angles(0, a, 0) * CFrame.new(r * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-14 + math.random(-6, 6)))
-			local tall = (hot and 1.9 or 1.4) * k * (0.8 + math.random() * 0.4)
-			task.delay(i * 0.018, meshFx, "FX_Flame", floor * place, Color3.fromRGB(255, 80, 20), 0.3 * k, tall, hot and 0.9 or 0.75, { base = true, spin = 40, rise = 1.5 * k, glow = 1.5 })
-			task.delay(i * 0.018 + 0.02, meshFx, "FX_Flame", floor * place * CFrame.new(-0.05, 0, 0), Color3.fromRGB(255, 215, 70), 0.2 * k, tall * 0.6, hot and 0.8 or 0.65, { base = true, spin = 40, rise = 1.3 * k, glow = 1.6 })
+		meshFx("FX_Crown", floor, Color3.fromRGB(120, 60, 230), 0.3 * k, 1.1 * k, 0.6, { base = true, spin = 30, glow = 1.7 })
+		groundMark("FX_Scorch", foot, Color3.fromRGB(25, 10, 40), 0.6 * k, 1.0, 0.7)
+	elseif key == "Fire" then
+		-- Flame's fire blast: a ball of fire bursts out round you (the particle volume fills it),
+		-- a ring of heat, the floor scorched, embers and ash flung out
+		meshFx("FX_Bubble", CFrame.new(foot + Vector3.new(0, 1.6 * k, 0)), Color3.fromRGB(255, 130, 30), 0.1, 0.55 * k, 0.45, { alpha = 0.3, glow = 1.9, spin = 90 })
+		meshFx("FX_Ring", floor, Color3.fromRGB(255, 180, 70), 0.3 * k, 1.6 * k, 0.5, { glow = 1.8 })
+		groundMark("FX_Scorch", foot, Color3.fromRGB(28, 16, 10), 0.6 * k, 1.4, 0.9)
+		rubble(foot, 5, k, Color3.fromRGB(255, 130, 30), 0.2)
+		rubble(foot, 4, k, Color3.fromRGB(25, 15, 12), 0.25)
+	elseif key == "Inferno" then
+		-- a fire tornado (Flame's Ember Lunge): two swirls of flame twist up through you round a
+		-- fire column, slabs pushed up round it, and the blaze rides you up
+		meshFx("FX_Spiral", floor, Color3.fromRGB(255, 80, 20), 0.3 * k, 1.5 * k, 0.95, { base = true, spin = 540, grow = 0.25, glow = 1.7 })
+		meshFx("FX_Spiral", floor * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(255, 210, 70), 0.25 * k, 1.1 * k, 0.85, { base = true, spin = 640, grow = 0.22, glow = 1.8 })
+		meshFx("FX_Column", floor, c, 0.3 * k, 1.15 * k, 0.9, { base = true, spin = 160 })
+		slabRing(foot, 8, 3.2 * k, 0.8 * k, Color3.fromRGB(70, 55, 50))
+		if model then
+			blaze(model, c, k)
 		end
-		if hot then
-			-- Inferno: a fire column at takeoff, slabs pushed up round it (Fire Column), and the
-			-- blaze rides you up
-			meshFx("FX_Column", floor, c, 0.3 * k, 1.15 * k, 0.9, { base = true, spin = 160 })
-			slabRing(foot, 8, 3.2 * k, 0.8 * k, Color3.fromRGB(70, 55, 50))
-			if model then
-				blaze(model, c, k)
-			end
-		end
-		meshFx("FX_Ring", floor, c, 0.3 * k, 1.5 * k, 0.6)
-		-- the floor is left scorched (Dragon), and dark ash flies with the flames
-		groundMark("FX_Scorch", foot, Color3.fromRGB(28, 16, 10), (hot and 0.75 or 0.55) * k, 1.4, 0.9)
-		rubble(foot, hot and 6 or 4, k, Color3.fromRGB(25, 15, 12), 0.25)
+		groundMark("FX_Scorch", foot, Color3.fromRGB(28, 16, 10), 0.75 * k, 1.4, 0.9)
+		rubble(foot, 6, k, Color3.fromRGB(25, 15, 12), 0.25)
 	elseif key == "Lightning" or key == "Storm" then
 		local storm = key == "Storm"
 		if storm then
@@ -1174,18 +1204,13 @@ local function jumpMeshes(foot, key, tint, k, model)
 		rubble(foot, 7, k, nil, 0.3)
 		meshFx("FX_Ring", floor, c, 0.3 * k, 1.8 * k, 0.45, { alpha = 0.1 })
 	elseif key == "Magma" then
-		-- Magma: a pool of lava splashes out under you, glowing inside a black scorch, red flames
-		-- with black ones inside them, molten rock flung up
+		-- Magma: a geyser of lava shoots up out of a glowing pool in a black scorch, molten globs
+		-- arc out and splash, black smoke rolls (the particles)
 		groundMark("FX_Scorch", foot, Color3.fromRGB(25, 12, 8), 0.85 * k, 1.5, 0.9)
 		meshFx("FX_Scorch", CFrame.new(foot.X, 0.1, foot.Z) * CFrame.Angles(0, math.random() * 6.28, 0), Color3.fromRGB(255, 55, 10), 0.2 * k, 0.6 * k, 1.8, { grow = 0.18, hold = 1.0, glow = 1.3, alpha = 0.05 })
-		for i = 1, 8 do
-			local a = math.rad(i * 45 + math.random(-12, 12))
-			local place = CFrame.Angles(0, a, 0) * CFrame.new(1.6 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-14))
-			local tall = 1.5 * k * (0.8 + math.random() * 0.4)
-			task.delay(i * 0.018, meshFx, "FX_Flame", floor * place, Color3.fromRGB(255, 50, 15), 0.3 * k, tall, 0.8, { base = true, spin = 40, rise = 1.4 * k, glow = 1.6 })
-			task.delay(i * 0.018 + 0.03, meshFx, "FX_Flame", floor * place * CFrame.new(-0.05, 0, 0), Color3.fromRGB(35, 10, 6), 0.2 * k, tall * 0.55, 0.7, { base = true, spin = 40, rise = 1.2 * k, glow = 0.8 })
-		end
-		rubble(foot, 6, k, Color3.fromRGB(255, 100, 30), 0.3)
+		meshFx("FX_Column", floor, Color3.fromRGB(255, 60, 10), 0.2 * k, 0.9 * k, 0.7, { base = true, spin = 90, grow = 0.15, hold = 0.2, glow = 1.6 })
+		meshFx("FX_Column", floor, Color3.fromRGB(255, 170, 40), 0.15 * k, 0.6 * k, 0.6, { base = true, spin = -120, grow = 0.13, hold = 0.15, glow = 1.8, alpha = 0.3 })
+		rubble(foot, 10, 1.3 * k, Color3.fromRGB(255, 80, 20), 0.35)
 		rubble(foot, 4, k, Color3.fromRGB(30, 20, 18), 0.3)
 	elseif key == "Radiant" then
 		-- Light: a column of light shoots up through you, thin rays beside it, a golden halo on
@@ -1201,30 +1226,27 @@ local function jumpMeshes(foot, key, tint, k, model)
 		task.delay(0.06, meshFx, "FX_Ring", floor, Color3.fromRGB(255, 250, 220), 0.2 * k, 1.3 * k, 0.5, { glow = 2 })
 		groundMark("FX_Crack", foot, Color3.fromRGB(45, 40, 30), 0.75 * k, 1.1, 0.8)
 	elseif key == "Foxfire" then
-		-- Kitsune's blue fire: tall blue tongues with white hearts, and a ring of slashes swept
-		-- round you (its M1 spin)
-		for i = 1, 10 do
-			local a = math.rad(i * 36 + math.random(-10, 10))
-			local place = CFrame.Angles(0, a, 0) * CFrame.new(1.5 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-8))
-			local tall = 1.9 * k * (0.8 + math.random() * 0.4)
-			task.delay(i * 0.015, meshFx, "FX_Flame", floor * place, Color3.fromRGB(60, 110, 255), 0.3 * k, tall, 0.8, { base = true, spin = 60, rise = 1.8 * k, glow = 1.7 })
-			task.delay(i * 0.015 + 0.02, meshFx, "FX_Flame", floor * place * CFrame.new(-0.05, 0, 0), Color3.fromRGB(210, 240, 255), 0.2 * k, tall * 0.55, 0.7, { base = true, spin = 60, rise = 1.6 * k, glow = 1.8 })
-		end
+		-- Kitsune: three big slashes sweep a full ring round you, white and blue over a dark
+		-- under-slash, and blue fox-fire wisps float up around you
+		local mid = foot + Vector3.new(0, 2.2 * k, 0)
 		for i = 1, 3 do
-			task.delay(0.03 * i, meshFx, "FX_Slash", CFrame.new(foot + Vector3.new(0, 2.2 * k, 0)) * CFrame.Angles(0, math.rad(i * 120), 0), i == 2 and WHITE or c, 0.4 * k, 1.0 * k, 0.32, { post = CFrame.Angles(math.rad(90), 0, 0), spin = 200, alpha = 0.05, glow = 2 })
+			local turn = CFrame.new(mid) * CFrame.Angles(0, math.rad(i * 120), 0)
+			task.delay(0.03 * i, meshFx, "FX_Slash", turn * CFrame.new(0, -0.15, 0), Color3.fromRGB(15, 10, 40), 0.45 * k, 1.25 * k, 0.34, { post = CFrame.Angles(math.rad(90), 0, 0), spin = 220, glow = 0.6 })
+			task.delay(0.03 * i + 0.01, meshFx, "FX_Slash", turn, i == 2 and WHITE or c, 0.4 * k, 1.15 * k, 0.32, { post = CFrame.Angles(math.rad(90), 0, 0), spin = 220, alpha = 0.03, glow = 2 })
+		end
+		for i = 1, 6 do
+			local a = math.rad(i * 60 + math.random(-15, 15))
+			local at = CFrame.new(foot.X + math.cos(a) * 2.4 * k, 0.8, foot.Z + math.sin(a) * 2.4 * k)
+			task.delay(0.05 + i * 0.04, meshFx, "FX_Bubble", at, Color3.fromRGB(90, 150, 255), 0.02, 0.1 * k, 1.0, { rise = 4 * k, grow = 0.2, glow = 2, alpha = 0.03 })
 		end
 		meshFx("FX_Ring", floor, c, 0.3 * k, 1.7 * k, 0.5, { glow = 1.8 })
 	elseif key == "Phoenix" then
-		-- Phoenix's blue flames: a glassy dome of blue fire round you with gold flames in it, a
-		-- gold and a cyan ring, the spikes of a crown
-		meshFx("FX_Dome", floor, c, 0.2 * k, 1.0 * k, 0.6, { alpha = 0.4, grow = 0.18, glow = 1.9 })
-		for i = 1, 10 do
-			local a = math.rad(i * 36 + math.random(-10, 10))
-			local place = CFrame.Angles(0, a, 0) * CFrame.new(1.9 * k, 0, 0) * CFrame.Angles(0, 0, math.rad(-16))
-			local gold = i % 2 == 0
-			task.delay(i * 0.015, meshFx, "FX_Flame", floor * place, gold and Color3.fromRGB(255, 200, 40) or Color3.fromRGB(40, 190, 255), 0.3 * k, 1.5 * k, 0.8, { base = true, spin = 50, rise = 1.5 * k, glow = 1.8 })
+		-- Phoenix: blue and gold wings open out of your back and beat once, inside a glassy dome
+		-- of blue flame, gold and cyan rings on the floor
+		if model then
+			phoenixWings(model, k)
 		end
-		meshFx("FX_Crown", floor, Color3.fromRGB(120, 230, 255), 0.3 * k, 1.0 * k, 0.6, { base = true, spin = 40, glow = 1.8 })
+		meshFx("FX_Dome", floor, c, 0.2 * k, 1.0 * k, 0.7, { alpha = 0.4, grow = 0.18, glow = 1.9 })
 		meshFx("FX_Ring", floor, Color3.fromRGB(255, 210, 70), 0.3 * k, 2.0 * k, 0.6, { glow = 2 })
 		task.delay(0.05, meshFx, "FX_Ring", floor, c, 0.2 * k, 1.4 * k, 0.5, { glow = 2 })
 	end

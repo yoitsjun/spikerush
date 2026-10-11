@@ -91,16 +91,16 @@ local CRATER = { t = "Crater", n = 1, life = { 1.6, 1.6 }, size = 14, alpha = { 
 local BOLT = { t = "Bolt", n = 1, life = { 0.14, 0.18 }, size = 10, alpha = { { 0, 0 }, { 0.6, 0 }, { 1, 1 } }, aim = true, z = 2.5, tint = 0.25, color = THUNDER }
 local SPARKLE = { t = "Sparkle", n = 1, life = { 0.25, 0.45 }, size = { { 0, 0 }, { 0.3, 1.6 }, { 1, 0 } }, rot = { 0, 90 }, z = 1, tint = 0.6 }
 
--- our own toon flipbooks (the owner: "make them look more similar to blox fruits"): a bold shape,
--- a white core and a grey band, played once over each particle's life. The jump kits pile many
--- of them up into one volume, two colours each (a hot core layer inside a deeper outer one), as
--- Blox Fruits' fire, smoke and lightning do.
-local TFIRE = { t = "ToonFire", grid = "Grid4x4", n = 14, life = { 0.5, 0.8 }, size = { { 0, 3 }, { 0.35, 5.5 }, { 1, 4 } }, speed = { 6, 16 }, spread = 70, drag = 3, accel = Vector3.new(0, 14, 0), rot = { -20, 20 }, glow = 0.5, z = 1.5 }
+-- the jump kits' layers (the owner: "make them look more similar to blox fruits"): many flames,
+-- puffs or crackles piled up into one volume, two colours each (a hot core layer inside a deeper
+-- outer one), as Blox Fruits' fire, smoke and lightning do. On the Creator Store flipbooks; our
+-- own toon ones (Assets.Fx.Toon*) can take over once Roblox has processed them.
+local TFIRE = { t = "FireWhite", grid = "Grid4x4", n = 14, life = { 0.5, 0.8 }, size = { { 0, 3 }, { 0.35, 5.5 }, { 1, 4 } }, speed = { 6, 16 }, spread = 70, drag = 3, accel = Vector3.new(0, 14, 0), rot = { -20, 20 }, glow = 0.5, z = 1.5 }
 local TCORE = layer(TFIRE, { n = 8, d = 0.04, size = { { 0, 2 }, { 0.35, 3.5 }, { 1, 2 } }, speed = { 4, 11 }, glow = 1, z = 2 })
-local TSMOKE = { t = "ToonSmoke", grid = "Grid4x4", n = 8, life = { 0.7, 1.1 }, size = { { 0, 2.5 }, { 1, 6 } }, speed = { 8, 18 }, spread = 85, drag = 4, accel = Vector3.new(0, 4, 0), rot = { 0, 360 }, glow = 0, z = 0.5 }
-local TSPARK = { t = "ToonSpark", grid = "Grid4x4", n = 6, life = { 0.35, 0.55 }, size = { { 0, 2 }, { 1, 3 } }, speed = { 10, 24 }, spread = 180, drag = 5, rot = { -10, 10 }, z = 2.5 }
-local TELEC = { t = "ToonElectric", grid = "Grid4x4", n = 4, life = { 0.3, 0.45 }, size = { { 0, 6 }, { 1, 8 } }, speed = { 0, 4 }, spread = 180, rot = { 0, 360 }, z = 2 }
-local TBURST = { t = "ToonBurst", grid = "Grid4x4", n = 1, life = { 0.3, 0.3 }, size = 10, rot = { 0, 360 }, z = 3 }
+local TSMOKE = { t = "Smoke", grid = "Grid4x4", n = 8, life = { 0.7, 1.1 }, size = { { 0, 2.5 }, { 1, 6 } }, speed = { 8, 18 }, spread = 85, drag = 4, accel = Vector3.new(0, 4, 0), rot = { 0, 360 }, glow = 0, z = 0.5 }
+local TSPARK = { t = "Sparkle", n = 6, life = { 0.35, 0.55 }, size = { { 0, 0 }, { 0.3, 2.4 }, { 1, 0 } }, speed = { 10, 24 }, spread = 180, drag = 5, rot = { 0, 90 }, z = 2.5 }
+local TELEC = { t = "Electric", grid = "Grid4x4", n = 4, life = { 0.3, 0.45 }, size = { { 0, 6 }, { 1, 8 } }, speed = { 0, 4 }, spread = 180, rot = { 0, 360 }, z = 2 }
+local TBURST = { t = "HitBurst", n = 1, life = { 0.25, 0.3 }, size = { { 0, 3 }, { 0.2, 10 }, { 1, 11 } }, alpha = { { 0, 0 }, { 0.5, 0 }, { 1, 1 } }, rot = { 0, 360 }, z = 3 }
 local function two(hot, deep)
 	return { hot, deep }
 end
