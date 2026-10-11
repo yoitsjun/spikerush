@@ -1103,7 +1103,7 @@ local function updatePractice(now)
 			-- "quite annoying when it keeps repeated"; otherwise the plain floor impact
 			local effect = p.fxQueued and p.opts.effect or "Dust"
 			p.fxQueued = false
-			mods.VFXController.previewEffect(LAND - Vector3.new(0, 1.1, 0), effect, b.tint, -1)
+			mods.VFXController.previewEffect(LAND - Vector3.new(0, 1.1, 0), effect, b.tint, -1, nil, p.rig and p.rig.model)
 		end
 	end
 end

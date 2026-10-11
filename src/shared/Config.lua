@@ -519,10 +519,16 @@ Config.Cosmetics = {
 		{ Key = "Speed", Name = "Speed Burst", Rarity = "Rare" },
 		{ Key = "Meteor", Name = "Meteor Strike", Rarity = "Epic" },
 		{ Key = "Crater", Name = "Crater", Rarity = "Epic" },
+		{ Key = "IceAge", Name = "Ice Age", Rarity = "Epic" },
+		{ Key = "Volcano", Name = "Volcano", Rarity = "Epic" },
 		{ Key = "Thunderbolt", Name = "Thunderbolt", Rarity = "Legendary" },
 		{ Key = "Tornado", Name = "Tornado", Rarity = "Legendary" },
 		{ Key = "Tsunami", Name = "Tsunami", Rarity = "Legendary" },
+		{ Key = "MeteorShower", Name = "Meteor Shower", Rarity = "Legendary" },
+		{ Key = "Holy", Name = "Holy Strike", Rarity = "Legendary" },
 		{ Key = "BlackHole", Name = "Black Hole", Rarity = "Mythic" },
+		-- the owner: "make the avatar big and stomp the opponents and ragdoll them"
+		{ Key = "Giant", Name = "Giant Stomp", Rarity = "Mythic" },
 	},
 	-- how you pose in the matchup intro and, when your team wins, the showcase after the match
 	-- (AnimationController's Intro_<Key> poses)

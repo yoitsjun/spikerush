@@ -3658,11 +3658,408 @@ local function crater(pos, tint, k)
 	end
 end
 
+------------------------------------------------------------------------------------------
+-- Giant Stomp (the owner: "when the player scores, make the avatar big and stomp the opponents
+-- and ragdoll them"), all on local copies: a giant copy of the scorer drops onto the spot and
+-- stomps; the opponents are hidden for a moment and copies of them ragdoll away. Nothing touches
+-- the real characters or the match.
+------------------------------------------------------------------------------------------
+
+-- A local copy of a character to act with: no scripts, sounds, guis or effects, its parts not
+-- colliding, its Humanoid not driving it. Nil when it can't be copied.
+local function puppet(model)
+	if not model then
+		return nil
+	end
+	local was = model.Archivable
+	model.Archivable = true
+	local ok, c = pcall(function()
+		return model:Clone()
+	end)
+	model.Archivable = was
+	if not ok or not c then
+		return nil
+	end
+	for _, d in ipairs(c:GetDescendants()) do
+		if d:IsA("LuaSourceContainer") or d:IsA("Sound") or d:IsA("BillboardGui") or d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") or d:IsA("Highlight") or d:IsA("ForceField") then
+			d:Destroy()
+		elseif d:IsA("BasePart") then
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+			d.Anchored = false
+		end
+	end
+	local hum = c:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		hum.BreakJointsOnDeath = false
+		hum.RequiresNeck = false
+		pcall(function()
+			hum.EvaluateStateMachine = false
+		end)
+		local an = hum:FindFirstChildOfClass("Animator")
+		if an then
+			an:Destroy()
+		end
+	end
+	c.Name = "ScorePuppet"
+	return c
+end
+
+-- Hide a character on this screen only (its parts and face); returns the undo.
+local function hideLocally(model)
+	local list = {}
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") or d:IsA("Decal") then
+			if pcall(function()
+				d.LocalTransparencyModifier = 1
+			end) then
+				table.insert(list, d)
+			end
+		end
+	end
+	return function()
+		for _, d in ipairs(list) do
+			if d.Parent then
+				pcall(function()
+					d.LocalTransparencyModifier = 0
+				end)
+			end
+		end
+	end
+end
+
+-- Turn a puppet into a ragdoll: every joint a limited ball socket, the limbs colliding (with the
+-- floor and each other), the root light and passing through.
+local function ragdoll(c)
+	for _, m in ipairs(c:GetDescendants()) do
+		if m:IsA("Motor6D") and m.Part0 and m.Part1 then
+			local a0 = Instance.new("Attachment")
+			a0.CFrame = m.C0
+			a0.Parent = m.Part0
+			local a1 = Instance.new("Attachment")
+			a1.CFrame = m.C1
+			a1.Parent = m.Part1
+			local b = Instance.new("BallSocketConstraint")
+			b.Attachment0 = a0
+			b.Attachment1 = a1
+			b.LimitsEnabled = true
+			b.UpperAngle = 70
+			b.TwistLimitsEnabled = true
+			b.TwistLowerAngle = -50
+			b.TwistUpperAngle = 50
+			b.Parent = m.Part0
+			m.Enabled = false
+		end
+	end
+	for _, p in ipairs(c:GetDescendants()) do
+		if p:IsA("BasePart") then
+			p.Anchored = false
+			p.CanCollide = p.Name ~= "HumanoidRootPart" and p.Size.Magnitude > 0.6
+		end
+	end
+	local root = c:FindFirstChild("HumanoidRootPart")
+	if root then
+		root.Massless = true
+	end
+	local hum = c:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.PlatformStand = true
+	end
+end
+
+-- Fling a ragdoll away from `from`: out, up and tumbling.
+local function launch(c, from, power)
+	local root = c:FindFirstChild("HumanoidRootPart") or c:FindFirstChildWhichIsA("BasePart")
+	if not root then
+		return
+	end
+	local away = root.Position - from
+	away = Vector3.new(away.X, 0, away.Z)
+	away = away.Magnitude > 0.1 and away.Unit or Vector3.new(math.random() - 0.5, 0, math.random() - 0.5).Unit
+	local v = away * power + Vector3.new(0, power * 0.9, 0)
+	local spin = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 18
+	for _, p in ipairs(c:GetDescendants()) do
+		if p:IsA("BasePart") then
+			p.AssemblyLinearVelocity = v + Vector3.new(math.random() - 0.5, math.random(), math.random() - 0.5) * 6
+			p.AssemblyAngularVelocity = spin
+		end
+	end
+end
+
+local function fadeModel(c, t)
+	for _, p in ipairs(c:GetDescendants()) do
+		if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+			TweenService:Create(p, TweenInfo.new(t), { Transparency = 1 }):Play()
+		elseif p:IsA("Decal") then
+			TweenService:Create(p, TweenInfo.new(t), { Transparency = 1 }):Play()
+		end
+	end
+end
+
+-- The joint a giant lifts its leg with (R15 hip and knee, or R6's hip).
+local function legJoints(c)
+	local hip, knee
+	for _, m in ipairs(c:GetDescendants()) do
+		if m:IsA("Motor6D") then
+			if m.Name == "RightHip" or m.Name == "Right Hip" then
+				hip = m
+			elseif m.Name == "RightKnee" then
+				knee = m
+			end
+		end
+	end
+	return hip, knee
+end
+
+local GIANT_LIFE = 2.3
+local function giantStomp(model, pos, dirZ, tint, k, victims)
+	local g = puppet(model)
+	local root = g and g:FindFirstChild("HumanoidRootPart")
+	if not root then
+		if g then
+			g:Destroy()
+		end
+		return
+	end
+	local color = tint or Color3.fromRGB(255, 200, 90)
+	g.PrimaryPart = root
+	for _, p in ipairs(g:GetDescendants()) do
+		if p:IsA("BasePart") then
+			p.Anchored = p == root
+		end
+	end
+	g:PivotTo(CFrame.new(0, -400, 0))
+	g.Parent = fxFolder
+	local size = 2.2 + 0.9 * (k or 1)
+	pcall(function()
+		g:ScaleTo(size)
+	end)
+	-- where its feet are, below the root
+	local box, ext = g:GetBoundingBox()
+	local feet = root.Position.Y - (box.Position.Y - ext.Y / 2)
+	-- it stands just back from the spot, facing the way the attack went, its right foot over it
+	local face = CFrame.lookAt(Vector3.zero, Vector3.new(0, 0, dirZ or 1))
+	local stand = CFrame.new(pos.X, feet, pos.Z - (dirZ or 1) * size * 0.4) * face.Rotation
+	local hip, knee = legJoints(g)
+
+	-- the opponents: hidden, and their copies (stand-ins in the Locker) waiting to be flung
+	local dolls, undo = {}, {}
+	if victims then
+		for _, v in ipairs(victims) do
+			local d = puppet(v)
+			if d then
+				d:PivotTo(v:GetPivot())
+				d.Parent = fxFolder
+				ragdoll(d)
+				table.insert(dolls, d)
+				table.insert(undo, hideLocally(v))
+			end
+		end
+	else
+		for i = 1, 3 do
+			local d = puppet(model)
+			if d then
+				local a = math.rad(i * 120)
+				d:PivotTo(CFrame.new(pos + Vector3.new(math.cos(a) * 5, 3, math.sin(a) * 5 + (dirZ or 1) * 3)) * CFrame.Angles(0, a, 0))
+				d.Parent = fxFolder
+				ragdoll(d)
+				table.insert(dolls, d)
+			end
+		end
+	end
+
+	local function slam(at, power, big)
+		local floor = Vector3.new(at.X, 0.2, at.Z)
+		groundMark("FX_Crack", floor, Color3.fromRGB(30, 26, 22), (big and 2.2 or 1.4) * size / 4, 1.6, 0.8)
+		slabRing(floor, big and 12 or 8, (big and 7 or 5) * size / 4, size / 3)
+		rubble(floor, big and 14 or 8, size / 3, nil, 0.45)
+		smokePuffs(floor, big and 10 or 6, size / 3, Color3.fromRGB(215, 205, 190))
+		shockDisc(floor, color, (big and 26 or 18) * size / 4, 0.6)
+		floorRing(floor, color, (big and 40 or 28) * size / 4)
+		Fx.play("ScoreShockwave", floor, { color = tint, scale = size / 4 })
+		for _, d in ipairs(dolls) do
+			local r = d:FindFirstChild("HumanoidRootPart")
+			if r and (r.Position - floor).Magnitude < (big and 60 or 14) * size / 4 then
+				launch(d, floor, power)
+			end
+		end
+		sfx("ScoreImpact", floor)
+		if big then
+			sfx("ScoreShockwave", floor)
+		end
+		if near(floor) then
+			mods.CameraController.shake(big and 1.3 or 0.9)
+			mods.CameraController.kick(big and -10 or -6)
+			VFXController.flash(big and 0.35 or 0.2, 0.2)
+		end
+	end
+
+	local born = os.clock()
+	local landed, stomped = false, false
+	local conn
+	conn = RunService.Stepped:Connect(function()
+		local t = os.clock() - born
+		if t > GIANT_LIFE or not g.Parent then
+			conn:Disconnect()
+			g:Destroy()
+			return
+		end
+		-- dropping out of the sky (0 to 0.35 s), then standing
+		local drop = math.clamp(t / 0.35, 0, 1)
+		local y = 70 * (1 - drop * drop)
+		g:PivotTo(stand + Vector3.new(0, y, 0))
+		if drop >= 1 and not landed then
+			landed = true
+			slam(pos, 55, true)
+		end
+		-- the right leg: lifted high (0.55 to 0.95 s), then slammed down (to 1.08 s)
+		local lift = 0
+		if t > 0.55 and t < 0.95 then
+			lift = math.sin((t - 0.55) / 0.4 * math.pi / 2)
+		elseif t >= 0.95 and t < 1.08 then
+			lift = 1 - (t - 0.95) / 0.13
+		end
+		if hip then
+			hip.Transform = CFrame.Angles(math.rad(85) * lift, 0, 0)
+		end
+		if knee then
+			knee.Transform = CFrame.Angles(math.rad(-70) * lift, 0, 0)
+		end
+		if t >= 1.08 and not stomped then
+			stomped = true
+			local _, ext2 = g:GetBoundingBox()
+			slam(stand.Position + stand.LookVector * ext2.Z * 0.25 + stand.RightVector * size * 0.35, 40, false)
+		end
+		-- shrinking away in a puff at the end
+		if t > GIANT_LIFE - 0.35 then
+			local s = math.max(0.05, 1 - (t - (GIANT_LIFE - 0.35)) / 0.35)
+			pcall(function()
+				g:ScaleTo(size * s)
+			end)
+			if s < 0.9 and not g:GetAttribute("Puffed") then
+				g:SetAttribute("Puffed", true)
+				smokePuffs(Vector3.new(pos.X, 0.2, pos.Z), 10, size / 3, Color3.fromRGB(235, 235, 240))
+			end
+		end
+	end)
+
+	-- the ragdolls lie a moment, fade, and the real players come back
+	task.delay(3.1, function()
+		for _, d in ipairs(dolls) do
+			fadeModel(d, 0.35)
+		end
+		task.delay(0.4, function()
+			for _, d in ipairs(dolls) do
+				d:Destroy()
+			end
+			for _, f in ipairs(undo) do
+				f()
+			end
+		end)
+	end)
+end
+
+------------------------------------------------------------------------------------------
+-- more score effects (the owner: "add some more scoring effects")
+------------------------------------------------------------------------------------------
+
+-- Meteor Shower: a volley of smaller meteors rains over the scored-on court.
+local function meteorShower(pos, dirZ, tint, k)
+	for i = 1, 8 do
+		local off = Vector3.new((math.random() - 0.5) * 22, 0, (dirZ or 1) * math.random() * 14 - (dirZ or 1) * 3)
+		task.delay((i - 1) * 0.11, meteorStrike, pos + off, dirZ, tint, k * 0.42)
+	end
+end
+
+-- Ice Age: rings of solid ice burst out across the floor from the spot, one after another, snow
+-- rolling off them; they hold, then shatter.
+local function iceAge(pos, tint, k)
+	local ICE = Color3.fromRGB(175, 228, 255)
+	local floor = CFrame.new(pos.X, 0.15, pos.Z)
+	meshFx("FX_IceMass", floor * CFrame.Angles(0, math.random() * 6.28, 0), ICE, 0.05, 0.75 * k, 2.2, { plain = true, base = true, grow = 0.14, hold = 1.5, shrink = 0.55, ease = Enum.EasingStyle.Back })
+	for ring, spec in ipairs({ { 4, 7 }, { 8, 11 }, { 12, 15 } }) do
+		local r, n = spec[1] * k / 2, spec[2]
+		for i = 1, n do
+			local a = math.rad(i * 360 / n + math.random(-8, 8))
+			local at = floor * CFrame.Angles(0, a, 0) * CFrame.new(r, 0, 0) * CFrame.Angles(0, math.random() * 6.28, math.rad(-(10 + math.random(0, 18))))
+			local name = ring == 1 and "FX_IceMass" or "FX_Ice"
+			local tall = (ring == 1 and 0.35 or (1.2 - ring * 0.2)) * k * (0.8 + math.random() * 0.4)
+			task.delay(ring * 0.12 + i * 0.01, meshFx, name, at, ICE, 0.05, tall, 2.0 - ring * 0.15, { plain = true, base = true, grow = 0.12, hold = 1.3 - ring * 0.1, shrink = 0.5, ease = Enum.EasingStyle.Back })
+		end
+	end
+	shockDisc(pos, Color3.fromRGB(200, 240, 255), 12 * k, 0.7)
+	smokePuffs(pos, 14, k, Color3.fromRGB(235, 248, 255))
+	Fx.play("JumpFrost", pos + Vector3.new(0, 1, 0), { scale = k })
+	sfx("ScoreDebris", pos)
+	if near(pos) then
+		mods.CameraController.shake(0.7)
+	end
+end
+
+-- Holy Strike: a column of golden light slams down from the sky, halos ring out round it, the
+-- floor cracks and feathers drift down.
+local function holyStrike(pos, tint, k)
+	local GOLD = Color3.fromRGB(255, 220, 110)
+	local floor = CFrame.new(pos.X, 0.15, pos.Z)
+	lightPillar(pos, Color3.fromRGB(255, 250, 225), 140, 6 * k / 2, 0.25)
+	lightPillar(pos, GOLD, 140, 11 * k / 2, 0.7)
+	for i = 1, 3 do
+		task.delay(0.08 * i, meshFx, "FX_Ring", floor * CFrame.new(0, i * 3 * k / 2, 0), i == 2 and WHITE or GOLD, 0.3 * k, (1.4 + i * 0.5) * k, 0.9, { glow = 2, spin = 60 })
+	end
+	meshFx("FX_Ring", floor, GOLD, 0.3 * k, 3 * k, 1.0, { glow = 2 })
+	groundMark("FX_Crack", pos, Color3.fromRGB(60, 50, 30), 1.2 * k, 1.6, 0.8)
+	featherFall(pos, 26, k)
+	flare(pos + Vector3.new(0, 6, 0), GOLD, 26 * k, 0.6)
+	Fx.play("JumpAngel", pos + Vector3.new(0, 1, 0), { scale = k })
+	sfx("ScoreSparkle", pos)
+	sfx("ScoreImpact", pos)
+	if near(pos) then
+		VFXController.flash(0.4, 0.3)
+		mods.CameraController.shake(0.8)
+	end
+end
+
+-- Volcano: the floor splits and a geyser of lava erupts out of a glowing pool, molten rock raining
+-- round it, black smoke rolling up.
+local function volcano(pos, tint, k)
+	local floor = CFrame.new(pos.X, 0.15, pos.Z)
+	groundMark("FX_Scorch", pos, Color3.fromRGB(25, 12, 8), 1.3 * k, 2.0, 0.9)
+	meshFx("FX_Scorch", floor * CFrame.Angles(0, math.random() * 6.28, 0), Color3.fromRGB(255, 55, 10), 0.3 * k, 0.9 * k, 2.4, { grow = 0.2, hold = 1.5, glow = 1.3, alpha = 0.05 })
+	meshFx("FX_Column", floor, Color3.fromRGB(255, 60, 10), 0.3 * k, 1.6 * k, 1.3, { base = true, spin = 90, grow = 0.2, hold = 0.5, glow = 1.6 })
+	meshFx("FX_Column", floor, Color3.fromRGB(255, 180, 50), 0.2 * k, 1.1 * k, 1.1, { base = true, spin = -140, grow = 0.18, hold = 0.4, glow = 1.8, alpha = 0.3 })
+	slabRing(pos, 12, 5 * k / 2, k / 1.6, Color3.fromRGB(60, 45, 40))
+	rubble(pos, 18, k * 1.2, Color3.fromRGB(255, 80, 20), 0.45)
+	rubble(pos, 8, k, Color3.fromRGB(30, 20, 18), 0.4)
+	Fx.play("JumpMagma", pos + Vector3.new(0, 1, 0), { scale = k })
+	task.delay(0.15, Fx.play, "JumpMagma", pos + Vector3.new(0, 6 * k / 2, 0), { scale = k * 0.8 })
+	sfx("ScoreFire", pos)
+	sfx("ScoreDebris", pos)
+	if near(pos) then
+		mods.CameraController.shake(1)
+		mods.CameraController.kick(-6)
+	end
+end
+
 -- A score effect at pos: the effect's key, the spike colour's tint (or nil), which way the
 -- attack travelled along z, the scale and the point's callout. False for Dust, the plain floor
 -- impact.
-local function playScore(effect, pos, tint, dirZ, k, reason)
-	if effect == "Meteor" then
+local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
+	if effect == "Giant" then
+		if not model then
+			return false
+		end
+		giantStomp(model, pos, dirZ, tint, k or 1, victims)
+	elseif effect == "MeteorShower" then
+		meteorShower(pos, dirZ, tint, k or 1)
+	elseif effect == "IceAge" then
+		iceAge(pos, tint, k or 1)
+	elseif effect == "Holy" then
+		holyStrike(pos, tint, k or 1)
+	elseif effect == "Volcano" then
+		volcano(pos, tint, k or 1)
+	elseif effect == "Meteor" then
 		meteorStrike(pos, dirZ, tint, k)
 	elseif effect == "Thunderbolt" then
 		thunderbolt(pos, tint, k)
@@ -3724,7 +4121,19 @@ local function celebrate(a)
 	emit("Dust", pos + Vector3.new(0, 0.5, 0), 70, nil)
 	if model then
 		local fx = Spins.equipped(model, "Effect")
-		playScore(fx.Key, pos, tint, -side, SCORE_FX.Scale[fx.Rarity] or SCORE_FX.Scale.Common, Config.Match.Celebrate[a.reason])
+		-- the scored-on team's characters (Giant Stomp ragdolls them)
+		local victims = {}
+		for _, team in ipairs(Config.TeamOrder) do
+			if Config.Teams[team].Side ~= side then
+				for _, e in ipairs(State.roster(team)) do
+					local m = Util.modelOf(e.id)
+					if m then
+						table.insert(victims, m)
+					end
+				end
+			end
+		end
+		playScore(fx.Key, pos, tint, -side, SCORE_FX.Scale[fx.Rarity] or SCORE_FX.Scale.Common, Config.Match.Celebrate[a.reason], model, victims)
 	end
 	VFXController.flash(big and 0.55 or 0.45, 0.3)
 	mods.CameraController.shake(big and 1.2 or 1)
@@ -3742,9 +4151,10 @@ local function celebrate(a)
 end
 
 -- A score effect anywhere, outside a match (the Locker's preview): the effect's key, the spike
--- colour's tint (or nil), the direction the attack travelled along z and the scale (1 if nil).
-function VFXController.previewEffect(pos, effect, tint, dirZ, k)
-	if not playScore(effect, pos, tint, dirZ or -1, k) then
+-- colour's tint (or nil), the direction the attack travelled along z, the scale (1 if nil) and
+-- the character (Giant Stomp's giant; stand-ins take the stomp).
+function VFXController.previewEffect(pos, effect, tint, dirZ, k, model)
+	if not playScore(effect, pos, tint, dirZ or -1, k, nil, model, nil) then
 		Fx.play("FloorImpact", pos, { color = tint })
 	end
 end
