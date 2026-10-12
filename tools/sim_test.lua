@@ -427,6 +427,61 @@ do
 		string.format("the court in %.2f s, up in %.2f s instead of %.2f, a full charge in %.2f s", C.SideDepth / SQ.DashSpeed, v0 / gUp, math.sqrt(2 * g * h) / g, SQ.ChargeTime))
 end
 
+print("== Ironclad (Taesan) ==")
+do
+	local IR = Config.Abilities.Ironclad
+	local taesan = Characters.derive(Characters.fromRoster(Roster.get("taesan"), "max"))
+	-- Bulwark: his wall shuts down an attack under BreakKmh perfectly; one that fast (or piercing)
+	-- breaks through it and is marked for the shield it costs
+	local broot = vec(0, GROUND, side * 1.2)
+	local bball = vec(0, C.NetTop + 1.5, side * 0.6)
+	local function block(kmh, extraLast, extraCtx)
+		local last = { hitType = "Spike", team = "Home", kmh = kmh }
+		for k, v in pairs(extraLast or {}) do last[k] = v end
+		local c = ctx({ ability = "Ironclad", stats = taesan, lastHit = last, ironWall = true, ironclad = true, ballVel = vec(0, -8, side * 30) })
+		for k, v in pairs(extraCtx or {}) do c[k] = v end
+		return HitLogic.compute({ action = "Block", t = 0, root = broot, ball = bball, vy = 0, grounded = true }, c)
+	end
+	local okW, held = block(140)
+	local okB, broke = block(160)
+	local okP, pierced = block(120, { pierce = true })
+	check(okW and okB and okP and held.meta.outcome == "Stuff" and held.meta.ironWall and not held.meta.wallBroken
+		and broke.meta.outcome == "Break" and broke.meta.wallBroken and pierced.meta.wallBroken,
+		"Bulwark: his wall shuts down a 140 km/h spike; 150 or more (or a piercing one) breaks through and costs a shield",
+		string.format("140: %s, 160: %s, piercing 120: %s", held.meta.outcome, broke.meta.outcome, pierced.meta.outcome))
+	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 10,
+		"Bulwark: 3 shields to start; awakened, ten touches (10% each) bring them back")
+	-- Forge (awakened): a jump before the set charges up to about 215 km/h maxed; after the set,
+	-- LateShare of it; not awakened, nothing; the charge widens his reach
+	local root = apexRoot(taesan, 3.5 * K)
+	local function tspike(input, extra)
+		local c = { ability = "Ironclad", stats = taesan, awakened = true }
+		for k, v in pairs(extra or {}) do c[k] = v end
+		return spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), c, input)
+	end
+	local _, plain = tspike({})
+	local _, early = tspike({ metal = 1, early = true })
+	local _, late = tspike({ metal = 1, early = false })
+	local _, walled = tspike({ metal = 1, early = true }, { awakened = false })
+	local _, auto = tspike({}, { auto = true })
+	check(early.meta.kmh >= 205 and early.meta.kmh <= 225 and math.abs(late.meta.kmh / plain.meta.kmh - (1 + IR.MaxBoost * IR.LateShare)) < 0.01
+		and walled.meta.kmh == plain.meta.kmh and auto.meta.kmh > plain.meta.kmh and HitLogic.spikeReach("Ironclad", 1) > HitLogic.spikeReach("Ironclad", 0),
+		"Forge: awakened, a full charge off a jump before the set hits about 215; after the set, 30% of it; with shields, nothing",
+		string.format("%.0f plain, %.0f early, %.0f late (AI %.0f) km/h", plain.meta.kmh, early.meta.kmh, late.meta.kmh, auto.meta.kmh))
+end
+
+print("== Chain Reaction always breaks the guard ==")
+do
+	-- the owner: "chain reaction spikes should always break stamina": dug with a full guard, even
+	-- perfectly, it breaks
+	local rroot = vec(0, GROUND, side * 6 * SPM)
+	local rball = vec(0, GROUND + Z.ReceiveIdealY, side * 6 * SPM)
+	local last = { hitType = "Spike", team = "Home", kmh = 120, reaction = true, drainMul = 2.4, flatDrain = 16, tierDrain = 1 }
+	local ok, res = HitLogic.compute({ action = "Bump", t = 0, root = rroot, ball = rball, vy = 0, grounded = true, stanceAge = 0.1 },
+		ctx({ touchNumber = 1, lastHit = last, ballVel = vec(0, -20, side * 30), stamina = { value = 120, max = 120 } }))
+	check(ok and res.meta.breaks, "Chain Reaction: its spike breaks a full guard, every time", ok and tostring(res.meta.grade) or "no touch")
+end
+
 print("== Featherfall (Arin) ==")
 do
 	local FF = Config.Abilities.Featherfall
@@ -670,7 +725,8 @@ do
 			okLimits = okLimits and c[k] >= Config.Stats.Min and c[k] <= Config.Stats.Max
 		end
 		if c.Tier == "S+" then
-			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint" or c.Ability == "Corona" or c.Ability == "Squall")
+			okAbility = okAbility and ((c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint" or c.Ability == "Corona" or c.Ability == "Squall"))
+				or (c.Role == "MB" and c.Ability == "Ironclad"))
 		elseif c.Tier == "S" then
 			okAbility = okAbility and want[c.Role][c.Ability or ""] == true and Config.Abilities[c.Ability].Role == c.Role
 		else
@@ -691,7 +747,7 @@ do
 		end
 	end
 	check(okLimits and #Roster >= 30, "every roster character is valid and unique", #Roster .. " characters")
-	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap, Zero Point, Corona or Squall, S characters one of their role's abilities, the rest none")
+	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap, Zero Point, Corona or Squall (the S+ middle Ironclad), S characters one of their role's abilities, the rest none")
 	local topId, topAtk, nextAtk = nil, 0, 0
 	for _, c in ipairs(Roster) do
 		if c.Attack > topAtk then

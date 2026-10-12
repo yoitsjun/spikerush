@@ -1037,6 +1037,18 @@ local function badgeState(ability, id, model, team, mine)
 		end
 		hot = lvl >= def.MaxLevel
 		sub = "LV " .. lvl
+	elseif ability == "Ironclad" then
+		-- his shields while he has them; awakened, the Intimidation meter that brings them back
+		local inst = mine and player or model
+		local lives = HitLogic.ironLives(inst and inst:GetAttribute("IronLives"))
+		if lives > 0 then
+			p, hot = lives / def.Lives, false
+			sub = string.format("SHIELDS %d/%d", lives, def.Lives)
+		else
+			local m = (inst and inst:GetAttribute("Intimidation")) or 0
+			p, hot = math.clamp(m / 100, 0, 1), true
+			sub = string.format("AWAKENED %d%%", m)
+		end
 	elseif ability == "Counter" then
 		local c = (mine and player:GetAttribute("Counter")) or (model and model:GetAttribute("Counter")) or 0
 		p, hot = math.clamp(c / 100, 0, 1), c >= 100

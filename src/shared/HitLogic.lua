@@ -12,6 +12,8 @@
 --   * Azure Dragon: energy gathered in the air multiplies power; overcharging sends it out.
 --   * Feral Leap: the gauge charged on the ground before the leap multiplies power; a full one
 --     leaping at the net smashes through a block with less Attack.
+--   * Ironclad (Taesan): a breakable Iron Wall while he has shields (ctx.ironclad); awakened
+--     (ctx.awakened), Forge's charge powers and widens his spike (input.metal, input.early).
 --   * Squall (Haneul): Eye of the Storm's hover charges the spike, and the charge is how deep it goes
 --     (input.gale: let go at once, just over the net; the whole charge, their back line).
 --   * Corona (Laith): Sundive, dropping onto the ball from above, multiplies power; Zenith bursts some
@@ -37,6 +39,7 @@ local ADRENALINE = Config.Abilities.Adrenaline
 local CHAIN = Config.Abilities.ChainReaction
 local VECTOR = Config.Abilities.Vector
 local FEATHER = Config.Abilities.Featherfall
+local IRON = Config.Abilities.Ironclad
 local PLUNGE = Config.Abilities.Plunge
 local TURN = Config.Abilities.Turnabout
 local SUN = Config.Abilities.RisingSun
@@ -129,8 +132,15 @@ function HitLogic.spikeReach(ability, gauge)
 		return Config.Abilities.ZeroPoint.ReachMul
 	elseif ability == "Squall" then
 		return SQUALL.ReachMul -- Shear
+	elseif ability == "Ironclad" then
+		return 1 + IRON.ReachMul * clamp(tonumber(gauge) or 0, 0, 1) -- Steel Reach (gauge: Forge's charge)
 	end
 	return 1
+end
+
+-- Ironclad: his shields (nil: a fresh entity's whole set); with none left he's awakened.
+function HitLogic.ironLives(lives)
+	return clamp(math.floor(tonumber(lives) or IRON.Lives), 0, IRON.Lives)
 end
 
 -- The serve toss: release point and velocity for a toss `height` studs up. `forward` (0..1)
@@ -717,7 +727,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local side = ctx.side
 	local ball, root, t = input.ball, input.root, input.t
 	if kind == "Spike" then
-		scale = scale * HitLogic.spikeReach(ctx.ability, input.gauge)
+		-- (Ironclad awakened: Forge's charge widens it)
+		local reach = input.gauge
+		if ctx.ability == "Ironclad" then
+			reach = ctx.awakened and (ctx.auto and IRON.AutoCharge or input.metal) or 0
+		end
+		scale = scale * HitLogic.spikeReach(ctx.ability, reach)
 	end
 	local ok, qContact, dz, dy = HitLogic.spikeZone(root, ball, side, stats, scale)
 	if not ok then
@@ -782,6 +797,17 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		feather = clamp((t - last.featherTop) / FEATHER.FullFall, 0, 1)
 		kmh = kmh * (1 + FEATHER.MaxBoost * feather)
 	end
+	-- Ironclad awakened: Forge's charge (input.metal, 0..1, the time he's been up), all of it off a
+	-- jump before his team's set (input.early), LateShare after; the AI gets AutoCharge
+	local metal = 0
+	if kind == "Spike" and ctx.ability == "Ironclad" and ctx.awakened then
+		if ctx.auto then
+			metal = IRON.AutoCharge
+		else
+			metal = clamp(tonumber(input.metal) or 0, 0, 1) * (input.early == true and 1 or IRON.LateShare)
+		end
+		kmh = kmh * (1 + IRON.MaxBoost * metal)
+	end
 	-- Squall: Eye of the Storm's hover charges the spike (input.gale, 0..1; the AI gets a share)
 	local gale = 0
 	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Squall" then
@@ -814,6 +840,10 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	meta.zenith = zenith or nil
 	if feather > 0 then
 		meta.feather = math.floor(feather * 100 + 0.5) / 100
+	end
+	if metal > 0 and not ctx.auto then
+		meta.metal = math.floor(metal * 100 + 0.5) / 100
+		meta.early = input.early == true or nil
 	end
 	if gale > 0 and not ctx.auto then
 		meta.gale = math.floor(gale * 100 + 0.5) / 100
@@ -956,7 +986,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		hold = ZERO.Freeze -- the freeze-frame cut-in
 	elseif meta.firstStrike then
 		hold = FERAL.FirstFreeze
-	elseif thunder or pierce or fullLeap or zenith or dive >= 0.7 or gale >= 0.95 then
+	elseif thunder or pierce or fullLeap or zenith or dive >= 0.7 or gale >= 0.95 or metal >= 0.9 then
 		hold = H.HitStopThunder
 	elseif q >= H.PerfectAt then
 		hold = H.HitStopPerfect
@@ -1198,7 +1228,12 @@ function HitLogic.compute(input, ctx)
 		-- Feral Leap: a full-gauge spike leaping at the net smashes through a blocker with less
 		-- Attack than the attacker had
 		local smash = last.hitType == "Spike" and type(last.breakAtk) == "number" and last.breakAtk > stats.Attack
-		if ctx.ironWall then
+		-- Ironclad's Bulwark (ctx.ironclad: he has shields): Iron Wall's, but an attack hard enough
+		-- (or piercing, or built to smash blocks) breaks through it and costs a shield (HitService)
+		local wallBreak = ctx.ironclad == true and last.hitType == "Spike" and (attackKmh >= IRON.BreakKmh or last.pierce == true or type(last.breakAtk) == "number")
+		if wallBreak then
+			smash = true
+		elseif ctx.ironWall then
 			-- Iron Wall: a perfect block, whatever reaches the hands (pierce, thunder and a Feral
 			-- smash included), wherever it meets them
 			stuffScore = 1
@@ -1208,7 +1243,8 @@ function HitLogic.compute(input, ctx)
 		local atk = -side
 		local meta = meta0("Block", clamp(q, 0, 1))
 		meta.attackKmh = attackKmh
-		meta.ironWall = ctx.ironWall or nil
+		meta.ironWall = (ctx.ironWall and not wallBreak) or nil
+		meta.wallBroken = wallBreak or nil
 		local p, v, a, hold = nil, nil, nil, 0
 		if smash then
 			-- through the hands and on down into the blockers' court, barely slowed: still a spike
@@ -1341,8 +1377,9 @@ function HitLogic.compute(input, ctx)
 				drain = drain * HitLogic.perfectDrainMul(incomingKmh)
 			end
 			if last.reaction then
-				-- the explosion itself: no timing saves you from it
-				drain = drain + (last.flatDrain or 0)
+				-- the explosion itself: no timing saves you from it, and it always breaks the guard
+				-- (the owner: "chain reaction spikes should always break stamina")
+				drain = math.max(drain + (last.flatDrain or 0), stam.value + 1)
 			end
 		end
 		if ctx.ability == "Counter" and touchN == 1 and last and last.team ~= ctx.team then
@@ -1368,7 +1405,7 @@ function HitLogic.compute(input, ctx)
 			meta.knock = knock > 0 and knock or nil
 		end
 
-		if heavy and stam.value <= 0 and incomingKmh >= ST.BreakFailKmh then
+		if heavy and stam.value <= 0 and (incomingKmh >= ST.BreakFailKmh or last.reaction) then
 			-- guard broken: the spike blasts straight off the arms and out behind
 			meta.fail = true
 			meta.grade = "BROKEN"

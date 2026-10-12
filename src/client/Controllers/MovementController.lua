@@ -473,6 +473,9 @@ function MovementController.airCancel(vy)
 	if vy <= 0 and State.myAbility() == "Squall" then
 		cancel = math.max(cancel, SQUALL.FallCancel)
 	end
+	if vy <= 0 and State.myAbility() == "Ironclad" and HitLogic.ironLives(player:GetAttribute("IronLives")) == 0 then
+		cancel = math.max(cancel, Config.Abilities.Ironclad.DescentCancel) -- awakened: Forge's slow fall
+	end
 	return cancel
 end
 

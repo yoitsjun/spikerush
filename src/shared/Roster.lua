@@ -10,6 +10,7 @@ local Roster = {
 	{ Id = "seojin", Name = "Seojin", Role = "WS", Tier = "S+", Height = 184, Attack = 210, Defense = 128, Speed = 140, Jump = 175, Ability = "Azure" },
 	{ Id = "taeha", Name = "Taeho", Role = "WS", Tier = "S+", Height = 187, Attack = 205, Defense = 122, Speed = 146, Jump = 182, Ability = "ZeroPoint" },
 	{ Id = "yejun", Name = "YeJun", Role = "WS", Tier = "S+", Height = 189, Attack = 210, Defense = 124, Speed = 146, Jump = 190, Ability = "Thunder" },
+	{ Id = "taesan", Name = "Taesan", Role = "MB", Tier = "S+", Height = 203, Attack = 186, Defense = 162, Speed = 112, Jump = 182, Ability = "Ironclad" },
 	{ Id = "daon", Name = "Daon", Role = "WS", Tier = "S", Height = 186, Attack = 176, Defense = 115, Speed = 124, Jump = 160, Ability = "RisingSun" },
 	{ Id = "ines", Name = "Ines", Role = "WS", Tier = "S", Height = 184, Attack = 170, Defense = 130, Speed = 138, Jump = 180, Ability = "Counter" },
 	{ Id = "seora", Name = "Seora", Role = "WS", Tier = "S", Height = 178, Attack = 196, Defense = 118, Speed = 150, Jump = 196, Ability = "Skyward" },

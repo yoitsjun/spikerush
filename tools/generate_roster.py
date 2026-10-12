@@ -47,6 +47,9 @@ FIXED = [
     {"Name": "Tetsuo", "Role": "MB", "Tier": "S", "Height": 201, "Attack": 166, "Defense": 158, "Speed": 112, "Jump": 178, "Ability": "IronWall"},
     {"Name": "Seoyeon", "Role": "SE", "Tier": "S", "Height": 176, "Attack": 128, "Defense": 172, "Speed": 178, "Jump": 140, "Ability": "ChainReaction"},
     # the second wave of S abilities (original characters; the owner described the ideas)
+    # Ironclad (the owner: an S+ middle blocker with a passive Iron Wall of 3 shields who awakens into
+    # a hitter): a tall wall with a hitter's Attack for the awakened spike
+    {"Name": "Taesan", "Role": "MB", "Tier": "S+", "Height": 203, "Attack": 186, "Defense": 162, "Speed": 112, "Jump": 182, "Ability": "Ironclad"},
     # Featherfall (the owner: "a setter that works well. a setter that sets high and the ball drops
     # slowly, the longer it drops the harder your spike gets"): quick and steady hands
     {"Name": "Arin", "Role": "SE", "Tier": "S", "Height": 175, "Attack": 128, "Defense": 170, "Speed": 176, "Jump": 140, "Ability": "Featherfall"},

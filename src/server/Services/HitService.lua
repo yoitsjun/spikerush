@@ -51,6 +51,12 @@ local rushAt = {} -- entityId -> os.clock()
 local hoverAt = {} -- entityId -> os.clock()
 local hoverCap = {} -- entityId -> { gale, at }
 local RUSH_LIFE, HOVER_LIFE = 2, 1.5
+-- Ironclad: when the server heard him leave the floor, and whether that was before his team's set
+-- (Forge: his spike claims no more charge than the time he's been up)
+local IRON = Config.Abilities.Ironclad
+local ironJumpAt = {} -- entityId -> os.clock()
+local ironEarly = {} -- entityId -> bool
+local IRON_LIFE = 4
 
 -- Seconds since this player last tried to play the ball (a receive stance, slide, jump, block,
 -- charge or any touch request). Bots covering a human's ball hold off while this is small.
@@ -225,7 +231,9 @@ function HitService.process(entity, input, opts)
 		groundY = TS.groundY(entity),
 		stamina = TS.staminaOf(team),
 		forceQuality = opts.forceQuality,
-		ironWall = action == "Block" and entity.ability == "IronWall" and armed or nil,
+		ironWall = action == "Block" and ((entity.ability == "IronWall" and armed) or (entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) > 0)) or nil,
+		ironclad = entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) > 0 or nil,
+		awakened = entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) == 0 or nil,
 		enemyPoints = (MS.scores or {})[Court.other(team)] or 0,
 		teamBoost = (TS.rallyUntil[team] or -1) >= input.t - 0.05 or nil,
 		counter = entity.ability == "Counter" and (entity.counter or 0) or nil,
@@ -269,6 +277,21 @@ function HitService.process(entity, input, opts)
 	end
 	if meta.reaction then
 		TS.setChain(team, (TS.chain[team] or 0) + 1) -- the next explosion this rally is bigger
+	end
+	if entity.ability == "Ironclad" then
+		-- Bulwark: a block broken through costs a shield (none left: awakened); awakened, every touch
+		-- fills Intimidation, and full brings the shields back
+		local lives = HitLogic.ironLives(entity.ironLives)
+		if meta.wallBroken then
+			TS.setIron(entity, lives - 1, 0)
+		elseif lives == 0 then
+			local m = (entity.intimidation or 0) + IRON.MeterPerTouch
+			if m >= 100 then
+				TS.setIron(entity, IRON.Lives, 0)
+			else
+				TS.setIron(entity, 0, m)
+			end
+		end
 	end
 	if meta.counterGain then
 		TS.setCounter(entity, math.min(100, (entity.counter or 0) + meta.counterGain))
@@ -411,9 +434,17 @@ function HitService.onRequest(plr, req)
 		end
 		hoverCap[entity.id], hoverAt[entity.id] = nil, nil
 	end
+	-- Ironclad (awakened): Forge's charge needs a jump the server heard, no more than he's been up
+	local metal, early = nil, nil
+	if entity.ability == "Ironclad" and req.action == "Spike" and ironJumpAt[entity.id] and os.clock() - ironJumpAt[entity.id] <= IRON_LIFE then
+		metal = math.min(num(req.metal, 0, 1, 0), (os.clock() - ironJumpAt[entity.id]) / IRON.ChargeTime + IRON.ChargeSlack)
+		early = req.early == true and ironEarly[entity.id] == true
+	end
 	local H = Config.Hits
 	local input = {
 		second = second or nil,
+		metal = metal,
+		early = early,
 		gale = gale,
 		action = req.action,
 		t = req.t,
@@ -591,6 +622,13 @@ function HitService.init(r)
 			local root = reg.TeamService.getRoot(e)
 			diveFrom[e.id] = root and root.Position.Y or 0
 		end
+		if e.ability == "Ironclad" and kind == "Jump" then
+			-- Forge: when he left the floor, and whether his team had set yet (a set only just made
+			-- still counts as after his jump: EarlyGrace)
+			local last = reg.BallService.lastHit
+			ironJumpAt[e.id] = os.clock()
+			ironEarly[e.id] = not (last and last.hitType == "Set" and last.team == e.team and Util.now() - (tonumber(last.t) or 0) > IRON.EarlyGrace)
+		end
 		if e.ability == "Squall" then
 			local now = os.clock()
 			if kind == "Rush" or kind == "RushJump" then
@@ -642,6 +680,8 @@ function HitService.init(r)
 		rushAt[id] = nil
 		hoverAt[id] = nil
 		hoverCap[id] = nil
+		ironJumpAt[id] = nil
+		ironEarly[id] = nil
 	end)
 end
 

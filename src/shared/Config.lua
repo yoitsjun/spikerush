@@ -1031,6 +1031,46 @@ Config.Abilities = {
 		AttackBonus = 18, -- stat points while active
 		JumpBonus = 16,
 	},
+	-- Taesan (the owner: an S+ middle blocker "with the iron wall ability but as a passive. he has 3
+	-- lives, and each time his block gets broken he loses 1. after he loses all 3 lives, he awakens
+	-- and he becomes more of an offensive based hitter. jumping before the ball is set, he hovers
+	-- midair and charges. this can reach maybe 210 220? you decide. jumping after the ball nets him
+	-- less buff. touching the ball after this point grants him [10%] of his intidimadtion meter
+	-- back. once full, he regains his block lives", "make him visually lose a shield"). Our names
+	-- (CLAUDE.md): Ironclad; Bulwark the wall, Awakening the turn, Forge the hover and charge,
+	-- Steel Reach, Intimidation the meter.
+	Ironclad = {
+		Name = "Ironclad",
+		Tier = "S+",
+		Role = "MB",
+		Blurb = "Bulwark: while you have shields (3), you're Iron Wall at the net, always. An attack of 150 km/h or more breaks through and costs a shield. With none left you awaken: a jump before the set hangs and charges a spike up to about 215 km/h. Every touch then fills Intimidation by 10%; full, your shields are back.",
+		Kind = "Passive: shields, then awakened",
+		Color = Color3.fromRGB(255, 112, 52), -- awakened: molten
+		WallColor = Color3.fromRGB(170, 200, 235), -- the shields: steel
+		Lives = 3,
+		-- Bulwark: Iron Wall's perfect shut-down while he has shields, but an attack this fast (or a
+		-- piercing or block-smashing one) breaks through it, barely slowed, and costs a shield
+		BreakKmh = 150,
+		MeterPerTouch = 10, -- awakened: each touch fills Intimidation this much (of 100)
+		-- Forge (awakened): off the floor his fall is slow (part of gravity off on the way down) and
+		-- the spike charges with the time he's been up; a jump before his team's set gets all of it,
+		-- one after it LateShare
+		DescentCancel = 0.7,
+		ChargeTime = 1.2, -- seconds in the air for the whole charge
+		MaxBoost = 0.68, -- spike speed x (1 + this x the charge): about 215 km/h maxed
+		LateShare = 0.3,
+		ChargeSlack = 0.15, -- charge a spike may claim over the time the server saw him up
+		EarlyGrace = 0.35, -- a jump this soon after the set still counts as before it (latency)
+		ReachMul = 0.35, -- Steel Reach: his spike reaches up to 1 + this x the charge wider
+		AutoCharge = 0.5, -- the AI awakened: its spikes get this much of the full charge
+		Passives = {
+			{ Name = "Bulwark", Blurb = "3 shields: while you have one you're an Iron Wall at the net. An attack of 150 km/h or more breaks through and shatters a shield." },
+			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: your fall is slow and your jump charges your spike." },
+			{ Name = "Forge", Blurb = "Awakened, jump before the set and hang: the longer you're up, the harder the spike (up to +68%). Jumping after the set gets 30% of it." },
+			{ Name = "Steel Reach", Blurb = "Awakened, the charge widens your spike's reach (up to 35%)." },
+			{ Name = "Intimidation", Blurb = "Awakened, every touch fills the meter 10%. Full: your 3 shields are back." },
+		},
+	},
 	IronWall = {
 		Name = "Iron Wall",
 		Tier = "S",
@@ -1259,7 +1299,7 @@ Config.Retired = {
 	TicketTier = "S",
 }
 
-Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Corona", "Squall", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Featherfall", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Corona", "Squall", "Ironclad", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Featherfall", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },

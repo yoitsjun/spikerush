@@ -46,6 +46,7 @@ local AZURE = Config.Abilities.Azure
 local FERAL = Config.Abilities.Feral
 local CORONA = Config.Abilities.Corona
 local SQUALL = Config.Abilities.Squall
+local IRON = Config.Abilities.Ironclad
 local BUFFER = 0.14 -- how long a set press waits for the ball
 -- A spike pressed in the air commits the swing: if the ball will reach your hand within this
 -- long (your jump and the ball both predicted), the swing waits for it instead of whiffing.
@@ -77,6 +78,8 @@ local leap = { gauge = 0, toward = false, at = -10 }
 local rush = nil -- { t0, kind }
 local hover = nil -- { t0, kind }
 local hoverUsed = false
+-- Ironclad: when this jump left the floor and whether his team had set yet (Forge's charge)
+local forge = { t0 = nil, early = false }
 local isSquall, startRush, endRush, releaseRush, processRush, startHover, endHover, releaseHover, processHover
 
 local REASONS = {
@@ -134,7 +137,9 @@ local function buildCtx(info, action, t)
 		ability = ability,
 		groundY = info.groundY,
 		stamina = State.stamina(State.myTeam),
-		ironWall = action == "Block" and ability == "IronWall" and ActionController.abilityActive() or nil,
+		ironWall = action == "Block" and ((ability == "IronWall" and ActionController.abilityActive()) or ActionController.bulwark()) or nil,
+		ironclad = ActionController.bulwark() or nil,
+		awakened = ability == "Ironclad" and not ActionController.bulwark() or nil,
 		enemyPoints = State.enemyPoints(State.myTeam),
 		teamBoost = State.rallyOn(State.myTeam, t) or nil,
 		counter = ability == "Counter" and (player:GetAttribute("Counter") or 0) or nil,
@@ -158,6 +163,19 @@ function ActionController.abilityActive()
 	local serverUntil = player:GetAttribute("AbilityUntil") or -1
 	local now = Util.now()
 	return now <= math.max(serverUntil, localAbilityUntil)
+end
+
+-- Ironclad: he still has shields (Bulwark: an Iron Wall at the net).
+function ActionController.bulwark()
+	return State.myAbility() == "Ironclad" and HitLogic.ironLives(player:GetAttribute("IronLives")) > 0
+end
+
+-- Ironclad awakened: Forge's charge this jump (0..1), and whether he jumped before the set.
+function ActionController.forgeCharge()
+	if State.myAbility() ~= "Ironclad" or ActionController.bulwark() or not forge.t0 then
+		return 0, false
+	end
+	return math.clamp((os.clock() - forge.t0) / IRON.ChargeTime, 0, 1), forge.early
 end
 
 -- 0 when ready, else seconds of cooldown left.
@@ -346,9 +364,17 @@ local function execute(action, info, opts, t, ballPos)
 		aimDepth = opts.aimDepth,
 		aimHeight = opts.aimHeight,
 		gale = opts.gale, -- (Squall: the hover's charge: its power and how deep it goes)
+		metal = nil, -- (Ironclad awakened: Forge's charge, and whether it began before the set)
+		early = nil,
 	}
 	if (action == "Spike" or action == "Serve") and ctx.ability == "Feral" and leap.gauge > 0 then
 		input.gauge, input.toward = leap.gauge, leap.toward
+	end
+	if action == "Spike" and ctx.awakened then
+		local m, e = ActionController.forgeCharge()
+		if m > 0 then
+			input.metal, input.early = m, e
+		end
 	end
 	local ok, result = HitLogic.compute(input, ctx)
 	if not ok then
@@ -393,6 +419,8 @@ local function execute(action, info, opts, t, ballPos)
 		gauge = input.gauge,
 		toward = input.toward,
 		gale = input.gale,
+		metal = input.metal,
+		early = input.early,
 	})
 	lastActionAt = os.clock()
 	buffered = nil
@@ -580,7 +608,7 @@ local function tryAttack(action, info, opts)
 	end
 	local scale = ATTACK_SCALE[action] or 1
 	if action == "Spike" then
-		scale = scale * HitLogic.spikeReach(State.myAbility(), leap.gauge) -- Feral Leap reaches wider (wider still off a leap)
+		scale = scale * HitLogic.spikeReach(State.myAbility(), State.myAbility() == "Ironclad" and (ActionController.forgeCharge()) or leap.gauge) -- Feral Leap reaches wider (wider still off a leap); Ironclad's Forge too
 	end
 	local nz, ny = zoneOffset(info.root, ball, scale)
 	local d = math.sqrt(nz * nz + ny * ny)
@@ -1469,7 +1497,7 @@ end
 
 local function processBlock(info, now)
 	-- Iron Wall up: you're a wall at the net, jumping or not (no block press or timing needed)
-	local iron = State.myAbility() == "IronWall" and ActionController.abilityActive()
+	local iron = (State.myAbility() == "IronWall" and ActionController.abilityActive()) or ActionController.bulwark()
 	if not block.active and not iron then
 		return
 	end
@@ -1661,7 +1689,7 @@ local function evaluate(info, now)
 		if isSquall() then
 			ctx.spikeLabel = hover and "Swing" or (not hoverUsed and "Hover") or "Spike"
 		end
-		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReach(State.myAbility(), leap.gauge)))
+		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReach(State.myAbility(), State.myAbility() == "Ironclad" and (ActionController.forgeCharge()) or leap.gauge)))
 		-- Corona: a Sundive is there to take (the HUD says Dive, and its path is drawn)
 		if State.myAbility() == "Corona" and ok and not ctx.inZone and not mods.MovementController.isDiving() then
 			local target, _, meet = divePlan(info, now)
@@ -1702,6 +1730,12 @@ function ActionController.init(m)
 			if not hover then
 				hoverUsed = false
 			end
+			forge.t0 = nil
+		elseif info and not forge.t0 then
+			-- Ironclad: off the floor; before his team's set? (Forge)
+			local m = mods.BallRenderer.getMeta()
+			forge.t0 = os.clock()
+			forge.early = not (m and m.hitType == "Set" and m.team == State.myTeam)
 		end
 		if info and State.isPlaying then
 			processRush(info, now)

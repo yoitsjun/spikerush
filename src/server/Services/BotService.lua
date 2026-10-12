@@ -874,6 +874,11 @@ local function rallyCry(b, now)
 	end
 end
 
+-- Iron Wall's window is up, or Ironclad still has shields.
+local function wallUp(e, now)
+	return (e.ability == "IronWall" and (e.abilityUntil or -1) >= now) or (e.ability == "Ironclad" and HitLogic.ironLives(e.ironLives) > 0)
+end
+
 local function blockCheck(b, now, root, side)
 	local BS = reg.BallService
 	local last = BS.lastHit
@@ -881,7 +886,7 @@ local function blockCheck(b, now, root, side)
 		return
 	end
 	local t, p = sweep(b, BS.path, now, function(pos, vel)
-		local iron = b.entity.ability == "IronWall" and (b.entity.abilityUntil or -1) >= now
+		local iron = wallUp(b.entity, now)
 		return vel.Z * side > 0 and (HitLogic.blockBox(root, pos, side, b.entity.charStats, iron))
 	end)
 	if t then
@@ -1125,8 +1130,9 @@ local function updateBot(b, now)
 			blockCheck(b, now, root, side)
 		end
 	end
-	-- Iron Wall up: a wall at the net whatever it's doing (blockCheck's box covers any height then)
-	if b.entity.ability == "IronWall" and (b.entity.abilityUntil or -1) >= now and not (task == "Block" and not grounded) then
+	-- Iron Wall up (or Ironclad's Bulwark): a wall at the net whatever it's doing (blockCheck's box
+	-- covers any height then)
+	if wallUp(b.entity, now) and not (task == "Block" and not grounded) then
 		blockCheck(b, now, root, side)
 	end
 	b.lastCheck = now

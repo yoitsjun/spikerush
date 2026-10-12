@@ -1721,6 +1721,7 @@ local STATUS = {
 	Edge = { fire = { Color3.fromRGB(255, 255, 255), Config.Abilities.Counter.Color }, rate = 30, size = 1.4 },
 	Corona = { fire = { Color3.fromRGB(255, 250, 215), Config.Abilities.Corona.Color }, rate = 26, fill = Color3.fromRGB(255, 200, 80), edge = Color3.fromRGB(255, 236, 160) },
 	Squall = { fire = { Color3.fromRGB(235, 255, 250), Config.Abilities.Squall.Color }, rate = 24, fill = Color3.fromRGB(60, 200, 175), edge = Color3.fromRGB(190, 255, 240) },
+	Molten = { fire = { Color3.fromRGB(255, 220, 140), Config.Abilities.Ironclad.Color }, rate = 30, fill = Color3.fromRGB(255, 90, 30), edge = Color3.fromRGB(255, 180, 90) },
 }
 
 -- Iron Wall: a glassy barrier above the middle's hands for the ability's duration.
@@ -2169,214 +2170,329 @@ end
 -- Squall (Haneul): Tailwind's rush and spring, Downdraft, Eye of the Storm's hover and target
 ------------------------------------------------------------------------------------------
 
-local SQ = Config.Abilities.Squall
-local winds = {} -- entityId -> { rush = { trail, a0, a1, lastPuff }, hover = { att, emitter, light, t0, full } }
+local updateWinds
+do
+	local SQ = Config.Abilities.Squall
+	local winds = {} -- entityId -> { rush = { trail, a0, a1, lastPuff }, hover = { att, emitter, light, t0, full } }
 
-local function windOf(entityId)
-	local w = winds[entityId]
-	if not w then
-		w = {}
-		winds[entityId] = w
-	end
-	return w
-end
-
--- Tailwind's rush: a streak of wind behind her and dust kicked up as she runs (on while `on`).
-function VFXController.rush(entityId, on)
-	local w = windOf(entityId)
-	local hrp = Util.rootOf(entityId)
-	if on and hrp and not w.rush then
-		local a0 = Instance.new("Attachment")
-		a0.Position = Vector3.new(0, 1.2, 0)
-		a0.Parent = hrp
-		local a1 = Instance.new("Attachment")
-		a1.Position = Vector3.new(0, -2.2, 0)
-		a1.Parent = hrp
-		local trail = Instance.new("Trail")
-		trail.Attachment0, trail.Attachment1 = a0, a1
-		trail.Lifetime = 0.3
-		trail.MinLength = 0.05
-		trail.FaceCamera = true
-		trail.LightEmission = 0.8
-		trail.Color = ColorSequence.new(Color3.fromRGB(240, 255, 252), SQ.Color)
-		trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 1) })
-		trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.3) })
-		trail.Parent = hrp
-		w.rush = { trail = trail, a0 = a0, a1 = a1, lastPuff = 0 }
-		emit("Dust", Vector3.new(hrp.Position.X, 0.4, hrp.Position.Z), 10)
-	elseif not on and w.rush then
-		local r = w.rush
-		w.rush = nil
-		r.trail.Enabled = false
-		task.delay(0.4, function()
-			r.trail:Destroy()
-			r.a0:Destroy()
-			r.a1:Destroy()
-		end)
-	end
-end
-
--- Tailwind's spring: a wind spiral up from her feet; Downdraft rings at the other team's feet.
-function VFXController.rushJump(entityId)
-	local hrp = Util.rootOf(entityId)
-	if not hrp then
-		return
-	end
-	local pos = hrp.Position
-	meshFx("FX_Spiral", CFrame.new(pos.X, 0.2, pos.Z), SQ.Color, 0.4, 1.2, 0.45, { base = true, spin = 540, alpha = 0.15 })
-	floorRing(pos, Color3.fromRGB(220, 255, 248), 6, 0.4)
-	emit("Dust", Vector3.new(pos.X, 0.4, pos.Z), 14)
-	local team = State.teamOf(entityId)
-	for _, other in ipairs(Config.TeamOrder) do
-		if other ~= team then
-			for _, e in ipairs(State.roster(other)) do
-				local r = Util.rootOf(e.id)
-				if r then
-					floorRing(r.Position, Color3.fromRGB(140, 190, 210), 4, 0.5)
-					meshFx("FX_Ring", CFrame.new(r.Position.X, 3.5, r.Position.Z), Color3.fromRGB(170, 215, 230), 0.6, 0.2, 0.5, { alpha = 0.3 })
-				end
-			end
+	local function windOf(entityId)
+		local w = winds[entityId]
+		if not w then
+			w = {}
+			winds[entityId] = w
 		end
+		return w
 	end
-	if mods and mods.AudioController.hearsMatch() then
-		mods.AudioController.play("Whoosh", { volume = 0.7, speed = 1.3, pos = pos, minGap = 0.1 })
-	end
-end
 
--- Eye of the Storm: a spinning swirl of wind round her while she hovers, growing as it charges and
--- flaring once it's full.
-function VFXController.hover(entityId, on)
-	local w = windOf(entityId)
-	local hrp = Util.rootOf(entityId)
-	if on and hrp and not w.hover then
-		local att = Instance.new("Attachment")
-		att.Name = "SquallHover"
-		att.Parent = hrp
-		local e = Instance.new("ParticleEmitter")
-		e.Texture = Assets.id(Assets.Fx.Wind) or ""
-		e.LockedToPart = true
-		e.Rate = 26
-		e.Lifetime = NumberRange.new(0.35, 0.5)
-		e.Speed = NumberRange.new(0)
-		e.Rotation = NumberRange.new(0, 360)
-		e.RotSpeed = NumberRange.new(420, 640)
-		e.LightEmission = 0.9
-		e.Color = ColorSequence.new(Color3.fromRGB(235, 255, 250), SQ.Color)
-		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3.5), NumberSequenceKeypoint.new(1, 6) })
-		e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1) })
-		e.Parent = att
-		local light = Instance.new("PointLight")
-		light.Color = SQ.Color
-		light.Range = 10
-		light.Brightness = 1.5
-		light.Parent = att
-		w.hover = { att = att, emitter = e, light = light, t0 = os.clock(), full = false }
-		ringFx(hrp.Position, SQ.Color, 1, 8, 0.3, 6)
-		if mods and mods.AudioController.hearsMatch() then
-			mods.AudioController.play("Whoosh", { volume = 0.5, speed = 0.75, pos = hrp.Position, minGap = 0.1 })
-		end
-	elseif not on and w.hover then
-		local h = w.hover
-		w.hover = nil
-		h.emitter.Enabled = false
-		h.light.Enabled = false
-		task.delay(0.6, function()
-			h.att:Destroy()
-		end)
-	end
-end
-
--- Eye of the Storm's target on their court (only she sees it): a disc on the floor and a column of
--- wind light above it, brighter as the hover charges (k 0..1). nil hides it.
-local aim = nil
-function VFXController.aimMarker(pos, k)
-	if not pos then
-		if aim and aim.holder.Parent then
-			aim.holder.Parent = nil
-		end
-		return
-	end
-	if not aim then
-		local holder = Instance.new("Model")
-		holder.Name = "SquallAim"
-		local function part(shape)
-			local p = Instance.new("Part")
-			p.Shape = shape
-			p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
-			p.Material = Enum.Material.Neon
-			p.Color = SQ.Color
-			p.Parent = holder
-			return p
-		end
-		local disc = part(Enum.PartType.Cylinder)
-		local dot = part(Enum.PartType.Cylinder)
-		dot.Color = Color3.fromRGB(240, 255, 252)
-		local base = part(Enum.PartType.Block)
-		base.Transparency = 1
-		base.Size = Vector3.new(0.2, 0.2, 0.2)
-		local a0 = Instance.new("Attachment")
-		a0.Parent = base
-		local a1 = Instance.new("Attachment")
-		a1.Position = Vector3.new(0, 16, 0)
-		a1.Parent = base
-		local column = Instance.new("Beam")
-		column.Attachment0, column.Attachment1 = a0, a1
-		column.FaceCamera = true
-		column.LightEmission = 1
-		column.LightInfluence = 0
-		column.Segments = 1
-		column.Width0, column.Width1 = 2.6, 1.2
-		column.Color = ColorSequence.new(SQ.Color, Color3.fromRGB(235, 255, 250))
-		column.Parent = base
-		aim = { holder = holder, disc = disc, dot = dot, base = base, column = column }
-	end
-	if aim.holder.Parent ~= fxFolder then
-		aim.holder.Parent = fxFolder
-	end
-	k = math.clamp(k or 0, 0, 1)
-	local pulse = 0.5 + 0.5 * math.sin(os.clock() * 12)
-	local floor = Vector3.new(pos.X, 0.12, pos.Z)
-	local r = 4.5 + 1.5 * k
-	aim.disc.Size = Vector3.new(0.1, r, r)
-	aim.disc.CFrame = CFrame.new(floor) * CFrame.Angles(0, 0, math.pi / 2)
-	aim.disc.Transparency = 0.45 - 0.2 * k
-	aim.dot.Size = Vector3.new(0.14, 1.4 + 0.4 * pulse, 1.4 + 0.4 * pulse)
-	aim.dot.CFrame = CFrame.new(floor + Vector3.new(0, 0.03, 0)) * CFrame.Angles(0, 0, math.pi / 2)
-	aim.base.CFrame = CFrame.new(floor)
-	local t = 0.55 - 0.3 * k
-	aim.column.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, t), NumberSequenceKeypoint.new(1, 1) })
-end
-
-local function updateWinds()
-	for id, w in pairs(winds) do
-		local hrp = Util.rootOf(id)
-		if not hrp then
-			if w.rush then
-				VFXController.rush(id, false)
-			end
-			if w.hover then
-				VFXController.hover(id, false)
-			end
-			winds[id] = nil
-		else
+	-- Tailwind's rush: a streak of wind behind her and dust kicked up as she runs (on while `on`).
+	function VFXController.rush(entityId, on)
+		local w = windOf(entityId)
+		local hrp = Util.rootOf(entityId)
+		if on and hrp and not w.rush then
+			local a0 = Instance.new("Attachment")
+			a0.Position = Vector3.new(0, 1.2, 0)
+			a0.Parent = hrp
+			local a1 = Instance.new("Attachment")
+			a1.Position = Vector3.new(0, -2.2, 0)
+			a1.Parent = hrp
+			local trail = Instance.new("Trail")
+			trail.Attachment0, trail.Attachment1 = a0, a1
+			trail.Lifetime = 0.3
+			trail.MinLength = 0.05
+			trail.FaceCamera = true
+			trail.LightEmission = 0.8
+			trail.Color = ColorSequence.new(Color3.fromRGB(240, 255, 252), SQ.Color)
+			trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 1) })
+			trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.3) })
+			trail.Parent = hrp
+			w.rush = { trail = trail, a0 = a0, a1 = a1, lastPuff = 0 }
+			emit("Dust", Vector3.new(hrp.Position.X, 0.4, hrp.Position.Z), 10)
+		elseif not on and w.rush then
 			local r = w.rush
-			if r and math.abs(hrp.AssemblyLinearVelocity.Z) > 12 and os.clock() - r.lastPuff > 0.09 then
-				r.lastPuff = os.clock()
-				emit("Dust", Vector3.new(hrp.Position.X, 0.4, hrp.Position.Z), 3)
+			w.rush = nil
+			r.trail.Enabled = false
+			task.delay(0.4, function()
+				r.trail:Destroy()
+				r.a0:Destroy()
+				r.a1:Destroy()
+			end)
+		end
+	end
+
+	-- Tailwind's spring: a wind spiral up from her feet; Downdraft rings at the other team's feet.
+	function VFXController.rushJump(entityId)
+		local hrp = Util.rootOf(entityId)
+		if not hrp then
+			return
+		end
+		local pos = hrp.Position
+		meshFx("FX_Spiral", CFrame.new(pos.X, 0.2, pos.Z), SQ.Color, 0.4, 1.2, 0.45, { base = true, spin = 540, alpha = 0.15 })
+		floorRing(pos, Color3.fromRGB(220, 255, 248), 6, 0.4)
+		emit("Dust", Vector3.new(pos.X, 0.4, pos.Z), 14)
+		local team = State.teamOf(entityId)
+		for _, other in ipairs(Config.TeamOrder) do
+			if other ~= team then
+				for _, e in ipairs(State.roster(other)) do
+					local r = Util.rootOf(e.id)
+					if r then
+						floorRing(r.Position, Color3.fromRGB(140, 190, 210), 4, 0.5)
+						meshFx("FX_Ring", CFrame.new(r.Position.X, 3.5, r.Position.Z), Color3.fromRGB(170, 215, 230), 0.6, 0.2, 0.5, { alpha = 0.3 })
+					end
+				end
 			end
+		end
+		if mods and mods.AudioController.hearsMatch() then
+			mods.AudioController.play("Whoosh", { volume = 0.7, speed = 1.3, pos = pos, minGap = 0.1 })
+		end
+	end
+
+	-- Eye of the Storm: a spinning swirl of wind round her while she hovers, growing as it charges and
+	-- flaring once it's full.
+	function VFXController.hover(entityId, on)
+		local w = windOf(entityId)
+		local hrp = Util.rootOf(entityId)
+		if on and hrp and not w.hover then
+			local att = Instance.new("Attachment")
+			att.Name = "SquallHover"
+			att.Parent = hrp
+			local e = Instance.new("ParticleEmitter")
+			e.Texture = Assets.id(Assets.Fx.Wind) or ""
+			e.LockedToPart = true
+			e.Rate = 26
+			e.Lifetime = NumberRange.new(0.35, 0.5)
+			e.Speed = NumberRange.new(0)
+			e.Rotation = NumberRange.new(0, 360)
+			e.RotSpeed = NumberRange.new(420, 640)
+			e.LightEmission = 0.9
+			e.Color = ColorSequence.new(Color3.fromRGB(235, 255, 250), SQ.Color)
+			e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3.5), NumberSequenceKeypoint.new(1, 6) })
+			e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1) })
+			e.Parent = att
+			local light = Instance.new("PointLight")
+			light.Color = SQ.Color
+			light.Range = 10
+			light.Brightness = 1.5
+			light.Parent = att
+			w.hover = { att = att, emitter = e, light = light, t0 = os.clock(), full = false }
+			ringFx(hrp.Position, SQ.Color, 1, 8, 0.3, 6)
+			if mods and mods.AudioController.hearsMatch() then
+				mods.AudioController.play("Whoosh", { volume = 0.5, speed = 0.75, pos = hrp.Position, minGap = 0.1 })
+			end
+		elseif not on and w.hover then
 			local h = w.hover
-			if h then
-				local k = math.clamp((os.clock() - h.t0) / SQ.ChargeTime, 0, 1)
-				h.emitter.Rate = 26 + 34 * k
-				h.light.Brightness = 1.5 + 2.5 * k
-				if k >= 1 and not h.full then
-					h.full = true -- charged: a flare
-					starburst(hrp.Position, Color3.fromRGB(235, 255, 250), 9)
-					ringFx(hrp.Position, SQ.Color, 1, 10, 0.3, 6)
+			w.hover = nil
+			h.emitter.Enabled = false
+			h.light.Enabled = false
+			task.delay(0.6, function()
+				h.att:Destroy()
+			end)
+		end
+	end
+
+	-- Eye of the Storm's target on their court (only she sees it): a disc on the floor and a column of
+	-- wind light above it, brighter as the hover charges (k 0..1). nil hides it.
+	local aim = nil
+	function VFXController.aimMarker(pos, k)
+		if not pos then
+			if aim and aim.holder.Parent then
+				aim.holder.Parent = nil
+			end
+			return
+		end
+		if not aim then
+			local holder = Instance.new("Model")
+			holder.Name = "SquallAim"
+			local function part(shape)
+				local p = Instance.new("Part")
+				p.Shape = shape
+				p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
+				p.Material = Enum.Material.Neon
+				p.Color = SQ.Color
+				p.Parent = holder
+				return p
+			end
+			local disc = part(Enum.PartType.Cylinder)
+			local dot = part(Enum.PartType.Cylinder)
+			dot.Color = Color3.fromRGB(240, 255, 252)
+			local base = part(Enum.PartType.Block)
+			base.Transparency = 1
+			base.Size = Vector3.new(0.2, 0.2, 0.2)
+			local a0 = Instance.new("Attachment")
+			a0.Parent = base
+			local a1 = Instance.new("Attachment")
+			a1.Position = Vector3.new(0, 16, 0)
+			a1.Parent = base
+			local column = Instance.new("Beam")
+			column.Attachment0, column.Attachment1 = a0, a1
+			column.FaceCamera = true
+			column.LightEmission = 1
+			column.LightInfluence = 0
+			column.Segments = 1
+			column.Width0, column.Width1 = 2.6, 1.2
+			column.Color = ColorSequence.new(SQ.Color, Color3.fromRGB(235, 255, 250))
+			column.Parent = base
+			aim = { holder = holder, disc = disc, dot = dot, base = base, column = column }
+		end
+		if aim.holder.Parent ~= fxFolder then
+			aim.holder.Parent = fxFolder
+		end
+		k = math.clamp(k or 0, 0, 1)
+		local pulse = 0.5 + 0.5 * math.sin(os.clock() * 12)
+		local floor = Vector3.new(pos.X, 0.12, pos.Z)
+		local r = 4.5 + 1.5 * k
+		aim.disc.Size = Vector3.new(0.1, r, r)
+		aim.disc.CFrame = CFrame.new(floor) * CFrame.Angles(0, 0, math.pi / 2)
+		aim.disc.Transparency = 0.45 - 0.2 * k
+		aim.dot.Size = Vector3.new(0.14, 1.4 + 0.4 * pulse, 1.4 + 0.4 * pulse)
+		aim.dot.CFrame = CFrame.new(floor + Vector3.new(0, 0.03, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+		aim.base.CFrame = CFrame.new(floor)
+		local t = 0.55 - 0.3 * k
+		aim.column.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, t), NumberSequenceKeypoint.new(1, 1) })
+	end
+
+	updateWinds = function()
+		for id, w in pairs(winds) do
+			local hrp = Util.rootOf(id)
+			if not hrp then
+				if w.rush then
+					VFXController.rush(id, false)
+				end
+				if w.hover then
+					VFXController.hover(id, false)
+				end
+				winds[id] = nil
+			else
+				local r = w.rush
+				if r and math.abs(hrp.AssemblyLinearVelocity.Z) > 12 and os.clock() - r.lastPuff > 0.09 then
+					r.lastPuff = os.clock()
+					emit("Dust", Vector3.new(hrp.Position.X, 0.4, hrp.Position.Z), 3)
+				end
+				local h = w.hover
+				if h then
+					local k = math.clamp((os.clock() - h.t0) / SQ.ChargeTime, 0, 1)
+					h.emitter.Rate = 26 + 34 * k
+					h.light.Brightness = 1.5 + 2.5 * k
+					if k >= 1 and not h.full then
+						h.full = true -- charged: a flare
+						starburst(hrp.Position, Color3.fromRGB(235, 255, 250), 9)
+						ringFx(hrp.Position, SQ.Color, 1, 10, 0.3, 6)
+					end
 				end
 			end
 		end
 	end
+
+end
+
+------------------------------------------------------------------------------------------
+-- Ironclad (Taesan): Bulwark's shields float by him; a broken block shatters one (the owner: "make
+-- him visually lose a shield"); the last one gone, he awakens; a full Intimidation brings them back
+------------------------------------------------------------------------------------------
+
+local updateIronclad
+do
+	local IRON = Config.Abilities.Ironclad
+	local shieldGuis = {} -- model -> { gui, icons = { ImageLabel }, lives }
+
+	local function shatterShield(model, icon)
+		-- the shield flies up and off, spinning and fading, while steel shards burst where he is
+		local hrp = model:FindFirstChild("HumanoidRootPart")
+		local dir = math.random() < 0.5 and -1 or 1
+		TweenService:Create(icon, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = icon.Position + UDim2.fromScale(0.25 * dir, -0.9),
+			Rotation = 70 * dir,
+			ImageTransparency = 1,
+		}):Play()
+		if hrp then
+			local pos = hrp.Position + Vector3.new(0, 4, 0)
+			shards(pos, IRON.WallColor, 16, 45)
+			ringFx(pos, IRON.WallColor, 1, 7, 0.3, 5)
+			Fx.play("Glints", pos, { color = Color3.fromRGB(235, 245, 255) })
+			if mods and mods.AudioController.hearsMatch() then
+				mods.AudioController.play("Block", { volume = 0.8, speed = 1.3, pos = pos, minGap = 0.05 })
+			end
+		end
+	end
+
+	updateIronclad = function()
+		local seen = {}
+		for _, team in ipairs(Config.TeamOrder) do
+			for _, e in ipairs(State.roster(team)) do
+				local model = Util.modelOf(e.id)
+				local hrp = model and model:FindFirstChild("HumanoidRootPart")
+				if hrp and model:GetAttribute("Ability") == "Ironclad" then
+					seen[model] = true
+					local lives = HitLogic.ironLives(model:GetAttribute("IronLives"))
+					local s = shieldGuis[model]
+					if not s or not s.gui.Parent then
+						local gui = Instance.new("BillboardGui")
+						gui.Name = "IroncladShields"
+						gui.Adornee = hrp
+						gui.Size = UDim2.fromScale(4.2, 1.5)
+						gui.StudsOffset = Vector3.new(0, 4.4, 0)
+						gui.LightInfluence = 0
+						gui.ResetOnSpawn = false
+						local icons = {}
+						for i = 1, IRON.Lives do
+							local img = Instance.new("ImageLabel")
+							img.BackgroundTransparency = 1
+							img.Image = Assets.id(Assets.IroncladShield) or ""
+							img.ImageColor3 = Color3.fromRGB(255, 255, 255)
+							img.AnchorPoint = Vector2.new(0.5, 0.5)
+							img.Size = UDim2.fromScale(0.3, 0.9)
+							img.Position = UDim2.fromScale((i - 0.5) / IRON.Lives, 0.5)
+							img.Parent = gui
+							icons[i] = img
+						end
+						gui.Parent = hrp
+						s = { gui = gui, icons = icons, lives = lives }
+						shieldGuis[model] = s
+						for i, img in ipairs(icons) do
+							img.ImageTransparency = i <= lives and 0 or 1
+						end
+					end
+					if lives < s.lives then
+						-- a shield broken (or several): shatter each one lost, right to left
+						for i = s.lives, lives + 1, -1 do
+							shatterShield(model, s.icons[i])
+						end
+						local pos = hrp.Position + Vector3.new(0, 6.5, 0)
+						if lives == 0 then
+							-- the last one: he awakens
+							starburst(pos, IRON.Color, 14)
+							burst(hrp.Position, IRON.Color, 8)
+							floorRing(hrp.Position, IRON.Color, 9, 0.6)
+							VFXController.popup(pos, "Awakened!", IRON.Color, 1.4)
+							if mods and mods.AudioController.hearsMatch() then
+								mods.AudioController.play("Boom", { volume = 0.6, speed = 0.8, pos = hrp.Position })
+							end
+						else
+							VFXController.popup(pos, string.format("Shield broken! %d left", lives), IRON.WallColor, 1)
+						end
+					elseif lives > s.lives then
+						-- Intimidation full: the shields are back
+						for i = s.lives + 1, lives do
+							local img = s.icons[i]
+							img.Position = UDim2.fromScale((i - 0.5) / IRON.Lives, 0.5)
+							img.Rotation = 0
+							img.ImageTransparency = 1
+							TweenService:Create(img, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { ImageTransparency = 0 }):Play()
+						end
+						ringFx(hrp.Position + Vector3.new(0, 3, 0), IRON.WallColor, 2, 11, 0.4, 7)
+						VFXController.popup(hrp.Position + Vector3.new(0, 6.5, 0), "Bulwark restored!", IRON.WallColor, 1.2)
+					end
+					s.lives = lives
+				end
+			end
+		end
+		for model, s in pairs(shieldGuis) do
+			if not seen[model] then
+				s.gui:Destroy()
+				shieldGuis[model] = nil
+			end
+		end
+	end
+
 end
 
 local function updateAbilityFx(dt)
@@ -2395,6 +2511,7 @@ local function updateAbilityFx(dt)
 	updateSunTrails(Util.now())
 	updateSunOrbs(Util.now())
 	updateWinds()
+	updateIronclad()
 	-- boost auras: Adrenaline (red), the Sunrise level (orange, hotter each level), the team's
 	-- Rally Cry (gold), an armed Turnabout (mint), a charged Counter meter (steel) and Corona's
 	-- flare (white-gold)
@@ -2439,6 +2556,9 @@ local function updateAbilityFx(dt)
 				end
 				if model:GetAttribute("Ability") == "Squall" and (model:GetAttribute("AbilityUntil") or -1) >= clock then
 					w.Squall = 1
+				end
+				if model:GetAttribute("Ability") == "Ironclad" and HitLogic.ironLives(model:GetAttribute("IronLives")) == 0 then
+					w.Molten = 1 -- Ironclad awakened
 				end
 				local edge = model:GetAttribute("Counter") or 0
 				if edge > 0 then
@@ -3194,6 +3314,20 @@ local function onHit(snap)
 			-- Dante's First Strike: a shorter freeze frame, in purple, then his usual burst (below) as it
 			-- fires
 			VFXController.freezeFrame(meta.id, pos, fires, FERAL)
+		end
+		if meta.metal then
+			-- Ironclad: Forge's charge, white-hot (off a jump before the set, or a share after it)
+			local m = meta.metal
+			local col = Config.Abilities.Ironclad.Color
+			sonicRing(pos, seg.v, Color3.fromRGB(255, 225, 170), 7 + 9 * m, 0.4)
+			ringFx(pos, col, 1, 7 + 11 * m, 0.35, 6)
+			if m >= 0.5 then
+				Fx.play("Fire", pos, { color = col, scale = 0.8 + 0.8 * m })
+			end
+			if close then
+				VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Forge +%d%%", math.floor(Config.Abilities.Ironclad.MaxBoost * m * 100 + 0.5)), col, 0.9 + 0.4 * m)
+				shaker.kick(-3 - 5 * m)
+			end
 		end
 		if meta.gale then
 			-- Squall: Eye of the Storm's charge cuts through the hit (the fuller, the bigger)

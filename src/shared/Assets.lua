@@ -283,6 +283,8 @@ Assets.Images = {
 	AbilityCorona = "82174181192946", -- stand-in: Rising Sun's sun (a Creator Store solar flare icon goes here)
 	AbilitySquall = "136720600263240", -- our own white tornado (assets/icon/AbilitySquall.png)
 	AbilityFeatherfall = "127397238348566", -- our own white feather (assets/icon/AbilityFeatherfall.png)
+	AbilityIronclad = "114616937430963", -- our own clawed shield (assets/icon/AbilityIronclad.png)
+	IroncladShield = "139926246453254", -- one of his shields, floating by him (assets/icon/IroncladShield.png)
 	-- menu icons: one filled white glyph style (Toolbox decals)
 	IconHome = "13300916613", -- decal 13300916690 (Fluent "home")
 	IconSettings = "13300915301", -- decal 13300915335 (Fluent "settings")

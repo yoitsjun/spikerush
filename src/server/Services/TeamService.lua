@@ -242,6 +242,8 @@ function TeamService.applyToModel(e)
 			end
 			inst:SetAttribute("FirstStrikeUsed", e.ability == "Feral" and e.firstStrikeUsed or nil)
 			inst:SetAttribute("CoronaStacks", e.ability == "Corona" and (e.coronaStacks or 0) or nil)
+			inst:SetAttribute("IronLives", e.ability == "Ironclad" and HitLogic.ironLives(e.ironLives) or nil)
+			inst:SetAttribute("Intimidation", e.ability == "Ironclad" and (e.intimidation or 0) or nil)
 			inst:SetAttribute("AbilityUntil", e.abilityUntil or -1)
 			inst:SetAttribute("AbilityReadyAt", e.abilityReadyAt or 0)
 		end
@@ -338,6 +340,19 @@ function TeamService.boostWindow(e, untilT)
 	end)
 end
 
+-- Ironclad: his shields (0..Lives; none: awakened) and the Intimidation meter (0..100), for every
+-- client's HUD and effects.
+function TeamService.setIron(e, lives, meter)
+	e.ironLives = HitLogic.ironLives(lives)
+	e.intimidation = meter
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("IronLives", e.ironLives)
+			inst:SetAttribute("Intimidation", meter)
+		end
+	end
+end
+
 -- A timeout (or a substitution) clears every Corona's penalty.
 function TeamService.clearCorona()
 	for _, e in pairs(TeamService.entities) do
@@ -411,6 +426,8 @@ function TeamService.resetSetAbilities()
 		elseif e.ability == "Skyward" then
 			TeamService.setLift(e, nil) -- back to the bottom of her climb
 			TeamService.setPeak(e, nil)
+		elseif e.ability == "Ironclad" then
+			TeamService.setIron(e, Config.Abilities.Ironclad.Lives, 0) -- a new set: his shields whole
 		end
 	end
 end
