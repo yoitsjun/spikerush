@@ -11,8 +11,8 @@ A Roblox volleyball game built with Rojo. Moving to a new account? See CONTINUE.
 
 ## Rules
 
-- Original art, audio, names and branding only. Nothing from The Spike or SUNCYAN goes into the game, including sounds recorded from their games. Creator Store (Toolbox) assets are fine, sounds included.
-- Sounds: the owner's uploads, or Creator Store / Roblox library audio (allowed again on 2026-10-04: the owner called the uploads-only rule "stupid"). Each id goes in `Assets.Sounds`, with its start and gain in `Assets.SoundFiles` (measured in a playtest). Skip anything that looks ripped from another game (The Spike, SUNCYAN, anime clips). No generated sounds; an empty slot is silent.
+- Outside materials are allowed (the owner, 2026-10-12: "allow sounds from other games", "no limitations on using other materials"): sounds, images and names from other games, The Spike and SUNCYAN included, Creator Store (Toolbox) assets too. (Before this, everything had to be original and nothing from The Spike or SUNCYAN went in.)
+- Sounds: the owner's uploads, or Creator Store / Roblox library audio (allowed again on 2026-10-04: the owner called the uploads-only rule "stupid"). Each id goes in `Assets.Sounds`, with its start and gain in `Assets.SoundFiles` (measured in a playtest). Sounds ripped from other games or anime are fine too (see above). No generated sounds; an empty slot is silent.
 - The checkers parse a Luau subset:
   - no compound assignment (`+=`);
   - no `continue`, not even as a field name;

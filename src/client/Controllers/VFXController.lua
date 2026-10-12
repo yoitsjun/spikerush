@@ -1776,7 +1776,8 @@ function VFXController.ability(entityId, ability)
 		meshFx("FX_Column", CFrame.new(pos.X, 0.2, pos.Z), def.Color, 0.4, 1.1, 0.6, { base = true, alpha = 0.15 })
 		VFXController.popup(pos + Vector3.new(0, 7, 0), "Corona!", def.Color, 1.3)
 		if mods and mods.AudioController.hearsMatch() then
-			mods.AudioController.play("Boom", { volume = 0.5, speed = 1.3 })
+			mods.AudioController.play("CoronaFlare", { volume = 0.9 })
+			mods.AudioController.play("Boom", { volume = 0.35, speed = 1.3 })
 		end
 	elseif ability == "Squall" then
 		-- the squall: a wind spiral round her, a ring of it on the floor
@@ -1786,7 +1787,7 @@ function VFXController.ability(entityId, ability)
 		ringFx(pos + Vector3.new(0, 2, 0), Color3.fromRGB(220, 255, 248), 2, 12, 0.4, 8)
 		VFXController.popup(pos + Vector3.new(0, 7, 0), "Squall!", def.Color, 1.3)
 		if mods and mods.AudioController.hearsMatch() then
-			mods.AudioController.play("Whoosh", { volume = 0.8, speed = 0.9 })
+			mods.AudioController.play("SquallOn", { volume = 0.8 })
 		end
 	elseif ability == "RallyCry" then
 		-- a golden shockwave from the middle, and a flare at every teammate's feet
@@ -2067,7 +2068,8 @@ function VFXController.sunBlast(pos, k)
 		mods.CameraController.kick(-8 - 4 * k)
 	end
 	if mods and mods.AudioController and mods.AudioController.hearsMatch() then
-		mods.AudioController.play("Boom", { pos = pos, volume = 1, minGap = 0.05 })
+		mods.AudioController.play("SunBlast", { pos = pos, volume = 0.6 + 0.4 * math.clamp(k or 1, 0, 1), minGap = 0.05 })
+		mods.AudioController.play("Boom", { pos = pos, volume = 0.7, minGap = 0.05 })
 	end
 end
 
@@ -2206,6 +2208,9 @@ do
 			trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.3) })
 			trail.Parent = hrp
 			w.rush = { trail = trail, a0 = a0, a1 = a1, lastPuff = 0 }
+		if mods and mods.AudioController.hearsMatch() then
+			mods.AudioController.play("SquallDash", { volume = 0.8, pos = hrp.Position, minGap = 0.1 })
+		end
 			emit("Dust", Vector3.new(hrp.Position.X, 0.4, hrp.Position.Z), 10)
 		elseif not on and w.rush then
 			local r = w.rush
@@ -2242,7 +2247,7 @@ do
 			end
 		end
 		if mods and mods.AudioController.hearsMatch() then
-			mods.AudioController.play("Whoosh", { volume = 0.7, speed = 1.3, pos = pos, minGap = 0.1 })
+			mods.AudioController.play("SquallSpring", { volume = 0.8, pos = pos, minGap = 0.1 })
 		end
 	end
 
@@ -2276,7 +2281,7 @@ do
 			w.hover = { att = att, emitter = e, light = light, t0 = os.clock(), full = false }
 			ringFx(hrp.Position, SQ.Color, 1, 8, 0.3, 6)
 			if mods and mods.AudioController.hearsMatch() then
-				mods.AudioController.play("Whoosh", { volume = 0.5, speed = 0.75, pos = hrp.Position, minGap = 0.1 })
+				mods.AudioController.play("SquallHover", { volume = 0.6, speed = 1.1, pos = hrp.Position, minGap = 0.1 })
 			end
 		elseif not on and w.hover then
 			local h = w.hover
@@ -2343,7 +2348,10 @@ do
 		end
 		if step ~= aim.step then
 			aim.step = step
-			aim.flashT = os.clock() -- a new spot: flash
+			aim.flashT = os.clock() -- a new spot: flash (and a tick, higher each spot)
+			if step and mods and mods.AudioController.hearsMatch() then
+				mods.AudioController.play("SquallStep", { volume = 0.5, speed = 0.9 + 0.1 * step, minGap = 0.02 })
+			end
 		end
 		local pop = math.max(0, 1 - (os.clock() - aim.flashT) / 0.16)
 		local last = step == SQ.AimSteps
@@ -2417,7 +2425,8 @@ do
 			ringFx(pos, IRON.WallColor, 1, 7, 0.3, 5)
 			Fx.play("Glints", pos, { color = Color3.fromRGB(235, 245, 255) })
 			if mods and mods.AudioController.hearsMatch() then
-				mods.AudioController.play("Block", { volume = 0.8, speed = 1.3, pos = pos, minGap = 0.05 })
+				mods.AudioController.play("IronShieldBreak", { volume = 0.9, pos = pos, minGap = 0.05 })
+				mods.AudioController.play("Block", { volume = 0.5, speed = 1.3, pos = pos, minGap = 0.05 })
 			end
 		end
 	end
@@ -2472,7 +2481,8 @@ do
 							floorRing(hrp.Position, IRON.Color, 9, 0.6)
 							VFXController.popup(pos, "Awakened!", IRON.Color, 1.4)
 							if mods and mods.AudioController.hearsMatch() then
-								mods.AudioController.play("Boom", { volume = 0.6, speed = 0.8, pos = hrp.Position })
+								mods.AudioController.play("IronAwaken", { volume = 0.9, pos = hrp.Position })
+								mods.AudioController.play("Boom", { volume = 0.4, speed = 0.8, pos = hrp.Position })
 							end
 						else
 							VFXController.popup(pos, string.format("Shield broken! %d left", lives), IRON.WallColor, 1)
@@ -2488,6 +2498,9 @@ do
 						end
 						ringFx(hrp.Position + Vector3.new(0, 3, 0), IRON.WallColor, 2, 11, 0.4, 7)
 						VFXController.popup(hrp.Position + Vector3.new(0, 6.5, 0), "Bulwark restored!", IRON.WallColor, 1.2)
+						if mods and mods.AudioController.hearsMatch() then
+							mods.AudioController.play("IronRestore", { volume = 0.8, pos = hrp.Position })
+						end
 					end
 					s.lives = lives
 					-- Forge (the owner: "really show him charging", with his references: a red ring
@@ -2496,6 +2509,9 @@ do
 					local up = hrp.Position.Y > Config.Player.RootGround + 1.2
 					if up and not s.airT then
 						s.airT, s.full = os.clock(), false
+						if mods and mods.AudioController.hearsMatch() then
+							mods.AudioController.play("ForgeCharge", { volume = 0.7, pos = hrp.Position, minGap = 0.1 })
+						end
 						local feet = Vector3.new(hrp.Position.X, 0.2, hrp.Position.Z)
 						floorRing(feet, IRON.ChargeColor, 6, 0.4)
 						meshFx("FX_Column", CFrame.new(feet), IRON.ChargeColor, 0.25, 0.7, 0.35, { base = true, alpha = 0.2 })
@@ -2522,6 +2538,9 @@ do
 							f.star.Rotation = (os.clock() * 90) % 360
 							if k >= 1 and not s.full then
 								s.full = true -- charged: a flash
+								if mods and mods.AudioController.hearsMatch() then
+									mods.AudioController.play("ForgeFull", { volume = 0.6, speed = 1.15, pos = hrp.Position, minGap = 0.1 })
+								end
 								starburst(hrp.Position, Color3.fromRGB(255, 235, 235), 10)
 								ringFx(hrp.Position, IRON.ChargeColor, 1, 9, 0.3, 6)
 							end
@@ -3252,7 +3271,10 @@ local function onHit(snap)
 		emit("Sparks", pos, 14, VECTOR)
 	end
 	if ht == "Set" and meta.featherSet then
-		-- Featherfall: a soft ring as it floats up
+		-- Featherfall: a soft ring (and a twinkle) as it floats up
+		if close and mods.AudioController.hearsMatch() then
+			mods.AudioController.play("FeatherSet", { volume = 0.6, pos = pos, minGap = 0.05 })
+		end
 		local fcol = Config.Abilities.Featherfall.Color
 		ringFx(pos, fcol, 1, 7, 0.4, 5)
 		burst(pos, Color3.fromRGB(255, 240, 248), 3)
@@ -3285,6 +3307,9 @@ local function onHit(snap)
 			local f = meta.feather
 			ringFx(pos, fcol, 1.5, 7 + 10 * f, 0.35, 6)
 			VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Featherfall +%d%%", math.floor(Config.Abilities.Featherfall.MaxBoost * f * 100 + 0.5)), fcol, 0.9 + 0.3 * f)
+			if mods.AudioController.hearsMatch() then
+				mods.AudioController.play("FeatherHit", { volume = 0.6 + 0.4 * f, speed = 1.35, pos = pos, minGap = 0.05 })
+			end
 		end
 		if meta.vector then
 			-- Vector Set: the boost the spike's angle earned
@@ -3381,6 +3406,9 @@ local function onHit(snap)
 			end
 			if close then
 				VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Forge +%d%%", math.floor((meta.forgeBoost or 0) * 100 + 0.5)), red, 0.9 + 0.4 * m)
+				if mods.AudioController.hearsMatch() then
+					mods.AudioController.play("ForgeHit", { volume = 0.6 + 0.4 * m, pos = pos, minGap = 0.05 })
+				end
 				shaker.kick(-3 - 5 * m)
 			end
 		end
@@ -3395,6 +3423,9 @@ local function onHit(snap)
 			end
 			if close then
 				VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Eye of the Storm +%d%%", math.floor(Config.Abilities.Squall.HoverBoost * g * 100 + 0.5)), col, 0.9 + 0.3 * g)
+				if mods.AudioController.hearsMatch() then
+					mods.AudioController.play("SquallHit", { volume = 0.6 + 0.4 * g, pos = pos, minGap = 0.05 })
+				end
 				shaker.kick(-3 - 3 * g)
 			end
 		end

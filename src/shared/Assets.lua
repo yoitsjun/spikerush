@@ -128,6 +128,24 @@ Assets.Sounds = {
 	FeralFull = "", -- Feral Leap: the charge is full (let go now)
 	FeralLeap = "", -- Feral Leap: the leap off the floor (louder the fuller the charge)
 	RallyCry = "",
+	-- the new characters' moves (2026-10-12, the owner: "add some cool sfx too"; Pro Sound Effects
+	-- unless noted, starts and gains measured in a playtest)
+	CoronaFlare = "9114442751", -- Laith's Corona: "Fire Whoosh 2", a punchy torch burst
+	SunBlast = "9120704078", -- Laith's big Sundive hit: "Whoosh Combo Of Impacts Bys 5", huge
+	SquallOn = "133639929570919", -- Haneul's Squall: TornadoBurst's "Wind Burst Heavy Shockwave"
+	SquallDash = "74818885604525", -- Tailwind's dash: "Woosh - Fast - Gust - Wind - Swing - Dash" (lorenzosaudiostash)
+	SquallSpring = "9120704057", -- Tailwind's spring: "Whoosh Combo Of Impacts Bys 4"
+	SquallHover = "90848178756425", -- Eye of the Storm's hover: "strong gust of wind" (Sunny_CIover)
+	SquallStep = "117000832074549", -- the target jumping a spot: UITick, pitched up each step
+	SquallHit = "9113077334", -- a charged hover's hit: "Air Whoosh Heavy Bys And Impacts 1"
+	FeatherSet = "135385970610304", -- Arin's floating set: "Twinkle08" (DonReqin)
+	FeatherHit = "135385970610304", -- the spike off it: the same twinkle, higher and louder
+	IronShieldBreak = "9114592102", -- a Bulwark shield shattering: "Glass Breaks 11", shards
+	IronAwaken = "9120729732", -- Taesan awakens: "Whoosh Impact 1", a big stinger up and hit, pitched down
+	IronRestore = "9119747260", -- his shields back: "Sword In 1", steel scraping home
+	ForgeCharge = "9114446852", -- Forge as he leaves the floor: "Fire Whoosh 15", a burst with hiss
+	ForgeFull = "9114444008", -- Forge's charge full: "Fire Whoosh 3", a short punchy burst
+	ForgeHit = "9120730294", -- Forge's hit: "Whoosh Impact 3", a thick swish into a hard impact
 	UIOpen = "94544858772525", -- "UIOpen": a popup opening
 	UIOpenLong = "72734883374430", -- "UIOpenLong": a menu screen changing, the matchup intro's wipes
 	UISelect = "75496570740002", -- "UISelect": a tab or toggle
@@ -173,6 +191,20 @@ Assets.SoundFiles = {
 	["91288569991875"] = { gain = 1.15 }, -- ScoreImpact: peak 349
 	["120212342534790"] = { gain = 1.1 }, -- ScoreDebris: peak 351
 	["137628815514180"] = { start = 0.1, gain = 1.1 }, -- CounterReturn: 0.11 s in, peak 360
+	-- the new characters' (2026-10-12): start just before the sound, peak brought to about 400
+	["9114442751"] = { start = 0.24 }, -- CoronaFlare: 0.26 s in, peak 409
+	["9120704078"] = { start = 0.56, gain = 0.8 }, -- SunBlast: 0.58 s in, peak 490
+	["74818885604525"] = { start = 0.03 }, -- SquallDash: peak 392
+	["9120704057"] = { start = 0.13, gain = 0.8 }, -- SquallSpring: 0.15 s in, peak 497
+	["90848178756425"] = { gain = 0.7 }, -- SquallHover: peak 559
+	["9113077334"] = { start = 0.86, gain = 3.4 }, -- SquallHit: 0.88 s in, peak 115
+	["135385970610304"] = { start = 0.05, gain = 2.1 }, -- FeatherSet / FeatherHit: peak 189
+	["9114592102"] = { start = 0.73, gain = 2.3 }, -- IronShieldBreak: 0.75 s in, peak 174
+	["9120729732"] = { start = 0.62 }, -- IronAwaken: 0.64 s in, peak 394
+	["9119747260"] = { start = 0.19, gain = 0.7 }, -- IronRestore: 0.21 s in, peak 588
+	["9114446852"] = { start = 0.09, gain = 3.4 }, -- ForgeCharge: 0.11 s in, peak 117
+	["9114444008"] = { start = 0.62, gain = 1.4 }, -- ForgeFull: 0.64 s in, peak 283
+	["9120730294"] = { start = 0.26, gain = 1.6 }, -- ForgeHit: 0.28 s in, peak 253
 	["117922524763696"] = { gain = 0.5 }, -- Thunder: peak 798
 	["86816529419846"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491
 	["126675766605170"] = { start = 0.64, gain = 1.2 }, -- GuardBreak: faint noise, then the hit at 0.65 s, peak 340
