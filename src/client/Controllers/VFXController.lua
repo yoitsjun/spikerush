@@ -2490,12 +2490,54 @@ do
 						VFXController.popup(hrp.Position + Vector3.new(0, 6.5, 0), "Bulwark restored!", IRON.WallColor, 1.2)
 					end
 					s.lives = lives
+					-- Forge (the owner: "really show him charging", with his references: a red ring
+					-- bursting on the floor as he leaves it, then a red-white flare with a cross twinkle on
+					-- him in the air, growing as it charges, flashing once it's full)
+					local up = hrp.Position.Y > Config.Player.RootGround + 1.2
+					if up and not s.airT then
+						s.airT, s.full = os.clock(), false
+						local feet = Vector3.new(hrp.Position.X, 0.2, hrp.Position.Z)
+						floorRing(feet, IRON.ChargeColor, 6, 0.4)
+						meshFx("FX_Column", CFrame.new(feet), IRON.ChargeColor, 0.25, 0.7, 0.35, { base = true, alpha = 0.2 })
+						if not s.flare then
+							local g, glow, flare = sunGui(hrp, 3, hrp)
+							g.Name = "ForgeFlare"
+							glow.ImageColor3 = IRON.ChargeColor
+							flare.ImageColor3 = Color3.fromRGB(255, 225, 225)
+							s.flare = { gui = g, glow = glow, star = flare }
+						end
+					elseif not up and s.airT then
+						s.airT = nil
+					end
+					local f = s.flare
+					if f then
+						if s.airT then
+							local k = math.clamp((os.clock() - s.airT) / IRON.ChargeTime, 0, 1)
+							local twinkle = 0.85 + 0.15 * math.sin(os.clock() * 30)
+							local studs = (2 + 7 * k) * twinkle
+							f.gui.Enabled = true
+							f.gui.Size = UDim2.fromScale(studs, studs)
+							f.glow.ImageTransparency = 0.55 - 0.45 * k
+							f.star.ImageTransparency = 0.6 - 0.55 * k
+							f.star.Rotation = (os.clock() * 90) % 360
+							if k >= 1 and not s.full then
+								s.full = true -- charged: a flash
+								starburst(hrp.Position, Color3.fromRGB(255, 235, 235), 10)
+								ringFx(hrp.Position, IRON.ChargeColor, 1, 9, 0.3, 6)
+							end
+						else
+							f.gui.Enabled = false
+						end
+					end
 				end
 			end
 		end
 		for model, s in pairs(shieldGuis) do
 			if not seen[model] then
 				s.gui:Destroy()
+				if s.flare then
+					s.flare.gui:Destroy()
+				end
 				shieldGuis[model] = nil
 			end
 		end
@@ -3327,13 +3369,18 @@ local function onHit(snap)
 			-- Ironclad: Forge's charge, white-hot (off a jump before the set, or a share after it)
 			local m = meta.metal
 			local col = Config.Abilities.Ironclad.Color
-			sonicRing(pos, seg.v, Color3.fromRGB(255, 225, 170), 7 + 9 * m, 0.4)
-			ringFx(pos, col, 1, 7 + 11 * m, 0.35, 6)
+			-- (his reference: a red crescent tearing through the hit, teal-white streaks off it)
+			local red = Config.Abilities.Ironclad.ChargeColor
+			sonicRing(pos, seg.v, Color3.fromRGB(255, 225, 225), 7 + 9 * m, 0.4)
+			ringFx(pos, red, 1, 7 + 11 * m, 0.35, 6)
+			meshFx("FX_Slash", CFrame.new(pos), red, 0.4, 1.0 + 0.8 * m, 0.35, { alpha = 0.05 })
+			shards(pos, Color3.fromRGB(150, 255, 230), 10 + math.floor(14 * m), 70)
+			Fx.play("Burst", pos, { color = Color3.fromRGB(255, 240, 240), scale = 0.8 + 0.8 * m })
 			if m >= 0.5 then
 				Fx.play("Fire", pos, { color = col, scale = 0.8 + 0.8 * m })
 			end
 			if close then
-				VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Forge +%d%%", math.floor(Config.Abilities.Ironclad.MaxBoost * m * 100 + 0.5)), col, 0.9 + 0.4 * m)
+				VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Forge +%d%%", math.floor((meta.forgeBoost or 0) * 100 + 0.5)), red, 0.9 + 0.4 * m)
 				shaker.kick(-3 - 5 * m)
 			end
 		end

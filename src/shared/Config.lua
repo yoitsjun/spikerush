@@ -1052,6 +1052,7 @@ Config.Abilities = {
 		Kind = "Passive: shields, then awakened",
 		Color = Color3.fromRGB(255, 112, 52), -- awakened: molten
 		WallColor = Color3.fromRGB(170, 200, 235), -- the shields: steel
+		ChargeColor = Color3.fromRGB(255, 50, 60), -- Forge's charge: red
 		Lives = 3,
 		-- Bulwark: Iron Wall's perfect shut-down while he has shields, but an attack this fast (or a
 		-- piercing or block-smashing one) breaks through it, barely slowed, and costs a shield

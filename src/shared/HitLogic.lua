@@ -853,6 +853,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if metal > 0 and not ctx.auto then
 		meta.metal = math.floor(metal * 100 + 0.5) / 100
 		meta.early = input.early == true or nil
+		meta.forgeBoost = math.floor((ctx.awakened and IRON.MaxBoost or IRON.WallBoost) * metal * 1000 + 0.5) / 1000
 	end
 	if gale > 0 and not ctx.auto then
 		meta.gale = math.floor(gale * 100 + 0.5) / 100
