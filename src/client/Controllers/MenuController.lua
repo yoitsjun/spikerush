@@ -5465,7 +5465,7 @@ function Extra.buildPatch()
 			order = order + 1
 			make("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.3, BorderSizePixel = 0, LayoutOrder = order, ZIndex = 22 }, scroll)
 		end
-		line(scroll, patch.Title, 34, Gui.LINE, { display = true, weight = Enum.FontWeight.Heavy })
+		line(scroll, patch.Title, 34, Gui.WHITE, { display = true, weight = Enum.FontWeight.Heavy }) -- (light on the dark panel)
 		line(scroll, patch.Date, 16, Gui.DIM)
 		for _, section in ipairs(patch.Sections) do
 			line(scroll, section.Heading, 24, Gui.SIGNAL, { display = true, weight = Enum.FontWeight.Heavy })
