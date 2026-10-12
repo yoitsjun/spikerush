@@ -428,7 +428,7 @@ function MovementController.rushJump()
 		return false
 	end
 	rushing = nil
-	queued = { height = spikeJump() * SQUALL.RushRise ^ 2, kind = "Spike" }
+	queued = { height = spikeJump() * SQUALL.RushRise ^ 2, kind = "Spike", still = true }
 	rushRise = true
 	return true
 end
@@ -630,6 +630,13 @@ local function moveStep()
 		hum.JumpHeight = queued.height
 		hum.Jump = true
 		takeoff = { t0 = now }
+		if queued.still then
+			-- straight up: the rush's speed isn't carried into the spring (the owner: "i overshoot the
+			-- ball a lot")
+			local v = hrp.AssemblyLinearVelocity
+			hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, 0)
+			takeoff.vz = 0
+		end
 		queued = nil
 	end
 

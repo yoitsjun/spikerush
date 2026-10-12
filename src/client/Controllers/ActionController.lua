@@ -794,6 +794,10 @@ local function rushTarget(info, now)
 	end
 	local side = State.mySide
 	local contactY = State.myStats().contactMaxStuds - 0.3
+	-- (a ball already below her hitting point and falling has nowhere for her to meet it)
+	if mods.BallRenderer.getPosition(now).Y < contactY and mods.BallRenderer.getVelocity(now).Y < 0 then
+		return nil
+	end
 	local t, p = BallPhysics.findTime(path, now, function(pos, vel)
 		return vel.Y < 0 and pos.Y <= contactY
 	end)
