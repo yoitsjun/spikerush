@@ -560,7 +560,7 @@ do
 	local _, sFull = spikeAt(FF.FullFall + 1)
 	local _, other = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { lastHit = { featherSet = true, featherTop = 0, team = "Home", hitType = "Set" } }, { t = 3 })
 	check(not s0.meta.feather and sHalf.meta.feather == 0.5 and math.abs(sFull.meta.kmh / s0.meta.kmh - (1 + FF.MaxBoost)) < 0.01 and not other.meta.feather,
-		"Featherfall: the longer the set had fallen, the harder the spike, up to +20%",
+		"Featherfall: the longer the set had fallen, the harder the spike, up to +30%",
 		string.format("%.0f met at the top, %.0f half way, %.0f after the whole fall (her real set falls %.2f s to the hitting height)", s0.meta.kmh, sHalf.meta.kmh, sFull.meta.kmh, fT - (feather.meta.featherTop or 0)))
 end
 

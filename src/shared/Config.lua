@@ -1149,11 +1149,11 @@ Config.Abilities = {
 		Name = "Featherfall",
 		Tier = "S",
 		Role = "SE",
-		Blurb = "Your open and back sets go up high and float down slowly. The longer the ball has been falling when your hitter meets it, the harder the spike: up to +20%.",
+		Blurb = "Your open and back sets go up high and float down slowly. The longer the ball has been falling when your hitter meets it, the harder the spike: up to +30%.",
 		Color = Color3.fromRGB(255, 176, 214),
 		ExtraApex = 1.2 * M, -- her sets' top this much higher
 		FallGravity = 0.4, -- from the top down, gravity x this: it floats
-		MaxBoost = 0.2, -- spike speed x (1 + this x how long it fell / FullFall)
+		MaxBoost = 0.3, -- spike speed x (1 + this x how long it fell / FullFall) (was 0.2; the owner: "we can buff the amount of power that featherfall gives")
 		FullFall = 1.25, -- seconds of falling for the whole boost (about her set's float down to the usual hitting height)
 	},
 	Turnabout = {
