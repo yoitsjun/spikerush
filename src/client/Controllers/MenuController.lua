@@ -3900,6 +3900,7 @@ local function refreshPerks(prof)
 		e.box.Visible, e.save.Visible, e.test.Visible = owned, owned, owned
 		if e.crop then
 			e.crop.Visible = owned and id ~= nil
+			e.box.Size = UDim2.new(1, -32 - 188 - (e.crop.Visible and 92 or 0), 0, 46) -- no gap without Crop
 		end
 		if e.picker then
 			e.picker.Visible = owned
