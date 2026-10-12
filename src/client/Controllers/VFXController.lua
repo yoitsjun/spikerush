@@ -3081,6 +3081,12 @@ local function onHit(snap)
 		ringFx(pos, VECTOR, 1, 6, 0.35, 5)
 		emit("Sparks", pos, 14, VECTOR)
 	end
+	if ht == "Set" and meta.featherSet then
+		-- Featherfall: a soft ring as it floats up
+		local fcol = Config.Abilities.Featherfall.Color
+		ringFx(pos, fcol, 1, 7, 0.4, 5)
+		burst(pos, Color3.fromRGB(255, 240, 248), 3)
+	end
 	if meta.turnabout then
 		local tcol = Config.Abilities.Turnabout.Color
 		ringFx(pos, tcol, 1.5, 10, 0.35, 6)
@@ -3103,6 +3109,13 @@ local function onHit(snap)
 	if ht == "Spike" or ht == "JumpServe" then
 		local heavy = kmh >= 120
 		local vdir = seg.v.Magnitude > 0 and seg.v.Unit or Vector3.new(0, -1, dirZ)
+		if meta.feather then
+			-- Featherfall: the boost the set's long fall earned
+			local fcol = Config.Abilities.Featherfall.Color
+			local f = meta.feather
+			ringFx(pos, fcol, 1.5, 7 + 10 * f, 0.35, 6)
+			VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Featherfall +%d%%", math.floor(Config.Abilities.Featherfall.MaxBoost * f * 100 + 0.5)), fcol, 0.9 + 0.3 * f)
+		end
 		if meta.vector then
 			-- Vector Set: the boost the spike's angle earned
 			local boost = meta.vectorBoost or 0

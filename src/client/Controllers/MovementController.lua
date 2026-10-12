@@ -424,6 +424,11 @@ function MovementController.isRushing()
 	return rushing ~= nil
 end
 
+-- The dash is at its spot (or has none).
+function MovementController.rushArrived()
+	return rushing == nil or rushing.target == nil or (hrp ~= nil and math.abs(rushing.target - hrp.Position.Z) <= 0.5)
+end
+
 -- The spring off a rush: straight up to the top of a spike jump, rising RushRise times faster
 -- (launched that much faster under that much more gravity until the top).
 function MovementController.rushJump()
@@ -715,13 +720,12 @@ local function moveStep()
 		end
 		hum.WalkSpeed = baseWalk() * air
 	elseif rushing then
-		-- Squall's Tailwind: a rush to the spot under the ball, slowing in to stop on it
-		local speed = baseWalk() * SQUALL.RushSpeed
+		-- Squall's Tailwind: a dash to the spot under the ball, slowing in to stop on it
 		local target = rushing.target
 		if target then
 			local dz = target - hrp.Position.Z
-			if math.abs(dz) > 0.35 then
-				hum.WalkSpeed = math.min(speed, math.abs(dz) * 10)
+			if math.abs(dz) > 0.5 then
+				hum.WalkSpeed = math.min(SQUALL.DashSpeed, math.abs(dz) * 30)
 				hum:Move(Vector3.new(0, 0, dz > 0 and 1 or -1), false)
 				face(dz)
 			else
@@ -730,7 +734,7 @@ local function moveStep()
 			end
 			return
 		end
-		hum.WalkSpeed = speed
+		hum.WalkSpeed = baseWalk()
 	elseif prowlT0 then
 		-- Feral Leap's charge: faster as it fills
 		local k = math.clamp((now - prowlT0) / FERAL.ChargeTime, 0, 1)

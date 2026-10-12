@@ -483,6 +483,16 @@ local function applyStyle(meta)
 			sparkleOn = true
 			sparkles.Rate = 120
 			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 120, 120))
+		elseif meta.featherSet then
+			-- a Featherfall set: the ball floats down in a soft pink glow, shedding light
+			local col = Config.Abilities.Featherfall.Color
+			aura.Color = ColorSequence.new(Color3.fromRGB(255, 245, 250), col)
+			aura.Enabled = true
+			glow.Color = col
+			glow.Brightness = 3
+			sparkleOn = true
+			sparkles.Rate = 40
+			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), col)
 		elseif meta.vectorSet then
 			-- a Vector set: the ball pulses violet (spike it steep for the boost)
 			aura.Color = ColorSequence.new(Color3.fromRGB(235, 215, 255), VECTOR)
@@ -884,7 +894,7 @@ local function update(dt)
 		d.born = clock
 		d.part.CFrame = CFrame.new(pos)
 		-- a Chain Reaction set is charged: red dots
-		d.part.Color = (cur.meta.charged and Config.Abilities.ChainReaction.Color) or (cur.meta.vectorSet and VECTOR) or Config.UI.Chalk
+		d.part.Color = (cur.meta.charged and Config.Abilities.ChainReaction.Color) or (cur.meta.vectorSet and VECTOR) or (cur.meta.featherSet and Config.Abilities.Featherfall.Color) or Config.UI.Chalk
 		dotsAliveUntil = clock + 1.4
 	end
 	if clock < dotsAliveUntil then

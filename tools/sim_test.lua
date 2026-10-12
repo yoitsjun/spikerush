@@ -421,9 +421,61 @@ do
 	local g, h = Config.Player.Gravity, 10
 	local v0 = math.sqrt(2 * g * h * SQ.RushRise ^ 2)
 	local gUp = g * SQ.RushRise ^ 2
-	check(math.abs(v0 * v0 / (2 * gUp) - h) < 1e-6 and SQ.RushRise > 1 and SQ.FallCancel > 0 and SQ.HoverCancel < 1 and SQ.SlowMul < 1 and SQ.LeapMul > 1.2,
-		"Tailwind's spring reaches the same top, quicker; Updraft lifts her jumps; she falls lighter; Downdraft slows",
-		string.format("up in %.2f s instead of %.2f", v0 / gUp, math.sqrt(2 * g * h) / g))
+	check(math.abs(v0 * v0 / (2 * gUp) - h) < 1e-6 and SQ.RushRise > 1 and SQ.FallCancel > 0 and SQ.HoverCancel < 1 and SQ.SlowMul < 1 and SQ.LeapMul > 1.2
+		and C.SideDepth / SQ.DashSpeed < 0.2 and SQ.ChargeTime <= 0.5 and SQ.HoverMax > SQ.ChargeTime,
+		"Tailwind dashes the whole court in a blink and springs to the same top, quicker; a full charge in time for the back line; Updraft; a lighter fall; Downdraft",
+		string.format("the court in %.2f s, up in %.2f s instead of %.2f, a full charge in %.2f s", C.SideDepth / SQ.DashSpeed, v0 / gUp, math.sqrt(2 * g * h) / g, SQ.ChargeTime))
+end
+
+print("== Featherfall (Arin) ==")
+do
+	local FF = Config.Abilities.Featherfall
+	local arin = Characters.derive(Characters.fromRoster(Roster.get("arin"), "max"))
+	-- her open set from a clean setting spot, and the same set by a plain setter
+	local sroot = vec(0, GROUND, side * 2.0 * SPM)
+	local sball = vec(0, GROUND + Z.SetIdealY, side * 2.0 * SPM)
+	local function set(ability, setType)
+		return HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = sball, vy = 0, grounded = true, setType = setType or "Open" },
+			ctx({ ability = ability, stats = arin, touchNumber = 2, seq = 5 }))
+	end
+	local okP, plain = set(nil)
+	local okF, feather = set("Featherfall")
+	local okQ, quick = set("Featherfall", "Quick")
+	local pPath, fPath = BallPhysics.buildPath(plain.launch), BallPhysics.buildPath(feather.launch)
+	-- the top of each, and how long each takes to come down through the hitting height
+	local function topAndArrive(path)
+		local top, arriveT = -1, nil
+		for i = 0, 400 do
+			local tt = i * 0.01
+			local p = BallPhysics.positionAt(path, tt)
+			top = math.max(top, p.Y)
+			if not arriveT and tt > 0.3 and BallPhysics.velocityAt(path, tt).Y < 0 and p.Y <= H.SetArriveY then
+				arriveT = tt
+			end
+		end
+		return top, arriveT or 99
+	end
+	local pTop, pT = topAndArrive(pPath)
+	local fTop, fT = topAndArrive(fPath)
+	local fArrive = BallPhysics.positionAt(fPath, fT)
+	local pArrive = BallPhysics.positionAt(pPath, pT)
+	check(okP and okF and okQ and feather.meta.featherSet and not quick.meta.featherSet and not plain.meta.featherSet and fTop > pTop + 3 and fT > pT + 0.6
+		and math.abs(fArrive.Z - pArrive.Z) < 2.5 and fArrive.Z * side > 0 and not fPath.flags.netTouch,
+		"Featherfall: her set goes higher and floats down to the same spot, much slower; quicks stay quick",
+		string.format("top %.1f vs %.1f studs, down through the hitting height at %.2f s vs %.2f s, at z %.1f vs %.1f", fTop, pTop, fT, pT, fArrive.Z, pArrive.Z))
+	-- the spike off it: the longer it fell, the harder (met at the top, nothing; after FullFall, all)
+	local root = apexRoot(SP, 3.5 * K)
+	local function spikeAt(dt)
+		local c = { lastHit = { featherSet = true, featherTop = feather.meta.featherTop, team = "Away", hitType = "Set" } }
+		return spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), c, { t = feather.meta.featherTop + dt })
+	end
+	local _, s0 = spikeAt(0)
+	local _, sHalf = spikeAt(FF.FullFall / 2)
+	local _, sFull = spikeAt(FF.FullFall + 1)
+	local _, other = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { lastHit = { featherSet = true, featherTop = 0, team = "Home", hitType = "Set" } }, { t = 3 })
+	check(not s0.meta.feather and sHalf.meta.feather == 0.5 and math.abs(sFull.meta.kmh / s0.meta.kmh - (1 + FF.MaxBoost)) < 0.01 and not other.meta.feather,
+		"Featherfall: the longer the set had fallen, the harder the spike, up to +20%",
+		string.format("%.0f met at the top, %.0f half way, %.0f after the whole fall (her real set falls %.2f s to the hitting height)", s0.meta.kmh, sHalf.meta.kmh, sFull.meta.kmh, fT - (feather.meta.featherTop or 0)))
 end
 
 print("== Feral Leap (Dante) ==")
@@ -609,7 +661,7 @@ do
 	local want = {
 		WS = { Adrenaline = true, RisingSun = true, Counter = true, Plunge = true, Skyward = true },
 		MB = { IronWall = true, RallyCry = true },
-		SE = { ChainReaction = true, Vector = true, Turnabout = true },
+		SE = { ChainReaction = true, Vector = true, Turnabout = true, Featherfall = true },
 	}
 	for _, c in ipairs(Roster) do
 		okLimits = okLimits and not ids[c.Id] and Characters.isTier(c.Tier) and Config.RoleTemplates[c.Role] ~= nil

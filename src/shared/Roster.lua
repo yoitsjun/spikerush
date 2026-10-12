@@ -17,6 +17,7 @@ local Roster = {
 	{ Id = "yeonho", Name = "Yeonho", Role = "WS", Tier = "S", Height = 185, Attack = 194, Defense = 118, Speed = 140, Jump = 178, Ability = "Plunge" },
 	{ Id = "joon", Name = "Joon", Role = "MB", Tier = "S", Height = 202, Attack = 162, Defense = 162, Speed = 110, Jump = 176, Ability = "RallyCry" },
 	{ Id = "tetsuo", Name = "Tetsuo", Role = "MB", Tier = "S", Height = 201, Attack = 166, Defense = 158, Speed = 112, Jump = 178, Ability = "IronWall" },
+	{ Id = "arin", Name = "Arin", Role = "SE", Tier = "S", Height = 175, Attack = 128, Defense = 170, Speed = 176, Jump = 140, Ability = "Featherfall" },
 	{ Id = "haeri", Name = "Haeri", Role = "SE", Tier = "S", Height = 183, Attack = 150, Defense = 160, Speed = 172, Jump = 158, Ability = "Turnabout" },
 	{ Id = "ilya", Name = "Ilya", Role = "SE", Tier = "S", Height = 178, Attack = 130, Defense = 170, Speed = 180, Jump = 142, Ability = "Vector" },
 	{ Id = "seoyeon", Name = "Seoyeon", Role = "SE", Tier = "S", Height = 176, Attack = 128, Defense = 172, Speed = 178, Jump = 140, Ability = "ChainReaction" },

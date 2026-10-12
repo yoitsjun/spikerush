@@ -36,6 +36,7 @@ local FERAL = Config.Abilities.Feral
 local ADRENALINE = Config.Abilities.Adrenaline
 local CHAIN = Config.Abilities.ChainReaction
 local VECTOR = Config.Abilities.Vector
+local FEATHER = Config.Abilities.Featherfall
 local PLUNGE = Config.Abilities.Plunge
 local TURN = Config.Abilities.Turnabout
 local SUN = Config.Abilities.RisingSun
@@ -773,6 +774,14 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if zenith then
 		kmh = kmh * (1 + CORONA.ZenithPower)
 	end
+	-- Featherfall: off her floating set, the longer the ball had been falling when it's met, the
+	-- harder (the boost reads the set's own top time, so client and server agree)
+	local feather = 0
+	local last = ctx.lastHit
+	if kind == "Spike" and last and last.featherSet == true and last.team == ctx.team and last.hitType == "Set" and tonumber(last.featherTop) then
+		feather = clamp((t - last.featherTop) / FEATHER.FullFall, 0, 1)
+		kmh = kmh * (1 + FEATHER.MaxBoost * feather)
+	end
 	-- Squall: Eye of the Storm's hover charges the spike (input.gale, 0..1; the AI gets a share)
 	local gale = 0
 	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Squall" then
@@ -803,6 +812,9 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.dive = math.floor(dive * 100 + 0.5) / 100
 	end
 	meta.zenith = zenith or nil
+	if feather > 0 then
+		meta.feather = math.floor(feather * 100 + 0.5) / 100
+	end
 	if gale > 0 and not ctx.auto then
 		meta.gale = math.floor(gale * 100 + 0.5) / 100
 	end
@@ -1463,6 +1475,24 @@ function HitLogic.compute(input, ctx)
 			local arriveY = nil
 			if aimed and type(input.aimHeight) == "number" and input.aimHeight == input.aimHeight then
 				arriveY = clamp(input.aimHeight, H.SetAimLowY, H.SetAimHighY)
+			end
+			if ctx.ability == "Featherfall" and setType ~= "Quick" then
+				-- Featherfall: up higher, then floating down from the top (lighter gravity) to the same
+				-- spot; the spike off it reads how long it has been falling from meta.featherTop
+				local g = G * H.SetGravityScale
+				local arrive = arriveY or H.SetArriveY
+				local apexY = (setType == "Back" and H.SetApexBack or H.SetApexOpen) + lift + (arrive - H.SetArriveY) + FEATHER.ExtraApex
+				apexY = math.min(math.max(apexY, ball.Y + 0.38 * SPM, arrive + 0.5 * SPM), C.CeilingY - R - 0.5)
+				local vy = math.sqrt(2 * g * math.max(apexY - ball.Y, 0.1))
+				local rise = vy / g
+				local gf = g * FEATHER.FallGravity
+				local fall = math.sqrt(2 * math.max(apexY - arrive, 0.1) / gf)
+				local vz = (side * math.max(depth, 0.47 * SPM) - ball.Z) / (rise + fall)
+				meta.featherSet = true
+				meta.featherTop = math.floor((t + rise) * 1000 + 0.5) / 1000
+				local okF, res = launchResult(meta, ball, Vector3.new(0, vy, vz), Vector3.new(0, -g, 0), t)
+				res.launch.dive = { tau = rise, v = planar(Vector3.new(0, 0, vz)), a = planar(Vector3.new(0, -gf, 0)) }
+				return okF, res
 			end
 			local v, g = HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY)
 			return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t)

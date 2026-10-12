@@ -977,19 +977,20 @@ Config.Abilities = {
 		Name = "Squall",
 		Tier = "S+",
 		Active = true,
-		Blurb = "Press Q: a squall for 10 s, faster still, and the faster you are the harder you hit. Hold Jump on the ground to rush under the ball, let go to spring up. In the air, hold Spike to hover: let go at once for a short drop, hold longer to hit it deeper and harder.",
+		Blurb = "Press Q: a squall for 10 s, faster still, and the faster you are the harder you hit. Jump on the ground to dash under the ball and spring up. In the air, hold Spike to hover: let go at once for a short drop, hold longer to hit it deeper and harder.",
 		Color = Color3.fromRGB(70, 232, 200),
 		Duration = 10,
 		Cooldown = 22,
 		SpeedBoost = 0.15, -- Speed x (1 + this) while it's on
 		AttackPerSpeed = 0.12, -- and Attack + this x her Speed (the boosted one)
-		-- Tailwind: Jump (or Spike) held on the ground in a rally rushes her to the spot under where
-		-- the ball comes down through her hitting point (nowhere to go: she runs the way you hold, as
-		-- fast); let go and she springs straight up to the top of her jump, quicker than anyone
-		RushSpeed = 2.4, -- her run x this while rushing
-		RushTapTime = 0.12, -- let go sooner and it's the usual jump
-		RushRise = 1.5, -- the jump off a rush rises this much faster (to the same top)
-		RushRootSlack = 2.5, -- the server's check on where she is allows this much more while rushing
+		-- Tailwind (the owner: "when she jumps honestly i might want it to just bring you under the ball
+		-- automatically with an insanely quick dash"): Jump (or Spike) on the ground in a rally dashes
+		-- her to the spot under where the ball comes down through her hitting point and springs her
+		-- straight up the moment she's there, quicker than anyone; nowhere to go, it's the usual jump
+		DashSpeed = 240, -- studs/s: across the whole court in about a sixth of a second
+		DashMax = 0.35, -- a dash that hasn't arrived by now springs where it is
+		RushRise = 1.5, -- the jump off a dash rises this much faster (to the same top)
+		RushRootSlack = 4, -- the server's check on where she is allows this much more around a dash
 		-- Downdraft: just after her Tailwind jump, the other team runs slower
 		SlowMul = 0.7,
 		SlowTime = 1.2,
@@ -1004,15 +1005,16 @@ Config.Abilities = {
 		-- serve jumps (Tailwind's spring too) go this much higher, room to hover and charge
 		LeapMul = 1.35,
 		HoverCancel = 0.985,
-		HoverMax = 1.1, -- a hover this long swings by itself
-		ChargeTime = 0.9, -- seconds of hovering for the whole charge (and the deepest spike)
+		-- (the owner: "her charging speed is too slow to reach the backcourt in time")
+		HoverMax = 0.7, -- a hover this long swings by itself
+		ChargeTime = 0.45, -- seconds of hovering for the whole charge (and the deepest spike)
 		HoverBoost = 0.25, -- spike speed x (1 + this x the charge)
 		HoverSlack = 0.15, -- charge a spike may claim over the hover the server saw (network jitter)
 		AimError = 0.5, -- a hover's spike strays this share of the usual error
 		ReachMul = 1.2, -- Shear: her spike reaches this much wider
 		AutoGale = 0.4, -- the AI doesn't hover: its spikes get this much of the charge's power
 		Passives = {
-			{ Name = "Tailwind", Blurb = "Hold Jump on the ground to rush to where the ball comes down; let go to spring straight up, quicker than anyone." },
+			{ Name = "Tailwind", Blurb = "Jump on the ground: a lightning-quick dash under where the ball comes down, and a spring straight up, quicker than anyone." },
 			{ Name = "Downdraft", Blurb = "Just after a Tailwind jump, the other team runs 30% slower for a moment." },
 			{ Name = "Updraft", Blurb = "Your spike jumps go 35% higher: room to hover and charge." },
 			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge: let go at once and it drops just over the net; the longer you hold, the deeper and harder it goes (up to +25%)." },
@@ -1081,6 +1083,23 @@ Config.Abilities = {
 		-- higher, so the attacker hits close to the net from the top of the jump (steep)
 		SetDepthMul = 0.6,
 		SetLift = 1.2 * M,
+	},
+	-- Arin (the owner: "a setter that works well. a setter that sets high and the ball drops slowly,
+	-- the longer it drops the harder your spike gets. dont know how high that buff should be but you
+	-- pick"). Featherfall: her open and back sets go up higher and float down from the top (lighter
+	-- gravity), so the hitter has time to line up; a spike off one gets more power the longer the
+	-- ball had been falling, the whole MaxBoost at FullFall (about the whole float down to the usual
+	-- hitting height). Quicks stay quick.
+	Featherfall = {
+		Name = "Featherfall",
+		Tier = "S",
+		Role = "SE",
+		Blurb = "Your open and back sets go up high and float down slowly. The longer the ball has been falling when your hitter meets it, the harder the spike: up to +20%.",
+		Color = Color3.fromRGB(255, 176, 214),
+		ExtraApex = 1.2 * M, -- her sets' top this much higher
+		FallGravity = 0.4, -- from the top down, gravity x this: it floats
+		MaxBoost = 0.2, -- spike speed x (1 + this x how long it fell / FullFall)
+		FullFall = 1.25, -- seconds of falling for the whole boost (about her set's float down to the usual hitting height)
 	},
 	Turnabout = {
 		Name = "Turnabout",
@@ -1240,7 +1259,7 @@ Config.Retired = {
 	TicketTier = "S",
 }
 
-Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Corona", "Squall", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Corona", "Squall", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Featherfall", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },

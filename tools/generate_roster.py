@@ -47,6 +47,9 @@ FIXED = [
     {"Name": "Tetsuo", "Role": "MB", "Tier": "S", "Height": 201, "Attack": 166, "Defense": 158, "Speed": 112, "Jump": 178, "Ability": "IronWall"},
     {"Name": "Seoyeon", "Role": "SE", "Tier": "S", "Height": 176, "Attack": 128, "Defense": 172, "Speed": 178, "Jump": 140, "Ability": "ChainReaction"},
     # the second wave of S abilities (original characters; the owner described the ideas)
+    # Featherfall (the owner: "a setter that works well. a setter that sets high and the ball drops
+    # slowly, the longer it drops the harder your spike gets"): quick and steady hands
+    {"Name": "Arin", "Role": "SE", "Tier": "S", "Height": 175, "Attack": 128, "Defense": 170, "Speed": 176, "Jump": 140, "Ability": "Featherfall"},
     {"Name": "Ilya", "Role": "SE", "Tier": "S", "Height": 178, "Attack": 130, "Defense": 170, "Speed": 180, "Jump": 142, "Ability": "Vector"},
     {"Name": "Haeri", "Role": "SE", "Tier": "S", "Height": 183, "Attack": 150, "Defense": 160, "Speed": 172, "Jump": 158, "Ability": "Turnabout"},
     # Rising Sun: a low A at level 0; at level 4 (+40 ATK, +36 JMP, +12 DEF, +24 SPD) every stat

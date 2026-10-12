@@ -6,8 +6,8 @@
 --                  Leap: hold on the ground to charge (he runs faster), let go to leap; the
 --                  charge carries him along the court and powers the spike (or the jump serve:
 --                  the press that tosses keeps charging while held, as does one after the toss).
---                  Squall: held on the ground (Jump too) it rushes under the ball and letting go
---                  springs up (Tailwind); held in the air, once a jump, it hovers and charges, and
+--                  Squall: on the ground (Jump too) it dashes under the ball and springs up
+--                  (Tailwind); held in the air, once a jump, it hovers and charges, and
 --                  letting go swings: at once, a short drop; the longer, the deeper and harder.
 --   Receive ...... arms a receive stance; the touch happens automatically when the ball arrives.
 --                  Pressed a little early (not too early) = perfect timing = almost no stamina lost.
@@ -805,12 +805,19 @@ local function rushTarget(info, now)
 	return math.clamp(depth, 0.6, Config.Court.SideDepth + 2) * side
 end
 
-startRush = function(kind)
+-- Tailwind: a dash under the ball, then the spring (processRush); false when there's no ball to go
+-- under (the usual jump instead).
+startRush = function(kind, info)
 	if not mods.MovementController.canJump() then
+		return false
+	end
+	local target = rushTarget(info, Util.now())
+	if not target then
 		return false
 	end
 	rush = { t0 = os.clock(), kind = kind }
 	mods.MovementController.setRush(true)
+	mods.MovementController.rushTo(target)
 	mods.AnimationController.pose(State.myId, "Prowl", 10)
 	mods.VFXController.rush(State.myId, true)
 	Net.get("ActionFX"):FireServer("Rush")
@@ -825,7 +832,7 @@ endRush = function()
 	Net.get("ActionFX"):FireServer("RushEnd")
 end
 
--- Let go: a tap is the usual jump; a hold springs straight up off the rush (and Downdraft).
+-- At the spot (or out of time): spring straight up off the dash (and Downdraft).
 releaseRush = function()
 	local r = rush
 	if not r then
@@ -833,22 +840,14 @@ releaseRush = function()
 	end
 	endRush()
 	local MC = mods.MovementController
-	if os.clock() - r.t0 < SQUALL.RushTapTime then
-		if r.kind == "Jump" then
-			MC.jump("Spike")
-		else
-			MC.approach("Spike")
-		end
-		return
-	end
 	if MC.rushJump() then
 		mods.VFXController.rushJump(State.myId)
 		Net.get("ActionFX"):FireServer("RushJump")
 	end
 end
 
--- The rush follows the ball each frame; it ends if she leaves the floor some other way or the rally
--- stops.
+-- The dash follows the ball each frame and springs once it's there (or at DashMax); it ends if she
+-- leaves the floor some other way or the rally stops.
 processRush = function(info, now)
 	if not rush then
 		return
@@ -857,7 +856,14 @@ processRush = function(info, now)
 		endRush()
 		return
 	end
-	mods.MovementController.rushTo(rushTarget(info, now))
+	local MC = mods.MovementController
+	local target = rushTarget(info, now)
+	if target then
+		MC.rushTo(target)
+	end
+	if MC.rushArrived() or os.clock() - rush.t0 >= SQUALL.DashMax then
+		releaseRush()
+	end
 end
 
 -- Eye of the Storm's target: its depth on their court, from the shortest spike (no charge) to the
@@ -965,7 +971,7 @@ local function pressSpike(info)
 		if State.isPlaying and State.phase() == "Rally" and isFeral() and startProwl("Spike") then
 			return
 		end
-		if State.isPlaying and State.phase() == "Rally" and isSquall() and startRush("Spike") then
+		if State.isPlaying and State.phase() == "Rally" and isSquall() and startRush("Spike", info) then
 			return
 		end
 		MC.approach("Spike")
@@ -1001,8 +1007,7 @@ local function releaseSpike(info)
 		return
 	end
 	if rush then
-		releaseRush()
-		return
+		return -- (Tailwind's dash springs by itself)
 	end
 	if hover then
 		releaseHover(info)
@@ -1271,7 +1276,7 @@ local function pressJump(info)
 	if State.isPlaying and State.phase() == "Rally" and isFeral() and startProwl("Jump") then
 		return
 	end
-	if State.isPlaying and State.phase() == "Rally" and isSquall() and startRush("Jump") then
+	if State.isPlaying and State.phase() == "Rally" and isSquall() and startRush("Jump", info) then
 		return
 	end
 	mods.MovementController.jump("Spike")
@@ -1328,7 +1333,7 @@ function ActionController.release(action)
 		releaseSpike(info)
 	elseif action == "Jump" then
 		if rush then
-			releaseRush()
+			return -- (Tailwind's dash springs by itself)
 		elseif hover then
 			releaseHover(info) -- (touch: Jump is the spike in the air)
 		else
@@ -1598,7 +1603,7 @@ local function groundSpikeLabel()
 		return "Leap" -- Feral Leap's charge: let go to leap
 	end
 	if rush then
-		return "Spring" -- Squall's Tailwind: let go to spring up
+		return "Dash" -- Squall's Tailwind: dashing under the ball
 	end
 	if State.settings.doubleApproach and not mods.MovementController.isRunning() then
 		return "Approach"
