@@ -584,8 +584,9 @@ local function tryAttack(action, info, opts)
 		local nz2, ny2 = zoneOffset(Vector3.new(info.root.X, ys[#ys], info.root.Z + vz / 60), mods.BallRenderer.getPosition(now + 1 / 60), scale)
 		swingNow = math.sqrt(nz2 * nz2 + ny2 * ny2) >= d
 	end
-	-- Corona: the ball below his reach is a Sundive, along a path onto it (the swing lands on it)
-	if action == "Spike" and not swingNow and State.myAbility() == "Corona" and not info.grounded then
+	-- Corona: the ball below his reach is a Sundive, along a path onto it (the swing lands on it);
+	-- his jump serve too (the owner: "on serves for laith i cant dash")
+	if (action == "Spike" or action == "Serve") and not swingNow and State.myAbility() == "Corona" and not info.grounded then
 		local target, t, meet = divePlan(info, now)
 		local p0 = info.root
 		local c, drop = nil, nil
@@ -1438,6 +1439,14 @@ local function evaluate(info, now)
 		elseif myToss() then
 			ctx.spikeLabel = info.grounded and groundSpikeLabel() or "Serve"
 			ctx.inZone = not info.grounded and (HitLogic.spikeZone(info.root, BR.getPosition(now), side, stats, 1.1))
+			-- Corona: a Sundive onto his own toss
+			if not info.grounded and not ctx.inZone and State.myAbility() == "Corona" and not mods.MovementController.isDiving() then
+				local target, _, meet = divePlan(info, now)
+				if target then
+					ctx.spikeLabel = "Dive"
+					ctx.dive = { target = target, meet = meet }
+				end
+			end
 		end
 		return ctx
 	end

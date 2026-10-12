@@ -718,7 +718,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	-- gets a share without diving); a dive meets the ball under the top of his jump, which doesn't
 	-- cost him
 	local dive = 0
-	if kind == "Spike" and ctx.ability == "Corona" then
+	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Corona" then
 		dive = ctx.auto and CORONA.AutoDive or HitLogic.diveFraction(input.sundive)
 		if dive > 0 and not ctx.auto then
 			qHeight = math.max(qHeight, CORONA.DiveHeightFloor)

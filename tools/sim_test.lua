@@ -296,6 +296,15 @@ do
 	local _, fullDive = laithSpike(low, CO.DiveFullDrop + 5)
 	local _, flared = laithSpike(low, CO.DiveFullDrop, { coronaOn = true })
 	local _, auto = laithSpike(root, 0, { auto = true })
+	-- his jump serve dives too (the owner: "on serves for laith i cant dash")
+	local function laithServe(drop)
+		local c = ctx({ ability = "Corona", stats = laith, seq = 7, touchNumber = 1 })
+		return HitLogic.compute({ action = "Serve", t = 0, root = low, ball = ballAt(low, Z.SpikeCenterDz, Z.SpikeCenterDy), vy = 0, grounded = false, sundive = drop }, c)
+	end
+	local okP, servePlain = laithServe(0)
+	local okD, serveDive = laithServe(CO.DiveFullDrop)
+	check(okP and okD and servePlain.meta.hitType == "JumpServe" and serveDive.meta.dive == 1 and serveDive.meta.kmh > servePlain.meta.kmh * 1.3,
+		"Sundive works on his jump serve too", string.format("%.0f km/h plain, %.0f off a full dive", servePlain.meta.kmh, serveDive.meta.kmh))
 	check(not plain.meta.dive and lowPlain.meta.kmh < plain.meta.kmh and halfDive.meta.dive == 0.5 and fullDive.meta.dive == 1
 		and fullDive.meta.kmh > plain.meta.kmh * 1.3 and fullDive.meta.kmh > halfDive.meta.kmh + 15 and auto.meta.kmh > plain.meta.kmh and not auto.meta.dive
 		and flared.meta.kmh > 200 and flared.meta.kmh < 245,

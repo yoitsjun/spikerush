@@ -380,7 +380,7 @@ function HitService.onRequest(plr, req)
 	-- Corona: Sundive's drop needs a dive the server heard start, and he can't claim more than he
 	-- fell since (a little slack: the server's copy of him lags)
 	local sundive = 0
-	if entity.ability == "Corona" and req.action == "Spike" and diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE then
+	if entity.ability == "Corona" and (req.action == "Spike" or req.action == "Serve") and diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE then
 		local fell = (diveFrom[entity.id] or 0) - (Util.isFiniteVector(req.root) and req.root.Y or 0)
 		sundive = math.min(num(req.sundive, 0, Config.Abilities.Corona.DiveMaxDist, 0), math.max(0, fell + 3))
 	end
