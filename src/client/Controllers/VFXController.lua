@@ -22,6 +22,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
 local Util = require(Shared.Util)
+local HitLogic = require(Shared.HitLogic)
 local BallPhysics = require(Shared.BallPhysics)
 local Spins = require(Shared.Spins)
 local Court = require(Shared.Court)
@@ -1885,20 +1886,20 @@ local function updateSunTrails(clock)
 			if hrp and model:GetAttribute("Ability") == "Corona" and not sunTrails[model] then
 				local a0 = Instance.new("Attachment")
 				a0.Name = "SunTrail0"
-				a0.Position = Vector3.new(0, 1.3, 0)
+				a0.Position = Vector3.new(0, 1.6, 0)
 				a0.Parent = hrp
 				local a1 = Instance.new("Attachment")
 				a1.Name = "SunTrail1"
-				a1.Position = Vector3.new(0, -1.1, 0)
+				a1.Position = Vector3.new(0, -1.4, 0)
 				a1.Parent = hrp
 				local trail = Instance.new("Trail")
 				trail.Attachment0, trail.Attachment1 = a0, a1
-				trail.Lifetime = 0.55
+				trail.Lifetime = 1.3 -- (the owner: "a long path like this")
 				trail.MinLength = 0.05
 				trail.FaceCamera = true
 				trail.LightEmission = 1
-				trail.Color = ColorSequence.new(Color3.fromRGB(255, 255, 240), Config.Abilities.Corona.Color)
-				trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 1) })
+				trail.Color = ColorSequence.new(Color3.fromRGB(255, 255, 250), Color3.fromRGB(255, 236, 190))
+				trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.7, 0.4), NumberSequenceKeypoint.new(1, 1) })
 				trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
 				trail.Enabled = false
 				trail.Parent = hrp
@@ -1916,8 +1917,8 @@ local function updateSunTrails(clock)
 		else
 			st.trail.Enabled = hrp.Position.Y > Config.Player.RootGround + 1.2
 			local on = (model:GetAttribute("AbilityUntil") or -1) >= clock
-			st.a0.Position = Vector3.new(0, on and 1.7 or 1.3, 0)
-			st.a1.Position = Vector3.new(0, on and -1.5 or -1.1, 0)
+			st.a0.Position = Vector3.new(0, on and 2.0 or 1.6, 0)
+			st.a1.Position = Vector3.new(0, on and -1.8 or -1.4, 0)
 		end
 	end
 end
@@ -1948,8 +1949,8 @@ local function diveParts()
 	path.Attachment0, path.Attachment1 = a0, a1
 	path.FaceCamera = true
 	path.LightEmission = 1
-	path.Segments = 1
-	path.Width0, path.Width1 = 0.35, 1.1
+	path.Segments = 24
+	path.Width0, path.Width1 = 0.5, 1.4
 	path.Color = ColorSequence.new(Color3.fromRGB(255, 255, 235), col)
 	path.Parent = holder
 	local across = Instance.new("Beam")
@@ -1973,6 +1974,20 @@ local function diveParts()
 	return dive
 end
 
+-- A Beam's two attachments and curve sizes drawn along Sundive's arc (p0, control c, p2): the
+-- quadratic as a cubic, its handles along each end's tangent.
+local function curveBeam(beam, a0, a1, p0, c, p2)
+	local h0 = (c - p0) * (2 / 3)
+	local h1 = (c - p2) * (2 / 3)
+	local side = Vector3.new(1, 0, 0) -- the arc is in the court's plane
+	local d0 = h0.Magnitude > 0.01 and h0.Unit or Vector3.new(0, -1, 0)
+	local d1 = h1.Magnitude > 0.01 and -h1.Unit or Vector3.new(0, -1, 0)
+	a0.WorldCFrame = CFrame.fromMatrix(p0, d0, side:Cross(d0))
+	a1.WorldCFrame = CFrame.fromMatrix(p2, d1, side:Cross(d1))
+	beam.CurveSize0 = h0.Magnitude
+	beam.CurveSize1 = h1.Magnitude
+end
+
 function VFXController.divePath(hrp, d)
 	if not hrp or not d or not d.target then
 		if dive and dive.holder.Parent then
@@ -1983,8 +1998,8 @@ function VFXController.divePath(hrp, d)
 	local p = diveParts()
 	local meet = d.meet or d.target
 	local pulse = 0.5 + 0.5 * math.sin(os.clock() * 14)
-	p.a0.WorldPosition = hrp.Position
-	p.a1.WorldPosition = d.target
+	local p0 = d.p0 or hrp.Position
+	curveBeam(p.path, p.a0, p.a1, p0, d.c or HitLogic.diveControl(p0, d.target), d.target)
 	p.a2.WorldPosition = Vector3.new(meet.X, meet.Y, meet.Z - 16)
 	p.a3.WorldPosition = Vector3.new(meet.X, meet.Y, meet.Z + 16)
 	local k = d.live and 0 or 0.25 + 0.2 * pulse
@@ -1995,14 +2010,58 @@ function VFXController.divePath(hrp, d)
 	p.sun.Transparency = d.live and 0.05 or 0.25
 end
 
--- Sundive: Elio leaves the top of his path and drops onto the ball.
-function VFXController.diveStart(entityId)
+-- Sundive: Elio leaves the top of his path and sweeps down it onto the ball, leaving a wide white
+-- ribbon along the arc (the owner's reference) that fades. p0, c, p2: the arc (a remote dive
+-- passes only its end; it's drawn from where he is now).
+function VFXController.diveStart(entityId, p0, c, p2)
 	local hrp = Util.rootOf(entityId)
 	if not hrp then
 		return
 	end
 	local col = Config.Abilities.Corona.Color
-	local pos = hrp.Position
+	local pos = p0 or hrp.Position
+	if p2 then
+		c = c or HitLogic.diveControl(pos, p2)
+		local holder = Instance.new("Part")
+		holder.Anchored, holder.CanCollide, holder.CanQuery, holder.CanTouch = true, false, false, false
+		holder.Transparency = 1
+		holder.Size = Vector3.new(0.2, 0.2, 0.2)
+		holder.CFrame = CFrame.new()
+		holder.Parent = fxFolder
+		local a0 = Instance.new("Attachment")
+		a0.Parent = holder
+		local a1 = Instance.new("Attachment")
+		a1.Parent = holder
+		local function ribbon(width0, width1, color, emission)
+			local b = Instance.new("Beam")
+			b.Attachment0, b.Attachment1 = a0, a1
+			b.FaceCamera = true
+			b.Segments = 30
+			b.LightEmission = emission
+			b.Width0, b.Width1 = width0, width1
+			b.Color = ColorSequence.new(color)
+			b.Parent = holder
+			curveBeam(b, a0, a1, pos, c, p2)
+			return b
+		end
+		local glow = ribbon(3.4, 5.2, col, 1)
+		local core = ribbon(1.8, 3.2, Color3.fromRGB(255, 255, 250), 0.6)
+		local t0 = os.clock()
+		local conn
+		conn = RunService.RenderStepped:Connect(function()
+			local k = (os.clock() - t0) / 0.7
+			if k >= 1 then
+				conn:Disconnect()
+				holder:Destroy()
+				return
+			end
+			-- the tail (where he left) goes first, like a ribbon drawn and wiped along the arc
+			local tail = math.clamp(k * 1.3, 0, 1)
+			local seq = NumberSequence.new({ NumberSequenceKeypoint.new(0, math.min(1, 0.25 + tail)), NumberSequenceKeypoint.new(1, 0.05 + 0.9 * k) })
+			core.Transparency = seq
+			glow.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, math.min(1, 0.55 + tail)), NumberSequenceKeypoint.new(1, 0.4 + 0.6 * k) })
+		end)
+	end
 	starburst(pos + Vector3.new(0, 1, 0), Color3.fromRGB(255, 245, 200), 9)
 	ringFx(pos, col, 1, 9, 0.3, 6)
 	burst(pos, col, 6)
@@ -5139,7 +5198,11 @@ function VFXController.init(m)
 		elseif kind == "ProwlEnd" and model then
 			remoteArc(model, "end")
 		elseif kind == "Dive" and model then
-			VFXController.diveStart(entityId)
+			-- extra: where the arc ends ("y,z")
+			local y, z = string.match(tostring(extra or ""), "^(%-?[%d%.]+),(%-?[%d%.]+)$")
+			local hrp = model:FindFirstChild("HumanoidRootPart")
+			local p2 = (y and hrp) and Vector3.new(hrp.Position.X, tonumber(y), tonumber(z)) or nil
+			VFXController.diveStart(entityId, nil, nil, p2)
 		elseif kind == "Slide" and model then
 			local hrp = model:FindFirstChild("HumanoidRootPart")
 			if hrp then

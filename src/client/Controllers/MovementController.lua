@@ -17,6 +17,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Cups = require(Shared.Cups)
+local HitLogic = require(Shared.HitLogic)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 
@@ -41,10 +42,11 @@ local lastForce = nil
 local knock = nil -- { t0, speed } after a heavy receive
 local prowlT0 = nil -- Feral Leap: when the charge started (he runs faster as it fills)
 local leaping = nil -- { dir, carry, t0 } from a Feral Leap's takeoff until he lands
--- Corona's Sundive: { target, arrive, t0 } (os.clock), a straight path onto the ball with gravity
--- off; it carries on along that line a moment past the meeting point, then ends
+-- Corona's Sundive: { p0, c, target, meet, t0, T, endVy } (os.clock), an arc onto the ball
+-- travelled in T with gravity off; he hangs at its end for DiveHold, then falls again
 local diving = nil
-local DIVE_PAST = 0.18
+local lastDive = nil -- the last dive's fall at the end of its arc, and when it ended
+local CORONA = Config.Abilities.Corona
 -- A jump asked for from an input event. The default control script rewrites Humanoid.Jump every
 -- render step (from its own keys), so a jump set straight from an input handler is wiped before
 -- physics sees it; moveStep applies it after the control script instead.
@@ -299,25 +301,30 @@ function MovementController.leap(gauge, kind, aim)
 	return dir
 end
 
--- Corona's Sundive: go along a straight line to `target` (a root position), arriving `seconds`
--- from now.
--- `meet`: where his hand meets the ball (the path's end marker).
+-- Corona's Sundive: along the arc to `target` (a root position) in `seconds`; `meet`: where his
+-- hand meets the ball. Returns the arc's control point and its fall at the end (studs/s, the
+-- spike's claimed fall), or nil when he can't.
 function MovementController.dive(target, seconds, meet)
 	if not hrp or not inAir() then
-		return false
+		return nil
 	end
-	diving = { target = target, meet = meet, arrive = os.clock() + math.max(seconds, 0.05), t0 = os.clock() }
-	return true
+	local p0 = hrp.Position
+	local c = HitLogic.diveControl(p0, target)
+	local T = math.max(seconds, 0.03)
+	diving = { p0 = p0, c = c, target = target, meet = meet, t0 = os.clock(), T = T, endVy = 2 * (target.Y - c.Y) / T }
+	lastDive = { endVy = diving.endVy, at = os.clock() + T + CORONA.DiveHold }
+	return c, diving.endVy
 end
 
 function MovementController.isDiving()
 	return diving ~= nil
 end
 
--- The dive under way: where it's taking him and where he meets the ball (nil when not diving).
+-- The dive under way: where it's taking him, where he meets the ball, and the arc's start and
+-- control point (nil when not diving).
 function MovementController.diveTarget()
 	if diving then
-		return diving.target, diving.meet
+		return diving.target, diving.meet, diving.p0, diving.c
 	end
 	return nil
 end
@@ -440,18 +447,19 @@ local function physicsStep()
 	holdServeLine(airborne)
 	local cancel = 0
 	if diving then
-		local now = os.clock()
-		if (not airborne and now - diving.t0 > 0.1) or now > diving.arrive + DIVE_PAST then
-			diving = nil -- landed, or past the meeting point: gravity again
+		local e = os.clock() - diving.t0
+		if (not airborne and e > 0.05) or e > diving.T + CORONA.DiveHold then
+			diving = nil -- landed, or done hanging at the meeting point: gravity again
 		else
-			-- homing along the line: the speed that arrives on time (kept past it)
-			local left = diving.arrive - now
-			if left > 0.02 then
-				local d = diving.target - hrp.Position
-				diving.vel = Vector3.new(0, d.Y / left, d.Z / left)
-			end
-			if diving.vel then
-				hrp.AssemblyLinearVelocity = diving.vel
+			-- along the arc (placed on it every step: it's nearly a teleport), then hang at its end
+			local s = math.min(e / diving.T, 1)
+			local pos = HitLogic.divePoint(diving.p0, diving.c, diving.target, s)
+			hrp.CFrame = CFrame.new(pos) * (hrp.CFrame - hrp.CFrame.Position)
+			if s < 1 then
+				local d = ((diving.c - diving.p0) * (2 * (1 - s)) + (diving.target - diving.c) * (2 * s)) / diving.T
+				hrp.AssemblyLinearVelocity = Vector3.new(0, d.Y, d.Z)
+			else
+				hrp.AssemblyLinearVelocity = Vector3.zero
 			end
 			cancel = 1
 		end

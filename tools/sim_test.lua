@@ -301,6 +301,14 @@ do
 		string.format("apex %.0f, low %.0f, half dive %.0f, full dive %.0f, AI %.0f km/h", plain.meta.kmh, lowPlain.meta.kmh, halfDive.meta.kmh, fullDive.meta.kmh, auto.meta.kmh))
 	local path = BallPhysics.buildPath(fullDive.launch)
 	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "a full Sundive spike lands in", describe(path))
+	-- the arc (the owner's "long path"): it bows up, ends on the ball, and a long one travelled at
+	-- DiveSpeedMax falls fast enough at its end for the whole bonus
+	local d0, d2 = vec(0, 24, side * 22), vec(0, 13, side * 9)
+	local dc = HitLogic.diveControl(d0, d2)
+	local dT = (d2 - d0).Magnitude * 1.15 / CO.DiveSpeedMax
+	local endVy = 2 * (d2.Y - dc.Y) / dT
+	check(dc.Y >= d0.Y and HitLogic.divePoint(d0, dc, d2, 0.5).Y > (d0.Y + d2.Y) / 2 and (HitLogic.divePoint(d0, dc, d2, 1) - d2).Magnitude < 0.001 and HitLogic.diveFraction(endVy) == 1 and dT < 0.12,
+		"Sundive's arc bows up and sweeps down onto the ball, near a teleport, falling fast enough for the whole bonus", string.format("%.2f s, falling %.0f studs/s at the end", dT, -endVy))
 
 	-- Zenith: about ZenithChance of his spikes (by the ball's seed, so client and server agree),
 	-- +13% and heavier topspin; nobody else's spikes change

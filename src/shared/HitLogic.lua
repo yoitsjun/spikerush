@@ -446,6 +446,20 @@ function HitLogic.coronaMul(on, stacks)
 	return 1 - CORONA.PenaltyPer * clamp(math.floor(tonumber(stacks) or 0), 0, CORONA.MaxStacks)
 end
 
+-- Sundive's arc from p0 to p2: its middle control point (a quadratic curve bowed up by DiveArc of
+-- its length), shared by his movement and the drawn path.
+function HitLogic.diveControl(p0, p2)
+	local chord = (p2 - p0).Magnitude
+	local mid = (p0 + p2) / 2
+	return Vector3.new(p0.X, math.max(p0.Y, mid.Y + CORONA.DiveArc * chord), mid.Z)
+end
+
+-- A point on that arc at s (0..1).
+function HitLogic.divePoint(p0, c, p2, s)
+	local u = 1 - s
+	return p0 * (u * u) + c * (2 * u * s) + p2 * (s * s)
+end
+
 -- Sundive: how much of the dive bonus a spike gets (0..1) from how fast he's falling (vy, studs/s,
 -- negative down).
 function HitLogic.diveFraction(vy)

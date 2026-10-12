@@ -319,7 +319,7 @@ local function execute(action, info, opts, t, ballPos)
 		action = action,
 		t = t,
 		root = info.root,
-		vy = info.vy,
+		vy = opts.vy or info.vy, -- (Sundive: the arc's fall)
 		grounded = info.grounded,
 		diving = opts.diving == true,
 		ball = ballPos,
@@ -363,7 +363,7 @@ local function execute(action, info, opts, t, ballPos)
 		action = action,
 		t = t,
 		root = info.root,
-		vy = info.vy,
+		vy = input.vy,
 		grounded = info.grounded,
 		diving = input.diving,
 		ball = ballPos,
@@ -533,14 +533,15 @@ local function divePlan(info, now)
 	local C = Config.Court
 	-- the sweet spot's offset from the root (zoneOffset's centre)
 	local spot = Vector3.new(0, Z.SpikeUp + Z.SpikeCenterDy, -side * (Z.SpikeForward + Z.SpikeCenterDz))
-	local steps = 24
+	local steps = 36
 	for i = 1, steps do
 		local t = CORONA.DiveWindow * i / steps
 		local ball = BR.getPosition(now + t)
 		local target = Vector3.new(info.root.X, ball.Y - spot.Y, ball.Z - spot.Z)
 		local d = target - info.root
 		local clear = ball.Z * side > -0.1 and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
-		if clear and -d.Y >= CORONA.DiveMinDrop and target.Y > info.groundY + 0.6 and d.Magnitude / t <= CORONA.DiveSpeedMax then
+		-- (the arc is about 1.15 times its chord)
+		if clear and -d.Y >= CORONA.DiveMinDrop and target.Y > info.groundY + 0.6 and d.Magnitude <= CORONA.DiveMaxDist and d.Magnitude * 1.15 / t <= CORONA.DiveSpeedMax then
 			return target, t, ball
 		end
 	end
@@ -584,11 +585,18 @@ local function tryAttack(action, info, opts)
 	-- Corona: the ball below his reach is a Sundive, along a path onto it (the swing lands on it)
 	if action == "Spike" and not swingNow and State.myAbility() == "Corona" and not info.grounded then
 		local target, t, meet = divePlan(info, now)
-		if target and mods.MovementController.dive(target, t, meet) then
-			buffered = { action = action, opts = opts, expires = os.clock() + t + 0.3, scale = scale, lastQ = nil }
+		local p0 = info.root
+		local c, endVy = nil, nil
+		if target then
+			c, endVy = mods.MovementController.dive(target, t, meet)
+		end
+		if c then
+			-- the spike claims the arc's fall at its end (he hangs still there for the swing)
+			opts.vy = endVy
+			buffered = { action = action, opts = opts, expires = os.clock() + t + Config.Abilities.Corona.DiveHold + 0.05, scale = scale, lastQ = nil }
 			mods.AnimationController.pose(State.myId, "Charge", 1)
-			mods.VFXController.diveStart(State.myId)
-			Net.get("ActionFX"):FireServer("Dive")
+			mods.VFXController.diveStart(State.myId, p0, c, target)
+			Net.get("ActionFX"):FireServer("Dive", string.format("%.1f,%.1f", target.Y, target.Z))
 			return true
 		end
 	end
@@ -1474,8 +1482,8 @@ function ActionController.init(m)
 		local dive = State.context.dive
 		local MC = mods.MovementController
 		if MC.isDiving() then
-			local target, meet = MC.diveTarget()
-			dive = { target = target, meet = meet, live = true }
+			local target, meet, p0, c = MC.diveTarget()
+			dive = { target = target, meet = meet, p0 = p0, c = c, live = true }
 		end
 		mods.VFXController.divePath(info and info.hrp, dive)
 		if info and info.grounded then

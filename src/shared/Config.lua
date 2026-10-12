@@ -928,13 +928,20 @@ Config.Abilities = {
 		PenaltyPer = 0.015, -- every stat x (1 - this x uses) while it's off
 		MaxStacks = 12,
 		-- Sundive
-		-- (the owner, watching it: "he should be way way faster")
+		-- (the owner, watching it: "he should be way way faster", "a long path like this" with a
+		-- picture of a long white swoop from high up onto the ball, "he should practically be
+		-- teleporting with how fast it is"): the path is an arc that rises a little and sweeps down
+		-- onto the ball (HitLogic.diveControl), travelled almost at once; he hangs where he meets it
+		-- for the swing
 		DiveWindow = 0.9, -- the ball has to be reachable within this long (seconds)
 		DiveMinDrop = 0.6, -- and his hand at least this far above where he'll meet it (studs)
-		DiveSpeedMax = 150, -- the fastest he can travel along the path (studs/s)
-		DiveMinFall = 25, -- falling slower than this at the hit: no dive bonus (studs/s)
-		DiveFullFall = 100, -- this fast or more: the whole bonus
-		DiveRootSlack = 2.5, -- the server's check on where he is allows this much more after a dive
+		DiveMaxDist = 9 * M, -- the longest path (studs, start to end)
+		DiveArc = 0.3, -- how far the arc bows up, as a share of its length
+		DiveSpeedMax = 400, -- the fastest he travels along it (studs/s): practically a teleport
+		DiveHold = 0.15, -- he hangs at the meeting point this long for the swing
+		DiveMinFall = 25, -- the arc's fall at its end slower than this: no dive bonus (studs/s)
+		DiveFullFall = 150, -- this fast or more: the whole bonus
+		DiveRootSlack = 4, -- the server's check on where he is allows this much more after a dive
 		DiveBoost = 0.3, -- spike speed x (1 + this x how fast he fell)
 		DiveHeightFloor = 0.75, -- a dive spike counts as met this close to the top of his jump at least
 		AutoDive = 0.3, -- the AI doesn't dive: its spikes get this much of the dive bonus
