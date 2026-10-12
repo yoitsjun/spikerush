@@ -545,6 +545,29 @@ do
 		string.format("%.0f with none, %.0f with 3", top.meta.kmh, st3.meta.kmh))
 end
 
+print("== patch notes ==")
+do
+	local PatchNotes = require("PatchNotes")
+	local latest = PatchNotes.latest()
+	local ids, okShape, okIcons, lines = {}, true, true, 0
+	for _, p in ipairs(PatchNotes.List) do
+		okShape = okShape and type(p.Id) == "string" and #p.Id <= 40 and not ids[p.Id] and type(p.Title) == "string" and type(p.Sections) == "table" and #p.Sections > 0
+		ids[p.Id] = true
+		for _, sec in ipairs(p.Sections or {}) do
+			okShape = okShape and type(sec.Heading) == "string" and #sec.Items > 0
+			for _, item in ipairs(sec.Items) do
+				lines = lines + 1
+				okShape = okShape and type(item.Text) == "string" and #item.Text > 0
+				okIcons = okIcons and (item.Icon == nil or string.match(item.Icon, "^Ability%a+$") ~= nil)
+			end
+		end
+	end
+	local g = PatchNotes.Reward
+	check(latest ~= nil and latest.Title == "The S+ Update" and okShape and okIcons and (g.Gold or 0) + (g.VP or 0) > 0 and (g.Gold or 0) <= 5000 and (g.VP or 0) <= 200,
+		"patch notes: the newest is the S+ Update, every entry well formed, a small reading reward",
+		string.format("%d patch(es), %d lines, reward %d Gold %d VP", #PatchNotes.List, lines, g.Gold or 0, g.VP or 0))
+end
+
 print("== Featherfall (Arin) ==")
 do
 	local FF = Config.Abilities.Featherfall

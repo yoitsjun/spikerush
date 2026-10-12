@@ -66,6 +66,7 @@ local Spins = require(Shared.Spins)
 local Settings = require(Shared.Settings)
 local SoundCrop = require(Shared.SoundCrop)
 local Economy = require(Shared.Economy)
+local PatchNotes = require(Shared.PatchNotes)
 local Cards = require(Shared.Cards)
 local Leaderboards = require(Shared.Leaderboards)
 local Net = require(Shared.Net)
@@ -194,7 +195,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -337,6 +338,17 @@ local function sanitizeProfile(data)
 		for _, id in ipairs(data.receipts) do
 			if type(id) == "string" and #out.receipts < Config.Shop.ReceiptHistory then
 				table.insert(out.receipts, id)
+			end
+		end
+	end
+	-- What's New: the newest patch they've seen, and the patches whose reading reward they took
+	out.patchSeen = (type(data.patchSeen) == "string" and #data.patchSeen <= 40) and data.patchSeen or ""
+	if type(data.patchClaimed) == "table" then
+		local n = 0
+		for id, v in pairs(data.patchClaimed) do
+			if type(id) == "string" and #id <= 40 and v == true and n < 50 then
+				out.patchClaimed[id] = true
+				n = n + 1
 			end
 		end
 	end
@@ -501,6 +513,8 @@ local function save(plr, force)
 		lucky = profile.lucky,
 		codes = profile.codes,
 		daily = profile.daily,
+		patchSeen = profile.patchSeen,
+		patchClaimed = profile.patchClaimed,
 		spent = profile.spent,
 		mailSeen = profile.mailSeen,
 		liked = profile.liked,
@@ -909,6 +923,11 @@ function ProfileService.snapshot(plr)
 		end)(),
 		saving = profile.canSave and store ~= nil,
 		studio = RunService:IsStudio(),
+		-- What's New: the newest patch seen, and whether its reading reward is taken
+		patch = (function()
+			local latest = PatchNotes.latest()
+			return { seen = profile.patchSeen or "", claimed = latest ~= nil and (profile.patchClaimed or {})[latest.Id] == true }
+		end)(),
 	}
 end
 
@@ -1697,6 +1716,27 @@ local function onRequest(plr, kind, a, b, c)
 		save(plr, true)
 		push(plr, c.Name .. " joined your roster!")
 		ProfileService.checkCards(plr)
+	elseif kind == "patchSeen" then
+		-- What's New opened: the newest patch is seen (no more dot or pop-up for it)
+		local latest = PatchNotes.latest()
+		if latest and profile.patchSeen ~= latest.Id then
+			profile.patchSeen = latest.Id
+			dirty[plr] = true
+			push(plr)
+		end
+	elseif kind == "patchClaim" then
+		-- read to the very bottom: the newest patch's reward, once
+		local latest = PatchNotes.latest()
+		profile.patchClaimed = type(profile.patchClaimed) == "table" and profile.patchClaimed or {}
+		if latest and a == latest.Id and not profile.patchClaimed[latest.Id] then
+			profile.patchClaimed[latest.Id] = true
+			profile.patchSeen = latest.Id
+			local g = Economy.cleanGrant(PatchNotes.Reward)
+			local added = Economy.apply(profile, g, os.time())
+			dirty[plr] = true
+			save(plr, true)
+			push(plr, "Thanks for reading the patch notes! " .. Economy.describe(g, added))
+		end
 	elseif kind == "pityPick" then
 		-- the S+ the lucky pity gives you when it's owed
 		if Spins.isPityPick(a) then

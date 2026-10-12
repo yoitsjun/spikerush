@@ -637,8 +637,16 @@ local function buildHome()
 
 	-- down the right edge (The Spike has its icons there): the daily reward (a dot when one's
 	-- waiting), codes, and the admin panel for developers
-	local extras = make("Frame", { Name = "Extras", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, NAV_BOTTOM + 22), Size = UDim2.fromOffset(96, 3 * 84), BackgroundTransparency = 1 }, p)
+	local extras = make("Frame", { Name = "Extras", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, NAV_BOTTOM + 22), Size = UDim2.fromOffset(96, 4 * 84), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, extras)
+	-- What's New (the owner: "should we start adding a patchnotes feature"): a dot while the newest
+	-- patch is unread or its reading reward is still there
+	local newsBtn = navItem(extras, Extra.iconKey("IconNews", "IconHelp"), "News", { LayoutOrder = 0 })
+	local newsDot = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 20, 0, 8), Size = UDim2.fromOffset(14, 14), BackgroundColor3 = Gui.ALERT, BorderSizePixel = 0, Visible = false, ZIndex = 3 }, newsBtn)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, newsDot)
+	onClick(newsBtn, function()
+		MenuController.openPatch()
+	end)
 	local dailyBtn = navItem(extras, Extra.iconKey("IconDaily", "IconStar"), "Daily", { LayoutOrder = 1 })
 	local dailyDot = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 20, 0, 8), Size = UDim2.fromOffset(14, 14), BackgroundColor3 = Gui.ALERT, BorderSizePixel = 0, Visible = false, ZIndex = 3 }, dailyBtn)
 	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, dailyDot)
@@ -826,6 +834,7 @@ local function buildHome()
 		tutProgress = tutProgress,
 		navWidth = nav.Size.X.Offset,
 		dailyDot = dailyDot,
+		newsDot = newsDot,
 		adminBtn = adminBtn,
 		eventChips = eventChips,
 		boostChip = boostChip,
@@ -5410,6 +5419,140 @@ function Extra.refreshRequirements(rows, prof)
 	rows.like.done.Visible = prof.liked == true
 end
 
+-- What's New: the patch notes, newest first, in a scrolling column (a title, the date, then each
+-- section's lines with the ability's icon beside them). Scrolling to the very bottom pays the newest
+-- patch's reward once (the owner: "maybe a small reward for reading if you scroll to the very
+-- bottom"); the server checks it's the newest and not taken.
+Extra.PatchNotes = require(Shared.PatchNotes)
+
+function Extra.buildPatch()
+	local m = modal("Patch", "What's New", 940, 660, true)
+	local scroll = make("ScrollingFrame", {
+		Name = "Notes",
+		Position = UDim2.fromOffset(26, 92),
+		Size = UDim2.new(1, -40, 1, -112),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 6,
+		ScrollBarImageColor3 = Gui.SIGNAL,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ZIndex = 21,
+	}, m.panel)
+	make("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, scroll)
+	make("UIPadding", { PaddingRight = UDim.new(0, 18), PaddingBottom = UDim.new(0, 12) }, scroll)
+	local order = 0
+	local function line(parent, text, size, color, props)
+		order = order + 1
+		local l = Gui.label(parent, {
+			Text = text,
+			TextSize = size,
+			TextColor3 = color,
+			TextWrapped = true,
+			RichText = true,
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Size = UDim2.new(1, 0, 0, 0),
+			LayoutOrder = order,
+			ZIndex = 22,
+			display = props and props.display,
+			weight = props and props.weight,
+		})
+		return l
+	end
+	for i, patch in ipairs(Extra.PatchNotes.List) do
+		if i > 1 then
+			order = order + 1
+			make("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.3, BorderSizePixel = 0, LayoutOrder = order, ZIndex = 22 }, scroll)
+		end
+		line(scroll, patch.Title, 34, Gui.LINE, { display = true, weight = Enum.FontWeight.Heavy })
+		line(scroll, patch.Date, 16, Gui.DIM)
+		for _, section in ipairs(patch.Sections) do
+			line(scroll, section.Heading, 24, Gui.SIGNAL, { display = true, weight = Enum.FontWeight.Heavy })
+			for _, item in ipairs(section.Items) do
+				order = order + 1
+				local row = make("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = order, ZIndex = 22 }, scroll)
+				local indent = 18
+				local icon = item.Icon and Assets.image(item.Icon)
+				if icon then
+					make("ImageLabel", { Size = UDim2.fromOffset(40, 40), BackgroundTransparency = 1, Image = icon, ZIndex = 22 }, row)
+					indent = 54
+				else
+					Gui.label(row, { Text = "-", TextSize = 18, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(14, 22), ZIndex = 22 })
+				end
+				local l = Gui.label(row, {
+					Text = item.Text,
+					TextSize = 18,
+					TextColor3 = Gui.CHALK,
+					TextWrapped = true,
+					RichText = true,
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Position = UDim2.fromOffset(indent, 0),
+					Size = UDim2.new(1, -indent, 0, 0),
+					ZIndex = 22,
+				})
+				l.TextYAlignment = Enum.TextYAlignment.Top
+			end
+		end
+	end
+	-- the very bottom: the reading reward
+	order = order + 1
+	local foot = Gui.plate(scroll, { Size = UDim2.new(1, 0, 0, 56), LayoutOrder = order }, Gui.SIGNAL)
+	local footText = Gui.label(foot, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+	local notes = { modal = m, scroll = scroll, foot = foot, footText = footText, claimed = false, asked = false }
+	scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		if notes.claimed or notes.asked or not m.root.Visible then
+			return
+		end
+		local bottom = scroll.AbsoluteCanvasSize.Y - scroll.AbsoluteWindowSize.Y
+		if bottom > 0 and scroll.CanvasPosition.Y >= bottom - 6 then
+			local latest = Extra.PatchNotes.latest()
+			if latest then
+				notes.asked = true
+				Net.get("Profile"):FireServer("patchClaim", latest.Id)
+			end
+		end
+	end)
+	ui.patch = notes
+end
+
+function MenuController.openPatch()
+	local notes = ui.patch
+	if not notes then
+		return
+	end
+	notes.modal.root.Visible = true
+	notes.scroll.CanvasPosition = Vector2.zero
+	local latest = Extra.PatchNotes.latest()
+	if latest then
+		Net.get("Profile"):FireServer("patchSeen", latest.Id)
+	end
+	MenuController.refresh()
+end
+
+function Extra.refreshPatch(prof)
+	local notes = ui.patch
+	local latest = Extra.PatchNotes.latest()
+	if not notes or not latest or not prof.patch then
+		return
+	end
+	local unseen = prof.patch.seen ~= latest.Id
+	notes.claimed = prof.patch.claimed == true
+	if not notes.claimed and notes.asked and not notes.modal.root.Visible then
+		notes.asked = false -- (a claim that didn't land can be tried again)
+	end
+	notes.footText.Text = notes.claimed and "Thanks for reading! Your reward is claimed."
+		or ("You made it to the bottom: " .. Economy.describe(Economy.cleanGrant(Extra.PatchNotes.Reward)) .. "!")
+	if ui.home and ui.home.newsDot then
+		ui.home.newsDot.Visible = unseen or not notes.claimed
+	end
+	-- a new patch opens by itself once, on Home, for a player past the tutorial
+	if unseen and not Extra.patchShown and shown and screen == "home" and prof.tutorial and prof.tutorial.done then
+		Extra.patchShown = true
+		MenuController.openPatch()
+	end
+end
+
 -- Codes (the owner: "add a codes system"): a box and Redeem, under the requirements.
 function Extra.buildCodes()
 	local m = modal("Codes", "Codes", 660, 392, true)
@@ -6377,6 +6520,7 @@ local function doRefresh()
 	if ui.codes.modal.root.Visible then
 		Extra.refreshCodes(prof)
 	end
+	Extra.refreshPatch(prof)
 	if ui.daily.modal.root.Visible then
 		Extra.refreshDaily(prof)
 	end
@@ -6751,6 +6895,7 @@ function MenuController.init(m)
 	buildSequence()
 	buildSwap()
 	Extra.buildCodes()
+	Extra.buildPatch()
 	Extra.buildDaily()
 	Extra.buildGift()
 	Extra.buildCrop()
