@@ -806,6 +806,7 @@ local function serveLogic(b, now, grounded, side)
 				local depth = C.SideDepth - SPM * (0.95 + b.rng:NextNumber() * 2.5)
 				local dz = dzForDepth(depth, C.SideDepth - H.SpikeDeepMargin, 2.8 * SPM)
 				s.standZ = p.Z + side * (dz + Z.SpikeForward)
+				s.contactT = t
 				s.jumpAt = t - b.tApex + (b.rng:NextNumber() * 2 - 1) * tierPair(b, B.JumpTimingNoise)
 			end
 		else
@@ -815,8 +816,20 @@ local function serveLogic(b, now, grounded, side)
 	if s.standZ and grounded then
 		moveTo(b, s.standZ)
 	end
+	if s.jump and s.standZ and not grounded then
+		-- in the air: steer onto the spot by the contact. The humanoid otherwise kept walking the way
+		-- it was going when it jumped and drifted on past the spot, away from the ball (the owner:
+		-- "sometimes the ai completely drifts the other way when serving")
+		stop(b)
+		local left = math.max((s.contactT or now) - now, 0.1)
+		local maxV = (e.charStats.WalkSpeed or 27) * B.AirSteerMul
+		local vz = math.clamp((s.standZ - root.Z) / left, -maxV, maxV)
+		local v = b.hrp.AssemblyLinearVelocity
+		b.hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, vz)
+	end
 	if s.jumpAt and now >= s.jumpAt then
 		if grounded then
+			stop(b) -- (the jump goes straight up from where it stands; the steering above takes it on)
 			b.hum.Jump = true
 			reg.HitService.fx(e.id, "Jump", "Serve")
 			if e.ability == "Feral" then
