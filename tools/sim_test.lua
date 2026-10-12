@@ -412,6 +412,17 @@ do
 		and lands[1].depth < lands[2].depth and lands[2].depth < lands[3].depth,
 		"Eye of the Storm: let go at once and it drops just over the net; the longer the hover, the deeper",
 		string.format("no charge %.1f, half %.1f, full %.1f studs from the net (court %.1f deep)", lands[1].depth, lands[2].depth, lands[3].depth, C.SideDepth))
+	-- the target jumps through AimSteps spots (the owner: "in set increments. maybe around 6 or 7,
+	-- ending at the very back corner of the court"): the same spot for a little more charge within a
+	-- step, the last at the very back, inside the end line
+	local d1, s1 = HitLogic.galeDepth(0.01, shortest, C.SideDepth - SQ.BackMargin)
+	local d2 = HitLogic.galeDepth(0.05, shortest, C.SideDepth - SQ.BackMargin)
+	local dLast, sLast = HitLogic.galeDepth(1, shortest, C.SideDepth - SQ.BackMargin)
+	local _, backSpike = haneulSpike({ gale = 1 })
+	local backLand = oppDepth(BallPhysics.buildPath(backSpike.launch))
+	check(SQ.AimSteps >= 6 and SQ.AimSteps <= 7 and s1 == 1 and d1 == d2 and sLast == SQ.AimSteps and dLast > C.SideDepth - 1 and backLand <= C.SideDepth and backLand > C.SideDepth - 2,
+		"Eye of the Storm: the target jumps through 7 spots, the last at the very back of their court",
+		string.format("%d spots, the last %.1f studs out (court %.1f), the full-charge spike lands at %.1f", SQ.AimSteps, dLast, C.SideDepth, backLand))
 	-- the same seed and charge land the same on the hitter's client and the server
 	local _, a = haneulSpike({ gale = 0.6 })
 	local _, b = haneulSpike({ gale = 0.6 })
@@ -422,7 +433,7 @@ do
 	local v0 = math.sqrt(2 * g * h * SQ.RushRise ^ 2)
 	local gUp = g * SQ.RushRise ^ 2
 	check(math.abs(v0 * v0 / (2 * gUp) - h) < 1e-6 and SQ.RushRise > 1 and SQ.FallCancel > 0 and SQ.HoverCancel < 1 and SQ.SlowMul < 1 and SQ.LeapMul > 1.2
-		and C.SideDepth / SQ.DashSpeed < 0.2 and SQ.ChargeTime <= 0.5 and SQ.HoverMax > SQ.ChargeTime,
+		and C.SideDepth / SQ.DashSpeed < 0.2 and SQ.ChargeTime <= 0.65 and SQ.HoverMax > SQ.ChargeTime,
 		"Tailwind dashes the whole court in a blink and springs to the same top, quicker; a full charge in time for the back line; Updraft; a lighter fall; Downdraft",
 		string.format("the court in %.2f s, up in %.2f s instead of %.2f, a full charge in %.2f s", C.SideDepth / SQ.DashSpeed, v0 / gUp, math.sqrt(2 * g * h) / g, SQ.ChargeTime))
 end
@@ -465,9 +476,9 @@ do
 	local _, walled = tspike({ metal = 1, early = true }, { awakened = false })
 	local _, auto = tspike({}, { auto = true })
 	check(early.meta.kmh >= 205 and early.meta.kmh <= 225 and math.abs(late.meta.kmh / plain.meta.kmh - (1 + IR.MaxBoost * IR.LateShare)) < 0.01
-		and walled.meta.kmh == plain.meta.kmh and auto.meta.kmh > plain.meta.kmh and HitLogic.spikeReach("Ironclad", 1) > HitLogic.spikeReach("Ironclad", 0),
-		"Forge: awakened, a full charge off a jump before the set hits about 215; after the set, 30% of it; with shields, nothing",
-		string.format("%.0f plain, %.0f early, %.0f late (AI %.0f) km/h", plain.meta.kmh, early.meta.kmh, late.meta.kmh, auto.meta.kmh))
+		and walled.meta.kmh >= 170 and walled.meta.kmh <= 185 and auto.meta.kmh > plain.meta.kmh and HitLogic.spikeReach("Ironclad", 1) > HitLogic.spikeReach("Ironclad", 0) and IR.ChargeTime <= 0.6,
+		"Forge: a quick full charge off a jump before the set: about 178 with shields, about 215 awakened; after the set, 30% of it",
+		string.format("%.0f plain, %.0f with shields, %.0f awakened, %.0f awakened late (AI %.0f) km/h; full in %.1f s", plain.meta.kmh, walled.meta.kmh, early.meta.kmh, late.meta.kmh, auto.meta.kmh, IR.ChargeTime))
 end
 
 print("== Chain Reaction always breaks the guard ==")

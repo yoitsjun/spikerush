@@ -138,6 +138,14 @@ function HitLogic.spikeReach(ability, gauge)
 	return 1
 end
 
+-- Squall: a hover's charge (0..1) as the spot it sends the spike to, from `lo` (just over the net)
+-- to `hi` (the very back) in AimSteps jumps: the target flashes from one to the next as it charges.
+function HitLogic.galeDepth(gale, lo, hi)
+	local n = SQUALL.AimSteps
+	local i = math.floor(clamp(tonumber(gale) or 0, 0, 1) * (n - 1) + 1e-6)
+	return lerp(lo, hi, i / (n - 1)), i + 1
+end
+
 -- Ironclad: his shields (nil: a fresh entity's whole set); with none left he's awakened.
 function HitLogic.ironLives(lives)
 	return clamp(math.floor(tonumber(lives) or IRON.Lives), 0, IRON.Lives)
@@ -797,16 +805,17 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		feather = clamp((t - last.featherTop) / FEATHER.FullFall, 0, 1)
 		kmh = kmh * (1 + FEATHER.MaxBoost * feather)
 	end
-	-- Ironclad awakened: Forge's charge (input.metal, 0..1, the time he's been up), all of it off a
-	-- jump before his team's set (input.early), LateShare after; the AI gets AutoCharge
+	-- Ironclad: Forge's charge (input.metal, 0..1, the time he's been up), all of it off a jump before
+	-- his team's set (input.early), LateShare after; WallBoost with shields, MaxBoost awakened; the
+	-- AI gets AutoCharge
 	local metal = 0
-	if kind == "Spike" and ctx.ability == "Ironclad" and ctx.awakened then
+	if kind == "Spike" and ctx.ability == "Ironclad" then
 		if ctx.auto then
 			metal = IRON.AutoCharge
 		else
 			metal = clamp(tonumber(input.metal) or 0, 0, 1) * (input.early == true and 1 or IRON.LateShare)
 		end
-		kmh = kmh * (1 + IRON.MaxBoost * metal)
+		kmh = kmh * (1 + (ctx.awakened and IRON.MaxBoost or IRON.WallBoost) * metal)
 	end
 	-- Squall: Eye of the Storm's hover charges the spike (input.gale, 0..1; the AI gets a share)
 	local gale = 0
@@ -883,7 +892,10 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	-- whole charge, their back line), straying less than usual and more with a poor contact
 	local hovered = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Squall" and not ctx.auto and tonumber(input.gale) or nil
 	if hovered then
-		depth = lerp(shortest, deepest, clamp(hovered, 0, 1)) + jitter(rng, (1 - qContact) ^ 1.5 * H.SpikeError * SQUALL.AimError)
+		-- (in AimSteps spots, the last at the very back: never past their end line)
+		local back = C.SideDepth - SQUALL.BackMargin
+		depth = HitLogic.galeDepth(hovered, shortest, back) + jitter(rng, (1 - qContact) ^ 1.5 * H.SpikeError * SQUALL.AimError)
+		depth = clamp(depth, shortest, C.SideDepth - 0.04 * SPM)
 		meta.aimed = true
 	end
 	if overcharge then

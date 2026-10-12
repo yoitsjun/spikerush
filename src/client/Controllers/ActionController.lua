@@ -170,12 +170,20 @@ function ActionController.bulwark()
 	return State.myAbility() == "Ironclad" and HitLogic.ironLives(player:GetAttribute("IronLives")) > 0
 end
 
--- Ironclad awakened: Forge's charge this jump (0..1), and whether he jumped before the set.
+-- Ironclad: Forge's charge this jump (0..1), and whether he jumped before the set.
 function ActionController.forgeCharge()
-	if State.myAbility() ~= "Ironclad" or ActionController.bulwark() or not forge.t0 then
+	if State.myAbility() ~= "Ironclad" or not forge.t0 then
 		return 0, false
 	end
 	return math.clamp((os.clock() - forge.t0) / IRON.ChargeTime, 0, 1), forge.early
+end
+
+-- Ironclad's reach this jump: Steel Reach widens it by the charge, awakened only (as HitLogic).
+local function forgeReach()
+	if ActionController.bulwark() then
+		return 0
+	end
+	return (ActionController.forgeCharge())
 end
 
 -- 0 when ready, else seconds of cooldown left.
@@ -370,7 +378,7 @@ local function execute(action, info, opts, t, ballPos)
 	if (action == "Spike" or action == "Serve") and ctx.ability == "Feral" and leap.gauge > 0 then
 		input.gauge, input.toward = leap.gauge, leap.toward
 	end
-	if action == "Spike" and ctx.awakened then
+	if action == "Spike" and ctx.ability == "Ironclad" then
 		local m, e = ActionController.forgeCharge()
 		if m > 0 then
 			input.metal, input.early = m, e
@@ -608,7 +616,7 @@ local function tryAttack(action, info, opts)
 	end
 	local scale = ATTACK_SCALE[action] or 1
 	if action == "Spike" then
-		scale = scale * HitLogic.spikeReach(State.myAbility(), State.myAbility() == "Ironclad" and (ActionController.forgeCharge()) or leap.gauge) -- Feral Leap reaches wider (wider still off a leap); Ironclad's Forge too
+		scale = scale * HitLogic.spikeReach(State.myAbility(), State.myAbility() == "Ironclad" and forgeReach() or leap.gauge) -- Feral Leap reaches wider (wider still off a leap); Ironclad's Steel Reach too
 	end
 	local nz, ny = zoneOffset(info.root, ball, scale)
 	local d = math.sqrt(nz * nz + ny * ny)
@@ -897,7 +905,7 @@ end
 -- Eye of the Storm's target: its depth on their court, from the shortest spike (no charge) to the
 -- deepest (the whole charge), as HitLogic sends it.
 local function aimRange()
-	return H.SpikeShortDepth, Config.Court.SideDepth - H.SpikeDeepMargin
+	return H.SpikeShortDepth, Config.Court.SideDepth - SQUALL.BackMargin
 end
 
 startHover = function(kind)
@@ -952,7 +960,8 @@ processHover = function(info, dt)
 	end
 	local lo, hi = aimRange()
 	local k = math.clamp((os.clock() - hover.t0) / SQUALL.ChargeTime, 0, 1)
-	mods.VFXController.aimMarker(Vector3.new(info.root.X, 0, -State.mySide * (lo + (hi - lo) * k)), k)
+	local depth, step = HitLogic.galeDepth(k, lo, hi)
+	mods.VFXController.aimMarker(Vector3.new(info.root.X, 0, -State.mySide * depth), k, step)
 	if os.clock() - hover.t0 >= SQUALL.HoverMax then
 		releaseHover(info)
 	end
@@ -1689,7 +1698,7 @@ local function evaluate(info, now)
 		if isSquall() then
 			ctx.spikeLabel = hover and "Swing" or (not hoverUsed and "Hover") or "Spike"
 		end
-		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReach(State.myAbility(), State.myAbility() == "Ironclad" and (ActionController.forgeCharge()) or leap.gauge)))
+		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReach(State.myAbility(), State.myAbility() == "Ironclad" and forgeReach() or leap.gauge)))
 		-- Corona: a Sundive is there to take (the HUD says Dive, and its path is drawn)
 		if State.myAbility() == "Corona" and ok and not ctx.inZone and not mods.MovementController.isDiving() then
 			local target, _, meet = divePlan(info, now)

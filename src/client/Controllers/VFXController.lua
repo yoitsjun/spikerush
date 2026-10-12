@@ -2289,65 +2289,73 @@ do
 		end
 	end
 
-	-- Eye of the Storm's target on their court (only she sees it): a disc on the floor and a column of
-	-- wind light above it, brighter as the hover charges (k 0..1). nil hides it.
+	-- Eye of the Storm's target on their court (only she sees it), as in the owner's video of hers: a
+	-- white ring on the floor that jumps spot by spot toward their back corner as the hover charges,
+	-- flashing (a pop and a burst of light) at each new spot. step: which spot (1..AimSteps). nil hides it.
 	local aim = nil
-	function VFXController.aimMarker(pos, k)
+	function VFXController.aimMarker(pos, k, step)
 		if not pos then
 			if aim and aim.holder.Parent then
 				aim.holder.Parent = nil
+			end
+			if aim then
+				aim.step = nil
 			end
 			return
 		end
 		if not aim then
 			local holder = Instance.new("Model")
 			holder.Name = "SquallAim"
-			local function part(shape)
+			local function flat(name, texture, color)
 				local p = Instance.new("Part")
-				p.Shape = shape
+				p.Name = name
 				p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
-				p.Material = Enum.Material.Neon
-				p.Color = SQ.Color
+				p.Transparency = 1
+				p.Size = Vector3.new(5, 0.05, 5)
 				p.Parent = holder
-				return p
+				local d = Instance.new("Decal")
+				d.Face = Enum.NormalId.Top
+				d.Texture = texture
+				d.Color3 = color
+				d.Parent = p
+				return p, d
 			end
-			local disc = part(Enum.PartType.Cylinder)
-			local dot = part(Enum.PartType.Cylinder)
-			dot.Color = Color3.fromRGB(240, 255, 252)
-			local base = part(Enum.PartType.Block)
-			base.Transparency = 1
-			base.Size = Vector3.new(0.2, 0.2, 0.2)
+			local ring, ringDecal = flat("Ring", Assets.id(Assets.Fx.Ring) or "", Color3.fromRGB(255, 255, 255))
+			local glow, glowDecal = flat("Glow", Assets.id(Assets.Fx.Glow) or "", SQ.Color)
 			local a0 = Instance.new("Attachment")
-			a0.Parent = base
+			a0.Parent = ring
 			local a1 = Instance.new("Attachment")
-			a1.Position = Vector3.new(0, 16, 0)
-			a1.Parent = base
+			a1.Position = Vector3.new(0, 14, 0)
+			a1.Parent = ring
 			local column = Instance.new("Beam")
 			column.Attachment0, column.Attachment1 = a0, a1
 			column.FaceCamera = true
 			column.LightEmission = 1
 			column.LightInfluence = 0
 			column.Segments = 1
-			column.Width0, column.Width1 = 2.6, 1.2
-			column.Color = ColorSequence.new(SQ.Color, Color3.fromRGB(235, 255, 250))
-			column.Parent = base
-			aim = { holder = holder, disc = disc, dot = dot, base = base, column = column }
+			column.Width0, column.Width1 = 3, 0.6
+			column.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), SQ.Color)
+			column.Parent = ring
+			aim = { holder = holder, ring = ring, ringDecal = ringDecal, glow = glow, glowDecal = glowDecal, column = column, flashT = 0 }
 		end
 		if aim.holder.Parent ~= fxFolder then
 			aim.holder.Parent = fxFolder
 		end
-		k = math.clamp(k or 0, 0, 1)
-		local pulse = 0.5 + 0.5 * math.sin(os.clock() * 12)
-		local floor = Vector3.new(pos.X, 0.12, pos.Z)
-		local r = 4.5 + 1.5 * k
-		aim.disc.Size = Vector3.new(0.1, r, r)
-		aim.disc.CFrame = CFrame.new(floor) * CFrame.Angles(0, 0, math.pi / 2)
-		aim.disc.Transparency = 0.45 - 0.2 * k
-		aim.dot.Size = Vector3.new(0.14, 1.4 + 0.4 * pulse, 1.4 + 0.4 * pulse)
-		aim.dot.CFrame = CFrame.new(floor + Vector3.new(0, 0.03, 0)) * CFrame.Angles(0, 0, math.pi / 2)
-		aim.base.CFrame = CFrame.new(floor)
-		local t = 0.55 - 0.3 * k
-		aim.column.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, t), NumberSequenceKeypoint.new(1, 1) })
+		if step ~= aim.step then
+			aim.step = step
+			aim.flashT = os.clock() -- a new spot: flash
+		end
+		local pop = math.max(0, 1 - (os.clock() - aim.flashT) / 0.16)
+		local last = step == SQ.AimSteps
+		local r = (last and 6.5 or 5.2) * (1 + 0.45 * pop)
+		local cf = CFrame.new(pos.X, 0.1, pos.Z)
+		aim.ring.Size = Vector3.new(r, 0.05, r)
+		aim.ring.CFrame = cf
+		aim.ringDecal.Transparency = 0.05
+		aim.glow.Size = Vector3.new(r * 1.5, 0.05, r * 1.5)
+		aim.glow.CFrame = cf - Vector3.new(0, 0.02, 0)
+		aim.glowDecal.Transparency = 0.75 - 0.6 * pop - (last and 0.15 or 0)
+		aim.column.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1 - 0.85 * pop), NumberSequenceKeypoint.new(1, 1) })
 	end
 
 	updateWinds = function()

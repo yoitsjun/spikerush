@@ -1006,8 +1006,13 @@ Config.Abilities = {
 		LeapMul = 1.35,
 		HoverCancel = 0.985,
 		-- (the owner: "her charging speed is too slow to reach the backcourt in time")
-		HoverMax = 0.7, -- a hover this long swings by itself
-		ChargeTime = 0.45, -- seconds of hovering for the whole charge (and the deepest spike)
+		-- (the owner, then: "the spot her spike lands should flash by, and it is in set increments.
+		-- maybe around 6 or 7, ending at the very back corner of the court", with a video of hers:
+		-- a white ring on their floor jumping spot by spot toward the back corner)
+		HoverMax = 0.8, -- a hover this long swings by itself
+		ChargeTime = 0.6, -- seconds of hovering for the whole charge (and the deepest spike)
+		AimSteps = 7, -- the spots the target jumps through, just over the net to the very back
+		BackMargin = 0.15 * M, -- the last spot: this far inside their end line (the back corner)
 		HoverBoost = 0.38, -- spike speed x (1 + this x the charge): with Squall on, a full hover about 210 km/h maxed (the owner: "maybe she can hit 210")
 		HoverSlack = 0.15, -- charge a spike may claim over the hover the server saw (network jitter)
 		AimError = 0.5, -- a hover's spike strays this share of the usual error
@@ -1043,7 +1048,7 @@ Config.Abilities = {
 		Name = "Ironclad",
 		Tier = "S+",
 		Role = "MB",
-		Blurb = "Bulwark: while you have shields (3), you're Iron Wall at the net, always. An attack of 150 km/h or more breaks through and costs a shield. With none left you awaken: a jump before the set hangs and charges a spike up to about 215 km/h. Every touch then fills Intimidation by 10%; full, your shields are back.",
+		Blurb = "Bulwark: while you have shields (3), you're Iron Wall at the net, always. An attack of 150 km/h or more breaks through and costs a shield. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Every touch then fills Intimidation by 10%; full, your shields are back.",
 		Kind = "Passive: shields, then awakened",
 		Color = Color3.fromRGB(255, 112, 52), -- awakened: molten
 		WallColor = Color3.fromRGB(170, 200, 235), -- the shields: steel
@@ -1052,12 +1057,15 @@ Config.Abilities = {
 		-- piercing or block-smashing one) breaks through it, barely slowed, and costs a shield
 		BreakKmh = 150,
 		MeterPerTouch = 10, -- awakened: each touch fills Intimidation this much (of 100)
-		-- Forge (awakened): off the floor his fall is slow (part of gravity off on the way down) and
-		-- the spike charges with the time he's been up; a jump before his team's set gets all of it,
-		-- one after it LateShare
+		-- Forge: off the floor his fall is slow (part of gravity off on the way down) and the spike
+		-- charges with the time he's been up (WallBoost with shields, MaxBoost awakened); a jump before
+		-- his team's set gets all of it, one after it LateShare
 		DescentCancel = 0.7,
-		ChargeTime = 1.2, -- seconds in the air for the whole charge
-		MaxBoost = 0.68, -- spike speed x (1 + this x the charge): about 215 km/h maxed
+		ChargeTime = 0.5, -- seconds in the air for the whole charge (the owner: "a very quick charge, because quicks are fast")
+		MaxBoost = 0.68, -- awakened: spike speed x (1 + this x the charge): about 215 km/h maxed
+		-- (the owner: "allow [him] to charge up his spike, albeit at a weaker level when he has his
+		-- [shields]. maybe up to 170 180 kmh")
+		WallBoost = 0.39, -- with shields: about 178 km/h maxed
 		LateShare = 0.3,
 		ChargeSlack = 0.15, -- charge a spike may claim over the time the server saw him up
 		EarlyGrace = 0.35, -- a jump this soon after the set still counts as before it (latency)
@@ -1065,8 +1073,8 @@ Config.Abilities = {
 		AutoCharge = 0.5, -- the AI awakened: its spikes get this much of the full charge
 		Passives = {
 			{ Name = "Bulwark", Blurb = "3 shields: while you have one you're an Iron Wall at the net. An attack of 150 km/h or more breaks through and shatters a shield." },
-			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: your fall is slow and your jump charges your spike." },
-			{ Name = "Forge", Blurb = "Awakened, jump before the set and hang: the longer you're up, the harder the spike (up to +68%). Jumping after the set gets 30% of it." },
+			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: Forge charges far harder and widens your reach." },
+			{ Name = "Forge", Blurb = "Your fall is slow; jump before the set and hang: the longer you're up, the harder the spike (up to +39% with shields, +68% awakened). Jumping after the set gets 30% of it." },
 			{ Name = "Steel Reach", Blurb = "Awakened, the charge widens your spike's reach (up to 35%)." },
 			{ Name = "Intimidation", Blurb = "Awakened, every touch fills the meter 10%. Full: your 3 shields are back." },
 		},
