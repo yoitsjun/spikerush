@@ -441,6 +441,13 @@ function MovementController.rushJump()
 	return true
 end
 
+-- Tailwind's spring from where she stands: the height of its top over her root now (studs) and the
+-- seconds it takes to get there (RushRise times quicker than a jump that high).
+function MovementController.springPeak()
+	local h = spikeJump()
+	return h, math.sqrt(2 * h / workspace.Gravity) / SQUALL.RushRise
+end
+
 -- Eye of the Storm: all but weightless and still while `on` (the stick aims instead).
 function MovementController.setHover(on)
 	hovering = on == true

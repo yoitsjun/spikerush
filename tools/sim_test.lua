@@ -379,6 +379,15 @@ do
 	local off = HitLogic.effectiveStats(haneul, "Squall", nil, {})
 	check(off == haneul and on.Speed == math.min(Config.Stats.Max, haneul.Speed + math.floor(haneul.Speed * SQ.SpeedBoost + 0.5)) and on.Attack > haneul.Attack + 25 and on.WalkSpeed > haneul.WalkSpeed,
 		"Squall: faster, and the faster she is the more Attack", string.format("SPD %d -> %d, ATK %d -> %d, run %.1f -> %.1f", haneul.Speed, on.Speed, haneul.Attack, on.Attack, haneul.WalkSpeed, on.WalkSpeed))
+	-- Tailwind's aim and timing (the owner: "on these out of system sets, haneul consistenly way
+	-- overshoots it"): she aims where her hand really is at the top of her spring (Updraft lifts it
+	-- well over her card's hitting point), and springs so her top comes SpringEarly before the ball,
+	-- not on arrival
+	local springTop = GROUND + Characters.jumpHeight(haneul, GROUND) * SQ.LeapMul + Z.SpikeUp + Z.SpikeCenterDy
+	local rise = math.sqrt(2 * Characters.jumpHeight(haneul, GROUND) * SQ.LeapMul / Config.Player.Gravity) / SQ.RushRise
+	check(springTop > haneul.contactMaxStuds + 2 and SQ.SpringEarly >= 0.15 and SQ.SpringEarly <= 0.5 and SQ.SpringWaitMax >= 1.5 and rise < 1,
+		"Tailwind aims at her real spring top and springs in time for the ball, not on arrival",
+		string.format("hand at the top %.1f studs (card %.1f), up in %.2f s, top %.2f s before the ball", springTop, haneul.contactMaxStuds, rise, SQ.SpringEarly))
 	-- Shear: a ball just past anyone else's reach is in hers
 	local root = apexRoot(haneul, 3.5 * K)
 	local wide = ballAt(root, Z.SpikeCenterDz + Z.SpikeRadiusZ * (haneul.Reach or 1) * 1.1, Z.SpikeCenterDy)

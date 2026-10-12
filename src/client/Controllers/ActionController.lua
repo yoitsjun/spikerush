@@ -817,6 +817,9 @@ end
 
 -- The spot along the court (z) under where the ball comes down through her hitting point on her
 -- side, for Tailwind's rush (nil: nowhere to go yet).
+-- Also the shared-clock time the ball gets there. The height is where her hand really is at the top
+-- of her spring (Updraft lifts her well above her card's hitting point): aimed at the card's, a set
+-- travelling toward the net came down there further along than she meets it, and she ended past it.
 local function rushTarget(info, now)
 	if not inPlay() then
 		return nil
@@ -826,7 +829,8 @@ local function rushTarget(info, now)
 		return nil
 	end
 	local side = State.mySide
-	local contactY = State.myStats().contactMaxStuds - 0.3
+	local rise = mods.MovementController.springPeak()
+	local contactY = info.root.Y + rise + Z.SpikeUp + Z.SpikeCenterDy - 0.3
 	-- (a ball already below her hitting point and falling has nowhere for her to meet it)
 	if mods.BallRenderer.getPosition(now).Y < contactY and mods.BallRenderer.getVelocity(now).Y < 0 then
 		return nil
@@ -838,7 +842,7 @@ local function rushTarget(info, now)
 		return nil
 	end
 	local depth = (p.Z + side * (Z.SpikeForward + Z.SpikeCenterDz)) * side
-	return math.clamp(depth, 0.6, Config.Court.SideDepth + 2) * side
+	return math.clamp(depth, 0.6, Config.Court.SideDepth + 2) * side, t
 end
 
 -- Tailwind: a dash under the ball, then the spring (processRush); false when there's no ball to go
@@ -882,7 +886,8 @@ releaseRush = function()
 	end
 end
 
--- The dash follows the ball each frame and springs once it's there (or at DashMax); it ends if she
+-- The dash follows the ball each frame; at the spot (or at DashMax) she waits, then springs so her
+-- top comes SpringEarly before the ball reaches her (time to hover and charge). It ends if she
 -- leaves the floor some other way or the rally stops.
 processRush = function(info, now)
 	if not rush then
@@ -893,11 +898,15 @@ processRush = function(info, now)
 		return
 	end
 	local MC = mods.MovementController
-	local target = rushTarget(info, now)
+	local target, hitT = rushTarget(info, now)
 	if target then
 		MC.rushTo(target)
 	end
-	if MC.rushArrived() or os.clock() - rush.t0 >= SQUALL.DashMax then
+	if not (MC.rushArrived() or os.clock() - rush.t0 >= SQUALL.DashMax) then
+		return
+	end
+	local _, riseTime = MC.springPeak()
+	if not hitT or hitT - now <= riseTime + SQUALL.SpringEarly or os.clock() - rush.t0 >= SQUALL.SpringWaitMax then
 		releaseRush()
 	end
 end

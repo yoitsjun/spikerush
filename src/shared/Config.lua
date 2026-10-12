@@ -988,7 +988,13 @@ Config.Abilities = {
 		-- her to the spot under where the ball comes down through her hitting point and springs her
 		-- straight up the moment she's there, quicker than anyone; nowhere to go, it's the usual jump
 		DashSpeed = 240, -- studs/s: across the whole court in about a sixth of a second
-		DashMax = 0.35, -- a dash that hasn't arrived by now springs where it is
+		DashMax = 0.35, -- a dash that hasn't arrived by now stops where it is
+		-- at the spot she waits and springs so her top comes this long before the ball does (time
+		-- to hover and charge), not at once: on a long out-of-system set she was up and falling
+		-- before it got there (the owner: "on these out of system sets, haneul consistenly way
+		-- overshoots it")
+		SpringEarly = 0.3,
+		SpringWaitMax = 2.5, -- she never waits longer than this
 		RushRise = 1.5, -- the jump off a dash rises this much faster (to the same top)
 		RushRootSlack = 4, -- the server's check on where she is allows this much more around a dash
 		-- Downdraft: just after her Tailwind jump, the other team runs slower
@@ -1061,7 +1067,7 @@ Config.Abilities = {
 		-- Forge: off the floor his fall is slow (part of gravity off on the way down) and the spike
 		-- charges with the time he's been up (WallBoost with shields, MaxBoost awakened); a jump before
 		-- his team's set gets all of it, one after it LateShare
-		DescentCancel = 0.7,
+		DescentCancel = 0.4, -- (was 0.7; the owner: "taesan is a bit too floaty")
 		ChargeTime = 0.5, -- seconds in the air for the whole charge (the owner: "a very quick charge, because quicks are fast")
 		MaxBoost = 0.68, -- awakened: spike speed x (1 + this x the charge): about 215 km/h maxed
 		-- (the owner: "allow [him] to charge up his spike, albeit at a weaker level when he has his
