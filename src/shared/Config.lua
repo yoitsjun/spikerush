@@ -610,6 +610,13 @@ Config.Perks = {
 	ActionSeconds = 2, -- a custom touch or jump sound after this
 	ImageSeconds = 1.6, -- how long the image holds before it fades
 	SetCooldown = 3, -- seconds between changes to one id (each one is looked up)
+	-- the cropper (the owner: "on custom audios, allow an audio cropper"): the part of a sound that
+	-- plays, saved per slot as its start and length (SoundCrop); the length is at most the slot's
+	-- cut-off above
+	CropMin = 0.2, -- the shortest part you can keep
+	CropMaxStart = 600, -- a start past this is refused (no audio on Roblox runs that long)
+	CropStep = 0.05, -- one press of a nudge button
+	CropCooldown = 1, -- seconds between saved crops for one slot
 }
 
 -- Player cards (the owner: "more diverse playercards, that are unlocked through achievements rather

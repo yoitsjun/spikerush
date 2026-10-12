@@ -2006,9 +2006,9 @@ local function scorerPerks(a)
 	if not m then
 		return
 	end
-	local sound, image = m:GetAttribute("ScoreSound"), m:GetAttribute("ScoreImage")
-	if type(sound) == "string" and sound ~= "" and mods.AudioController then
-		mods.AudioController.playId(sound)
+	local image = m:GetAttribute("ScoreImage")
+	if mods.AudioController then
+		mods.AudioController.playSlot(m, "ScoreSound")
 	end
 	if type(image) == "string" and image ~= "" then
 		UIController.showScoreImage(image)

@@ -64,6 +64,7 @@ local Tutorial = require(Shared.Tutorial)
 local Rewards = require(Shared.Rewards)
 local Spins = require(Shared.Spins)
 local Settings = require(Shared.Settings)
+local SoundCrop = require(Shared.SoundCrop)
 local Economy = require(Shared.Economy)
 local Cards = require(Shared.Cards)
 local Leaderboards = require(Shared.Leaderboards)
@@ -193,7 +194,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -327,6 +328,8 @@ local function sanitizeProfile(data)
 			local id = type(data.perkIds) == "table" and data.perkIds[slot.Key]
 			if type(id) == "string" and string.match(id, "^%d+$") and #id <= 20 then
 				out.perkIds[slot.Key] = id
+				-- the part of that sound that plays (the cropper)
+				out.perkCrops[slot.Key] = type(data.perkCrops) == "table" and SoundCrop.clean(slot.Key, data.perkCrops[slot.Key]) or nil
 			end
 		end
 	end
@@ -493,6 +496,7 @@ local function save(plr, force)
 		settings = profile.settings,
 		perks = profile.perks,
 		perkIds = profile.perkIds,
+		perkCrops = profile.perkCrops,
 		receipts = profile.receipts,
 		lucky = profile.lucky,
 		codes = profile.codes,
@@ -595,16 +599,20 @@ end
 
 -- Each owned perk's ids as attributes on the Player and its avatar ("" for none), one per slot,
 -- so every client plays that player's sounds (scoring, spikes, jumps...) and shows their image
--- when they score.
+-- when they score; a cropped sound also has <slot>Crop, the part that plays (SoundCrop).
 local function applyPerks(plr, profile)
 	local char = plr.Character
 	for _, key in ipairs(Config.Perks.Order) do
 		local owned = hasPerk(plr, profile, key)
 		for _, slot in ipairs(perkSlots(key)) do
 			local value = owned and profile.perkIds[slot.Key] or ""
+			local c = owned and profile.perkCrops[slot.Key]
+			local crop = c and NumberRange.new(c.s, c.s + c.l) or nil
 			plr:SetAttribute(slot.Key, value)
+			plr:SetAttribute(SoundCrop.attribute(slot.Key), crop)
 			if char then
 				char:SetAttribute(slot.Key, value)
+				char:SetAttribute(SoundCrop.attribute(slot.Key), crop)
 			end
 		end
 	end
@@ -859,11 +867,12 @@ function ProfileService.snapshot(plr)
 		perks = (function()
 			local out = {}
 			for _, key in ipairs(Config.Perks.Order) do
-				local ids = {}
+				local ids, crops = {}, {}
 				for _, slot in ipairs(perkSlots(key)) do
 					ids[slot.Key] = profile.perkIds[slot.Key]
+					crops[slot.Key] = profile.perkCrops[slot.Key]
 				end
-				out[key] = { owned = hasPerk(plr, profile, key), id = profile.perkIds[key], ids = ids }
+				out[key] = { owned = hasPerk(plr, profile, key), id = profile.perkIds[key], ids = ids, crops = crops }
 			end
 			return out
 		end)(),
@@ -1851,6 +1860,7 @@ local function onRequest(plr, kind, a, b, c)
 		local what = def.Slots and string.format("%s (%s)", def.Name, slot.Name) or def.Name
 		if b == "" then
 			profile.perkIds[a] = nil
+			profile.perkCrops[a] = nil
 			dirty[plr] = true
 			applyPerks(plr, profile)
 			push(plr, what .. " cleared")
@@ -1871,11 +1881,34 @@ local function onRequest(plr, kind, a, b, c)
 			if not profiles[plr] then
 				return
 			end
+			if profile.perkIds[a] ~= id then
+				profile.perkCrops[a] = nil -- a new sound starts uncropped
+			end
 			profile.perkIds[a] = id
 			dirty[plr] = true
 			applyPerks(plr, profile)
 			push(plr, string.format("Saved for %s: %s", def.Slots and slot.Name or def.Name, tostring(info.Name or id)))
 		end)
+	elseif kind == "perkCrop" then
+		-- the part of one slot's saved sound that plays: b = { s = start, l = length } in seconds
+		-- (nil, or the whole front, clears it)
+		local perk, def, slot = perkOfSlot(a)
+		if not perk or not hasPerk(plr, profile, perk) or not table.find(def.Types, 3) or not profile.perkIds[a] then
+			return
+		end
+		local last = lastPerkSet[plr] or {}
+		lastPerkSet[plr] = last
+		local cd = SoundCrop.attribute(a)
+		if last[cd] and now - last[cd] < Config.Perks.CropCooldown then
+			push(plr, "Give it a moment before changing it again.")
+			return
+		end
+		last[cd] = now
+		local c = SoundCrop.clean(a, b)
+		profile.perkCrops[a] = c
+		dirty[plr] = true
+		applyPerks(plr, profile)
+		push(plr, c and string.format("Cropped %s: %.2f s to %.2f s", slot.Name, c.s, c.s + c.l) or string.format("%s plays from the start", slot.Name))
 	elseif kind == "buy" then
 		-- Studio: a pack whose product doesn't exist yet is free, so the flow can be tried
 		local entry = Economy.pack(b, a)

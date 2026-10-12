@@ -1600,6 +1600,26 @@ do
 	local S = Config.Perks.ScoreSound
 	check(unique and S.Slots[1].Key == "ScoreSound" and seen.SoundSpike and seen.SoundJump and seen.ScoreImage and S.PassId ~= 0 and Config.Perks.ScoreImage.PassId ~= 0,
 		"custom sounds: a unique slot per sound (scoring keeps its saved key; spike, jump and the rest), both game passes set", string.format("%d slots", #S.Slots))
+
+	-- the cropper: a crop keeps its start, its length stays between CropMin and the slot's cut-off
+	-- (4 s scoring, 2 s a touch or a jump), the whole front isn't a crop, junk is dropped, and no
+	-- slot's attribute name runs into another slot's key
+	local SC = require("SoundCrop")
+	local P = Config.Perks
+	local a = SC.clean("SoundSpike", { s = 1.234, l = 9 })
+	local b = SC.clean("ScoreSound", { s = 2, l = 3.5 })
+	local short = SC.clean("SoundJump", { s = 0.5, l = 0.01 })
+	local whole = SC.clean("SoundSpike", { s = 0, l = P.ActionSeconds })
+	local junk = SC.clean("SoundSpike", { s = 0 / 0, l = 1 }) or SC.clean("SoundSpike", "1,2") or SC.clean("SoundSpike", { s = -5, l = 1 / 0 })
+	local far = SC.clean("SoundSet", { s = 1e9, l = 1 })
+	local clash = false
+	for key in pairs(seen) do
+		clash = clash or seen[SC.attribute(key)] ~= nil
+	end
+	check(a and a.s == 1.23 and a.l == P.ActionSeconds and b and b.l == 3.5 and SC.max("ScoreSound") == P.SoundSeconds
+		and short and short.l == P.CropMin and whole == nil and junk == nil and far and far.s == P.CropMaxStart and not clash,
+		"custom sounds: a crop keeps its start and a length the slot allows; junk and the whole front aren't kept",
+		string.format("spike %.2f+%.2f, score %.2f+%.2f", a and a.s or -1, a and a.l or -1, b and b.s or -1, b and b.l or -1))
 end
 
 print("== codes, lucky spins, daily rewards, gifts and events ==")

@@ -70,6 +70,7 @@ local Extra = {}
 Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns count from then)
 Extra.shopTab = "Deals" -- the Shop's tab: "Deals" (bundles and game passes), "Currency" (VP and Gold), "Lucky" or "Boosts"
 Extra.Cards = require(Shared.Cards) -- player cards (the Locker's Cards tab)
+Extra.SoundCrop = require(Shared.SoundCrop) -- the part of a custom sound that plays (the cropper)
 local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, Bundle = {} } -- product prices in Robux, looked up once per pack
 
 local TIPS = {
@@ -3809,9 +3810,11 @@ local function buildShop()
 			e.picker = picker
 			rowY = 140
 		end
+		-- a sound perk also has Crop: which part of the saved sound plays
+		local isSound = table.find(def.Types, 3) ~= nil
 		local box = make("TextBox", {
 			Position = UDim2.fromOffset(16, rowY),
-			Size = UDim2.new(1, -32 - 188, 0, 46),
+			Size = UDim2.new(1, -32 - 188 - (isSound and 92 or 0), 0, 46),
 			BackgroundColor3 = Color3.fromRGB(6, 8, 16),
 			BackgroundTransparency = 0.1,
 			BorderSizePixel = 0,
@@ -3828,6 +3831,17 @@ local function buildShop()
 		make("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, box)
 		local save = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -104, 0, rowY), Size = UDim2.fromOffset(84, 46) }, "Save", 18)
 		local test = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, rowY), Size = UDim2.fromOffset(84, 46) }, "Test", 18)
+		local crop = isSound and hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -194, 0, rowY), Size = UDim2.fromOffset(84, 46) }, "Crop", 18) or nil
+		if crop then
+			onClick(crop, function()
+				local st = profile().perks and profile().perks[key] or {}
+				local slot = slots[e.slot]
+				local id = st.ids and st.ids[slot.Key]
+				if id then
+					MenuController.openCrop(slot, id, st.crops and st.crops[slot.Key])
+				end
+			end)
+		end
 		local status = Gui.label(card, { Text = "", TextSize = 14, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, rowY + 56), Size = UDim2.new(1, -32, 0, 226 - rowY - 56) })
 		onClick(buyVP, function()
 			Net.get("Profile"):FireServer("perkBuy", key)
@@ -3847,13 +3861,16 @@ local function buildShop()
 			if not id then
 				return
 			end
-			if table.find(def.Types, 3) then
-				mods.AudioController.playId(id)
+			if isSound then
+				-- the saved sound plays its cropped part
+				local c = id == e.savedId and e.savedCrop or nil
+				local max = Extra.SoundCrop.max(slots[e.slot].Key)
+				mods.AudioController.playId(id, { start = c and c.s, seconds = c and math.min(c.l, max) or max })
 			else
 				mods.UIController.showScoreImage(id)
 			end
 		end)
-		e.slots, e.buyVP, e.buyPass, e.buyPassLabel, e.box, e.save, e.test, e.status = slots, buyVP, buyPass, buyPassLabel, box, save, test, status
+		e.slots, e.buyVP, e.buyPass, e.buyPassLabel, e.box, e.save, e.test, e.status, e.crop = slots, buyVP, buyPass, buyPassLabel, box, save, test, status, crop
 		perks[key] = e
 		if def.PassId ~= 0 then
 			task.spawn(function()
@@ -3876,9 +3893,14 @@ local function refreshPerks(prof)
 		local owned = st.owned == true
 		local slot = e.slots[e.slot]
 		local id = (st.ids and st.ids[slot.Key]) or (slot.Key == key and st.id) or nil
+		local crop = st.crops and st.crops[slot.Key]
+		e.savedId, e.savedCrop = id, crop
 		e.buyVP.Visible = not owned
 		e.buyPass.Visible = not owned and def.PassId ~= 0
 		e.box.Visible, e.save.Visible, e.test.Visible = owned, owned, owned
+		if e.crop then
+			e.crop.Visible = owned and id ~= nil
+		end
 		if e.picker then
 			e.picker.Visible = owned
 			e.slotName.Text = slot.Name
@@ -3889,7 +3911,11 @@ local function refreshPerks(prof)
 		end
 		if owned then
 			local sound = table.find(def.Types, 3) ~= nil
-			e.status.Text = id and (sound and string.format("Plays when %s. Test it here.", slot.Verb or "you score") or "Pops up when you score. Test it here.") or "Paste an id and Save."
+			if crop then
+				e.status.Text = string.format("Plays %.2f s to %.2f s of it when %s. Crop changes the part.", crop.s, crop.s + crop.l, slot.Verb or "you score")
+			else
+				e.status.Text = id and (sound and string.format("Plays when %s. Test it, or Crop to pick the part that plays.", slot.Verb or "you score") or "Pops up when you score. Test it here.") or "Paste an id and Save."
+			end
 		else
 			e.status.Text = def.PassId ~= 0 and "" or "The game pass comes soon; VP works now."
 		end
@@ -5547,6 +5573,311 @@ function MenuController.openGift(kind, index)
 	G.modal.root.Visible = true
 end
 
+-- The sound cropper (the owner: "on custom audios, allow an audio cropper"): which part of a
+-- Custom sound effects slot's sound plays. The whole sound on top (drag on it to move the part),
+-- a close-up under it with the part in yellow (drag its middle to move it, its ends to trim it),
+-- nudge buttons for a controller, then Play, Reset and Save (Profile "perkCrop", SoundCrop).
+Extra.crop = { full = 0, s = 0, e = 0, a = 0, b = 0, max = 2, min = 0.2, token = 0 }
+
+function Extra.buildCrop()
+	local E = Extra.crop
+	local m = modal("Crop", "Crop sound", 860, 580, true)
+	local what = Gui.label(m.panel, { Text = "", display = true, TextSize = 26, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(28, 86), Size = UDim2.new(1, -56, 0, 30), ZIndex = 21 })
+	local hint = Gui.label(m.panel, { Text = "", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(28, 120), Size = UDim2.new(1, -56, 0, 40), ZIndex = 21 })
+	-- a caption over a bar, with a note on its right
+	local function caption(y, t)
+		Gui.label(m.panel, { Text = t, display = true, TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, y), Size = UDim2.fromOffset(300, 18), ZIndex = 21 })
+		return Gui.label(m.panel, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, y), Size = UDim2.fromOffset(300, 18), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 21 })
+	end
+	-- a timeline: the part that plays in yellow, and the playhead while it previews
+	local function bar(y, h)
+		local b = make("TextButton", { Position = UDim2.fromOffset(28, y), Size = UDim2.new(1, -56, 0, h), BackgroundColor3 = Color3.fromRGB(6, 8, 16), BackgroundTransparency = 0.1, BorderSizePixel = 0, Text = "", AutoButtonColor = false, ClipsDescendants = true, ZIndex = 22 }, m.panel)
+		b:SetAttribute("NoNav", true)
+		make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.45, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+		local part = make("Frame", { BackgroundColor3 = Gui.SIGNAL, BackgroundTransparency = 0.55, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1), ZIndex = 23 }, b)
+		local head = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), BackgroundColor3 = Gui.CHALK, BorderSizePixel = 0, Size = UDim2.new(0, 2, 1, 0), Visible = false, ZIndex = 26 }, b)
+		return b, part, head
+	end
+	local fullL = caption(170, "WHOLE SOUND")
+	local over, overPart, overHead = bar(192, 34)
+	local overView = make("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(0, 1), ZIndex = 24 }, over)
+	make("UIStroke", { Color = Gui.CHALK, Thickness = 1, Transparency = 0.35, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, overView)
+	local viewL = caption(244, "CLOSE UP")
+	local detail, part, head = bar(266, 92)
+	local handles = {}
+	for i = 1, 2 do
+		local h = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, Size = UDim2.new(0, 8, 1, 0), ZIndex = 24 }, detail)
+		make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = Gui.LINE, BorderSizePixel = 0, Size = UDim2.new(0, 2, 0, 26), ZIndex = 25 }, h)
+		handles[i] = h
+	end
+	local ticks = {}
+	for i = 1, 30 do
+		local line = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), BackgroundColor3 = Gui.DIM, BackgroundTransparency = 0.4, BorderSizePixel = 0, Visible = false, ZIndex = 23 }, detail)
+		local label = Gui.label(detail, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(60, 16), Visible = false, ZIndex = 23 })
+		ticks[i] = { line = line, label = label }
+	end
+	local status = Gui.label(m.panel, { Text = "", TextSize = 18, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, Position = UDim2.fromOffset(28, 266), Size = UDim2.new(1, -56, 0, 92), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 27 })
+
+	local function draw()
+		local ready = E.full > 0
+		part.Visible, overPart.Visible, overView.Visible = ready, ready, ready
+		handles[1].Visible, handles[2].Visible = ready, ready
+		if not ready then
+			for _, tk in ipairs(ticks) do
+				tk.line.Visible, tk.label.Visible = false, false
+			end
+			fullL.Text, viewL.Text, E.startV.Text, E.endV.Text, E.lenL.Text = "", "", "-", "-", ""
+			return
+		end
+		local a, b = E.a, E.b
+		local function fx(t)
+			return math.clamp((t - a) / math.max(b - a, 0.001), 0, 1)
+		end
+		part.Position = UDim2.fromScale(fx(E.s), 0)
+		part.Size = UDim2.fromScale(fx(E.e) - fx(E.s), 1)
+		handles[1].Position = UDim2.fromScale(fx(E.s), 0)
+		handles[2].Position = UDim2.fromScale(fx(E.e), 0)
+		overPart.Position = UDim2.fromScale(E.s / E.full, 0)
+		overPart.Size = UDim2.new((E.e - E.s) / E.full, 2, 1, 0) -- at least 2 px on a long sound
+		overView.Position = UDim2.fromScale(a / E.full, 0)
+		overView.Size = UDim2.fromScale((b - a) / E.full, 1)
+		-- a tick every half second (every second on a long close-up), the whole seconds labelled
+		local step = (b - a) <= 8 and 0.5 or 1
+		local n = 0
+		local t = math.ceil(a / step - 0.000001) * step
+		while t <= b + 0.000001 and n < #ticks do
+			n = n + 1
+			local whole = math.abs(t - math.floor(t + 0.5)) < 0.000001
+			local tk = ticks[n]
+			tk.line.Visible = true
+			tk.line.Position = UDim2.new(fx(t), 0, 1, 0)
+			tk.line.Size = UDim2.fromOffset(1, whole and 18 or 9)
+			tk.label.Visible = whole
+			tk.label.Text = string.format("%d s", math.floor(t + 0.5))
+			tk.label.Position = UDim2.new(fx(t), 4, 0, 4)
+			t = t + step
+		end
+		for i = n + 1, #ticks do
+			ticks[i].line.Visible, ticks[i].label.Visible = false, false
+		end
+		fullL.Text = string.format("%.1f s long", E.full)
+		viewL.Text = string.format("%.1f s to %.1f s", a, b)
+		E.startV.Text = string.format("%.2f s", E.s)
+		E.endV.Text = string.format("%.2f s", E.e)
+		E.lenL.Text = string.format("Plays %.2f s (up to %g s)", E.e - E.s, E.max)
+	end
+	-- the close-up follows the part when it leaves it (span: three times the longest part)
+	local function recenter()
+		local span = math.min(E.full, E.max * 3)
+		if math.abs((E.b - E.a) - span) > 0.000001 or E.s < E.a or E.e > E.b then
+			E.a = math.clamp((E.s + E.e) / 2 - span / 2, 0, E.full - span)
+			E.b = E.a + span
+		end
+	end
+	local function timeAt(b, x, t0, t1)
+		return t0 + math.clamp((x - b.AbsolutePosition.X) / math.max(1, b.AbsoluteSize.X), 0, 1) * (t1 - t0)
+	end
+	local function apply(x)
+		local d = E.drag
+		local L = E.e - E.s
+		if d.mode == "over" then
+			E.s = math.clamp(timeAt(over, x, 0, E.full) - L / 2, 0, E.full - L)
+			E.e = E.s + L
+			recenter()
+		else
+			local t = timeAt(detail, x, E.a, E.b)
+			if d.mode == "start" then
+				E.s = math.clamp(t, math.max(0, E.e - E.max), E.e - E.min)
+			elseif d.mode == "end" then
+				E.e = math.clamp(t, E.s + E.min, math.min(E.full, E.s + E.max))
+			else
+				E.s = math.clamp(t - d.off, 0, E.full - L)
+				E.e = E.s + L
+			end
+		end
+		draw()
+	end
+	local function pressed(input)
+		return input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
+	end
+	over.InputBegan:Connect(function(input)
+		if E.full > 0 and pressed(input) then
+			E.drag = { mode = "over" }
+			apply(input.Position.X)
+		end
+	end)
+	detail.InputBegan:Connect(function(input)
+		if E.full <= 0 or not pressed(input) then
+			return
+		end
+		local x = input.Position.X
+		local function hx(t)
+			return detail.AbsolutePosition.X + (t - E.a) / (E.b - E.a) * detail.AbsoluteSize.X
+		end
+		local ds, de = math.abs(x - hx(E.s)), math.abs(x - hx(E.e))
+		local t = timeAt(detail, x, E.a, E.b)
+		if math.min(ds, de) <= 16 then
+			E.drag = { mode = ds < de and "start" or "end" }
+		elseif t > E.s and t < E.e then
+			E.drag = { mode = "move", off = t - E.s }
+		else
+			E.drag = { mode = "move", off = (E.e - E.s) / 2 } -- a click beside it brings it there
+		end
+		apply(x)
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if E.drag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			apply(input.Position.X)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if E.drag and pressed(input) then
+			E.drag = nil
+			recenter()
+			draw()
+		end
+	end)
+
+	-- the nudge buttons: the start or the end a step at a time (a controller's way to crop)
+	local function nudge(which, d)
+		if E.full <= 0 then
+			return
+		end
+		if which == "s" then
+			E.s = math.clamp(E.s + d, math.max(0, E.e - E.max), E.e - E.min)
+		else
+			E.e = math.clamp(E.e + d, E.s + E.min, math.min(E.full, E.s + E.max))
+		end
+		recenter()
+		draw()
+	end
+	local function nudger(x, name, which)
+		Gui.label(m.panel, { Text = name, display = true, TextSize = 20, Position = UDim2.fromOffset(x, 374), Size = UDim2.fromOffset(60, 40), ZIndex = 21 })
+		local minus = hairButton(m.panel, { Position = UDim2.fromOffset(x + 62, 374), Size = UDim2.fromOffset(44, 40), ZIndex = 22 }, "-", 22)
+		local value = Gui.label(m.panel, { Text = "", display = true, TextSize = 20, Position = UDim2.fromOffset(x + 108, 374), Size = UDim2.fromOffset(92, 40), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 21 })
+		local plus = hairButton(m.panel, { Position = UDim2.fromOffset(x + 202, 374), Size = UDim2.fromOffset(44, 40), ZIndex = 22 }, "+", 22)
+		minus:SetAttribute("Sound", "UITick")
+		plus:SetAttribute("Sound", "UITick")
+		onClick(minus, function()
+			nudge(which, -Config.Perks.CropStep)
+		end)
+		onClick(plus, function()
+			nudge(which, Config.Perks.CropStep)
+		end)
+		return value
+	end
+	E.startV = nudger(28, "Start", "s")
+	E.endV = nudger(304, "End", "e")
+	E.lenL = Gui.label(m.panel, { Text = "", TextSize = 16, TextColor3 = Gui.DIM, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 374), Size = UDim2.fromOffset(250, 40), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 21 })
+
+	-- Play previews the part with a playhead; Reset goes back to the front of the sound
+	local function stopPreview()
+		local s = E.preview
+		E.preview = nil
+		if s and s.Parent then
+			s:Destroy()
+		end
+		head.Visible, overHead.Visible = false, false
+	end
+	local play = hairButton(m.panel, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -26), Size = UDim2.fromOffset(150, 60), ZIndex = 22 }, "Play", 22)
+	local reset = hairButton(m.panel, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 190, 1, -26), Size = UDim2.fromOffset(150, 60), ZIndex = 22 }, "Reset", 22)
+	local save = Gui.plateButton(m.panel, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -28, 1, -26), Size = UDim2.fromOffset(280, 62), ZIndex = 22 }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+	save:SetAttribute("Sound", "UIConfirm")
+	Gui.label(save, { Text = "Save", display = true, TextSize = 25, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+	onClick(play, function()
+		if E.full <= 0 or not mods.AudioController then
+			return
+		end
+		stopPreview()
+		local s = mods.AudioController.playId(E.id, { start = E.s, seconds = E.e - E.s })
+		E.preview = s
+		if not s then
+			return
+		end
+		task.spawn(function()
+			while E.preview == s and s.Parent do
+				local t = s.TimePosition
+				head.Visible = t >= E.a and t <= E.b
+				head.Position = UDim2.fromScale((t - E.a) / math.max(E.b - E.a, 0.001), 0)
+				overHead.Visible = true
+				overHead.Position = UDim2.fromScale(t / E.full, 0)
+				task.wait()
+			end
+			if E.preview == s then
+				stopPreview()
+			end
+		end)
+	end)
+	onClick(reset, function()
+		if E.full > 0 then
+			E.s, E.e = 0, math.min(E.full, E.max)
+			recenter()
+			draw()
+		end
+	end)
+	onClick(save, function()
+		if E.full > 0 then
+			Net.get("Profile"):FireServer("perkCrop", E.slotKey, { s = E.s, l = E.e - E.s })
+			m.hide()
+		end
+	end)
+	m.root:GetPropertyChangedSignal("Visible"):Connect(function()
+		if not m.root.Visible then
+			stopPreview()
+			E.drag = nil
+			E.token = E.token + 1 -- a load still running is dropped
+		end
+	end)
+
+	-- the sound's length: a silent copy loads it (an id that isn't shared with the game never does)
+	local function load(id)
+		E.token = E.token + 1
+		local token = E.token
+		E.full = 0
+		status.Text = "Loading the sound..."
+		draw()
+		task.spawn(function()
+			local probe = make("Sound", { SoundId = "rbxassetid://" .. id, Volume = 0 }, game:GetService("SoundService"))
+			local t0 = os.clock()
+			while not probe.IsLoaded and os.clock() - t0 < 8 and E.token == token do
+				task.wait(0.1)
+			end
+			local len = probe.TimeLength
+			probe:Destroy()
+			if E.token ~= token then
+				return
+			end
+			if len <= 0 then
+				status.Text = "That sound wouldn't load. If it's your own upload, share it with Spike Rush on its Creator Hub page."
+				return
+			end
+			status.Text = ""
+			E.full = len
+			E.min = math.min(Config.Perks.CropMin, len)
+			local c = E.saved
+			E.s = c and math.clamp(c.s, 0, len - E.min) or 0
+			E.e = math.clamp(c and c.s + c.l or E.max, E.s + E.min, math.min(len, E.s + E.max))
+			E.a, E.b = 0, 0
+			recenter()
+			draw()
+		end)
+	end
+	ui.crop = { modal = m, what = what, hint = hint, draw = draw, load = load }
+	draw()
+end
+
+-- Opens the cropper on one sound slot (a Config.Perks slot), its saved id and crop.
+function MenuController.openCrop(slot, id, crop)
+	local C = ui.crop
+	local E = Extra.crop
+	E.slotKey, E.id, E.saved = slot.Key, id, crop
+	E.max = Extra.SoundCrop.max(slot.Key)
+	C.what.Text = string.format("%s: sound %s", slot.Name, id)
+	C.hint.Text = string.format("Pick the part that plays when %s, up to %g s of it. Drag the yellow part to move it, or its ends to trim it.", slot.Verb or "you score", E.max)
+	C.modal.root.Visible = true
+	C.load(id)
+end
+
 -- The admin panel (developers): the events' length, 2x VP and 2x Gold, the announcement, and a
 -- player's gift. AdminService answers every request with a line and the running events.
 Extra.adminMinutes = Config.Admin.Durations[1]
@@ -6421,6 +6752,7 @@ function MenuController.init(m)
 	Extra.buildCodes()
 	Extra.buildDaily()
 	Extra.buildGift()
+	Extra.buildCrop()
 	Extra.buildAdmin()
 	Extra.buildCups()
 	Extra.buildTour()

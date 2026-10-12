@@ -21,6 +21,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
 local Util = require(Shared.Util)
+local SoundCrop = require(Shared.SoundCrop)
 local State = require(script.Parent.State)
 
 local AudioController = {}
@@ -185,7 +186,8 @@ function AudioController.hearsMatch()
 end
 
 -- A player's own sounds (the Custom sound effects perk: scoring, spikes, jumps and their other
--- touches): any audio id, cut off after Perks.SoundSeconds (ActionSeconds for a touch or a jump).
+-- touches): any audio id, cut off after Perks.SoundSeconds (ActionSeconds for a touch or a jump),
+-- or the part they cropped (SoundCrop: from its start, for its length).
 -- preloadId loads each as soon as they pick it, so it starts on time.
 local function isId(id)
 	return type(id) == "string" and string.match(id, "^%d+$") ~= nil
@@ -211,19 +213,37 @@ function AudioController.playId(id, opts)
 	sound.Volume = opts.volume or 0.9
 	sound.SoundGroup = group
 	sound.Parent = SoundService
+	if opts.start then
+		sound.TimePosition = opts.start
+	end
 	sound:Play()
 	sound.Ended:Connect(function()
 		sound:Destroy()
 	end)
-	task.delay(opts.seconds or Config.Perks.SoundSeconds, function()
+	-- a crop ends where its end was put (a quick fade so it doesn't click); otherwise a gentler fade
+	local fade = opts.start and 0.06 or 0.25
+	task.delay(math.max(0, (opts.seconds or Config.Perks.SoundSeconds) - (opts.start and fade or 0)), function()
 		if sound.Parent then
-			TweenService:Create(sound, TweenInfo.new(0.25), { Volume = 0 }):Play()
-			task.delay(0.3, function()
+			TweenService:Create(sound, TweenInfo.new(fade), { Volume = 0 }):Play()
+			task.delay(fade + 0.05, function()
 				sound:Destroy()
 			end)
 		end
 	end)
 	return sound
+end
+
+-- Plays a player's sound for a slot from the attributes on `inst` (their character or Player):
+-- the id and its crop. The sound, or nil when the slot is empty.
+function AudioController.playSlot(inst, slotKey, opts)
+	local id = inst and inst:GetAttribute(slotKey)
+	if not isId(id) then
+		return nil
+	end
+	opts = opts or {}
+	local s, l = SoundCrop.read(inst:GetAttribute(SoundCrop.attribute(slotKey)))
+	local max = SoundCrop.max(slotKey)
+	return AudioController.playId(id, { volume = opts.volume, start = s, seconds = l and math.min(l, max) or max })
 end
 
 -- The Custom sound effects perk's slots (attribute names on a player's character).
@@ -236,13 +256,8 @@ function AudioController.custom(entityId, slotKey, opts)
 		return true -- nothing plays for you, the usual sound included
 	end
 	local model = entityId and Util.modelOf(entityId)
-	local id = model and model:GetAttribute(slotKey)
-	if not isId(id) then
-		return false
-	end
 	opts = opts or {}
-	AudioController.playId(id, { volume = opts.volume or 0.85, seconds = Config.Perks.ActionSeconds })
-	return true
+	return AudioController.playSlot(model, slotKey, { volume = opts.volume or 0.85 }) ~= nil
 end
 
 -- The serve is struck (any touch after the toss): the crowd's swell stops.
