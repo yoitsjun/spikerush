@@ -1958,8 +1958,8 @@ local function diveParts()
 		b.Parent = holder
 		return b
 	end
-	local halo = band(3.2, Color3.fromRGB(255, 120, 30))
-	local path = band(1.5, Color3.fromRGB(255, 176, 80))
+	local halo = band(6.5, Color3.fromRGB(255, 120, 30)) -- (the owner: "make it bigger, easier to see")
+	local path = band(3.4, Color3.fromRGB(255, 176, 80))
 	dive = { holder = holder, a0 = a0, a1 = a1, path = path, halo = halo }
 	return dive
 end
@@ -1991,8 +1991,8 @@ function VFXController.divePath(hrp, d)
 	p.a0.WorldPosition = d.p0 or hrp.Position
 	p.a1.WorldPosition = meet
 	local k = d.live and -0.12 or 0
-	p.path.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.85), NumberSequenceKeypoint.new(0.12, 0.55 + k), NumberSequenceKeypoint.new(0.9, 0.5 + k), NumberSequenceKeypoint.new(1, 0.9) })
-	p.halo.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.95), NumberSequenceKeypoint.new(0.12, 0.8 + k), NumberSequenceKeypoint.new(0.9, 0.78 + k), NumberSequenceKeypoint.new(1, 0.95) })
+	p.path.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(0.1, 0.32 + k), NumberSequenceKeypoint.new(0.92, 0.28 + k), NumberSequenceKeypoint.new(1, 0.75) })
+	p.halo.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(0.1, 0.62 + k), NumberSequenceKeypoint.new(0.92, 0.6 + k), NumberSequenceKeypoint.new(1, 0.9) })
 	p.path.Enabled, p.halo.Enabled = true, true
 end
 
