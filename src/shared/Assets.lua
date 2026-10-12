@@ -134,6 +134,7 @@ Assets.Sounds = {
 	SunBlast = "9120704078", -- Laith's big Sundive hit: "Whoosh Combo Of Impacts Bys 5", huge
 	SquallOn = "133639929570919", -- Haneul's Squall: TornadoBurst's "Wind Burst Heavy Shockwave"
 	SquallDash = "74818885604525", -- Tailwind's dash: "Woosh - Fast - Gust - Wind - Swing - Dash" (lorenzosaudiostash)
+	SquallGlass = "9114592102", -- the dash's trail of shattered glass (the owner: "playing that shatter glass effect"): PSE "Glass Breaks 11"
 	SquallSpring = "9120704057", -- Tailwind's spring: "Whoosh Combo Of Impacts Bys 4"
 	SquallHover = "90848178756425", -- Eye of the Storm's hover: "strong gust of wind" (Sunny_CIover)
 	SquallStep = "117000832074549", -- the target jumping a spot: UITick, pitched up each step

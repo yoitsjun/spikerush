@@ -2186,6 +2186,43 @@ do
 		return w
 	end
 
+	-- Tailwind's dash leaves a trail of shattered glass hanging in the air (the owner: "she leaves a
+	-- trail of shattered glass", as in her video): a white shard with a blue and an orange edge
+	-- offset behind it, turned at random, drifting a little and fading.
+	local GLASS_EDGES = { Color3.fromRGB(70, 150, 255), Color3.fromRGB(255, 150, 60) }
+	local function glassShard(pos)
+		local size = 1.2 + math.random() * 2.6
+		local turn = CFrame.Angles(math.random() * math.pi * 2, 0, 0)
+		local base = CFrame.new(pos + Vector3.new(0, (math.random() - 0.4) * 3.5, (math.random() - 0.5) * 2.5)) * turn
+		local drift = Vector3.new(0, (math.random() - 0.3) * 2.5, (math.random() - 0.5) * 4)
+		local spin = CFrame.Angles((math.random() - 0.5) * 1.2, 0, 0)
+		-- (the camera looks along +x: the white shard is nearest it, the coloured edges behind)
+		local layers = {
+			{ color = Color3.fromRGB(255, 255, 255), offset = Vector3.new(-0.15, 0, 0), alpha = 0.05 },
+			{ color = GLASS_EDGES[1], offset = Vector3.new(0.05, 0.12, -0.28), alpha = 0.25 },
+			{ color = GLASS_EDGES[2], offset = Vector3.new(0.1, -0.12, 0.28), alpha = 0.3 },
+		}
+		local hold = 0.2 + math.random() * 0.15
+		for _, l in ipairs(layers) do
+			local p = take(Enum.PartType.Wedge)
+			p.Color = l.color
+			p.Size = Vector3.new(0.05, size, size * (0.5 + math.random() * 0.4))
+			p.CFrame = base + l.offset
+			p.Transparency = l.alpha
+			local tween = TweenService:Create(p, TweenInfo.new(hold + 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				CFrame = (base + l.offset + drift) * spin,
+			})
+			tween:Play()
+			task.delay(hold, function()
+				local fade = TweenService:Create(p, TweenInfo.new(0.35), { Transparency = 1 })
+				fade.Completed:Connect(function()
+					release(p)
+				end)
+				fade:Play()
+			end)
+		end
+	end
+
 	-- Tailwind's rush: a streak of wind behind her and dust kicked up as she runs (on while `on`).
 	function VFXController.rush(entityId, on)
 		local w = windOf(entityId)
@@ -2207,9 +2244,14 @@ do
 			trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 1) })
 			trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.3) })
 			trail.Parent = hrp
-			w.rush = { trail = trail, a0 = a0, a1 = a1, lastPuff = 0 }
+			w.rush = { trail = trail, a0 = a0, a1 = a1, lastPuff = 0, lastGlass = 0 }
+		-- the glass shatters as she goes
+		for _ = 1, 4 do
+			glassShard(hrp.Position)
+		end
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("SquallDash", { volume = 0.8, pos = hrp.Position, minGap = 0.1 })
+			mods.AudioController.play("SquallGlass", { volume = 0.85, speed = 1.05, pos = hrp.Position, minGap = 0.1 })
 		end
 			emit("Dust", Vector3.new(hrp.Position.X, 0.4, hrp.Position.Z), 10)
 		elseif not on and w.rush then
@@ -2382,6 +2424,11 @@ do
 				if r and math.abs(hrp.AssemblyLinearVelocity.Z) > 12 and os.clock() - r.lastPuff > 0.09 then
 					r.lastPuff = os.clock()
 					emit("Dust", Vector3.new(hrp.Position.X, 0.4, hrp.Position.Z), 3)
+				end
+				-- the glass trail, shard by shard along the dash
+				if r and math.abs(hrp.AssemblyLinearVelocity.Z) > 12 and os.clock() - r.lastGlass > 0.03 then
+					r.lastGlass = os.clock()
+					glassShard(hrp.Position)
 				end
 				local h = w.hover
 				if h then
