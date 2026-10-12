@@ -143,8 +143,12 @@ Assets.Sounds = {
 	IronShieldBreak = "9114592102", -- a Bulwark shield shattering: "Glass Breaks 11", shards
 	IronAwaken = "9120729732", -- Taesan awakens: "Whoosh Impact 1", a big stinger up and hit, pitched down
 	IronRestore = "9119747260", -- his shields back: "Sword In 1", steel scraping home
-	ForgeCharge = "9114446852", -- Forge as he leaves the floor: "Fire Whoosh 15", a burst with hiss
-	ForgeFull = "9114444008", -- Forge's charge full: "Fire Whoosh 3", a short punchy burst
+	-- Forge's charge hammered out on an anvil (the owner: "a metal clanging sound effect. like hes
+	-- forging it on a blacksmith iron", "aggressive heavy sharp"): strikes as it builds, each one
+	-- picked from these, then a heavy clang with a sharp steel ring on top once it's full
+	ForgeStrike = { "94770719520666", "9113447467", "9125362418" }, -- "AnvilHit" (Glitchy_Robot); PSE "Blacksmith Anvil Hammer Hits 16", "Anvil Hits Ringing Metal Clinks 31"
+	ForgeFull = "9125669267", -- PSE "Metal Impact Metal Crowbar Railroad Hammer Hits 1": the heavy clang
+	ForgeRing = "9116767882", -- PSE "Metal Pole Impact With Wrench 1": a sharp ringing hit over it
 	ForgeHit = "9120730294", -- Forge's hit: "Whoosh Impact 3", a thick swish into a hard impact
 	UIOpen = "94544858772525", -- "UIOpen": a popup opening
 	UIOpenLong = "72734883374430", -- "UIOpenLong": a menu screen changing, the matchup intro's wipes
@@ -202,8 +206,11 @@ Assets.SoundFiles = {
 	["9114592102"] = { start = 0.73, gain = 2.3 }, -- IronShieldBreak: 0.75 s in, peak 174
 	["9120729732"] = { start = 0.62 }, -- IronAwaken: 0.64 s in, peak 394
 	["9119747260"] = { start = 0.19, gain = 0.7 }, -- IronRestore: 0.21 s in, peak 588
-	["9114446852"] = { start = 0.09, gain = 3.4 }, -- ForgeCharge: 0.11 s in, peak 117
-	["9114444008"] = { start = 0.62, gain = 1.4 }, -- ForgeFull: 0.64 s in, peak 283
+	["94770719520666"] = { gain = 0.65 }, -- ForgeStrike "AnvilHit": peak 618
+	["9113447467"] = { gain = 1.75 }, -- ForgeStrike "Blacksmith Anvil Hammer Hits 16": peak 229
+	["9125362418"] = { gain = 2.5 }, -- ForgeStrike "Anvil Hits Ringing Metal Clinks 31": peak 159
+	["9125669267"] = { gain = 1.7 }, -- ForgeFull: peak 237
+	["9116767882"] = { start = 0.1 }, -- ForgeRing: 0.11 s in, peak 410
 	["9120730294"] = { start = 0.26, gain = 1.6 }, -- ForgeHit: 0.28 s in, peak 253
 	["117922524763696"] = { gain = 0.5 }, -- Thunder: peak 798
 	["86816529419846"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491

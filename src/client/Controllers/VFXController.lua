@@ -2508,10 +2508,7 @@ do
 					-- him in the air, growing as it charges, flashing once it's full)
 					local up = hrp.Position.Y > Config.Player.RootGround + 1.2
 					if up and not s.airT then
-						s.airT, s.full = os.clock(), false
-						if mods and mods.AudioController.hearsMatch() then
-							mods.AudioController.play("ForgeCharge", { volume = 0.7, pos = hrp.Position, minGap = 0.1 })
-						end
+						s.airT, s.full, s.strikes = os.clock(), false, 0
 						local feet = Vector3.new(hrp.Position.X, 0.2, hrp.Position.Z)
 						floorRing(feet, IRON.ChargeColor, 6, 0.4)
 						meshFx("FX_Column", CFrame.new(feet), IRON.ChargeColor, 0.25, 0.7, 0.35, { base = true, alpha = 0.2 })
@@ -2536,10 +2533,24 @@ do
 							f.glow.ImageTransparency = 0.55 - 0.45 * k
 							f.star.ImageTransparency = 0.6 - 0.55 * k
 							f.star.Rotation = (os.clock() * 90) % 360
+							-- the hammer on the anvil: three hard strikes as it builds (0, a third, two
+							-- thirds), heavier than they are high, each with a spray of forge sparks
+							local due = math.min(3, math.floor(k * 3) + 1)
+							if k < 1 and (s.strikes or 0) < due then
+								s.strikes = due
+								shards(hrp.Position + Vector3.new(0, 1, 0), Color3.fromRGB(255, 170, 70), 10, 55)
+								if mods and mods.AudioController.hearsMatch() then
+									mods.AudioController.play("ForgeStrike", { volume = 0.85, speed = 0.82 + 0.06 * due, pos = hrp.Position, minGap = 0.05 })
+								end
+							end
 							if k >= 1 and not s.full then
 								s.full = true -- charged: a flash
 								if mods and mods.AudioController.hearsMatch() then
-									mods.AudioController.play("ForgeFull", { volume = 0.6, speed = 1.15, pos = hrp.Position, minGap = 0.1 })
+									-- the last blow: a heavy clang, a sharp steel ring over it and a low boom
+									mods.AudioController.play("ForgeFull", { volume = 1, speed = 0.85, pos = hrp.Position, minGap = 0.1 })
+									mods.AudioController.play("ForgeRing", { volume = 0.7, pos = hrp.Position, minGap = 0.1 })
+									mods.AudioController.play("Boom", { volume = 0.35, speed = 0.75, pos = hrp.Position, minGap = 0.1 })
+									shards(hrp.Position + Vector3.new(0, 1, 0), Color3.fromRGB(255, 200, 110), 18, 70)
 								end
 								starburst(hrp.Position, Color3.fromRGB(255, 235, 235), 10)
 								ringFx(hrp.Position, IRON.ChargeColor, 1, 9, 0.3, 6)
