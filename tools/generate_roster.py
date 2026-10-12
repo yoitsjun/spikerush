@@ -6,7 +6,7 @@ four stats and possibly an ability:
   * WS: the highest Attack and Jump (up to 210 / 190 at the very top).
   * MB: the tallest, with a big Jump (about 180) and less Attack (about 170).
   * SE: Speed and Defense (160 to 180 at the top), light on Attack and Jump.
-Abilities come with the character: S+ wing spikers have Thunder Spiker, Azure Dragon, Feral Leap or Zero Point;
+Abilities come with the character: S+ wing spikers have Thunder Spiker, Azure Dragon, Feral Leap, Zero Point or Corona;
 S characters have one of their role's abilities (WS Adrenaline, Rising Sun, Counter Edge, Plunge Spin or Skyward;
 MB Iron Wall or Rally Cry; SE Chain Reaction, Vector Set or Turnabout); everyone else has none.
 
@@ -68,6 +68,9 @@ FIXED = [
     # Zero Point (the owner: "S+... an ability focused on perfect contact... a perfect contact
     # spike hits a ??? km/h"): clean hands over raw power, so a little less Attack than YeJun
     {"Name": "Taeho", "Role": "WS", "Tier": "S+", "Height": 187, "Attack": 205, "Defense": 122, "Speed": 146, "Jump": 182, "Ability": "ZeroPoint"},
+    # Corona (the owner: a character "based off lucas from the spike"): a high jumper who dives
+    # onto the ball, so Jump near the top and a little less Attack (Corona and Sundive add the rest)
+    {"Name": "Elio", "Role": "WS", "Tier": "S+", "Height": 183, "Attack": 204, "Defense": 122, "Speed": 150, "Jump": 188, "Ability": "Corona"},
     # Skyward (the owner: "a jump that starts low, but the higher spike point she gets the higher
     # her jump increases... a high max jump, than even yejun. at her peak, maybe 4.7-4.8"): her
     # Jump here is the middle of her climb (Config.Abilities.Skyward moves her hitting point)

@@ -12,6 +12,8 @@
 --   * Azure Dragon: energy gathered in the air multiplies power; overcharging sends it out.
 --   * Feral Leap: the gauge charged on the ground before the leap multiplies power; a full one
 --     leaping at the net smashes through a block with less Attack.
+--   * Corona (Elio): Sundive, falling fast onto the ball, multiplies power; Zenith bursts some
+--     spikes (the seeded rng picks them, so the hitter's client agrees).
 -- Receives drain the receiving team's stamina (a guard meter) depending on ball speed and the
 -- receiver's Defense. Low stamina makes receives unreliable; a broken guard can't stop strong
 -- spikes at all. Slides pay only Hits.SlideDrainMul of the drain and skip the knockback and the
@@ -39,6 +41,7 @@ local RALLY = Config.Abilities.RallyCry
 local COUNTER = Config.Abilities.Counter
 local ZERO = Config.Abilities.ZeroPoint
 local SKY = Config.Abilities.Skyward
+local CORONA = Config.Abilities.Corona
 
 local ACTION_CODE = { Bump = 1, Set = 2, Spike = 3, Feint = 4, Block = 5, Toss = 6, Serve = 7, Underhand = 8 }
 local SERVES = { JumpServe = true, Overhand = true, Underhand = true }
@@ -107,6 +110,8 @@ end
 function HitLogic.tossReach(ability)
 	if ability == "Feral" then
 		return FERAL.TossReachMul
+	elseif ability == "Corona" then
+		return CORONA.TossReachMul -- Elio's Long Toss
 	end
 	return 1
 end
@@ -433,6 +438,26 @@ function HitLogic.skyGain(qHeight)
 	return SKY.Gain * clamp(qHeight or 0, 0, 1) ^ SKY.GainExp
 end
 
+-- Corona: every stat's multiplier, on (the flare) or off after `stacks` uses (the penalty).
+function HitLogic.coronaMul(on, stacks)
+	if on then
+		return 1 + CORONA.Boost
+	end
+	return 1 - CORONA.PenaltyPer * clamp(math.floor(tonumber(stacks) or 0), 0, CORONA.MaxStacks)
+end
+
+-- Sundive: how much of the dive bonus a spike gets (0..1) from how fast he's falling (vy, studs/s,
+-- negative down).
+function HitLogic.diveFraction(vy)
+	return clamp((-(vy or 0) - CORONA.DiveMinFall) / (CORONA.DiveFullFall - CORONA.DiveMinFall), 0, 1)
+end
+
+-- Chain Reaction's step for an explosion: 1 for the first of a rally, then 2, 3 (ctx.chain: how
+-- many the team has set off this rally).
+function HitLogic.chainStep(chain)
+	return clamp(math.floor(tonumber(chain) or 0) + 1, 1, #CHAIN.PowerMul)
+end
+
 -- Rising Sun: the Sunrise level from the points the other team has this set (0..MaxLevel).
 function HitLogic.sunLevel(enemyPoints)
 	return math.min(SUN.MaxLevel, math.floor(math.max(0, enemyPoints or 0) / SUN.Every))
@@ -441,8 +466,9 @@ end
 -- The stats a touch is computed with. Adrenaline adds Attack and Jump while the team's stamina
 -- is low; Rising Sun adds its level's points; Counter Edge adds its meter's share of PerFull;
 -- Feral Leap played by the AI (extra.auto) loses Attack; Rally Cry (extra.teamBoost) multiplies
--- every stat of the team. extra: { enemyPoints, counter, auto, teamBoost } (a touch passes its
--- ctx). The server raises the humanoid's jump and run speed to match (TeamService), so the
+-- every stat of the team; Corona multiplies his own, up while it's on and down by his uses while
+-- it's off (extra.coronaOn, extra.coronaStacks). extra: { enemyPoints, counter, auto, teamBoost,
+-- coronaOn, coronaStacks } (a touch passes its ctx). The server raises the humanoid's jump and run speed to match (TeamService), so the
 -- hitting point is real.
 function HitLogic.effectiveStats(stats, ability, stamina, extra)
 	local add = {}
@@ -499,6 +525,13 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 	if extra and extra.teamBoost then
 		mul = 1 + RALLY.Boost
 		any = true
+	end
+	if ability == "Corona" then
+		local k = HitLogic.coronaMul(extra and extra.coronaOn, extra and extra.coronaStacks)
+		if k ~= 1 then
+			mul = mul * k
+			any = true
+		end
 	end
 	if not any then
 		return stats, false
@@ -661,6 +694,15 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		qContact = ctx.forceQuality
 	end
 	local qHeight = HitLogic.heightQuality(ball.Y, stats, ctx.groundY)
+	-- Sundive (Corona): the faster he's falling onto it, the harder (the AI gets a share without
+	-- diving); a dive meets the ball under the top of his jump, which doesn't cost him
+	local dive = 0
+	if kind == "Spike" and ctx.ability == "Corona" then
+		dive = ctx.auto and CORONA.AutoDive or HitLogic.diveFraction(input.vy)
+		if dive > 0 and not ctx.auto then
+			qHeight = math.max(qHeight, CORONA.DiveHeightFloor)
+		end
+	end
 	-- clean contact x good timing: a fingertip touch at a great height is still a poor hit
 	local q = clamp(qContact * (H.ContactWeight + (1 - H.ContactWeight) * qHeight), 0, 1)
 	-- the hitting point is the hand: a ball met above it still reads (and counts for Thunder) as
@@ -685,8 +727,18 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		ball = Vector3.new(0, root.Y + Z.SpikeUp + ZERO.HandUp, root.Z - side * (Z.SpikeForward + ZERO.HandAhead))
 	end
 	local boom = kind == "Spike" and reaction(ctx)
+	local link = HitLogic.chainStep(ctx.chain)
 	if boom then
-		kmh = kmh * CHAIN.PowerMul
+		kmh = kmh * CHAIN.PowerMul[link]
+	end
+	-- Corona: the dive's power, and Zenith (only his spikes draw from the rng, so nobody else's
+	-- hits change)
+	if dive > 0 then
+		kmh = kmh * (1 + CORONA.DiveBoost * dive)
+	end
+	local zenith = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Corona" and rng:NextNumber() < CORONA.ZenithChance
+	if zenith then
+		kmh = kmh * (1 + CORONA.ZenithPower)
 	end
 	local meta = meta0(kind, q)
 	meta.height = heightM
@@ -704,8 +756,17 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	end
 	if boom then
 		meta.reaction = true
-		meta.drainMul = CHAIN.DrainMul
-		meta.flatDrain = CHAIN.FlatDrain
+		meta.drainMul = CHAIN.DrainMul[link]
+		meta.flatDrain = CHAIN.FlatDrain[link]
+		meta.chainLink = link
+	end
+	if dive > 0 and not ctx.auto then
+		meta.dive = math.floor(dive * 100 + 0.5) / 100
+	end
+	meta.zenith = zenith or nil
+	-- Dragon Surge: a full Azure bar costs the digger more
+	if pierce then
+		meta.tierDrain = meta.tierDrain * AZURE.FullDrainMul
 	end
 	meta.thunder = thunder or nil
 	meta.secondSwing = second or nil
@@ -825,13 +886,16 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if zero then
 		g = g * ZERO.Gravity -- a laser line
 	end
+	if zenith then
+		g = g * CORONA.ZenithSpin -- heavy topspin: it dips harder onto the same spot
+	end
 	local v = speedWithAssist(ball, target, speed, g, side, steps)
 	local hold = 0
 	if zero then
 		hold = ZERO.Freeze -- the freeze-frame cut-in
 	elseif meta.firstStrike then
 		hold = FERAL.FirstFreeze
-	elseif thunder or pierce or fullLeap then
+	elseif thunder or pierce or fullLeap or zenith or dive >= 0.7 then
 		hold = H.HitStopThunder
 	elseif q >= H.PerfectAt then
 		hold = H.HitStopPerfect
@@ -865,10 +929,12 @@ local function talon(input, ctx, rng, stats)
 	meta.tierDrain = HitLogic.tierDrain(stats.tier)
 	meta.liftGain = HitLogic.skyGain(qHeight)
 	if reaction(ctx) then
-		kmh = kmh * CHAIN.PowerMul
+		local link = HitLogic.chainStep(ctx.chain)
+		kmh = kmh * CHAIN.PowerMul[link]
 		meta.reaction = true
-		meta.drainMul = CHAIN.DrainMul
-		meta.flatDrain = CHAIN.FlatDrain
+		meta.drainMul = CHAIN.DrainMul[link]
+		meta.flatDrain = CHAIN.FlatDrain[link]
+		meta.chainLink = link
 	end
 	-- how far the ball is from the net on her side (studs; 0 or less: over it)
 	local back = ball.Z * side
@@ -933,7 +999,8 @@ end
 --        ability, groundY, stamina = { value, max } (own team), forceQuality?, ironWall?,
 --        enemyPoints (Rising Sun), teamBoost (Rally Cry), counter (Counter Edge meter 0..100),
 --        turnabout (Turnabout armed), firstStrike (Feral Leap's first full charge not used yet),
---        auto (played by the AI)
+--        auto (played by the AI), chain (Chain Reaction: the team's explosions this rally),
+--        coronaOn and coronaStacks (Corona: on, and how many times it's been used)
 ------------------------------------------------------------------------------------------
 
 function HitLogic.compute(input, ctx)
@@ -1023,10 +1090,12 @@ function HitLogic.compute(input, ctx)
 		meta.height = HitLogic.meters(ball.Y)
 		if reaction(ctx) then
 			-- a feint off a charged set still explodes: soft, but it tears through the guard
+			local link = HitLogic.chainStep(ctx.chain)
 			meta.noDrain = nil
 			meta.reaction = true
-			meta.drainMul = CHAIN.DrainMul
-			meta.flatDrain = CHAIN.FlatDrain
+			meta.drainMul = CHAIN.DrainMul[link]
+			meta.flatDrain = CHAIN.FlatDrain[link]
+			meta.chainLink = link
 		end
 		local frac = clamp((dz - H.SpikeDzDeep) / (H.SpikeDzShort - H.SpikeDzDeep), 0, 1)
 		local depth = lerp(H.FeintMaxDepth, 0.95 * SPM, frac) + jitter(rng, (1 - qContact) * H.FeintError)

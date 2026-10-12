@@ -975,6 +975,14 @@ local function badgeState(ability, id, model, team, mine)
 		else
 			p, hot, sub = 1, true, "READY"
 		end
+		if ability == "Corona" and not on then
+			-- his penalty while the flare is off: 1.5% for every use (a timeout clears it)
+			local stacks = (mine and player:GetAttribute("CoronaStacks")) or (model and model:GetAttribute("CoronaStacks")) or 0
+			if stacks > 0 then
+				local pen = string.format("-%g%%", stacks * def.PenaltyPer * 100)
+				sub = sub == "" and pen or (sub .. "  " .. pen)
+			end
+		end
 	elseif ability == "Feral" then
 		local v = 0
 		if mine then

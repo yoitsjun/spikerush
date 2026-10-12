@@ -33,6 +33,7 @@ TeamService.timeouts = { Home = Config.Timeout.PerSet, Away = Config.Timeout.Per
 TeamService.benched = {} -- userId -> id of the AI standing in for them
 TeamService.idle = {} -- userId -> seconds without input while the ball was live
 TeamService.rallyUntil = { Home = -1, Away = -1 } -- Rally Cry: the team's boost lasts until then
+TeamService.chain = { Home = 0, Away = 0 } -- Chain Reaction: the team's explosions this rally
 
 local botCounter = 0
 local usedNames = {}
@@ -240,6 +241,7 @@ function TeamService.applyToModel(e)
 				inst:SetAttribute("PeakZ", nil)
 			end
 			inst:SetAttribute("FirstStrikeUsed", e.ability == "Feral" and e.firstStrikeUsed or nil)
+			inst:SetAttribute("CoronaStacks", e.ability == "Corona" and (e.coronaStacks or 0) or nil)
 			inst:SetAttribute("AbilityUntil", e.abilityUntil or -1)
 			inst:SetAttribute("AbilityReadyAt", e.abilityReadyAt or 0)
 		end
@@ -261,6 +263,8 @@ function TeamService.boostCtx(e, t)
 		lift = e.lift,
 		auto = e.isBot or nil,
 		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= (t or Util.now()),
+		coronaOn = e.ability == "Corona" and (e.abilityUntil or -1) >= (t or Util.now()) or nil,
+		coronaStacks = e.ability == "Corona" and (e.coronaStacks or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 	}
 end
@@ -303,6 +307,46 @@ function TeamService.rally(team, untilT)
 			refreshBoosts(team)
 		end
 	end)
+end
+
+-- Corona: his flare is on until `untilT` and he has used it `stacks` times (the penalty while
+-- it's off); his stats follow it now and again when the window ends.
+function TeamService.setCorona(e, untilT, stacks)
+	e.coronaStacks = stacks
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("CoronaStacks", stacks)
+		end
+	end
+	refreshBoosts(e.team)
+	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
+		if e.abilityUntil == untilT then
+			refreshBoosts(e.team)
+		end
+	end)
+end
+
+-- A timeout (or a substitution) clears every Corona's penalty.
+function TeamService.clearCorona()
+	for _, e in pairs(TeamService.entities) do
+		if e.ability == "Corona" and (e.coronaStacks or 0) > 0 then
+			e.coronaStacks = 0
+			for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+				if inst then
+					inst:SetAttribute("CoronaStacks", 0)
+				end
+			end
+		end
+	end
+	for _, team in ipairs(Config.TeamOrder) do
+		refreshBoosts(team)
+	end
+end
+
+-- Chain Reaction: a team's explosions this rally (0 at every serve), for everyone's prediction.
+function TeamService.setChain(team, n)
+	TeamService.chain[team] = n
+	ReplicatedStorage:SetAttribute("Chain_" .. team, n)
 end
 
 -- The Counter Edge meter (0..100) on the character and the player (the HUD and prediction);
@@ -686,6 +730,7 @@ function TeamService.swapCharacter(plr)
 	e.liveStats = nil
 	e.counter = 0
 	e.abilityUntil = -1
+	e.coronaStacks = 0 -- a substitution clears Corona's penalty
 	usedChars[c.Id] = true
 	reg.ProfileService.applyActive(plr) -- the player's own attributes (the client predicts from them)
 	TeamService.applyToModel(e)

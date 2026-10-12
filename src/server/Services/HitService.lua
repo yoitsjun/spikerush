@@ -23,8 +23,8 @@ local reg
 
 local VALID = { Bump = true, Set = true, Spike = true, Feint = true, Block = true, Toss = true, Serve = true, Underhand = true }
 local SET_TYPES = { Open = true, Quick = true, Back = true }
-local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true, Approach = true, Prowl = true, Leap = true, ProwlEnd = true }
-local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true, Approach = true, Prowl = true, Leap = true }
+local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true, Approach = true, Prowl = true, Leap = true, ProwlEnd = true, Dive = true }
+local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true, Approach = true, Prowl = true, Leap = true, Dive = true }
 local FERAL = Config.Abilities.Feral
 -- A player's attacks and empty swings off the floor count until their root is back down (the
 -- Heartbeat in init): Thunder Spiker's second one in a jump hits harder. Swings aren't limited.
@@ -39,6 +39,10 @@ local missedAt = {} -- entityId -> os.clock() of the player's last whiffed swing
 -- leap can have ("Leap": the time held, for the one spike off that leap)
 local prowlAt = {} -- entityId -> os.clock()
 local leapCap = {} -- entityId -> { gauge, at }
+-- Corona: when the server heard a player start a Sundive; a spike falling fast enough to earn the
+-- dive's power only counts if one started just before it
+local diveAt = {} -- entityId -> os.clock()
+local DIVE_LIFE = 1.5
 
 -- Seconds since this player last tried to play the ball (a receive stance, slide, jump, block,
 -- charge or any touch request). Bots covering a human's ball hold off while this is small.
@@ -214,6 +218,9 @@ function HitService.process(entity, input, opts)
 		turnabout = entity.ability == "Turnabout" and armed or nil,
 		firstStrike = entity.ability == "Feral" and not entity.firstStrikeUsed or nil,
 		auto = entity.isBot or nil,
+		chain = TS.chain[team] or 0,
+		coronaOn = entity.ability == "Corona" and armed or nil,
+		coronaStacks = entity.ability == "Corona" and (entity.coronaStacks or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
 	}
 	local computed, result = HitLogic.compute(input, ctx)
@@ -243,6 +250,9 @@ function HitService.process(entity, input, opts)
 	-- abilities the touch used up or charged
 	if meta.turnabout then
 		HitService.setAbilityWindow(entity, -1) -- spent: the next set is a set again
+	end
+	if meta.reaction then
+		TS.setChain(team, (TS.chain[team] or 0) + 1) -- the next explosion this rally is bigger
 	end
 	if meta.counterGain then
 		TS.setCounter(entity, math.min(100, (entity.counter or 0) + meta.counterGain))
@@ -361,6 +371,11 @@ function HitService.onRequest(plr, req)
 			return reject("swings")
 		end
 	end
+	-- Corona: a fall fast enough for Sundive's power needs a dive the server heard start
+	local vy = num(req.vy, -200, 200, 0)
+	if entity.ability == "Corona" and req.action == "Spike" and vy < -Config.Abilities.Corona.DiveMinFall and not (diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE) then
+		vy = -Config.Abilities.Corona.DiveMinFall
+	end
 	local H = Config.Hits
 	local input = {
 		second = second or nil,
@@ -368,7 +383,7 @@ function HitService.onRequest(plr, req)
 		t = req.t,
 		root = req.root,
 		ball = req.ball,
-		vy = num(req.vy, -200, 200, 0),
+		vy = vy,
 		grounded = req.grounded == true,
 		diving = req.diving == true,
 		assist = req.assist == true,
@@ -452,6 +467,9 @@ function HitService.activateAbility(entity)
 	HitService.setAbilityWindow(entity, now + def.Duration)
 	if entity.ability == "RallyCry" then
 		reg.TeamService.rally(entity.team, entity.abilityUntil)
+	elseif entity.ability == "Corona" then
+		-- the flare, and one more use for the penalty once it's off
+		reg.TeamService.setCorona(entity, entity.abilityUntil, math.min(def.MaxStacks, (entity.coronaStacks or 0) + 1))
 	end
 	HitService.fx(entity.id, "Ability", entity.ability, entity.player) -- the player already shows it
 	return true
@@ -528,6 +546,9 @@ function HitService.init(r)
 			missedAt[e.id] = os.clock()
 			countSwing(e) -- an empty swing in the air is the jump's swing too
 		end
+		if e.ability == "Corona" and kind == "Dive" then
+			diveAt[e.id] = os.clock() -- Sundive: his next spike may claim the dive's fall
+		end
 		if e.ability == "Feral" then
 			-- Feral Leap: the charge starts, then the leap goes with what was held
 			if kind == "Prowl" then
@@ -551,6 +572,7 @@ function HitService.init(r)
 		missedAt[id] = nil
 		prowlAt[id] = nil
 		leapCap[id] = nil
+		diveAt[id] = nil
 	end)
 end
 

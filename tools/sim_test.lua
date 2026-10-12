@@ -253,10 +253,82 @@ do
 	local _, none = spike(root, b, { ability = "Azure" }, { energy = 0 })
 	local _, half = spike(root, b, { ability = "Azure" }, { energy = 0.5 })
 	local _, full = spike(root, b, { ability = "Azure" }, { energy = 1.0 })
-	check(full.meta.kmh >= 190 and full.meta.kmh <= 205 and full.meta.pierce, "full bar = max power and pierce", string.format("0%%: %.0f  50%%: %.0f  100%%: %.0f km/h", none.meta.kmh, half.meta.kmh, full.meta.kmh))
+	-- Dragon Surge (the owner's buff for Seojin): a full bar about 215-230 km/h, and digging it
+	-- costs Config.Abilities.Azure.FullDrainMul more
+	local AZ = Config.Abilities.Azure
+	check(full.meta.kmh >= 210 and full.meta.kmh <= 232 and full.meta.pierce and math.abs(full.meta.tierDrain / half.meta.tierDrain - AZ.FullDrainMul) < 0.001,
+		"full bar = max power, pierce and a heavier dig (Dragon Surge)", string.format("0%%: %.0f  50%%: %.0f  100%%: %.0f km/h", none.meta.kmh, half.meta.kmh, full.meta.kmh))
 	local okO, over = spike(root, b, { ability = "Azure" }, { energy = 1.3 })
 	local path = BallPhysics.buildPath(over.launch)
 	check(over.meta.overcharge and not Court.inBounds(path.landing.pos), "overcharge flies out", describe(path))
+end
+
+print("== Corona (Elio) ==")
+do
+	local CO = Config.Abilities.Corona
+	local elio = Characters.derive(Characters.fromRoster(Roster.get("elio"), "max"))
+	-- the flare: every stat up while it's on, down by his uses while it's off, back after a timeout
+	local on = HitLogic.effectiveStats(elio, "Corona", nil, { coronaOn = true, coronaStacks = 3 })
+	local off3 = HitLogic.effectiveStats(elio, "Corona", nil, { coronaStacks = 3 })
+	local off99 = HitLogic.effectiveStats(elio, "Corona", nil, { coronaStacks = 99 })
+	local fresh = HitLogic.effectiveStats(elio, "Corona", nil, { coronaStacks = 0 })
+	local function near(a, b)
+		return math.abs(a - b) <= 1
+	end
+	check(near(on.Attack, elio.Attack * (1 + CO.Boost)) and near(on.Jump, elio.Jump * (1 + CO.Boost)) and near(off3.Defense, elio.Defense * (1 - 3 * CO.PenaltyPer))
+		and near(off99.Speed, elio.Speed * (1 - CO.MaxStacks * CO.PenaltyPer)) and fresh == elio and on.ContactMaxM > elio.ContactMaxM,
+		"Corona: every stat up while it's on; after it, 1.5% down for each use (12 at most), none before",
+		string.format("ATK %d on, %d after 3 uses, %d after 12 (base %d)", on.Attack, off3.Attack, off99.Attack, elio.Attack))
+
+	-- Sundive: a spike met falling fast hits harder, up to DiveBoost; a dive met under the top of his
+	-- jump isn't punished for the height; the AI gets AutoDive of it
+	local root = apexRoot(elio, 3.5 * K)
+	local low = root - vec(0, 2.5, 0) -- a dive meets it lower than his apex
+	local function elioSpike(r, vy, extra)
+		local c = { ability = "Corona", stats = elio, seq = 7 }
+		for k, v in pairs(extra or {}) do c[k] = v end
+		return spike(r, ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy), c, { vy = vy })
+	end
+	local _, plain = elioSpike(root, 0)
+	local _, lowPlain = elioSpike(low, -5)
+	local _, halfDive = elioSpike(low, -(CO.DiveMinFall + CO.DiveFullFall) / 2)
+	local _, fullDive = elioSpike(low, -CO.DiveFullFall - 10)
+	local _, auto = elioSpike(root, 0, { auto = true })
+	local zen = (plain.meta.zenith and 1 + CO.ZenithPower or 1)
+	check(not plain.meta.dive and lowPlain.meta.kmh < plain.meta.kmh and halfDive.meta.dive == 0.5 and fullDive.meta.dive == 1
+		and fullDive.meta.kmh > plain.meta.kmh * 1.15 and fullDive.meta.kmh > halfDive.meta.kmh + 10 and auto.meta.kmh > plain.meta.kmh and not auto.meta.dive,
+		"Sundive: the faster he falls onto it, the harder (up to +30%), even met below his apex",
+		string.format("apex %.0f, low %.0f, half dive %.0f, full dive %.0f, AI %.0f km/h", plain.meta.kmh, lowPlain.meta.kmh, halfDive.meta.kmh, fullDive.meta.kmh, auto.meta.kmh))
+	local path = BallPhysics.buildPath(fullDive.launch)
+	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "a full Sundive spike lands in", describe(path))
+
+	-- Zenith: about ZenithChance of his spikes (by the ball's seed, so client and server agree),
+	-- +13% and heavier topspin; nobody else's spikes change
+	local zenith, total, same = 0, 300, true
+	local sample = nil
+	for seq = 1, total do
+		local _, a = elioSpike(root, 0, { seq = seq })
+		local _, b = elioSpike(root, 0, { seq = seq })
+		same = same and (a.meta.zenith == b.meta.zenith) and a.meta.kmh == b.meta.kmh
+		if a.meta.zenith then
+			zenith = zenith + 1
+			if not sample then
+				sample = seq
+			end
+		end
+	end
+	local _, z = elioSpike(root, 0, { seq = sample })
+	local _, plainSeq = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = elio, seq = sample })
+	local zPath = BallPhysics.buildPath(z.launch)
+	local rate = zenith / total
+	check(same and rate > CO.ZenithChance - 0.07 and rate < CO.ZenithChance + 0.07 and z.meta.zenith and math.abs(z.meta.kmh / plainSeq.meta.kmh - (1 + CO.ZenithPower)) < 0.01
+		and math.abs(z.launch.a.Y / plainSeq.launch.a.Y - CO.ZenithSpin) < 0.01 and Court.inBounds(zPath.landing.pos),
+		"Zenith: about one spike in five bursts (+13%, heavier topspin, still in), the same on both sides",
+		string.format("%d of %d, %.0f vs %.0f km/h", zenith, total, z.meta.kmh, plainSeq.meta.kmh))
+	local _ = zen
+
+	-- Long Toss: his forward serve toss goes as far as Dante's
+	check(HitLogic.tossReach("Corona") == Config.Abilities.Feral.TossReachMul and HitLogic.tossReach("Corona") > 1, "Elio's serve toss goes much further forward, like Dante's")
 end
 
 print("== Feral Leap (Dante) ==")
@@ -277,8 +349,9 @@ do
 	local _, full = leapSpike(1, true)
 	local sr = apexRoot(seojin, 3.5 * K)
 	local _, azure = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy), { ability = "Azure", stats = seojin }, { energy = 1 })
-	check(none.meta.kmh > 141 and half.meta.kmh > none.meta.kmh + 15 and full.meta.kmh > half.meta.kmh + 25 and full.meta.kmh > azure.meta.kmh and full.meta.kmh <= 212,
-		"the longer the charge, the harder the spike; a full one tops a full Azure", string.format("0%%: %.0f  50%%: %.0f  100%%: %.0f km/h (full Azure %.0f)", none.meta.kmh, half.meta.kmh, full.meta.kmh, azure.meta.kmh))
+	-- (a full Azure passed it with Dragon Surge, the owner's buff for Seojin: within 20 km/h)
+	check(none.meta.kmh > 141 and half.meta.kmh > none.meta.kmh + 15 and full.meta.kmh > half.meta.kmh + 25 and full.meta.kmh >= azure.meta.kmh - 20 and full.meta.kmh <= 212,
+		"the longer the charge, the harder the spike; a full one is near a full Azure", string.format("0%%: %.0f  50%%: %.0f  100%%: %.0f km/h (full Azure %.0f)", none.meta.kmh, half.meta.kmh, full.meta.kmh, azure.meta.kmh))
 	local path = BallPhysics.buildPath(full.launch)
 	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "a full leap spike lands in", describe(path))
 	local _, away = leapSpike(1, false)
@@ -450,7 +523,7 @@ do
 			okLimits = okLimits and c[k] >= Config.Stats.Min and c[k] <= Config.Stats.Max
 		end
 		if c.Tier == "S+" then
-			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint")
+			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint" or c.Ability == "Corona")
 		elseif c.Tier == "S" then
 			okAbility = okAbility and want[c.Role][c.Ability or ""] == true and Config.Abilities[c.Ability].Role == c.Role
 		else
@@ -471,7 +544,7 @@ do
 		end
 	end
 	check(okLimits and #Roster >= 30, "every roster character is valid and unique", #Roster .. " characters")
-	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap or Zero Point, S characters one of their role's abilities, the rest none")
+	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap, Zero Point or Corona, S characters one of their role's abilities, the rest none")
 	local topId, topAtk, nextAtk = nil, 0, 0
 	for _, c in ipairs(Roster) do
 		if c.Attack > topAtk then
@@ -917,7 +990,18 @@ do
 	local _, plain = spike(sr, sb, { lastHit = { team = "Away", hitType = "Set" } })
 	local _, boom = spike(sr, sb, { lastHit = charged })
 	local _, feint = spike(sr, sb, { lastHit = charged }, { action = "Feint" })
-	check(okS and charged.charged and boom.meta.reaction and math.abs(boom.meta.kmh / plain.meta.kmh - Config.Abilities.ChainReaction.PowerMul) < 0.01 and feint.meta.reaction and not feint.meta.noDrain, "Chain Reaction: a charged set makes the spike (and even a feint) explode", string.format("%.1f vs %.1f km/h", boom.meta.kmh, plain.meta.kmh))
+	local CR = Config.Abilities.ChainReaction
+	check(okS and charged.charged and boom.meta.reaction and math.abs(boom.meta.kmh / plain.meta.kmh - CR.PowerMul[1]) < 0.01 and feint.meta.reaction and not feint.meta.noDrain, "Chain Reaction: a charged set makes the spike (and even a feint) explode", string.format("%.1f vs %.1f km/h", boom.meta.kmh, plain.meta.kmh))
+	-- the chain grows (the owner's buff): the team's second explosion of a rally, then the third,
+	-- hit harder and drain more; it stops growing at the last step
+	local _, boom2 = spike(sr, sb, { lastHit = charged, chain = 1 })
+	local _, boom3 = spike(sr, sb, { lastHit = charged, chain = 2 })
+	local _, boom9 = spike(sr, sb, { lastHit = charged, chain = 8 })
+	local _, feint3 = spike(sr, sb, { lastHit = charged, chain = 2 }, { action = "Feint" })
+	check(boom.meta.chainLink == 1 and boom2.meta.chainLink == 2 and boom3.meta.chainLink == 3 and boom9.meta.chainLink == 3
+		and math.abs(boom2.meta.kmh / plain.meta.kmh - CR.PowerMul[2]) < 0.01 and math.abs(boom3.meta.kmh / plain.meta.kmh - CR.PowerMul[3]) < 0.01 and boom9.meta.kmh == boom3.meta.kmh
+		and boom3.meta.drainMul == CR.DrainMul[3] and boom3.meta.drainMul > boom.meta.drainMul and feint3.meta.flatDrain == CR.FlatDrain[3],
+		"Chain Reaction grows: each explosion in a rally bigger than the last, up to the third", string.format("%.1f, %.1f, %.1f km/h", boom.meta.kmh, boom2.meta.kmh, boom3.meta.kmh))
 	local recRoot = vec(0, GROUND, side * 18 * K)
 	local recBall = vec(0, recRoot.Y + Z.ReceiveIdealY, recRoot.Z - side * Z.ReceiveForward)
 	local fast = vec(0, -30 * K, side * 110 * K)
@@ -1443,7 +1527,7 @@ do
 	-- spike breaks her like anyone
 	local CH = Config.Abilities.ChainReaction
 	local huge = vec(0, -45 * K, side * 163 * K) -- about 190 km/h
-	local boomLast = { team = "Home", hitType = "Spike", kmh = 190, reaction = true, drainMul = CH.DrainMul, flatDrain = CH.FlatDrain }
+	local boomLast = { team = "Home", hitType = "Spike", kmh = 190, reaction = true, drainMul = CH.DrainMul[1], flatDrain = CH.FlatDrain[1] }
 	local _, boomIn = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 1.5 }, { lastHit = boomLast, ballVel = huge, ability = "Counter", stats = ines })
 	local _, hardIn = receive(recRoot, recBall, { value = 90, max = 90 }, { stanceAge = 1.5 }, { lastHit = { team = "Home", hitType = "Spike", kmh = 190 }, ballVel = huge, ability = "Counter", stats = ines })
 	local _, brokeIn = receive(recRoot, recBall, { value = 0, max = 90 }, { stanceAge = 0.6 }, { lastHit = last, ballVel = fast, ability = "Counter", stats = ines })

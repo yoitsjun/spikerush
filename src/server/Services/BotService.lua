@@ -860,14 +860,15 @@ local function serveLogic(b, now, grounded, side)
 	end
 end
 
--- Rally Cry: once it's ready, a bot pops it at some serves (the boost covers the rally).
+-- Rally Cry (and Corona): once it's ready, a bot pops it at some serves (the boost covers the
+-- rally; Corona's penalty after makes it pop his less often).
 local function rallyCry(b, now)
 	local e = b.entity
-	if e.ability ~= "RallyCry" or b.rallyRolled or now < (e.abilityReadyAt or 0) or playerLed(e.team) then
+	if (e.ability ~= "RallyCry" and e.ability ~= "Corona") or b.rallyRolled or now < (e.abilityReadyAt or 0) or playerLed(e.team) then
 		return
 	end
 	b.rallyRolled = true
-	if b.rng:NextNumber() < B.RallyCryChance then
+	if b.rng:NextNumber() < (e.ability == "Corona" and B.CoronaChance or B.RallyCryChance) then
 		reg.HitService.activateAbility(e)
 	end
 end

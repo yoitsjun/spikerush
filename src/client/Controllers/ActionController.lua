@@ -41,6 +41,7 @@ local player = Players.LocalPlayer
 local P, Z, H = Config.Player, Config.Zones, Config.Hits
 local AZURE = Config.Abilities.Azure
 local FERAL = Config.Abilities.Feral
+local CORONA = Config.Abilities.Corona
 local BUFFER = 0.14 -- how long a set press waits for the ball
 -- A spike pressed in the air commits the swing: if the ball will reach your hand within this
 -- long (your jump and the ball both predicted), the swing waits for it instead of whiffing.
@@ -130,6 +131,9 @@ local function buildCtx(info, action, t)
 		lift = ability == "Skyward" and player:GetAttribute("Lift") or nil,
 		turnabout = ability == "Turnabout" and ActionController.abilityActive() or nil,
 		firstStrike = ability == "Feral" and not player:GetAttribute("FirstStrikeUsed") or nil,
+		chain = ReplicatedStorage:GetAttribute("Chain_" .. tostring(State.myTeam)) or 0,
+		coronaOn = ability == "Corona" and ActionController.abilityActive() or nil,
+		coronaStacks = ability == "Corona" and (player:GetAttribute("CoronaStacks") or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 	}, ok, why
 end
@@ -520,6 +524,29 @@ local function takeSwing(info, opts)
 	return true
 end
 
+-- Corona's Sundive: with the ball below his reach, the earliest moment within DiveWindow that a
+-- straight path no faster than DiveSpeedMax puts his hand's sweet spot on it. Returns the root
+-- position to go to and the seconds until then, or nil.
+local function divePlan(info, now)
+	local BR = mods.BallRenderer
+	local side = State.mySide
+	local C = Config.Court
+	-- the sweet spot's offset from the root (zoneOffset's centre)
+	local spot = Vector3.new(0, Z.SpikeUp + Z.SpikeCenterDy, -side * (Z.SpikeForward + Z.SpikeCenterDz))
+	local steps = 24
+	for i = 1, steps do
+		local t = CORONA.DiveWindow * i / steps
+		local ball = BR.getPosition(now + t)
+		local target = Vector3.new(info.root.X, ball.Y - spot.Y, ball.Z - spot.Z)
+		local d = target - info.root
+		local clear = ball.Z * side > -0.1 and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
+		if clear and -d.Y >= CORONA.DiveMinDrop and target.Y > info.groundY + 0.6 and d.Magnitude / t <= CORONA.DiveSpeedMax then
+			return target, t
+		end
+	end
+	return nil
+end
+
 local function tryAttack(action, info, opts)
 	takeSwing(info, opts)
 	local now, ball = ballNow()
@@ -553,6 +580,17 @@ local function tryAttack(action, info, opts)
 		local ys, _, vz = rootPath(info, 1 / 60)
 		local nz2, ny2 = zoneOffset(Vector3.new(info.root.X, ys[#ys], info.root.Z + vz / 60), mods.BallRenderer.getPosition(now + 1 / 60), scale)
 		swingNow = math.sqrt(nz2 * nz2 + ny2 * ny2) >= d
+	end
+	-- Corona: the ball below his reach is a Sundive, along a path onto it (the swing lands on it)
+	if action == "Spike" and not swingNow and State.myAbility() == "Corona" and not info.grounded then
+		local target, t = divePlan(info, now)
+		if target and mods.MovementController.dive(target, t) then
+			buffered = { action = action, opts = opts, expires = os.clock() + t + 0.3, scale = scale, lastQ = nil }
+			mods.AnimationController.pose(State.myId, "Charge", 1)
+			mods.VFXController.diveStart(State.myId)
+			Net.get("ActionFX"):FireServer("Dive")
+			return true
+		end
 	end
 	if swingNow then
 		local ok, why = execute(action, info, opts, now, ball)

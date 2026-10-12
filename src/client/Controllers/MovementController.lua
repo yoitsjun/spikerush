@@ -41,6 +41,10 @@ local lastForce = nil
 local knock = nil -- { t0, speed } after a heavy receive
 local prowlT0 = nil -- Feral Leap: when the charge started (he runs faster as it fills)
 local leaping = nil -- { dir, carry, t0 } from a Feral Leap's takeoff until he lands
+-- Corona's Sundive: { target, arrive, t0 } (os.clock), a straight path onto the ball with gravity
+-- off; it carries on along that line a moment past the meeting point, then ends
+local diving = nil
+local DIVE_PAST = 0.18
 -- A jump asked for from an input event. The default control script rewrites Humanoid.Jump every
 -- render step (from its own keys), so a jump set straight from an input handler is wiped before
 -- physics sees it; moveStep applies it after the control script instead.
@@ -295,6 +299,20 @@ function MovementController.leap(gauge, kind, aim)
 	return dir
 end
 
+-- Corona's Sundive: go along a straight line to `target` (a root position), arriving `seconds`
+-- from now.
+function MovementController.dive(target, seconds)
+	if not hrp or not inAir() then
+		return false
+	end
+	diving = { target = target, arrive = os.clock() + math.max(seconds, 0.05), t0 = os.clock() }
+	return true
+end
+
+function MovementController.isDiving()
+	return diving ~= nil
+end
+
 -- Charged block jump: fraction 0..1 of the hold.
 function MovementController.blockJump(fraction)
 	if not MovementController.canJump() then
@@ -412,7 +430,24 @@ local function physicsStep()
 	local airborne = inAir()
 	holdServeLine(airborne)
 	local cancel = 0
-	if airborne and not slide then
+	if diving then
+		local now = os.clock()
+		if (not airborne and now - diving.t0 > 0.1) or now > diving.arrive + DIVE_PAST then
+			diving = nil -- landed, or past the meeting point: gravity again
+		else
+			-- homing along the line: the speed that arrives on time (kept past it)
+			local left = diving.arrive - now
+			if left > 0.02 then
+				local d = diving.target - hrp.Position
+				diving.vel = Vector3.new(0, d.Y / left, d.Z / left)
+			end
+			if diving.vel then
+				hrp.AssemblyLinearVelocity = diving.vel
+			end
+			cancel = 1
+		end
+	end
+	if airborne and not slide and not diving then
 		if charging and vy <= 0 then
 			cancel = AZURE.GravityCancel
 		elseif math.abs(vy) < P.HangVelocityWindow then
@@ -540,6 +575,10 @@ local function moveStep()
 		local air = P.AirControl
 		if State.myAbility() == "Azure" then
 			air = air * AZURE.AirSpeedBonus
+		end
+		if diving then
+			hum:Move(Vector3.zero, false) -- the dive's path moves him (physicsStep)
+			return
 		end
 		if leaping then
 			-- a Feral Leap carries him the way he leapt; the stick still drifts on top of it

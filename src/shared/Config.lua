@@ -861,13 +861,17 @@ Config.Abilities = {
 		Blurb = "Hold Spike in the air to gather energy under low gravity. A full bar hits hardest and pierces blocks. Hold too long and it flies out.",
 		Kind = "Hold Spike in the air", -- how it's used (the menus; Active abilities say Q)
 		Color = Color3.fromRGB(57, 213, 255),
-		ChargeTime = 0.8, -- seconds of holding to fill the bar
-		OverchargeGrace = 0.28, -- holding past full for this long overcharges
+		-- Dragon Surge (the owner: Seojin "feels lacking compared to the other s+"; a full bar was
+		-- about 201 km/h maxed, under Dante's 204 / 235 and YeJun's 236): a quicker bar, more room
+		-- before it overcharges, about 225 km/h full, and a full bar costs the digger more stamina
+		ChargeTime = 0.6, -- seconds of holding to fill the bar (was 0.8)
+		OverchargeGrace = 0.45, -- holding past full for this long overcharges (was 0.28)
 		GravityCancel = 0.85, -- a slow, floating fall while gathering energy (on the way down only)
 		AirSpeedBonus = 1.25,
 		GaugeRechargeTime = 3.0, -- gauge refills on the ground
-		MaxBoost = 0.44, -- full energy multiplies spike speed by 1 + this
+		MaxBoost = 0.55, -- full energy multiplies spike speed by 1 + this (was 0.44)
 		PierceAt = 0.97,
+		FullDrainMul = 1.3, -- digging a full-bar spike costs this much more stamina
 	},
 	-- The owner: "hold his jump to charge it and the longer he charges it the further it goes",
 	-- "the highest attack character in the game". Hold Spike (Jump on touch) on the ground: a
@@ -902,6 +906,46 @@ Config.Abilities = {
 		AutoChargeTime = 1.0,
 		AutoAttackMul = 0.85,
 		AutoBoostMul = 0.75,
+	},
+	-- Elio (the owner: a new character "based off lucas from the spike", pasting his kit: a skill
+	-- that raises every stat while it's on and lowers them after by how many times it was used, up
+	-- to 12, cleared by a timeout or a substitution; a dive mid-air during the spike, the faster the
+	-- descent the more power; a chance for a spike to burst, +13% power and +1 spin; a much further
+	-- serve toss like Dante's; and a path he travels along when he jumps). The names are ours
+	-- (CLAUDE.md): Corona is the stat flare, Sundive the dive, Zenith the burst, Long Toss the toss.
+	-- Sundive: Spike pressed in the air while the ball is below his reach sends him down at it on a
+	-- straight path (gravity off, homing on where the ball will be), and the spike gets up to
+	-- DiveBoost more power the faster he's falling when he meets it (input.vy).
+	Corona = {
+		Name = "Corona",
+		Tier = "S+",
+		Active = true,
+		Blurb = "Press Q: every stat flares up 15% for 10 s. After each use your stats sit 1.5% lower while it's off (up to 12 uses); a timeout clears that. In the air, Spike with the ball below you to dive onto it: the faster the dive, the harder the spike.",
+		Color = Color3.fromRGB(255, 178, 46),
+		Duration = 10,
+		Cooldown = 20,
+		Boost = 0.15, -- every stat x (1 + this) while it's on
+		PenaltyPer = 0.015, -- every stat x (1 - this x uses) while it's off
+		MaxStacks = 12,
+		-- Sundive
+		DiveWindow = 0.75, -- the ball has to be reachable within this long (seconds)
+		DiveMinDrop = 0.6, -- and his hand at least this far above where he'll meet it (studs)
+		DiveSpeedMax = 62, -- the fastest he can travel along the path (studs/s)
+		DiveMinFall = 18, -- falling slower than this at the hit: no dive bonus (studs/s)
+		DiveFullFall = 52, -- this fast or more: the whole bonus
+		DiveBoost = 0.3, -- spike speed x (1 + this x how fast he fell)
+		DiveHeightFloor = 0.75, -- a dive spike counts as met this close to the top of his jump at least
+		AutoDive = 0.3, -- the AI doesn't dive: its spikes get this much of the dive bonus
+		-- Zenith: some spikes burst (decided by the ball's seed, so the hitter's client agrees)
+		ZenithChance = 0.22,
+		ZenithPower = 0.13,
+		ZenithSpin = 1.3, -- heavier topspin: gravity on the spike x this (it dips harder)
+		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front (Dante's)
+		Passives = {
+			{ Name = "Sundive", Blurb = "In the air, Spike with the ball below your reach: you dive along a path onto it, and the faster you're falling when you hit it, the harder it goes (up to +30%)." },
+			{ Name = "Zenith", Blurb = "About one spike in five bursts into a Zenith: +13% power and heavy topspin." },
+			{ Name = "Long Toss", Blurb = "Your forward serve toss goes much further, like Dante's." },
+		},
 	},
 	Adrenaline = {
 		Name = "Adrenaline",
@@ -941,11 +985,14 @@ Config.Abilities = {
 		Name = "Chain Reaction",
 		Tier = "S",
 		Role = "SE",
-		Blurb = "Your sets are charged. The spike or feint off one explodes: more power, and it tears through the receivers' stamina.",
+		Blurb = "Your sets are charged. The spike or feint off one explodes: more power, and it tears through the receivers' stamina. Every explosion in a rally makes the next one bigger (up to x1.30 power).",
 		Color = Color3.fromRGB(255, 64, 64),
-		PowerMul = 1.15, -- spike speed off a charged set
-		DrainMul = 2.4, -- receive drain of the exploding ball
-		FlatDrain = 16, -- plus this, even off a feint
+		-- the chain grows (the owner picked it for Seoyeon's buff): the first explosion of a rally
+		-- uses the first step, each one after it the next, until the rally ends
+		PowerMul = { 1.15, 1.22, 1.30 }, -- spike speed off a charged set
+		DrainMul = { 2.4, 2.8, 3.2 }, -- receive drain of the exploding ball
+		FlatDrain = { 16, 20, 26 }, -- plus this, even off a feint
+		BlastScale = { 1, 1.35, 1.75 }, -- the explosion's size
 	},
 	Vector = {
 		Name = "Vector Set",
@@ -1121,7 +1168,7 @@ Config.Retired = {
 	TicketTier = "S",
 }
 
-Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Corona", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },
@@ -1445,6 +1492,7 @@ Config.Bots = {
 	JumpSetSlack = 1.2, -- studs: a setter this far off its spot at takeoff sets from the ground
 	TurnaboutChance = { 0.3, 0.65 }, -- a Turnabout setter arms it off a pass it can jump for
 	RallyCryChance = 0.5, -- a Rally Cry bot pops it at a serve this often once it's ready
+	CoronaChance = 0.3, -- and a Corona bot (Elio) his
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
 	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it

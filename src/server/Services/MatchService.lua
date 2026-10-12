@@ -421,6 +421,7 @@ function MatchService.runTimeout()
 	else
 		TS.fillStamina(req.team)
 	end
+	TS.clearCorona() -- a timeout clears Corona's penalty
 	reg.BallService.hide()
 	MatchService.timeoutReady = {}
 	MatchService.setPhase("Timeout", Config.Timeout.Duration)
@@ -447,6 +448,9 @@ function MatchService.playRally()
 	MatchService.serverId = server and server.id
 	MatchService.rallyResult = nil
 	MatchService.rallyHits = {}
+	for _, team in ipairs(Config.TeamOrder) do
+		TS.setChain(team, 0) -- Chain Reaction starts again every rally
+	end
 	TS.resetPositions(MatchService.servingTeam)
 	if server then
 		BS.hold(server.id)

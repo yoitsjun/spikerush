@@ -1635,6 +1635,7 @@ end
 
 local walls = {} -- entityId -> { part, untilT, side }
 local statusFx = {} -- model -> kind -> { att, aura, hl }
+local sunTrails = {} -- Corona: model -> { trail, a0, a1 }, the path he leaves through the air
 local sunSeen = {} -- model -> the Sunrise level last shown
 
 -- Rising Sun levels up: a pillar of light strikes the player out of the sky (the owner's
@@ -1717,6 +1718,7 @@ local STATUS = {
 	Rally = { fire = { Color3.fromRGB(255, 255, 220), Config.Abilities.RallyCry.Color }, rate = 14, fill = Config.Abilities.RallyCry.Color, edge = Color3.fromRGB(255, 240, 170) },
 	Armed = { fire = { Color3.fromRGB(230, 255, 245), Config.Abilities.Turnabout.Color }, rate = 22, size = 1.6 },
 	Edge = { fire = { Color3.fromRGB(255, 255, 255), Config.Abilities.Counter.Color }, rate = 30, size = 1.4 },
+	Corona = { fire = { Color3.fromRGB(255, 250, 215), Config.Abilities.Corona.Color }, rate = 26, fill = Color3.fromRGB(255, 200, 80), edge = Color3.fromRGB(255, 236, 160) },
 }
 
 -- Iron Wall: a glassy barrier above the middle's hands for the ability's duration.
@@ -1761,6 +1763,17 @@ function VFXController.ability(entityId, ability)
 		VFXController.popup(pos + Vector3.new(0, 6, 0), "Turnabout!", def.Color, 1.1)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("Whoosh", { volume = 0.6, speed = 0.8 })
+		end
+	elseif ability == "Corona" then
+		-- the flare: a sunburst round him, a ring of light on the floor and a column of it
+		local pos = hrp.Position
+		floorRing(pos, def.Color, 10, 0.6)
+		starburst(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 240, 190), 14)
+		ringFx(pos + Vector3.new(0, 2, 0), def.Color, 2, 14, 0.45, 8)
+		meshFx("FX_Column", CFrame.new(pos.X, 0.2, pos.Z), def.Color, 0.4, 1.1, 0.6, { base = true, alpha = 0.15 })
+		VFXController.popup(pos + Vector3.new(0, 7, 0), "Corona!", def.Color, 1.3)
+		if mods and mods.AudioController.hearsMatch() then
+			mods.AudioController.play("Boom", { volume = 0.5, speed = 1.3 })
 		end
 	elseif ability == "RallyCry" then
 		-- a golden shockwave from the middle, and a flare at every teammate's feet
@@ -1857,8 +1870,75 @@ local function bladeVolley(pos, dir, color, count)
 	end
 end
 
-local function chainExplosion(pos, color)
-	Fx.play("ChainExplosion", pos, { color = color })
+local function chainExplosion(pos, color, scale)
+	Fx.play("ChainExplosion", pos, { color = color, scale = scale or 1 })
+end
+
+-- Corona: the path Elio leaves through the air (the owner: "when he jumps he has a path that he
+-- travels along"), a white-gold ribbon from his root while he's off the floor, thicker while his
+-- flare is on.
+local function updateSunTrails(clock)
+	for _, team in ipairs(Config.TeamOrder) do
+		for _, e in ipairs(State.roster(team)) do
+			local model = Util.modelOf(e.id)
+			local hrp = model and model:FindFirstChild("HumanoidRootPart")
+			if hrp and model:GetAttribute("Ability") == "Corona" and not sunTrails[model] then
+				local a0 = Instance.new("Attachment")
+				a0.Name = "SunTrail0"
+				a0.Position = Vector3.new(0, 1.3, 0)
+				a0.Parent = hrp
+				local a1 = Instance.new("Attachment")
+				a1.Name = "SunTrail1"
+				a1.Position = Vector3.new(0, -1.1, 0)
+				a1.Parent = hrp
+				local trail = Instance.new("Trail")
+				trail.Attachment0, trail.Attachment1 = a0, a1
+				trail.Lifetime = 0.55
+				trail.MinLength = 0.05
+				trail.FaceCamera = true
+				trail.LightEmission = 1
+				trail.Color = ColorSequence.new(Color3.fromRGB(255, 255, 240), Config.Abilities.Corona.Color)
+				trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 1) })
+				trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
+				trail.Enabled = false
+				trail.Parent = hrp
+				sunTrails[model] = { trail = trail, a0 = a0, a1 = a1 }
+			end
+		end
+	end
+	for model, st in pairs(sunTrails) do
+		local hrp = model.Parent and model:FindFirstChild("HumanoidRootPart")
+		if not hrp or model:GetAttribute("Ability") ~= "Corona" or not st.trail.Parent then
+			st.trail:Destroy()
+			st.a0:Destroy()
+			st.a1:Destroy()
+			sunTrails[model] = nil
+		else
+			st.trail.Enabled = hrp.Position.Y > Config.Player.RootGround + 1.2
+			local on = (model:GetAttribute("AbilityUntil") or -1) >= clock
+			st.a0.Position = Vector3.new(0, on and 1.7 or 1.3, 0)
+			st.a1.Position = Vector3.new(0, on and -1.5 or -1.1, 0)
+		end
+	end
+end
+
+-- Sundive: Elio leaves the top of his path and drops onto the ball.
+function VFXController.diveStart(entityId)
+	local hrp = Util.rootOf(entityId)
+	if not hrp then
+		return
+	end
+	local col = Config.Abilities.Corona.Color
+	local pos = hrp.Position
+	starburst(pos + Vector3.new(0, 1, 0), Color3.fromRGB(255, 245, 200), 9)
+	ringFx(pos, col, 1, 9, 0.3, 6)
+	burst(pos, col, 6)
+	if entityId == State.myId then
+		VFXController.speedLines(0.35, col, 0)
+	end
+	if mods and mods.AudioController and mods.AudioController.hearsMatch() then
+		mods.AudioController.play("SpeedWhoosh", { volume = 0.6, speed = 1.25, pos = pos, minGap = 0.1 })
+	end
 end
 
 local function updateAbilityFx(dt)
@@ -1874,8 +1954,10 @@ local function updateAbilityFx(dt)
 			w.part.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 5.2, -w.side * 1.6))
 		end
 	end
+	updateSunTrails(Util.now())
 	-- boost auras: Adrenaline (red), the Sunrise level (orange, hotter each level), the team's
-	-- Rally Cry (gold), an armed Turnabout (mint) and a charged Counter meter (steel)
+	-- Rally Cry (gold), an armed Turnabout (mint), a charged Counter meter (steel) and Corona's
+	-- flare (white-gold)
 	if now < nextStatusScan then
 		return
 	end
@@ -1911,6 +1993,9 @@ local function updateAbilityFx(dt)
 				end
 				if model:GetAttribute("Ability") == "Turnabout" and (model:GetAttribute("AbilityUntil") or -1) >= clock then
 					w.Armed = 1
+				end
+				if model:GetAttribute("Ability") == "Corona" and (model:GetAttribute("AbilityUntil") or -1) >= clock then
+					w.Corona = 1
 				end
 				local edge = model:GetAttribute("Counter") or 0
 				if edge > 0 then
@@ -2526,11 +2611,17 @@ local function onHit(snap)
 
 	local chain = Config.Abilities.ChainReaction.Color
 	if meta.reaction then
-		chainExplosion(pos, chain)
-		VFXController.popup(pos + Vector3.new(0, 1.5, 0), "Chain Reaction!", chain, 1.2)
+		-- the chain grows: each explosion this rally is bigger than the last
+		local link = meta.chainLink or 1
+		local CR = Config.Abilities.ChainReaction
+		chainExplosion(pos, chain, CR.BlastScale[link] or 1)
+		VFXController.popup(pos + Vector3.new(0, 1.5, 0), link > 1 and string.format("Chain Reaction x%d!", link) or "Chain Reaction!", chain, 1.2 + 0.2 * (link - 1))
+		if link > 1 then
+			ringFx(pos, chain, 1, 8 + 6 * link, 0.4, 7)
+		end
 		if close then
-			shaker.shake(0.6)
-			VFXController.flash(0.25, 0.2)
+			shaker.shake(0.6 + 0.2 * (link - 1))
+			VFXController.flash(0.25 + 0.1 * (link - 1), 0.2)
 		end
 	end
 	if meta.secondSwing then
@@ -2647,6 +2738,29 @@ local function onHit(snap)
 			-- Dante's First Strike: a shorter freeze frame, in purple, then his usual burst (below) as it
 			-- fires
 			VFXController.freezeFrame(meta.id, pos, fires, FERAL)
+		end
+		if meta.dive or meta.zenith then
+			-- Corona: Sundive's fall into the hit (the faster, the bigger), and a Zenith's sunburst
+			local col = Config.Abilities.Corona.Color
+			if meta.dive then
+				local d = meta.dive
+				sonicRing(pos, seg.v, Color3.fromRGB(255, 240, 200), 8 + 8 * d, 0.4)
+				ringFx(pos, col, 1, 8 + 10 * d, 0.35, 6)
+				if close then
+					VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Sundive +%d%%", math.floor(Config.Abilities.Corona.DiveBoost * d * 100 + 0.5)), col, 0.9 + 0.4 * d)
+					shaker.kick(-4 - 4 * d)
+				end
+			end
+			if meta.zenith then
+				Fx.play("Burst", pos, { color = Color3.fromRGB(255, 250, 220), scale = 1.5 })
+				starburst(pos, col, 14)
+				burst(pos, col, 10)
+				VFXController.popup(pos + Vector3.new(0, meta.dive and 4.2 or 2.6, 0), "Zenith!", col, 1.3)
+				if close then
+					VFXController.flash(0.35, 0.25)
+					shaker.shake(0.7)
+				end
+			end
 		end
 		if meta.talon then
 			-- Talon Drop: a pink ring across the drop and a star where she hit it
@@ -4951,6 +5065,8 @@ function VFXController.init(m)
 			leapBurst(model, g)
 		elseif kind == "ProwlEnd" and model then
 			remoteArc(model, "end")
+		elseif kind == "Dive" and model then
+			VFXController.diveStart(entityId)
 		elseif kind == "Slide" and model then
 			local hrp = model:FindFirstChild("HumanoidRootPart")
 			if hrp then
