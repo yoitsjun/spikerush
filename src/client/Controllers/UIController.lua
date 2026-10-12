@@ -975,6 +975,14 @@ local function badgeState(ability, id, model, team, mine)
 		else
 			p, hot, sub = 1, true, "READY"
 		end
+		if ability == "Thunder" then
+			-- Static Charge this rally
+			local st = (mine and player:GetAttribute("Static")) or (model and model:GetAttribute("Static")) or 0
+			if st > 0 then
+				local tag = string.format("STATIC %d", st)
+				sub = sub == "" and tag or (sub .. "  " .. tag)
+			end
+		end
 		if ability == "Corona" and not on then
 			-- his penalty while the flare is off: 1.5% for every use (a timeout clears it)
 			local stacks = (mine and player:GetAttribute("CoronaStacks")) or (model and model:GetAttribute("CoronaStacks")) or 0

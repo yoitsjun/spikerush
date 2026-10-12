@@ -875,7 +875,7 @@ end
 
 -- Rally Cry (and Corona, Squall): once it's ready, a bot pops it at some serves (the boost covers
 -- the rally; Corona's penalty after makes it pop his less often).
-local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance" }
+local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance", Thunder = "ThunderChance" }
 local function rallyCry(b, now)
 	local e = b.entity
 	if not POP_CHANCE[e.ability or ""] or b.rallyRolled or now < (e.abilityReadyAt or 0) or playerLed(e.team) then

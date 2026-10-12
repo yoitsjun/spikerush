@@ -1721,6 +1721,7 @@ local STATUS = {
 	Edge = { fire = { Color3.fromRGB(255, 255, 255), Config.Abilities.Counter.Color }, rate = 30, size = 1.4 },
 	Corona = { fire = { Color3.fromRGB(255, 250, 215), Config.Abilities.Corona.Color }, rate = 26, fill = Color3.fromRGB(255, 200, 80), edge = Color3.fromRGB(255, 236, 160) },
 	Squall = { fire = { Color3.fromRGB(235, 255, 250), Config.Abilities.Squall.Color }, rate = 24, fill = Color3.fromRGB(60, 200, 175), edge = Color3.fromRGB(190, 255, 240) },
+	Storm = { fire = { Color3.fromRGB(255, 255, 230), Config.Abilities.Thunder.Color }, rate = 30, fill = Color3.fromRGB(255, 210, 40), edge = Color3.fromRGB(255, 245, 170) },
 	Molten = { fire = { Color3.fromRGB(255, 220, 140), Config.Abilities.Ironclad.Color }, rate = 30, fill = Color3.fromRGB(255, 90, 30), edge = Color3.fromRGB(255, 180, 90) },
 }
 
@@ -1778,6 +1779,19 @@ function VFXController.ability(entityId, ability)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("CoronaFlare", { volume = 0.9 })
 			mods.AudioController.play("Boom", { volume = 0.35, speed = 1.3 })
+		end
+	elseif ability == "Thunder" then
+		-- Storm Call: bolts crash down round him, a flash and a thunderclap
+		local pos = hrp.Position
+		for i = 1, 4 do
+			local x = (i - 2.5) * 2.2
+			bolt(pos + Vector3.new(0, 14, x), Vector3.new(0, -1, (math.random() - 0.5) * 0.3).Unit, 13, def.Color)
+		end
+		floorRing(pos, def.Color, 10, 0.6)
+		starburst(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 255, 230), 12)
+		VFXController.popup(pos + Vector3.new(0, 7, 0), "Storm Call!", def.Color, 1.3)
+		if mods and mods.AudioController.hearsMatch() then
+			mods.AudioController.play("ScoreThunder", { volume = 0.8, pos = pos })
 		end
 	elseif ability == "Squall" then
 		-- the squall: a wind spiral round her, a ring of it on the floor
@@ -2684,6 +2698,9 @@ local function updateAbilityFx(dt)
 				if model:GetAttribute("Ability") == "Squall" and (model:GetAttribute("AbilityUntil") or -1) >= clock then
 					w.Squall = 1
 				end
+				if model:GetAttribute("Ability") == "Thunder" and (model:GetAttribute("AbilityUntil") or -1) >= clock then
+					w.Storm = 1 -- Storm Call
+				end
 				if model:GetAttribute("Ability") == "Ironclad" and HitLogic.ironLives(model:GetAttribute("IronLives")) == 0 then
 					w.Molten = 1 -- Ironclad awakened
 				end
@@ -3359,6 +3376,10 @@ local function onHit(snap)
 	if ht == "Spike" or ht == "JumpServe" then
 		local heavy = kmh >= 120
 		local vdir = seg.v.Magnitude > 0 and seg.v.Unit or Vector3.new(0, -1, dirZ)
+		if meta.static then
+			-- Static Charge: the stacks this spike carried
+			VFXController.popup(pos + Vector3.new(0, 4, 0), string.format("Static x%d +%d%%", meta.static, math.floor(Config.Abilities.Thunder.StaticPer * meta.static * 100 + 0.5)), Config.Abilities.Thunder.Color, 0.8 + 0.1 * meta.static)
+		end
 		if meta.feather then
 			-- Featherfall: the boost the set's long fall earned
 			local fcol = Config.Abilities.Featherfall.Color

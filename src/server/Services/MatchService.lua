@@ -451,6 +451,7 @@ function MatchService.playRally()
 	for _, team in ipairs(Config.TeamOrder) do
 		TS.setChain(team, 0) -- Chain Reaction starts again every rally
 	end
+	TS.resetStatic() -- and Thunder's Static Charge
 	TS.resetPositions(MatchService.servingTeam)
 	if server then
 		BS.hold(server.id)

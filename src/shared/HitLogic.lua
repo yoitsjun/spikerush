@@ -40,6 +40,7 @@ local CHAIN = Config.Abilities.ChainReaction
 local VECTOR = Config.Abilities.Vector
 local FEATHER = Config.Abilities.Featherfall
 local IRON = Config.Abilities.Ironclad
+local THUNDER = Config.Abilities.Thunder
 local PLUNGE = Config.Abilities.Plunge
 local TURN = Config.Abilities.Turnabout
 local SUN = Config.Abilities.RisingSun
@@ -765,7 +766,19 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	-- the hitting point is the hand: a ball met above it still reads (and counts for Thunder) as
 	-- this character's own top, so a short jumper can't reach 4.00 m off a high ball
 	local heightM = HitLogic.meters(math.min(ball.Y, stats.contactMaxStuds))
-	local kmh, thunder, energy, overcharge, pierce = attackPower(kind, q, qContact, heightM, stats, ctx.ability, input.energy)
+	-- Thunder: Storm Call (ctx.stormOn) makes every spike a thunder spike, as if met at the very top
+	-- of the range, and harder still; Static Charge (ctx.static: his thunder spikes this rally) adds
+	-- StaticPer a stack
+	local storm = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Thunder" and ctx.stormOn == true
+	local kmh, thunder, energy, overcharge, pierce = attackPower(kind, q, qContact, storm and (H.ThunderHeight + H.ThunderHeightSpan) or heightM, stats, ctx.ability, input.energy)
+	if storm then
+		kmh = kmh * (1 + THUNDER.StormBoost)
+	end
+	local static = 0
+	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Thunder" then
+		static = clamp(math.floor(tonumber(ctx.static) or 0), 0, THUNDER.StaticMax)
+		kmh = kmh * (1 + THUNDER.StaticPer * static)
+	end
 	-- Thunder Spiker's second swing in one jump hits harder (input.second: the server counts the
 	-- swings itself)
 	local second = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Thunder" and input.second == true
@@ -847,6 +860,8 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.dive = math.floor(dive * 100 + 0.5) / 100
 	end
 	meta.zenith = zenith or nil
+	meta.storm = storm or nil
+	meta.static = static > 0 and static or nil
 	if feather > 0 then
 		meta.feather = math.floor(feather * 100 + 0.5) / 100
 	end

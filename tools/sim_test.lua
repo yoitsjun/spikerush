@@ -518,6 +518,33 @@ do
 	check(ok and res.meta.breaks, "Chain Reaction: its spike breaks a full guard, every time", ok and tostring(res.meta.grade) or "no touch")
 end
 
+print("== Thunder: Storm Call and Static Charge (YeJun) ==")
+do
+	local TH = Config.Abilities.Thunder
+	local yejun = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))
+	local root = apexRoot(yejun, 3.5 * K)
+	-- a ball met low, well under 4.00 m (no thunder without the storm)
+	local low = root - vec(0, 4, 0)
+	local function ys(r, extraCtx, extraInput)
+		local c = { ability = "Thunder", stats = yejun }
+		for k, v in pairs(extraCtx or {}) do c[k] = v end
+		return spike(r, ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy), c, extraInput)
+	end
+	local _, lowPlain = ys(low)
+	local _, lowStorm = ys(low, { stormOn = true })
+	local _, top = ys(root)
+	local _, topStorm = ys(root, { stormOn = true })
+	local _, second = ys(root, { stormOn = true }, { second = true })
+	check(not lowPlain.meta.thunder and lowStorm.meta.thunder and lowStorm.meta.storm and topStorm.meta.kmh >= 215 and topStorm.meta.kmh <= 225 and second.meta.kmh >= 250 and topStorm.meta.kmh > top.meta.kmh,
+		"Storm Call: every spike is full-strength lightning at any height, about 220 maxed (a second swing about 260)",
+		string.format("low: %.0f without, %.0f with; top: %.0f without, %.0f with, second swing %.0f km/h", lowPlain.meta.kmh, lowStorm.meta.kmh, top.meta.kmh, topStorm.meta.kmh, second.meta.kmh))
+	local _, st3 = ys(root, { static = 3 })
+	local _, st9 = ys(root, { static = 9 })
+	check(math.abs(st3.meta.kmh / top.meta.kmh - (1 + TH.StaticPer * TH.StaticMax)) < 0.01 and st9.meta.kmh == st3.meta.kmh and st3.meta.static == TH.StaticMax and TH.Active and TH.Duration > 0,
+		"Static Charge: each thunder spike this rally adds 6% to the next, up to 3",
+		string.format("%.0f with none, %.0f with 3", top.meta.kmh, st3.meta.kmh))
+end
+
 print("== Featherfall (Arin) ==")
 do
 	local FF = Config.Abilities.Featherfall

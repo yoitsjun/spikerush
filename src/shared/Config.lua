@@ -846,14 +846,29 @@ Config.Abilities = {
 	-- second swing", then "remove the one swing limitation but keep the double swing buff on
 	-- yejun"): anyone may swing again in a jump, and his second swing hits SecondBoost harder.
 	-- Passives are shown as rows of their own on the Players screen.
+	-- (the owner, 2026-10-12: "we should buff up yejun hes getting powercrept. maybe another ability
+	-- for him too", picking an active and a passive: Storm Call and Static Charge)
 	Thunder = {
 		Name = "Thunder Spiker",
 		Tier = "S+",
-		Blurb = "Hit the ball above 4.00 m and it becomes a lightning spike.",
+		Active = true, -- Storm Call (Q)
+		Blurb = "Hit the ball above 4.00 m and it becomes a lightning spike. Press Q for Storm Call: for 10 s every spike is lightning at full strength, at any height.",
 		Color = Color3.fromRGB(255, 225, 77),
 		SecondBoost = 0.18,
+		-- Storm Call: while it's on every spike (and jump serve) is a thunder spike as if met at the
+		-- very top of the range, and StormBoost harder on top: maxed and clean about 220 km/h, a
+		-- second swing about 260
+		Duration = 10,
+		Cooldown = 20,
+		StormBoost = 0.1,
+		-- Static Charge: each of his thunder spikes in a rally charges the next ones StaticPer more,
+		-- up to StaticMax; the rally's end clears it
+		StaticPer = 0.06,
+		StaticMax = 3,
 		Passives = {
 			{ Name = "Double Swing", Blurb = "Swing again in the same jump: the second swing (only the second) hits 18% harder." },
+			{ Name = "Storm Call", Blurb = "Press Q: for 10 s every spike is a full-strength lightning spike, at any height, 10% harder still." },
+			{ Name = "Static Charge", Blurb = "Each lightning spike in a rally charges your next ones 6% harder (up to 3 times). Resets when the rally ends." },
 		},
 	},
 	Azure = {
@@ -1644,6 +1659,7 @@ Config.Bots = {
 	RallyCryChance = 0.5, -- a Rally Cry bot pops it at a serve this often once it's ready
 	CoronaChance = 0.3, -- and a Corona bot (Laith) his
 	SquallChance = 0.4, -- and a Squall bot (Haneul) hers
+	ThunderChance = 0.4, -- and a Thunder bot (YeJun) Storm Call
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
 	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it

@@ -150,6 +150,8 @@ local function buildCtx(info, action, t)
 		coronaOn = ability == "Corona" and ActionController.abilityActive() or nil,
 		coronaStacks = ability == "Corona" and (player:GetAttribute("CoronaStacks") or 0) or nil,
 		squallOn = ability == "Squall" and ActionController.abilityActive() or nil,
+		stormOn = ability == "Thunder" and ActionController.abilityActive() or nil,
+		static = ability == "Thunder" and (player:GetAttribute("Static") or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 	}, ok, why
 end

@@ -243,6 +243,7 @@ function TeamService.applyToModel(e)
 			inst:SetAttribute("FirstStrikeUsed", e.ability == "Feral" and e.firstStrikeUsed or nil)
 			inst:SetAttribute("CoronaStacks", e.ability == "Corona" and (e.coronaStacks or 0) or nil)
 			inst:SetAttribute("IronLives", e.ability == "Ironclad" and HitLogic.ironLives(e.ironLives) or nil)
+			inst:SetAttribute("Static", e.ability == "Thunder" and (e.static or 0) or nil)
 			inst:SetAttribute("Intimidation", e.ability == "Ironclad" and (e.intimidation or 0) or nil)
 			inst:SetAttribute("AbilityUntil", e.abilityUntil or -1)
 			inst:SetAttribute("AbilityReadyAt", e.abilityReadyAt or 0)
@@ -338,6 +339,25 @@ function TeamService.boostWindow(e, untilT)
 			refreshBoosts(e.team)
 		end
 	end)
+end
+
+-- Thunder's Static Charge: his thunder spikes this rally (0..StaticMax), for every client's HUD.
+function TeamService.setStatic(e, n)
+	e.static = n
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("Static", n)
+		end
+	end
+end
+
+-- A new rally: every Thunder's Static Charge is spent.
+function TeamService.resetStatic()
+	for _, e in pairs(TeamService.entities) do
+		if e.ability == "Thunder" and (e.static or 0) > 0 then
+			TeamService.setStatic(e, 0)
+		end
+	end
 end
 
 -- Ironclad: his shields (0..Lives; none: awakened) and the Intimidation meter (0..100), for every

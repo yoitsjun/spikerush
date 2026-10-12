@@ -245,6 +245,8 @@ function HitService.process(entity, input, opts)
 		coronaOn = entity.ability == "Corona" and armed or nil,
 		coronaStacks = entity.ability == "Corona" and (entity.coronaStacks or 0) or nil,
 		squallOn = entity.ability == "Squall" and armed or nil,
+		stormOn = entity.ability == "Thunder" and armed or nil,
+		static = entity.ability == "Thunder" and (entity.static or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
 	}
 	local computed, result = HitLogic.compute(input, ctx)
@@ -277,6 +279,10 @@ function HitService.process(entity, input, opts)
 	end
 	if meta.reaction then
 		TS.setChain(team, (TS.chain[team] or 0) + 1) -- the next explosion this rally is bigger
+	end
+	if entity.ability == "Thunder" and meta.thunder and (meta.hitType == "Spike" or meta.hitType == "JumpServe") then
+		-- Static Charge: one more for his next spikes this rally
+		TS.setStatic(entity, math.min(Config.Abilities.Thunder.StaticMax, (entity.static or 0) + 1))
 	end
 	if entity.ability == "Ironclad" then
 		-- Bulwark: a block broken through costs a shield (none left: awakened); awakened, every touch
