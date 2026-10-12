@@ -100,11 +100,14 @@ local function baseJump()
 	return (char and char:GetAttribute("BaseJumpHeight")) or (hum and hum.JumpHeight) or 6
 end
 
--- A spike or serve jump's height: Corona's Sun Leap goes far higher while it's on.
+-- A spike or serve jump's height: Corona's Sun Leap goes far higher while it's on; Squall's
+-- Updraft always does.
 local function spikeJump()
 	local h = baseJump()
 	if State.myAbility() == "Corona" and mods and mods.ActionController.abilityActive() then
 		h = h * Config.Abilities.Corona.LeapMul
+	elseif State.myAbility() == "Squall" then
+		h = h * Config.Abilities.Squall.LeapMul
 	end
 	return h
 end

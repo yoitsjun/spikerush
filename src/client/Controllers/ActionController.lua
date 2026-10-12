@@ -7,8 +7,8 @@
 --                  charge carries him along the court and powers the spike (or the jump serve:
 --                  the press that tosses keeps charging while held, as does one after the toss).
 --                  Squall: held on the ground (Jump too) it rushes under the ball and letting go
---                  springs up (Tailwind); held in the air, once a jump, it hovers and charges while
---                  the stick moves a target on their court, and letting go swings at it.
+--                  springs up (Tailwind); held in the air, once a jump, it hovers and charges, and
+--                  letting go swings: at once, a short drop; the longer, the deeper and harder.
 --   Receive ...... arms a receive stance; the touch happens automatically when the ball arrives.
 --                  Pressed a little early (not too early) = perfect timing = almost no stamina lost.
 --   Slide/feint .. ground: slide receive (a fraction of the stamina) / air: roll shot over the block.
@@ -75,9 +75,8 @@ local leap = { gauge = 0, toward = false, at = -10 }
 -- Squall: Tailwind's rush while Jump or Spike is held on the ground, and Eye of the Storm's hover
 -- (once a jump) with the target's depth on their court
 local rush = nil -- { t0, kind }
-local hover = nil -- { t0, kind, aim }
+local hover = nil -- { t0, kind }
 local hoverUsed = false
-local lastAim = nil
 local isSquall, startRush, endRush, releaseRush, processRush, startHover, endHover, releaseHover, processHover
 
 local REASONS = {
@@ -346,8 +345,7 @@ local function execute(action, info, opts, t, ballPos)
 		tossForward = opts.tossForward,
 		aimDepth = opts.aimDepth,
 		aimHeight = opts.aimHeight,
-		gale = opts.gale, -- (Squall: the hover's charge, and where she aimed)
-		aim = opts.aim,
+		gale = opts.gale, -- (Squall: the hover's charge: its power and how deep it goes)
 	}
 	if (action == "Spike" or action == "Serve") and ctx.ability == "Feral" and leap.gauge > 0 then
 		input.gauge, input.toward = leap.gauge, leap.toward
@@ -395,7 +393,6 @@ local function execute(action, info, opts, t, ballPos)
 		gauge = input.gauge,
 		toward = input.toward,
 		gale = input.gale,
-		aim = input.aim,
 	})
 	lastActionAt = os.clock()
 	buffered = nil
@@ -863,7 +860,8 @@ processRush = function(info, now)
 	mods.MovementController.rushTo(rushTarget(info, now))
 end
 
--- Eye of the Storm's target: its depth on their court, from the shortest spike to the deepest.
+-- Eye of the Storm's target: its depth on their court, from the shortest spike (no charge) to the
+-- deepest (the whole charge), as HitLogic sends it.
 local function aimRange()
 	return H.SpikeShortDepth, Config.Court.SideDepth - H.SpikeDeepMargin
 end
@@ -872,8 +870,7 @@ startHover = function(kind)
 	if hover or hoverUsed then
 		return false
 	end
-	local lo, hi = aimRange()
-	hover = { t0 = os.clock(), kind = kind, aim = math.clamp(lastAim or (lo + hi) / 2, lo, hi) }
+	hover = { t0 = os.clock(), kind = kind }
 	hoverUsed = true
 	mods.MovementController.setHover(true)
 	mods.AnimationController.pose(State.myId, "Charge", SQUALL.HoverMax + 0.2)
@@ -898,8 +895,7 @@ releaseHover = function(info)
 	if not h or info.grounded then
 		return
 	end
-	lastAim = h.aim
-	local opts = { gale = math.clamp((os.clock() - h.t0) / SQUALL.ChargeTime, 0, 1), aim = h.aim }
+	local opts = { gale = math.clamp((os.clock() - h.t0) / SQUALL.ChargeTime, 0, 1) }
 	if h.kind == "Serve" then
 		if serving() and myToss() then
 			tryAttack("Serve", info, opts)
@@ -909,7 +905,8 @@ releaseHover = function(info)
 	end
 end
 
--- While she hovers the stick moves the target along their court (screen right is +z), drawn there
+-- While she hovers the target on their court moves back with the charge (where the spike goes if
+-- she lets go now: just over the net at first, their back line at the whole charge), drawn there
 -- for her; it swings by itself at HoverMax.
 processHover = function(info, dt)
 	if not hover then
@@ -919,14 +916,9 @@ processHover = function(info, dt)
 		endHover()
 		return
 	end
-	local side = State.mySide
 	local lo, hi = aimRange()
-	local axis = mods.MovementController.axis()
-	if math.abs(axis) > 0.15 then
-		hover.aim = math.clamp(hover.aim - side * axis * SQUALL.AimSpeed * dt, lo, hi)
-	end
 	local k = math.clamp((os.clock() - hover.t0) / SQUALL.ChargeTime, 0, 1)
-	mods.VFXController.aimMarker(Vector3.new(info.root.X, 0, -side * hover.aim), k)
+	mods.VFXController.aimMarker(Vector3.new(info.root.X, 0, -State.mySide * (lo + (hi - lo) * k)), k)
 	if os.clock() - hover.t0 >= SQUALL.HoverMax then
 		releaseHover(info)
 	end

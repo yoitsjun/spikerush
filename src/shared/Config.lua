@@ -977,7 +977,7 @@ Config.Abilities = {
 		Name = "Squall",
 		Tier = "S+",
 		Active = true,
-		Blurb = "Press Q: a squall for 10 s, faster still, and the faster you are the harder you hit. Hold Jump on the ground to rush under the ball, let go to spring up. In the air, hold Spike to hover and charge, steer where it lands, let go to swing.",
+		Blurb = "Press Q: a squall for 10 s, faster still, and the faster you are the harder you hit. Hold Jump on the ground to rush under the ball, let go to spring up. In the air, hold Spike to hover: let go at once for a short drop, hold longer to hit it deeper and harder.",
 		Color = Color3.fromRGB(70, 232, 200),
 		Duration = 10,
 		Cooldown = 22,
@@ -994,22 +994,28 @@ Config.Abilities = {
 		SlowMul = 0.7,
 		SlowTime = 1.2,
 		-- Eye of the Storm: lighter in the air (part of gravity off on the way down); Spike held in
-		-- the air (once a jump) hovers her, all but weightless, and charges the spike; the stick moves
-		-- a target on their court instead of her, and letting go swings at it
+		-- the air (once a jump) hovers her, all but weightless, and charges the spike; letting go
+		-- swings. The charge is also where it goes (the owner: "the longer you charge up midair the
+		-- farther back it goes while hitting it instantly makes it drop very short"): let go at once
+		-- and it drops just over the net, held to the full charge it goes to their back line; a
+		-- target on their court shows her where, moving back as it charges
 		FallCancel = 0.35,
+		-- Updraft (the owner: "make her jump higher to accomadate for the charging"): her spike and
+		-- serve jumps (Tailwind's spring too) go this much higher, room to hover and charge
+		LeapMul = 1.35,
 		HoverCancel = 0.985,
-		HoverMax = 1.0, -- a hover this long swings by itself
-		ChargeTime = 0.7, -- seconds of hovering for the whole charge
+		HoverMax = 1.1, -- a hover this long swings by itself
+		ChargeTime = 0.9, -- seconds of hovering for the whole charge (and the deepest spike)
 		HoverBoost = 0.25, -- spike speed x (1 + this x the charge)
 		HoverSlack = 0.15, -- charge a spike may claim over the hover the server saw (network jitter)
-		AimSpeed = 32, -- how fast the target moves with the stick (studs/s)
-		AimError = 0.5, -- an aimed spike strays this share of the usual error
+		AimError = 0.5, -- a hover's spike strays this share of the usual error
 		ReachMul = 1.2, -- Shear: her spike reaches this much wider
 		AutoGale = 0.4, -- the AI doesn't hover: its spikes get this much of the charge's power
 		Passives = {
 			{ Name = "Tailwind", Blurb = "Hold Jump on the ground to rush to where the ball comes down; let go to spring straight up, quicker than anyone." },
 			{ Name = "Downdraft", Blurb = "Just after a Tailwind jump, the other team runs 30% slower for a moment." },
-			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge (up to +25%); steer the target on their court, let go to spike there." },
+			{ Name = "Updraft", Blurb = "Your spike jumps go 35% higher: room to hover and charge." },
+			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge: let go at once and it drops just over the net; the longer you hold, the deeper and harder it goes (up to +25%)." },
 			{ Name = "Shear", Blurb = "Your spike reaches 20% wider than anyone's." },
 		},
 	},

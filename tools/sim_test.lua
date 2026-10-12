@@ -397,29 +397,32 @@ do
 	check(math.abs(full.meta.kmh / plain.meta.kmh - (1 + SQ.HoverBoost)) < 0.01 and half.meta.kmh > plain.meta.kmh and full.meta.gale == 1 and auto.meta.kmh > plain.meta.kmh and not auto.meta.gale,
 		"Eye of the Storm: a full hover hits 25% harder",
 		string.format("%.0f plain, %.0f half, %.0f full, AI %.0f km/h", plain.meta.kmh, half.meta.kmh, full.meta.kmh, auto.meta.kmh))
-	-- the aim: short or deep where she steers it, in the court, an aim past the end line kept in
+	-- how deep (the owner: "the longer you charge up midair the farther back it goes while hitting it
+	-- instantly makes it drop very short"): no charge just over the net, the whole charge their back
+	-- line, in the court every time
 	local shortest, deepest = H.SpikeShortDepth, C.SideDepth - H.SpikeDeepMargin
 	local lands = {}
-	for i, aim in ipairs({ shortest + 1, (shortest + deepest) / 2, deepest - 1, C.SideDepth + 20 }) do
-		local ok, res = haneulSpike({ aim = aim, gale = 1 })
+	for i, g in ipairs({ 0, 0.5, 1 }) do
+		local ok, res = haneulSpike({ gale = g })
 		local path = ok and BallPhysics.buildPath(res.launch)
 		lands[i] = path and { depth = oppDepth(path), inn = Court.inBounds(path.landing.pos) and not path.flags.netTouch, aimed = res.meta.aimed } or { depth = 0 }
 	end
-	check(lands[1].inn and lands[2].inn and lands[3].inn and lands[4].inn and lands[1].aimed and math.abs(lands[1].depth - (shortest + 1)) < 2 and math.abs(lands[3].depth - (deepest - 1)) < 2
-		and lands[1].depth < lands[2].depth and lands[2].depth < lands[3].depth and lands[4].depth <= C.SideDepth,
-		"Eye of the Storm: the spike lands where she aimed, short or deep, and never past the end line",
-		string.format("aimed short %.1f, middle %.1f, deep %.1f, past the line %.1f (court %.1f deep)", lands[1].depth, lands[2].depth, lands[3].depth, lands[4].depth, C.SideDepth))
-	-- the same seed and aim land the same on the hitter's client and the server
-	local _, a = haneulSpike({ aim = 20, gale = 0.6 })
-	local _, b = haneulSpike({ aim = 20, gale = 0.6 })
+	local _, noHover = haneulSpike({})
+	check(lands[1].inn and lands[2].inn and lands[3].inn and lands[1].aimed and not noHover.meta.aimed and math.abs(lands[1].depth - shortest) < 2 and math.abs(lands[3].depth - deepest) < 2
+		and lands[1].depth < lands[2].depth and lands[2].depth < lands[3].depth,
+		"Eye of the Storm: let go at once and it drops just over the net; the longer the hover, the deeper",
+		string.format("no charge %.1f, half %.1f, full %.1f studs from the net (court %.1f deep)", lands[1].depth, lands[2].depth, lands[3].depth, C.SideDepth))
+	-- the same seed and charge land the same on the hitter's client and the server
+	local _, a = haneulSpike({ gale = 0.6 })
+	local _, b = haneulSpike({ gale = 0.6 })
 	check(oppDepth(BallPhysics.buildPath(a.launch)) == oppDepth(BallPhysics.buildPath(b.launch)) and a.meta.kmh == b.meta.kmh, "an aimed spike is the same on the client and the server")
 	-- Tailwind's spring rises faster to the same top: launched RushRise times faster under RushRise^2
 	-- the gravity (MovementController.rushJump / airCancel)
 	local g, h = Config.Player.Gravity, 10
 	local v0 = math.sqrt(2 * g * h * SQ.RushRise ^ 2)
 	local gUp = g * SQ.RushRise ^ 2
-	check(math.abs(v0 * v0 / (2 * gUp) - h) < 1e-6 and SQ.RushRise > 1 and SQ.FallCancel > 0 and SQ.HoverCancel < 1 and SQ.SlowMul < 1,
-		"Tailwind's spring reaches the same top, quicker; she falls lighter; Downdraft slows",
+	check(math.abs(v0 * v0 / (2 * gUp) - h) < 1e-6 and SQ.RushRise > 1 and SQ.FallCancel > 0 and SQ.HoverCancel < 1 and SQ.SlowMul < 1 and SQ.LeapMul > 1.2,
+		"Tailwind's spring reaches the same top, quicker; Updraft lifts her jumps; she falls lighter; Downdraft slows",
 		string.format("up in %.2f s instead of %.2f", v0 / gUp, math.sqrt(2 * g * h) / g))
 end
 

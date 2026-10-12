@@ -75,8 +75,9 @@ FIXED = [
     # Squall (the owner: a spiker "similar to sara seo" who rushes under the ball, hovers to charge
     # and aims her spike; "easily the fastest character"): Speed far above anyone's. Then (the owner:
     # "why does she have 196 atack but only 133 spike kmh and 182 jump but not even 4m"): Attack
-    # and Jump up with the other S+ spikers (204, Laith's; 190, the top), still short at 171 cm
-    {"Name": "Haneul", "Role": "WS", "Tier": "S+", "Height": 171, "Attack": 204, "Defense": 116, "Speed": 230, "Jump": 190, "Ability": "Squall"},
+    # and Jump up with the other S+ spikers (204, Laith's; 190, the top); then "make her taller":
+    # 178 cm (a 4.20 m hitting point), and Updraft lifts her spike jumps for the hover
+    {"Name": "Haneul", "Role": "WS", "Tier": "S+", "Height": 178, "Attack": 204, "Defense": 116, "Speed": 230, "Jump": 190, "Ability": "Squall"},
     # Skyward (the owner: "a jump that starts low, but the higher spike point she gets the higher
     # her jump increases... a high max jump, than even yejun. at her peak, maybe 4.7-4.8"): her
     # Jump here is the middle of her climb (Config.Abilities.Skyward moves her hitting point)

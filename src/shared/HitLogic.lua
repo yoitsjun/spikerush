@@ -12,7 +12,8 @@
 --   * Azure Dragon: energy gathered in the air multiplies power; overcharging sends it out.
 --   * Feral Leap: the gauge charged on the ground before the leap multiplies power; a full one
 --     leaping at the net smashes through a block with less Attack.
---   * Squall (Haneul): Eye of the Storm's hover charges the spike and aims it (input.gale, input.aim).
+--   * Squall (Haneul): Eye of the Storm's hover charges the spike, and the charge is how deep it goes
+--     (input.gale: let go at once, just over the net; the whole charge, their back line).
 --   * Corona (Laith): Sundive, dropping onto the ball from above, multiplies power; Zenith bursts some
 --     spikes (the seeded rng picks them, so the hitter's client agrees).
 -- Receives drain the receiving team's stamina (a guard meter) depending on ball speed and the
@@ -836,11 +837,11 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if qContact >= 0.75 then
 		depth = math.min(depth, deepest)
 	end
-	-- Squall: the spike goes where she aimed on their court (input.aim: depth from the net), straying
-	-- less than usual and more with a poor contact
-	local aim = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Squall" and tonumber(input.aim) or nil
-	if aim then
-		depth = clamp(aim, shortest, deepest) + jitter(rng, (1 - qContact) ^ 1.5 * H.SpikeError * SQUALL.AimError)
+	-- Squall: a hover's spike goes as deep as it was charged (input.gale: none, just over the net; the
+	-- whole charge, their back line), straying less than usual and more with a poor contact
+	local hovered = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Squall" and not ctx.auto and tonumber(input.gale) or nil
+	if hovered then
+		depth = lerp(shortest, deepest, clamp(hovered, 0, 1)) + jitter(rng, (1 - qContact) ^ 1.5 * H.SpikeError * SQUALL.AimError)
 		meta.aimed = true
 	end
 	if overcharge then

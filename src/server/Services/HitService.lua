@@ -394,9 +394,9 @@ function HitService.onRequest(plr, req)
 		local fell = (diveFrom[entity.id] or 0) - (Util.isFiniteVector(req.root) and req.root.Y or 0)
 		sundive = math.min(num(req.sundive, 0, Config.Abilities.Corona.DiveMaxDist, 0), math.max(0, fell + 3))
 	end
-	-- Squall: a hover's charge and aim need a hover the server heard, and no more charge than it
-	-- lasted (Eye of the Storm)
-	local gale, aim = nil, nil
+	-- Squall: a hover's charge (its power and how deep it goes) needs a hover the server heard, and
+	-- no more charge than it lasted (Eye of the Storm)
+	local gale = nil
 	if entity.ability == "Squall" and (req.action == "Spike" or req.action == "Serve") then
 		local now = os.clock()
 		local cap = hoverCap[entity.id]
@@ -408,7 +408,6 @@ function HitService.onRequest(plr, req)
 		end
 		if most then
 			gale = math.min(num(req.gale, 0, 1, 0), most)
-			aim = num(req.aim, 0, Config.Court.SideDepth, nil)
 		end
 		hoverCap[entity.id], hoverAt[entity.id] = nil, nil
 	end
@@ -416,7 +415,6 @@ function HitService.onRequest(plr, req)
 	local input = {
 		second = second or nil,
 		gale = gale,
-		aim = aim,
 		action = req.action,
 		t = req.t,
 		root = req.root,
