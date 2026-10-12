@@ -1008,7 +1008,7 @@ Config.Abilities = {
 		-- (the owner: "her charging speed is too slow to reach the backcourt in time")
 		HoverMax = 0.7, -- a hover this long swings by itself
 		ChargeTime = 0.45, -- seconds of hovering for the whole charge (and the deepest spike)
-		HoverBoost = 0.25, -- spike speed x (1 + this x the charge)
+		HoverBoost = 0.38, -- spike speed x (1 + this x the charge): with Squall on, a full hover about 210 km/h maxed (the owner: "maybe she can hit 210")
 		HoverSlack = 0.15, -- charge a spike may claim over the hover the server saw (network jitter)
 		AimError = 0.5, -- a hover's spike strays this share of the usual error
 		ReachMul = 1.2, -- Shear: her spike reaches this much wider
@@ -1017,7 +1017,7 @@ Config.Abilities = {
 			{ Name = "Tailwind", Blurb = "Jump on the ground: a lightning-quick dash under where the ball comes down, and a spring straight up, quicker than anyone." },
 			{ Name = "Downdraft", Blurb = "Just after a Tailwind jump, the other team runs 30% slower for a moment." },
 			{ Name = "Updraft", Blurb = "Your spike jumps go 35% higher: room to hover and charge." },
-			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge: let go at once and it drops just over the net; the longer you hold, the deeper and harder it goes (up to +25%)." },
+			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge: let go at once and it drops just over the net; the longer you hold, the deeper and harder it goes (up to +38%)." },
 			{ Name = "Shear", Blurb = "Your spike reaches 20% wider than anyone's." },
 		},
 	},

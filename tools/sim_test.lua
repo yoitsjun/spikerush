@@ -395,7 +395,7 @@ do
 	local _, full = haneulSpike({ gale = 1 })
 	local _, auto = haneulSpike({}, { auto = true })
 	check(math.abs(full.meta.kmh / plain.meta.kmh - (1 + SQ.HoverBoost)) < 0.01 and half.meta.kmh > plain.meta.kmh and full.meta.gale == 1 and auto.meta.kmh > plain.meta.kmh and not auto.meta.gale,
-		"Eye of the Storm: a full hover hits 25% harder",
+		"Eye of the Storm: a full hover hits 38% harder",
 		string.format("%.0f plain, %.0f half, %.0f full, AI %.0f km/h", plain.meta.kmh, half.meta.kmh, full.meta.kmh, auto.meta.kmh))
 	-- how deep (the owner: "the longer you charge up midair the farther back it goes while hitting it
 	-- instantly makes it drop very short"): no charge just over the net, the whole charge their back
