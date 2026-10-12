@@ -137,7 +137,7 @@ local function buildCtx(info, action, t)
 		ability = ability,
 		groundY = info.groundY,
 		stamina = State.stamina(State.myTeam),
-		ironWall = action == "Block" and ((ability == "IronWall" and ActionController.abilityActive()) or ActionController.bulwark()) or nil,
+		ironWall = action == "Block" and ability == "IronWall" and ActionController.abilityActive() or nil,
 		ironclad = ActionController.bulwark() or nil,
 		awakened = ability == "Ironclad" and not ActionController.bulwark() or nil,
 		enemyPoints = State.enemyPoints(State.myTeam),
@@ -165,7 +165,7 @@ function ActionController.abilityActive()
 	return now <= math.max(serverUntil, localAbilityUntil)
 end
 
--- Ironclad: he still has shields (Bulwark: an Iron Wall at the net).
+-- Ironclad: he still has shields (Bulwark: a block he jumps for is a perfect shut-down).
 function ActionController.bulwark()
 	return State.myAbility() == "Ironclad" and HitLogic.ironLives(player:GetAttribute("IronLives")) > 0
 end
@@ -1515,7 +1515,7 @@ end
 
 local function processBlock(info, now)
 	-- Iron Wall up: you're a wall at the net, jumping or not (no block press or timing needed)
-	local iron = (State.myAbility() == "IronWall" and ActionController.abilityActive()) or ActionController.bulwark()
+	local iron = State.myAbility() == "IronWall" and ActionController.abilityActive()
 	if not block.active and not iron then
 		return
 	end

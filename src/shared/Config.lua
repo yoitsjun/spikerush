@@ -1054,7 +1054,7 @@ Config.Abilities = {
 		Name = "Ironclad",
 		Tier = "S+",
 		Role = "MB",
-		Blurb = "Bulwark: while you have shields (3), you're Iron Wall at the net, always. An attack of 150 km/h or more breaks through and costs a shield. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Every touch then fills Intimidation by 10%; full, your shields are back.",
+		Blurb = "Bulwark: while you have shields (3), every block you jump for and get your hands on is a perfect shut-down. An attack of 150 km/h or more breaks through and costs a shield. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Every touch then fills Intimidation by 10%; full, your shields are back.",
 		Kind = "Passive: shields, then awakened",
 		Color = Color3.fromRGB(255, 112, 52), -- awakened: molten
 		WallColor = Color3.fromRGB(170, 200, 235), -- the shields: steel
@@ -1079,7 +1079,7 @@ Config.Abilities = {
 		ReachMul = 0.35, -- Steel Reach: his spike reaches up to 1 + this x the charge wider
 		AutoCharge = 0.5, -- the AI awakened: its spikes get this much of the full charge
 		Passives = {
-			{ Name = "Bulwark", Blurb = "3 shields: while you have one you're an Iron Wall at the net. An attack of 150 km/h or more breaks through and shatters a shield." },
+			{ Name = "Bulwark", Blurb = "3 shields: while you have one, every block you jump for and get your hands on is a perfect shut-down. An attack of 150 km/h or more breaks through and shatters a shield." },
 			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: Forge charges far harder and widens your reach." },
 			{ Name = "Forge", Blurb = "Your fall is slow; jump before the set and hang: the longer you're up, the harder the spike (up to +39% with shields, +68% awakened). Jumping after the set gets 30% of it." },
 			{ Name = "Steel Reach", Blurb = "Awakened, the charge widens your spike's reach (up to 35%)." },

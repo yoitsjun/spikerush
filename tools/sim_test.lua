@@ -453,22 +453,33 @@ do
 	local taesan = Characters.derive(Characters.fromRoster(Roster.get("taesan"), "max"))
 	-- Bulwark: his wall shuts down an attack under BreakKmh perfectly; one that fast (or piercing)
 	-- breaks through it and is marked for the shield it costs
-	local broot = vec(0, GROUND, side * 1.2)
-	local bball = vec(0, C.NetTop + 1.5, side * 0.6)
-	local function block(kmh, extraLast, extraCtx)
+	-- (a block he jumped for: his hands over the tape)
+	local broot = vec(0, GROUND + Characters.jumpHeight(taesan, GROUND) * 0.8, side * 1.2)
+	local bball = nil
+	for dy = 0, 12, 0.25 do
+		local b = vec(0, C.NetTop + dy, side * 0.6)
+		if not bball and HitLogic.blockBox(broot, b, side, taesan, false) then
+			bball = b
+		end
+	end
+	bball = bball or vec(0, C.NetTop + 1.5, side * 0.6)
+	local function block(kmh, extraLast, root)
 		local last = { hitType = "Spike", team = "Home", kmh = kmh }
 		for k, v in pairs(extraLast or {}) do last[k] = v end
-		local c = ctx({ ability = "Ironclad", stats = taesan, lastHit = last, ironWall = true, ironclad = true, ballVel = vec(0, -8, side * 30) })
-		for k, v in pairs(extraCtx or {}) do c[k] = v end
-		return HitLogic.compute({ action = "Block", t = 0, root = broot, ball = bball, vy = 0, grounded = true }, c)
+		local c = ctx({ ability = "Ironclad", stats = taesan, lastHit = last, ironclad = true, ballVel = vec(0, -8, side * 30) })
+		return HitLogic.compute({ action = "Block", t = 0, root = root or broot, ball = bball, vy = 0, grounded = root ~= nil }, c)
 	end
 	local okW, held = block(140)
 	local okB, broke = block(160)
 	local okP, pierced = block(120, { pierce = true })
+	-- standing on the floor he's no wall (the owner: "taesan can block without jumping")
+	local highBall = vec(0, C.NetTop + 6, side * 0.6)
+	local okG = HitLogic.compute({ action = "Block", t = 0, root = vec(0, GROUND, side * 1.2), ball = highBall, vy = 0, grounded = true },
+		ctx({ ability = "Ironclad", stats = taesan, lastHit = { hitType = "Spike", team = "Home", kmh = 120 }, ironclad = true, ballVel = vec(0, -8, side * 30) }))
 	check(okW and okB and okP and held.meta.outcome == "Stuff" and held.meta.ironWall and not held.meta.wallBroken
-		and broke.meta.outcome == "Break" and broke.meta.wallBroken and pierced.meta.wallBroken,
-		"Bulwark: his wall shuts down a 140 km/h spike; 150 or more (or a piercing one) breaks through and costs a shield",
-		string.format("140: %s, 160: %s, piercing 120: %s", held.meta.outcome, broke.meta.outcome, pierced.meta.outcome))
+		and broke.meta.outcome == "Break" and broke.meta.wallBroken and pierced.meta.wallBroken and not okG,
+		"Bulwark: a block he jumps for shuts down a 140 km/h spike perfectly; 150 or more (or a piercing one) breaks through and costs a shield; on the floor, no wall",
+		string.format("140: %s, 160: %s, piercing 120: %s, standing: %s", held.meta.outcome, broke.meta.outcome, pierced.meta.outcome, okG and "blocked" or "no block"))
 	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 10,
 		"Bulwark: 3 shields to start; awakened, ten touches (10% each) bring them back")
 	-- Forge (awakened): a jump before the set charges up to about 215 km/h maxed; after the set,

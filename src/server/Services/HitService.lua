@@ -231,7 +231,7 @@ function HitService.process(entity, input, opts)
 		groundY = TS.groundY(entity),
 		stamina = TS.staminaOf(team),
 		forceQuality = opts.forceQuality,
-		ironWall = action == "Block" and ((entity.ability == "IronWall" and armed) or (entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) > 0)) or nil,
+		ironWall = action == "Block" and entity.ability == "IronWall" and armed or nil,
 		ironclad = entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) > 0 or nil,
 		awakened = entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) == 0 or nil,
 		enemyPoints = (MS.scores or {})[Court.other(team)] or 0,

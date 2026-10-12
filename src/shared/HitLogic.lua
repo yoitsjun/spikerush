@@ -1241,12 +1241,15 @@ function HitLogic.compute(input, ctx)
 		-- Feral Leap: a full-gauge spike leaping at the net smashes through a blocker with less
 		-- Attack than the attacker had
 		local smash = last.hitType == "Spike" and type(last.breakAtk) == "number" and last.breakAtk > stats.Attack
-		-- Ironclad's Bulwark (ctx.ironclad: he has shields): Iron Wall's, but an attack hard enough
+		-- Ironclad's Bulwark (ctx.ironclad: he has shields): a block he jumps for and gets his hands
+		-- on is Iron Wall's perfect shut-down (with the usual block reach: no wall without a jump, the
+		-- owner: "taesan can block without jumping... should we nerf that"), but an attack hard enough
 		-- (or piercing, or built to smash blocks) breaks through it and costs a shield (HitService)
 		local wallBreak = ctx.ironclad == true and last.hitType == "Spike" and (attackKmh >= IRON.BreakKmh or last.pierce == true or type(last.breakAtk) == "number")
+		local perfect = ctx.ironWall or ctx.ironclad
 		if wallBreak then
 			smash = true
-		elseif ctx.ironWall then
+		elseif perfect then
 			-- Iron Wall: a perfect block, whatever reaches the hands (pierce, thunder and a Feral
 			-- smash included), wherever it meets them
 			stuffScore = 1
@@ -1256,7 +1259,7 @@ function HitLogic.compute(input, ctx)
 		local atk = -side
 		local meta = meta0("Block", clamp(q, 0, 1))
 		meta.attackKmh = attackKmh
-		meta.ironWall = (ctx.ironWall and not wallBreak) or nil
+		meta.ironWall = (perfect and not wallBreak) or nil
 		meta.wallBroken = wallBreak or nil
 		local p, v, a, hold = nil, nil, nil, 0
 		if smash then
@@ -1273,7 +1276,7 @@ function HitLogic.compute(input, ctx)
 			v = vin * FERAL.BreakKeep
 			a = Vector3.new(0, -G * H.SpikeGravityScale, 0)
 			hold = 0.06
-		elseif ctx.ironWall then
+		elseif perfect then
 			-- the perfect shut-down: straight down onto their court just past the net, always in
 			meta.outcome = "Stuff"
 			meta.perfectBlock = true

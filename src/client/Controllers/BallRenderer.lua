@@ -759,8 +759,7 @@ local function atABlock(ball, vel)
 						local model = Util.modelOf(e.id)
 						local hrp = model and model:FindFirstChild("HumanoidRootPart")
 						if hrp then
-							local iron = (model:GetAttribute("Ability") == "IronWall" and (model:GetAttribute("AbilityUntil") or -1) >= serverNow)
-								or (model:GetAttribute("Ability") == "Ironclad" and HitLogic.ironLives(model:GetAttribute("IronLives")) > 0)
+							local iron = model:GetAttribute("Ability") == "IronWall" and (model:GetAttribute("AbilityUntil") or -1) >= serverNow
 							if (iron or (blockingUntil[e.id] or 0) > clock) and HitLogic.blockBox(hrp.Position, ball, side, nil, iron) then
 								return true
 							end
