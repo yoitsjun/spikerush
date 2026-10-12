@@ -12,7 +12,7 @@
 --   * Azure Dragon: energy gathered in the air multiplies power; overcharging sends it out.
 --   * Feral Leap: the gauge charged on the ground before the leap multiplies power; a full one
 --     leaping at the net smashes through a block with less Attack.
---   * Corona (Elio): Sundive, dropping onto the ball from above, multiplies power; Zenith bursts some
+--   * Corona (Laith): Sundive, dropping onto the ball from above, multiplies power; Zenith bursts some
 --     spikes (the seeded rng picks them, so the hitter's client agrees).
 -- Receives drain the receiving team's stamina (a guard meter) depending on ball speed and the
 -- receiver's Defense. Low stamina makes receives unreliable; a broken guard can't stop strong
@@ -111,7 +111,7 @@ function HitLogic.tossReach(ability)
 	if ability == "Feral" then
 		return FERAL.TossReachMul
 	elseif ability == "Corona" then
-		return CORONA.TossReachMul -- Elio's Long Toss
+		return CORONA.TossReachMul -- Laith's Long Toss
 	end
 	return 1
 end

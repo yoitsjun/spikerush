@@ -263,39 +263,39 @@ do
 	check(over.meta.overcharge and not Court.inBounds(path.landing.pos), "overcharge flies out", describe(path))
 end
 
-print("== Corona (Elio) ==")
+print("== Corona (Laith) ==")
 do
 	local CO = Config.Abilities.Corona
-	local elio = Characters.derive(Characters.fromRoster(Roster.get("elio"), "max"))
+	local laith = Characters.derive(Characters.fromRoster(Roster.get("laith"), "max"))
 	-- the flare: every stat up while it's on, down by his uses while it's off, back after a timeout
-	local on = HitLogic.effectiveStats(elio, "Corona", nil, { coronaOn = true, coronaStacks = 3 })
-	local off3 = HitLogic.effectiveStats(elio, "Corona", nil, { coronaStacks = 3 })
-	local off99 = HitLogic.effectiveStats(elio, "Corona", nil, { coronaStacks = 99 })
-	local fresh = HitLogic.effectiveStats(elio, "Corona", nil, { coronaStacks = 0 })
+	local on = HitLogic.effectiveStats(laith, "Corona", nil, { coronaOn = true, coronaStacks = 3 })
+	local off3 = HitLogic.effectiveStats(laith, "Corona", nil, { coronaStacks = 3 })
+	local off99 = HitLogic.effectiveStats(laith, "Corona", nil, { coronaStacks = 99 })
+	local fresh = HitLogic.effectiveStats(laith, "Corona", nil, { coronaStacks = 0 })
 	local function near(a, b)
 		return math.abs(a - b) <= 1
 	end
-	check(near(on.Attack, elio.Attack * (1 + CO.Boost)) and near(on.Jump, elio.Jump * (1 + CO.Boost)) and near(off3.Defense, elio.Defense * (1 - 3 * CO.PenaltyPer))
-		and near(off99.Speed, elio.Speed * (1 - CO.MaxStacks * CO.PenaltyPer)) and fresh == elio and on.ContactMaxM > elio.ContactMaxM,
+	check(near(on.Attack, laith.Attack * (1 + CO.Boost)) and near(on.Jump, laith.Jump * (1 + CO.Boost)) and near(off3.Defense, laith.Defense * (1 - 3 * CO.PenaltyPer))
+		and near(off99.Speed, laith.Speed * (1 - CO.MaxStacks * CO.PenaltyPer)) and fresh == laith and on.ContactMaxM > laith.ContactMaxM,
 		"Corona: every stat up while it's on; after it, 1.5% down for each use (12 at most), none before",
-		string.format("ATK %d on, %d after 3 uses, %d after 12 (base %d)", on.Attack, off3.Attack, off99.Attack, elio.Attack))
+		string.format("ATK %d on, %d after 3 uses, %d after 12 (base %d)", on.Attack, off3.Attack, off99.Attack, laith.Attack))
 
 	-- Sundive: a spike he dropped onto hits harder the further he dropped, up to DiveBoost; a dive
 	-- met under the top of his jump isn't punished for the height; the AI gets AutoDive of it. The
 	-- owner's video: Lucas's plain spikes about 150 km/h, his full dive 252
-	local root = apexRoot(elio, 3.5 * K)
+	local root = apexRoot(laith, 3.5 * K)
 	local low = root - vec(0, 2.5, 0) -- a dive meets it lower than his apex
-	local function elioSpike(r, drop, extra)
-		local c = { ability = "Corona", stats = elio, seq = 7 }
+	local function laithSpike(r, drop, extra)
+		local c = { ability = "Corona", stats = laith, seq = 7 }
 		for k, v in pairs(extra or {}) do c[k] = v end
 		return spike(r, ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy), c, { sundive = drop })
 	end
-	local _, plain = elioSpike(root, 0)
-	local _, lowPlain = elioSpike(low, 0)
-	local _, halfDive = elioSpike(low, (CO.DiveMinDrop + CO.DiveFullDrop) / 2)
-	local _, fullDive = elioSpike(low, CO.DiveFullDrop + 5)
-	local _, flared = elioSpike(low, CO.DiveFullDrop, { coronaOn = true })
-	local _, auto = elioSpike(root, 0, { auto = true })
+	local _, plain = laithSpike(root, 0)
+	local _, lowPlain = laithSpike(low, 0)
+	local _, halfDive = laithSpike(low, (CO.DiveMinDrop + CO.DiveFullDrop) / 2)
+	local _, fullDive = laithSpike(low, CO.DiveFullDrop + 5)
+	local _, flared = laithSpike(low, CO.DiveFullDrop, { coronaOn = true })
+	local _, auto = laithSpike(root, 0, { auto = true })
 	check(not plain.meta.dive and lowPlain.meta.kmh < plain.meta.kmh and halfDive.meta.dive == 0.5 and fullDive.meta.dive == 1
 		and fullDive.meta.kmh > plain.meta.kmh * 1.3 and fullDive.meta.kmh > halfDive.meta.kmh + 15 and auto.meta.kmh > plain.meta.kmh and not auto.meta.dive
 		and flared.meta.kmh > 200 and flared.meta.kmh < 245,
@@ -320,8 +320,8 @@ do
 	local zenith, total, same = 0, 300, true
 	local sample = nil
 	for seq = 1, total do
-		local _, a = elioSpike(root, 0, { seq = seq })
-		local _, b = elioSpike(root, 0, { seq = seq })
+		local _, a = laithSpike(root, 0, { seq = seq })
+		local _, b = laithSpike(root, 0, { seq = seq })
 		same = same and (a.meta.zenith == b.meta.zenith) and a.meta.kmh == b.meta.kmh
 		if a.meta.zenith then
 			zenith = zenith + 1
@@ -330,8 +330,8 @@ do
 			end
 		end
 	end
-	local _, z = elioSpike(root, 0, { seq = sample })
-	local _, plainSeq = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = elio, seq = sample })
+	local _, z = laithSpike(root, 0, { seq = sample })
+	local _, plainSeq = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = laith, seq = sample })
 	local zPath = BallPhysics.buildPath(z.launch)
 	local rate = zenith / total
 	check(same and rate > CO.ZenithChance - 0.07 and rate < CO.ZenithChance + 0.07 and z.meta.zenith and math.abs(z.meta.kmh / plainSeq.meta.kmh - (1 + CO.ZenithPower)) < 0.01
@@ -341,7 +341,7 @@ do
 	local _ = zen
 
 	-- Long Toss: his forward serve toss goes as far as Dante's
-	check(HitLogic.tossReach("Corona") == Config.Abilities.Feral.TossReachMul and HitLogic.tossReach("Corona") > 1, "Elio's serve toss goes much further forward, like Dante's")
+	check(HitLogic.tossReach("Corona") == Config.Abilities.Feral.TossReachMul and HitLogic.tossReach("Corona") > 1, "Laith's serve toss goes much further forward, like Dante's")
 end
 
 print("== Feral Leap (Dante) ==")

@@ -907,7 +907,7 @@ Config.Abilities = {
 		AutoAttackMul = 0.85,
 		AutoBoostMul = 0.75,
 	},
-	-- Elio (the owner: a new character "based off lucas from the spike", pasting his kit: a skill
+	-- Laith (the owner: a new character "based off lucas from the spike", pasting his kit: a skill
 	-- that raises every stat while it's on and lowers them after by how many times it was used, up
 	-- to 12, cleared by a timeout or a substitution; a dive mid-air during the spike, the faster the
 	-- descent the more power; a chance for a spike to burst, +13% power and +1 spin; a much further
@@ -931,7 +931,7 @@ Config.Abilities = {
 		-- (the owner, watching it: "he should be way way faster", "a long path like this" with a
 		-- picture of a long white swoop from high up onto the ball, "he should practically be
 		-- teleporting with how fast it is"; then a video of Lucas: from behind the end line he leaps
-		-- far higher than anyone, hangs with a thin aim line to the ball, and in about 0.1 s he's at
+		-- far higher than anyone, hangs with a see-through orange band to the ball, and in about 0.1 s he's at
 		-- the ball by the net, an orange ribbon behind him and a sun bursting at 252 km/h, about 1.7
 		-- times his plain spike). The path is all but straight (HitLogic.diveControl), travelled
 		-- almost at once; he hangs where he meets it for the swing. Its power is how far he drops.
@@ -1504,7 +1504,7 @@ Config.Bots = {
 	JumpSetSlack = 1.2, -- studs: a setter this far off its spot at takeoff sets from the ground
 	TurnaboutChance = { 0.3, 0.65 }, -- a Turnabout setter arms it off a pass it can jump for
 	RallyCryChance = 0.5, -- a Rally Cry bot pops it at a serve this often once it's ready
-	CoronaChance = 0.3, -- and a Corona bot (Elio) his
+	CoronaChance = 0.3, -- and a Corona bot (Laith) his
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
 	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it
