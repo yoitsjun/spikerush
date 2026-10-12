@@ -860,15 +860,16 @@ local function serveLogic(b, now, grounded, side)
 	end
 end
 
--- Rally Cry (and Corona): once it's ready, a bot pops it at some serves (the boost covers the
--- rally; Corona's penalty after makes it pop his less often).
+-- Rally Cry (and Corona, Squall): once it's ready, a bot pops it at some serves (the boost covers
+-- the rally; Corona's penalty after makes it pop his less often).
+local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance" }
 local function rallyCry(b, now)
 	local e = b.entity
-	if (e.ability ~= "RallyCry" and e.ability ~= "Corona") or b.rallyRolled or now < (e.abilityReadyAt or 0) or playerLed(e.team) then
+	if not POP_CHANCE[e.ability or ""] or b.rallyRolled or now < (e.abilityReadyAt or 0) or playerLed(e.team) then
 		return
 	end
 	b.rallyRolled = true
-	if b.rng:NextNumber() < (e.ability == "Corona" and B.CoronaChance or B.RallyCryChance) then
+	if b.rng:NextNumber() < B[POP_CHANCE[e.ability]] then
 		reg.HitService.activateAbility(e)
 	end
 end
@@ -926,6 +927,16 @@ local function updateBot(b, now)
 	local grounded = hum.FloorMaterial ~= Enum.Material.Air
 	local BS, MS = reg.BallService, reg.MatchService
 	lockLane(b)
+
+	-- Downdraft: a Squall's Tailwind jump slows this bot for a moment
+	local model = hrp.Parent
+	local base = model:GetAttribute("BaseWalkSpeed")
+	if base then
+		local want = (model:GetAttribute("SlowUntil") or -1) > Util.now() and base * Config.Abilities.Squall.SlowMul or base
+		if math.abs(hum.WalkSpeed - want) > 0.01 then
+			hum.WalkSpeed = want
+		end
+	end
 
 	-- knocked back by a heavy receive: skid away from the net
 	if b.knockUntil then

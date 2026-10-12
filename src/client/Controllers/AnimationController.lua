@@ -2103,9 +2103,13 @@ function AnimationController.init(m)
 			AnimationController.setStance(entityId, "Charge", 2.0)
 		elseif kind == "ChargeEnd" then
 			AnimationController.setStance(entityId, nil)
-		elseif kind == "Prowl" and extra ~= "auto" then
-			AnimationController.setStance(entityId, "Prowl", 10) -- Feral Leap's charge, until the leap
-		elseif (kind == "Leap" or kind == "ProwlEnd") and extra ~= "auto" then
+		elseif (kind == "Prowl" and extra ~= "auto") or kind == "Rush" then
+			AnimationController.setStance(entityId, "Prowl", 10) -- Feral Leap's charge, until the leap (Squall's rush too)
+		elseif kind == "Hover" then
+			AnimationController.setStance(entityId, "Charge", 1.2) -- Squall's hover
+		elseif kind == "HoverEnd" then
+			AnimationController.setStance(entityId, nil)
+		elseif ((kind == "Leap" or kind == "ProwlEnd") and extra ~= "auto") or kind == "RushEnd" or kind == "RushJump" then
 			local st = stateFor(entityId)
 			if st and st.stance and st.stance.pose == "Prowl" then
 				AnimationController.setStance(entityId, nil)

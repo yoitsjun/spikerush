@@ -7,6 +7,8 @@
 --  * air control: drift in the air to line up with the ball (that sets your spike angle)
 --  * anime hang near the top of every jump; Azure Dragon hovers while charging
 --  * Feral Leap: faster while the charge is held; the leap carries him along the court all flight
+--  * Squall: Tailwind's rush to the ball and quick spring, a lighter fall, Eye of the Storm's hover;
+--    Downdraft slows whoever it catches
 -- Jump height and run speed come from your character's build (set by the server).
 
 local Players = game:GetService("Players")
@@ -19,6 +21,7 @@ local Config = require(Shared.Config)
 local Cups = require(Shared.Cups)
 local HitLogic = require(Shared.HitLogic)
 local Net = require(Shared.Net)
+local Util = require(Shared.Util)
 local State = require(script.Parent.State)
 
 local MovementController = {}
@@ -47,6 +50,12 @@ local leaping = nil -- { dir, carry, t0 } from a Feral Leap's takeoff until he l
 -- hangs at its end for DiveHold, then falls again
 local diving = nil
 local CORONA = Config.Abilities.Corona
+-- Squall: Tailwind's rush ({ target }: the spot along the court she runs to, nil: the way you hold),
+-- its spring rising faster until the top, and Eye of the Storm's hover
+local SQUALL = Config.Abilities.Squall
+local rushing = nil
+local rushRise = false
+local hovering = false
 -- A jump asked for from an input event. The default control script rewrites Humanoid.Jump every
 -- render step (from its own keys), so a jump set straight from an input handler is wiped before
 -- physics sees it; moveStep applies it after the control script instead.
@@ -79,7 +88,12 @@ local function getControls()
 end
 
 local function baseWalk()
-	return (char and char:GetAttribute("BaseWalkSpeed")) or State.myStats().WalkSpeed
+	local w = (char and char:GetAttribute("BaseWalkSpeed")) or State.myStats().WalkSpeed
+	-- Downdraft: a Squall's Tailwind jump slows the other team for a moment
+	if (player:GetAttribute("SlowUntil") or -1) > Util.now() then
+		w = w * SQUALL.SlowMul
+	end
+	return w
 end
 
 local function baseJump()
@@ -101,6 +115,7 @@ local function onCharacter(c)
 	hrp = c:WaitForChild("HumanoidRootPart")
 	slide, gather, run, charging, queued, takeoff = nil, nil, nil, false, nil, nil
 	prowlT0, leaping = nil, nil
+	rushing, rushRise, hovering = nil, false, false
 	hum.AutoRotate = false
 	-- state machine tweaks have to run on the client that owns the humanoid
 	hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
@@ -129,6 +144,7 @@ local function onCharacter(c)
 			Net.get("ActionFX"):FireServer("Jump", kind)
 		elseif new == Enum.HumanoidStateType.Landed then
 			hum.JumpHeight = baseJump()
+			rushRise = false
 		end
 	end)
 end
@@ -389,6 +405,69 @@ function MovementController.setCharging(on)
 	charging = on == true
 end
 
+-- Squall's Tailwind: rushing while `on` (to MovementController.rushTo's spot, or the way you hold).
+function MovementController.setRush(on)
+	rushing = on and (rushing or {}) or nil
+end
+
+-- Where the rush goes along the court (z), or nil to run the way you hold.
+function MovementController.rushTo(z)
+	if rushing then
+		rushing.target = z
+	end
+end
+
+function MovementController.isRushing()
+	return rushing ~= nil
+end
+
+-- The spring off a rush: straight up to the top of a spike jump, rising RushRise times faster
+-- (launched that much faster under that much more gravity until the top).
+function MovementController.rushJump()
+	if not MovementController.canJump() then
+		return false
+	end
+	rushing = nil
+	queued = { height = spikeJump() * SQUALL.RushRise ^ 2, kind = "Spike" }
+	rushRise = true
+	return true
+end
+
+-- Eye of the Storm: all but weightless and still while `on` (the stick aims instead).
+function MovementController.setHover(on)
+	hovering = on == true
+	if hovering and hrp then
+		hrp.AssemblyLinearVelocity = Vector3.zero
+	end
+end
+
+function MovementController.isHovering()
+	return hovering
+end
+
+-- The share of gravity taken off in the air at vertical speed vy: the hang near the top of every
+-- jump, Azure's hover while charging, Squall's hover, lighter fall and quick spring. ActionController
+-- predicts the jump with it too.
+function MovementController.airCancel(vy)
+	if hovering then
+		return SQUALL.HoverCancel
+	end
+	if charging and vy <= 0 then
+		return AZURE.GravityCancel
+	end
+	if rushRise and vy > 0 then
+		return 1 - SQUALL.RushRise ^ 2
+	end
+	local cancel = 0
+	if math.abs(vy) < P.HangVelocityWindow then
+		cancel = P.HangGravityCancel
+	end
+	if vy <= 0 and State.myAbility() == "Squall" then
+		cancel = math.max(cancel, SQUALL.FallCancel)
+	end
+	return cancel
+end
+
 local function endSlide()
 	slide = nil
 	if hum then
@@ -474,11 +553,16 @@ local function physicsStep()
 			cancel = 1
 		end
 	end
+	if rushRise and airborne and vy <= 0 then
+		rushRise = false -- the spring's top: her usual (lighter) fall from here
+	end
 	if airborne and not slide and not diving then
-		if charging and vy <= 0 then
-			cancel = AZURE.GravityCancel
-		elseif math.abs(vy) < P.HangVelocityWindow then
-			cancel = P.HangGravityCancel
+		cancel = MovementController.airCancel(vy)
+		if hovering then
+			local v = hrp.AssemblyLinearVelocity
+			if math.abs(v.Z) > 0.01 or v.Y > 0 then
+				hrp.AssemblyLinearVelocity = Vector3.new(0, math.min(v.Y, 0), 0)
+			end
 		end
 	end
 	local force = hrp.AssemblyMass * workspace.Gravity * cancel
@@ -607,6 +691,11 @@ local function moveStep()
 			hum:Move(Vector3.zero, false) -- the dive's path moves him (physicsStep)
 			return
 		end
+		if hovering then
+			hum.WalkSpeed = 0 -- Eye of the Storm: she holds still; the stick moves her target
+			hum:Move(Vector3.zero, false)
+			return
+		end
 		if leaping then
 			-- a Feral Leap carries him the way he leapt; the stick still drifts on top of it
 			local vz = leaping.dir * leaping.carry + axis * baseWalk() * air
@@ -615,6 +704,23 @@ local function moveStep()
 			return
 		end
 		hum.WalkSpeed = baseWalk() * air
+	elseif rushing then
+		-- Squall's Tailwind: a rush to the spot under the ball, slowing in to stop on it
+		local speed = baseWalk() * SQUALL.RushSpeed
+		local target = rushing.target
+		if target then
+			local dz = target - hrp.Position.Z
+			if math.abs(dz) > 0.35 then
+				hum.WalkSpeed = math.min(speed, math.abs(dz) * 10)
+				hum:Move(Vector3.new(0, 0, dz > 0 and 1 or -1), false)
+				face(dz)
+			else
+				hum:Move(Vector3.zero, false)
+				face(-State.mySide)
+			end
+			return
+		end
+		hum.WalkSpeed = speed
 	elseif prowlT0 then
 		-- Feral Leap's charge: faster as it fills
 		local k = math.clamp((now - prowlT0) / FERAL.ChargeTime, 0, 1)

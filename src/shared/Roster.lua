@@ -5,7 +5,8 @@
 
 local Roster = {
 	{ Id = "dante", Name = "Dante", Role = "WS", Tier = "S+", Height = 186, Attack = 222, Defense = 120, Speed = 152, Jump = 184, Ability = "Feral" },
-	{ Id = "laith", Name = "Laith", Role = "WS", Tier = "S+", Height = 183, Attack = 204, Defense = 122, Speed = 150, Jump = 188, Ability = "Corona" },
+	{ Id = "haneul", Name = "Haneul", Role = "WS", Tier = "S+", Height = 171, Attack = 196, Defense = 116, Speed = 230, Jump = 182, Ability = "Squall" },
+	{ Id = "laith", Name = "Laith", Role = "WS", Tier = "S+", Height = 183, Attack = 204, Defense = 122, Speed = 192, Jump = 188, Ability = "Corona" },
 	{ Id = "seojin", Name = "Seojin", Role = "WS", Tier = "S+", Height = 184, Attack = 210, Defense = 128, Speed = 140, Jump = 175, Ability = "Azure" },
 	{ Id = "taeha", Name = "Taeho", Role = "WS", Tier = "S+", Height = 187, Attack = 205, Defense = 122, Speed = 146, Jump = 182, Ability = "ZeroPoint" },
 	{ Id = "yejun", Name = "YeJun", Role = "WS", Tier = "S+", Height = 189, Attack = 210, Defense = 124, Speed = 146, Jump = 190, Ability = "Thunder" },

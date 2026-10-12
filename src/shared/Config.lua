@@ -320,7 +320,8 @@ Config.StatCurve = {
 	DrainReduction = { Stat = "Defense", Range = { 0.0, 0.35 } },
 	ReceiveBonus = { Stat = "Defense", Range = { -0.1, 0.08 } },
 	BlockPower = { Stat = "Defense", Range = { 0.75, 1.15 } },
-	WalkSpeed = { Stat = "Speed", Range = { 22, 32 } },
+	-- (past 210 it keeps adding: Haneul, the fastest, is above it, and boosts push others past it)
+	WalkSpeed = { Stat = "Speed", Range = { 22, 32 }, Extrapolate = true },
 	SetAccuracy = { Stat = "Speed", Range = { 0.7, 1.0 } },
 }
 
@@ -963,6 +964,55 @@ Config.Abilities = {
 			{ Name = "Long Toss", Blurb = "Your forward serve toss goes much further, like Dante's." },
 		},
 	},
+	-- Haneul (the owner: a new spiker "similar to sara seo": "she dashes across the court and jumps
+	-- right where the ball is. she has lower gravity and stay in the air to charge up her spike. she
+	-- can aim wherever she wants on the opposing side. she has wider spike range. and has an active
+	-- ability where she can increase speed and attack", "she is easily the fastest character",
+	-- pasting a kit: a skill raising Attack (more the higher the Speed); the other team slowed just
+	-- after her rush's jump; hold Spike to rush to where the ball comes down, let go to spring to the
+	-- top of the jump; hold Spike in the air to hover, let go to swing, at a target on their court;
+	-- a wider spike range). The names are ours (CLAUDE.md): Squall the skill, Tailwind the rush,
+	-- Downdraft the slow, Eye of the Storm the hover and the aim, Shear the reach.
+	Squall = {
+		Name = "Squall",
+		Tier = "S+",
+		Active = true,
+		Blurb = "Press Q: a squall for 10 s, faster still, and the faster you are the harder you hit. Hold Jump on the ground to rush under the ball, let go to spring up. In the air, hold Spike to hover and charge, steer where it lands, let go to swing.",
+		Color = Color3.fromRGB(70, 232, 200),
+		Duration = 10,
+		Cooldown = 22,
+		SpeedBoost = 0.15, -- Speed x (1 + this) while it's on
+		AttackPerSpeed = 0.12, -- and Attack + this x her Speed (the boosted one)
+		-- Tailwind: Jump (or Spike) held on the ground in a rally rushes her to the spot under where
+		-- the ball comes down through her hitting point (nowhere to go: she runs the way you hold, as
+		-- fast); let go and she springs straight up to the top of her jump, quicker than anyone
+		RushSpeed = 2.4, -- her run x this while rushing
+		RushTapTime = 0.12, -- let go sooner and it's the usual jump
+		RushRise = 1.5, -- the jump off a rush rises this much faster (to the same top)
+		RushRootSlack = 2.5, -- the server's check on where she is allows this much more while rushing
+		-- Downdraft: just after her Tailwind jump, the other team runs slower
+		SlowMul = 0.7,
+		SlowTime = 1.2,
+		-- Eye of the Storm: lighter in the air (part of gravity off on the way down); Spike held in
+		-- the air (once a jump) hovers her, all but weightless, and charges the spike; the stick moves
+		-- a target on their court instead of her, and letting go swings at it
+		FallCancel = 0.35,
+		HoverCancel = 0.985,
+		HoverMax = 1.0, -- a hover this long swings by itself
+		ChargeTime = 0.7, -- seconds of hovering for the whole charge
+		HoverBoost = 0.25, -- spike speed x (1 + this x the charge)
+		HoverSlack = 0.15, -- charge a spike may claim over the hover the server saw (network jitter)
+		AimSpeed = 32, -- how fast the target moves with the stick (studs/s)
+		AimError = 0.5, -- an aimed spike strays this share of the usual error
+		ReachMul = 1.2, -- Shear: her spike reaches this much wider
+		AutoGale = 0.4, -- the AI doesn't hover: its spikes get this much of the charge's power
+		Passives = {
+			{ Name = "Tailwind", Blurb = "Hold Jump on the ground to rush to where the ball comes down; let go to spring straight up, quicker than anyone." },
+			{ Name = "Downdraft", Blurb = "Just after a Tailwind jump, the other team runs 30% slower for a moment." },
+			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge (up to +25%); steer the target on their court, let go to spike there." },
+			{ Name = "Shear", Blurb = "Your spike reaches 20% wider than anyone's." },
+		},
+	},
 	Adrenaline = {
 		Name = "Adrenaline",
 		Tier = "S",
@@ -1184,7 +1234,7 @@ Config.Retired = {
 	TicketTier = "S",
 }
 
-Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Corona", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Corona", "Squall", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },
@@ -1509,6 +1559,7 @@ Config.Bots = {
 	TurnaboutChance = { 0.3, 0.65 }, -- a Turnabout setter arms it off a pass it can jump for
 	RallyCryChance = 0.5, -- a Rally Cry bot pops it at a serve this often once it's ready
 	CoronaChance = 0.3, -- and a Corona bot (Laith) his
+	SquallChance = 0.4, -- and a Squall bot (Haneul) hers
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
 	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it

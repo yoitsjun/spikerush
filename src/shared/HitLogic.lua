@@ -12,6 +12,7 @@
 --   * Azure Dragon: energy gathered in the air multiplies power; overcharging sends it out.
 --   * Feral Leap: the gauge charged on the ground before the leap multiplies power; a full one
 --     leaping at the net smashes through a block with less Attack.
+--   * Squall (Haneul): Eye of the Storm's hover charges the spike and aims it (input.gale, input.aim).
 --   * Corona (Laith): Sundive, dropping onto the ball from above, multiplies power; Zenith bursts some
 --     spikes (the seeded rng picks them, so the hitter's client agrees).
 -- Receives drain the receiving team's stamina (a guard meter) depending on ball speed and the
@@ -42,6 +43,7 @@ local COUNTER = Config.Abilities.Counter
 local ZERO = Config.Abilities.ZeroPoint
 local SKY = Config.Abilities.Skyward
 local CORONA = Config.Abilities.Corona
+local SQUALL = Config.Abilities.Squall
 
 local ACTION_CODE = { Bump = 1, Set = 2, Spike = 3, Feint = 4, Block = 5, Toss = 6, Serve = 7, Underhand = 8 }
 local SERVES = { JumpServe = true, Overhand = true, Underhand = true }
@@ -123,6 +125,8 @@ function HitLogic.spikeReach(ability, gauge)
 		return (gauge or 0) > 0 and FERAL.LeapReachMul or FERAL.ReachMul
 	elseif ability == "ZeroPoint" then
 		return Config.Abilities.ZeroPoint.ReachMul
+	elseif ability == "Squall" then
+		return SQUALL.ReachMul -- Shear
 	end
 	return 1
 end
@@ -526,6 +530,13 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		add.Attack = (add.Attack or 0) + math.floor(SKY.AttackAtMax * (lift - SKY.StartLift) / (SKY.MaxLift - SKY.StartLift) + 0.5)
 		any = true
 	end
+	if ability == "Squall" and extra and extra.squallOn then
+		-- Squall: faster, and Attack with her (boosted) Speed
+		local speed = math.floor(stats.Speed * SQUALL.SpeedBoost + 0.5)
+		add.Speed = (add.Speed or 0) + speed
+		add.Attack = (add.Attack or 0) + math.floor(SQUALL.AttackPerSpeed * (stats.Speed + speed) + 0.5)
+		any = true
+	end
 	if ability == "Feral" and extra and extra.auto then
 		-- the AI playing him (a bot, or a stand-in for an idle player) hits with less
 		add.Attack = (add.Attack or 0) - math.floor(stats.Attack * (1 - FERAL.AutoAttackMul) + 0.5)
@@ -761,6 +772,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if zenith then
 		kmh = kmh * (1 + CORONA.ZenithPower)
 	end
+	-- Squall: Eye of the Storm's hover charges the spike (input.gale, 0..1; the AI gets a share)
+	local gale = 0
+	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Squall" then
+		gale = ctx.auto and SQUALL.AutoGale or clamp(tonumber(input.gale) or 0, 0, 1)
+		kmh = kmh * (1 + SQUALL.HoverBoost * gale)
+	end
 	local meta = meta0(kind, q)
 	meta.height = heightM
 	meta.contact = qContact
@@ -785,6 +802,9 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.dive = math.floor(dive * 100 + 0.5) / 100
 	end
 	meta.zenith = zenith or nil
+	if gale > 0 and not ctx.auto then
+		meta.gale = math.floor(gale * 100 + 0.5) / 100
+	end
 	-- Dragon Surge: a full Azure bar costs the digger more
 	if pierce then
 		meta.tierDrain = meta.tierDrain * AZURE.FullDrainMul
@@ -815,6 +835,13 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local depth = attackDepth(dz, qContact, rng, deepest, shortest)
 	if qContact >= 0.75 then
 		depth = math.min(depth, deepest)
+	end
+	-- Squall: the spike goes where she aimed on their court (input.aim: depth from the net), straying
+	-- less than usual and more with a poor contact
+	local aim = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Squall" and tonumber(input.aim) or nil
+	if aim then
+		depth = clamp(aim, shortest, deepest) + jitter(rng, (1 - qContact) ^ 1.5 * H.SpikeError * SQUALL.AimError)
+		meta.aimed = true
 	end
 	if overcharge then
 		depth = C.SideDepth + SPM * (1.25 + rng:NextNumber() * 2.5)
@@ -916,7 +943,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		hold = ZERO.Freeze -- the freeze-frame cut-in
 	elseif meta.firstStrike then
 		hold = FERAL.FirstFreeze
-	elseif thunder or pierce or fullLeap or zenith or dive >= 0.7 then
+	elseif thunder or pierce or fullLeap or zenith or dive >= 0.7 or gale >= 0.95 then
 		hold = H.HitStopThunder
 	elseif q >= H.PerfectAt then
 		hold = H.HitStopPerfect

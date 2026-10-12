@@ -360,6 +360,69 @@ do
 	check(HitLogic.tossReach("Corona") == Config.Abilities.Feral.TossReachMul and HitLogic.tossReach("Corona") > 1, "Laith's serve toss goes much further forward, like Dante's")
 end
 
+print("== Squall (Haneul) ==")
+do
+	local SQ = Config.Abilities.Squall
+	local haneul = Characters.derive(Characters.fromRoster(Roster.get("haneul"), "max"))
+	-- the owner: "she is easily the fastest character, and lucas should be second"
+	local speeds = {}
+	for _, c in ipairs(Roster) do
+		table.insert(speeds, { id = c.Id, speed = c.Speed })
+	end
+	table.sort(speeds, function(a, b) return a.speed > b.speed end)
+	local walkTop = Characters.derive(Characters.fromRoster(Roster.get(speeds[3].id), "max")).WalkSpeed
+	check(speeds[1].id == "haneul" and speeds[2].id == "laith" and speeds[1].speed - speeds[2].speed >= 30 and haneul.WalkSpeed > walkTop + 2,
+		"Haneul is easily the fastest, Laith second",
+		string.format("Speed %d, %d, then %d; runs %.1f against %.1f", speeds[1].speed, speeds[2].speed, speeds[3].speed, haneul.WalkSpeed, walkTop))
+	-- Squall: faster still, and Attack with her Speed
+	local on = HitLogic.effectiveStats(haneul, "Squall", nil, { squallOn = true })
+	local off = HitLogic.effectiveStats(haneul, "Squall", nil, {})
+	check(off == haneul and on.Speed == math.min(Config.Stats.Max, haneul.Speed + math.floor(haneul.Speed * SQ.SpeedBoost + 0.5)) and on.Attack > haneul.Attack + 25 and on.WalkSpeed > haneul.WalkSpeed,
+		"Squall: faster, and the faster she is the more Attack", string.format("SPD %d -> %d, ATK %d -> %d, run %.1f -> %.1f", haneul.Speed, on.Speed, haneul.Attack, on.Attack, haneul.WalkSpeed, on.WalkSpeed))
+	-- Shear: a ball just past anyone else's reach is in hers
+	local root = apexRoot(haneul, 3.5 * K)
+	local wide = ballAt(root, Z.SpikeCenterDz + Z.SpikeRadiusZ * (haneul.Reach or 1) * 1.1, Z.SpikeCenterDy)
+	check(HitLogic.spikeReach("Squall") == SQ.ReachMul and HitLogic.spikeZone(root, wide, side, haneul, HitLogic.spikeReach("Squall")) and not HitLogic.spikeZone(root, wide, side, haneul, 1),
+		"Shear: her spike reaches wider than anyone's")
+	-- Eye of the Storm: the hover's charge powers the spike; the AI gets a share
+	local function haneulSpike(input, extra)
+		local c = { ability = "Squall", stats = haneul, seq = 9 }
+		for k, v in pairs(extra or {}) do c[k] = v end
+		return spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), c, input)
+	end
+	local _, plain = haneulSpike({})
+	local _, half = haneulSpike({ gale = 0.5 })
+	local _, full = haneulSpike({ gale = 1 })
+	local _, auto = haneulSpike({}, { auto = true })
+	check(math.abs(full.meta.kmh / plain.meta.kmh - (1 + SQ.HoverBoost)) < 0.01 and half.meta.kmh > plain.meta.kmh and full.meta.gale == 1 and auto.meta.kmh > plain.meta.kmh and not auto.meta.gale,
+		"Eye of the Storm: a full hover hits 25% harder",
+		string.format("%.0f plain, %.0f half, %.0f full, AI %.0f km/h", plain.meta.kmh, half.meta.kmh, full.meta.kmh, auto.meta.kmh))
+	-- the aim: short or deep where she steers it, in the court, an aim past the end line kept in
+	local shortest, deepest = H.SpikeShortDepth, C.SideDepth - H.SpikeDeepMargin
+	local lands = {}
+	for i, aim in ipairs({ shortest + 1, (shortest + deepest) / 2, deepest - 1, C.SideDepth + 20 }) do
+		local ok, res = haneulSpike({ aim = aim, gale = 1 })
+		local path = ok and BallPhysics.buildPath(res.launch)
+		lands[i] = path and { depth = oppDepth(path), inn = Court.inBounds(path.landing.pos) and not path.flags.netTouch, aimed = res.meta.aimed } or { depth = 0 }
+	end
+	check(lands[1].inn and lands[2].inn and lands[3].inn and lands[4].inn and lands[1].aimed and math.abs(lands[1].depth - (shortest + 1)) < 2 and math.abs(lands[3].depth - (deepest - 1)) < 2
+		and lands[1].depth < lands[2].depth and lands[2].depth < lands[3].depth and lands[4].depth <= C.SideDepth,
+		"Eye of the Storm: the spike lands where she aimed, short or deep, and never past the end line",
+		string.format("aimed short %.1f, middle %.1f, deep %.1f, past the line %.1f (court %.1f deep)", lands[1].depth, lands[2].depth, lands[3].depth, lands[4].depth, C.SideDepth))
+	-- the same seed and aim land the same on the hitter's client and the server
+	local _, a = haneulSpike({ aim = 20, gale = 0.6 })
+	local _, b = haneulSpike({ aim = 20, gale = 0.6 })
+	check(oppDepth(BallPhysics.buildPath(a.launch)) == oppDepth(BallPhysics.buildPath(b.launch)) and a.meta.kmh == b.meta.kmh, "an aimed spike is the same on the client and the server")
+	-- Tailwind's spring rises faster to the same top: launched RushRise times faster under RushRise^2
+	-- the gravity (MovementController.rushJump / airCancel)
+	local g, h = Config.Player.Gravity, 10
+	local v0 = math.sqrt(2 * g * h * SQ.RushRise ^ 2)
+	local gUp = g * SQ.RushRise ^ 2
+	check(math.abs(v0 * v0 / (2 * gUp) - h) < 1e-6 and SQ.RushRise > 1 and SQ.FallCancel > 0 and SQ.HoverCancel < 1 and SQ.SlowMul < 1,
+		"Tailwind's spring reaches the same top, quicker; she falls lighter; Downdraft slows",
+		string.format("up in %.2f s instead of %.2f", v0 / gUp, math.sqrt(2 * g * h) / g))
+end
+
 print("== Feral Leap (Dante) ==")
 do
 	local FERAL = Config.Abilities.Feral
@@ -552,7 +615,7 @@ do
 			okLimits = okLimits and c[k] >= Config.Stats.Min and c[k] <= Config.Stats.Max
 		end
 		if c.Tier == "S+" then
-			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint" or c.Ability == "Corona")
+			okAbility = okAbility and c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint" or c.Ability == "Corona" or c.Ability == "Squall")
 		elseif c.Tier == "S" then
 			okAbility = okAbility and want[c.Role][c.Ability or ""] == true and Config.Abilities[c.Ability].Role == c.Role
 		else
@@ -573,7 +636,7 @@ do
 		end
 	end
 	check(okLimits and #Roster >= 30, "every roster character is valid and unique", #Roster .. " characters")
-	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap, Zero Point or Corona, S characters one of their role's abilities, the rest none")
+	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap, Zero Point, Corona or Squall, S characters one of their role's abilities, the rest none")
 	local topId, topAtk, nextAtk = nil, 0, 0
 	for _, c in ipairs(Roster) do
 		if c.Attack > topAtk then

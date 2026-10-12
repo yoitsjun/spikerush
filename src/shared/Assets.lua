@@ -281,6 +281,7 @@ Assets.Images = {
 	AbilityZeroPoint = "12614416478", -- stand-in: Vector Set's crosshair (precision)
 	AbilitySkyward = "13751812696", -- stand-in: IconJump's leap
 	AbilityCorona = "82174181192946", -- stand-in: Rising Sun's sun (a Creator Store solar flare icon goes here)
+	AbilitySquall = "232203094", -- stand-in: Turnabout's circling arrows (a Creator Store wind or tornado icon goes here)
 	-- menu icons: one filled white glyph style (Toolbox decals)
 	IconHome = "13300916613", -- decal 13300916690 (Fluent "home")
 	IconSettings = "13300915301", -- decal 13300915335 (Fluent "settings")

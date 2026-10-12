@@ -23,8 +23,8 @@ local reg
 
 local VALID = { Bump = true, Set = true, Spike = true, Feint = true, Block = true, Toss = true, Serve = true, Underhand = true }
 local SET_TYPES = { Open = true, Quick = true, Back = true }
-local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true, Approach = true, Prowl = true, Leap = true, ProwlEnd = true, Dive = true }
-local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true, Approach = true, Prowl = true, Leap = true, Dive = true }
+local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true, Approach = true, Prowl = true, Leap = true, ProwlEnd = true, Dive = true, Rush = true, RushEnd = true, RushJump = true, Hover = true, HoverEnd = true }
+local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true, Approach = true, Prowl = true, Leap = true, Dive = true, Rush = true, RushJump = true, Hover = true }
 local FERAL = Config.Abilities.Feral
 -- A player's attacks and empty swings off the floor count until their root is back down (the
 -- Heartbeat in init): Thunder Spiker's second one in a jump hits harder. Swings aren't limited.
@@ -44,6 +44,13 @@ local leapCap = {} -- entityId -> { gauge, at }
 local diveAt = {} -- entityId -> os.clock()
 local diveFrom = {} -- entityId -> root height when the dive started
 local DIVE_LIFE = 1.5
+-- Squall: when the server heard a player rush (Tailwind: her position lags more), start a hover,
+-- and the most charge that hover gave once it ended (Eye of the Storm: a spike claims no more)
+local SQUALL = Config.Abilities.Squall
+local rushAt = {} -- entityId -> os.clock()
+local hoverAt = {} -- entityId -> os.clock()
+local hoverCap = {} -- entityId -> { gale, at }
+local RUSH_LIFE, HOVER_LIFE = 2, 1.5
 
 -- Seconds since this player last tried to play the ball (a receive stance, slide, jump, block,
 -- charge or any touch request). Bots covering a human's ball hold off while this is small.
@@ -167,6 +174,8 @@ function HitService.process(entity, input, opts)
 		local slack = 1
 		if entity.ability == "Corona" and diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE then
 			slack = Config.Abilities.Corona.DiveRootSlack
+		elseif entity.ability == "Squall" and rushAt[entity.id] and os.clock() - rushAt[entity.id] <= RUSH_LIFE then
+			slack = SQUALL.RushRootSlack -- (Tailwind: she rushes too fast for the server's copy of her)
 		end
 		if (root.Position - input.root).Magnitude > Config.Net.RootTolerance * slack then
 			return false, "rootpos"
@@ -227,6 +236,7 @@ function HitService.process(entity, input, opts)
 		chain = TS.chain[team] or 0,
 		coronaOn = entity.ability == "Corona" and armed or nil,
 		coronaStacks = entity.ability == "Corona" and (entity.coronaStacks or 0) or nil,
+		squallOn = entity.ability == "Squall" and armed or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
 	}
 	local computed, result = HitLogic.compute(input, ctx)
@@ -384,9 +394,29 @@ function HitService.onRequest(plr, req)
 		local fell = (diveFrom[entity.id] or 0) - (Util.isFiniteVector(req.root) and req.root.Y or 0)
 		sundive = math.min(num(req.sundive, 0, Config.Abilities.Corona.DiveMaxDist, 0), math.max(0, fell + 3))
 	end
+	-- Squall: a hover's charge and aim need a hover the server heard, and no more charge than it
+	-- lasted (Eye of the Storm)
+	local gale, aim = nil, nil
+	if entity.ability == "Squall" and (req.action == "Spike" or req.action == "Serve") then
+		local now = os.clock()
+		local cap = hoverCap[entity.id]
+		local most = nil
+		if cap and now - cap.at <= HOVER_LIFE then
+			most = cap.gale
+		elseif hoverAt[entity.id] and now - hoverAt[entity.id] <= SQUALL.HoverMax + HOVER_LIFE then
+			most = math.clamp((now - hoverAt[entity.id]) / SQUALL.ChargeTime + SQUALL.HoverSlack, 0, 1)
+		end
+		if most then
+			gale = math.min(num(req.gale, 0, 1, 0), most)
+			aim = num(req.aim, 0, Config.Court.SideDepth, nil)
+		end
+		hoverCap[entity.id], hoverAt[entity.id] = nil, nil
+	end
 	local H = Config.Hits
 	local input = {
 		second = second or nil,
+		gale = gale,
+		aim = aim,
 		action = req.action,
 		t = req.t,
 		root = req.root,
@@ -479,6 +509,8 @@ function HitService.activateAbility(entity)
 	elseif entity.ability == "Corona" then
 		-- the flare, and one more use for the penalty once it's off
 		reg.TeamService.setCorona(entity, entity.abilityUntil, math.min(def.MaxStacks, (entity.coronaStacks or 0) + 1))
+	elseif entity.ability == "Squall" then
+		reg.TeamService.boostWindow(entity, entity.abilityUntil) -- faster, and Attack with it
 	end
 	HitService.fx(entity.id, "Ability", entity.ability, entity.player) -- the player already shows it
 	return true
@@ -561,6 +593,29 @@ function HitService.init(r)
 			local root = reg.TeamService.getRoot(e)
 			diveFrom[e.id] = root and root.Position.Y or 0
 		end
+		if e.ability == "Squall" then
+			local now = os.clock()
+			if kind == "Rush" or kind == "RushJump" then
+				rushAt[e.id] = now
+			end
+			if kind == "RushJump" and reg.MatchService.phase == "Rally" then
+				-- Downdraft: the other team runs slower for a moment
+				local untilT = Util.now() + SQUALL.SlowTime
+				for _, o in ipairs(reg.TeamService.members(Court.other(e.team))) do
+					for _, inst in ipairs({ reg.TeamService.getModel(o) or false, o.player or false }) do
+						if inst then
+							inst:SetAttribute("SlowUntil", untilT)
+						end
+					end
+				end
+			elseif kind == "Hover" then
+				hoverAt[e.id] = now
+				hoverCap[e.id] = nil
+			elseif kind == "HoverEnd" and hoverAt[e.id] then
+				hoverCap[e.id] = { gale = math.clamp((now - hoverAt[e.id]) / SQUALL.ChargeTime + SQUALL.HoverSlack, 0, 1), at = now }
+				hoverAt[e.id] = nil
+			end
+		end
 		if e.ability == "Feral" then
 			-- Feral Leap: the charge starts, then the leap goes with what was held
 			if kind == "Prowl" then
@@ -586,6 +641,9 @@ function HitService.init(r)
 		leapCap[id] = nil
 		diveAt[id] = nil
 		diveFrom[id] = nil
+		rushAt[id] = nil
+		hoverAt[id] = nil
+		hoverCap[id] = nil
 	end)
 end
 

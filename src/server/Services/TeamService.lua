@@ -265,6 +265,7 @@ function TeamService.boostCtx(e, t)
 		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= (t or Util.now()),
 		coronaOn = e.ability == "Corona" and (e.abilityUntil or -1) >= (t or Util.now()) or nil,
 		coronaStacks = e.ability == "Corona" and (e.coronaStacks or 0) or nil,
+		squallOn = e.ability == "Squall" and (e.abilityUntil or -1) >= (t or Util.now()) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 	}
 end
@@ -318,6 +319,17 @@ function TeamService.setCorona(e, untilT, stacks)
 			inst:SetAttribute("CoronaStacks", stacks)
 		end
 	end
+	refreshBoosts(e.team)
+	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
+		if e.abilityUntil == untilT then
+			refreshBoosts(e.team)
+		end
+	end)
+end
+
+-- An active ability that boosts its own stats (Squall) is on until `untilT`: the stats follow it now
+-- and again when the window ends.
+function TeamService.boostWindow(e, untilT)
 	refreshBoosts(e.team)
 	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
 		if e.abilityUntil == untilT then

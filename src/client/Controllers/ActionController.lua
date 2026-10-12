@@ -6,6 +6,9 @@
 --                  Leap: hold on the ground to charge (he runs faster), let go to leap; the
 --                  charge carries him along the court and powers the spike (or the jump serve:
 --                  the press that tosses keeps charging while held, as does one after the toss).
+--                  Squall: held on the ground (Jump too) it rushes under the ball and letting go
+--                  springs up (Tailwind); held in the air, once a jump, it hovers and charges while
+--                  the stick moves a target on their court, and letting go swings at it.
 --   Receive ...... arms a receive stance; the touch happens automatically when the ball arrives.
 --                  Pressed a little early (not too early) = perfect timing = almost no stamina lost.
 --   Slide/feint .. ground: slide receive (a fraction of the stamina) / air: roll shot over the block.
@@ -42,6 +45,7 @@ local P, Z, H = Config.Player, Config.Zones, Config.Hits
 local AZURE = Config.Abilities.Azure
 local FERAL = Config.Abilities.Feral
 local CORONA = Config.Abilities.Corona
+local SQUALL = Config.Abilities.Squall
 local BUFFER = 0.14 -- how long a set press waits for the ball
 -- A spike pressed in the air commits the swing: if the ball will reach your hand within this
 -- long (your jump and the ball both predicted), the swing waits for it instead of whiffing.
@@ -68,6 +72,13 @@ local charge = { holding = false, energy = 0, gauge = 1, overT = 0 }
 -- spike carries the gauge; spent by that spike or the landing)
 local prowl = nil -- { t0, kind } while Spike (Jump on touch) is held on the ground
 local leap = { gauge = 0, toward = false, at = -10 }
+-- Squall: Tailwind's rush while Jump or Spike is held on the ground, and Eye of the Storm's hover
+-- (once a jump) with the target's depth on their court
+local rush = nil -- { t0, kind }
+local hover = nil -- { t0, kind, aim }
+local hoverUsed = false
+local lastAim = nil
+local isSquall, startRush, endRush, releaseRush, processRush, startHover, endHover, releaseHover, processHover
 
 local REASONS = {
 	count = "Three touches used. Send it over!",
@@ -134,6 +145,7 @@ local function buildCtx(info, action, t)
 		chain = ReplicatedStorage:GetAttribute("Chain_" .. tostring(State.myTeam)) or 0,
 		coronaOn = ability == "Corona" and ActionController.abilityActive() or nil,
 		coronaStacks = ability == "Corona" and (player:GetAttribute("CoronaStacks") or 0) or nil,
+		squallOn = ability == "Squall" and ActionController.abilityActive() or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 	}, ok, why
 end
@@ -334,6 +346,8 @@ local function execute(action, info, opts, t, ballPos)
 		tossForward = opts.tossForward,
 		aimDepth = opts.aimDepth,
 		aimHeight = opts.aimHeight,
+		gale = opts.gale, -- (Squall: the hover's charge, and where she aimed)
+		aim = opts.aim,
 	}
 	if (action == "Spike" or action == "Serve") and ctx.ability == "Feral" and leap.gauge > 0 then
 		input.gauge, input.toward = leap.gauge, leap.toward
@@ -380,6 +394,8 @@ local function execute(action, info, opts, t, ballPos)
 		aimHeight = input.aimHeight,
 		gauge = input.gauge,
 		toward = input.toward,
+		gale = input.gale,
+		aim = input.aim,
 	})
 	lastActionAt = os.clock()
 	buffered = nil
@@ -415,12 +431,7 @@ local function rootPath(info, horizon)
 	local out = {}
 	local t = 0
 	while t < horizon do
-		local cancel = 0
-		if charge.holding and v <= 0 then
-			cancel = AZURE.GravityCancel
-		elseif math.abs(v) < P.HangVelocityWindow then
-			cancel = P.HangGravityCancel
-		end
+		local cancel = mods.MovementController.airCancel(v)
 		v = v - g * (1 - cancel) * step
 		y = y + v * step
 		t = t + step
@@ -763,6 +774,160 @@ local function releaseProwl(info)
 	Net.get("ActionFX"):FireServer("Leap", string.format("%.2f", gauge))
 end
 
+------------------------------------------------------------------------------------------
+-- Squall (Haneul): Tailwind and Eye of the Storm
+------------------------------------------------------------------------------------------
+
+isSquall = function()
+	return State.myAbility() == "Squall"
+end
+
+-- The spot along the court (z) under where the ball comes down through her hitting point on her
+-- side, for Tailwind's rush (nil: nowhere to go yet).
+local function rushTarget(info, now)
+	if not inPlay() then
+		return nil
+	end
+	local path = mods.BallRenderer.getPath()
+	if not path then
+		return nil
+	end
+	local side = State.mySide
+	local contactY = State.myStats().contactMaxStuds - 0.3
+	local t, p = BallPhysics.findTime(path, now, function(pos, vel)
+		return vel.Y < 0 and pos.Y <= contactY
+	end)
+	if not t or p.Z * side < 0.3 then
+		return nil
+	end
+	local depth = (p.Z + side * (Z.SpikeForward + Z.SpikeCenterDz)) * side
+	return math.clamp(depth, 0.6, Config.Court.SideDepth + 2) * side
+end
+
+startRush = function(kind)
+	if not mods.MovementController.canJump() then
+		return false
+	end
+	rush = { t0 = os.clock(), kind = kind }
+	mods.MovementController.setRush(true)
+	mods.AnimationController.pose(State.myId, "Prowl", 10)
+	mods.VFXController.rush(State.myId, true)
+	Net.get("ActionFX"):FireServer("Rush")
+	return true
+end
+
+endRush = function()
+	rush = nil
+	mods.MovementController.setRush(false)
+	mods.AnimationController.clearStance(State.myId)
+	mods.VFXController.rush(State.myId, false)
+	Net.get("ActionFX"):FireServer("RushEnd")
+end
+
+-- Let go: a tap is the usual jump; a hold springs straight up off the rush (and Downdraft).
+releaseRush = function()
+	local r = rush
+	if not r then
+		return
+	end
+	endRush()
+	local MC = mods.MovementController
+	if os.clock() - r.t0 < SQUALL.RushTapTime then
+		if r.kind == "Jump" then
+			MC.jump("Spike")
+		else
+			MC.approach("Spike")
+		end
+		return
+	end
+	if MC.rushJump() then
+		mods.VFXController.rushJump(State.myId)
+		Net.get("ActionFX"):FireServer("RushJump")
+	end
+end
+
+-- The rush follows the ball each frame; it ends if she leaves the floor some other way or the rally
+-- stops.
+processRush = function(info, now)
+	if not rush then
+		return
+	end
+	if not info.grounded or not isSquall() or State.phase() ~= "Rally" then
+		endRush()
+		return
+	end
+	mods.MovementController.rushTo(rushTarget(info, now))
+end
+
+-- Eye of the Storm's target: its depth on their court, from the shortest spike to the deepest.
+local function aimRange()
+	return H.SpikeShortDepth, Config.Court.SideDepth - H.SpikeDeepMargin
+end
+
+startHover = function(kind)
+	if hover or hoverUsed then
+		return false
+	end
+	local lo, hi = aimRange()
+	hover = { t0 = os.clock(), kind = kind, aim = math.clamp(lastAim or (lo + hi) / 2, lo, hi) }
+	hoverUsed = true
+	mods.MovementController.setHover(true)
+	mods.AnimationController.pose(State.myId, "Charge", SQUALL.HoverMax + 0.2)
+	mods.VFXController.hover(State.myId, true)
+	Net.get("ActionFX"):FireServer("Hover")
+	return true
+end
+
+endHover = function()
+	local h = hover
+	hover = nil
+	mods.MovementController.setHover(false)
+	mods.VFXController.hover(State.myId, false)
+	mods.VFXController.aimMarker(nil)
+	Net.get("ActionFX"):FireServer("HoverEnd")
+	return h
+end
+
+-- Let go (or the hover runs out): swing, as charged as the hover was, at the target.
+releaseHover = function(info)
+	local h = endHover()
+	if not h or info.grounded then
+		return
+	end
+	lastAim = h.aim
+	local opts = { gale = math.clamp((os.clock() - h.t0) / SQUALL.ChargeTime, 0, 1), aim = h.aim }
+	if h.kind == "Serve" then
+		if serving() and myToss() then
+			tryAttack("Serve", info, opts)
+		end
+	elseif inPlay() then
+		tryAttack("Spike", info, opts)
+	end
+end
+
+-- While she hovers the stick moves the target along their court (screen right is +z), drawn there
+-- for her; it swings by itself at HoverMax.
+processHover = function(info, dt)
+	if not hover then
+		return
+	end
+	if info.grounded or not isSquall() then
+		endHover()
+		return
+	end
+	local side = State.mySide
+	local lo, hi = aimRange()
+	local axis = mods.MovementController.axis()
+	if math.abs(axis) > 0.15 then
+		hover.aim = math.clamp(hover.aim - side * axis * SQUALL.AimSpeed * dt, lo, hi)
+	end
+	local k = math.clamp((os.clock() - hover.t0) / SQUALL.ChargeTime, 0, 1)
+	mods.VFXController.aimMarker(Vector3.new(info.root.X, 0, -side * hover.aim), k)
+	if os.clock() - hover.t0 >= SQUALL.HoverMax then
+		releaseHover(info)
+	end
+end
+
 local function pressSpike(info)
 	local MC = mods.MovementController
 	if serving() then
@@ -789,6 +954,8 @@ local function pressSpike(info)
 				charge.holding, charge.energy, charge.overT = true, 0, 0
 				MC.setCharging(true)
 				Net.get("ActionFX"):FireServer("Charge")
+			elseif isSquall() and startHover("Serve") then
+				return -- Eye of the Storm on her jump serve too
 			else
 				tryAttack("Serve", info, {})
 			end
@@ -797,8 +964,12 @@ local function pressSpike(info)
 	end
 	if info.grounded then
 		-- a jump whenever you like (the owner: "make it so i can jump whenever"): waiting for the
-		-- serve, between points and out of a match too; Feral Leap charges only in a rally
+		-- serve, between points and out of a match too; Feral Leap charges only in a rally, and
+		-- Squall's Tailwind rushes only in one
 		if State.isPlaying and State.phase() == "Rally" and isFeral() and startProwl("Spike") then
+			return
+		end
+		if State.isPlaying and State.phase() == "Rally" and isSquall() and startRush("Spike") then
 			return
 		end
 		MC.approach("Spike")
@@ -810,6 +981,9 @@ local function pressSpike(info)
 			whiff(info, attackPose("Spike"), nil)
 		end
 		return
+	end
+	if isSquall() and startHover("Spike") then
+		return -- Eye of the Storm: hover and charge, let go to swing
 	end
 	if isAzure() and charge.gauge > 0.05 then
 		charge.holding, charge.energy, charge.overT = true, 0, 0
@@ -828,6 +1002,14 @@ end
 local function releaseSpike(info)
 	if prowl then
 		releaseProwl(info)
+		return
+	end
+	if rush then
+		releaseRush()
+		return
+	end
+	if hover then
+		releaseHover(info)
 		return
 	end
 	if not charge.holding then
@@ -1089,8 +1271,11 @@ local function pressJump(info)
 		end
 		return
 	end
-	-- straight up whenever you like; Feral Leap charges only in a rally
+	-- straight up whenever you like; Feral Leap charges only in a rally, Squall's Tailwind too
 	if State.isPlaying and State.phase() == "Rally" and isFeral() and startProwl("Jump") then
+		return
+	end
+	if State.isPlaying and State.phase() == "Rally" and isSquall() and startRush("Jump") then
 		return
 	end
 	mods.MovementController.jump("Spike")
@@ -1146,7 +1331,13 @@ function ActionController.release(action)
 	if action == "Spike" then
 		releaseSpike(info)
 	elseif action == "Jump" then
-		releaseProwl(info)
+		if rush then
+			releaseRush()
+		elseif hover then
+			releaseHover(info) -- (touch: Jump is the spike in the air)
+		else
+			releaseProwl(info)
+		end
 	elseif action == "Block" then
 		releaseBlock(info)
 	elseif action == "Serve" then
@@ -1410,6 +1601,9 @@ local function groundSpikeLabel()
 	if prowl then
 		return "Leap" -- Feral Leap's charge: let go to leap
 	end
+	if rush then
+		return "Spring" -- Squall's Tailwind: let go to spring up
+	end
 	if State.settings.doubleApproach and not mods.MovementController.isRunning() then
 		return "Approach"
 	end
@@ -1463,6 +1657,9 @@ local function evaluate(info, now)
 		ctx.canSet = ok and (HitLogic.setZone(info.root, bp, side, stats))
 	else
 		ctx.spikeLabel = isAzure() and "Charge" or "Spike"
+		if isSquall() then
+			ctx.spikeLabel = hover and "Swing" or (not hoverUsed and "Hover") or "Spike"
+		end
 		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReach(State.myAbility(), leap.gauge)))
 		-- Corona: a Sundive is there to take (the HUD says Dive, and its path is drawn)
 		if State.myAbility() == "Corona" and ok and not ctx.inZone and not mods.MovementController.isDiving() then
@@ -1501,8 +1698,13 @@ function ActionController.init(m)
 		mods.VFXController.divePath(info and info.hrp, dive)
 		if info and info.grounded then
 			airSwings = 0 -- back on the floor: the next jump's swing
+			if not hover then
+				hoverUsed = false
+			end
 		end
 		if info and State.isPlaying then
+			processRush(info, now)
+			processHover(info, dt)
 			processProwl(info)
 			processCharge(info, dt)
 			processBuffer(info, now)
@@ -1515,6 +1717,12 @@ function ActionController.init(m)
 		else
 			if prowl then
 				cancelProwl()
+			end
+			if rush then
+				endRush()
+			end
+			if hover then
+				endHover()
 			end
 			leap.gauge = 0
 			if guideOn then
