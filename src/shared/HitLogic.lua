@@ -12,7 +12,7 @@
 --   * Azure Dragon: energy gathered in the air multiplies power; overcharging sends it out.
 --   * Feral Leap: the gauge charged on the ground before the leap multiplies power; a full one
 --     leaping at the net smashes through a block with less Attack.
---   * Corona (Elio): Sundive, falling fast onto the ball, multiplies power; Zenith bursts some
+--   * Corona (Elio): Sundive, dropping onto the ball from above, multiplies power; Zenith bursts some
 --     spikes (the seeded rng picks them, so the hitter's client agrees).
 -- Receives drain the receiving team's stamina (a guard meter) depending on ball speed and the
 -- receiver's Defense. Low stamina makes receives unreliable; a broken guard can't stop strong
@@ -460,10 +460,9 @@ function HitLogic.divePoint(p0, c, p2, s)
 	return p0 * (u * u) + c * (2 * u * s) + p2 * (s * s)
 end
 
--- Sundive: how much of the dive bonus a spike gets (0..1) from how fast he's falling (vy, studs/s,
--- negative down).
-function HitLogic.diveFraction(vy)
-	return clamp((-(vy or 0) - CORONA.DiveMinFall) / (CORONA.DiveFullFall - CORONA.DiveMinFall), 0, 1)
+-- Sundive: how much of the dive bonus a spike gets (0..1) from how far he dropped onto it (studs).
+function HitLogic.diveFraction(drop)
+	return clamp(((tonumber(drop) or 0) - CORONA.DiveMinDrop) / (CORONA.DiveFullDrop - CORONA.DiveMinDrop), 0, 1)
 end
 
 -- Chain Reaction's step for an explosion: 1 for the first of a rally, then 2, 3 (ctx.chain: how
@@ -708,11 +707,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		qContact = ctx.forceQuality
 	end
 	local qHeight = HitLogic.heightQuality(ball.Y, stats, ctx.groundY)
-	-- Sundive (Corona): the faster he's falling onto it, the harder (the AI gets a share without
-	-- diving); a dive meets the ball under the top of his jump, which doesn't cost him
+	-- Sundive (Corona): the further he dropped onto it (input.sundive, studs), the harder (the AI
+	-- gets a share without diving); a dive meets the ball under the top of his jump, which doesn't
+	-- cost him
 	local dive = 0
 	if kind == "Spike" and ctx.ability == "Corona" then
-		dive = ctx.auto and CORONA.AutoDive or HitLogic.diveFraction(input.vy)
+		dive = ctx.auto and CORONA.AutoDive or HitLogic.diveFraction(input.sundive)
 		if dive > 0 and not ctx.auto then
 			qHeight = math.max(qHeight, CORONA.DiveHeightFloor)
 		end

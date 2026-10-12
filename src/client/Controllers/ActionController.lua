@@ -319,7 +319,8 @@ local function execute(action, info, opts, t, ballPos)
 		action = action,
 		t = t,
 		root = info.root,
-		vy = opts.vy or info.vy, -- (Sundive: the arc's fall)
+		vy = info.vy,
+		sundive = opts.sundive, -- (Corona: how far the dive dropped him)
 		grounded = info.grounded,
 		diving = opts.diving == true,
 		ball = ballPos,
@@ -363,7 +364,8 @@ local function execute(action, info, opts, t, ballPos)
 		action = action,
 		t = t,
 		root = info.root,
-		vy = input.vy,
+		vy = info.vy,
+		sundive = input.sundive,
 		grounded = info.grounded,
 		diving = input.diving,
 		ball = ballPos,
@@ -586,13 +588,13 @@ local function tryAttack(action, info, opts)
 	if action == "Spike" and not swingNow and State.myAbility() == "Corona" and not info.grounded then
 		local target, t, meet = divePlan(info, now)
 		local p0 = info.root
-		local c, endVy = nil, nil
+		local c, drop = nil, nil
 		if target then
-			c, endVy = mods.MovementController.dive(target, t, meet)
+			c, drop = mods.MovementController.dive(target, t, meet)
 		end
 		if c then
-			-- the spike claims the arc's fall at its end (he hangs still there for the swing)
-			opts.vy = endVy
+			-- the spike claims how far the dive dropped him (he hangs still there for the swing)
+			opts.sundive = drop
 			buffered = { action = action, opts = opts, expires = os.clock() + t + Config.Abilities.Corona.DiveHold + 0.05, scale = scale, lastQ = nil }
 			mods.AnimationController.pose(State.myId, "Charge", 1)
 			mods.VFXController.diveStart(State.myId, p0, c, target)

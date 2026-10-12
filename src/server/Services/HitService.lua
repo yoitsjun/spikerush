@@ -39,9 +39,10 @@ local missedAt = {} -- entityId -> os.clock() of the player's last whiffed swing
 -- leap can have ("Leap": the time held, for the one spike off that leap)
 local prowlAt = {} -- entityId -> os.clock()
 local leapCap = {} -- entityId -> { gauge, at }
--- Corona: when the server heard a player start a Sundive; a spike falling fast enough to earn the
--- dive's power only counts if one started just before it
+-- Corona: when the server heard a player start a Sundive, and how high he was then; a spike's
+-- claimed drop only counts if one started just before it, and no further than he really fell
 local diveAt = {} -- entityId -> os.clock()
+local diveFrom = {} -- entityId -> root height when the dive started
 local DIVE_LIFE = 1.5
 
 -- Seconds since this player last tried to play the ball (a receive stance, slide, jump, block,
@@ -376,10 +377,12 @@ function HitService.onRequest(plr, req)
 			return reject("swings")
 		end
 	end
-	-- Corona: a fall fast enough for Sundive's power needs a dive the server heard start
-	local vy = num(req.vy, -200, 200, 0)
-	if entity.ability == "Corona" and req.action == "Spike" and vy < -Config.Abilities.Corona.DiveMinFall and not (diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE) then
-		vy = -Config.Abilities.Corona.DiveMinFall
+	-- Corona: Sundive's drop needs a dive the server heard start, and he can't claim more than he
+	-- fell since (a little slack: the server's copy of him lags)
+	local sundive = 0
+	if entity.ability == "Corona" and req.action == "Spike" and diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE then
+		local fell = (diveFrom[entity.id] or 0) - (Util.isFiniteVector(req.root) and req.root.Y or 0)
+		sundive = math.min(num(req.sundive, 0, Config.Abilities.Corona.DiveMaxDist, 0), math.max(0, fell + 3))
 	end
 	local H = Config.Hits
 	local input = {
@@ -388,7 +391,8 @@ function HitService.onRequest(plr, req)
 		t = req.t,
 		root = req.root,
 		ball = req.ball,
-		vy = vy,
+		vy = num(req.vy, -200, 200, 0),
+		sundive = sundive,
 		grounded = req.grounded == true,
 		diving = req.diving == true,
 		assist = req.assist == true,
@@ -552,7 +556,10 @@ function HitService.init(r)
 			countSwing(e) -- an empty swing in the air is the jump's swing too
 		end
 		if e.ability == "Corona" and kind == "Dive" then
-			diveAt[e.id] = os.clock() -- Sundive: his next spike may claim the dive's fall
+			-- Sundive: his next spike may claim the dive's drop
+			diveAt[e.id] = os.clock()
+			local root = reg.TeamService.getRoot(e)
+			diveFrom[e.id] = root and root.Position.Y or 0
 		end
 		if e.ability == "Feral" then
 			-- Feral Leap: the charge starts, then the leap goes with what was held
@@ -578,6 +585,7 @@ function HitService.init(r)
 		prowlAt[id] = nil
 		leapCap[id] = nil
 		diveAt[id] = nil
+		diveFrom[id] = nil
 	end)
 end
 

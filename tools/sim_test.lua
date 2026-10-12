@@ -280,35 +280,40 @@ do
 		"Corona: every stat up while it's on; after it, 1.5% down for each use (12 at most), none before",
 		string.format("ATK %d on, %d after 3 uses, %d after 12 (base %d)", on.Attack, off3.Attack, off99.Attack, elio.Attack))
 
-	-- Sundive: a spike met falling fast hits harder, up to DiveBoost; a dive met under the top of his
-	-- jump isn't punished for the height; the AI gets AutoDive of it
+	-- Sundive: a spike he dropped onto hits harder the further he dropped, up to DiveBoost; a dive
+	-- met under the top of his jump isn't punished for the height; the AI gets AutoDive of it. The
+	-- owner's video: Lucas's plain spikes about 150 km/h, his full dive 252
 	local root = apexRoot(elio, 3.5 * K)
 	local low = root - vec(0, 2.5, 0) -- a dive meets it lower than his apex
-	local function elioSpike(r, vy, extra)
+	local function elioSpike(r, drop, extra)
 		local c = { ability = "Corona", stats = elio, seq = 7 }
 		for k, v in pairs(extra or {}) do c[k] = v end
-		return spike(r, ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy), c, { vy = vy })
+		return spike(r, ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy), c, { sundive = drop })
 	end
 	local _, plain = elioSpike(root, 0)
-	local _, lowPlain = elioSpike(low, -5)
-	local _, halfDive = elioSpike(low, -(CO.DiveMinFall + CO.DiveFullFall) / 2)
-	local _, fullDive = elioSpike(low, -CO.DiveFullFall - 10)
+	local _, lowPlain = elioSpike(low, 0)
+	local _, halfDive = elioSpike(low, (CO.DiveMinDrop + CO.DiveFullDrop) / 2)
+	local _, fullDive = elioSpike(low, CO.DiveFullDrop + 5)
+	local _, flared = elioSpike(low, CO.DiveFullDrop, { coronaOn = true })
 	local _, auto = elioSpike(root, 0, { auto = true })
-	local zen = (plain.meta.zenith and 1 + CO.ZenithPower or 1)
 	check(not plain.meta.dive and lowPlain.meta.kmh < plain.meta.kmh and halfDive.meta.dive == 0.5 and fullDive.meta.dive == 1
-		and fullDive.meta.kmh > plain.meta.kmh * 1.15 and fullDive.meta.kmh > halfDive.meta.kmh + 10 and auto.meta.kmh > plain.meta.kmh and not auto.meta.dive,
-		"Sundive: the faster he falls onto it, the harder (up to +30%), even met below his apex",
-		string.format("apex %.0f, low %.0f, half dive %.0f, full dive %.0f, AI %.0f km/h", plain.meta.kmh, lowPlain.meta.kmh, halfDive.meta.kmh, fullDive.meta.kmh, auto.meta.kmh))
+		and fullDive.meta.kmh > plain.meta.kmh * 1.3 and fullDive.meta.kmh > halfDive.meta.kmh + 15 and auto.meta.kmh > plain.meta.kmh and not auto.meta.dive
+		and flared.meta.kmh > 200 and flared.meta.kmh < 245,
+		"Sundive: the further he drops onto it, the harder (up to +45%), even met below his apex; with Corona on, past 200",
+		string.format("apex %.0f, low %.0f, half dive %.0f, full dive %.0f (with Corona %.0f), AI %.0f km/h", plain.meta.kmh, lowPlain.meta.kmh, halfDive.meta.kmh, fullDive.meta.kmh, flared.meta.kmh, auto.meta.kmh))
 	local path = BallPhysics.buildPath(fullDive.launch)
 	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "a full Sundive spike lands in", describe(path))
-	-- the arc (the owner's "long path"): it bows up, ends on the ball, and a long one travelled at
-	-- DiveSpeedMax falls fast enough at its end for the whole bonus
-	local d0, d2 = vec(0, 24, side * 22), vec(0, 13, side * 9)
+	-- the path (the owner's video): from a Sun Leap's top behind the end line to the ball by the net
+	-- is within reach, all but straight, in about a tenth of a second, and a drop that long earns
+	-- the whole bonus
+	local d0, d2 = vec(0, 30, side * (C.SideDepth + 2)), vec(0, 14, side * 3)
 	local dc = HitLogic.diveControl(d0, d2)
 	local dT = (d2 - d0).Magnitude * 1.15 / CO.DiveSpeedMax
-	local endVy = 2 * (d2.Y - dc.Y) / dT
-	check(dc.Y >= d0.Y and HitLogic.divePoint(d0, dc, d2, 0.5).Y > (d0.Y + d2.Y) / 2 and (HitLogic.divePoint(d0, dc, d2, 1) - d2).Magnitude < 0.001 and HitLogic.diveFraction(endVy) == 1 and dT < 0.12,
-		"Sundive's arc bows up and sweeps down onto the ball, near a teleport, falling fast enough for the whole bonus", string.format("%.2f s, falling %.0f studs/s at the end", dT, -endVy))
+	local bow = HitLogic.divePoint(d0, dc, d2, 0.5).Y - (d0.Y + d2.Y) / 2
+	check((d2 - d0).Magnitude <= CO.DiveMaxDist and bow > 0 and bow < 0.1 * (d2 - d0).Magnitude and (HitLogic.divePoint(d0, dc, d2, 1) - d2).Magnitude < 0.001 and HitLogic.diveFraction(d0.Y - d2.Y) == 1 and dT < 0.15,
+		"Sundive reaches from a leap behind the end line to the net, all but straight, in a blink, for the whole bonus", string.format("%.1f studs in %.2f s", (d2 - d0).Magnitude, dT))
+	-- Sun Leap: with Corona on his spike jumps go far higher
+	check(CO.LeapMul >= 1.5, "Sun Leap: Corona's jump goes far higher", string.format("x%.1f", CO.LeapMul))
 
 	-- Zenith: about ZenithChance of his spikes (by the ball's seed, so client and server agree),
 	-- +13% and heavier topspin; nobody else's spikes change

@@ -920,7 +920,7 @@ Config.Abilities = {
 		Name = "Corona",
 		Tier = "S+",
 		Active = true,
-		Blurb = "Press Q: every stat flares up 15% for 10 s. After each use your stats sit 1.5% lower while it's off (up to 12 uses); a timeout clears that. In the air, Spike with the ball below you to dive onto it: the faster the dive, the harder the spike.",
+		Blurb = "Press Q: every stat flares up 15% for 10 s and your jump becomes a Sun Leap, far higher. After each use your stats sit 1.5% lower while it's off (up to 12 uses); a timeout clears that. In the air, Spike with the ball below you to dive onto it: the further you drop, the harder the spike.",
 		Color = Color3.fromRGB(255, 178, 46),
 		Duration = 10,
 		Cooldown = 20,
@@ -930,20 +930,22 @@ Config.Abilities = {
 		-- Sundive
 		-- (the owner, watching it: "he should be way way faster", "a long path like this" with a
 		-- picture of a long white swoop from high up onto the ball, "he should practically be
-		-- teleporting with how fast it is"): the path is an arc that rises a little and sweeps down
-		-- onto the ball (HitLogic.diveControl), travelled almost at once; he hangs where he meets it
-		-- for the swing
+		-- teleporting with how fast it is"; then a video of Lucas: from behind the end line he leaps
+		-- far higher than anyone, hangs with a thin aim line to the ball, and in about 0.1 s he's at
+		-- the ball by the net, an orange ribbon behind him and a sun bursting at 252 km/h, about 1.7
+		-- times his plain spike). The path is all but straight (HitLogic.diveControl), travelled
+		-- almost at once; he hangs where he meets it for the swing. Its power is how far he drops.
 		DiveWindow = 0.9, -- the ball has to be reachable within this long (seconds)
 		DiveMinDrop = 0.6, -- and his hand at least this far above where he'll meet it (studs)
-		DiveMaxDist = 9 * M, -- the longest path (studs, start to end)
-		DiveArc = 0.3, -- how far the arc bows up, as a share of its length
+		DiveMaxDist = 12 * M, -- the longest path (studs, start to end): the back row to the net
+		DiveArc = 0.06, -- how far the path bows up, as a share of its length
 		DiveSpeedMax = 400, -- the fastest he travels along it (studs/s): practically a teleport
 		DiveHold = 0.15, -- he hangs at the meeting point this long for the swing
-		DiveMinFall = 25, -- the arc's fall at its end slower than this: no dive bonus (studs/s)
-		DiveFullFall = 150, -- this fast or more: the whole bonus
+		DiveFullDrop = 10, -- a drop this far (studs) or more earns the whole bonus
 		DiveRootSlack = 4, -- the server's check on where he is allows this much more after a dive
-		DiveBoost = 0.3, -- spike speed x (1 + this x how fast he fell)
-		DiveHeightFloor = 0.75, -- a dive spike counts as met this close to the top of his jump at least
+		LeapMul = 1.9, -- Sun Leap: while Corona is on, his spike jumps go this much higher
+		DiveBoost = 0.45, -- spike speed x (1 + this x how far he dropped)
+		DiveHeightFloor = 0.85, -- a dive spike counts as met this close to the top of his jump at least
 		AutoDive = 0.3, -- the AI doesn't dive: its spikes get this much of the dive bonus
 		-- Zenith: some spikes burst (decided by the ball's seed, so the hitter's client agrees)
 		ZenithChance = 0.22,
@@ -951,7 +953,8 @@ Config.Abilities = {
 		ZenithSpin = 1.3, -- heavier topspin: gravity on the spike x this (it dips harder)
 		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front (Dante's)
 		Passives = {
-			{ Name = "Sundive", Blurb = "In the air, Spike with the ball below your reach: you dive along a path onto it, and the faster you're falling when you hit it, the harder it goes (up to +30%)." },
+			{ Name = "Sundive", Blurb = "In the air, Spike with the ball below your reach (up to 12 m away): you streak down a path onto it, and the further you drop, the harder it goes (up to +45%)." },
+			{ Name = "Sun Leap", Blurb = "While Corona is on, your jump goes far higher, so you can dive from above everything." },
 			{ Name = "Zenith", Blurb = "About one spike in five bursts into a Zenith: +13% power and heavy topspin." },
 			{ Name = "Long Toss", Blurb = "Your forward serve toss goes much further, like Dante's." },
 		},

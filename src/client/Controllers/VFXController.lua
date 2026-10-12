@@ -1950,7 +1950,7 @@ local function diveParts()
 	path.FaceCamera = true
 	path.LightEmission = 1
 	path.Segments = 24
-	path.Width0, path.Width1 = 0.5, 1.4
+	path.Width0, path.Width1 = 0.18, 0.35
 	path.Color = ColorSequence.new(Color3.fromRGB(255, 255, 235), col)
 	path.Parent = holder
 	local across = Instance.new("Beam")
@@ -2002,12 +2002,103 @@ function VFXController.divePath(hrp, d)
 	curveBeam(p.path, p.a0, p.a1, p0, d.c or HitLogic.diveControl(p0, d.target), d.target)
 	p.a2.WorldPosition = Vector3.new(meet.X, meet.Y, meet.Z - 16)
 	p.a3.WorldPosition = Vector3.new(meet.X, meet.Y, meet.Z + 16)
-	local k = d.live and 0 or 0.25 + 0.2 * pulse
-	p.path.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55 + k * 0.5), NumberSequenceKeypoint.new(1, k) })
+	local k = d.live and 0 or 0.1 + 0.25 * pulse
+	p.path.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3 + k * 0.5), NumberSequenceKeypoint.new(1, k) })
 	p.path.Enabled, p.across.Enabled = true, true
 	p.sun.Position = meet
 	p.sun.Size = Vector3.new(1, 1, 1) * (d.live and 1.6 or 1.1 + 0.3 * pulse)
 	p.sun.Transparency = d.live and 0.05 or 0.25
+end
+
+-- A sun on a billboard: a soft glow and a lens flare, `studs` across (the Corona orb, the blast).
+local function sunGui(parent, studs, adornee)
+	local g = Instance.new("BillboardGui")
+	g.Size = UDim2.fromScale(studs, studs)
+	g.LightInfluence = 0
+	g.AlwaysOnTop = false
+	g.Adornee = adornee
+	local glow = Instance.new("ImageLabel")
+	glow.BackgroundTransparency = 1
+	glow.Size = UDim2.fromScale(1, 1)
+	glow.Image = Assets.id(Assets.Fx.Glow) or ""
+	glow.ImageColor3 = Color3.fromRGB(255, 196, 60)
+	glow.Parent = g
+	local flare = Instance.new("ImageLabel")
+	flare.BackgroundTransparency = 1
+	flare.AnchorPoint = Vector2.new(0.5, 0.5)
+	flare.Position = UDim2.fromScale(0.5, 0.5)
+	flare.Size = UDim2.fromScale(0.8, 0.8)
+	flare.Image = Assets.id(Assets.Fx.Flare) or ""
+	flare.ImageColor3 = Color3.fromRGB(255, 240, 190)
+	flare.Parent = g
+	g.Parent = parent
+	return g, glow, flare
+end
+
+-- Sundive's hit from high up: the sun bursts (the video's 252 km/h blast), as big as the drop.
+function VFXController.sunBlast(pos, k)
+	local holder = Instance.new("Part")
+	holder.Anchored, holder.CanCollide, holder.CanQuery, holder.CanTouch = true, false, false, false
+	holder.Transparency = 1
+	holder.Size = Vector3.new(0.2, 0.2, 0.2)
+	holder.CFrame = CFrame.new(pos)
+	holder.Parent = fxFolder
+	local size = 18 + 30 * k
+	local g, glow, flare = sunGui(holder, size, holder)
+	g.Size = UDim2.fromScale(size * 0.3, size * 0.3)
+	local t0 = os.clock()
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local e = (os.clock() - t0) / 0.75
+		if e >= 1 then
+			conn:Disconnect()
+			holder:Destroy()
+			return
+		end
+		local grow = 0.3 + 0.7 * math.min(1, e * 4)
+		g.Size = UDim2.fromScale(size * grow, size * grow)
+		glow.ImageTransparency = e < 0.35 and 0 or (e - 0.35) / 0.65
+		flare.ImageTransparency = math.min(1, e * 1.3)
+		flare.Rotation = e * 120
+	end)
+	Fx.play("Burst", pos, { color = Color3.fromRGB(255, 220, 120), scale = 2 + 2 * k })
+	Fx.play("Fire", pos, { color = Color3.fromRGB(255, 150, 40), scale = 1.5 + k })
+	VFXController.flash(0.4 + 0.3 * k, 0.45)
+	if mods and mods.CameraController then
+		mods.CameraController.shake(0.6 + 0.5 * k)
+		mods.CameraController.kick(-8 - 4 * k)
+	end
+	if mods and mods.AudioController and mods.AudioController.hearsMatch() then
+		mods.AudioController.play("Boom", { pos = pos, volume = 1, minGap = 0.05 })
+	end
+end
+
+-- Corona's orb: while his flare is on he glows inside a small sun (the video's Lucas).
+local sunOrbs = {} -- model -> billboard
+local function updateSunOrbs(clock)
+	for _, team in ipairs(Config.TeamOrder) do
+		for _, e in ipairs(State.roster(team)) do
+			local model = Util.modelOf(e.id)
+			local hrp = model and model:FindFirstChild("HumanoidRootPart")
+			local on = hrp ~= nil and model:GetAttribute("Ability") == "Corona" and (model:GetAttribute("AbilityUntil") or -1) >= clock
+			if on and not sunOrbs[model] then
+				local g, _, flare = sunGui(hrp, 9, hrp)
+				g.Name = "CoronaOrb"
+				sunOrbs[model] = { gui = g, flare = flare }
+			end
+		end
+	end
+	for model, o in pairs(sunOrbs) do
+		local on = model.Parent and model:GetAttribute("Ability") == "Corona" and (model:GetAttribute("AbilityUntil") or -1) >= clock
+		if not on or not o.gui.Parent then
+			o.gui:Destroy()
+			sunOrbs[model] = nil
+		else
+			o.flare.Rotation = (os.clock() * 40) % 360
+			local s = 9 + 0.6 * math.sin(os.clock() * 6)
+			o.gui.Size = UDim2.fromScale(s, s)
+		end
+	end
 end
 
 -- Sundive: Elio leaves the top of his path and sweeps down it onto the ball, leaving a wide white
@@ -2044,8 +2135,8 @@ function VFXController.diveStart(entityId, p0, c, p2)
 			curveBeam(b, a0, a1, pos, c, p2)
 			return b
 		end
-		local glow = ribbon(3.4, 5.2, col, 1)
-		local core = ribbon(1.8, 3.2, Color3.fromRGB(255, 255, 250), 0.6)
+		local glow = ribbon(2.6, 5.6, Color3.fromRGB(255, 120, 40), 1)
+		local core = ribbon(1.2, 3.0, Color3.fromRGB(255, 200, 140), 0.7)
 		local t0 = os.clock()
 		local conn
 		conn = RunService.RenderStepped:Connect(function()
@@ -2087,6 +2178,7 @@ local function updateAbilityFx(dt)
 		end
 	end
 	updateSunTrails(Util.now())
+	updateSunOrbs(Util.now())
 	-- boost auras: Adrenaline (red), the Sunrise level (orange, hotter each level), the team's
 	-- Rally Cry (gold), an armed Turnabout (mint), a charged Counter meter (steel) and Corona's
 	-- flare (white-gold)
@@ -2882,6 +2974,9 @@ local function onHit(snap)
 					VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Sundive +%d%%", math.floor(Config.Abilities.Corona.DiveBoost * d * 100 + 0.5)), col, 0.9 + 0.4 * d)
 					shaker.kick(-4 - 4 * d)
 				end
+			end
+			if meta.dive and meta.dive >= 0.5 then
+				VFXController.sunBlast(pos, meta.dive)
 			end
 			if meta.zenith then
 				Fx.play("Burst", pos, { color = Color3.fromRGB(255, 250, 220), scale = 1.5 })

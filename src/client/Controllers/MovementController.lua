@@ -45,7 +45,6 @@ local leaping = nil -- { dir, carry, t0 } from a Feral Leap's takeoff until he l
 -- Corona's Sundive: { p0, c, target, meet, t0, T, endVy } (os.clock), an arc onto the ball
 -- travelled in T with gravity off; he hangs at its end for DiveHold, then falls again
 local diving = nil
-local lastDive = nil -- the last dive's fall at the end of its arc, and when it ended
 local CORONA = Config.Abilities.Corona
 -- A jump asked for from an input event. The default control script rewrites Humanoid.Jump every
 -- render step (from its own keys), so a jump set straight from an input handler is wiped before
@@ -84,6 +83,15 @@ end
 
 local function baseJump()
 	return (char and char:GetAttribute("BaseJumpHeight")) or (hum and hum.JumpHeight) or 6
+end
+
+-- A spike or serve jump's height: Corona's Sun Leap goes far higher while it's on.
+local function spikeJump()
+	local h = baseJump()
+	if State.myAbility() == "Corona" and mods and mods.ActionController.abilityActive() then
+		h = h * Config.Abilities.Corona.LeapMul
+	end
+	return h
 end
 
 local function onCharacter(c)
@@ -301,9 +309,9 @@ function MovementController.leap(gauge, kind, aim)
 	return dir
 end
 
--- Corona's Sundive: along the arc to `target` (a root position) in `seconds`; `meet`: where his
--- hand meets the ball. Returns the arc's control point and its fall at the end (studs/s, the
--- spike's claimed fall), or nil when he can't.
+-- Corona's Sundive: along the path to `target` (a root position) in `seconds`; `meet`: where his
+-- hand meets the ball. Returns the path's control point and how far it drops (studs, the spike's
+-- claimed drop), or nil when he can't.
 function MovementController.dive(target, seconds, meet)
 	if not hrp or not inAir() then
 		return nil
@@ -311,9 +319,8 @@ function MovementController.dive(target, seconds, meet)
 	local p0 = hrp.Position
 	local c = HitLogic.diveControl(p0, target)
 	local T = math.max(seconds, 0.03)
-	diving = { p0 = p0, c = c, target = target, meet = meet, t0 = os.clock(), T = T, endVy = 2 * (target.Y - c.Y) / T }
-	lastDive = { endVy = diving.endVy, at = os.clock() + T + CORONA.DiveHold }
-	return c, diving.endVy
+	diving = { p0 = p0, c = c, target = target, meet = meet, t0 = os.clock(), T = T }
+	return c, p0.Y - target.Y
 end
 
 function MovementController.isDiving()
@@ -343,7 +350,7 @@ function MovementController.jump(kind)
 	if not MovementController.canJump() then
 		return false
 	end
-	queued = { height = baseJump(), kind = kind }
+	queued = { height = (kind == "Spike" or kind == "Serve") and spikeJump() or baseJump(), kind = kind }
 	return true
 end
 
@@ -559,7 +566,7 @@ local function moveStep()
 			jumpKind = gather.kind
 			gather = nil
 			hum.WalkSpeed = baseWalk() * P.AirControl
-			hum.JumpHeight = baseJump()
+			hum.JumpHeight = (jumpKind == "Spike" or jumpKind == "Serve") and spikeJump() or baseJump()
 			hum.Jump = true
 			local v = hrp.AssemblyLinearVelocity
 			local vz = nil
