@@ -329,7 +329,9 @@ do
 		"Sundive's dash is over in a few frames, after a hang, arriving with the ball",
 		string.format("pressed 0.8 s early: hangs %.2f s, dashes %.2f s (%.0f studs/s)", w1, dash1, (d2 - d0).Magnitude * 1.15 / dash1))
 	-- Sun Leap: with Corona on his spike jumps go far higher
-	check(CO.LeapMul >= 1.5, "Sun Leap: Corona's jump goes far higher", string.format("x%.1f", CO.LeapMul))
+	-- (and stays in the court camera's frame: the owner, "why is laith jumping out of the screen")
+	local leapUp = Characters.jumpHeight(laith, GROUND) * CO.LeapMul
+	check(CO.LeapMul >= 1.3 and leapUp <= 24.5, "Sun Leap: Corona's jump goes far higher, but not off the screen", string.format("x%.1f: %.1f studs up", CO.LeapMul, leapUp))
 
 	-- Zenith: about ZenithChance of his spikes (by the ball's seed, so client and server agree),
 	-- +13% and heavier topspin; nobody else's spikes change
