@@ -2089,8 +2089,12 @@ end
 
 -- Sundive: Laith leaves the top of his path and sweeps down it onto the ball, leaving a wide white
 -- ribbon along the arc (the owner's reference) that fades. p0, c, p2: the arc (a remote dive
--- passes only its end; it's drawn from where he is now).
-function VFXController.diveStart(entityId, p0, c, p2)
+-- passes only its end; it's drawn from where he is now). wait: the hang before the dash goes.
+function VFXController.diveStart(entityId, p0, c, p2, wait)
+	if wait and wait > 0.01 then
+		task.delay(wait, VFXController.diveStart, entityId, p0, c, p2)
+		return
+	end
 	local hrp = Util.rootOf(entityId)
 	if not hrp then
 		return
@@ -5279,11 +5283,11 @@ function VFXController.init(m)
 		elseif kind == "ProwlEnd" and model then
 			remoteArc(model, "end")
 		elseif kind == "Dive" and model then
-			-- extra: where the arc ends ("y,z")
-			local y, z = string.match(tostring(extra or ""), "^(%-?[%d%.]+),(%-?[%d%.]+)$")
+			-- extra: where the arc ends and the hang before the dash ("y,z,wait")
+			local y, z, w = string.match(tostring(extra or ""), "^(%-?[%d%.]+),(%-?[%d%.]+),?([%d%.]*)$")
 			local hrp = model:FindFirstChild("HumanoidRootPart")
 			local p2 = (y and hrp) and Vector3.new(hrp.Position.X, tonumber(y), tonumber(z)) or nil
-			VFXController.diveStart(entityId, nil, nil, p2)
+			VFXController.diveStart(entityId, nil, nil, p2, math.min(tonumber(w) or 0, Config.Abilities.Corona.DiveWindow))
 		elseif kind == "Slide" and model then
 			local hrp = model:FindFirstChild("HumanoidRootPart")
 			if hrp then

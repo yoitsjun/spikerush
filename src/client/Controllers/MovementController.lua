@@ -42,8 +42,9 @@ local lastForce = nil
 local knock = nil -- { t0, speed } after a heavy receive
 local prowlT0 = nil -- Feral Leap: when the charge started (he runs faster as it fills)
 local leaping = nil -- { dir, carry, t0 } from a Feral Leap's takeoff until he lands
--- Corona's Sundive: { p0, c, target, meet, t0, T, endVy } (os.clock), an arc onto the ball
--- travelled in T with gravity off; he hangs at its end for DiveHold, then falls again
+-- Corona's Sundive: { p0, c, target, meet, t0, T, wait, dash } (os.clock), an arc onto the ball
+-- with gravity off: he hangs where he is for `wait`, zips along it in `dash` (T = wait + dash),
+-- hangs at its end for DiveHold, then falls again
 local diving = nil
 local CORONA = Config.Abilities.Corona
 -- A jump asked for from an input event. The default control script rewrites Humanoid.Jump every
@@ -319,7 +320,8 @@ function MovementController.dive(target, seconds, meet)
 	local p0 = hrp.Position
 	local c = HitLogic.diveControl(p0, target)
 	local T = math.max(seconds, 0.03)
-	diving = { p0 = p0, c = c, target = target, meet = meet, t0 = os.clock(), T = T }
+	local wait, dash = HitLogic.diveTiming(T)
+	diving = { p0 = p0, c = c, target = target, meet = meet, t0 = os.clock(), T = wait + dash, wait = wait, dash = dash }
 	return c, p0.Y - target.Y
 end
 
@@ -458,12 +460,13 @@ local function physicsStep()
 		if (not airborne and e > 0.05) or e > diving.T + CORONA.DiveHold then
 			diving = nil -- landed, or done hanging at the meeting point: gravity again
 		else
-			-- along the arc (placed on it every step: it's nearly a teleport), then hang at its end
-			local s = math.min(e / diving.T, 1)
+			-- hang, then along the arc (placed on it every step: it's nearly a teleport), then hang at
+			-- its end
+			local s = math.clamp((e - diving.wait) / diving.dash, 0, 1)
 			local pos = HitLogic.divePoint(diving.p0, diving.c, diving.target, s)
 			hrp.CFrame = CFrame.new(pos) * (hrp.CFrame - hrp.CFrame.Position)
-			if s < 1 then
-				local d = ((diving.c - diving.p0) * (2 * (1 - s)) + (diving.target - diving.c) * (2 * s)) / diving.T
+			if s > 0 and s < 1 then
+				local d = ((diving.c - diving.p0) * (2 * (1 - s)) + (diving.target - diving.c) * (2 * s)) / diving.dash
 				hrp.AssemblyLinearVelocity = Vector3.new(0, d.Y, d.Z)
 			else
 				hrp.AssemblyLinearVelocity = Vector3.zero

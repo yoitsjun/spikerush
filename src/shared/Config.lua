@@ -941,6 +941,10 @@ Config.Abilities = {
 		DiveArc = 0.06, -- how far the path bows up, as a share of its length
 		DiveSpeedMax = 400, -- the fastest he travels along it (studs/s): practically a teleport
 		DiveHold = 0.15, -- he hangs at the meeting point this long for the swing
+		-- (the owner: "i still think the dash should be faster"): the dash itself takes this long at
+		-- most; until it's time to go he hangs where he pressed it, the band out to the ball, then
+		-- zips onto it as it arrives (the video's hang, then about a tenth of a second)
+		DiveDashTime = 0.06,
 		DiveFullDrop = 10, -- a drop this far (studs) or more earns the whole bonus
 		DiveRootSlack = 4, -- the server's check on where he is allows this much more after a dive
 		LeapMul = 1.9, -- Sun Leap: while Corona is on, his spike jumps go this much higher

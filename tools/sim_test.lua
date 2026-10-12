@@ -312,6 +312,13 @@ do
 	local bow = HitLogic.divePoint(d0, dc, d2, 0.5).Y - (d0.Y + d2.Y) / 2
 	check((d2 - d0).Magnitude <= CO.DiveMaxDist and bow > 0 and bow < 0.1 * (d2 - d0).Magnitude and (HitLogic.divePoint(d0, dc, d2, 1) - d2).Magnitude < 0.001 and HitLogic.diveFraction(d0.Y - d2.Y) == 1 and dT < 0.15,
 		"Sundive reaches from a leap behind the end line to the net, all but straight, in a blink, for the whole bonus", string.format("%.1f studs in %.2f s", (d2 - d0).Magnitude, dT))
+	-- the dash (the owner: "i still think the dash should be faster"): however early he presses, he
+	-- hangs, then the dash itself is over in a few frames and lands as the ball arrives
+	local w1, dash1 = HitLogic.diveTiming(0.8)
+	local w2, dash2 = HitLogic.diveTiming(0.04)
+	check(dash1 <= 0.07 and math.abs(w1 + dash1 - 0.8) < 1e-9 and w2 == 0 and math.abs(dash2 - 0.04) < 1e-9 and (d2 - d0).Magnitude * 1.15 / dash1 > 600,
+		"Sundive's dash is over in a few frames, after a hang, arriving with the ball",
+		string.format("pressed 0.8 s early: hangs %.2f s, dashes %.2f s (%.0f studs/s)", w1, dash1, (d2 - d0).Magnitude * 1.15 / dash1))
 	-- Sun Leap: with Corona on his spike jumps go far higher
 	check(CO.LeapMul >= 1.5, "Sun Leap: Corona's jump goes far higher", string.format("x%.1f", CO.LeapMul))
 

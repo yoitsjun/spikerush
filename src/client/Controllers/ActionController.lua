@@ -597,8 +597,10 @@ local function tryAttack(action, info, opts)
 			opts.sundive = drop
 			buffered = { action = action, opts = opts, expires = os.clock() + t + Config.Abilities.Corona.DiveHold + 0.05, scale = scale, lastQ = nil }
 			mods.AnimationController.pose(State.myId, "Charge", 1)
-			mods.VFXController.diveStart(State.myId, p0, c, target)
-			Net.get("ActionFX"):FireServer("Dive", string.format("%.1f,%.1f", target.Y, target.Z))
+			-- the streak and its ribbon when the dash goes, after the hang
+			local wait = HitLogic.diveTiming(t)
+			mods.VFXController.diveStart(State.myId, p0, c, target, wait)
+			Net.get("ActionFX"):FireServer("Dive", string.format("%.1f,%.1f,%.2f", target.Y, target.Z, wait))
 			return true
 		end
 	end

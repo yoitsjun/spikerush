@@ -454,6 +454,13 @@ function HitLogic.diveControl(p0, p2)
 	return Vector3.new(p0.X, math.max(p0.Y, mid.Y + CORONA.DiveArc * chord), mid.Z)
 end
 
+-- Sundive's timing for a dive meeting the ball in T seconds: how long he hangs where he is first,
+-- then how long the dash takes (DiveDashTime at most).
+function HitLogic.diveTiming(T)
+	local dash = math.min(math.max(tonumber(T) or 0, 0), CORONA.DiveDashTime)
+	return math.max((tonumber(T) or 0) - dash, 0), math.max(dash, 1 / 240)
+end
+
 -- A point on that arc at s (0..1).
 function HitLogic.divePoint(p0, c, p2, s)
 	local u = 1 - s
