@@ -821,7 +821,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local gale = 0
 	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Squall" then
 		gale = ctx.auto and SQUALL.AutoGale or clamp(tonumber(input.gale) or 0, 0, 1)
-		kmh = kmh * (1 + SQUALL.HoverBoost * gale)
+		kmh = kmh * (1 + SQUALL.SpikeBoost) * (1 + SQUALL.HoverBoost * gale) -- (Shear: every spike of hers harder)
 	end
 	local meta = meta0(kind, q)
 	meta.height = heightM

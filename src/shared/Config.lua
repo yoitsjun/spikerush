@@ -1019,7 +1019,11 @@ Config.Abilities = {
 		ChargeTime = 0.6, -- seconds of hovering for the whole charge (and the deepest spike)
 		AimSteps = 7, -- the spots the target jumps through, just over the net to the very back
 		BackMargin = 0.15 * M, -- the last spot: this far inside their end line (the back corner)
-		HoverBoost = 0.38, -- spike speed x (1 + this x the charge): with Squall on, a full hover about 210 km/h maxed (the owner: "maybe she can hit 210")
+		-- (the owner: "buff haneul's lower end of spiking. she should at the very least be hitting 150
+		-- or 160 and upwards of 200"): every spike of hers hits SpikeBoost harder, and the hover
+		-- adds HoverBoost on top: maxed and clean, about 158 with no charge, 205 full, 228 with Squall
+		SpikeBoost = 0.15,
+		HoverBoost = 0.3, -- spike speed x (1 + this x the charge) (was 0.38 before SpikeBoost)
 		HoverSlack = 0.15, -- charge a spike may claim over the hover the server saw (network jitter)
 		AimError = 0.5, -- a hover's spike strays this share of the usual error
 		ReachMul = 1.2, -- Shear: her spike reaches this much wider
@@ -1028,8 +1032,8 @@ Config.Abilities = {
 			{ Name = "Tailwind", Blurb = "Jump on the ground: a lightning-quick dash under where the ball comes down, and a spring straight up, quicker than anyone." },
 			{ Name = "Downdraft", Blurb = "Just after a Tailwind jump, the other team runs 30% slower for a moment." },
 			{ Name = "Updraft", Blurb = "Your spike jumps go 35% higher: room to hover and charge." },
-			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge: let go at once and it drops just over the net; the longer you hold, the deeper and harder it goes (up to +38%)." },
-			{ Name = "Shear", Blurb = "Your spike reaches 20% wider than anyone's." },
+			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge: let go at once and it drops just over the net; the longer you hold, the deeper and harder it goes (up to +30%)." },
+			{ Name = "Shear", Blurb = "Your spikes cut 15% harder and reach 20% wider than anyone's." },
 		},
 	},
 	Adrenaline = {

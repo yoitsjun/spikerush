@@ -403,9 +403,12 @@ do
 	local _, half = haneulSpike({ gale = 0.5 })
 	local _, full = haneulSpike({ gale = 1 })
 	local _, auto = haneulSpike({}, { auto = true })
-	check(math.abs(full.meta.kmh / plain.meta.kmh - (1 + SQ.HoverBoost)) < 0.01 and half.meta.kmh > plain.meta.kmh and full.meta.gale == 1 and auto.meta.kmh > plain.meta.kmh and not auto.meta.gale,
-		"Eye of the Storm: a full hover hits 38% harder",
-		string.format("%.0f plain, %.0f half, %.0f full, AI %.0f km/h", plain.meta.kmh, half.meta.kmh, full.meta.kmh, auto.meta.kmh))
+	-- (the owner: "she should at the very least be hitting 150 or 160 and upwards of 200")
+	local _, flared = haneulSpike({ gale = 1 }, { squallOn = true })
+	check(math.abs(full.meta.kmh / plain.meta.kmh - (1 + SQ.HoverBoost)) < 0.01 and half.meta.kmh > plain.meta.kmh and full.meta.gale == 1 and auto.meta.kmh > plain.meta.kmh and not auto.meta.gale
+		and plain.meta.kmh >= 150 and full.meta.kmh >= 200 and flared.meta.kmh > full.meta.kmh,
+		"Eye of the Storm: her spikes start at 150+ and a full hover goes past 200 (Squall more)",
+		string.format("%.0f plain, %.0f half, %.0f full, %.0f full with Squall, AI %.0f km/h", plain.meta.kmh, half.meta.kmh, full.meta.kmh, flared.meta.kmh, auto.meta.kmh))
 	-- how deep (the owner: "the longer you charge up midair the farther back it goes while hitting it
 	-- instantly makes it drop very short"): no charge just over the net, the whole charge their back
 	-- line, in the court every time
