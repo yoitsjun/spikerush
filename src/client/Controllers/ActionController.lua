@@ -541,7 +541,7 @@ local function divePlan(info, now)
 		local d = target - info.root
 		local clear = ball.Z * side > -0.1 and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
 		if clear and -d.Y >= CORONA.DiveMinDrop and target.Y > info.groundY + 0.6 and d.Magnitude / t <= CORONA.DiveSpeedMax then
-			return target, t
+			return target, t, ball
 		end
 	end
 	return nil
@@ -583,8 +583,8 @@ local function tryAttack(action, info, opts)
 	end
 	-- Corona: the ball below his reach is a Sundive, along a path onto it (the swing lands on it)
 	if action == "Spike" and not swingNow and State.myAbility() == "Corona" and not info.grounded then
-		local target, t = divePlan(info, now)
-		if target and mods.MovementController.dive(target, t) then
+		local target, t, meet = divePlan(info, now)
+		if target and mods.MovementController.dive(target, t, meet) then
 			buffered = { action = action, opts = opts, expires = os.clock() + t + 0.3, scale = scale, lastQ = nil }
 			mods.AnimationController.pose(State.myId, "Charge", 1)
 			mods.VFXController.diveStart(State.myId)
@@ -1443,6 +1443,14 @@ local function evaluate(info, now)
 	else
 		ctx.spikeLabel = isAzure() and "Charge" or "Spike"
 		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReach(State.myAbility(), leap.gauge)))
+		-- Corona: a Sundive is there to take (the HUD says Dive, and its path is drawn)
+		if State.myAbility() == "Corona" and ok and not ctx.inZone and not mods.MovementController.isDiving() then
+			local target, _, meet = divePlan(info, now)
+			if target then
+				ctx.spikeLabel = "Dive"
+				ctx.dive = { target = target, meet = meet }
+			end
+		end
 	end
 	local meta = BR.getMeta()
 	ctx.incoming = meta ~= nil and meta.team ~= State.myTeam and bp.Z * side > -0.6 * Config.Scale.StudsPerMeter
@@ -1462,6 +1470,14 @@ function ActionController.init(m)
 		local info = charInfo()
 		local now = Util.now()
 		State.context = evaluate(info, now)
+		-- Corona: the dive's path, while one is there to take and all the way down it
+		local dive = State.context.dive
+		local MC = mods.MovementController
+		if MC.isDiving() then
+			local target, meet = MC.diveTarget()
+			dive = { target = target, meet = meet, live = true }
+		end
+		mods.VFXController.divePath(info and info.hrp, dive)
 		if info and info.grounded then
 			airSwings = 0 -- back on the floor: the next jump's swing
 		end

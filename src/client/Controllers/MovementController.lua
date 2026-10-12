@@ -301,16 +301,25 @@ end
 
 -- Corona's Sundive: go along a straight line to `target` (a root position), arriving `seconds`
 -- from now.
-function MovementController.dive(target, seconds)
+-- `meet`: where his hand meets the ball (the path's end marker).
+function MovementController.dive(target, seconds, meet)
 	if not hrp or not inAir() then
 		return false
 	end
-	diving = { target = target, arrive = os.clock() + math.max(seconds, 0.05), t0 = os.clock() }
+	diving = { target = target, meet = meet, arrive = os.clock() + math.max(seconds, 0.05), t0 = os.clock() }
 	return true
 end
 
 function MovementController.isDiving()
 	return diving ~= nil
+end
+
+-- The dive under way: where it's taking him and where he meets the ball (nil when not diving).
+function MovementController.diveTarget()
+	if diving then
+		return diving.target, diving.meet
+	end
+	return nil
 end
 
 -- Charged block jump: fraction 0..1 of the hold.

@@ -1290,7 +1290,7 @@ local function updateRail()
 	local ctx = State.context or {}
 	local pad = mods.InputController.lastDevice() == "Gamepad"
 	local live = {
-		Spike = ctx.inZone == true or ctx.running == true or (ctx.serving == true and ctx.spikeLabel ~= nil),
+		Spike = ctx.inZone == true or ctx.dive ~= nil or ctx.running == true or (ctx.serving == true and ctx.spikeLabel ~= nil),
 		Receive = ctx.incoming == true and ctx.grounded == true,
 		SlideFeint = (ctx.incoming == true and ctx.grounded == true) or (ctx.grounded == false and ctx.inZone == true),
 		Block = ctx.nearNet == true and ctx.grounded == true and not ctx.serving,

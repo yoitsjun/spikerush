@@ -1922,6 +1922,79 @@ local function updateSunTrails(clock)
 	end
 end
 
+-- Sundive's path (the owner: "visualize the path for him"): while a dive is there to take, a
+-- line of light from Elio to where it takes him, a sun where his hand meets the ball and a thin
+-- line across at that height (his reference's contact line); brighter once he's diving.
+local dive = nil
+local function diveParts()
+	if dive and dive.holder.Parent then
+		return dive
+	end
+	local holder = Instance.new("Part")
+	holder.Name = "DivePath"
+	holder.Anchored, holder.CanCollide, holder.CanQuery, holder.CanTouch = true, false, false, false
+	holder.Transparency = 1
+	holder.Size = Vector3.new(0.2, 0.2, 0.2)
+	holder.CFrame = CFrame.new()
+	holder.Parent = fxFolder
+	local function att()
+		local a = Instance.new("Attachment")
+		a.Parent = holder
+		return a
+	end
+	local col = Config.Abilities.Corona.Color
+	local a0, a1, a2, a3 = att(), att(), att(), att()
+	local path = Instance.new("Beam")
+	path.Attachment0, path.Attachment1 = a0, a1
+	path.FaceCamera = true
+	path.LightEmission = 1
+	path.Segments = 1
+	path.Width0, path.Width1 = 0.35, 1.1
+	path.Color = ColorSequence.new(Color3.fromRGB(255, 255, 235), col)
+	path.Parent = holder
+	local across = Instance.new("Beam")
+	across.Attachment0, across.Attachment1 = a2, a3
+	across.FaceCamera = true
+	across.LightEmission = 1
+	across.Segments = 1
+	across.Width0, across.Width1 = 0.12, 0.12
+	across.Color = ColorSequence.new(col)
+	across.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.35), NumberSequenceKeypoint.new(1, 1) })
+	across.Parent = holder
+	local sun = Instance.new("Part")
+	sun.Name = "DiveSun"
+	sun.Shape = Enum.PartType.Ball
+	sun.Material = Enum.Material.Neon
+	sun.Color = col
+	sun.Anchored, sun.CanCollide, sun.CanQuery, sun.CanTouch, sun.CastShadow = true, false, false, false, false
+	sun.Size = Vector3.new(1.2, 1.2, 1.2)
+	sun.Parent = holder
+	dive = { holder = holder, a0 = a0, a1 = a1, a2 = a2, a3 = a3, path = path, across = across, sun = sun }
+	return dive
+end
+
+function VFXController.divePath(hrp, d)
+	if not hrp or not d or not d.target then
+		if dive and dive.holder.Parent then
+			dive.path.Enabled, dive.across.Enabled, dive.sun.Transparency = false, false, 1
+		end
+		return
+	end
+	local p = diveParts()
+	local meet = d.meet or d.target
+	local pulse = 0.5 + 0.5 * math.sin(os.clock() * 14)
+	p.a0.WorldPosition = hrp.Position
+	p.a1.WorldPosition = d.target
+	p.a2.WorldPosition = Vector3.new(meet.X, meet.Y, meet.Z - 16)
+	p.a3.WorldPosition = Vector3.new(meet.X, meet.Y, meet.Z + 16)
+	local k = d.live and 0 or 0.25 + 0.2 * pulse
+	p.path.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55 + k * 0.5), NumberSequenceKeypoint.new(1, k) })
+	p.path.Enabled, p.across.Enabled = true, true
+	p.sun.Position = meet
+	p.sun.Size = Vector3.new(1, 1, 1) * (d.live and 1.6 or 1.1 + 0.3 * pulse)
+	p.sun.Transparency = d.live and 0.05 or 0.25
+end
+
 -- Sundive: Elio leaves the top of his path and drops onto the ball.
 function VFXController.diveStart(entityId)
 	local hrp = Util.rootOf(entityId)

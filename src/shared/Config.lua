@@ -928,11 +928,13 @@ Config.Abilities = {
 		PenaltyPer = 0.015, -- every stat x (1 - this x uses) while it's off
 		MaxStacks = 12,
 		-- Sundive
-		DiveWindow = 0.75, -- the ball has to be reachable within this long (seconds)
+		-- (the owner, watching it: "he should be way way faster")
+		DiveWindow = 0.9, -- the ball has to be reachable within this long (seconds)
 		DiveMinDrop = 0.6, -- and his hand at least this far above where he'll meet it (studs)
-		DiveSpeedMax = 62, -- the fastest he can travel along the path (studs/s)
-		DiveMinFall = 18, -- falling slower than this at the hit: no dive bonus (studs/s)
-		DiveFullFall = 52, -- this fast or more: the whole bonus
+		DiveSpeedMax = 150, -- the fastest he can travel along the path (studs/s)
+		DiveMinFall = 25, -- falling slower than this at the hit: no dive bonus (studs/s)
+		DiveFullFall = 100, -- this fast or more: the whole bonus
+		DiveRootSlack = 2.5, -- the server's check on where he is allows this much more after a dive
 		DiveBoost = 0.3, -- spike speed x (1 + this x how fast he fell)
 		DiveHeightFloor = 0.75, -- a dive spike counts as met this close to the top of his jump at least
 		AutoDive = 0.3, -- the AI doesn't dive: its spikes get this much of the dive bonus

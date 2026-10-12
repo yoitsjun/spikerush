@@ -162,7 +162,12 @@ function HitService.process(entity, input, opts)
 		if not root then
 			return false, "noroot"
 		end
-		if (root.Position - input.root).Magnitude > Config.Net.RootTolerance then
+		-- (Corona: a Sundive moves him so fast the server's copy of him lags further behind)
+		local slack = 1
+		if entity.ability == "Corona" and diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE then
+			slack = Config.Abilities.Corona.DiveRootSlack
+		end
+		if (root.Position - input.root).Magnitude > Config.Net.RootTolerance * slack then
 			return false, "rootpos"
 		end
 	end
