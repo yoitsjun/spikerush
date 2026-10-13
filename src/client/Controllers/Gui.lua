@@ -14,6 +14,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Assets = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Assets"))
 
 local Gui = {}
@@ -922,6 +923,18 @@ function Gui.playerCard(parent, props)
 			root[k] = v
 		end
 	end
+	-- Divine (Look.Divine, the Almighty card; the owner: "make it really special", after a game's
+	-- winged title banners): gold wings out of both sides and a crown over the top, a breathing glow
+	-- round the edge, a halo of turning rays behind the avatar, a shine sweeping across, sparkles
+	-- twinkling and gold light running through the big word. Hidden on every other card.
+	local wingH = math.floor(H * 1.5)
+	local wingW = math.floor(wingH * 1.6)
+	local glow = Gui.plate(root, { Position = UDim2.fromOffset(-12, -12), Size = UDim2.fromOffset(W + 24, H + 24), Visible = false, ZIndex = z }, Color3.fromRGB(255, 214, 100))
+	-- (each wing's root, the gold boss, sits at 92% / 72% of its image: on the card's side)
+	local wingL = make("ImageLabel", { Image = Assets.image("CardWingL") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.92, 0.72), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(wingW, wingH), Visible = false, ZIndex = z }, root)
+	local wingR = make("ImageLabel", { Image = Assets.image("CardWingR") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.08, 0.72), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(wingW, wingH), Visible = false, ZIndex = z }, root)
+	local crestH = math.floor(H * 0.78)
+	local crest = make("ImageLabel", { Image = Assets.image("CardCrest") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.8), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(math.floor(crestH * 1.28), crestH), Visible = false, ZIndex = z + 7 }, root)
 	local edge = Gui.plate(root, { Position = UDim2.fromOffset(-5, -5), Size = UDim2.fromOffset(W + 10, H + 10), ZIndex = z }, Gui.CHALK)
 	local base = Gui.plate(root, { Size = UDim2.fromOffset(W, H), ZIndex = z + 1 }, Gui.CARD)
 	local sweep = Gui.plate(root, { Size = UDim2.fromOffset(W, H), ZIndex = z + 2 }, Gui.CHALK)
@@ -960,6 +973,30 @@ function Gui.playerCard(parent, props)
 			end
 		end
 	end
+	-- (Divine) the halo behind the avatar and the sweeping shine, kept inside the card
+	local divineClip = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ClipsDescendants = true, Visible = false, ZIndex = z + 3 }, root)
+	local rays = {}
+	local haloX = 28 + math.floor((H - 20) / 2) + 10
+	for i = 1, 14 do
+		local ray = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(haloX, math.floor(H / 2)), Size = UDim2.fromOffset(7, math.floor(W * 0.9)), BackgroundColor3 = Color3.fromRGB(255, 226, 130), BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = z + 3 }, divineClip)
+		make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.2), NumberSequenceKeypoint.new(1, 1) }) }, ray)
+		rays[i] = ray
+	end
+	local gloss = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(-0.3, 0.5), Size = UDim2.new(0, math.floor(H * 0.7), 2.4, 0), Rotation = 22, BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = z + 4 }, divineClip)
+	make("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(1, 1) }) }, gloss)
+	local sparks = {}
+	for i, spot in ipairs({ { 0.3, 0.12, 22 }, { 0.47, 0.86, 16 }, { 0.62, 0.18, 18 }, { 0.84, 0.9, 20 }, { 0.97, 0.3, 14 }, { 0.05, 0.92, 16 } }) do
+		local sp = Gui.sparkle(root, spot[3], Color3.fromRGB(255, 244, 200))
+		sp.Position = UDim2.fromScale(spot[1], spot[2])
+		sp.Visible = false
+		sp.ZIndex = z + 7
+		for _, d in ipairs(sp:GetDescendants()) do
+			if d:IsA("GuiObject") then
+				d.ZIndex = z + 7
+			end
+		end
+		sparks[i] = { frame = sp, scale = make("UIScale", { Scale = 1 }, sp) }
+	end
 	local chevrons = {}
 	for i = 1, 3 do
 		local chevron = Gui.plate(root, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -30 - (3 - i) * 26, 0.5, 8), Size = UDim2.fromOffset(16, H - 44), ZIndex = z + 3 }, Gui.SIGNAL)
@@ -992,6 +1029,9 @@ function Gui.playerCard(parent, props)
 	local bigW = math.floor(W * 0.34)
 	local big = Gui.label(root, { display = true, weight = Enum.FontWeight.Heavy, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Center, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 2), Size = UDim2.fromOffset(bigW, H - 26), Visible = false, ZIndex = z + 5 })
 	make("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 2, Transparency = 0.35 }, big)
+	-- (Divine) gold light running through the big word
+	local GOLD = Color3.fromRGB(255, 205, 70)
+	local bigShine = make("UIGradient", { Enabled = false, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, GOLD), ColorSequenceKeypoint.new(0.42, GOLD), ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)), ColorSequenceKeypoint.new(0.58, GOLD), ColorSequenceKeypoint.new(1, GOLD) }) }, big)
 	local viewport = make("ViewportFrame", {
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 0, 1, 4),
@@ -1008,6 +1048,32 @@ function Gui.playerCard(parent, props)
 	local word = Gui.label(tag, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = z + 7 })
 
 	local card = { root = root, viewport = viewport }
+	-- (Divine) one frame of its motion
+	local divineConn = nil
+	local function divineStep()
+		local t = os.clock()
+		for i, ray in ipairs(rays) do
+			ray.Rotation = (i - 1) * (180 / #rays) + t * 14
+		end
+		-- the shine crosses in the first 40% of every 3.2 s, then rests off the card
+		local cyc = (t % 3.2) / 3.2
+		gloss.Position = UDim2.fromScale(cyc < 0.4 and (cyc / 0.4) * 1.6 - 0.3 or 1.4, 0.5)
+		Gui.fade(glow, 0.35 + 0.45 * (0.5 + 0.5 * math.sin(t * 2.4)))
+		for i, s in ipairs(sparks) do
+			local k = 0.5 + 0.5 * math.sin(t * 3.1 + i * 1.9)
+			s.scale.Scale = 0.2 + 0.9 * k * k
+		end
+		bigShine.Offset = Vector2.new(((t * 0.55) % 1.8) - 0.9, 0)
+		local flap = math.sin(t * 1.7) * 3
+		wingL.Rotation = flap
+		wingR.Rotation = -flap
+	end
+	root.Destroying:Connect(function()
+		if divineConn then
+			divineConn:Disconnect()
+			divineConn = nil
+		end
+	end)
 	function card.set(look, data)
 		data = data or {}
 		local accent = look.Accent or Gui.SIGNAL
@@ -1050,6 +1116,19 @@ function Gui.playerCard(parent, props)
 		tag.Visible = data.word ~= nil and data.word ~= ""
 		word.Text = data.word or ""
 		Gui.tint(tag, accent)
+		local divine = look.Divine == true
+		glow.Visible, wingL.Visible, wingR.Visible, crest.Visible, divineClip.Visible = divine, divine, divine, divine, divine
+		for _, s in ipairs(sparks) do
+			s.frame.Visible = divine
+		end
+		bigShine.Enabled = divine
+		if divine and not divineConn then
+			divineConn = RunService.Heartbeat:Connect(divineStep)
+			divineStep()
+		elseif not divine and divineConn then
+			divineConn:Disconnect()
+			divineConn = nil
+		end
 	end
 	return card
 end

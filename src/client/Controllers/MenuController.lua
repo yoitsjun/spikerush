@@ -6267,24 +6267,36 @@ function Extra.buildAdmin()
 	end
 	onClick(tabBtn, function()
 		tabDrop.Visible = not tabDrop.Visible
+		if Extra.adminCardDrop then
+			Extra.adminCardDrop.Visible = false
+		end
 	end)
-	-- player cards that are only given (Grant: Content Creator, Almighty...): click to go through them
+	-- player cards that are only given (Grant: Content Creator, Almighty...), from a dropdown (the
+	-- owner: "make the card menu dropdown aswell")
 	local creatorBtn, creatorL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 168), Size = UDim2.fromOffset(250, 28), ZIndex = 23 }, "", 15)
+	local cardDrop = make("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 198), Size = UDim2.fromOffset(250, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, Visible = false, ZIndex = 40 }, right)
+	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, cardDrop)
+	make("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, cardDrop)
+	local cardOptions = { { false, "No card" } }
+	for _, c in ipairs(Config.Cards.List) do
+		if c.Grant then
+			table.insert(cardOptions, { c.Key, c.Name })
+		end
+	end
+	for i, opt in ipairs(cardOptions) do
+		local b = make("TextButton", { Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.3, BorderSizePixel = 0, AutoButtonColor = false, Text = "", LayoutOrder = i, ZIndex = 41 }, cardDrop)
+		Gui.label(b, { Text = opt[2], display = true, TextSize = 16, Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -24, 1, 0), ZIndex = 42 })
+		b:SetAttribute("Sound", "UISelect")
+		onClick(b, function()
+			Extra.adminCard = opt[1] or nil
+			cardDrop.Visible = false
+			MenuController.refresh()
+		end)
+	end
+	Extra.adminCardDrop = cardDrop
 	onClick(creatorBtn, function()
-		local keys = {}
-		for _, c in ipairs(Config.Cards.List) do
-			if c.Grant then
-				table.insert(keys, c.Key)
-			end
-		end
-		local nextKey = keys[1]
-		for i, k in ipairs(keys) do
-			if k == Extra.adminCard then
-				nextKey = keys[i + 1] -- (past the last: no card)
-			end
-		end
-		Extra.adminCard = nextKey
-		MenuController.refresh()
+		cardDrop.Visible = not cardDrop.Visible
+		tabDrop.Visible = false
 	end)
 	local grid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 22 }, right)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(158, 36), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
@@ -6399,7 +6411,7 @@ function Extra.refreshAdmin()
 			cardName = c.Name
 		end
 	end
-	A.creatorL.Text = cardName and ("Card: " .. cardName) or "Card: none (click to pick)"
+	A.creatorL.Text = cardName and ("Card: " .. cardName .. "  v") or "Card: none  v"
 	A.creatorL.TextColor3 = cardName and Gui.SIGNAL or Gui.CHALK
 	for kind, r in pairs(A.evRows) do
 		local left = Extra.eventLeft(kind)

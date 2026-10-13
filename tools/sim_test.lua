@@ -772,7 +772,8 @@ do
 	local g = Economy.cleanGrant({ Cards = { "Almighty" } })
 	local profile = { vp = 0, gold = 0, lucky = 0, owned = {}, cards = {} }
 	Economy.apply(profile, g, 0)
-	check(card ~= nil and card.Grant == true and g.Cards[1] == "Almighty" and profile.cards.Almighty == true and string.find(Economy.describe(g), "Almighty", 1, true) ~= nil,
+	local Cards = require("Cards")
+	check(card ~= nil and card.Grant == true and Cards.look(card).Divine == true and g.Cards[1] == "Almighty" and profile.cards.Almighty == true and string.find(Economy.describe(g), "Almighty", 1, true) ~= nil,
 		"the Almighty card can be given and is owned", Economy.describe(g))
 end
 
