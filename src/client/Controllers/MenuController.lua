@@ -6162,23 +6162,29 @@ function Extra.buildAdmin()
 		Gui.label(right, { Text = def[2], TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(x, 104), Size = UDim2.fromOffset(160, 16), ZIndex = 22 })
 		amounts[def[1]] = Extra.inputBox(right, { Position = UDim2.fromOffset(x, 122), Size = UDim2.fromOffset(164, 44) }, "0")
 	end
-	-- the grid's tab: Characters, or a cosmetic kind (click again to go through the kinds)
+	-- the grid's tab: Characters, or a cosmetic kind, picked from a dropdown (the owner: "instead of
+	-- a clickthrough make it a dropdown menu")
 	local tabBtn, tabL = hairButton(right, { Position = UDim2.fromOffset(0, 168), Size = UDim2.fromOffset(240, 28), ZIndex = 23 }, "", 15)
+	local tabDrop = make("Frame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.fromOffset(240, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, Visible = false, ZIndex = 40 }, right)
+	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, tabDrop)
+	make("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, tabDrop)
+	local tabOptions = { { "Char", "Characters" } }
+	for _, k in ipairs(Config.Cosmetics.Kinds) do
+		table.insert(tabOptions, { k, "Cosmetics: " .. k })
+	end
+	for i, opt in ipairs(tabOptions) do
+		local b = make("TextButton", { Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.3, BorderSizePixel = 0, AutoButtonColor = false, Text = "", LayoutOrder = i, ZIndex = 41 }, tabDrop)
+		Gui.label(b, { Text = opt[2], display = true, TextSize = 16, Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -24, 1, 0), ZIndex = 42 })
+		b:SetAttribute("Sound", "UISelect")
+		onClick(b, function()
+			Extra.adminTab = opt[1]
+			Extra.adminCosKind = nil -- (the cosmetics grid is rebuilt for the new kind)
+			tabDrop.Visible = false
+			MenuController.refresh()
+		end)
+	end
 	onClick(tabBtn, function()
-		local kinds = Config.Cosmetics.Kinds
-		if Extra.adminTab == "Char" then
-			Extra.adminTab = kinds[1]
-		else
-			local nextKind = "Char"
-			for i, k in ipairs(kinds) do
-				if k == Extra.adminTab then
-					nextKind = kinds[i + 1] or "Char"
-				end
-			end
-			Extra.adminTab = nextKind
-		end
-		Extra.adminCosKind = nil -- (the cosmetics grid is rebuilt for the new kind)
-		MenuController.refresh()
+		tabDrop.Visible = not tabDrop.Visible
 	end)
 	-- player cards that are only given: the Content Creator card
 	local creatorBtn, creatorL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 168), Size = UDim2.fromOffset(250, 28), ZIndex = 23 }, "", 15)
@@ -6316,7 +6322,7 @@ function Extra.refreshAdmin()
 	local tab = Extra.adminTab
 	A.grid.Visible = tab == "Char"
 	A.cosGrid.Visible = tab ~= "Char"
-	A.tabL.Text = tab == "Char" and "Characters  >  cosmetics" or ("Cosmetics: " .. tab .. "  >")
+	A.tabL.Text = (tab == "Char" and "Characters" or ("Cosmetics: " .. tab)) .. "   v"
 	if tab ~= "Char" and Extra.adminCosKind ~= tab then
 		Extra.adminCosKind = tab
 		for _, c in ipairs(A.cosGrid:GetChildren()) do
