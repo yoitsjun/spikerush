@@ -875,12 +875,15 @@ function MatchService.init(r)
 		local now = os.clock()
 		if votes[plr.UserId] and now - votes[plr.UserId] < M.ForfeitVoteTime then
 			votes[plr.UserId] = nil
-			MatchService.announce({ kind = "ForfeitVote", team = e.team, name = e.name, off = true, tally = MatchService.forfeitTally()[e.team] })
+			-- (taking back the team's last vote leaves no tally at all: forfeitTally is nil then)
+			local left = MatchService.forfeitTally()
+			MatchService.announce({ kind = "ForfeitVote", team = e.team, name = e.name, off = true, tally = left and left[e.team] })
 			MatchService.broadcast()
 			return
 		end
 		votes[plr.UserId] = now
-		local tally = MatchService.forfeitTally()[e.team]
+		local all = MatchService.forfeitTally()
+		local tally = all and all[e.team]
 		if tally and tally[1] >= tally[2] then
 			MatchService.forfeitVotes[e.team] = {}
 			MatchService.forfeitTeam = e.team

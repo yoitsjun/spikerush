@@ -237,7 +237,8 @@ function CameraController.init(m)
 		end
 	end)
 	State.signals.Match:Connect(function(match)
-		if match.phase == "PreServe" then
+		-- (the menus fire it with no match to say "refresh")
+		if match and match.phase == "PreServe" then
 			pointCam = nil
 		end
 	end)

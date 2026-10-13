@@ -3650,14 +3650,17 @@ function Extra.buildDeals(holder, prices)
 	end
 
 	heading("Game passes", "Yours for good, in every match", 284)
+	-- each pass's own icon (the owner: "make icons for gamepasses and update all of them"; drawn by
+	-- tools/generate_pass_icons.py and set on the pass in Creator Hub), read from Roblox
 	local n = #Config.Passes.Order
 	local w = math.floor((842 - (n - 1) * 14) / n)
 	for i, key in ipairs(Config.Passes.Order) do
 		local def = Config.Passes[key]
 		local card = Gui.card(holder, { Size = UDim2.fromOffset(w, 224), Position = UDim2.fromOffset((i - 1) * (w + 14), 340), ClipsDescendants = true })
 		Gui.halftone(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.94 })
-		Gui.label(card, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextColor3 = key == "VIP" and Gui.GOLD or Gui.CHALK, Position = UDim2.fromOffset(16, 14), Size = UDim2.new(1, -32, 0, 34) })
-		Gui.label(card, { Text = def.Blurb, TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 54), Size = UDim2.new(1, -32, 0, 80) })
+		Gui.label(card, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextColor3 = key == "VIP" and Gui.GOLD or Gui.CHALK, Position = UDim2.fromOffset(16, 14), Size = UDim2.new(1, -96, 0, 34) })
+		Gui.label(card, { Text = def.Blurb, TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 54), Size = UDim2.new(1, -96, 0, 80) })
+		local icon = Extra.passIcon(card, 64)
 		local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.new(1, -32, 0, 46) }, "", 22)
 		onClick(buy, function()
 			if def.PassId ~= 0 and not (profile().passes and profile().passes[key]) then
@@ -3672,6 +3675,7 @@ function Extra.buildDeals(holder, prices)
 				local ok, info = pcall(function()
 					return MarketplaceService:GetProductInfo(def.PassId, Enum.InfoType.GamePass)
 				end)
+				Extra.setPassIcon(icon, ok and info)
 				if ok and info and info.PriceInRobux then
 					Extra.passPrices[key] = info.PriceInRobux
 					MenuController.refresh()
@@ -3680,6 +3684,22 @@ function Extra.buildDeals(holder, prices)
 		end
 	end
 	Extra.deals = d
+end
+
+-- A game pass's icon in a shop card's top right corner, round as Roblox shows it (hidden until
+-- the pass's info says what it is: Extra.setPassIcon).
+function Extra.passIcon(card, size)
+	local icon = make("ImageLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 10), Size = UDim2.fromOffset(size, size), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Visible = false, ZIndex = 3 }, card)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, icon)
+	return icon
+end
+
+function Extra.setPassIcon(icon, info)
+	local id = type(info) == "table" and tonumber(info.IconImageAssetId) or 0
+	if id and id > 0 then
+		icon.Image = "rbxassetid://" .. id
+		icon.Visible = true
+	end
 end
 
 -- After refreshShop's prices: a bundle bought once and a pass owned say so.
@@ -3798,8 +3818,9 @@ local function buildShop()
 	for i, key in ipairs(Config.Perks.Order) do
 		local def = Config.Perks[key]
 		local card = Gui.card(perkCol, { Position = UDim2.fromOffset(0, 56 + (i - 1) * 252), Size = UDim2.new(1, 0, 0, 236), ClipsDescendants = true })
-		Gui.label(card, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -32, 0, 30) })
-		Gui.label(card, { Text = def.Blurb, TextSize = 14, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 42), Size = UDim2.new(1, -32, 0, 54) })
+		Gui.label(card, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -80, 0, 30) })
+		Gui.label(card, { Text = def.Blurb, TextSize = 14, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 42), Size = UDim2.new(1, -80, 0, 54) })
+		local perkIcon = Extra.passIcon(card, 52)
 		-- not yours yet: buy it
 		local buyVP = actionPlate(card, { Position = UDim2.fromOffset(12, 104), Size = UDim2.new(0.5, -18, 0, 46) }, string.format("%s VP", Gui.num(def.VP)), 20)
 		local buyPass, buyPassLabel = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 104), Size = UDim2.new(0.5, -18, 0, 46) }, "Robux", 18)
@@ -3895,6 +3916,7 @@ local function buildShop()
 				local ok, info = pcall(function()
 					return MarketplaceService:GetProductInfo(def.PassId, Enum.InfoType.GamePass)
 				end)
+				Extra.setPassIcon(perkIcon, ok and info)
 				if ok and info and info.PriceInRobux then
 					buyPassLabel.Text = "R$ " .. info.PriceInRobux
 				end
