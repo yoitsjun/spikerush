@@ -5564,7 +5564,7 @@ end
 
 -- Codes (the owner: "add a codes system"): a box and Redeem, under the requirements.
 function Extra.buildCodes()
-	local m = modal("Codes", "Codes", 660, 392, true)
+	local m = modal("Codes", "Codes", 660, 392 + 86, true)
 	Gui.label(m.panel, { Text = "Codes are for members of the group who favorited and liked the game. Each works once.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
 	local req = Extra.requirements(m.panel, 116)
 	local box = Extra.inputBox(m.panel, { Position = UDim2.fromOffset(26, 302), Size = UDim2.new(1, -52 - 190, 0, 54), TextSize = 22 }, "Enter a code")
@@ -5582,7 +5582,35 @@ function Extra.buildCodes()
 			redeem()
 		end
 	end)
-	ui.codes = { modal = m, req = req, box = box, goPlate = goPlate }
+	-- the Discord (Config.Discord): its invite as text you can copy, for players allowed to see it
+	local dc = make("Frame", { Position = UDim2.fromOffset(26, 376), Size = UDim2.new(1, -52, 0, 74), BackgroundColor3 = Color3.fromRGB(88, 101, 242), BackgroundTransparency = 0.15, BorderSizePixel = 0, Visible = false, ZIndex = 21 }, m.panel)
+	make("UICorner", { CornerRadius = UDim.new(0, 8) }, dc)
+	Gui.label(dc, { Text = "Join the Spike Rush Discord: codes posted only there, the Discord Squad card, and sneak peeks", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, TextWrapped = true, Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -28, 0, 34), ZIndex = 22 })
+	local link = make("TextBox", { Text = Config.Discord.Invite, TextEditable = false, ClearTextOnFocus = false, FontFace = Gui.display(), TextSize = 20, TextColor3 = Gui.LINE, TextXAlignment = Enum.TextXAlignment.Left, BackgroundColor3 = Color3.fromRGB(10, 12, 34), BackgroundTransparency = 0.35, BorderSizePixel = 0, Position = UDim2.fromOffset(14, 40), Size = UDim2.new(1, -28, 0, 28), ZIndex = 22 }, dc)
+	make("UICorner", { CornerRadius = UDim.new(0, 6) }, link)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 8) }, link)
+	link.Focused:Connect(function()
+		-- select it all so it's one copy away
+		link.SelectionStart = 1
+		link.CursorPosition = #link.Text + 1
+	end)
+	ui.codes = { modal = m, req = req, box = box, goPlate = goPlate, discord = dc }
+	if Config.Discord.Invite ~= "" then
+		task.spawn(function()
+			local ok, info = pcall(function()
+				return game:GetService("PolicyService"):GetPolicyInfoForPlayerAsync(player)
+			end)
+			local allowed = false
+			if ok and type(info) == "table" and type(info.AllowedExternalLinkReferences) == "table" then
+				for _, ref in ipairs(info.AllowedExternalLinkReferences) do
+					if ref == "Discord" then
+						allowed = true
+					end
+				end
+			end
+			dc.Visible = allowed
+		end)
+	end
 end
 
 function Extra.refreshCodes(prof)

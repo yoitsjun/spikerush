@@ -713,6 +713,28 @@ do
 		"catch-up: starts at the hit, eases to real time, and skips tiny or huge lags")
 end
 
+print("== the Discord's code ==")
+do
+	-- (the owner: "lets start adding an incentive to join the discord"): the Discord's code gives
+	-- the Discord Squad card, a grant card nothing else gives, and it's the only code that does
+	local Economy = require("Economy")
+	local g = Economy.code("SpikeSquad", os.time())
+	local others = 0
+	for key, def in pairs(Config.Codes) do
+		for _, c in ipairs(def.Cards or {}) do
+			if c == "Discord" and not def.Discord then
+				others = others + 1
+			end
+		end
+	end
+	local card = nil
+	for _, c in ipairs(Config.Cards.List) do
+		if c.Key == "Discord" then card = c end
+	end
+	check(g ~= nil and g.Cards[1] == "Discord" and card and card.Grant == true and others == 0 and type(Config.Discord.Invite) == "string",
+		"the Discord's code gives the Discord Squad card (and only it does)", g and Economy.describe(g) or "no code")
+end
+
 print("== patch notes ==")
 do
 	local PatchNotes = require("PatchNotes")
