@@ -55,6 +55,41 @@ function Spins.isCosmetic(kind)
 	return type(kind) == "string" and COS.Attribute[kind] ~= nil
 end
 
+-- Auto-sell is set per banner: { [banner] = { [rarity] = true } } (the owner, on a new Tri Panel
+-- that was sold the moment it dropped: "glitch where he rolls for cosmetics yet gets nothing". One
+-- switch for every banner meant Rare on for B-tier players also sold new Rare cosmetics). An old
+-- save's single set ({ [rarity] = true }) was turned on from the Characters banner, so it stays
+-- there.
+function Spins.cleanAutoSell(data)
+	local out = {}
+	if type(data) ~= "table" then
+		return out
+	end
+	local flat = false
+	for _, r in ipairs(SP.AutoSellable) do
+		if data[r] == true then
+			flat = true
+		end
+	end
+	for b in pairs(SP.Banners) do
+		local src = flat and (b == "Char" and data or nil) or data[b]
+		if Spins.isBanner(b) and type(src) == "table" then
+			for _, r in ipairs(SP.AutoSellable) do
+				if src[r] == true then
+					out[b] = out[b] or {}
+					out[b][r] = true
+				end
+			end
+		end
+	end
+	return out
+end
+
+-- Whether a new pull of `rarity` on `banner` is sold straight away.
+function Spins.autoSells(autoSell, banner, rarity)
+	return type(autoSell) == "table" and type(autoSell[banner]) == "table" and autoSell[banner][rarity] == true
+end
+
 function Spins.cost(count)
 	return SP.Costs[count]
 end

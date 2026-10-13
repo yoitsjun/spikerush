@@ -1161,13 +1161,13 @@ local function buildRecruit()
 			Net.get("Profile"):FireServer("autoroll", banner)
 		end
 	end)
-	Gui.label(info, { Text = "Auto-sell new pulls of", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, TextStrokeTransparency = 0.6, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(4, 272) })
+	Gui.label(info, { Text = "Auto-sell new pulls on this banner", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, TextStrokeTransparency = 0.6, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(4, 272) })
 	local sells = {}
 	for i, r in ipairs(SP.AutoSellable) do
 		local b, l = hairButton(info, { Name = "Sell" .. r, Size = UDim2.fromOffset(160, 42), Position = UDim2.fromOffset((i - 1) * 170, 298) }, "", 19)
 		onClick(b, function()
-			local on = profile().autoSell and profile().autoSell[r]
-			Net.get("Profile"):FireServer("autosell", r, not on)
+			local on = Spins.autoSells(profile().autoSell, banner, r)
+			Net.get("Profile"):FireServer("autosell", r, not on, banner)
 		end)
 		sells[r] = { button = b, label = l }
 	end
@@ -1354,7 +1354,7 @@ local function refreshRecruit(prof)
 		R.autoL.TextColor3 = Config.Rarity.Colors.Legendary
 	end
 	for r, s in pairs(R.sells) do
-		local on = prof.autoSell and prof.autoSell[r]
+		local on = Spins.autoSells(prof.autoSell, banner, r)
 		s.label.Text = string.format("%s: %s", r, on and "on" or "off")
 		s.label.TextColor3 = on and Spins.rarityColor(r) or Gui.DIM
 	end
@@ -1994,7 +1994,7 @@ local function fillTray(i, kind, it)
 	if it.dup then
 		card.foot.Text = "+" .. Spins.sellValue(rarity) .. " VP"
 	elseif it.sold then
-		card.foot.Text = "Sold +" .. Spins.sellValue(rarity)
+		card.foot.Text = "Auto-sold +" .. Spins.sellValue(rarity)
 	else
 		card.foot.Text = "NEW"
 	end
@@ -2341,7 +2341,16 @@ local function playSequence(reveal)
 			table.insert(parts, string.format('<font color="#%s">%d %s</font>', (Config.Rarity.PullGlow[name] or Spins.rarityColor(name)):ToHex(), counts[name], name))
 		end
 	end
-	local refund = (reveal.refund or 0) > 0 and not profile().dev and string.format("   +%d VP from duplicates", reveal.refund) or ""
+	local dups, sold = 0, 0
+	for _, it in ipairs(reveal.items or {}) do
+		if it.dup then
+			dups = dups + 1
+		elseif it.sold then
+			sold = sold + 1
+		end
+	end
+	local from = (dups > 0 and sold > 0 and "duplicates and auto-sell") or (sold > 0 and "auto-sell") or "duplicates"
+	local refund = (reveal.refund or 0) > 0 and not profile().dev and string.format("   +%d VP from %s", reveal.refund, from) or ""
 	S.summary.Text = table.concat(parts, "   ") .. refund
 	S.summary.Visible = true
 	S.confirm.Visible = true

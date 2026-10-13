@@ -675,6 +675,19 @@ do
 		"the HolyS+ code reads as typed (the + dropped) and gives 600 VP, 7,500 Gold and 3 lucky spins", g1 and Economy.describe(g1) or tostring(why1))
 end
 
+print("== auto-sell per banner ==")
+do
+	-- (the owner: "glitch where he rolls for cosmetics yet gets nothing"): auto-sell is set per
+	-- banner, so Rare on for characters doesn't sell a new Rare ball; an old save's single set
+	-- stays on the Characters banner
+	local old = Spins.cleanAutoSell({ Rare = true, Common = true })
+	local new = Spins.cleanAutoSell({ Ball = { Epic = true, Mythic = true }, Nope = { Rare = true } })
+	check(Spins.autoSells(old, "Char", "Rare") and Spins.autoSells(old, "Char", "Common") and not Spins.autoSells(old, "Ball", "Rare")
+		and Spins.autoSells(new, "Ball", "Epic") and not Spins.autoSells(new, "Ball", "Mythic") and new.Nope == nil and not Spins.autoSells(new, "Char", "Epic")
+		and next(Spins.cleanAutoSell(nil)) == nil,
+		"auto-sell: per banner; an old save's setting stays on Characters only; only sellable rarities")
+end
+
 print("== patch notes ==")
 do
 	local PatchNotes = require("PatchNotes")

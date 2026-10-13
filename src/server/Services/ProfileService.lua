@@ -11,7 +11,7 @@
 --   ("upgrade", charId, stat, delta) -> +1/5/10 costs Gold, -1/5/10 refunds exactly what it cost
 --   ("spin", banner, 1|10)           -> x1 / x10 spin (Config.Spins)
 --   ("autoroll", banner) / ("stop")  -> spin x1 until a Legendary or better (or out of VP)
---   ("autosell", rarity, on)         -> pulls of that rarity turn straight into VP
+--   ("autosell", rarity, on, banner) -> new pulls of that rarity on that banner turn straight into VP
 --   ("equip", kind, key)             -> equip an unlocked style, colour, trail or score effect
 --   ("favorite", charId, on)         -> star or unstar a character (the Players screen's filter)
 --   ("settings", table)              -> your settings (switches, touch layout); no reply
@@ -314,11 +314,7 @@ local function sanitizeProfile(data)
 			end
 		end
 	end
-	if type(data.autoSell) == "table" then
-		for _, r in ipairs(SP.AutoSellable) do
-			out.autoSell[r] = data.autoSell[r] == true or nil
-		end
-	end
+	out.autoSell = Spins.cleanAutoSell(data.autoSell)
 	out.settings = Settings.clean(data.settings)
 	-- perks bought with VP, and the asset id chosen for each of their slots (digits only)
 	for _, key in ipairs(Config.Perks.Order) do
@@ -876,7 +872,7 @@ function ProfileService.snapshot(plr)
 		char = ProfileService.character(plr).Id,
 		fav = table.clone(profile.fav or {}),
 		teams = teamsCopy(profile),
-		autoSell = table.clone(profile.autoSell),
+		autoSell = Spins.cleanAutoSell(profile.autoSell),
 		settings = profile.settings,
 		perks = (function()
 			local out = {}
@@ -1536,7 +1532,7 @@ local function spinOnce(plr, profile, banner, count, lucky)
 		end
 		local item = Spins.item(banner, k)
 		local dup = owns(profile, banner, k)
-		local sold = not dup and profile.autoSell[item.Rarity] == true
+		local sold = not dup and Spins.autoSells(profile.autoSell, banner, item.Rarity)
 		if dup or sold then
 			refund = refund + Spins.sellValue(item.Rarity)
 		else
@@ -1792,10 +1788,16 @@ local function onRequest(plr, kind, a, b, c)
 		profile.autoRolling = nil
 		push(plr)
 	elseif kind == "autosell" then
-		for _, r in ipairs(SP.AutoSellable) do
-			if r == a then
-				profile.autoSell[r] = b == true or nil
-				dirty[plr] = true
+		if Spins.isBanner(c) then
+			for _, r in ipairs(SP.AutoSellable) do
+				if r == a then
+					profile.autoSell[c] = profile.autoSell[c] or {}
+					profile.autoSell[c][r] = b == true or nil
+					if next(profile.autoSell[c]) == nil then
+						profile.autoSell[c] = nil
+					end
+					dirty[plr] = true
+				end
 			end
 		end
 		push(plr)
