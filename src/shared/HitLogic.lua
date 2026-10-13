@@ -1264,6 +1264,15 @@ function HitLogic.compute(input, ctx)
 		-- owner: "taesan can block without jumping... should we nerf that"), but an attack hard enough
 		-- (or piercing, or built to smash blocks) breaks through it and costs a shield (HitService)
 		local wallBreak = ctx.ironclad == true and last.hitType == "Spike" and (attackKmh >= IRON.BreakKmh or last.pierce == true or type(last.breakAtk) == "number")
+		-- Unbreakable: a chance it's shut down anyway, falling the harder the spike (the ball's own
+		-- seed rolls it, so both sides agree)
+		local unbreakable = false
+		if wallBreak then
+			local k = clamp((attackKmh - IRON.UnbreakableKmh[1]) / (IRON.UnbreakableKmh[2] - IRON.UnbreakableKmh[1]), 0, 1)
+			if rng:NextNumber() < lerp(IRON.UnbreakableChance[1], IRON.UnbreakableChance[2], k) then
+				wallBreak, unbreakable = false, true
+			end
+		end
 		local perfect = ctx.ironWall or ctx.ironclad
 		if wallBreak then
 			smash = true
@@ -1279,6 +1288,7 @@ function HitLogic.compute(input, ctx)
 		meta.attackKmh = attackKmh
 		meta.ironWall = (perfect and not wallBreak) or nil
 		meta.wallBroken = wallBreak or nil
+		meta.unbreakable = unbreakable or nil
 		local p, v, a, hold = nil, nil, nil, 0
 		if smash then
 			-- through the hands and on down into the blockers' court, barely slowed: still a spike

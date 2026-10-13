@@ -1087,6 +1087,12 @@ Config.Abilities = {
 		-- Bulwark: Iron Wall's perfect shut-down while he has shields, but an attack this fast (or a
 		-- piercing or block-smashing one) breaks through it, barely slowed, and costs a shield
 		BreakKmh = 150,
+		-- Unbreakable (the owner: "a chance to completely shutdown a guardbreak... make this a
+		-- passive", with the chance falling the harder the spike): a block that would break gets
+		-- shut down instead (no shield lost) this often, from the first chance at the first speed
+		-- down to the second at the second
+		UnbreakableChance = { 0.35, 0.15 },
+		UnbreakableKmh = { 150, 250 },
 		MeterPerTouch = 10, -- awakened: each touch fills Intimidation this much (of 100)
 		-- Forge: off the floor his fall is slow (part of gravity off on the way down) and the spike
 		-- charges with the time he's been up (WallBoost with shields, MaxBoost awakened); a jump before
@@ -1104,6 +1110,7 @@ Config.Abilities = {
 		AutoCharge = 0.5, -- the AI awakened: its spikes get this much of the full charge
 		Passives = {
 			{ Name = "Bulwark", Blurb = "3 shields: while you have one, every block you jump for and get your hands on is a perfect shut-down. An attack of 150 km/h or more breaks through and shatters a shield." },
+			{ Name = "Unbreakable", Blurb = "A spike that would break through your shields has a chance to be shut down anyway, shield kept: 35% at 150 km/h, down to 15% for the hardest." },
 			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: Forge charges far harder and widens your reach." },
 			{ Name = "Forge", Blurb = "Your fall is slow; jump before the set and hang: the longer you're up, the harder the spike (up to +39% with shields, +68% awakened). Jumping after the set gets 30% of it." },
 			{ Name = "Steel Reach", Blurb = "Awakened, the charge widens your spike's reach (up to 35%)." },

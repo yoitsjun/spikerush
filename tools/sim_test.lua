@@ -475,8 +475,24 @@ do
 		return HitLogic.compute({ action = "Block", t = 0, root = root or broot, ball = bball, vy = 0, grounded = root ~= nil }, c)
 	end
 	local okW, held = block(140)
-	local okB, broke = block(160)
-	local okP, pierced = block(120, { pierce = true })
+	local okB, broke, okP, pierced = false, nil, false, nil
+	-- (Unbreakable can stop a breaking spike: find a seed where it doesn't, for the break checks)
+	for seq = 1, 40 do
+		local function blockSeq(kmh, extraLast)
+			local last = { hitType = "Spike", team = "Home", kmh = kmh }
+			for k, v in pairs(extraLast or {}) do last[k] = v end
+			local c = ctx({ ability = "Ironclad", stats = taesan, lastHit = last, ironclad = true, ballVel = vec(0, -8, side * 30), seq = seq })
+			return HitLogic.compute({ action = "Block", t = 0, root = broot, ball = bball, vy = 0, grounded = false }, c)
+		end
+		local ok1, r1 = blockSeq(160)
+		if not broke and ok1 and r1.meta.wallBroken then
+			okB, broke = ok1, r1
+		end
+		local ok2, r2 = blockSeq(120, { pierce = true })
+		if not pierced and ok2 and r2.meta.wallBroken then
+			okP, pierced = ok2, r2
+		end
+	end
 	-- standing on the floor he's no wall (the owner: "taesan can block without jumping")
 	local highBall = vec(0, C.NetTop + 6, side * 0.6)
 	local okG = HitLogic.compute({ action = "Block", t = 0, root = vec(0, GROUND, side * 1.2), ball = highBall, vy = 0, grounded = true },
@@ -485,6 +501,27 @@ do
 		and broke.meta.outcome == "Break" and broke.meta.wallBroken and pierced.meta.wallBroken and not okG,
 		"Bulwark: a block he jumps for shuts down a 140 km/h spike perfectly; 150 or more (or a piercing one) breaks through and costs a shield; on the floor, no wall",
 		string.format("140: %s, 160: %s, piercing 120: %s, standing: %s", held.meta.outcome, broke.meta.outcome, pierced.meta.outcome, okG and "blocked" or "no block"))
+	-- Unbreakable (the owner: "a chance to completely shutdown a guardbreak"): over many balls a
+	-- breaking spike is shut down about UnbreakableChance of the time, less the harder it is, and
+	-- one that is keeps the shield
+	local function rate(kmh)
+		local n, stopped, kept = 400, 0, true
+		for seq = 1, n do
+			local c = ctx({ ability = "Ironclad", stats = taesan, lastHit = { hitType = "Spike", team = "Home", kmh = kmh }, ironclad = true, ballVel = vec(0, -8, side * 30), seq = seq })
+			local ok, r = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = bball, vy = 0, grounded = false }, c)
+			if ok and r.meta.unbreakable then
+				stopped = stopped + 1
+				kept = kept and r.meta.outcome == "Stuff" and not r.meta.wallBroken
+			end
+		end
+		return stopped / n, kept
+	end
+	local r150, k150 = rate(150)
+	local r200 = rate(200)
+	local r260, k260 = rate(260)
+	check(math.abs(r150 - IR.UnbreakableChance[1]) < 0.07 and math.abs(r260 - IR.UnbreakableChance[2]) < 0.07 and r150 > r200 and r200 > r260 and k150 and k260,
+		"Unbreakable: a breaking spike is shut down anyway, shield kept, about 35% at 150 km/h down to 15% at 250+",
+		string.format("150: %.0f%%, 200: %.0f%%, 260: %.0f%%", r150 * 100, r200 * 100, r260 * 100))
 	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 10,
 		"Bulwark: 3 shields to start; awakened, ten touches (10% each) bring them back")
 	-- Forge (awakened): a jump before the set charges up to about 215 km/h maxed; after the set,
