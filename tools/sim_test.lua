@@ -713,26 +713,32 @@ do
 		"catch-up: starts at the hit, eases to real time, and skips tiny or huge lags")
 end
 
-print("== the Discord's code ==")
+print("== Discord verification ==")
 do
-	-- (the owner: "lets start adding an incentive to join the discord"): the Discord's code gives
-	-- the Discord Squad card, a grant card nothing else gives, and it's the only code that does
+	-- (the owner: "lets start adding an incentive to join the discord", then BedWars-style codes
+	-- you send a bot): codes are the set length in unmistakable characters; verifying pays the
+	-- Discord Squad card, and no code does
 	local Economy = require("Economy")
-	local g = Economy.code("SpikeSquad", os.time())
+	local rng = Random.new(7)
+	local okAll = true
+	for i = 1, 200 do
+		local c = Economy.discordCode(rng)
+		if not Economy.isDiscordCode(c) or string.find(c, "[IO01]") then
+			okAll = false
+		end
+	end
 	local others = 0
 	for key, def in pairs(Config.Codes) do
 		for _, c in ipairs(def.Cards or {}) do
-			if c == "Discord" and not def.Discord then
+			if c == "Discord" then
 				others = others + 1
 			end
 		end
 	end
-	local card = nil
-	for _, c in ipairs(Config.Cards.List) do
-		if c.Key == "Discord" then card = c end
-	end
-	check(g ~= nil and g.Cards[1] == "Discord" and card and card.Grant == true and others == 0 and type(Config.Discord.Invite) == "string",
-		"the Discord's code gives the Discord Squad card (and only it does)", g and Economy.describe(g) or "no code")
+	local g = Economy.cleanGrant(Config.Discord.Reward)
+	check(okAll and not Economy.isDiscordCode("ABC") and not Economy.isDiscordCode("abcdefg") and not Economy.isDiscordCode("ABCDEF0")
+		and g.Cards[1] == "Discord" and others == 0 and Economy.code("SpikeSquad", os.time()) ~= nil,
+		"Discord: verification codes are clean, verifying gives the Discord Squad card, and no code does", Economy.describe(g))
 end
 
 print("== patch notes ==")

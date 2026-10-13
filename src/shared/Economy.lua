@@ -208,6 +208,22 @@ function Economy.cleanCode(text)
 end
 
 -- The code's grant (clean), or nil and why ("unknown", "expired"); and the code's key.
+-- Discord verification codes (Config.Discord): capitals and digits nobody misreads (no I, O, 0, 1).
+local DISCORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+function Economy.discordCode(rng)
+	local out = {}
+	for i = 1, Config.Discord.CodeLength do
+		local k = rng:NextInteger(1, #DISCORD_ALPHABET)
+		out[i] = string.sub(DISCORD_ALPHABET, k, k)
+	end
+	return table.concat(out)
+end
+
+function Economy.isDiscordCode(s)
+	return type(s) == "string" and #s == Config.Discord.CodeLength and string.find(s, "[^A-HJ-NP-Z2-9]") == nil
+end
+
 function Economy.code(text, now)
 	local key = Economy.cleanCode(text)
 	local def = key ~= "" and Config.Codes[key] or nil

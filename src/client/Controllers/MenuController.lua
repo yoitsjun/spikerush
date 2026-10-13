@@ -5564,7 +5564,7 @@ end
 
 -- Codes (the owner: "add a codes system"): a box and Redeem, under the requirements.
 function Extra.buildCodes()
-	local m = modal("Codes", "Codes", 660, 392 + 86, true)
+	local m = modal("Codes", "Codes", 660, 392 + 168, true)
 	Gui.label(m.panel, { Text = "Codes are for members of the group who favorited and liked the game. Each works once.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
 	local req = Extra.requirements(m.panel, 116)
 	local box = Extra.inputBox(m.panel, { Position = UDim2.fromOffset(26, 302), Size = UDim2.new(1, -52 - 190, 0, 54), TextSize = 22 }, "Enter a code")
@@ -5582,19 +5582,37 @@ function Extra.buildCodes()
 			redeem()
 		end
 	end)
-	-- the Discord (Config.Discord): its invite as text you can copy, for players allowed to see it
-	local dc = make("Frame", { Position = UDim2.fromOffset(26, 376), Size = UDim2.new(1, -52, 0, 74), BackgroundColor3 = Color3.fromRGB(88, 101, 242), BackgroundTransparency = 0.15, BorderSizePixel = 0, Visible = false, ZIndex = 21 }, m.panel)
+	-- the Discord (Config.Discord), for players allowed to see it: the invite and their own code as
+	-- text you can copy, and Verify once the bot has it (the owner, from BedWars: "they give you a
+	-- code and you tell a bot in discord that code to verify your account")
+	local dc = make("Frame", { Position = UDim2.fromOffset(26, 376), Size = UDim2.new(1, -52, 0, 156), BackgroundColor3 = Color3.fromRGB(88, 101, 242), BackgroundTransparency = 0.15, BorderSizePixel = 0, Visible = false, ZIndex = 21 }, m.panel)
 	make("UICorner", { CornerRadius = UDim.new(0, 8) }, dc)
-	Gui.label(dc, { Text = "Join the Spike Rush Discord: codes posted only there, the Discord Squad card, and sneak peeks", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, TextWrapped = true, Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -28, 0, 34), ZIndex = 22 })
-	local link = make("TextBox", { Text = Config.Discord.Invite, TextEditable = false, ClearTextOnFocus = false, FontFace = Gui.display(), TextSize = 20, TextColor3 = Gui.CHALK, TextXAlignment = Enum.TextXAlignment.Left, BackgroundColor3 = Color3.fromRGB(10, 12, 34), BackgroundTransparency = 0.35, BorderSizePixel = 0, Position = UDim2.fromOffset(14, 40), Size = UDim2.new(1, -28, 0, 28), ZIndex = 22 }, dc)
-	make("UICorner", { CornerRadius = UDim.new(0, 6) }, link)
-	make("UIPadding", { PaddingLeft = UDim.new(0, 8) }, link)
-	link.Focused:Connect(function()
-		-- select it all so it's one copy away
-		link.SelectionStart = 1
-		link.CursorPosition = #link.Text + 1
+	local reward = Economy.describe(Economy.cleanGrant(Config.Discord.Reward))
+	local head = Gui.label(dc, { Text = "Verify in the Spike Rush Discord for " .. reward, TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, TextWrapped = true, Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -28, 0, 34), ZIndex = 22 })
+	local function copyBox(props)
+		local b = make("TextBox", { Text = "", TextEditable = false, ClearTextOnFocus = false, FontFace = Gui.display(), TextSize = 20, TextColor3 = Gui.CHALK, TextXAlignment = Enum.TextXAlignment.Left, BackgroundColor3 = Color3.fromRGB(10, 12, 34), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 22 }, dc)
+		for k, v in pairs(props) do
+			b[k] = v
+		end
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, b)
+		make("UIPadding", { PaddingLeft = UDim.new(0, 8) }, b)
+		b.Focused:Connect(function()
+			-- select it all so it's one copy away
+			b.SelectionStart = 1
+			b.CursorPosition = #b.Text + 1
+		end)
+		return b
+	end
+	copyBox({ Text = Config.Discord.Invite, Position = UDim2.fromOffset(14, 42), Size = UDim2.new(0.55, -20, 0, 30) })
+	local codeBox = copyBox({ Text = "", Position = UDim2.new(0.55, 0, 0, 42), Size = UDim2.new(0.45, -14, 0, 30) })
+	local steps = Gui.label(dc, { Text = "", TextSize = 14, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(14, 82), Size = UDim2.new(1, -28 - 150, 0, 64), ZIndex = 22 })
+	local verify, verifyPlate = Gui.plateButton(dc, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -12), Size = UDim2.fromOffset(136, 46), ZIndex = 22 }, Color3.fromRGB(40, 200, 110), Color3.fromRGB(80, 230, 140))
+	verify:SetAttribute("Sound", "UIConfirm")
+	Gui.label(verify, { Text = "Verify", display = true, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+	onClick(verify, function()
+		Net.get("Profile"):FireServer("discordVerify")
 	end)
-	ui.codes = { modal = m, req = req, box = box, goPlate = goPlate, discord = dc }
+	ui.codes = { modal = m, req = req, box = box, goPlate = goPlate, discord = dc, head = head, codeBox = codeBox, steps = steps, verify = verify, asked = false }
 	if Config.Discord.Invite ~= "" then
 		task.spawn(function()
 			local ok, info = pcall(function()
@@ -5609,6 +5627,9 @@ function Extra.buildCodes()
 				end
 			end
 			dc.Visible = allowed
+			if allowed then
+				Extra.refreshCodes(profile())
+			end
 		end)
 	end
 end
@@ -5617,6 +5638,20 @@ function Extra.refreshCodes(prof)
 	local C = ui.codes
 	Extra.refreshRequirements(C.req, prof)
 	Gui.fade(C.goPlate, Extra.meetsRequirements(prof) and 0 or 0.45)
+	-- the Discord strip: ask for a code the first time it shows; then the code, or verified
+	local d = prof.discord or { code = "", done = false }
+	if C.discord.Visible and not d.done and d.code == "" and not C.asked then
+		C.asked = true
+		Net.get("Profile"):FireServer("discordCode")
+	end
+	C.verify.Visible = not d.done
+	if d.done then
+		C.codeBox.Text = "Verified"
+		C.steps.Text = "You're verified. Thanks for joining! The Discord Squad card is in your cards."
+	else
+		C.codeBox.Text = d.code ~= "" and ("Code: " .. d.code) or "Code: ..."
+		C.steps.Text = "1. Join the Discord with the link (copy it)\n2. In the Discord, type /verify " .. (d.code ~= "" and d.code or "CODE") .. "\n3. Come back here and click Verify"
+	end
 end
 
 -- A daily reward's lines for its card: "+150 VP" over "1 lucky spin".

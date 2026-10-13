@@ -89,6 +89,9 @@ local mailBusy = {}
 local pendingGift = {} -- plr -> the gift their prompted purchase is: { productId, userId, name, t }
 local groupMember = {} -- plr -> whether they're in the group (asked on join and on each claim)
 local lastClaim = {} -- plr -> when they last redeemed, claimed or started a gift (each is looked up)
+local verifyStore = nil -- the Discord's verification codes (Config.Discord.Store)
+local discordBusy = {} -- plr -> true while their Discord code is being made or checked
+local discordChecked = {} -- plr -> os.clock() of their last Verify
 local passPrices = {} -- game pass id -> its price in Robux
 
 local function key(plr)
@@ -195,7 +198,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -337,6 +340,9 @@ local function sanitizeProfile(data)
 			end
 		end
 	end
+	-- the Discord: their verification code, and whether they verified (Config.Discord)
+	out.discordCode = Economy.isDiscordCode(data.discordCode) and data.discordCode or ""
+	out.discordDone = data.discordDone == true
 	-- What's New: the newest patch they've seen, and the patches whose reading reward they took
 	out.patchSeen = (type(data.patchSeen) == "string" and #data.patchSeen <= 40) and data.patchSeen or ""
 	if type(data.patchClaimed) == "table" then
@@ -511,6 +517,8 @@ local function save(plr, force)
 		daily = profile.daily,
 		patchSeen = profile.patchSeen,
 		patchClaimed = profile.patchClaimed,
+		discordCode = profile.discordCode,
+		discordDone = profile.discordDone,
 		spent = profile.spent,
 		mailSeen = profile.mailSeen,
 		liked = profile.liked,
@@ -924,6 +932,8 @@ function ProfileService.snapshot(plr)
 			local latest = PatchNotes.latest()
 			return { seen = profile.patchSeen or "", claimed = latest ~= nil and (profile.patchClaimed or {})[latest.Id] == true }
 		end)(),
+		-- the Discord: their verification code ("" until they ask for one) and whether it's done
+		discord = { code = profile.discordCode or "", done = profile.discordDone == true },
 	}
 end
 
@@ -1720,6 +1730,57 @@ local function onRequest(plr, kind, a, b, c)
 			dirty[plr] = true
 			push(plr)
 		end
+	elseif kind == "discordCode" or kind == "discordVerify" then
+		-- the Discord (Config.Discord): a code to send the bot, then Verify reads what it wrote
+		if profile.discordDone or not verifyStore or discordBusy[plr] then
+			push(plr)
+			return
+		end
+		if kind == "discordVerify" and discordChecked[plr] and now - discordChecked[plr] < Config.Discord.CheckGap then
+			push(plr, "One moment, then try Verify again.")
+			return
+		end
+		discordBusy[plr] = true
+		task.spawn(function()
+			if kind == "discordCode" then
+				if profile.discordCode == "" then
+					local code = Economy.discordCode(Random.new())
+					local ok = pcall(function()
+						verifyStore:SetAsync("code_" .. code, { userId = plr.UserId, name = plr.Name, at = os.time() })
+					end)
+					if ok and profiles[plr] then
+						profile.discordCode = code
+						dirty[plr] = true
+						save(plr, true)
+					end
+				end
+				discordBusy[plr] = nil
+				push(plr)
+				return
+			end
+			discordChecked[plr] = os.clock()
+			local code = profile.discordCode
+			local ok, v = pcall(function()
+				return verifyStore:GetAsync("done_" .. code)
+			end)
+			discordBusy[plr] = nil
+			if not profiles[plr] or profile.discordDone then
+				return
+			end
+			if not ok then
+				push(plr, "Couldn't check right now. Try Verify again in a moment.")
+			elseif type(v) == "table" and tonumber(v.userId) == plr.UserId then
+				profile.discordDone = true
+				local g = Economy.cleanGrant(Config.Discord.Reward)
+				local added = Economy.apply(profile, g, os.time())
+				dirty[plr] = true
+				save(plr, true)
+				ProfileService.checkCards(plr)
+				push(plr, "Discord verified, thanks for joining! " .. Economy.describe(g, added))
+			else
+				push(plr, "Not verified yet. In the Discord, type /verify " .. code .. ", then click Verify here.")
+			end
+		end)
 	elseif kind == "patchClaim" then
 		-- read to the very bottom: the newest patch's reward, once
 		local latest = PatchNotes.latest()
@@ -2047,6 +2108,12 @@ function ProfileService.init(r)
 	end)
 	if okMail then
 		mailStore = mail
+	end
+	local okVerify, vs = pcall(function()
+		return DataStoreService:GetDataStore(Config.Discord.Store)
+	end)
+	if okVerify then
+		verifyStore = vs
 	end
 
 	local function setup(plr)

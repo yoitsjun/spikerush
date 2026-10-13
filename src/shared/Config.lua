@@ -687,8 +687,8 @@ Config.Cards = {
 		{ Key = "DevDefeater", Name = "Dev Defeater", Stat = "devWins", Need = 1, Goal = "Beat a developer's team in a match",
 			Look = { Base = Color3.fromRGB(34, 4, 8), Sweep = Color3.fromRGB(235, 30, 50), Accent = Color3.fromRGB(255, 235, 235), Edge = Color3.fromRGB(255, 70, 80), Pattern = "rays", Big = "DEV\nDEFEATER" } },
 		-- the VIP game pass's card (Config.Passes.VIP): given with the pass, never earned
-		-- the Discord's card (Config.Discord): only from the code posted in the Discord
-		{ Key = "Discord", Name = "Discord Squad", Stat = "grant", Grant = true, Goal = "From the code in the Spike Rush Discord",
+		-- the Discord's card (Config.Discord): only from verifying your account in the Discord
+		{ Key = "Discord", Name = "Discord Squad", Stat = "grant", Grant = true, Goal = "Verify your account in the Spike Rush Discord",
 			Look = { Base = Color3.fromRGB(14, 16, 44), Sweep = Color3.fromRGB(88, 101, 242), Accent = Color3.fromRGB(235, 238, 255), Edge = Color3.fromRGB(130, 142, 255), Pattern = "halftone", Big = "DISCORD\nSQUAD" } },
 		{ Key = "VIP", Name = "VIP", Stat = "grant", Grant = true, Goal = "Comes with the VIP game pass",
 			Look = { Base = Color3.fromRGB(20, 14, 2), Sweep = Color3.fromRGB(255, 196, 40), Accent = Color3.fromRGB(255, 245, 200), Edge = Color3.fromRGB(255, 220, 100), Pattern = "stars", Big = "VIP" } },
@@ -788,19 +788,27 @@ Config.Passes = {
 -- they get"): typed in Home's Codes window, any case, spaces ignored; each works once per player.
 -- A code pays any of VP, Gold, Lucky (spins) and Chars (roster ids). Until: the unix time it
 -- stops working (none: it never does). Keys are the code in lower case, letters and digits only.
--- The Discord (the owner: "lets start adding an incentive to join the discord"): the Codes window
--- shows the invite, as copyable text, to players Roblox lets see a Discord link
--- (PolicyService's AllowedExternalLinkReferences; never under-13s), and the Discord's own code
--- (Config.Codes, Discord = true) is posted only there: it gives the Discord card, which nothing
--- else does. Invite: the link without https:// ("discord.gg/abc123"); empty hides the strip.
--- Rotate the code each update by giving it a new key (old keys can stay or get an Until).
+-- The Discord (the owner: "lets start adding an incentive to join the discord", then, from
+-- BedWars: "they give you a code and you tell a bot in discord that code to verify your
+-- account"). The Codes window, for players Roblox lets see a Discord link (PolicyService's
+-- AllowedExternalLinkReferences; never under-13s), shows the invite as copyable text and the
+-- player's own verification code. In the Discord they type /verify CODE: the bot
+-- (tools/discord-verify, a Cloudflare Worker) checks the code in the Store data store
+-- ("code_<CODE>" -> { userId, name }, written by the game), and writes "done_<CODE>" (and
+-- "discord_<their Discord id>", so one Discord account verifies one Roblox account). Verify in the
+-- game reads "done_<CODE>" and pays Reward once, the Discord Squad card with it (nothing else gives
+-- that card). Invite: the link without https://; empty hides the strip.
 Config.Discord = {
 	Invite = "discord.gg/T6N3uw5ghA",
+	Store = "DiscordVerify",
+	CodeLength = 7,
+	CheckGap = 4, -- seconds between a player's Verify checks
+	Reward = { VP = 750, Gold = 7500, Lucky = 3, Cards = { "Discord" } },
 }
 
 Config.Codes = {
-	-- the Discord's code (post it there only; see Config.Discord)
-	spikesquad = { VP = 500, Gold = 5000, Lucky = 2, Cards = { "Discord" }, Discord = true },
+	-- a code posted in the Discord (see Config.Discord; verifying there pays more, and the card)
+	spikesquad = { VP = 500, Gold = 5000, Lucky = 2 },
 	-- the owner: "make a new code. HolyS+" (for the S+ Update; the "+" is dropped when a code is
 	-- read, so "HolyS+" and "holys" both work)
 	holys = { VP = 600, Gold = 7500, Lucky = 3 },
