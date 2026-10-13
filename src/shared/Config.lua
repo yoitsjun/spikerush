@@ -795,7 +795,7 @@ Config.Passes = {
 -- else does. Invite: the link without https:// ("discord.gg/abc123"); empty hides the strip.
 -- Rotate the code each update by giving it a new key (old keys can stay or get an Until).
 Config.Discord = {
-	Invite = "",
+	Invite = "discord.gg/T6N3uw5ghA",
 }
 
 Config.Codes = {
