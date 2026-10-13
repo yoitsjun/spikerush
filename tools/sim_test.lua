@@ -557,6 +557,39 @@ do
 	check(ok and res.meta.breaks, "Chain Reaction: its spike breaks a full guard, every time", ok and tostring(res.meta.grade) or "no touch")
 end
 
+print("== Shear off blocks (Haneul) ==")
+do
+	-- (the owner: "her spikes fly more wildly off blocks"): against an ordinary block her spike is
+	-- stuffed less and tooled off the hands far more; a perfect block (Iron Wall) still holds
+	local blocker = Characters.derive(Characters.fromRoster(Roster.get("taesan"), "max"))
+	local broot = vec(0, GROUND + Characters.jumpHeight(blocker, GROUND) * 0.8, side * 1.2)
+	-- (a ball near the top of the hands: where a block deflects rather than stuffs)
+	local bball = nil
+	for dy = 0, 14, 0.1 do
+		local b = vec(0, C.NetTop + dy, side * 0.6)
+		if HitLogic.blockBox(broot, b, side, blocker, false) then
+			bball = b
+		end
+	end
+	local function outcomes(shear, extraCtx)
+		local counts = { Stuff = 0, Tool = 0, Soft = 0, Touch = 0, Break = 0 }
+		for seq = 1, 400 do
+			local last = { hitType = "Spike", team = "Home", kmh = 150, shear = shear or nil }
+			local c = ctx({ stats = blocker, lastHit = last, ballVel = vec(0, -8, side * 30), seq = seq })
+			for k, v in pairs(extraCtx or {}) do c[k] = v end
+			local ok, r = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = bball, vy = 0, grounded = false }, c)
+			if ok then
+				counts[r.meta.outcome] = (counts[r.meta.outcome] or 0) + 1
+			end
+		end
+		return counts
+	end
+	local plain, sheared, walled = outcomes(false), outcomes(true), outcomes(true, { ironWall = true })
+	check(bball ~= nil and sheared.Stuff <= plain.Stuff and sheared.Tool > plain.Tool + 60 and walled.Stuff == 400,
+		"Shear: her spike is stuffed less and tooled off the hands far more; a perfect block still holds",
+		string.format("plain: %d stuff, %d tool; hers: %d stuff, %d tool; into Iron Wall: %d stuff (of 400)", plain.Stuff, plain.Tool, sheared.Stuff, sheared.Tool, walled.Stuff))
+end
+
 print("== Thunder: Storm Call and Static Charge (YeJun) ==")
 do
 	local TH = Config.Abilities.Thunder
@@ -579,8 +612,8 @@ do
 		string.format("low: %.0f without, %.0f with; top: %.0f without, %.0f with, second swing %.0f km/h", lowPlain.meta.kmh, lowStorm.meta.kmh, top.meta.kmh, topStorm.meta.kmh, second.meta.kmh))
 	local _, st3 = ys(root, { static = 3 })
 	local _, st9 = ys(root, { static = 9 })
-	check(math.abs(st3.meta.kmh / top.meta.kmh - (1 + TH.StaticPer * TH.StaticMax)) < 0.01 and st9.meta.kmh == st3.meta.kmh and st3.meta.static == TH.StaticMax and TH.Active and TH.Duration > 0,
-		"Static Charge: each thunder spike this rally adds 6% to the next, up to 3",
+	check(math.abs(st3.meta.kmh / top.meta.kmh - (1 + TH.StaticPer * TH.StaticMax)) < 0.01 and st9.meta.kmh == st3.meta.kmh and st3.meta.static == TH.StaticMax and TH.Active and TH.Duration > 0 and TH.LeapMul > 1.15 and Characters.jumpHeight(yejun, GROUND) * TH.LeapMul <= 24.5,
+		"Static Charge: each thunder spike this rally adds 6% to the next, up to 3; High Strike lifts his jump (still on screen)",
 		string.format("%.0f with none, %.0f with 3", top.meta.kmh, st3.meta.kmh))
 end
 

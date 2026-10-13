@@ -108,6 +108,8 @@ local function spikeJump()
 		h = h * Config.Abilities.Corona.LeapMul
 	elseif State.myAbility() == "Squall" then
 		h = h * Config.Abilities.Squall.LeapMul
+	elseif State.myAbility() == "Thunder" then
+		h = h * Config.Abilities.Thunder.LeapMul -- High Strike
 	end
 	return h
 end

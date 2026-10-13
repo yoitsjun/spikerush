@@ -865,10 +865,15 @@ Config.Abilities = {
 		-- up to StaticMax; the rally's end clears it
 		StaticPer = 0.06,
 		StaticMax = 3,
+		-- High Strike (the owner: "yejun is just jumping too low. can we buff him"): his spike and
+		-- serve jumps go this much higher (17.6 studs maxed -> about 22, with Haneul and Laith); his
+		-- hitting point on the card, and so Thunder, stay where they were
+		LeapMul = 1.25,
 		Passives = {
 			{ Name = "Double Swing", Blurb = "Swing again in the same jump: the second swing (only the second) hits 18% harder." },
 			{ Name = "Storm Call", Blurb = "Press Q: for 10 s every spike is a full-strength lightning spike, at any height, 10% harder still." },
 			{ Name = "Static Charge", Blurb = "Each lightning spike in a rally charges your next ones 6% harder (up to 3 times). Resets when the rally ends." },
+			{ Name = "High Strike", Blurb = "Your spike jumps go 25% higher." },
 		},
 	},
 	Azure = {
@@ -1047,13 +1052,19 @@ Config.Abilities = {
 		HoverSlack = 0.15, -- charge a spike may claim over the hover the server saw (network jitter)
 		AimError = 0.5, -- a hover's spike strays this share of the usual error
 		ReachMul = 1.2, -- Shear: her spike reaches this much wider
+		-- and flies wild off blocks (the owner: "her spikes fly more wildly off blocks", folded into
+		-- Shear): a block stuffs her less (its stuff score this much lower), and one that doesn't
+		-- stuff her sends it off the hands and out (a Tool) this often instead of a soft touch they
+		-- can play. A perfect block (Iron Wall, Bulwark) still holds
+		ShearStuffDrop = 0.15,
+		ShearToolChance = 0.5,
 		AutoGale = 0.4, -- the AI doesn't hover: its spikes get this much of the charge's power
 		Passives = {
 			{ Name = "Tailwind", Blurb = "Jump on the ground: a lightning-quick dash under where the ball comes down, and a spring straight up, quicker than anyone." },
 			{ Name = "Downdraft", Blurb = "Just after a Tailwind jump, the other team runs 30% slower for a moment." },
 			{ Name = "Updraft", Blurb = "Your spike jumps go 35% higher: room to hover and charge." },
 			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge: let go at once and it drops just over the net; the longer you hold, the deeper and harder it goes (up to +30%)." },
-			{ Name = "Shear", Blurb = "Your spikes cut 15% harder and reach 20% wider than anyone's." },
+			{ Name = "Shear", Blurb = "Your spikes cut 15% harder, reach 20% wider than anyone's, and fly wild off blocks: stuffed less, and often whipped off the hands and out." },
 		},
 	},
 	Adrenaline = {

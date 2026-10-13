@@ -3656,6 +3656,17 @@ local function onHit(snap)
 		if meta.ironWall then
 			Fx.play("BlockImpact", pos, { color = Config.Abilities.IronWall.Color, scale = 1.35 })
 		end
+		if meta.wild then
+			-- Haneul's Shear: the spike whips off the hands in a gust of shattered glass
+			local col = Config.Abilities.Squall.Color
+			ringFx(pos, col, 1, 9, 0.3, 6)
+			shards(pos, Color3.fromRGB(235, 250, 255), 14, 60)
+			shards(pos, Color3.fromRGB(70, 150, 255), 6, 50)
+			VFXController.popup(pos + Vector3.new(0, 2, 0), "Sheared!", col, 1.2)
+			if close and mods.AudioController.hearsMatch() then
+				mods.AudioController.play("SquallGlass", { volume = 0.8, speed = 1.15, pos = pos, minGap = 0.05 })
+			end
+		end
 		if meta.unbreakable then
 			-- Taesan's Unbreakable: a spike that should have broken his shield, stopped dead
 			local steel = Config.Abilities.Ironclad.WallColor

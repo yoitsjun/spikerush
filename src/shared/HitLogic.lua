@@ -876,6 +876,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if gale > 0 and not ctx.auto then
 		meta.gale = math.floor(gale * 100 + 0.5) / 100
 	end
+	meta.shear = (kind == "Spike" and ctx.ability == "Squall") or nil -- (her spikes fly wild off blocks)
 	-- Dragon Surge: a full Azure bar costs the digger more
 	if pierce then
 		meta.tierDrain = meta.tierDrain * AZURE.FullDrainMul
@@ -1256,6 +1257,10 @@ function HitLogic.compute(input, ctx)
 		if last.pierce then
 			stuffScore = math.min(stuffScore, 0.3)
 		end
+		-- Shear (Haneul's spike): harder to stuff (only the stuff check moves: a touch that would be
+		-- soft stays soft unless the wild roll below takes it), and wild off the hands
+		local shear = last.shear == true and last.hitType == "Spike"
+		local shearDrop = shear and SQUALL.ShearStuffDrop or 0
 		-- Feral Leap: a full-gauge spike leaping at the net smashes through a blocker with less
 		-- Attack than the attacker had
 		local smash = last.hitType == "Spike" and type(last.breakAtk) == "number" and last.breakAtk > stats.Attack
@@ -1314,12 +1319,21 @@ function HitLogic.compute(input, ctx)
 			v = HitLogic.solveSpeed(p, Vector3.new(0, R, atk * depth), HitLogic.studs(IW.StuffKmh), G * 1.3)
 			a = Vector3.new(0, -G * 1.3, 0)
 			hold = H.HitStopPerfect
-		elseif stuffScore >= 0.45 then
+		elseif stuffScore - shearDrop >= 0.45 then
 			meta.outcome = "Stuff"
 			p = Vector3.new(0, ball.Y, atk * (R + 0.1))
 			v = Vector3.new(0, -SPM * (4.4 + 5 * q), atk * SPM * (3.1 + 4.4 * q))
 			a = Vector3.new(0, -G * 1.3, 0)
 			hold = 0.05
+		elseif shear and rng:NextNumber() < SQUALL.ShearToolChance then
+			-- Shear: off the hands and out, the attacker's point (not a touch they can play)
+			local pw = math.max(power, 0.6)
+			meta.outcome = "Tool"
+			meta.noDrain = true
+			meta.wild = true
+			p = Vector3.new(0, ball.Y, side * (R + 0.1))
+			v = Vector3.new(0, SPM * (4.4 + 1.9 * pw), side * SPM * (8.75 + 4.4 * pw))
+			a = Vector3.new(0, -G, 0)
 		elseif stuffScore >= 0.18 then
 			meta.outcome = "Soft"
 			meta.noDrain = true
