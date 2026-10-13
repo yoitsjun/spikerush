@@ -1098,6 +1098,7 @@ Config.Abilities = {
 		-- charges with the time he's been up (WallBoost with shields, MaxBoost awakened); a jump before
 		-- his team's set gets all of it, one after it LateShare
 		DescentCancel = 0.4, -- (was 0.7; the owner: "taesan is a bit too floaty")
+		AwakenedDescentCancel = 0.7, -- awakened he floats longer (the owner: "whn he's awakened, make him float longer")
 		ChargeTime = 0.5, -- seconds in the air for the whole charge (the owner: "a very quick charge, because quicks are fast")
 		MaxBoost = 0.68, -- awakened: spike speed x (1 + this x the charge): about 215 km/h maxed
 		-- (the owner: "allow [him] to charge up his spike, albeit at a weaker level when he has his

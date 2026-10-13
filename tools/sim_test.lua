@@ -540,8 +540,8 @@ do
 	local _, walled = tspike({ metal = 1, early = true }, { awakened = false })
 	local _, auto = tspike({}, { auto = true })
 	check(early.meta.kmh >= 205 and early.meta.kmh <= 225 and math.abs(late.meta.kmh / plain.meta.kmh - (1 + IR.MaxBoost * IR.LateShare)) < 0.01
-		and walled.meta.kmh >= 170 and walled.meta.kmh <= 185 and auto.meta.kmh > plain.meta.kmh and HitLogic.spikeReach("Ironclad", 1) > HitLogic.spikeReach("Ironclad", 0) and IR.ChargeTime <= 0.6,
-		"Forge: a quick full charge off a jump before the set: about 178 with shields, about 215 awakened; after the set, 30% of it",
+		and walled.meta.kmh >= 170 and walled.meta.kmh <= 185 and auto.meta.kmh > plain.meta.kmh and IR.AwakenedDescentCancel > IR.DescentCancel and HitLogic.spikeReach("Ironclad", 1) > HitLogic.spikeReach("Ironclad", 0) and IR.ChargeTime <= 0.6,
+		"Forge: a quick full charge off a jump before the set: about 178 with shields, about 215 awakened (floating longer); after the set, 30% of it",
 		string.format("%.0f plain, %.0f with shields, %.0f awakened, %.0f awakened late (AI %.0f) km/h; full in %.1f s", plain.meta.kmh, walled.meta.kmh, early.meta.kmh, late.meta.kmh, auto.meta.kmh, IR.ChargeTime))
 end
 
