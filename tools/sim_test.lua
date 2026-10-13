@@ -557,6 +557,39 @@ do
 	check(ok and res.meta.breaks, "Chain Reaction: its spike breaks a full guard, every time", ok and tostring(res.meta.grade) or "no touch")
 end
 
+print("== hard spikes into a block ==")
+do
+	-- (the owner: "im spiking at 300 kmh... every hit is a soft touch block even from an a tier"):
+	-- a solid A-tier block soft-touches a 150 km/h spike as before, but a 300 km/h one blasts
+	-- through or tools off the hands, never a soft touch; a perfect wall still holds it
+	local aTier = Characters.stats("A")
+	local broot = vec(0, GROUND + Characters.jumpHeight(aTier, GROUND) * 0.85, side * 1.2)
+	local bball = nil
+	for dy = 0, 14, 0.1 do
+		local b = vec(0, C.NetTop + dy, side * 0.6)
+		local ok, q = HitLogic.blockBox(broot, b, side, aTier, false)
+		if ok and q > 0.6 and q < 0.8 then
+			bball = b
+		end
+	end
+	local function outcomes(kmh, extraCtx)
+		local counts = { Stuff = 0, Tool = 0, Soft = 0, Touch = 0, Break = 0 }
+		for seq = 1, 300 do
+			local c = ctx({ stats = aTier, lastHit = { hitType = "Spike", team = "Home", kmh = kmh, tierDrain = 1 }, ballVel = vec(0, -8, side * 30), seq = seq })
+			for k, v in pairs(extraCtx or {}) do c[k] = v end
+			local ok, r = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = bball, vy = 0, grounded = false }, c)
+			if ok then
+				counts[r.meta.outcome] = (counts[r.meta.outcome] or 0) + 1
+			end
+		end
+		return counts
+	end
+	local slow, hard, walled = outcomes(150), outcomes(300), outcomes(300, { ironWall = true })
+	check(bball ~= nil and hard.Soft == 0 and hard.Touch == 0 and hard.Break > 150 and hard.Tool > 0 and slow.Break == 0 and walled.Stuff == 300,
+		"a 300 km/h spike blasts through or tools off an A-tier block, never a soft touch; slower ones as before; a perfect wall still holds",
+		string.format("150: %d stuff %d soft %d tool %d touch; 300: %d through, %d tool, %d soft; into Iron Wall: %d stuff (of 300)", slow.Stuff, slow.Soft, slow.Tool, slow.Touch, hard.Break, hard.Tool, hard.Soft, walled.Stuff))
+end
+
 print("== Shear off blocks (Haneul) ==")
 do
 	-- (the owner: "her spikes fly more wildly off blocks"): against an ordinary block her spike is

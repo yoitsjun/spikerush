@@ -231,6 +231,15 @@ Config.Hits = {
 	NetClearance = 0.12 * M,
 	NetAssistPush = 0.38 * M,
 	NetAssistSteps = 12,
+	-- Hard spikes into a block (the owner: "right now im spiking at 300 kmh and it easily gets eaten
+	-- up... every hit is a soft touch block even from an a tier"): past BlockOverKmh[1] a spike keeps
+	-- getting harder to stop (its stuff score BlockOverStuff lower by BlockOverKmh[2]), and one the
+	-- block doesn't stuff is never a soft touch: it blasts through (BlastChance, rising with the
+	-- speed; BlastKeep of its speed) or goes off the hands and out
+	BlockOverKmh = { 200, 300 },
+	BlockOverStuff = 0.25,
+	BlastChance = { 0.35, 0.75 },
+	BlastKeep = 0.8,
 	IncomingSpeedPenaltyStartKmh = 70,
 	IncomingSpeedPenaltyRangeKmh = 130,
 	IncomingSpeedPenaltyMax = 0.5, -- a hard spike pulls an imperfect receive down this much at most

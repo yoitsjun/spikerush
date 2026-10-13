@@ -1249,11 +1249,14 @@ function HitLogic.compute(input, ctx)
 		end
 		local inc = ctx.ballVel or Vector3.new(0, 0, side * 9.4 * SPM)
 		local attackKmh = last.kmh or HitLogic.kmh(inc.Magnitude)
-		local power = 0
+		local power, over = 0, 0
 		if last.hitType == "Spike" then
 			power = clamp((attackKmh - 60) / 140, 0, 1)
+			over = clamp((attackKmh - H.BlockOverKmh[1]) / (H.BlockOverKmh[2] - H.BlockOverKmh[1]), 0, 1)
 		end
-		local stuffScore = q - 0.42 * power
+		-- (a spike past BlockOverKmh[1] keeps getting harder to stop, and isn't a soft touch: below)
+		local hard = last.hitType == "Spike" and attackKmh >= H.BlockOverKmh[1]
+		local stuffScore = q - 0.42 * power - H.BlockOverStuff * over
 		if last.pierce then
 			stuffScore = math.min(stuffScore, 0.3)
 		end
@@ -1334,6 +1337,30 @@ function HitLogic.compute(input, ctx)
 			p = Vector3.new(0, ball.Y, side * (R + 0.1))
 			v = Vector3.new(0, SPM * (4.4 + 1.9 * pw), side * SPM * (8.75 + 4.4 * pw))
 			a = Vector3.new(0, -G, 0)
+		elseif hard then
+			-- a 200+ km/h spike the block didn't stuff: straight through it (more often the harder it
+			-- is), or off the hands and out; never a soft touch they can play
+			local inc2 = planar(inc)
+			if not fingertips and rng:NextNumber() < lerp(H.BlastChance[1], H.BlastChance[2], over) then
+				meta.outcome = "Break"
+				meta.breakThrough = true
+				meta.blast = true
+				meta.tierDrain = last.tierDrain
+				p = Vector3.new(0, ball.Y, side * (R + 0.1))
+				if inc2.Z * side < 2.5 * SPM then
+					inc2 = Vector3.new(0, math.min(inc2.Y, -2 * SPM), side * 18 * SPM)
+				end
+				v = inc2 * H.BlastKeep
+				a = Vector3.new(0, -G * H.SpikeGravityScale, 0)
+				hold = 0.04
+			else
+				local pw = math.max(power, 0.8)
+				meta.outcome = "Tool"
+				meta.noDrain = true
+				p = Vector3.new(0, ball.Y, side * (R + 0.1))
+				v = Vector3.new(0, SPM * (4.4 + 1.9 * pw), side * SPM * (8.75 + 4.4 * pw))
+				a = Vector3.new(0, -G, 0)
+			end
 		elseif stuffScore >= 0.18 then
 			meta.outcome = "Soft"
 			meta.noDrain = true

@@ -3642,10 +3642,12 @@ local function onHit(snap)
 	if ht == "Block" then
 		local outcome = meta.outcome
 		if outcome == "Break" then
-			-- a Feral Leap spike smashed through the hands: shards off the block, on it goes
-			Fx.play("BlockImpact", pos, { color = FERAL, scale = 1.3 })
-			shards(pos, FERAL_LIGHT, 14, 50)
-			VFXController.popup(pos + Vector3.new(0, 1.8, 0), "Break Through!", FERAL_HOT, 1.3)
+			-- a spike smashed through the hands (a Feral Leap, or one just too hard to stop): shards off
+			-- the block, on it goes
+			local hot = meta.blast and Color3.fromRGB(255, 120, 60) or FERAL
+			Fx.play("BlockImpact", pos, { color = hot, scale = 1.3 })
+			shards(pos, meta.blast and Color3.fromRGB(255, 210, 160) or FERAL_LIGHT, 14, 50)
+			VFXController.popup(pos + Vector3.new(0, 1.8, 0), "Break Through!", meta.blast and Color3.fromRGB(255, 150, 70) or FERAL_HOT, 1.3)
 			if close then
 				shaker.shake(0.7)
 				shaker.kick(-6)
