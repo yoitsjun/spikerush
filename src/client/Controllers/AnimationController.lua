@@ -1356,6 +1356,16 @@ function AnimationController.spikePose(model)
 	return POSES.Snap_Bow and "Snap_Bow" or "Cock"
 end
 
+-- The pose a card shows a character in (the owner: "instead of spike pose i think its better for
+-- the intro pose to show on the cards"): their equipped intro pose (the Locker's Pose), else Ready.
+function AnimationController.cardPose(model)
+	local key = model and model:GetAttribute(Config.Cosmetics.Attribute.Pose)
+	if key and POSES["Intro_" .. key] then
+		return "Intro_" .. key
+	end
+	return "Intro_Ready"
+end
+
 local PORTRAIT_STRIP = { ForceField = true, BillboardGui = true, SurfaceGui = true, Sound = true, ParticleEmitter = true, Highlight = true, Trail = true, Beam = true, VectorForce = true, Fire = true, Smoke = true, Sparkles = true }
 
 -- Fill a ViewportFrame with a posed copy of `model` (a character in the world) facing screen
@@ -1389,8 +1399,10 @@ function AnimationController.portrait(viewport, model, poseName)
 		clone:Destroy()
 		return nil
 	end
-	-- turned a quarter so the camera (on -Z, looking +Z) sees them side on, facing screen right
-	AnimationController.poseModel(rig, POSES[poseName or ""] or POSES.Cock or {}, CFrame.Angles(0, math.rad(90), 0))
+	-- an intro pose faces the camera (on -Z, looking +Z), turned a little toward screen right; a
+	-- spike is seen side on, facing screen right
+	local intro = type(poseName) == "string" and string.sub(poseName, 1, 6) == "Intro_"
+	AnimationController.poseModel(rig, POSES[poseName or ""] or POSES.Cock or {}, CFrame.Angles(0, math.rad(intro and 25 or 90), 0))
 	rig.model.Parent = viewport
 	local cam = Instance.new("Camera")
 	cam.FieldOfView = 30

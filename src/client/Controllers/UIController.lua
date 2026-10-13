@@ -1951,7 +1951,7 @@ local function showScoreCard(a)
 	local look = Cards.look(def, teamColor(a.winner), rank > 0 and rank or nil)
 	if look.Avatar and m then
 		-- the Content Creator card: their own avatar, mid-spike, across it
-		mods.AnimationController.portrait(C.card.viewport, m, mods.AnimationController.spikePose(m))
+		mods.AnimationController.portrait(C.card.viewport, m, mods.AnimationController.cardPose(m))
 	end
 	C.card.set(look, {
 		userId = userId,

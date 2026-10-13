@@ -3398,7 +3398,7 @@ function Extra.cardAvatar(card)
 	local key = c and (tostring(c) .. tostring(c:GetAttribute(Config.Cosmetics.Attribute.Style))) or nil
 	if card.avatarKey ~= key then
 		card.avatarKey = key
-		mods.AnimationController.portrait(card.viewport, c, mods.AnimationController.spikePose(c))
+		mods.AnimationController.portrait(card.viewport, c, mods.AnimationController.cardPose(c))
 	end
 end
 
@@ -5245,7 +5245,7 @@ function Extra.fillPlayerProfile(data)
 	local tier = c and c.Tier or ""
 	if look.Avatar then
 		local other = Players:GetPlayerByUserId(data.userId)
-		mods.AnimationController.portrait(PP.card.viewport, other and other.Character, mods.AnimationController.spikePose(other and other.Character))
+		mods.AnimationController.portrait(PP.card.viewport, other and other.Character, mods.AnimationController.cardPose(other and other.Character))
 	end
 	PP.card.set(look, {
 		userId = data.userId,
