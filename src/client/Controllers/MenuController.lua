@@ -5582,13 +5582,14 @@ function Extra.buildCodes()
 			redeem()
 		end
 	end)
-	-- the Discord (Config.Discord), for players allowed to see it: the invite and their own code as
-	-- text you can copy, and Verify once the bot has it (the owner, from BedWars: "they give you a
-	-- code and you tell a bot in discord that code to verify your account")
-	local dc = make("Frame", { Position = UDim2.fromOffset(26, 376), Size = UDim2.new(1, -52, 0, 156), BackgroundColor3 = Color3.fromRGB(88, 101, 242), BackgroundTransparency = 0.15, BorderSizePixel = 0, Visible = false, ZIndex = 21 }, m.panel)
+	-- the Discord (Config.Discord): their own code as text you can copy, and Verify once the bot has
+	-- it (the owner, from BedWars: "they give you a code and you tell a bot in discord that code to
+	-- verify your account"). Players Roblox lets see a Discord link get the invite and the word
+	-- Discord; everyone else gets BedWars' wording: the Community link on the game page (Roblox shows
+	-- that link only to players allowed it), no Discord named
+	local dc = make("Frame", { Position = UDim2.fromOffset(26, 376), Size = UDim2.new(1, -52, 0, 156), BackgroundColor3 = Color3.fromRGB(56, 64, 110), BackgroundTransparency = 0.15, BorderSizePixel = 0, Visible = false, ZIndex = 21 }, m.panel)
 	make("UICorner", { CornerRadius = UDim.new(0, 8) }, dc)
-	local reward = Economy.describe(Economy.cleanGrant(Config.Discord.Reward))
-	local head = Gui.label(dc, { Text = "Verify in the Spike Rush Discord for " .. reward, TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, TextWrapped = true, Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -28, 0, 34), ZIndex = 22 })
+	local head = Gui.label(dc, { Text = "", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, TextWrapped = true, Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -28, 0, 34), ZIndex = 22 })
 	local function copyBox(props)
 		local b = make("TextBox", { Text = "", TextEditable = false, ClearTextOnFocus = false, FontFace = Gui.display(), TextSize = 20, TextColor3 = Gui.CHALK, TextXAlignment = Enum.TextXAlignment.Left, BackgroundColor3 = Color3.fromRGB(10, 12, 34), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 22 }, dc)
 		for k, v in pairs(props) do
@@ -5603,8 +5604,8 @@ function Extra.buildCodes()
 		end)
 		return b
 	end
-	copyBox({ Text = Config.Discord.Invite, Position = UDim2.fromOffset(14, 42), Size = UDim2.new(0.55, -20, 0, 30) })
-	local codeBox = copyBox({ Text = "", Position = UDim2.new(0.55, 0, 0, 42), Size = UDim2.new(0.45, -14, 0, 30) })
+	local linkBox = copyBox({ Text = Config.Discord.Invite, Position = UDim2.fromOffset(14, 42), Size = UDim2.new(0.55, -20, 0, 30), Visible = false })
+	local codeBox = copyBox({ Text = "", Position = UDim2.fromOffset(14, 42), Size = UDim2.new(0.45, -14, 0, 30) })
 	local steps = Gui.label(dc, { Text = "", TextSize = 14, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(14, 82), Size = UDim2.new(1, -28 - 150, 0, 64), ZIndex = 22 })
 	local verify, verifyPlate = Gui.plateButton(dc, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -12), Size = UDim2.fromOffset(136, 46), ZIndex = 22 }, Color3.fromRGB(40, 200, 110), Color3.fromRGB(80, 230, 140))
 	verify:SetAttribute("Sound", "UIConfirm")
@@ -5612,26 +5613,29 @@ function Extra.buildCodes()
 	onClick(verify, function()
 		Net.get("Profile"):FireServer("discordVerify")
 	end)
-	ui.codes = { modal = m, req = req, box = box, goPlate = goPlate, discord = dc, head = head, codeBox = codeBox, steps = steps, verify = verify, asked = false }
-	if Config.Discord.Invite ~= "" then
-		task.spawn(function()
-			local ok, info = pcall(function()
-				return game:GetService("PolicyService"):GetPolicyInfoForPlayerAsync(player)
-			end)
-			local allowed = false
-			if ok and type(info) == "table" and type(info.AllowedExternalLinkReferences) == "table" then
-				for _, ref in ipairs(info.AllowedExternalLinkReferences) do
-					if ref == "Discord" then
-						allowed = true
-					end
+	ui.codes = { modal = m, req = req, box = box, goPlate = goPlate, discord = dc, head = head, codeBox = codeBox, steps = steps, verify = verify, asked = false, linkOk = false }
+	task.spawn(function()
+		local ok, info = pcall(function()
+			return game:GetService("PolicyService"):GetPolicyInfoForPlayerAsync(player)
+		end)
+		local allowed = false
+		if ok and type(info) == "table" and type(info.AllowedExternalLinkReferences) == "table" then
+			for _, ref in ipairs(info.AllowedExternalLinkReferences) do
+				if ref == "Discord" then
+					allowed = true
 				end
 			end
-			dc.Visible = allowed
-			if allowed then
-				Extra.refreshCodes(profile())
-			end
-		end)
-	end
+		end
+		allowed = allowed and Config.Discord.Invite ~= ""
+		ui.codes.linkOk = allowed
+		if allowed then
+			dc.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+			linkBox.Visible = true
+			codeBox.Position = UDim2.new(0.55, 0, 0, 42)
+		end
+		dc.Visible = true
+		Extra.refreshCodes(profile())
+	end)
 end
 
 function Extra.refreshCodes(prof)
@@ -5645,12 +5649,18 @@ function Extra.refreshCodes(prof)
 		Net.get("Profile"):FireServer("discordCode")
 	end
 	C.verify.Visible = not d.done
+	local reward = Economy.describe(Economy.cleanGrant(Config.Discord.Reward))
+	local code = d.code ~= "" and d.code or "CODE"
+	C.head.Text = (C.linkOk and "Verify in the Spike Rush Discord for " or "Verify in the Spike Rush community server for ") .. reward
 	if d.done then
 		C.codeBox.Text = "Verified"
-		C.steps.Text = "You're verified. Thanks for joining! The Discord Squad card is in your cards."
-	else
+		C.steps.Text = "You're verified. Thanks for joining! The Community Squad card is in your cards."
+	elseif C.linkOk then
 		C.codeBox.Text = d.code ~= "" and d.code or "..." -- (just the code, so copying it copies only that)
-		C.steps.Text = "1. Join the Discord with the link (copy it)\n2. In the Discord, type /verify " .. (d.code ~= "" and d.code or "CODE") .. "\n3. Come back here and click Verify"
+		C.steps.Text = "1. Join the Discord with the link (copy it)\n2. In the Discord, type /verify " .. code .. "\n3. Come back here and click Verify"
+	else
+		C.codeBox.Text = d.code ~= "" and d.code or "..."
+		C.steps.Text = "1. Open the Spike Rush game page and join from the Community link\n2. There, type /verify " .. code .. "\n3. Come back here and click Verify"
 	end
 end
 

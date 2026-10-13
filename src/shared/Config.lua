@@ -243,6 +243,12 @@ Config.Hits = {
 	-- block doesn't stuff is never a soft touch: it blasts through (BlastChance, rising with the
 	-- speed; BlastKeep of its speed) or goes off the hands and out
 	BlockOverKmh = { 200, 300 },
+	-- How hard a spike looks (the owner: "the 300kmh and the 200 visually look identical"): every
+	-- spike past 120 km/h wore the same trail, slash and impact, and a 200 crosses the court in
+	-- about 10 frames, a 300 in 7, too quick to tell apart. From SpeedFeel[1] up to SpeedFeel[2]
+	-- the trail gets thicker, longer and white-hot, a shockwave rings off the contact (a second
+	-- sonic boom past the middle), and the floor impact, shake and speed lines grow
+	SpeedFeel = { 180, 320 },
 	BlockOverStuff = 0.25,
 	BlastChance = { 0.35, 0.75 },
 	BlastKeep = 0.8,
@@ -688,8 +694,10 @@ Config.Cards = {
 			Look = { Base = Color3.fromRGB(34, 4, 8), Sweep = Color3.fromRGB(235, 30, 50), Accent = Color3.fromRGB(255, 235, 235), Edge = Color3.fromRGB(255, 70, 80), Pattern = "rays", Big = "DEV\nDEFEATER" } },
 		-- the VIP game pass's card (Config.Passes.VIP): given with the pass, never earned
 		-- the Discord's card (Config.Discord): only from verifying your account in the Discord
-		{ Key = "Discord", Name = "Discord Squad", Stat = "grant", Grant = true, Goal = "Verify your account in the Spike Rush Discord",
-			Look = { Base = Color3.fromRGB(14, 16, 44), Sweep = Color3.fromRGB(88, 101, 242), Accent = Color3.fromRGB(235, 238, 255), Edge = Color3.fromRGB(130, 142, 255), Pattern = "halftone", Big = "DISCORD\nSQUAD" } },
+		-- (named for the community, not Discord: everyone sees cards, and Roblox lets only some players
+		-- see Discord named)
+		{ Key = "Discord", Name = "Community Squad", Stat = "grant", Grant = true, Goal = "Verify your account in the Spike Rush community server",
+			Look = { Base = Color3.fromRGB(14, 16, 44), Sweep = Color3.fromRGB(88, 101, 242), Accent = Color3.fromRGB(235, 238, 255), Edge = Color3.fromRGB(130, 142, 255), Pattern = "halftone", Big = "COMMUNITY\nSQUAD" } },
 		{ Key = "VIP", Name = "VIP", Stat = "grant", Grant = true, Goal = "Comes with the VIP game pass",
 			Look = { Base = Color3.fromRGB(20, 14, 2), Sweep = Color3.fromRGB(255, 196, 40), Accent = Color3.fromRGB(255, 245, 200), Edge = Color3.fromRGB(255, 220, 100), Pattern = "stars", Big = "VIP" } },
 	},

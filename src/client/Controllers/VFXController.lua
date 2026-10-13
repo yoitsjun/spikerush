@@ -3623,16 +3623,29 @@ local function onHit(snap)
 				-- the attacker's spike colour (a V Points unlock) replaces the default hot pink
 				local tint = Spins.tint(Spins.equipped(model, "Color"))
 				local accent = tint or HOT
-				Fx.play(heavy and "PerfectImpact" or "SpikeImpact", pos, { color = tint or (heavy and HOT or nil) })
+				-- how hard it was (HitLogic.speedFeel): a shockwave off the contact, a second sonic
+				-- boom past the middle, and more shake and speed lines
+				local hot = HitLogic.speedFeel(kmh)
+				Fx.play(heavy and "PerfectImpact" or "SpikeImpact", pos, { color = tint or (heavy and HOT or nil), scale = 1 + 0.6 * hot })
+				if hot > 0 then
+					ringFx(pos, accent:Lerp(WHITE, 0.5), 1, 8 + 18 * hot)
+					if hot >= 0.55 then
+						task.delay(0.05, ringFx, pos, WHITE, 1, 14 + 22 * hot)
+						starburst(pos, WHITE, 6 + 8 * hot)
+					end
+				end
 				if close then
 					if heavy and meta.grade == "PERFECT" and kmh >= 132 then
 						VFXController.impactFrame(meta.id, accent)
 					end
 					if heavy then
-						VFXController.speedLines(0.35, WHITE, dirZ)
-						shaker.kick(-6)
+						VFXController.speedLines(0.35 + 0.4 * hot, WHITE, dirZ)
+						shaker.kick(-6 - 6 * hot)
 					end
-					shaker.shake(heavy and 0.55 or 0.25)
+					shaker.shake((heavy and 0.55 or 0.25) + 0.45 * hot)
+					if hot >= 0.8 then
+						VFXController.flash(0.15 + 0.15 * hot, 0.12)
+					end
 				end
 			end
 		end)
@@ -5724,10 +5737,17 @@ local function onBallEvent(kind, ev, meta)
 		elseif meta and meta.energy then
 			c = AZURE
 		end
-		Fx.play("FloorImpact", pos, { color = c, scale = hard and 1 or 0.55, count = hard and 1.4 or 0.6 })
+		-- harder spikes hit the floor harder (HitLogic.speedFeel)
+		local attack = meta and (meta.hitType == "Spike" or meta.hitType == "JumpServe")
+		local hot = attack and HitLogic.speedFeel(meta.kmh) or 0
+		Fx.play("FloorImpact", pos, { color = c, scale = hard and (1 + 0.8 * hot) or 0.55, count = hard and (1.4 + 1.4 * hot) or 0.6 })
 		if hard then
-			starburst(pos + Vector3.new(0, 0.8, 0), c or WHITE, 8)
-			mods.CameraController.shake(0.35)
+			starburst(pos + Vector3.new(0, 0.8, 0), c or WHITE, 8 + 10 * hot)
+			mods.CameraController.shake(0.35 + 0.5 * hot)
+			if hot >= 0.55 then
+				ringFx(pos + Vector3.new(0, 0.5, 0), c or WHITE, 1, 16 + 20 * hot)
+				rubble(pos, math.floor(4 + 8 * hot), 0.8, Color3.fromRGB(60, 40, 30), 0.3)
+			end
 		end
 	elseif kind == "Net" then
 		Fx.play("NetImpact", Vector3.new(0, ev.pos.Y, 0))

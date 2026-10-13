@@ -1,6 +1,6 @@
 # Discord verification bot
 
-Players open **Codes** in Spike Rush and copy their own 7-character code. In the Discord they type `/verify CODE`. This bot checks the code and marks it done. Back in the game they click **Verify** and get `Config.Discord.Reward`, which includes the Discord Squad card.
+Players open **Codes** in Spike Rush and copy their own 7-character code. In the Discord they type `/verify CODE`. This bot checks the code and marks it done. Back in the game they click **Verify** and get `Config.Discord.Reward`, which includes the Community Squad card.
 
 How it works:
 
@@ -58,9 +58,17 @@ The bot is `worker.js`, a single file with no installs. It runs free on Cloudfla
 2. Open `https://spike-rush-verify.<you>.workers.dev/register?secret=<your SETUP_SECRET>` in a browser. It should say "/verify is registered".
 3. In Discord, `/verify` now shows up in your server.
 
+### 5. The game page's Community link
+Roblox shows Discord by name, with the invite, only to players it allows. Everyone else sees the BedWars wording: "Open the Spike Rush game page and join from the Community link". So put the invite on the game page too:
+
+1. Go to Creator Hub > your experience > **Configure** > **Social Links** (or **Links**).
+2. Add a **Discord** link with your invite (`https://discord.gg/T6N3uw5ghA`), titled **Community Server**.
+
+Roblox shows that link only to players allowed to see it.
+
 ## Try it
 1. In Spike Rush, open **Codes** and copy your code.
 2. In Discord, type `/verify` and paste the code. The bot answers "Verified as ..." (only you see it).
-3. In the game, click **Verify**. You get the reward and the Discord Squad card.
+3. In the game, click **Verify**. You get the reward and the Community Squad card.
 
 If the bot answers "Something went wrong (Roblox read 401/403 ...)", the API key's permissions or experience are wrong (step 1).

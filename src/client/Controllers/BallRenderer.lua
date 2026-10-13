@@ -453,15 +453,17 @@ local function applyStyle(meta)
 		sparkleOn = true
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 225, 250))
 	elseif attack and kmh >= 120 then
-		-- hot pink into red, with stars, like The Spike's hardest normal spikes
-		trail.Color = tintSeq or ColorSequence.new(Color3.fromRGB(255, 40, 140), Color3.fromRGB(255, 90, 70))
-		trail.Transparency = fade(0.12)
-		trail.Lifetime = 0.6
-		trail.LightEmission = 0.9
-		setWidth(R * 3.2, R * 0.8)
-		core.Lifetime = 0.3
-		glow.Color = tint or Color3.fromRGB(255, 90, 140)
-		glow.Brightness = 2
+		-- hot pink into red, with stars, like The Spike's hardest normal spikes; harder ones
+		-- (HitLogic.speedFeel) leave a thicker, longer streak that burns white at the head
+		local hot = HitLogic.speedFeel(kmh)
+		trail.Color = tintSeq or ColorSequence.new(Color3.fromRGB(255, 40, 140):Lerp(Color3.new(1, 1, 1), 0.65 * hot), Color3.fromRGB(255, 90, 70))
+		trail.Transparency = fade(0.12 - 0.08 * hot)
+		trail.Lifetime = 0.6 + 0.6 * hot
+		trail.LightEmission = 0.9 + 0.1 * hot
+		setWidth(R * (3.2 + 2.6 * hot), R * (0.8 + 0.5 * hot))
+		core.Lifetime = 0.3 + 0.25 * hot
+		glow.Color = tint or Color3.fromRGB(255, 90, 140):Lerp(Color3.new(1, 1, 1), 0.5 * hot)
+		glow.Brightness = 2 + 4 * hot
 		sparkleOn = true
 		sparkles.Color = ColorSequence.new(tint and tint:Lerp(Color3.new(1, 1, 1), 0.6) or Color3.fromRGB(255, 220, 240))
 	elseif attack then

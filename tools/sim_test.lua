@@ -741,6 +741,16 @@ do
 		"Discord: verification codes are clean, verifying gives the Discord Squad card, and no code does", Economy.describe(g))
 end
 
+print("== how hard a spike looks ==")
+do
+	-- (the owner: "the 300kmh and the 200 visually look identical"): the effects' speed scale
+	-- starts past the old 120 km/h look, grows through 200 to 300, and stops at the top
+	local a, b, c, d = HitLogic.speedFeel(150), HitLogic.speedFeel(200), HitLogic.speedFeel(300), HitLogic.speedFeel(400)
+	check(a == 0 and b > 0 and c > b + 0.5 and d == 1,
+		"spike look: 200 and 300 km/h look clearly different, slow ones as before",
+		string.format("150: %.2f, 200: %.2f, 300: %.2f, 400: %.2f", a, b, c, d))
+end
+
 print("== patch notes ==")
 do
 	local PatchNotes = require("PatchNotes")

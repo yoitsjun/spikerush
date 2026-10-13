@@ -90,6 +90,12 @@ function HitLogic.studs(kmh)
 	return kmh / 3.6 * SPM
 end
 
+-- 0..1: how hard a spike of `kmh` looks (Config.Hits.SpeedFeel), for the effects.
+function HitLogic.speedFeel(kmh)
+	local f = Config.Hits.SpeedFeel
+	return math.clamp(((kmh or 0) - f[1]) / (f[2] - f[1]), 0, 1)
+end
+
 -- Real height in metres of a world height (see Characters.studsAt).
 function HitLogic.meters(y)
 	return Characters.metersAt(y)
