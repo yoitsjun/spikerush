@@ -42,6 +42,7 @@ PatchNotes.List = {
 					{ Text = "Custom sound effects can be cropped: the Crop button picks the part of the sound that plays." },
 					{ Text = "New sound effects for the new players' moves." },
 					{ Text = "AI jump serves no longer drift away from the ball." },
+					{ Text = "Auto-sell is now set on each banner, so turning it on for players no longer sells new cosmetics. Anything you had on stays on for the Players banner, and auto-sold pulls now say \"Auto-sold\"." },
 				},
 			},
 		},
