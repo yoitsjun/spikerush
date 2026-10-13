@@ -236,6 +236,22 @@ function BallPhysics.startTime(path)
 	return path.segs[1].t0
 end
 
+-- How far behind real time someone else's hit is shown `age` seconds after we heard of it `lag`
+-- seconds late (Config.Ball.CatchUp): the whole lag at first (the ball at the hit), easing to 0
+-- (caught up). nil when there's nothing to catch up (too small, or too large: it just jumps).
+function BallPhysics.catchUp(lag, age)
+	local CU = Config.Ball.CatchUp
+	if type(lag) ~= "number" or lag < CU.LagMin or lag > CU.LagMax then
+		return nil
+	end
+	local dur = math.clamp(lag * CU.Stretch, CU.Time[1], CU.Time[2])
+	local a = math.max(age, 0) / dur
+	if a >= 1 then
+		return nil
+	end
+	return lag * (1 - a * a * (3 - 2 * a))
+end
+
 -- First sample (60 Hz) from `fromT` where predicate(pos, vel, t) is true. Used by bots and UI.
 function BallPhysics.findTime(path, fromT, predicate)
 	local endT = path.landing.t

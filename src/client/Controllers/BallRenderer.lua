@@ -30,6 +30,8 @@ local predicted = nil -- { seq = n, prev = snapshot before our prediction }
 local blendOffset = Vector3.zero
 local blendStart = 0
 local blendTime = Config.Ball.VisualBlendTime
+-- someone else's hit, heard late: shown from the hit, catching up (BallPhysics.catchUp)
+local warp = nil -- { seq, lag, at = os.clock() when heard }
 
 -- Blocks seen from outside (the owner: "it looks like sometimes the ball teleports through the
 -- block"): a block is decided on the blocker's own client, so everyone else hears of it a beat
@@ -581,7 +583,20 @@ local function snapshot()
 	return { seq = cur.seq, state = cur.state, holder = cur.holder, path = cur.path, meta = cur.meta, touch = cur.touch }
 end
 
-local function adopt(snap, keepEvents)
+-- The time the ball is shown at: real time, or a little behind it while catching up to someone
+-- else's hit (see warp).
+local function viewTime(now)
+	if warp then
+		local behind = warp.seq == cur.seq and BallPhysics.catchUp(warp.lag, os.clock() - warp.at)
+		if behind then
+			return now - behind
+		end
+		warp = nil
+	end
+	return now
+end
+
+local function adopt(snap, keepEvents, remote)
 	local oldPos = renderPos
 	cur.seq = snap.seq
 	cur.state = snap.state
@@ -610,8 +625,15 @@ local function adopt(snap, keepEvents)
 	bounce = nil
 	blockHold = nil
 	blendOffset = Vector3.zero
+	warp = nil
+	if remote and cur.state == "Flight" and cur.path then
+		local lag = Util.now() - BallPhysics.startTime(cur.path)
+		if BallPhysics.catchUp(lag, 0) then
+			warp = { seq = cur.seq, lag = lag, at = os.clock() }
+		end
+	end
 	if cur.state == "Flight" and cur.path and oldPos.Y > -100 then
-		local newPos = BallPhysics.positionAt(cur.path, Util.now())
+		local newPos = BallPhysics.positionAt(cur.path, viewTime(Util.now()))
 		local err = oldPos - newPos
 		if err.Magnitude < 14 then
 			blendOffset = err
@@ -632,14 +654,14 @@ local function onState(snap)
 		end
 		local isEcho = snap.seq == predicted.seq and snap.meta and snap.meta.id == State.myId
 		predicted = nil
-		adopt(snap, isEcho)
+		adopt(snap, isEcho, not isEcho)
 		State.signals.Ball:Fire(snap, isEcho)
 		return
 	end
 	if snap.seq < cur.seq then
 		return
 	end
-	adopt(snap, false)
+	adopt(snap, false, true)
 	State.signals.Ball:Fire(snap, false)
 end
 
@@ -774,7 +796,7 @@ local function atABlock(ball, vel)
 end
 
 local function update(dt)
-	local now = Util.now()
+	local now = viewTime(Util.now())
 	local pos, vel = HIDDEN, Vector3.zero
 	local live = false
 	if cur.state == "Held" then

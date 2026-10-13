@@ -39,9 +39,11 @@ PatchNotes.List = {
 				Heading = "Changes and fixes",
 				Items = {
 					{ Text = "New code: <b>HolyS+</b> for 600 VP, 7,500 Gold and 3 lucky spins (Codes on Home)." },
+					{ Text = "New code: <b>1000members</b> for 1,000 VP, 10,000 Gold and 5 lucky spins. Thanks for 1,000 members!" },
 					{ Text = "Custom sound effects can be cropped: the Crop button picks the part of the sound that plays." },
 					{ Text = "New sound effects for the new players' moves." },
 					{ Text = "AI jump serves no longer drift away from the ball." },
+					{ Text = "Other players' hits no longer make the ball teleport in laggy servers: it flies from their hand and catches up." },
 					{ Text = "Auto-sell is now set on each banner, so turning it on for players no longer sells new cosmetics. Anything you had on stays on for the Players banner, and auto-sold pulls now say \"Auto-sold\"." },
 				},
 			},

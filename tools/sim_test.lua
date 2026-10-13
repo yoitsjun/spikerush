@@ -688,6 +688,31 @@ do
 		"auto-sell: per banner; an old save's setting stays on Characters only; only sellable rarities")
 end
 
+print("== the 1000members code ==")
+do
+	local Economy = require("Economy")
+	local g, why = Economy.code("1000Members", os.time())
+	check(g ~= nil and g.VP == 1000 and g.Gold == 10000 and g.Lucky == 5,
+		"the 1000members code gives 1,000 VP, 10,000 Gold and 5 lucky spins", g and Economy.describe(g) or tostring(why))
+end
+
+print("== catching up to someone else's hit ==")
+do
+	-- (the owner: "the issue of teleporting balls in servers"): a hit heard late is shown from the
+	-- hit and eased up to real time, never ahead of it and never backwards; tiny or huge lags don't
+	local okAll, last = true, nil
+	for i = 0, 60 do
+		local b = BallPhysics.catchUp(0.2, i / 100) or 0
+		if b > 0.2 + 1e-9 or b < 0 or (last and b > last + 1e-9) then
+			okAll = false
+		end
+		last = b
+	end
+	local full = BallPhysics.catchUp(0.2, 0)
+	check(okAll and math.abs(full - 0.2) < 1e-9 and BallPhysics.catchUp(0.2, 0.6) == nil and BallPhysics.catchUp(0.01, 0) == nil and BallPhysics.catchUp(2, 0) == nil,
+		"catch-up: starts at the hit, eases to real time, and skips tiny or huge lags")
+end
+
 print("== patch notes ==")
 do
 	local PatchNotes = require("PatchNotes")

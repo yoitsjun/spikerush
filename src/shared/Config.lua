@@ -71,6 +71,12 @@ Config.Ball = {
 	-- an attack reaching the hands of a blocker on another client waits there this long (s) for the
 	-- server's block, so the block doesn't snap the ball back through the hands (BallRenderer)
 	BlockHold = 0.18,
+	-- Someone else's hit (the owner: "the issue of teleporting balls in servers"): a hit is timed on
+	-- the hitter's own client, so by the time everyone else hears of it the new path is already
+	-- LagMin..LagMax seconds along (a 200 km/h spike: about 40 studs at 0.15 s), and the ball jumped
+	-- there. Now it starts from the hit and plays the path fast until it has caught up: over
+	-- lag * Stretch seconds (Time[1]..Time[2]). A lag past LagMax (joining mid-rally) still jumps.
+	CatchUp = { LagMin = 0.03, LagMax = 0.75, Stretch = 2.5, Time = { 0.15, 0.5 } },
 }
 
 Config.Player = {
@@ -783,6 +789,8 @@ Config.Codes = {
 	-- the owner: "make a new code. HolyS+" (for the S+ Update; the "+" is dropped when a code is
 	-- read, so "HolyS+" and "holys" both work)
 	holys = { VP = 600, Gold = 7500, Lucky = 3 },
+	-- the owner: "new code 1000members make it 1k vpoints 5 lucky spins 10,000 gold"
+	["1000members"] = { VP = 1000, Gold = 10000, Lucky = 5 },
 	-- (the owner retired "release" and moved its rewards to "Update2")
 	update2 = { VP = 500, Gold = 5000, Lucky = 1 },
 	-- the owner: "new code Update1", then "go with 6000 gold, 3 lucky spins, and 350 vpoints"
