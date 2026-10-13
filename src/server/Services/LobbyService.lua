@@ -964,6 +964,18 @@ function LobbyService.start(plr)
 	end
 end
 
+-- How many lobbies with players in them are waiting for this court.
+function LobbyService.waitingForCourt()
+	local n = 0
+	for _, id in ipairs(courtQueue) do
+		local l = lobbies[id]
+		if l and #members(l) > 0 then
+			n = n + 1
+		end
+	end
+	return n
+end
+
 -- MatchService asks for the next lobby to play on this court (nil while nobody is waiting).
 function LobbyService.nextForCourt()
 	while #courtQueue > 0 do

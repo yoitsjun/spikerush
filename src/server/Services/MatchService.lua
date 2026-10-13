@@ -97,10 +97,11 @@ local function waitUntil(t)
 end
 
 -- Called off when no human is on court and nobody can come back in (an AFK player's AI keeps
--- playing while they're still in the server).
+-- playing while they're still in the server), or when nobody human is on court and a lobby is
+-- waiting for it (Lobbies.shouldAbort).
 local function checkAbort()
 	local TS = reg.TeamService
-	if TS.inMatch and TS.humanCount() == 0 and #TS.pendingJoin == 0 and TS.benchedCount() == 0 then
+	if TS.inMatch and Lobbies.shouldAbort(TS.humanCount(), #TS.pendingJoin, TS.benchedCount(), reg.LobbyService.waitingForCourt()) then
 		MatchService.aborted = true
 	end
 end

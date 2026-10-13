@@ -597,6 +597,17 @@ end
 
 -- AFK: add `dt` of idle time. Input resets it; it only builds while the ball is live. Returns
 -- the new idle time and whether the player is now AFK.
+-- Whether a match is called off: no human on court and none about to join, and either nobody
+-- who could come back (benched: AFK but still in the server) or someone waiting for the court
+-- (the owner: "sometimes i get stuck here", "it gets stuck in queue": players who went AFK and
+-- queued again waited behind their own match, played out by their AIs to the end of the set).
+function Lobbies.shouldAbort(humans, pending, benched, waiting)
+	if humans > 0 or pending > 0 then
+		return false
+	end
+	return benched == 0 or waiting > 0
+end
+
 function Lobbies.idle(idle, dt, phase, active)
 	if active then
 		return 0, false

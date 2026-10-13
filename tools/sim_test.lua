@@ -751,6 +751,15 @@ do
 		string.format("150: %.2f, 200: %.2f, 300: %.2f, 400: %.2f", a, b, c, d))
 end
 
+print("== a match nobody is playing gives up the court ==")
+do
+	-- (the owner: "it gets stuck in queue"): an all-AI match whose players went AFK is called off
+	-- when a lobby is waiting for the court; with nobody waiting the AFK players can still come back
+	check(Lobbies.shouldAbort(0, 0, 2, 1) and not Lobbies.shouldAbort(0, 0, 2, 0) and Lobbies.shouldAbort(0, 0, 0, 0)
+		and not Lobbies.shouldAbort(1, 0, 0, 3) and not Lobbies.shouldAbort(0, 1, 0, 3),
+		"an all-AI match gives the court to a waiting lobby; humans on court or joining keep it")
+end
+
 print("== patch notes ==")
 do
 	local PatchNotes = require("PatchNotes")
