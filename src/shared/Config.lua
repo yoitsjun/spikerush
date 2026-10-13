@@ -780,6 +780,9 @@ Config.Passes = {
 -- A code pays any of VP, Gold, Lucky (spins) and Chars (roster ids). Until: the unix time it
 -- stops working (none: it never does). Keys are the code in lower case, letters and digits only.
 Config.Codes = {
+	-- the owner: "make a new code. HolyS+" (for the S+ Update; the "+" is dropped when a code is
+	-- read, so "HolyS+" and "holys" both work)
+	holys = { VP = 600, Gold = 7500, Lucky = 3 },
 	-- (the owner retired "release" and moved its rewards to "Update2")
 	update2 = { VP = 500, Gold = 5000, Lucky = 1 },
 	-- the owner: "new code Update1", then "go with 6000 gold, 3 lucky spins, and 350 vpoints"

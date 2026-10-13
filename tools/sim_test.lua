@@ -666,6 +666,15 @@ do
 		"admin gifts: a cosmetic in a grant is checked, given once and owned", said)
 end
 
+print("== the HolyS+ code ==")
+do
+	local Economy = require("Economy")
+	local g1, why1 = Economy.code("HolyS+", os.time())
+	local g2 = Economy.code("  holys ", os.time())
+	check(g1 ~= nil and why1 == nil and g2 ~= nil and g1.VP == 600 and g1.Gold == 7500 and g1.Lucky == 3,
+		"the HolyS+ code reads as typed (the + dropped) and gives 600 VP, 7,500 Gold and 3 lucky spins", g1 and Economy.describe(g1) or tostring(why1))
+end
+
 print("== patch notes ==")
 do
 	local PatchNotes = require("PatchNotes")

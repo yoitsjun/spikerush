@@ -38,6 +38,7 @@ PatchNotes.List = {
 			{
 				Heading = "Changes and fixes",
 				Items = {
+					{ Text = "New code: <b>HolyS+</b> for 600 VP, 7,500 Gold and 3 lucky spins (Codes on Home)." },
 					{ Text = "Custom sound effects can be cropped: the Crop button picks the part of the sound that plays." },
 					{ Text = "New sound effects for the new players' moves." },
 					{ Text = "AI jump serves no longer drift away from the ball." },
