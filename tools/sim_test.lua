@@ -256,7 +256,7 @@ do
 	-- Dragon Surge (the owner's buff for Seojin): a full bar about 215-230 km/h, and digging it
 	-- costs Config.Abilities.Azure.FullDrainMul more
 	local AZ = Config.Abilities.Azure
-	check(full.meta.kmh >= 210 and full.meta.kmh <= 232 and full.meta.pierce and math.abs(full.meta.tierDrain / half.meta.tierDrain - AZ.FullDrainMul) < 0.001,
+	check(full.meta.kmh >= 225 and full.meta.kmh <= 240 and full.meta.pierce and math.abs(full.meta.tierDrain / half.meta.tierDrain - AZ.FullDrainMul) < 0.001,
 		"full bar = max power, pierce and a heavier dig (Dragon Surge)", string.format("0%%: %.0f  50%%: %.0f  100%%: %.0f km/h", none.meta.kmh, half.meta.kmh, full.meta.kmh))
 	local okO, over = spike(root, b, { ability = "Azure" }, { energy = 1.3 })
 	local path = BallPhysics.buildPath(over.launch)
@@ -308,7 +308,7 @@ do
 	check(not plain.meta.dive and lowPlain.meta.kmh < plain.meta.kmh and halfDive.meta.dive == 0.5 and fullDive.meta.dive == 1
 		and fullDive.meta.kmh > plain.meta.kmh * 1.25 and fullDive.meta.kmh > halfDive.meta.kmh + 15 and auto.meta.kmh > plain.meta.kmh and not auto.meta.dive
 		and flared.meta.kmh > 200 and flared.meta.kmh < 275,
-		"Sunfire and Sundive: every spike +28%, and the further he drops onto it the harder (up to +36%), even met below his apex; with Corona on, past 200",
+		"Sunfire and Sundive: every spike +14%, and the further he drops onto it the harder (up to +38%), even met below his apex; with Corona on, past 200",
 		string.format("apex %.0f, low %.0f, half dive %.0f, full dive %.0f (with Corona %.0f), AI %.0f km/h", plain.meta.kmh, lowPlain.meta.kmh, halfDive.meta.kmh, fullDive.meta.kmh, flared.meta.kmh, auto.meta.kmh))
 	local path = BallPhysics.buildPath(fullDive.launch)
 	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "a full Sundive spike lands in", describe(path))
@@ -638,7 +638,7 @@ do
 	local sr = apexRoot(seojin, 3.5 * K)
 	local _, azure = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy), { ability = "Azure", stats = seojin }, { energy = 1 })
 	-- (a full Azure passed it with Dragon Surge, the owner's buff for Seojin: within 20 km/h)
-	check(none.meta.kmh > 141 and half.meta.kmh > none.meta.kmh + 15 and full.meta.kmh > half.meta.kmh + 25 and full.meta.kmh >= azure.meta.kmh - 20 and full.meta.kmh <= 212,
+	check(none.meta.kmh > 141 and half.meta.kmh > none.meta.kmh + 15 and full.meta.kmh > half.meta.kmh + 25 and full.meta.kmh >= azure.meta.kmh - 20 and full.meta.kmh <= 225,
 		"the longer the charge, the harder the spike; a full one is near a full Azure", string.format("0%%: %.0f  50%%: %.0f  100%%: %.0f km/h (full Azure %.0f)", none.meta.kmh, half.meta.kmh, full.meta.kmh, azure.meta.kmh))
 	local path = BallPhysics.buildPath(full.launch)
 	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "a full leap spike lands in", describe(path))
@@ -730,7 +730,7 @@ do
 	local okS2, s2 = jumpServe(1, { firstStrike = true })
 	local servePath = okS1 and BallPhysics.buildPath(s1.launch)
 	check(okS0 and okS1 and okS2 and s1.meta.hitType == "JumpServe" and math.abs(s1.meta.kmh / s0.meta.kmh - (1 + FERAL.MaxBoost)) < 0.005 and s1.meta.fullLeap and not s1.meta.breakAtk and s2.meta.firstStrike,
-		"his jump serve takes the charge too: x1.4 at full, a First Strike, no block break", string.format("%.0f -> %.0f km/h (first strike %.0f), %s", s0.meta.kmh, s1.meta.kmh, s2.meta.kmh, describe(servePath)))
+		"his jump serve takes the charge too: x1.5 at full, a First Strike, no block break", string.format("%.0f -> %.0f km/h (first strike %.0f), %s", s0.meta.kmh, s1.meta.kmh, s2.meta.kmh, describe(servePath)))
 
 	-- Space on the held ball tosses and starts the charge: his toss goes up high, so a full
 	-- charge (then the leap's gather) still meets it at his hitting point, fresh or maxed

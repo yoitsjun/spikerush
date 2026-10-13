@@ -881,11 +881,12 @@ Config.Abilities = {
 		-- about 201 km/h maxed, under Dante's 204 / 235 and YeJun's 236): a quicker bar, more room
 		-- before it overcharges, about 225 km/h full, and a full bar costs the digger more stamina
 		ChargeTime = 0.6, -- seconds of holding to fill the bar (was 0.8)
-		OverchargeGrace = 0.45, -- holding past full for this long overcharges (was 0.28)
+		-- (2026-10-12, the owner: "buff the others": every S+'s dependable best into 220-240)
+		OverchargeGrace = 0.6, -- holding past full for this long overcharges (was 0.28, then 0.45)
 		GravityCancel = 0.85, -- a slow, floating fall while gathering energy (on the way down only)
 		AirSpeedBonus = 1.25,
 		GaugeRechargeTime = 3.0, -- gauge refills on the ground
-		MaxBoost = 0.55, -- full energy multiplies spike speed by 1 + this (was 0.44)
+		MaxBoost = 0.66, -- full energy multiplies spike speed by 1 + this (was 0.44, then 0.55): about 232 maxed
 		PierceAt = 0.97,
 		FullDrainMul = 1.3, -- digging a full-bar spike costs this much more stamina
 	},
@@ -905,7 +906,7 @@ Config.Abilities = {
 		TapTime = 0.15, -- let go sooner and it's the usual run-up jump
 		RunBoost = 0.45, -- run speed while charging: x (1 + this x the gauge)
 		CarryMax = 3.4 * M, -- a full leap carries him this fast (studs/s) the way he leapt, all flight
-		MaxBoost = 0.4, -- spike and jump serve speed x (1 + this x gauge ^ 1.2)
+		MaxBoost = 0.5, -- spike and jump serve speed x (1 + this x gauge ^ 1.2) (was 0.4; "buff the others": a full leap about 220 maxed)
 		FullAt = 0.97, -- the gauge counts as full from here
 		FirstBoost = 0.15, -- his first full-gauge spike or jump serve of the match: x (1 + this) on top
 		FirstFreeze = 0.3, -- and it freezes on the impact with a cut-in like Zero Point's, shorter (the owner)
@@ -944,7 +945,7 @@ Config.Abilities = {
 		-- (the owner: "why is laith's power just so low": his plain spike was anyone's, a full dive
 		-- needed a long drop the lower Sun Leap rarely gives, and Corona's penalty grew all match)
 		PenaltyPer = 0.01, -- every stat x (1 - this x uses) while it's off (was 0.015)
-		SpikeBoost = 0.28, -- Sunfire: every spike (and jump serve) of his this much harder (was 0.12, then 0.18; the owner: "little higher", "i want the baseline higher")
+		SpikeBoost = 0.14, -- Sunfire: every spike (and jump serve) of his this much harder (0.12, 0.18, 0.28, then halved: the owner, "lets just half the buff you gave laith")
 		MaxStacks = 12,
 		-- Sundive
 		-- (the owner, watching it: "he should be way way faster", "a long path like this" with a
@@ -967,7 +968,7 @@ Config.Abilities = {
 		DiveFullDrop = 8, -- a drop this far (studs) or more earns the whole bonus (was 10)
 		DiveRootSlack = 4, -- the server's check on where he is allows this much more after a dive
 		LeapMul = 1.4, -- Sun Leap: while Corona is on, his spike jumps go this much higher (was 1.9: the owner, "why is laith jumping out of the screen"; the court camera holds its height, so 32 studs up left the frame)
-		DiveBoost = 0.36, -- spike speed x (1 + this x how far he dropped) (was 0.45 before Sunfire, then 0.4, 0.3; the owner: "the peak maybe a little more")
+		DiveBoost = 0.38, -- spike speed x (1 + this x how far he dropped) (0.45 before Sunfire, then 0.4, 0.3, 0.36; with the halved buff 0.38)
 		DiveHeightFloor = 0.85, -- a dive spike counts as met this close to the top of his jump at least
 		AutoDive = 0.3, -- the AI doesn't dive: its spikes get this much of the dive bonus
 		-- Zenith: some spikes burst (decided by the ball's seed, so the hitter's client agrees)
@@ -976,8 +977,8 @@ Config.Abilities = {
 		ZenithSpin = 1.3, -- heavier topspin: gravity on the spike x this (it dips harder)
 		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front (Dante's)
 		Passives = {
-			{ Name = "Sunfire", Blurb = "Every spike of yours burns 28% harder." },
-			{ Name = "Sundive", Blurb = "In the air, Spike with the ball below your reach (up to 12 m away): you streak down a path onto it, and the further you drop, the harder it goes (up to +36%)." },
+			{ Name = "Sunfire", Blurb = "Every spike of yours burns 14% harder." },
+			{ Name = "Sundive", Blurb = "In the air, Spike with the ball below your reach (up to 12 m away): you streak down a path onto it, and the further you drop, the harder it goes (up to +38%)." },
 			{ Name = "Sun Leap", Blurb = "While Corona is on, your jump goes far higher, so you can dive from above everything." },
 			{ Name = "Zenith", Blurb = "About one spike in five bursts into a Zenith: +13% power and heavy topspin." },
 			{ Name = "Long Toss", Blurb = "Your forward serve toss goes much further, like Dante's." },
