@@ -3340,7 +3340,7 @@ local function buildLocker()
 	local cardRows = {}
 	for i, def in ipairs(Extra.Cards.list()) do
 		local row = make("TextButton", { Name = def.Key, Size = UDim2.new(1, 0, 0, 64), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, LayoutOrder = i }, cardList)
-		local mini = Gui.playerCard(row, { Position = UDim2.fromOffset(6, 4) })
+		local mini = Gui.playerCard(row, { Position = UDim2.fromOffset(6, 4), NoWings = true })
 		make("UIScale", { Scale = 0.55 }, mini.root)
 		local lock = make("Frame", { Position = UDim2.fromOffset(2, 0), Size = UDim2.fromOffset(274, 64), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.4, BorderSizePixel = 0, ZIndex = 20 }, row)
 		local edge = make("UIStroke", { Color = Gui.SIGNAL, Thickness = 2, Transparency = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, lock)

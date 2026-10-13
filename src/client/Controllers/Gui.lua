@@ -918,8 +918,10 @@ function Gui.playerCard(parent, props)
 	local H = props.H or 104
 	local z = props.ZIndex or 1
 	local root = make("Frame", { Size = UDim2.fromOffset(W, H), BackgroundTransparency = 1 }, parent)
+	-- NoWings: a card in a list, where wings would cover the text beside it (the crown stays)
+	local noWings = props.NoWings == true
 	for k, v in pairs(props) do
-		if k ~= "W" and k ~= "H" then
+		if k ~= "W" and k ~= "H" and k ~= "NoWings" then
 			root[k] = v
 		end
 	end
@@ -1122,7 +1124,7 @@ function Gui.playerCard(parent, props)
 		local shine = look.Edge or Color3.fromRGB(255, 214, 100)
 		glow.Visible = fx.Glow == true
 		Gui.tint(glow, shine)
-		wingL.Visible, wingR.Visible, crest.Visible = fx.Wings == true, fx.Wings == true, fx.Crest == true
+		wingL.Visible, wingR.Visible, crest.Visible = fx.Wings == true and not noWings, fx.Wings == true and not noWings, fx.Crest == true
 		divineClip.Visible = fx.Halo == true or fx.Shine == true
 		for _, ray in ipairs(rays) do
 			ray.Visible = fx.Halo == true
