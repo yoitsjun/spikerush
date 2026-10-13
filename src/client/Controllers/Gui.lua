@@ -935,49 +935,6 @@ function Gui.playerCard(parent, props)
 	local wingR = make("ImageLabel", { Image = Assets.image("CardWingR") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.08, 0.72), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(wingW, wingH), Visible = false, ZIndex = z }, root)
 	local crestH = math.floor(H * 0.78)
 	local crest = make("ImageLabel", { Image = Assets.image("CardCrest") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.8), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(math.floor(crestH * 1.28), crestH), Visible = false, ZIndex = z + 7 }, root)
-	-- the same wings and crown built from shapes, shown while the images aren't loaded (a new
-	-- upload can take Roblox a long while to serve): gold feathers fanned out from a jewelled boss
-	local GOLD_IN, GOLD_MID, GOLD_TIP = Color3.fromRGB(176, 104, 16), Color3.fromRGB(255, 208, 70), Color3.fromRGB(255, 246, 205)
-	local INKY = Color3.fromRGB(60, 30, 6)
-	local function goldPiece(parent, props, round)
-		local f = make("Frame", { BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = z }, parent)
-		for k, v in pairs(props) do
-			f[k] = v
-		end
-		if round then
-			make("UICorner", { CornerRadius = UDim.new(1, 0) }, f)
-		end
-		make("UIGradient", { Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, GOLD_IN), ColorSequenceKeypoint.new(0.55, GOLD_MID), ColorSequenceKeypoint.new(1, GOLD_TIP) }) }, f)
-		make("UIStroke", { Color = INKY, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, f)
-		return f
-	end
-	local function shapeWing(sideX, mirror)
-		local w = make("Frame", { BackgroundTransparency = 1, Position = UDim2.new(sideX, mirror and -8 or 8, 0.5, 0), Size = UDim2.fromOffset(0, 0), Visible = false, ZIndex = z }, root)
-		local L = H * 1.55
-		-- { angle (degrees, 180 = straight out to the left), length }, the bottom feather first
-		for i, f in ipairs({ { 163, 0.5 }, { 176, 0.66 }, { 190, 0.8 }, { 204, 0.92 }, { 218, 1 }, { 232, 0.9 } }) do
-			local a = mirror and (180 - f[1]) or f[1]
-			local len = L * f[2]
-			local r = math.rad(a)
-			goldPiece(w, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(math.cos(r) * len / 2, math.sin(r) * len / 2), Size = UDim2.fromOffset(len, math.floor(H * (0.13 + 0.012 * i))), Rotation = a }, true)
-		end
-		local boss = goldPiece(w, { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(math.floor(H * 0.34), math.floor(H * 0.34)) }, true)
-		local gem = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(205, 24, 42), BorderSizePixel = 0, ZIndex = z }, boss)
-		make("UICorner", { CornerRadius = UDim.new(1, 0) }, gem)
-		make("UIStroke", { Color = INKY, Thickness = 1.5 }, gem)
-		return w
-	end
-	local shapeL, shapeR = shapeWing(0, false), shapeWing(1, true)
-	-- the crown: a band, three points and a red gem
-	local crownW = math.floor(H * 0.9)
-	local shapeCrown = make("Frame", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, math.floor(H * 0.12)), Size = UDim2.fromOffset(crownW, math.floor(H * 0.5)), Visible = false, ZIndex = z + 7 }, root)
-	for _, p in ipairs({ { 0.18, 0.5, 0.26 }, { 0.5, 0.36, 0.32 }, { 0.82, 0.5, 0.26 } }) do
-		local s = math.floor(H * p[3])
-		goldPiece(shapeCrown, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(p[1], p[2]), Size = UDim2.fromOffset(s, s), Rotation = 45, ZIndex = z + 7 }, false)
-	end
-	goldPiece(shapeCrown, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), Size = UDim2.new(1, 0, 0.42, 0), ZIndex = z + 8 }, false)
-	local crownGem = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.79), Size = UDim2.fromOffset(math.floor(H * 0.13), math.floor(H * 0.13)), Rotation = 45, BackgroundColor3 = Color3.fromRGB(205, 24, 42), BorderSizePixel = 0, ZIndex = z + 9 }, shapeCrown)
-	make("UIStroke", { Color = INKY, Thickness = 1.5 }, crownGem)
 	local edge = Gui.plate(root, { Position = UDim2.fromOffset(-5, -5), Size = UDim2.fromOffset(W + 10, H + 10), ZIndex = z }, Gui.CHALK)
 	local base = Gui.plate(root, { Size = UDim2.fromOffset(W, H), ZIndex = z + 1 }, Gui.CARD)
 	local sweep = Gui.plate(root, { Size = UDim2.fromOffset(W, H), ZIndex = z + 2 }, Gui.CHALK)
@@ -1111,18 +1068,6 @@ function Gui.playerCard(parent, props)
 		wingL.Rotation = flap
 		wingR.Rotation = -flap
 	end
-	-- the wings and crown: the drawn images once they've loaded, the shapes until then
-	function card.ornaments()
-		local fx = card.fx or {}
-		local wings, crown = fx.Wings == true, fx.Crest == true
-		wingL.Visible, wingR.Visible = wings and wingL.IsLoaded, wings and wingR.IsLoaded
-		shapeL.Visible, shapeR.Visible = wings and not wingL.IsLoaded, wings and not wingR.IsLoaded
-		crest.Visible = crown and crest.IsLoaded
-		shapeCrown.Visible = crown and not crest.IsLoaded
-	end
-	for _, img in ipairs({ wingL, wingR, crest }) do
-		img:GetPropertyChangedSignal("IsLoaded"):Connect(card.ornaments)
-	end
 	root.Destroying:Connect(function()
 		if divineConn then
 			divineConn:Disconnect()
@@ -1177,8 +1122,7 @@ function Gui.playerCard(parent, props)
 		local shine = look.Edge or Color3.fromRGB(255, 214, 100)
 		glow.Visible = fx.Glow == true
 		Gui.tint(glow, shine)
-		card.fx = fx
-		card.ornaments()
+		wingL.Visible, wingR.Visible, crest.Visible = fx.Wings == true, fx.Wings == true, fx.Crest == true
 		divineClip.Visible = fx.Halo == true or fx.Shine == true
 		for _, ray in ipairs(rays) do
 			ray.Visible = fx.Halo == true
