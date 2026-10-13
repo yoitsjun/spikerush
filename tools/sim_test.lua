@@ -303,12 +303,12 @@ do
 	end
 	local okP, servePlain = laithServe(0)
 	local okD, serveDive = laithServe(CO.DiveFullDrop)
-	check(okP and okD and servePlain.meta.hitType == "JumpServe" and serveDive.meta.dive == 1 and serveDive.meta.kmh > servePlain.meta.kmh * 1.3,
+	check(okP and okD and servePlain.meta.hitType == "JumpServe" and serveDive.meta.dive == 1 and serveDive.meta.kmh > servePlain.meta.kmh * 1.25,
 		"Sundive works on his jump serve too", string.format("%.0f km/h plain, %.0f off a full dive", servePlain.meta.kmh, serveDive.meta.kmh))
 	check(not plain.meta.dive and lowPlain.meta.kmh < plain.meta.kmh and halfDive.meta.dive == 0.5 and fullDive.meta.dive == 1
-		and fullDive.meta.kmh > plain.meta.kmh * 1.3 and fullDive.meta.kmh > halfDive.meta.kmh + 15 and auto.meta.kmh > plain.meta.kmh and not auto.meta.dive
-		and flared.meta.kmh > 200 and flared.meta.kmh < 245,
-		"Sunfire and Sundive: every spike +12%, and the further he drops onto it the harder (up to +40%), even met below his apex; with Corona on, past 200",
+		and fullDive.meta.kmh > plain.meta.kmh * 1.25 and fullDive.meta.kmh > halfDive.meta.kmh + 15 and auto.meta.kmh > plain.meta.kmh and not auto.meta.dive
+		and flared.meta.kmh > 200 and flared.meta.kmh < 275,
+		"Sunfire and Sundive: every spike +28%, and the further he drops onto it the harder (up to +36%), even met below his apex; with Corona on, past 200",
 		string.format("apex %.0f, low %.0f, half dive %.0f, full dive %.0f (with Corona %.0f), AI %.0f km/h", plain.meta.kmh, lowPlain.meta.kmh, halfDive.meta.kmh, fullDive.meta.kmh, flared.meta.kmh, auto.meta.kmh))
 	local path = BallPhysics.buildPath(fullDive.launch)
 	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "a full Sundive spike lands in", describe(path))
