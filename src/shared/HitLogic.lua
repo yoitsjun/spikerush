@@ -806,6 +806,9 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if dive > 0 then
 		kmh = kmh * (1 + CORONA.DiveBoost * dive)
 	end
+	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Corona" then
+		kmh = kmh * (1 + CORONA.SpikeBoost) -- Sunfire
+	end
 	local zenith = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Corona" and rng:NextNumber() < CORONA.ZenithChance
 	if zenith then
 		kmh = kmh * (1 + CORONA.ZenithPower)

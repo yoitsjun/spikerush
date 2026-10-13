@@ -277,7 +277,7 @@ do
 	end
 	check(near(on.Attack, laith.Attack * (1 + CO.Boost)) and near(on.Jump, laith.Jump * (1 + CO.Boost)) and near(off3.Defense, laith.Defense * (1 - 3 * CO.PenaltyPer))
 		and near(off99.Speed, laith.Speed * (1 - CO.MaxStacks * CO.PenaltyPer)) and fresh == laith and on.ContactMaxM > laith.ContactMaxM,
-		"Corona: every stat up while it's on; after it, 1.5% down for each use (12 at most), none before",
+		"Corona: every stat up while it's on; after it, 1% down for each use (12 at most), none before",
 		string.format("ATK %d on, %d after 3 uses, %d after 12 (base %d)", on.Attack, off3.Attack, off99.Attack, laith.Attack))
 
 	-- Sundive: a spike he dropped onto hits harder the further he dropped, up to DiveBoost; a dive
@@ -308,7 +308,7 @@ do
 	check(not plain.meta.dive and lowPlain.meta.kmh < plain.meta.kmh and halfDive.meta.dive == 0.5 and fullDive.meta.dive == 1
 		and fullDive.meta.kmh > plain.meta.kmh * 1.3 and fullDive.meta.kmh > halfDive.meta.kmh + 15 and auto.meta.kmh > plain.meta.kmh and not auto.meta.dive
 		and flared.meta.kmh > 200 and flared.meta.kmh < 245,
-		"Sundive: the further he drops onto it, the harder (up to +45%), even met below his apex; with Corona on, past 200",
+		"Sunfire and Sundive: every spike +12%, and the further he drops onto it the harder (up to +40%), even met below his apex; with Corona on, past 200",
 		string.format("apex %.0f, low %.0f, half dive %.0f, full dive %.0f (with Corona %.0f), AI %.0f km/h", plain.meta.kmh, lowPlain.meta.kmh, halfDive.meta.kmh, fullDive.meta.kmh, flared.meta.kmh, auto.meta.kmh))
 	local path = BallPhysics.buildPath(fullDive.launch)
 	check(Court.inBounds(path.landing.pos) and not path.flags.netTouch, "a full Sundive spike lands in", describe(path))
@@ -352,7 +352,7 @@ do
 	local _, plainSeq = spike(root, ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = laith, seq = sample })
 	local zPath = BallPhysics.buildPath(z.launch)
 	local rate = zenith / total
-	check(same and rate > CO.ZenithChance - 0.07 and rate < CO.ZenithChance + 0.07 and z.meta.zenith and math.abs(z.meta.kmh / plainSeq.meta.kmh - (1 + CO.ZenithPower)) < 0.01
+	check(same and rate > CO.ZenithChance - 0.07 and rate < CO.ZenithChance + 0.07 and z.meta.zenith and math.abs(z.meta.kmh / plainSeq.meta.kmh - (1 + CO.ZenithPower) * (1 + CO.SpikeBoost)) < 0.01
 		and math.abs(z.launch.a.Y / plainSeq.launch.a.Y - CO.ZenithSpin) < 0.01 and Court.inBounds(zPath.landing.pos),
 		"Zenith: about one spike in five bursts (+13%, heavier topspin, still in), the same on both sides",
 		string.format("%d of %d, %.0f vs %.0f km/h", zenith, total, z.meta.kmh, plainSeq.meta.kmh))
