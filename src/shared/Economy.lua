@@ -5,6 +5,7 @@
 
 local Config = require(script.Parent.Config)
 local Roster = require(script.Parent.Roster)
+local Spins = require(script.Parent.Spins)
 
 local Economy = {}
 
@@ -34,14 +35,26 @@ end
 ------------------------------------------------------------------------------------------
 
 -- A grant, made safe: whole amounts from 0 to Admin.GiveMax (a boost's seconds to
--- Boosts.MaxHold), and roster characters only (each once). { VP, Gold, Lucky, BoostVP, Chars }.
+-- Boosts.MaxHold), and roster characters only (each once), and real cosmetics (Items: { Kind, Key },
+-- each once; the owner: "in the admin panel allow gifting cosmetics"). { VP, Gold, Lucky, BoostVP,
+-- Chars, Items }.
 function Economy.cleanGrant(g)
 	g = type(g) == "table" and g or {}
 	local cap = Config.Admin.GiveMax
 	local function amount(v, max)
 		return math.max(0, math.min(whole(v), max))
 	end
-	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {} }
+	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {}, Items = {} }
+	if type(g.Items) == "table" then
+		local seen = {}
+		for _, it in ipairs(g.Items) do
+			local kind, key = type(it) == "table" and it.Kind, type(it) == "table" and it.Key
+			if Spins.isCosmetic(kind) and type(key) == "string" and Spins.item(kind, key) and not seen[kind .. ":" .. key] and #out.Items < 200 then
+				seen[kind .. ":" .. key] = true
+				table.insert(out.Items, { Kind = kind, Key = key })
+			end
+		end
+	end
 	-- player cards that are given, never earned (the Content Creator card)
 	if type(g.Cards) == "table" then
 		local seen = {}
@@ -69,7 +82,7 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0
 end
 
 -- A boost timer (unix end) after adding `seconds` at `now`: from now if it had run out, on top
@@ -116,6 +129,10 @@ function Economy.apply(profile, g, now)
 	for _, key in ipairs(g.Cards or {}) do
 		profile.cards[key] = true
 	end
+	for _, it in ipairs(g.Items or {}) do
+		profile.owned[it.Kind] = profile.owned[it.Kind] or {}
+		profile.owned[it.Kind][it.Key] = true
+	end
 	return added
 end
 
@@ -148,6 +165,10 @@ function Economy.describe(g, chars)
 				table.insert(parts, "the " .. c.Name .. " card")
 			end
 		end
+	end
+	for _, it in ipairs(g.Items or {}) do
+		local item = Spins.item(it.Kind, it.Key)
+		table.insert(parts, (item and item.Name or it.Key) .. " (" .. it.Kind .. ")")
 	end
 	if #parts == 0 then
 		return "nothing new"

@@ -4,8 +4,8 @@
 --   ("event", kind, minutes)   -> 2x VP or 2x Gold (Config.Admin) in every server for that long
 --   ("stop", kind)             -> end it everywhere
 --   ("announce", text)         -> through Roblox's text filter, then to every player in every server
---   ("give", username, grant)  -> VP, Gold, lucky spins and characters to anyone by username (or
---                                 user id)
+--   ("give", username, grant)  -> VP, Gold, lucky spins, characters and cosmetics to anyone by
+--                                 username (or user id)
 --                                 (ProfileService.giveUser: now, or through their mail)
 --   ("server")                 -> the admin alone into a new reserved server, to try lobbies across
 --                                 servers (Config.Lobby.Global) with someone who stays behind

@@ -6026,6 +6026,8 @@ end
 -- player's gift. AdminService answers every request with a line and the running events.
 Extra.adminMinutes = Config.Admin.Durations[1]
 Extra.adminChars = {} -- the characters picked to give
+Extra.adminItems = {} -- the cosmetics picked to give ("Kind:Key" -> true)
+Extra.adminTab = "Char" -- the grid shows characters ("Char") or one cosmetic kind
 
 ------------------------------------------------------------------------------------------
 -- Tournaments (Config.Tournament, the shared Cups module): the four cups running now, each a
@@ -6160,7 +6162,24 @@ function Extra.buildAdmin()
 		Gui.label(right, { Text = def[2], TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(x, 104), Size = UDim2.fromOffset(160, 16), ZIndex = 22 })
 		amounts[def[1]] = Extra.inputBox(right, { Position = UDim2.fromOffset(x, 122), Size = UDim2.fromOffset(164, 44) }, "0")
 	end
-	Gui.label(right, { Text = "Characters (click to pick)", TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 178), Size = UDim2.fromOffset(300, 16), ZIndex = 22 })
+	-- the grid's tab: Characters, or a cosmetic kind (click again to go through the kinds)
+	local tabBtn, tabL = hairButton(right, { Position = UDim2.fromOffset(0, 168), Size = UDim2.fromOffset(240, 28), ZIndex = 23 }, "", 15)
+	onClick(tabBtn, function()
+		local kinds = Config.Cosmetics.Kinds
+		if Extra.adminTab == "Char" then
+			Extra.adminTab = kinds[1]
+		else
+			local nextKind = "Char"
+			for i, k in ipairs(kinds) do
+				if k == Extra.adminTab then
+					nextKind = kinds[i + 1] or "Char"
+				end
+			end
+			Extra.adminTab = nextKind
+		end
+		Extra.adminCosKind = nil -- (the cosmetics grid is rebuilt for the new kind)
+		MenuController.refresh()
+	end)
 	-- player cards that are only given: the Content Creator card
 	local creatorBtn, creatorL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 168), Size = UDim2.fromOffset(250, 28), ZIndex = 23 }, "", 15)
 	onClick(creatorBtn, function()
@@ -6197,6 +6216,9 @@ function Extra.buildAdmin()
 		end)
 		charButtons[c.Id] = { button = b, color = color }
 	end
+	-- the cosmetics grid (one kind at a time), in the characters' place
+	local cosGrid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 22 }, right)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(158, 36), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, cosGrid)
 	local picked = Gui.label(right, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 512), Size = UDim2.new(1, -220, 0, 48), ZIndex = 22 })
 	local give = actionPlate(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 512), Size = UDim2.fromOffset(200, 48) }, "Give", 22)
 	onClick(give, function()
@@ -6204,11 +6226,19 @@ function Extra.buildAdmin()
 		for id in pairs(Extra.adminChars) do
 			table.insert(chars, id)
 		end
+		local items = {}
+		for k in pairs(Extra.adminItems) do
+			local kind, key = string.match(k, "^(%a+):(.+)$")
+			if kind then
+				table.insert(items, { Kind = kind, Key = key })
+			end
+		end
 		Net.get("Admin"):FireServer("give", user.Text, {
 			VP = tonumber(amounts.VP.Text) or 0,
 			Gold = tonumber(amounts.Gold.Text) or 0,
 			Lucky = tonumber(amounts.Lucky.Text) or 0,
 			Chars = chars,
+			Items = items,
 			Cards = Extra.adminCreator and { "Creator" } or nil,
 		})
 	end)
@@ -6257,7 +6287,7 @@ function Extra.buildAdmin()
 		end
 	end)
 	local status = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -20), Size = UDim2.new(1, -56, 0, 44), ZIndex = 21 })
-	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status, creatorL = creatorL }
+	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status, creatorL = creatorL, grid = grid, cosGrid = cosGrid, tabL = tabL, cosButtons = {} }
 end
 
 function Extra.refreshAdmin()
@@ -6282,7 +6312,51 @@ function Extra.refreshAdmin()
 		b.button.BackgroundTransparency = on and 0.05 or 0.2
 		b.button.TextColor3 = on and Gui.LINE or b.color
 	end
-	A.picked.Text = n > 0 and string.format("%d character%s picked", n, n == 1 and "" or "s") or ""
+	-- the tab: characters, or one cosmetic kind (its grid built when the kind changes)
+	local tab = Extra.adminTab
+	A.grid.Visible = tab == "Char"
+	A.cosGrid.Visible = tab ~= "Char"
+	A.tabL.Text = tab == "Char" and "Characters  >  cosmetics" or ("Cosmetics: " .. tab .. "  >")
+	if tab ~= "Char" and Extra.adminCosKind ~= tab then
+		Extra.adminCosKind = tab
+		for _, c in ipairs(A.cosGrid:GetChildren()) do
+			if c:IsA("GuiButton") then
+				c:Destroy()
+			end
+		end
+		A.cosButtons = {}
+		for i, item in ipairs(Spins.items(tab)) do
+			local color = Spins.rarityColor(item.Rarity)
+			local b = make("TextButton", { Text = item.Name, FontFace = Gui.display(), TextSize = 16, TextColor3 = color, TextTruncate = Enum.TextTruncate.AtEnd, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.2, AutoButtonColor = false, LayoutOrder = i, ZIndex = 23 }, A.cosGrid)
+			make("UICorner", { CornerRadius = UDim.new(0, 6) }, b)
+			make("UIStroke", { Color = color, Thickness = 1, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+			b:SetAttribute("Sound", "UISelect")
+			local k = tab .. ":" .. item.Key
+			onClick(b, function()
+				Extra.adminItems[k] = not Extra.adminItems[k] or nil
+				MenuController.refresh()
+			end)
+			A.cosButtons[k] = { button = b, color = color }
+		end
+	end
+	local nItems = 0
+	for k in pairs(Extra.adminItems) do
+		nItems = nItems + 1
+	end
+	for k, b in pairs(A.cosButtons) do
+		local on = Extra.adminItems[k] == true
+		b.button.BackgroundColor3 = on and b.color or Gui.CARD
+		b.button.BackgroundTransparency = on and 0.05 or 0.2
+		b.button.TextColor3 = on and Gui.LINE or b.color
+	end
+	local bits = {}
+	if n > 0 then
+		table.insert(bits, string.format("%d character%s", n, n == 1 and "" or "s"))
+	end
+	if nItems > 0 then
+		table.insert(bits, string.format("%d cosmetic%s", nItems, nItems == 1 and "" or "s"))
+	end
+	A.picked.Text = #bits > 0 and (table.concat(bits, " and ") .. " picked") or ""
 end
 
 function MenuController.openAdmin()

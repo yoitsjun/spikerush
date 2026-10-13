@@ -650,6 +650,22 @@ do
 		string.format("%.0f with none, %.0f with 3", top.meta.kmh, st3.meta.kmh))
 end
 
+print("== gifting cosmetics ==")
+do
+	-- (the owner: "in the admin panel allow gifting cosmetics"): a grant carries real cosmetics only,
+	-- each once, and applying it owns them
+	local Economy = require("Economy")
+	local Spins = require("Spins")
+	local kind = Config.Cosmetics.Kinds[3]
+	local item = Spins.items(kind)[2] or Spins.items(kind)[1]
+	local g = Economy.cleanGrant({ Items = { { Kind = kind, Key = item.Key }, { Kind = kind, Key = item.Key }, { Kind = "Nope", Key = "x" }, { Kind = kind, Key = "not-a-key" } } })
+	local profile = { vp = 0, gold = 0, lucky = 0, owned = {} }
+	Economy.apply(profile, g, 0)
+	local said = Economy.describe(g)
+	check(#g.Items == 1 and not Economy.isEmpty(g) and profile.owned[kind] and profile.owned[kind][item.Key] == true and string.find(said, item.Name, 1, true) ~= nil,
+		"admin gifts: a cosmetic in a grant is checked, given once and owned", said)
+end
+
 print("== patch notes ==")
 do
 	local PatchNotes = require("PatchNotes")
