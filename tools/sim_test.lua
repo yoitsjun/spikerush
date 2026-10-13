@@ -760,6 +760,22 @@ do
 		"an all-AI match gives the court to a waiting lobby; humans on court or joining keep it")
 end
 
+print("== the Almighty card ==")
+do
+	-- (the owner: "i want to be able to give out a custom banner. Maybe like Almighty"): a card
+	-- only given (never earned), and a gift carries it
+	local Economy = require("Economy")
+	local card = nil
+	for _, c in ipairs(Config.Cards.List) do
+		if c.Key == "Almighty" then card = c end
+	end
+	local g = Economy.cleanGrant({ Cards = { "Almighty" } })
+	local profile = { vp = 0, gold = 0, lucky = 0, owned = {}, cards = {} }
+	Economy.apply(profile, g, 0)
+	check(card ~= nil and card.Grant == true and g.Cards[1] == "Almighty" and profile.cards.Almighty == true and string.find(Economy.describe(g), "Almighty", 1, true) ~= nil,
+		"the Almighty card can be given and is owned", Economy.describe(g))
+end
+
 print("== patch notes ==")
 do
 	local PatchNotes = require("PatchNotes")

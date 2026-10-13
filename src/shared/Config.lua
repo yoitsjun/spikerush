@@ -692,6 +692,11 @@ Config.Cards = {
 		-- on it (Config.Developers)
 		{ Key = "DevDefeater", Name = "Dev Defeater", Stat = "devWins", Need = 1, Goal = "Beat a developer's team in a match",
 			Look = { Base = Color3.fromRGB(34, 4, 8), Sweep = Color3.fromRGB(235, 30, 50), Accent = Color3.fromRGB(255, 235, 235), Edge = Color3.fromRGB(255, 70, 80), Pattern = "rays", Big = "DEV\nDEFEATER" } },
+		-- the owner: "since this guy is so high, i want to be able to give out a custom banner. Maybe
+		-- like Almighty": the very best players, given from the admin panel (Give a player > Card);
+		-- their own avatar mid-spike across a divine gold card
+		{ Key = "Almighty", Name = "Almighty", Stat = "grant", Grant = true, Goal = "Given to the very best players",
+			Look = { Base = Color3.fromRGB(18, 12, 2), Sweep = Color3.fromRGB(255, 205, 60), Accent = Color3.fromRGB(255, 252, 235), Edge = Color3.fromRGB(255, 236, 150), Pattern = "rays", Big = "ALMIGHTY", Avatar = true } },
 		-- the VIP game pass's card (Config.Passes.VIP): given with the pass, never earned
 		-- the Discord's card (Config.Discord): only from verifying your account in the Discord
 		-- (named for the community, not Discord: everyone sees cards, and Roblox lets only some players

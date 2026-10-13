@@ -6268,10 +6268,22 @@ function Extra.buildAdmin()
 	onClick(tabBtn, function()
 		tabDrop.Visible = not tabDrop.Visible
 	end)
-	-- player cards that are only given: the Content Creator card
+	-- player cards that are only given (Grant: Content Creator, Almighty...): click to go through them
 	local creatorBtn, creatorL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 168), Size = UDim2.fromOffset(250, 28), ZIndex = 23 }, "", 15)
 	onClick(creatorBtn, function()
-		Extra.adminCreator = not Extra.adminCreator
+		local keys = {}
+		for _, c in ipairs(Config.Cards.List) do
+			if c.Grant then
+				table.insert(keys, c.Key)
+			end
+		end
+		local nextKey = keys[1]
+		for i, k in ipairs(keys) do
+			if k == Extra.adminCard then
+				nextKey = keys[i + 1] -- (past the last: no card)
+			end
+		end
+		Extra.adminCard = nextKey
 		MenuController.refresh()
 	end)
 	local grid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 22 }, right)
@@ -6327,7 +6339,7 @@ function Extra.buildAdmin()
 			Lucky = tonumber(amounts.Lucky.Text) or 0,
 			Chars = chars,
 			Items = items,
-			Cards = Extra.adminCreator and { "Creator" } or nil,
+			Cards = Extra.adminCard and { Extra.adminCard } or nil,
 		})
 	end)
 	-- reset the username's match stats (a faked record): press twice within 4 s
@@ -6381,8 +6393,14 @@ end
 function Extra.refreshAdmin()
 	local A = ui.admin
 	A.setLen(Extra.adminMinutes)
-	A.creatorL.Text = Extra.adminCreator and "Content Creator card: yes" or "Content Creator card: no"
-	A.creatorL.TextColor3 = Extra.adminCreator and Gui.SIGNAL or Gui.CHALK
+	local cardName = nil
+	for _, c in ipairs(Config.Cards.List) do
+		if c.Key == Extra.adminCard then
+			cardName = c.Name
+		end
+	end
+	A.creatorL.Text = cardName and ("Card: " .. cardName) or "Card: none (click to pick)"
+	A.creatorL.TextColor3 = cardName and Gui.SIGNAL or Gui.CHALK
 	for kind, r in pairs(A.evRows) do
 		local left = Extra.eventLeft(kind)
 		r.status.Text = left > 0 and ("On, " .. Extra.clockText(left) .. " left") or "Off"
