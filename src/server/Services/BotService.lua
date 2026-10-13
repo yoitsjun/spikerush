@@ -887,9 +887,9 @@ local function rallyCry(b, now)
 	end
 end
 
--- Iron Wall's window is up (Ironclad's Bulwark needs a block jump like anyone's).
+-- Iron Wall's window is up, or Ironclad still has shields.
 local function wallUp(e, now)
-	return e.ability == "IronWall" and (e.abilityUntil or -1) >= now
+	return (e.ability == "IronWall" and (e.abilityUntil or -1) >= now) or (e.ability == "Ironclad" and HitLogic.ironLives(e.ironLives) > 0)
 end
 
 local function blockCheck(b, now, root, side)
@@ -1143,7 +1143,8 @@ local function updateBot(b, now)
 			blockCheck(b, now, root, side)
 		end
 	end
-	-- Iron Wall up: a wall at the net whatever it's doing (blockCheck's box covers any height then)
+	-- Iron Wall up (or Ironclad's Bulwark): a wall at the net whatever it's doing (blockCheck's box
+	-- covers any height then)
 	if wallUp(b.entity, now) and not (task == "Block" and not grounded) then
 		blockCheck(b, now, root, side)
 	end

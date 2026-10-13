@@ -493,14 +493,16 @@ do
 			okP, pierced = ok2, r2
 		end
 	end
-	-- standing on the floor he's no wall (the owner: "taesan can block without jumping")
+	-- standing on the floor with shields he's a wall all the same (the owner: "revert his blocks to
+	-- before when you didnt have to jump")
 	local highBall = vec(0, C.NetTop + 6, side * 0.6)
-	local okG = HitLogic.compute({ action = "Block", t = 0, root = vec(0, GROUND, side * 1.2), ball = highBall, vy = 0, grounded = true },
-		ctx({ ability = "Ironclad", stats = taesan, lastHit = { hitType = "Spike", team = "Home", kmh = 120 }, ironclad = true, ballVel = vec(0, -8, side * 30) }))
+	local okG, standing = HitLogic.compute({ action = "Block", t = 0, root = vec(0, GROUND, side * 1.2), ball = highBall, vy = 0, grounded = true },
+		ctx({ ability = "Ironclad", stats = taesan, lastHit = { hitType = "Spike", team = "Home", kmh = 120 }, ironWall = true, ironclad = true, ballVel = vec(0, -8, side * 30) }))
+	okG = okG and standing.meta.outcome == "Stuff"
 	check(okW and okB and okP and held.meta.outcome == "Stuff" and held.meta.ironWall and not held.meta.wallBroken
-		and broke.meta.outcome == "Break" and broke.meta.wallBroken and pierced.meta.wallBroken and not okG,
-		"Bulwark: a block he jumps for shuts down a 140 km/h spike perfectly; 150 or more (or a piercing one) breaks through and costs a shield; on the floor, no wall",
-		string.format("140: %s, 160: %s, piercing 120: %s, standing: %s", held.meta.outcome, broke.meta.outcome, pierced.meta.outcome, okG and "blocked" or "no block"))
+		and broke.meta.outcome == "Break" and broke.meta.wallBroken and pierced.meta.wallBroken and okG,
+		"Bulwark: his wall shuts down a 140 km/h spike perfectly, standing at the net too; 150 or more (or a piercing one) breaks through and costs a shield",
+		string.format("140: %s, 160: %s, piercing 120: %s, standing: %s", held.meta.outcome, broke.meta.outcome, pierced.meta.outcome, okG and "wall" or "no wall"))
 	-- Unbreakable (the owner: "a chance to completely shutdown a guardbreak"): over many balls a
 	-- breaking spike is shut down about UnbreakableChance of the time, less the harder it is, and
 	-- one that is keeps the shield

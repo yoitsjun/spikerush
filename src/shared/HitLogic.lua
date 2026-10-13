@@ -1259,10 +1259,10 @@ function HitLogic.compute(input, ctx)
 		-- Feral Leap: a full-gauge spike leaping at the net smashes through a blocker with less
 		-- Attack than the attacker had
 		local smash = last.hitType == "Spike" and type(last.breakAtk) == "number" and last.breakAtk > stats.Attack
-		-- Ironclad's Bulwark (ctx.ironclad: he has shields): a block he jumps for and gets his hands
-		-- on is Iron Wall's perfect shut-down (with the usual block reach: no wall without a jump, the
-		-- owner: "taesan can block without jumping... should we nerf that"), but an attack hard enough
-		-- (or piercing, or built to smash blocks) breaks through it and costs a shield (HitService)
+		-- Ironclad's Bulwark (ctx.ironclad: he has shields): Iron Wall's wall and perfect shut-down,
+		-- no jump needed (the owner tried a jump-only version, then: "revert his blocks to before when
+		-- you didnt have to jump"), but an attack hard enough (or piercing, or built to smash blocks)
+		-- breaks through it and costs a shield (HitService), unless Unbreakable stops it
 		local wallBreak = ctx.ironclad == true and last.hitType == "Spike" and (attackKmh >= IRON.BreakKmh or last.pierce == true or type(last.breakAtk) == "number")
 		-- Unbreakable: a chance it's shut down anyway, falling the harder the spike (the ball's own
 		-- seed rolls it, so both sides agree)
