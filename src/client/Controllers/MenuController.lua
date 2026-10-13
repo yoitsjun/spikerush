@@ -5649,7 +5649,7 @@ function Extra.refreshCodes(prof)
 		C.codeBox.Text = "Verified"
 		C.steps.Text = "You're verified. Thanks for joining! The Discord Squad card is in your cards."
 	else
-		C.codeBox.Text = d.code ~= "" and ("Code: " .. d.code) or "Code: ..."
+		C.codeBox.Text = d.code ~= "" and d.code or "..." -- (just the code, so copying it copies only that)
 		C.steps.Text = "1. Join the Discord with the link (copy it)\n2. In the Discord, type /verify " .. (d.code ~= "" and d.code or "CODE") .. "\n3. Come back here and click Verify"
 	end
 end

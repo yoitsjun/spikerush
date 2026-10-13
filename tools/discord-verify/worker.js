@@ -51,7 +51,7 @@ async function handleVerify(interaction, env) {
 		return "Use /verify in the Spike Rush server, not in DMs.";
 	}
 	const opt = (interaction.data.options || []).find((o) => o.name === "code");
-	const code = String(opt ? opt.value : "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+	const code = String(opt ? opt.value : "").trim().toUpperCase().replace(/^CODE\s*:?/, "").replace(/[^A-Z0-9]/g, "");
 	if (!CODE_RE.test(code)) {
 		return "That isn't a code. Open **Codes** in Spike Rush and copy yours (7 letters and numbers).";
 	}
