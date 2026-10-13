@@ -923,7 +923,7 @@ function Gui.playerCard(parent, props)
 			root[k] = v
 		end
 	end
-	-- Divine (Look.Divine, the Almighty card; the owner: "make it really special", after a game's
+	-- Special cards (Look.Fx; all of it on the Almighty card; the owner: "make it really special", after a game's
 	-- winged title banners): gold wings out of both sides and a crown over the top, a breathing glow
 	-- round the edge, a halo of turning rays behind the avatar, a shine sweeping across, sparkles
 	-- twinkling and gold light running through the big word. Hidden on every other card.
@@ -1116,12 +1116,24 @@ function Gui.playerCard(parent, props)
 		tag.Visible = data.word ~= nil and data.word ~= ""
 		word.Text = data.word or ""
 		Gui.tint(tag, accent)
-		local divine = look.Divine == true
-		glow.Visible, wingL.Visible, wingR.Visible, crest.Visible, divineClip.Visible = divine, divine, divine, divine, divine
-		for _, s in ipairs(sparks) do
-			s.frame.Visible = divine
+		-- the special cards' effects (Look.Fx: Wings, Crest, Glow, Halo, Shine, Sparkles, WordShine),
+		-- the glow and the halo in the card's edge colour (a rank card's gold, silver or bronze)
+		local fx = look.Fx or {}
+		local shine = look.Edge or Color3.fromRGB(255, 214, 100)
+		glow.Visible = fx.Glow == true
+		Gui.tint(glow, shine)
+		wingL.Visible, wingR.Visible, crest.Visible = fx.Wings == true, fx.Wings == true, fx.Crest == true
+		divineClip.Visible = fx.Halo == true or fx.Shine == true
+		for _, ray in ipairs(rays) do
+			ray.Visible = fx.Halo == true
+			ray.BackgroundColor3 = shine:Lerp(Color3.new(1, 1, 1), 0.3)
 		end
-		bigShine.Enabled = divine
+		gloss.Visible = fx.Shine == true
+		for _, s in ipairs(sparks) do
+			s.frame.Visible = fx.Sparkles == true
+		end
+		bigShine.Enabled = fx.WordShine == true
+		local divine = next(fx) ~= nil
 		if divine and not divineConn then
 			divineConn = RunService.Heartbeat:Connect(divineStep)
 			divineStep()

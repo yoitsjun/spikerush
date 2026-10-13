@@ -675,10 +675,13 @@ Config.Cards = {
 			Look = { Base = Color3.fromRGB(20, 26, 16), Sweep = Color3.fromRGB(120, 170, 80), Accent = Color3.fromRGB(220, 235, 170), Edge = Color3.fromRGB(160, 190, 110), Pattern = "halftone" } },
 		{ Key = "Collector", Name = "Collector", Stat = "owned", Need = 20, Show = "owned", Label = "PLAYERS", Goal = "Recruit 20 players",
 			Look = { Base = Color3.fromRGB(14, 20, 40), Sweep = Color3.fromRGB(80, 170, 255), Accent = Color3.fromRGB(255, 120, 220), Edge = Color3.fromRGB(190, 110, 255), Pattern = "stars" } },
+		-- the rank cards move too (the owner: "upgrade top 1 and top 3 because now they are lacking way
+		-- too behind"), a step under Almighty: Top 3 glows in its medal (gold, silver, bronze) with a
+		-- sweeping shine and sparkles; Number One adds the crown and a halo of turning rays
 		{ Key = "Top3", Name = "Top 3", Stat = "rank", Need = 3, Show = "rank", Goal = "Reach the top 3 of any leaderboard",
-			Look = { Base = Color3.fromRGB(24, 24, 30), Sweep = "rank", Accent = Color3.fromRGB(255, 255, 255), Edge = "rank", Pattern = "rays" } },
+			Look = { Base = Color3.fromRGB(24, 24, 30), Sweep = "rank", Accent = Color3.fromRGB(255, 255, 255), Edge = "rank", Pattern = "rays", Fx = { Glow = true, Shine = true, Sparkles = true } } },
 		{ Key = "Number1", Name = "Number One", Stat = "rank", Need = 1, Show = "rank", Goal = "Reach #1 on any leaderboard",
-			Look = { Base = Color3.fromRGB(28, 20, 2), Sweep = Color3.fromRGB(255, 200, 40), Accent = Color3.fromRGB(255, 255, 255), Edge = Color3.fromRGB(255, 230, 120), Pattern = "stars" } },
+			Look = { Base = Color3.fromRGB(28, 20, 2), Sweep = Color3.fromRGB(255, 200, 40), Accent = Color3.fromRGB(255, 255, 255), Edge = Color3.fromRGB(255, 230, 120), Pattern = "stars", Fx = { Glow = true, Crest = true, Halo = true, Shine = true, Sparkles = true } } },
 		-- the owner: "another card displaying win/loss ratio... show wins, losses, and percent of
 		-- wins": the share of matches won in big type, the wins and losses under it
 		{ Key = "WinLoss", Name = "Win/Loss", Stat = "matches", Need = 20, Show = "winRate", Goal = "Play 20 matches",
@@ -695,10 +698,10 @@ Config.Cards = {
 		-- the owner: "since this guy is so high, i want to be able to give out a custom banner. Maybe
 		-- like Almighty", then "a bit bland lets make it really special" (with a game's winged title
 		-- banners for reference): the very best players, given from the admin panel (Give a player >
-		-- Card). A crimson ribbon in gold with their own avatar mid-spike; Divine adds gold wings, a
+		-- Card). A crimson ribbon in gold with their own avatar mid-spike; its Fx add gold wings, a
 		-- crown, turning rays, a sweeping shine, a breathing glow and sparkles (Gui.playerCard)
 		{ Key = "Almighty", Name = "Almighty", Stat = "grant", Grant = true, Goal = "Given to the very best players",
-			Look = { Base = Color3.fromRGB(58, 4, 12), Sweep = Color3.fromRGB(205, 26, 42), Accent = Color3.fromRGB(255, 222, 120), Edge = Color3.fromRGB(255, 210, 80), Pattern = "rays", Big = "ALMIGHTY", Avatar = true, Divine = true } },
+			Look = { Base = Color3.fromRGB(58, 4, 12), Sweep = Color3.fromRGB(205, 26, 42), Accent = Color3.fromRGB(255, 222, 120), Edge = Color3.fromRGB(255, 210, 80), Pattern = "rays", Big = "ALMIGHTY", Avatar = true, Fx = { Wings = true, Crest = true, Glow = true, Halo = true, Shine = true, Sparkles = true, WordShine = true } } },
 		-- the VIP game pass's card (Config.Passes.VIP): given with the pass, never earned
 		-- the Discord's card (Config.Discord): only from verifying your account in the Discord
 		-- (named for the community, not Discord: everyone sees cards, and Roblox lets only some players

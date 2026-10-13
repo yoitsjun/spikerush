@@ -134,7 +134,7 @@ function Cards.look(card, team, rank)
 		end
 		return v
 	end
-	return { Base = L.Base, Sweep = resolve(L.Sweep), Accent = L.Accent, Edge = resolve(L.Edge), Pattern = L.Pattern, Big = L.Big, Avatar = L.Avatar == true, Divine = L.Divine == true }
+	return { Base = L.Base, Sweep = resolve(L.Sweep), Accent = L.Accent, Edge = resolve(L.Edge), Pattern = L.Pattern, Big = L.Big, Avatar = L.Avatar == true, Fx = L.Fx }
 end
 
 return Cards
