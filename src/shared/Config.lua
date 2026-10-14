@@ -200,12 +200,13 @@ Config.Hits = {
 	-- setter aim (SetterAim): a human setter picks the height the set comes down through (any,
 	-- from SetAimLowY to SetAimHighY: the hitting points of the shortest and tallest) and charges
 	-- its distance from the net by holding Set (SetAimMin, then out to SetAimMax over
-	-- SetChargeTime); letting go sets
+	-- SetChargeTime); letting go sets. SetAimMax reaches just inside the end line (the owner:
+	-- "unrestrict the horizontal distance on setter mode", "to reach the very back court")
 	SetAimMin = 0.6 * M,
-	SetAimMax = 4.2 * M,
+	SetAimMax = 8.6 * M,
 	SetAimLowY = lift(2.6),
 	SetAimHighY = lift(4.6),
-	SetChargeTime = 1.0,
+	SetChargeTime = 1.4,
 	OpenDepth = 2.3 * M, -- attack spots, distance from the net
 	QuickDepth = 1.2 * M,
 	BackDepth = 3.9 * M,
