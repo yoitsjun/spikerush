@@ -2222,7 +2222,13 @@ do
 		dupes = dupes or keys[item.Key] ~= nil
 		keys[item.Key] = true
 	end
-	local n = #Config.Cosmetics.Ball - 1
+	-- (the Halloween balls are limited: Config.Halloween's banner, not the Ball banner)
+	local n = -1
+	for _, item in ipairs(Config.Cosmetics.Ball) do
+		if not item.Limited then
+			n = n + 1
+		end
+	end
 	check(not dupes and Spins.default("Ball") == "Classic" and Spins.isBanner("Ball") and Spins.isCosmetic("Ball") and Config.Cosmetics.Attribute.Ball == "BallSkin" and n >= 6 and n <= 10,
 		"ball skins are a cosmetic kind with their own banner; everyone starts with Classic; 6 to 10 new balls", n .. " new")
 	-- every skin but Classic has a look in BallSkins, and each textured one an uploaded texture
@@ -2986,6 +2992,238 @@ do
 	local okWall, ww = HitLogic.compute({ action = "Block", t = 0, root = floorRoot, ball = sky, grounded = true }, ctx({ stats = gaeul, ability = "IronWall", ironWall = true, lastHit = { team = "Home", hitType = "Spike", kmh = 240, pierce = true, breakAtk = 999 }, ballVel = vec(0, -8, side * 60) }))
 	check(not okNo and okWall and ww.meta.perfectBlock and ww.meta.outcome == "Stuff",
 		"Iron Wall is unbreakable: standing, off the net, a 4.75 m 240 km/h spike that breaks blocks is still shut down", okWall and ww.meta.outcome or "no block")
+end
+
+print("== the Halloween event ==")
+do
+	-- the owner (2026-10-14): a daily Halloween Match against the AI, two stages of 12 points, a
+	-- roulette before each stage that stops on 3 cards and you pick 1, twice; at least 50 cards
+	-- ("all the cards like the abilities of the characters + some buffs"); Candy; a limited banner
+	-- with the two balls, two score effects and the Reaper skin; until November 2
+	local Halloween = require("Halloween")
+	local HW = Config.Halloween
+	local cards = Halloween.cards()
+	local keys, ok, bad = {}, true, {}
+	local abilities = {}
+	for _, c in ipairs(cards) do
+		local good = keys[c.Key] == nil and HW.Kinds[c.Kind] ~= nil and HW.Weights[c.Rarity] ~= nil and (c.Target == "Self" or c.Target == "Team" or c.Target == "Foes")
+			and type(c.Name) == "string" and #Halloween.blurb(c) > 8
+		for k in pairs(c.Add or {}) do
+			local known = false
+			for _, s in ipairs(Config.Stats.Order) do
+				known = known or s == k
+			end
+			good = good and known
+		end
+		if c.Kind == "Ability" then
+			good = good and Config.Abilities[c.Ability] ~= nil and c.Target == "Self"
+			abilities[c.Ability] = true
+		end
+		if not good then
+			table.insert(bad, c.Key)
+		end
+		keys[c.Key] = true
+		ok = ok and good
+	end
+	local missing = {}
+	for _, a in ipairs(Config.AbilityOrder) do
+		if not abilities[a] then
+			table.insert(missing, a)
+		end
+	end
+	check(ok and #cards >= 50 and #missing == 0, "at least 50 cards, each with a name, a kind, a rarity and a line; one card per ability",
+		string.format("%d cards; bad: %s; abilities missing: %s", #cards, table.concat(bad, ", "), table.concat(missing, ", ")))
+	check(Halloween.blurb("aThunder") == "Thunder Spiker for this run, +10 Jump." and Halloween.blurb("aRallyCry") == "Rally Cry for this run, +50 to every stat."
+		and Halloween.blurb("Coven") == "Your team: +10 Attack." and Halloween.blurb("Withering") == "The other team: Stamina pool -25%.",
+		"the owner's examples: Thunder Spiker with +10 Jump, Rally Cry with +50 to every stat", Halloween.blurb("aThunder") .. " / " .. Halloween.blurb("aRallyCry"))
+
+	-- the roulette: 3 different cards, none you hold; the same seed deals the same; the AI never
+	-- gets an ability card; rarer cards come up less
+	local rng = Random.new(7)
+	local held = { "PumpkinPower", "aThunder" }
+	local offers = Halloween.offers(rng, held, HW.Offers)
+	local distinct = #offers == 3 and offers[1] ~= offers[2] and offers[2] ~= offers[3] and offers[1] ~= offers[3]
+	for _, k in ipairs(offers) do
+		distinct = distinct and k ~= "PumpkinPower" and k ~= "aThunder"
+	end
+	local a1 = Halloween.offers(Random.new(99), {}, 3)
+	local a2 = Halloween.offers(Random.new(99), {}, 3)
+	local seen, aiAbility = { Common = 0, Legendary = 0 }, 0
+	local r2 = Random.new(3)
+	for _ = 1, 400 do
+		for _, k in ipairs(Halloween.offers(r2, {}, 3)) do
+			local c = Halloween.card(k)
+			seen[c.Rarity] = (seen[c.Rarity] or 0) + 1
+		end
+		for _, k in ipairs(Halloween.offers(r2, {}, 3, true)) do
+			if Halloween.card(k).Kind == "Ability" then
+				aiAbility = aiAbility + 1
+			end
+		end
+	end
+	check(distinct and table.concat(a1, ",") == table.concat(a2, ",") and aiAbility == 0 and seen.Common > seen.Legendary * 2,
+		"a pick offers 3 different cards you don't hold; the same seed deals the same; the AI never takes an ability; rarer cards come up less",
+		string.format("%s; 1200 offers: %d Common, %d Legendary; AI abilities %d", table.concat(offers, ", "), seen.Common, seen.Legendary, aiAbility))
+	check(Halloween.aiPick({ "PumpkinPower", "NightmareFuel", "Coven" }) == "NightmareFuel", "the AI picks the rarest card offered")
+
+	-- a hand: one ability card at a time (a new one replaces it), no card twice, Stages x Picks at most
+	local hand = Halloween.addCard({}, "aThunder")
+	hand = Halloween.addCard(hand, "PumpkinPower")
+	hand = Halloween.addCard(hand, "aAzure")
+	hand = Halloween.addCard(hand, "PumpkinPower")
+	local clean = Halloween.cleanHand({ "aThunder", "x", "Coven", "aFeral", "BatWings", "GhostStep", "BoneArmor", "Cobwebs" })
+	check(#hand == 2 and Halloween.abilityOf(hand) == "Azure" and hand[1] == "PumpkinPower" and #clean == HW.Stages * HW.Picks and Halloween.abilityOf(clean) == nil,
+		"one ability card at a time: a new one takes the old one's place; a hand never holds a card twice", table.concat(hand, ", ") .. " / " .. table.concat(clean, ", "))
+
+	-- who each card hits: Self its holder (the AI's, every bot on its side), Team the holder's side,
+	-- Curse the other side
+	local holders = {
+		{ team = "Home", userId = 1, cards = { "PumpkinPower", "Coven", "Cobwebs" } },
+		{ team = "Home", userId = 2, cards = { "BatWings" } },
+		{ team = "Away", cards = { "BoneArmor", "HexWeakness" } },
+	}
+	local p1 = Halloween.hexFor(holders, "Home", 1)
+	local p2 = Halloween.hexFor(holders, "Home", 2)
+	local mate = Halloween.hexFor(holders, "Home", nil)
+	local foe = Halloween.hexFor(holders, "Away", nil)
+	check(p1 == "PumpkinPower,Coven,HexWeakness" and p2 == "Coven,BatWings,HexWeakness" and mate == "Coven,HexWeakness" and foe == "Cobwebs,BoneArmor",
+		"a card hits its holder, a team card the holder's whole side (bots too), a curse the other side, the AI's cards its own bots", p1 .. " | " .. p2 .. " | " .. mate .. " | " .. foe)
+	local fx = Halloween.effects("PumpkinPower,Coven,HexWeakness")
+	check(fx.add.Attack == 18 and Halloween.effects("PumpkinPower,Coven,HexWeakness") == fx and Halloween.effects("") == nil and Halloween.effects("nope") == nil,
+		"a hand's cards add up (+20 +10 -12 Attack), one table per Hex string; none is nothing", string.format("+%d Attack", fx.add.Attack))
+
+	-- the cards in play: stats, height, points per point the other team scores, every stat
+	local base = Characters.stats("S+", "WS", 190)
+	local pp = HitLogic.effectiveStats(base, nil, nil, { hex = Halloween.effects("PumpkinPower") })
+	local giant = HitLogic.effectiveStats(base, nil, nil, { hex = Halloween.effects("GraveGiant") })
+	local moon0 = HitLogic.effectiveStats(base, nil, nil, { hex = Halloween.effects("FullMoon"), enemyPoints = 0 })
+	local moon8 = HitLogic.effectiveStats(base, nil, nil, { hex = Halloween.effects("FullMoon"), enemyPoints = 8 })
+	local mash = HitLogic.effectiveStats(base, nil, nil, { hex = Halloween.effects("MonsterMash") })
+	local cursed = HitLogic.effectiveStats(base, nil, nil, { hex = Halloween.effects("FogOfDread") })
+	check(pp.Attack == base.Attack + 20 and pp.Power > base.Power and giant.Height == base.Height + 15 and giant.contactMaxStuds > base.contactMaxStuds
+		and moon8.Attack == base.Attack + 24 and moon8.Jump == base.Jump + 16 and moon0.Attack == base.Attack
+		and mash.Speed == math.floor(base.Speed * 1.08 + 0.5) and cursed.Defense == base.Defense - 6,
+		"stat cards add points, Grave Giant raises the hitting point, Full Moon grows with the other team's points, Monster Mash multiplies, a curse takes away",
+		string.format("Attack %d -> %d; %d cm -> %d; Full Moon at 8: +%d Attack; Monster Mash Speed %d -> %d", base.Attack, pp.Attack, base.Height, giant.Height, moon8.Attack - base.Attack, base.Speed, mash.Speed))
+
+	-- spikes, serves, reach, drain
+	local root = apexRoot(SP, 3.5 * K)
+	local b = ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local _, plain = spike(root, b)
+	local _, smash = spike(root, b, { hex = Halloween.effects("JackSmash") })
+	local _, dig = spike(root, b, { hex = Halloween.effects("Gravedigger") })
+	-- a ball just past the edge of the spike zone: out of reach, but not with Long Claws
+	local far = nil
+	for dz = Z.SpikeCenterDz, Z.SpikeCenterDz + Z.SpikeRadiusZ * 2, 0.05 do
+		local probe = ballAt(root, dz, Z.SpikeCenterDy)
+		if not HitLogic.spikeZone(root, probe, side, SP, 1) and not far then
+			far = probe
+		end
+	end
+	local okFar = spike(root, far)
+	local okClaws = spike(root, far, { hex = Halloween.effects("LongClaws") })
+	check(math.abs(smash.meta.kmh / plain.meta.kmh - 1.08) < 0.001 and math.abs(dig.meta.tierDrain / plain.meta.tierDrain - 1.25) < 0.001 and not okFar and okClaws,
+		"Jack-o'-Smash spikes 8% faster, Gravedigger's cost the digger 25% more, Long Claws reaches a ball just out of reach",
+		string.format("%.1f -> %.1f km/h", plain.meta.kmh, smash.meta.kmh))
+	local serveZ = Court.serveSpot(side, "WS").Z
+	local sroot = vec(0, GROUND + Characters.jumpHeight(SP, GROUND), serveZ)
+	local sball = ballAt(sroot, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local _, s0 = HitLogic.compute({ action = "Serve", t = 0, root = sroot, ball = sball, grounded = false }, ctx({ touchNumber = 1 }))
+	local _, s1 = HitLogic.compute({ action = "Serve", t = 0, root = sroot, ball = sball, grounded = false }, ctx({ touchNumber = 1, hex = Halloween.effects("PoltergeistServe") }))
+	local _, s2 = HitLogic.compute({ action = "Serve", t = 0, root = sroot, ball = sball, grounded = false }, ctx({ touchNumber = 1, hex = Halloween.effects("JackSmash") }))
+	check(math.abs(s1.meta.kmh / s0.meta.kmh - 1.12) < 0.001 and s2.meta.kmh == s0.meta.kmh, "Poltergeist Serve: jump serves 12% faster (a spike card leaves serves alone)", string.format("%.1f -> %.1f km/h", s0.meta.kmh, s1.meta.kmh))
+	local rroot = vec(0, GROUND, side * 6 * SPM)
+	local rball = vec(0, GROUND + Z.ReceiveIdealY, side * 6 * SPM)
+	local heavy = { hitType = "Spike", team = "Home", kmh = 150, tierDrain = 1 }
+	local function receive(hexStr)
+		local _, r = HitLogic.compute({ action = "Bump", t = 0, root = rroot, ball = rball, vy = 0, grounded = true, stanceAge = 0.6 },
+			ctx({ touchNumber = 1, lastHit = heavy, ballVel = vec(0, -60 * K, side * 170 * K), stamina = { value = 400, max = 400 }, hex = Halloween.effects(hexStr) }))
+		return r.meta.drain or 0
+	end
+	local d0, dGuard, dBleed = receive(""), receive("GhostlyGuard"), receive("BleedingGuard")
+	check(d0 > 0 and math.abs(dGuard / d0 - 0.7) < 0.001 and math.abs(dBleed / d0 - 1.2) < 0.001, "Ghostly Guard: your receives cost 30% less; Bleeding Guard (a curse): 20% more", string.format("drain %.1f / %.1f / %.1f", d0, dGuard, dBleed))
+	-- the block: Wall of Bones reaches higher, Phantom Hands stuffs more
+	local aTier = Characters.stats("A")
+	local broot = vec(0, GROUND + Characters.jumpHeight(aTier, GROUND) * 0.85, side * 1.2)
+	local above = vec(0, broot.Y + Z.BlockReachUp + Config.Ball.Radius + 0.6, side * 0.6)
+	local okHigh = HitLogic.blockBox(broot, above, side, aTier, nil)
+	local okBones = HitLogic.blockBox(broot, above, side, aTier, Halloween.blockReach(nil, Halloween.effects("WallOfBones")))
+	local mid = nil
+	for dy = 0, 14, 0.1 do
+		local bb = vec(0, C.NetTop + dy, side * 0.6)
+		local okb, q = HitLogic.blockBox(broot, bb, side, aTier, false)
+		if okb and q > 0.56 and q < 0.64 and not mid then
+			mid = bb -- (stuffed only with Phantom Hands' push: 130 km/h takes 0.21 off it, a stuff is 0.45)
+		end
+	end
+	local function stuffs(hexStr)
+		local n = 0
+		for seq = 1, 200 do
+			local okb, r = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = mid, vy = 0, grounded = false },
+				ctx({ stats = aTier, lastHit = { hitType = "Spike", team = "Home", kmh = 130, tierDrain = 1 }, ballVel = vec(0, -8, side * 30), seq = seq, hex = Halloween.effects(hexStr) }))
+			if okb and r.meta.outcome == "Stuff" then
+				n = n + 1
+			end
+		end
+		return n
+	end
+	local st0, st1 = stuffs(""), stuffs("PhantomHands")
+	check(not okHigh and okBones and Halloween.blockReach(true, Halloween.effects("WallOfBones")) == true and mid ~= nil and st1 > st0,
+		"Wall of Bones blocks a ball over your usual reach (Iron Wall's wall stays as it is); Phantom Hands stuffs more", string.format("stuffs of 200: %d -> %d", st0, st1))
+
+	-- Candy: the first clear of a difficulty each day pays in full, later ones less, a run lost in
+	-- stage 2 a little, one lost in stage 1 nothing; a new day clears the first clears
+	local hard = Halloween.difficulty("Hard")
+	local ev = Halloween.clean({ candy = 5, cleared = { Hard = true, Bogus = true }, day = 10 })
+	local first = Halloween.firstClear(ev, "Hard", 10, false)
+	local nextDay = Halloween.firstClear(ev, "Hard", 11, true)
+	local again = Halloween.firstClear(ev, "Hard", 11, false)
+	check(Halloween.payout("Hard", 2, true, true) == hard.Candy and Halloween.payout("Hard", 2, true, false) == hard.Repeat and Halloween.payout("Hard", 2, false, true) == hard.StageOne
+		and Halloween.payout("Hard", 1, false, true) == 0 and Halloween.payout("Easy", 2, true, true) < hard.Candy and ev.candy == 5 and ev.cleared.Bogus == nil
+		and not first and nextDay and not again,
+		"Candy: a day's first clear pays in full, later ones less, a stage-2 loss a little, a stage-1 loss nothing; harder pays more; each day starts over",
+		string.format("Hard %d / %d / %d", hard.Candy, hard.Repeat, hard.StageOne))
+	check(Halloween.day(HW.Ends) ~= Halloween.day(HW.Ends - 86400) and Halloween.active(HW.Ends - 1) and not Halloween.active(HW.Ends) and HW.Ends == 1793685600,
+		"the event runs until the end of November 2 (Chicago)")
+
+	-- the banner: chances add up to 1, the Reaper is its rarest pull, every item exists, the
+	-- limited items stay off the usual banners
+	local total, reaper, known = 0, 0, true
+	for _, row in ipairs(Halloween.bannerTable()) do
+		total = total + row.chance
+		if row.item.key == "Reaper" then
+			reaper = row.chance
+		end
+		known = known and row.item.name ~= nil and row.item.scout > 0
+	end
+	local inBall = false
+	for _, row in ipairs(Spins.table("Ball")) do
+		inBall = inBall or row.item.Limited ~= nil
+	end
+	local rr = Random.new(5)
+	local pulls, reapers = 4000, 0
+	for _ = 1, pulls do
+		if Halloween.roll(rr).key == "Reaper" then
+			reapers = reapers + 1
+		end
+	end
+	check(math.abs(total - 1) < 1e-9 and math.abs(reaper - 0.006) < 1e-9 and known and #Halloween.bannerItems() == #HW.Banner.Items and not inBall and reapers > 5 and reapers < 50
+		and Halloween.cost("Candy", 10) == 250 and Halloween.cost("VP", 1) == 60 and Halloween.cost("VP", 3) == nil,
+		"the Halloween banner: odds add up, the Reaper is 0.6%, limited items stay off the usual banners", string.format("%d Reapers in %d pulls", reapers, pulls))
+
+	-- the Reaper: copies stack; one is applied to a character for good, switched off and on any time
+	local skins = Halloween.cleanSkins({ Reaper = { copies = 1, on = { yejun = true, ghost = 5 } } }, function(id) return Roster.get(id) ~= nil end)
+	local okA, whyA = Halloween.applySkin(skins, "Reaper", "dante")
+	Halloween.addCopy(skins, "Reaper")
+	local okB = Halloween.applySkin(skins, "Reaper", "dante")
+	local okC, whyC = Halloween.applySkin(skins, "Reaper", "dante")
+	local offOk = Halloween.toggleSkin(skins, "Reaper", "dante", false)
+	local offShow = Halloween.skinOf(skins, "dante")
+	Halloween.toggleSkin(skins, "Reaper", "dante", true)
+	local okD = Halloween.toggleSkin(skins, "Reaper", "laith", false)
+	check(not okA and whyA == "none" and okB and not okC and whyC == "applied" and offOk and offShow == nil and Halloween.skinOf(skins, "dante") == "Reaper"
+		and Halloween.skinOf(skins, "yejun") == "Reaper" and not okD and Halloween.freeCopies(skins, "Reaper") == 0 and skins.Reaper.on.ghost == nil,
+		"the Reaper: one character per copy, for good; switched off and on any time; more copies, more characters")
 end
 
 print("== determinism ==")

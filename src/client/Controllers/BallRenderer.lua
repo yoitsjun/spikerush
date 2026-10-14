@@ -393,6 +393,12 @@ local function applyStyle(meta)
 	local tintSeq = attack and Spins.tintSequence(colorItem) or nil
 	local tint = attack and Spins.tint(colorItem) or nil
 	local trailKey = attack and Spins.equipped(model, "Trail").Key or "Ribbon"
+	-- a skin's own trail (the Reaper's Souls) takes the place of the equipped one; the server only
+	-- writes Skin onto a character whose player has it on for that character
+	local skin = model and Config.Halloween.Skins[model:GetAttribute("Skin") or ""]
+	if attack and skin and skin.Trail then
+		trailKey = skin.Trail
+	end
 	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.6) })
 	core.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
 	aura.Enabled = false
@@ -544,7 +550,8 @@ local function applyStyle(meta)
 	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or (meta.plunge and Config.Abilities.Plunge.Color) or Color3.fromRGB(255, 90, 110)
 	-- a solid trail (White, Black, Rainbow) is the ribbon in its own colours; an ability's spike
 	-- keeps the ability's look
-	local solid, emission = Spins.solidTrail(Spins.resolve("Trail", trailKey))
+	local trailItem = Spins.resolve("Trail", trailKey)
+	local solid, emission = Spins.solidTrail(trailItem)
 	if solid then
 		if not (meta.thunder or meta.energy or gauge or meta.reaction) then
 			trail.Color = solid
@@ -553,7 +560,7 @@ local function applyStyle(meta)
 			trail.Lifetime = trail.Lifetime * 1.25
 			core.Enabled = emission > 0.1 -- (a white core would show through a black trail)
 		end
-		trailKey = "Ribbon"
+		trailKey = trailItem.Base or "Ribbon" -- (a limited one rides its Base's kit on top)
 	end
 	if trailKey ~= "Ribbon" then
 		-- the unlock's kit (flames, glints, stardust, arcs, a comet's glow) rides the ball; a

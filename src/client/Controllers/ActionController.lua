@@ -35,6 +35,7 @@ local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
 local Breakthrough = require(Shared.Breakthrough)
 local Cups = require(Shared.Cups)
+local Halloween = require(Shared.Halloween)
 local Lobbies = require(Shared.Lobbies)
 local State = require(script.Parent.State)
 
@@ -155,6 +156,7 @@ local function buildCtx(info, action, t)
 		stormOn = ability == "Thunder" and ActionController.abilityActive() or nil,
 		static = ability == "Thunder" and (player:GetAttribute("Static") or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
+		hex = Halloween.effects(player:GetAttribute("Hex")), -- the Halloween Match's cards that hit me
 	}, ok, why
 end
 

@@ -134,12 +134,20 @@ function Spins.sellValue(rarity)
 	return SP.SellValue[rarity] or SP.SellValue.Common
 end
 
--- Items a banner can drop, grouped by rarity (starters never drop).
+-- What an item is drawn as: its Base (a limited item without its own effects yet: Config.Cosmetics)
+-- or itself.
+function Spins.look(kind, key)
+	local item = Spins.item(kind, key)
+	return item and item.Base or key
+end
+
+-- Items a banner can drop, grouped by rarity (starters never drop, and neither do limited items:
+-- Config.Halloween's banner has those).
 local pools = {}
 for kind, list in pairs(items) do
 	local byRarity = {}
 	for _, item in ipairs(list) do
-		if not starters[kind][item.Key] then
+		if not starters[kind][item.Key] and not item.Limited then
 			byRarity[item.Rarity] = byRarity[item.Rarity] or { items = {}, weight = 0 }
 			local p = byRarity[item.Rarity]
 			table.insert(p.items, item)

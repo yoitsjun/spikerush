@@ -18,6 +18,7 @@ local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
 local Breakthrough = require(Shared.Breakthrough)
 local Cups = require(Shared.Cups)
+local Halloween = require(Shared.Halloween)
 
 local HitService = {}
 local reg
@@ -208,6 +209,7 @@ function HitService.process(entity, input, opts)
 				ability = entity.ability,
 				groundY = TS.groundY(entity),
 				stamina = TS.staminaOf(team),
+				hex = Halloween.effects(entity.hex),
 			}
 			if HitLogic.compute(input, fctx) then
 				MS.touchFault(entity, "FourTouches", input.ball)
@@ -251,6 +253,7 @@ function HitService.process(entity, input, opts)
 		stormOn = entity.ability == "Thunder" and armed or nil,
 		static = entity.ability == "Thunder" and (entity.static or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
+		hex = Halloween.effects(entity.hex), -- the Halloween Match's cards that hit this character
 	}
 	local computed, result = HitLogic.compute(input, ctx)
 	if not computed then

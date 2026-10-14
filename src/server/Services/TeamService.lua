@@ -14,6 +14,7 @@ local Court = require(Shared.Court)
 local Characters = require(Shared.Characters)
 local HitLogic = require(Shared.HitLogic)
 local Cups = require(Shared.Cups)
+local Halloween = require(Shared.Halloween)
 local Roster = require(Shared.Roster)
 local Lobbies = require(Shared.Lobbies)
 local Net = require(Shared.Net)
@@ -274,6 +275,7 @@ function TeamService.boostCtx(e, t)
 		squallOn = e.ability == "Squall" and (e.abilityUntil or -1) >= (t or Util.now()) or nil,
 		breakLevel = e.breakLevel,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
+		hex = Halloween.effects(e.hex), -- the Halloween Match's cards that hit it
 	}
 end
 

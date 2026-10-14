@@ -1338,6 +1338,7 @@ local function jumpMeshes(foot, key, tint, k, model)
 end
 
 function VFXController.jumpEffect(foot, key, tint, big, model)
+	key = Spins.look("Jump", key) -- (a limited one without its own look yet: its Base)
 	local k = big and 1 or 0.7
 	local up = Vector3.new(0, 1, 0)
 	local c = JUMP_COLORS[key]
@@ -5662,6 +5663,7 @@ end
 -- attack travelled along z, the scale and the point's callout. False for Dust, the plain floor
 -- impact.
 local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
+	effect = Spins.look("Effect", effect) -- (a limited one without its own look yet: its Base)
 	local always = reason == nil -- (the Locker's preview: the screen effects show there too)
 	if effect == "Freeze" then
 		deepFreeze(pos, tint, k or 1, model, always)

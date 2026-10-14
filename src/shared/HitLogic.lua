@@ -28,6 +28,7 @@ local Court = require(script.Parent.Court)
 local BallPhysics = require(script.Parent.BallPhysics)
 local Characters = require(script.Parent.Characters)
 local Breakthrough = require(script.Parent.Breakthrough)
+local Halloween = require(script.Parent.Halloween)
 
 local HitLogic = {}
 
@@ -635,7 +636,25 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		end
 		any = true
 	end
+	local hex = extra and extra.hex
+	if hex then
+		-- the Halloween Match's cards that hit this character (Halloween.effects): stat points,
+		-- height, and points for every point the other team has scored this set
+		for k, v in pairs(hex.add) do
+			add[k] = (add[k] or 0) + v
+		end
+		for k, v in pairs(Halloween.perPoint(hex, extra.enemyPoints) or {}) do
+			add[k] = (add[k] or 0) + v
+		end
+		if hex.height ~= 0 then
+			add.Height = (add.Height or 0) + hex.height
+		end
+		any = true
+	end
 	local mul = 1
+	if hex and hex.mul ~= 1 then
+		mul = mul * hex.mul
+	end
 	if extra and extra.teamBoost then
 		mul = 1 + RALLY.Boost
 		any = true
@@ -807,7 +826,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		if ctx.ability == "Ironclad" then
 			reach = ctx.awakened and (ctx.auto and IRON.AutoCharge or input.metal) or 0
 		end
-		scale = scale * HitLogic.spikeReach(ctx.ability, reach)
+		scale = scale * HitLogic.spikeReach(ctx.ability, reach) * (ctx.hex and ctx.hex.spikeReach or 1)
 	end
 	local ok, qContact, dz, dy = HitLogic.spikeZone(root, ball, side, stats, scale)
 	if not ok then
@@ -1035,6 +1054,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 				meta.firstStrike = true
 			end
 		end
+	end
+	-- the Halloween Match's cards: spike and jump serve power, and the drain the attack costs
+	local hex = ctx.hex
+	if hex then
+		kmh = kmh * (kind == "JumpServe" and hex.serveMul or hex.spikeMul)
+		meta.tierDrain = meta.tierDrain * hex.drainDeal
 	end
 	local steps = 0
 	if q >= H.SpikeAssistQuality and not overcharge then
@@ -1301,7 +1326,7 @@ function HitLogic.compute(input, ctx)
 	-- Block -----------------------------------------------------------------------------------
 	if action == "Block" then
 		local last = ctx.lastHit
-		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, HitLogic.wallReach(ctx.ironWall, ctx.ironclad, last and last.hitType))
+		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, Halloween.blockReach(HitLogic.wallReach(ctx.ironWall, ctx.ironclad, last and last.hitType), ctx.hex))
 		if not ok then
 			return false, "zone"
 		end
@@ -1323,7 +1348,7 @@ function HitLogic.compute(input, ctx)
 		end
 		-- (a spike past BlockOverKmh[1] keeps getting harder to stop, and isn't a soft touch: below)
 		local hard = last.hitType == "Spike" and attackKmh >= H.BlockOverKmh[1]
-		local stuffScore = q - 0.42 * power - H.BlockOverStuff * over
+		local stuffScore = q - 0.42 * power - H.BlockOverStuff * over + (ctx.hex and ctx.hex.stuff or 0)
 		if last.pierce then
 			stuffScore = math.min(stuffScore, 0.3)
 		end
@@ -1530,6 +1555,9 @@ function HitLogic.compute(input, ctx)
 			end
 			if perfect then
 				drain = drain * HitLogic.perfectDrainMul(incomingKmh)
+			end
+			if ctx.hex then
+				drain = drain * ctx.hex.drainTake -- (the Halloween Match's cards)
 			end
 			if last.reaction then
 				-- the explosion itself: no timing saves you from it, and it always breaks the guard

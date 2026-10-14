@@ -550,6 +550,10 @@ Config.Cosmetics = {
 		{ Key = "Void", Name = "Void", Rarity = "Epic", Color = Color3.fromRGB(120, 50, 200) },
 		{ Key = "Black", Name = "Jet Black", Rarity = "Epic", Color = Color3.fromRGB(78, 76, 92), Trail = { Color3.fromRGB(6, 6, 10), Color3.fromRGB(44, 42, 56) }, Emission = 0 },
 		{ Key = "Prism", Name = "Prism", Rarity = "Legendary", Color = Color3.fromRGB(255, 120, 220) },
+		-- Halloween (Limited: only from Config.Halloween's banner and shop)
+		{ Key = "Pumpkin", Name = "Pumpkin", Rarity = "Rare", Color = Color3.fromRGB(255, 120, 20), Limited = "Halloween" },
+		{ Key = "Ectoplasm", Name = "Ectoplasm", Rarity = "Rare", Color = Color3.fromRGB(120, 255, 90), Limited = "Halloween" },
+		{ Key = "Bloodmoon", Name = "Blood Moon", Rarity = "Epic", Color = Color3.fromRGB(200, 20, 40), Limited = "Halloween" },
 	},
 	Trail = {
 		{ Key = "Ribbon", Name = "Ribbon", Rarity = "Common" },
@@ -560,6 +564,11 @@ Config.Cosmetics = {
 		{ Key = "Stardust", Name = "Stardust", Rarity = "Legendary" },
 		-- a solid ribbon in its own colours, whatever the spike colour (the owner: "colored trails")
 		{ Key = "Rainbow", Name = "Rainbow", Rarity = "Legendary", Solid = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }, Emission = 0.7 },
+		-- Halloween (Limited; Base: the trail it's drawn as until it has its own look). Souls is the
+		-- Reaper skin's (Config.Halloween.Skins): never on a banner, worn only with the skin
+		{ Key = "CandyCorn", Name = "Candy Corn", Rarity = "Rare", Solid = { Color3.fromRGB(255, 240, 200), Color3.fromRGB(255, 170, 30), Color3.fromRGB(255, 110, 20) }, Emission = 0.7, Limited = "Halloween" },
+		{ Key = "Bats", Name = "Bat Swarm", Rarity = "Epic", Base = "Sparkle", Solid = { Color3.fromRGB(40, 20, 60), Color3.fromRGB(130, 60, 200) }, Emission = 0.4, Limited = "Halloween" },
+		{ Key = "Souls", Name = "Souls", Rarity = "Mythic", Base = "Stardust", Solid = { Color3.fromRGB(230, 250, 255), Color3.fromRGB(110, 200, 255), Color3.fromRGB(40, 80, 160) }, Emission = 0.9, Limited = "Reaper" },
 	},
 	-- what bursts from your feet on every jump (the owner: "maybe add jump effects too... lightning
 	-- effects when you jump, fire when you jump"): VFXController.jumpEffect, on top of the usual dust
@@ -584,6 +593,10 @@ Config.Cosmetics = {
 		{ Key = "Inferno", Name = "Inferno", Rarity = "Mythic" },
 		{ Key = "Phoenix", Name = "Blue Phoenix", Rarity = "Mythic" },
 		{ Key = "Angel", Name = "Angel", Rarity = "Mythic" }, -- the owner: "add an angel jump effect with angel wings"
+		-- Halloween (Limited; Base: the effect it's drawn as until it has its own)
+		{ Key = "GraveMist", Name = "Grave Mist", Rarity = "Rare", Base = "Frost", Limited = "Halloween" },
+		{ Key = "BatSwarm", Name = "Bat Swarm", Rarity = "Epic", Base = "Shadow", Limited = "Halloween" },
+		{ Key = "JackOLantern", Name = "Jack-o'-Lantern", Rarity = "Legendary", Base = "Fire", Limited = "Halloween" },
 	},
 	Effect = {
 		{ Key = "Dust", Name = "Dust", Rarity = "Common" },
@@ -615,6 +628,9 @@ Config.Cosmetics = {
 		{ Key = "Freeze", Name = "Deep Freeze", Rarity = "Mythic" },
 		{ Key = "Void", Name = "Endless Void", Rarity = "Mythic" },
 		{ Key = "WorldSlash", Name = "World Slash", Rarity = "Mythic" },
+		-- the owner's two Halloween score effects (Limited; Base: drawn as it until their own are made)
+		{ Key = "PumpkinBurst", Name = "Pumpkin Burst", Rarity = "Legendary", Base = "Fire", Limited = "Halloween" },
+		{ Key = "GhostSwarm", Name = "Ghost Swarm", Rarity = "Legendary", Base = "Freeze", Limited = "Halloween" },
 	},
 	-- how you pose in the matchup intro and, when your team wins, the showcase after the match
 	-- (AnimationController's Intro_<Key> poses)
@@ -642,6 +658,9 @@ Config.Cosmetics = {
 		{ Key = "Galaxy", Name = "Galaxy", Rarity = "Legendary" },
 		{ Key = "Planet", Name = "Ringed Planet", Rarity = "Legendary" },
 		{ Key = "BigHead", Name = "Big Head", Rarity = "Mythic" },
+		-- the owner's Halloween balls (assets/balls: PumpkinBallModel.fbx, WitchHatBall.fbx)
+		{ Key = "Pumpkin", Name = "Pumpkin", Rarity = "Legendary", Limited = "Halloween" },
+		{ Key = "WitchHat", Name = "Witch Hat", Rarity = "Epic", Limited = "Halloween" },
 	},
 }
 
@@ -1670,6 +1689,182 @@ Config.Tournament = {
 		{ Key = "Exhausted", Name = "Exhausted", Blurb = "Extremely reduced stamina for everyone.", Strength = 3, Stamina = 0.45 },
 		{ Key = "DeepSpike", Name = "Deep Spike", Blurb = "The opponent always spikes deep.", Strength = 3, OppDeep = true },
 	},
+}
+
+-- The Halloween event (the owner, 2026-10-14, after Spike Cross's Kingmaker, Western and Tiger
+-- Eyes events), until Ends (unix; the end of November 2 in the US Central time zone). The shared
+-- Halloween module holds its rules.
+--   Match       a daily Halloween Match against the AI: Stages stages of Points points, one set
+--               each (the tournament flow: LobbyService takes the run stage to stage). Before each
+--               stage the roulette spins through the deck and stops on Offers cards; you pick one,
+--               Picks times a stage (2 cards in stage 1, all 4 in stage 2). Win a stage to go on;
+--               losing ends the run. Friends in your server can join the run (Mode a side).
+--   Difficulties  the bot level and how many cards the AI team takes a stage (AiCards); a clear's
+--               Candy: Candy for the first clear of that difficulty each event day (DayOffset: the
+--               day turns at midnight US Central), Repeat for later ones, StageOne for a run that
+--               won stage 1 and lost stage 2
+--   Cards       the deck (50+). Kind: Ability (gives its ability and a buff; one at a time, a new one
+--               replaces the old), Stat, Team (every teammate), Curse (the other team) and Rule.
+--               Target: who it hits (Self, Team, Foes; Ability, Stat and Rule are Self). Effects:
+--               Add (stat points), Height (cm), Mul (every stat x), PerPoint (stat points per point
+--               the other team has this set, like Rising Sun), SpikeMul and ServeMul (spike and jump
+--               serve km/h x), SpikeReach (the spike zone x), Block (the block box's extra reach,
+--               HitLogic.blockBox), Stuff (added to the stuff check), DrainTake (the drain your
+--               receives cost your team x), DrainDeal (the drain your attacks cost them x), Pool (the
+--               team's stamina pool x). Rarity weights the roulette (Weights) and colours the card.
+--               AiOnly / NoAi: who may draw it.
+--   Candy       the event currency: from clears, spent on the banner and the Candy shop. It stays
+--               after the event.
+--   Banner      limited Halloween cosmetics, recruited with VP or Candy (Costs). Its own rarity
+--               Weights; every pull is Scout points toward picking one item outright (each item's
+--               Scout cost, Spike Cross's Pick-Up Scout). A duplicate cosmetic pays DupCandy; the
+--               Reaper skin stacks (Skins).
+--   Shop        Candy prices; Limit buys a player over the event (nil: no limit)
+--   Skins       per-character skins: each copy is applied to one character for good (any
+--               character); it can be switched off and on for that character at any time
+--               (profile.skins). The Reaper: a scythe for the hitting hand and the Souls trail,
+--               only with the skin.
+Config.Halloween = {
+	Name = "Halloween Night",
+	Ends = 1793685600, -- 2026-11-03 06:00 UTC: the end of November 2 in Chicago
+	DayOffset = -5 * 3600, -- event days turn at midnight in Chicago (UTC-5 in October; close enough in November)
+	Mode = 3,
+	Points = 12,
+	Stages = 2,
+	Picks = 2,
+	Offers = 3,
+	PickTime = 30, -- seconds for a pick before the first offer is taken for you
+	SpinTime = 2.4, -- the roulette's spin on the client before it stops on the offers
+	Timeouts = 1,
+	Difficulties = {
+		{ Key = "Easy", Name = "Easy", Bots = "B", AiCards = 0, Candy = 20, Repeat = 8, StageOne = 4, Color = Color3.fromRGB(120, 220, 120) },
+		{ Key = "Normal", Name = "Normal", Bots = "A", AiCards = 1, Candy = 30, Repeat = 12, StageOne = 6, Color = Color3.fromRGB(255, 160, 40) },
+		{ Key = "Hard", Name = "Hard", Bots = "S+", AiCards = 2, Candy = 45, Repeat = 18, StageOne = 9, Color = Color3.fromRGB(200, 40, 70) },
+	},
+	Weights = { Common = 50, Rare = 30, Epic = 15, Legendary = 5 },
+	Kinds = {
+		Ability = { Name = "Ability", Color = Color3.fromRGB(255, 200, 60) },
+		Stat = { Name = "Stat", Color = Color3.fromRGB(255, 140, 30) },
+		Team = { Name = "Team", Color = Color3.fromRGB(90, 200, 120) },
+		Curse = { Name = "Curse", Color = Color3.fromRGB(170, 80, 230) },
+		Rule = { Name = "Rule", Color = Color3.fromRGB(80, 170, 255) },
+	},
+	Cards = {
+		-- ability cards: one per ability (Config.AbilityOrder), each with a buff that suits it
+		-- (the owner: "thunderspiker card gives you ability to thunderspike at 4m alongside +10 jump
+		-- boost. rally cry, +50 to all stats")
+		{ Key = "aThunder", Kind = "Ability", Ability = "Thunder", Rarity = "Epic", Add = { Jump = 10 } },
+		{ Key = "aAzure", Kind = "Ability", Ability = "Azure", Rarity = "Epic", Add = { Attack = 10, Jump = 5 } },
+		{ Key = "aFeral", Kind = "Ability", Ability = "Feral", Rarity = "Epic", Add = { Attack = 12 } },
+		{ Key = "aZeroPoint", Kind = "Ability", Ability = "ZeroPoint", Rarity = "Legendary", Add = { Attack = 8, Speed = 5 } },
+		{ Key = "aCorona", Kind = "Ability", Ability = "Corona", Rarity = "Legendary", Add = { Jump = 10 } },
+		{ Key = "aSquall", Kind = "Ability", Ability = "Squall", Rarity = "Legendary", Add = { Speed = 15 } },
+		{ Key = "aIronclad", Kind = "Ability", Ability = "Ironclad", Rarity = "Legendary", Add = { Defense = 15 } },
+		{ Key = "aAdrenaline", Kind = "Ability", Ability = "Adrenaline", Rarity = "Rare", Add = { Defense = 10 } },
+		{ Key = "aIronWall", Kind = "Ability", Ability = "IronWall", Rarity = "Rare", Add = { Jump = 8, Defense = 5 } },
+		{ Key = "aChainReaction", Kind = "Ability", Ability = "ChainReaction", Rarity = "Rare", Add = { Speed = 10 } },
+		{ Key = "aVector", Kind = "Ability", Ability = "Vector", Rarity = "Rare", Add = { Speed = 8, Attack = 5 } },
+		{ Key = "aFeatherfall", Kind = "Ability", Ability = "Featherfall", Rarity = "Rare", Add = { Speed = 8, Defense = 5 } },
+		{ Key = "aTurnabout", Kind = "Ability", Ability = "Turnabout", Rarity = "Rare", Add = { Attack = 8 } },
+		{ Key = "aRisingSun", Kind = "Ability", Ability = "RisingSun", Rarity = "Rare", Add = { Attack = 5, Defense = 5 } },
+		{ Key = "aRallyCry", Kind = "Ability", Ability = "RallyCry", Rarity = "Legendary", Add = { Attack = 50, Defense = 50, Speed = 50, Jump = 50 } },
+		{ Key = "aCounter", Kind = "Ability", Ability = "Counter", Rarity = "Epic", Add = { Defense = 12 } },
+		{ Key = "aPlunge", Kind = "Ability", Ability = "Plunge", Rarity = "Epic", Add = { Attack = 10 } },
+		{ Key = "aSkyward", Kind = "Ability", Ability = "Skyward", Rarity = "Epic", Add = { Jump = 12 } },
+		-- stat cards: plain buffs, trade-offs, height
+		{ Key = "PumpkinPower", Name = "Pumpkin Power", Kind = "Stat", Rarity = "Common", Add = { Attack = 20 } },
+		{ Key = "BatWings", Name = "Bat Wings", Kind = "Stat", Rarity = "Common", Add = { Jump = 20 } },
+		{ Key = "GhostStep", Name = "Ghost Step", Kind = "Stat", Rarity = "Common", Add = { Speed = 25 } },
+		{ Key = "BoneArmor", Name = "Bone Armor", Kind = "Stat", Rarity = "Common", Add = { Defense = 25 } },
+		{ Key = "WitchBrew", Name = "Witch's Brew", Kind = "Stat", Rarity = "Rare", Add = { Attack = 10, Defense = 10, Speed = 10, Jump = 10 } },
+		{ Key = "BlackCat", Name = "Black Cat", Kind = "Stat", Rarity = "Common", Add = { Attack = 12, Speed = 12 } },
+		{ Key = "WerewolfMoon", Name = "Werewolf Moon", Kind = "Stat", Rarity = "Rare", Add = { Attack = 15, Jump = 15 } },
+		{ Key = "CandyRush", Name = "Candy Rush", Kind = "Stat", Rarity = "Common", Add = { Speed = 20, Jump = 10 } },
+		{ Key = "VampireBite", Name = "Vampire Bite", Kind = "Stat", Rarity = "Rare", Add = { Attack = 35, Defense = -20 } },
+		{ Key = "ZombieHide", Name = "Zombie Hide", Kind = "Stat", Rarity = "Rare", Add = { Defense = 40, Speed = -15 } },
+		{ Key = "BansheeWail", Name = "Banshee Wail", Kind = "Stat", Rarity = "Rare", Add = { Speed = 40, Jump = -10 } },
+		{ Key = "SkeletonSpring", Name = "Skeleton Spring", Kind = "Stat", Rarity = "Rare", Add = { Jump = 35, Defense = -15 } },
+		{ Key = "GraveGiant", Name = "Grave Giant", Kind = "Stat", Rarity = "Epic", Height = 15 },
+		{ Key = "HauntedStilts", Name = "Haunted Stilts", Kind = "Stat", Rarity = "Rare", Height = 25, Add = { Speed = -10 } },
+		{ Key = "MonsterMash", Name = "Monster Mash", Kind = "Stat", Rarity = "Epic", Mul = 1.08 },
+		-- team cards: every teammate
+		{ Key = "Coven", Name = "Coven", Kind = "Team", Target = "Team", Rarity = "Rare", Add = { Attack = 10 } },
+		{ Key = "HauntedHouse", Name = "Haunted House", Kind = "Team", Target = "Team", Rarity = "Rare", Add = { Defense = 12 } },
+		{ Key = "GraveyardShift", Name = "Graveyard Shift", Kind = "Team", Target = "Team", Rarity = "Rare", Add = { Jump = 10 } },
+		{ Key = "MidnightRun", Name = "Midnight Run", Kind = "Team", Target = "Team", Rarity = "Common", Add = { Speed = 12 } },
+		{ Key = "TrickOrTreat", Name = "Trick or Treat", Kind = "Team", Target = "Team", Rarity = "Epic", Add = { Attack = 6, Defense = 6, Speed = 6, Jump = 6 } },
+		{ Key = "PumpkinPatch", Name = "Pumpkin Patch", Kind = "Team", Target = "Team", Rarity = "Epic", Pool = 1.3 },
+		{ Key = "SpiritShield", Name = "Spirit Shield", Kind = "Team", Target = "Team", Rarity = "Epic", DrainTake = 0.8 },
+		{ Key = "MoonlitCourt", Name = "Moonlit Court", Kind = "Team", Target = "Team", Rarity = "Rare", Height = 8 },
+		-- curse cards: the other team
+		{ Key = "HexWeakness", Name = "Hex of Weakness", Kind = "Curse", Target = "Foes", Rarity = "Rare", Add = { Attack = -12 } },
+		{ Key = "Cobwebs", Name = "Cobwebs", Kind = "Curse", Target = "Foes", Rarity = "Common", Add = { Speed = -12 } },
+		{ Key = "LeadenBones", Name = "Leaden Bones", Kind = "Curse", Target = "Foes", Rarity = "Rare", Add = { Jump = -12 } },
+		{ Key = "RottenLuck", Name = "Rotten Luck", Kind = "Curse", Target = "Foes", Rarity = "Common", Add = { Defense = -12 } },
+		{ Key = "FogOfDread", Name = "Fog of Dread", Kind = "Curse", Target = "Foes", Rarity = "Epic", Add = { Attack = -6, Defense = -6, Speed = -6, Jump = -6 } },
+		{ Key = "Withering", Name = "Withering", Kind = "Curse", Target = "Foes", Rarity = "Epic", Pool = 0.75 },
+		{ Key = "ShrinkingCurse", Name = "Shrinking Curse", Kind = "Curse", Target = "Foes", Rarity = "Rare", Height = -10 },
+		{ Key = "BleedingGuard", Name = "Bleeding Guard", Kind = "Curse", Target = "Foes", Rarity = "Epic", DrainTake = 1.2 },
+		-- rule cards: how the ball plays for you
+		{ Key = "JackSmash", Name = "Jack-o'-Smash", Kind = "Rule", Rarity = "Rare", SpikeMul = 1.08 },
+		{ Key = "PoltergeistServe", Name = "Poltergeist Serve", Kind = "Rule", Rarity = "Common", ServeMul = 1.12 },
+		{ Key = "LongClaws", Name = "Long Claws", Kind = "Rule", Rarity = "Rare", SpikeReach = 1.15 },
+		{ Key = "WallOfBones", Name = "Wall of Bones", Kind = "Rule", Rarity = "Epic", Block = { ReachUp = 1.2, NetExtra = 0.6, OwnDepth = 0.3, OverDepth = 0.4 }, Stuff = 0.06 },
+		{ Key = "PhantomHands", Name = "Phantom Hands", Kind = "Rule", Rarity = "Rare", Stuff = 0.12 },
+		{ Key = "Gravedigger", Name = "Gravedigger", Kind = "Rule", Rarity = "Rare", DrainDeal = 1.25 },
+		{ Key = "GhostlyGuard", Name = "Ghostly Guard", Kind = "Rule", Rarity = "Rare", DrainTake = 0.7 },
+		{ Key = "FullMoon", Name = "Full Moon", Kind = "Rule", Rarity = "Epic", PerPoint = { Attack = 3, Jump = 2 } },
+		{ Key = "NightmareFuel", Name = "Nightmare Fuel", Kind = "Rule", Rarity = "Legendary", PerPoint = { Attack = 2, Defense = 2, Speed = 2, Jump = 2 } },
+		{ Key = "SoulHarvest", Name = "Soul Harvest", Kind = "Rule", Rarity = "Legendary", SpikeMul = 1.05, DrainDeal = 1.15 },
+	},
+	Candy = { Name = "Candy", Color = Color3.fromRGB(255, 130, 30) },
+	-- the banner: limited Halloween cosmetics (Config.Cosmetics' items with Limited = "Halloween")
+	-- and the Reaper skin
+	Banner = {
+		Name = "Halloween Night",
+		Blurb = "Limited Halloween cosmetics, and the Reaper skin. Every recruit is 1 scout point: spend them to pick an item outright.",
+		Costs = { VP = { [1] = 60, [10] = 600 }, Candy = { [1] = 25, [10] = 250 } },
+		Weights = { Rare = 60, Epic = 28, Legendary = 11.4, Mythic = 0.6 },
+		ScoutPerPull = 1,
+		DupCandy = { Rare = 4, Epic = 8, Legendary = 20, Mythic = 40 },
+		-- what's on it ({ kind, key, scout cost }); the Reaper's rarity is in Skins
+		Items = {
+			{ Kind = "Skin", Key = "Reaper", Scout = 150 },
+			{ Kind = "Effect", Key = "PumpkinBurst", Scout = 90 },
+			{ Kind = "Effect", Key = "GhostSwarm", Scout = 90 },
+			{ Kind = "Ball", Key = "Pumpkin", Scout = 90 },
+			{ Kind = "Ball", Key = "WitchHat", Scout = 60 },
+			{ Kind = "Jump", Key = "JackOLantern", Scout = 90 },
+			{ Kind = "Jump", Key = "BatSwarm", Scout = 60 },
+			{ Kind = "Jump", Key = "GraveMist", Scout = 30 },
+			{ Kind = "Trail", Key = "Bats", Scout = 60 },
+			{ Kind = "Trail", Key = "CandyCorn", Scout = 30 },
+			{ Kind = "Color", Key = "Bloodmoon", Scout = 60 },
+			{ Kind = "Color", Key = "Pumpkin", Scout = 30 },
+			{ Kind = "Color", Key = "Ectoplasm", Scout = 30 },
+		},
+	},
+	-- the Candy shop (Limit: buys a player over the event)
+	Shop = {
+		{ Key = "Lucky1", Name = "1 lucky spin", Price = 120, Limit = 5, Grant = { Lucky = 1 } },
+		{ Key = "Gold", Name = "2,500 Gold", Price = 40, Limit = 20, Grant = { Gold = 2500 } },
+		{ Key = "VP", Name = "150 VP", Price = 75, Limit = 10, Grant = { VP = 150 } },
+		{ Key = "Pull", Name = "Halloween recruit", Price = 25, Pull = true },
+		{ Key = "CandyCorn", Name = "Candy Corn trail", Price = 160, Item = { Kind = "Trail", Key = "CandyCorn" } },
+		{ Key = "GraveMist", Name = "Grave Mist jump", Price = 160, Item = { Kind = "Jump", Key = "GraveMist" } },
+		{ Key = "PumpkinColor", Name = "Pumpkin spike colour", Price = 120, Item = { Kind = "Color", Key = "Pumpkin" } },
+	},
+	Skins = {
+		Reaper = {
+			Name = "Reaper",
+			Rarity = "Mythic",
+			Blurb = "Spike with a scythe, souls streaming behind the ball. Apply a copy to any character for good; switch it off and on any time. More copies, more characters.",
+			Trail = "Souls", -- the trail it wears (Config.Cosmetics.Trail; only with the skin)
+			Color = Color3.fromRGB(150, 220, 255),
+		},
+	},
+	SkinOrder = { "Reaper" },
+	MaxCopies = 999,
 }
 
 -- Courts: where a match is played. The play area is the same everywhere (Config.Court); a
