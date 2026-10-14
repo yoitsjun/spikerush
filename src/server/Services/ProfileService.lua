@@ -1874,12 +1874,13 @@ local function onRequest(plr, kind, a, b, c)
 		end
 		profile.char = c.Id
 		dirty[plr] = true
+		local note = nil
 		if playing then
-			reg.TeamService.swapCharacter(plr) -- same spot and role, new character
+			note = reg.TeamService.swapCharacter(plr) -- same spot, or the new character's role
 		else
 			ProfileService.applyActive(plr)
 		end
-		push(plr)
+		push(plr, note)
 	elseif kind == "teamPick" then
 		-- an AI teammate for one of your teams: (team "3v3" / "2v2", role, character id or "")
 		local size = Court.teamSize(a)

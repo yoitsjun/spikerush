@@ -777,6 +777,15 @@ do
 		"the Almighty card can be given and is owned", Economy.describe(g))
 end
 
+print("== a character change takes its role ==")
+do
+	-- (the owner: "when i switch characters to setter ... it doesnt update my roles"): the AI in the
+	-- new role trades spots, a player there keeps it, and 1v1 has nothing to trade
+	check(Lobbies.roleTrade("WS", "SE", "bot") == "swap" and Lobbies.roleTrade("WS", "SE", "player") == "taken"
+		and Lobbies.roleTrade("SE", "SE", "bot") == "same" and Lobbies.roleTrade("Solo", "SE", nil) == "none",
+		"switching to a setter in a timeout makes you the setter when an AI had it")
+end
+
 print("== patch notes ==")
 do
 	local PatchNotes = require("PatchNotes")

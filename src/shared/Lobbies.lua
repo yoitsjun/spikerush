@@ -601,6 +601,22 @@ end
 -- who could come back (benched: AFK but still in the server) or someone waiting for the court
 -- (the owner: "sometimes i get stuck here", "it gets stuck in queue": players who went AFK and
 -- queued again waited behind their own match, played out by their AIs to the end of the set).
+-- A character change in a timeout: does the player move to the new character's role? (the owner:
+-- "when i switch characters to setter and such in the matches, it doesnt update my roles"). mine:
+-- their role now; want: the new character's; holder: "bot", "player" or nil (nobody on the team
+-- plays it, e.g. 1v1's Solo). "same", "swap" (trade spots with the AI there), "taken" (a player
+-- has it: they stay) or "none".
+function Lobbies.roleTrade(mine, want, holder)
+	if mine == want then
+		return "same"
+	elseif holder == "bot" then
+		return "swap"
+	elseif holder == "player" then
+		return "taken"
+	end
+	return "none"
+end
+
 function Lobbies.shouldAbort(humans, pending, benched, waiting)
 	if humans > 0 or pending > 0 then
 		return false

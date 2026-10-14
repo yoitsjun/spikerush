@@ -776,6 +776,17 @@ function TeamService.swapCharacter(plr)
 	e.build = Characters.sanitize(tier, build)
 	e.charStats = Characters.derive(tier, e.build)
 	e.charId, e.charName, e.prefRole = c.Id, c.Name, c.Role
+	-- the role goes with the character: trade spots with the AI playing it (Lobbies.roleTrade)
+	local holder = TeamService.byRole(e.team, c.Role)
+	local trade = Lobbies.roleTrade(e.role, c.Role, holder and (holder.player and "player" or "bot") or nil)
+	local note = nil
+	if trade == "swap" then
+		holder.role, e.role = e.role, c.Role
+		TeamService.applyToModel(holder)
+		note = "You're playing " .. Config.Roles[c.Role].Name .. " now."
+	elseif trade == "taken" then
+		note = string.format("%s is playing %s, so you stay %s.", holder.name, Config.Roles[c.Role].Name, Config.Roles[e.role] and Config.Roles[e.role].Name or e.role)
+	end
 	e.liveStats = nil
 	e.counter = 0
 	e.abilityUntil = -1
@@ -785,6 +796,7 @@ function TeamService.swapCharacter(plr)
 	TeamService.applyToModel(e)
 	TeamService.fillStamina(e.team) -- re-applies the boosts (Rising Sun, Rally Cry) to the new build
 	reg.MatchService.broadcast()
+	return note
 end
 
 -- Human players on court right now.
