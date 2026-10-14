@@ -51,6 +51,7 @@ local rushAt = {} -- entityId -> os.clock()
 local hoverAt = {} -- entityId -> os.clock()
 local hoverCap = {} -- entityId -> { gale, at }
 local RUSH_LIFE, HOVER_LIFE = 2, 1.5
+local slowedSeq = nil -- the ball path Updraft last slowed (once a set)
 -- Ironclad: when the server heard him leave the floor, and whether that was before his team's set
 -- (Forge: his spike claims no more charge than the time he's been up)
 local IRON = Config.Abilities.Ironclad
@@ -648,6 +649,20 @@ function HitService.init(r)
 						if inst then
 							inst:SetAttribute("SlowUntil", untilT)
 						end
+					end
+				end
+				-- Updraft: a teammate's set slows from the moment she sprang (her client sends it,
+				-- and worked out the same slowed path to spring at)
+				local BS = reg.BallService
+				if BS.state == "Flight" and BS.path and slowedSeq ~= BS.seq and HitLogic.updraftCanSlow(BS.lastHit, e.team, e.id) then
+					local tNow = Util.now()
+					local t = type(extra) == "string" and tonumber(extra) or nil
+					if not t or math.abs(t - tNow) > 0.6 then
+						t = tNow
+					end
+					if t >= BallPhysics.startTime(BS.path) and t < BS.path.landing.t - 0.05 then
+						BS.retime(HitLogic.updraftLaunch(BS.path, t, SQUALL.SetSlow))
+						slowedSeq = BS.seq
 					end
 				end
 			elseif kind == "Hover" then

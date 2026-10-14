@@ -819,11 +819,12 @@ end
 -- Also the shared-clock time the ball gets there. The height is where her hand really is at the top
 -- of her spring (Updraft lifts her well above her card's hitting point): aimed at the card's, a set
 -- travelling toward the net came down there further along than she meets it, and she ended past it.
-local function rushTarget(info, now)
+-- `path`: another path to go by (Updraft's slowed set) instead of the ball's.
+local function rushTarget(info, now, path)
 	if not inPlay() then
 		return nil
 	end
-	local path = mods.BallRenderer.getPath()
+	path = path or mods.BallRenderer.getPath()
 	if not path then
 		return nil
 	end
@@ -831,7 +832,7 @@ local function rushTarget(info, now)
 	local rise = mods.MovementController.springPeak()
 	local contactY = info.root.Y + rise + Z.SpikeUp + Z.SpikeCenterDy - 0.3
 	-- (a ball already below her hitting point and falling has nowhere for her to meet it)
-	if mods.BallRenderer.getPosition(now).Y < contactY and mods.BallRenderer.getVelocity(now).Y < 0 then
+	if BallPhysics.positionAt(path, now).Y < contactY and BallPhysics.velocityAt(path, now).Y < 0 then
 		return nil
 	end
 	local t, p = BallPhysics.findTime(path, now, function(pos, vel)
@@ -841,7 +842,13 @@ local function rushTarget(info, now)
 		return nil
 	end
 	local depth = (p.Z + side * (Z.SpikeForward + Z.SpikeCenterDz)) * side
-	return math.clamp(depth, 0.6, Config.Court.SideDepth + 2) * side, t
+	return math.clamp(depth, SQUALL.NetClear, Config.Court.SideDepth + 2) * side, t
+end
+
+-- Updraft: the ball is a teammate's set she'd slow by springing now.
+local function updraftSet()
+	local BR = mods.BallRenderer
+	return BR.getState() == "Flight" and BR.getPath() ~= nil and HitLogic.updraftCanSlow(BR.getMeta(), State.myTeam, State.myId)
 end
 
 -- Tailwind: a dash under the ball, then the spring (processRush); false when there's no ball to go
@@ -871,17 +878,34 @@ endRush = function()
 	Net.get("ActionFX"):FireServer("RushEnd")
 end
 
--- At the spot (or out of time): spring straight up off the dash (and Downdraft).
-releaseRush = function()
+-- At the spot (or out of time): spring straight up off the dash (and Downdraft). At a teammate's
+-- set (Updraft) the set slows from now (the server does the same from the time sent with it) and
+-- the spring goes at where she meets the slowed ball.
+releaseRush = function(info)
 	local r = rush
 	if not r then
 		return
 	end
 	endRush()
 	local MC = mods.MovementController
-	if MC.rushJump() then
+	local toZ, at = nil, nil
+	if info and updraftSet() then
+		local now = Util.now()
+		local slowed = BallPhysics.buildPath(HitLogic.updraftLaunch(mods.BallRenderer.getPath(), now, SQUALL.SetSlow))
+		toZ = rushTarget(info, now, slowed)
+		at = string.format("%.3f", now)
+	end
+	if MC.rushJump(toZ) then
 		mods.VFXController.rushJump(State.myId)
-		Net.get("ActionFX"):FireServer("RushJump")
+		Net.get("ActionFX"):FireServer("RushJump", at)
+	end
+end
+
+-- Let go of Jump (or Spike) mid-dash: she stops dead where she is, and still springs on time.
+local function stopRush()
+	if rush and not rush.stopped then
+		rush.stopped = true
+		mods.MovementController.rushStop()
 	end
 end
 
@@ -898,15 +922,17 @@ processRush = function(info, now)
 	end
 	local MC = mods.MovementController
 	local target, hitT = rushTarget(info, now)
-	if target then
+	if target and not rush.stopped then
 		MC.rushTo(target)
 	end
-	if not (MC.rushArrived() or os.clock() - rush.t0 >= SQUALL.DashMax) then
+	if not (rush.stopped or MC.rushArrived() or os.clock() - rush.t0 >= SQUALL.DashMax) then
 		return
 	end
+	-- (a set Updraft slows comes 1 / SetSlow times later once she springs: she springs that much later)
 	local _, riseTime = MC.springPeak()
-	if not hitT or hitT - now <= riseTime + SQUALL.SpringEarly or os.clock() - rush.t0 >= SQUALL.SpringWaitMax then
-		releaseRush()
+	local lead = (riseTime + SQUALL.SpringEarly) * (updraftSet() and SQUALL.SetSlow or 1)
+	if not hitT or hitT - now <= lead or os.clock() - rush.t0 >= SQUALL.SpringWaitMax then
+		releaseRush(info)
 	end
 end
 
@@ -1052,7 +1078,8 @@ local function releaseSpike(info)
 		return
 	end
 	if rush then
-		return -- (Tailwind's dash springs by itself)
+		stopRush() -- (Tailwind: let go and she stops; the dash springs by itself)
+		return
 	end
 	if hover then
 		releaseHover(info)
@@ -1381,7 +1408,7 @@ function ActionController.release(action)
 		releaseSpike(info)
 	elseif action == "Jump" then
 		if rush then
-			return -- (Tailwind's dash springs by itself)
+			stopRush() -- (Tailwind: let go and she stops; the dash springs by itself)
 		elseif hover then
 			releaseHover(info) -- (touch: Jump is the spike in the air)
 		else
@@ -1731,7 +1758,10 @@ end
 
 function ActionController.init(m)
 	mods = m
-	State.signals.Ball:Connect(function()
+	State.signals.Ball:Connect(function(snap)
+		if snap and snap.retime then
+			return -- the same touch, slowed (Updraft): a buffered press still stands
+		end
 		-- a new touch invalidates any press buffered against the old trajectory
 		buffered = nil
 		if stance then

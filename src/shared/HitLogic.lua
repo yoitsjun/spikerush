@@ -147,6 +147,20 @@ end
 
 -- Squall: a hover's charge (0..1) as the spot it sends the spike to, from `lo` (just over the net)
 -- to `hi` (the very back) in AimSteps jumps: the target flashes from one to the next as it charges.
+-- Updraft (Squall): whether the ball's last touch is a set she slows (a teammate's, not her own).
+function HitLogic.updraftCanSlow(meta, team, id)
+	return type(meta) == "table" and meta.hitType == "Set" and meta.team ~= nil and meta.team == team and meta.id ~= id
+end
+
+-- The set slowed to `f` of its speed from shared time `t`, along the same curve: velocity x f and
+-- gravity x f^2 (where it is u seconds on, it now is u / f seconds on). The server relaunches the
+-- ball with it, and her client works out the same path to spring at.
+function HitLogic.updraftLaunch(path, t, f)
+	local s = BallPhysics.segmentAt(path, t)
+	local p = BallPhysics.positionAt(path, t)
+	return BallPhysics.newLaunch(p, BallPhysics.velocityAt(path, t) * f, s.a * (f * f), t)
+end
+
 function HitLogic.galeDepth(gale, lo, hi)
 	local n = SQUALL.AimSteps
 	local i = math.floor(clamp(tonumber(gale) or 0, 0, 1) * (n - 1) + 1e-6)

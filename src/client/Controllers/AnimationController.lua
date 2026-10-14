@@ -2075,7 +2075,7 @@ function AnimationController.init(m)
 	end
 
 	State.signals.Ball:Connect(function(snap, isEcho)
-		if isEcho or snap.state ~= "Flight" or not snap.meta then
+		if isEcho or snap.state ~= "Flight" or not snap.meta or snap.retime then
 			return
 		end
 		local meta = snap.meta

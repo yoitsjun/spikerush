@@ -56,6 +56,7 @@ local SQUALL = Config.Abilities.Squall
 local rushing = nil
 local rushRise = false
 local hovering = false
+local homing = nil -- Updraft's spring at the ball: { vz, untilT } (carried along the court until the top)
 -- A jump asked for from an input event. The default control script rewrites Humanoid.Jump every
 -- render step (from its own keys), so a jump set straight from an input handler is wiped before
 -- physics sees it; moveStep applies it after the control script instead.
@@ -120,7 +121,7 @@ local function onCharacter(c)
 	hrp = c:WaitForChild("HumanoidRootPart")
 	slide, gather, run, charging, queued, takeoff = nil, nil, nil, false, nil, nil
 	prowlT0, leaping = nil, nil
-	rushing, rushRise, hovering = nil, false, false
+	rushing, rushRise, hovering, homing = nil, false, false, nil
 	hum.AutoRotate = false
 	-- state machine tweaks have to run on the client that owns the humanoid
 	hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
@@ -418,19 +419,38 @@ function MovementController.isRushing()
 	return rushing ~= nil
 end
 
+-- Let go of Jump mid-dash (the owner: "an instantaneous stop when letting go of jump"): she stops
+-- dead where she is and waits there for the spring.
+function MovementController.rushStop()
+	if rushing and hrp then
+		rushing.target = hrp.Position.Z
+		local v = hrp.AssemblyLinearVelocity
+		hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, 0)
+	end
+end
+
 -- The dash is at its spot (or has none).
 function MovementController.rushArrived()
 	return rushing == nil or rushing.target == nil or (hrp ~= nil and math.abs(rushing.target - hrp.Position.Z) <= 0.5)
 end
 
 -- The spring off a rush: straight up to the top of a spike jump, rising RushRise times faster
--- (launched that much faster under that much more gravity until the top).
-function MovementController.rushJump()
+-- (launched that much faster under that much more gravity until the top). `toZ` (Updraft, at a set):
+-- the spring carries her along the court to there by the top (HomeMax at most, never closer to
+-- the net than NetClear), so she goes right at the ball.
+function MovementController.rushJump(toZ)
 	if not MovementController.canJump() then
 		return false
 	end
 	rushing = nil
 	queued = { height = spikeJump() * SQUALL.RushRise ^ 2, kind = "Spike", still = true }
+	if toZ and hrp then
+		local _, rise = MovementController.springPeak()
+		local side = State.mySide
+		local z = math.max(toZ * side, SQUALL.NetClear) * side
+		local dz = math.clamp(z - hrp.Position.Z, -SQUALL.HomeMax, SQUALL.HomeMax)
+		queued.homeVz, queued.homeT = dz / math.max(rise, 0.05), rise
+	end
 	rushRise = true
 	return true
 end
@@ -442,9 +462,14 @@ function MovementController.springPeak()
 	return h, math.sqrt(2 * h / workspace.Gravity) / SQUALL.RushRise
 end
 
--- Eye of the Storm: all but weightless and still while `on` (the stick aims instead).
+-- Eye of the Storm: all but weightless while `on`; the stick glides her along the court (the
+-- owner: "adjusting while spiking is kind of impossible since she doesn't move midair during
+-- charge").
 function MovementController.setHover(on)
 	hovering = on == true
+	if hovering then
+		homing = nil
+	end
 	if hovering and hrp then
 		hrp.AssemblyLinearVelocity = Vector3.zero
 	end
@@ -574,9 +599,10 @@ local function physicsStep()
 	if airborne and not slide and not diving then
 		cancel = MovementController.airCancel(vy)
 		if hovering then
+			-- no rising while she hovers; the glide along the court is hers (moveStep)
 			local v = hrp.AssemblyLinearVelocity
-			if math.abs(v.Z) > 0.01 or v.Y > 0 then
-				hrp.AssemblyLinearVelocity = Vector3.new(0, math.min(v.Y, 0), 0)
+			if math.abs(v.X) > 0.01 or v.Y > 0 then
+				hrp.AssemblyLinearVelocity = Vector3.new(0, math.min(v.Y, 0), v.Z)
 			end
 		end
 	end
@@ -647,10 +673,12 @@ local function moveStep()
 		takeoff = { t0 = now }
 		if queued.still then
 			-- straight up: the rush's speed isn't carried into the spring (the owner: "i overshoot the
-			-- ball a lot")
+			-- ball a lot"); Updraft's, at a set, goes at the ball instead
+			local vz = queued.homeVz or 0
 			local v = hrp.AssemblyLinearVelocity
-			hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, 0)
-			takeoff.vz = 0
+			hrp.AssemblyLinearVelocity = Vector3.new(0, v.Y, vz)
+			takeoff.vz = vz
+			homing = queued.homeVz and { vz = vz, untilT = now + queued.homeT } or nil
 		end
 		queued = nil
 	end
@@ -714,9 +742,20 @@ local function moveStep()
 			return
 		end
 		if hovering then
-			hum.WalkSpeed = 0 -- Eye of the Storm: she holds still; the stick moves her target
-			hum:Move(Vector3.zero, false)
+			-- Eye of the Storm: she glides the way you hold while she charges
+			hum.WalkSpeed = baseWalk() * air * SQUALL.HoverGlide
+			hum:Move(Vector3.new(0, 0, axis), false)
 			return
+		end
+		if homing then
+			if now < homing.untilT then
+				-- Updraft's spring carries her at the ball until the top; the stick drifts on top
+				local vz = homing.vz + axis * baseWalk() * air * 0.5
+				hum.WalkSpeed = math.abs(vz)
+				hum:Move(Vector3.new(0, 0, vz >= 0 and 1 or -1), false)
+				return
+			end
+			homing = nil
 		end
 		if leaping then
 			-- a Feral Leap carries him the way he leapt; the stick still drifts on top of it

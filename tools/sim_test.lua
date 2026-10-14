@@ -450,6 +450,25 @@ do
 		and C.SideDepth / SQ.DashSpeed < 0.2 and SQ.ChargeTime <= 0.65 and SQ.HoverMax > SQ.ChargeTime,
 		"Tailwind dashes the whole court in a blink and springs to the same top, quicker; a full charge in time for the back line; Updraft; a lighter fall; Downdraft",
 		string.format("the court in %.2f s, up in %.2f s instead of %.2f, a full charge in %.2f s", C.SideDepth / SQ.DashSpeed, v0 / gUp, math.sqrt(2 * g * h) / g, SQ.ChargeTime))
+	-- Updraft at a set: slowed from t along the same curve (where it was u s on, it is u / SetSlow s
+	-- on), only a teammate's set, and her dash keeps NetClear off the net
+	local set = BallPhysics.buildPath(BallPhysics.newLaunch(Vector3.new(0, 8, 9), Vector3.new(0, 14, -6), Vector3.new(0, -g, 0), 100))
+	local t0 = 100.3
+	local slowed = BallPhysics.buildPath(HitLogic.updraftLaunch(set, t0, SQ.SetSlow))
+	local worst = 0
+	for _, u in ipairs({ 0, 0.2, 0.5, 0.8 }) do
+		local a1 = BallPhysics.positionAt(set, t0 + u)
+		local b1 = BallPhysics.positionAt(slowed, t0 + u / SQ.SetSlow)
+		worst = math.max(worst, (a1 - b1).Magnitude)
+	end
+	local later = slowed.landing.t - t0
+	local meta = { hitType = "Set", team = "Home", id = "P_2" }
+	check(worst < 1e-3 and math.abs(later * SQ.SetSlow - (set.landing.t - t0)) < 0.02 and SQ.SetSlow > 0.4 and SQ.SetSlow < 0.9
+		and HitLogic.updraftCanSlow(meta, "Home", "P_1") and not HitLogic.updraftCanSlow(meta, "Home", "P_2") and not HitLogic.updraftCanSlow(meta, "Away", "P_1")
+		and not HitLogic.updraftCanSlow({ hitType = "Spike", team = "Home", id = "P_2" }, "Home", "P_1")
+		and SQ.NetClear >= 1.5 and SQ.HomeMax > 0 and SQ.HomeMax <= 2 * Config.Scale.StudsPerMeter and SQ.HoverGlide > 0,
+		"Updraft slows a teammate's set along the same curve; Tailwind stays off the net; she glides while she hovers",
+		string.format("lands %.2f s later instead of %.2f; %.2f studs off the net", later, set.landing.t - t0, SQ.NetClear))
 end
 
 print("== Ironclad (Taesan) ==")

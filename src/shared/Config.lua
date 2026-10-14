@@ -1105,6 +1105,11 @@ Config.Abilities = {
 		SpringWaitMax = 2.5, -- she never waits longer than this
 		RushRise = 1.5, -- the jump off a dash rises this much faster (to the same top)
 		RushRootSlack = 4, -- the server's check on where she is allows this much more around a dash
+		-- (the owner: "she kind of just slams her head into the net... would have an instantaneous
+		-- stop when letting go of jump"): let go of Jump mid-dash and she stops dead there, then
+		-- springs on time; and the dash (and Updraft's spring) never takes her closer to the net
+		-- than NetClear (it went to 0.6 studs, and she sprang into the tape)
+		NetClear = 0.5 * M,
 		-- Downdraft: just after her Tailwind jump, the other team runs slower
 		SlowMul = 0.7,
 		SlowTime = 1.2,
@@ -1118,7 +1123,18 @@ Config.Abilities = {
 		-- Updraft (the owner: "make her jump higher to accomadate for the charging"): her spike and
 		-- serve jumps (Tailwind's spring too) go this much higher, room to hover and charge
 		LeapMul = 1.35,
+		-- and at a teammate's set (the owner: "when she jumps, the set slows and she jumps right at
+		-- the ball, so that its much easier to hit... a passive to updraft"): when she springs off
+		-- a dash the set slows to SetSlow of its speed along the same curve (the server relaunches
+		-- it from the moment she sprang: HitLogic.updraftLaunch), she springs later to match, and
+		-- the spring carries her along the court to where she meets it (HomeMax at most)
+		SetSlow = 0.65,
+		HomeMax = 1.5 * M,
 		HoverCancel = 0.985,
+		-- (the owner: "adjusting while spiking is kind of impossible since she doesn't move midair
+		-- during charge"): while she hovers the stick glides her along the court at this share of
+		-- her air drift
+		HoverGlide = 1,
 		-- (the owner: "her charging speed is too slow to reach the backcourt in time")
 		-- (the owner, then: "the spot her spike lands should flash by, and it is in set increments.
 		-- maybe around 6 or 7, ending at the very back corner of the court", with a video of hers:
@@ -1143,10 +1159,10 @@ Config.Abilities = {
 		ShearToolChance = 0.5,
 		AutoGale = 0.4, -- the AI doesn't hover: its spikes get this much of the charge's power
 		Passives = {
-			{ Name = "Tailwind", Blurb = "Jump on the ground: a lightning-quick dash under where the ball comes down, and a spring straight up, quicker than anyone." },
+			{ Name = "Tailwind", Blurb = "Hold Jump on the ground: a lightning-quick dash under where the ball comes down (let go to stop dead), then a spring straight up, quicker than anyone." },
 			{ Name = "Downdraft", Blurb = "Just after a Tailwind jump, the other team runs 30% slower for a moment." },
-			{ Name = "Updraft", Blurb = "Your spike jumps go 35% higher: room to hover and charge." },
-			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge: let go at once and it drops just over the net; the longer you hold, the deeper and harder it goes (up to +30%)." },
+			{ Name = "Updraft", Blurb = "Your spike jumps go 35% higher. Spring off a teammate's set and it slows to 65% while you go right at the ball." },
+			{ Name = "Eye of the Storm", Blurb = "You fall lighter. In the air, hold Spike to hover and charge (the stick glides you): let go at once and it drops just over the net; the longer you hold, the deeper and harder it goes (up to +30%)." },
 			{ Name = "Shear", Blurb = "Your spikes cut 15% harder, reach 20% wider than anyone's, and fly wild off blocks: stuffed less, and often whipped off the hands and out." },
 		},
 	},

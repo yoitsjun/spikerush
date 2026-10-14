@@ -77,6 +77,17 @@ function BallService.launch(launch, meta, touch)
 	return BallService.path
 end
 
+-- The same touch on a new path (Updraft slowing a set): the touch and its meta stay; the
+-- snapshot says retime, so clients don't play it as a new hit.
+function BallService.retime(launch)
+	BallService.seq = BallService.seq + 1
+	BallService.path = BallPhysics.buildPath(launch)
+	local snap = BallService.snapshot()
+	snap.retime = true
+	Net.get("BallState"):FireAllClients(snap)
+	return BallService.path
+end
+
 function BallService.positionAt(t)
 	if BallService.path then
 		return (BallPhysics.positionAt(BallService.path, t))

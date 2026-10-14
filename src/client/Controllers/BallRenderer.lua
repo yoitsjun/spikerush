@@ -663,7 +663,8 @@ local function onState(snap)
 	if snap.seq < cur.seq then
 		return
 	end
-	adopt(snap, false, true)
+	-- (a retimed path is the same touch slowed, Updraft: no catching up to it as a new hit)
+	adopt(snap, false, snap.retime ~= true)
 	State.signals.Ball:Fire(snap, false)
 end
 

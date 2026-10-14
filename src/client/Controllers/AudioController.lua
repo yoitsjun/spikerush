@@ -492,7 +492,7 @@ function AudioController.init()
 	State.signals.Match:Connect(crowdLevel)
 
 	State.signals.Ball:Connect(function(snap, isEcho)
-		if isEcho or snap.state ~= "Flight" then
+		if isEcho or snap.state ~= "Flight" or snap.retime then
 			return
 		end
 		onHit(snap)
