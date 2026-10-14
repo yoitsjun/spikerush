@@ -5679,10 +5679,10 @@ function Extra.refreshCodes(prof)
 		C.steps.Text = "You're verified. Thanks for joining! The Community Squad card is in your cards."
 	elseif C.linkOk then
 		C.codeBox.Text = d.code ~= "" and d.code or "..." -- (just the code, so copying it copies only that)
-		C.steps.Text = "1. Join the Discord with the link (copy it)\n2. In the Discord, type /verify " .. code .. "\n3. Come back here and click Verify"
+		C.steps.Text = "1. Join the Discord with the link (copy it)\n2. In the Discord, type /discordverify " .. code .. "\n3. Come back here and click Verify"
 	else
 		C.codeBox.Text = d.code ~= "" and d.code or "..."
-		C.steps.Text = "1. Open the Spike Rush game page and join from the Community link\n2. There, type /verify " .. code .. "\n3. Come back here and click Verify"
+		C.steps.Text = "1. Open the Spike Rush game page and join from the Community link\n2. There, type /discordverify " .. code .. "\n3. Come back here and click Verify"
 	end
 end
 

@@ -1831,7 +1831,7 @@ local function onRequest(plr, kind, a, b, c)
 				ProfileService.checkCards(plr)
 				push(plr, "Discord verified, thanks for joining! " .. Economy.describe(g, added))
 			else
-				push(plr, "Not verified yet. In the Discord, type /verify " .. code .. ", then click Verify here.")
+				push(plr, "Not verified yet. In the Discord, type /discordverify " .. code .. ", then click Verify here.")
 			end
 		end)
 	elseif kind == "patchClaim" then

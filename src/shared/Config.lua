@@ -817,7 +817,7 @@ Config.Passes = {
 -- BedWars: "they give you a code and you tell a bot in discord that code to verify your
 -- account"). The Codes window, for players Roblox lets see a Discord link (PolicyService's
 -- AllowedExternalLinkReferences; never under-13s), shows the invite as copyable text and the
--- player's own verification code. In the Discord they type /verify CODE: the bot
+-- player's own verification code. In the Discord they type /discordverify CODE: the bot
 -- (tools/discord-verify, a Cloudflare Worker) checks the code in the Store data store
 -- ("code_<CODE>" -> { userId, name }, written by the game), and writes "done_<CODE>" (and
 -- "discord_<their Discord id>", so one Discord account verifies one Roblox account). Verify in the

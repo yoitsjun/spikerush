@@ -1,7 +1,8 @@
-// Spike Rush Discord verification: a Cloudflare Worker that answers the /verify slash command.
+// Spike Rush Discord verification: a Cloudflare Worker that answers the /discordverify slash command
+// (named that, not /verify, so it isn't mixed up with other bots' verify commands).
 //
 // The game gives each player a code (Config.Discord) and saves "code_<CODE>" -> { userId, name }
-// in the DiscordVerify data store. Here, /verify CODE checks that entry through Roblox Open Cloud,
+// in the DiscordVerify data store. Here, /discordverify CODE checks that entry through Roblox Open Cloud,
 // writes "done_<CODE>" (the game's Verify button reads it and pays the reward) and
 // "discord_<Discord user id>" (one Discord account verifies one Roblox account), and gives the
 // Verified role if VERIFIED_ROLE_ID is set. Setup: README.md next to this file.
@@ -31,7 +32,7 @@ export default {
 		if (interaction.type === 1) {
 			return json({ type: 1 }); // Discord's PING when the endpoint is saved
 		}
-		if (interaction.type === 2 && interaction.data && interaction.data.name === "verify") {
+		if (interaction.type === 2 && interaction.data && interaction.data.name === "discordverify") {
 			// answer "thinking..." (only they see it) now, and the result once the lookups finish
 			ctx.waitUntil(
 				handleVerify(interaction, env).then(
@@ -48,7 +49,7 @@ export default {
 async function handleVerify(interaction, env) {
 	const user = interaction.member && interaction.member.user;
 	if (!user) {
-		return "Use /verify in the Spike Rush server, not in DMs.";
+		return "Use /discordverify in the Spike Rush server, not in DMs.";
 	}
 	const opt = (interaction.data.options || []).find((o) => o.name === "code");
 	const code = String(opt ? opt.value : "").trim().toUpperCase().replace(/^CODE\s*:?/, "").replace(/[^A-Z0-9]/g, "");
@@ -136,7 +137,7 @@ async function followUp(interaction, env, content) {
 	});
 }
 
-// Visit /register?secret=SETUP_SECRET once (and after changing the command) to add /verify to the server.
+// Visit /register?secret=SETUP_SECRET once (and after changing the command) to add /discordverify to the server (it replaces the old /verify).
 async function register(url, env) {
 	if (!env.SETUP_SECRET || url.searchParams.get("secret") !== env.SETUP_SECRET) {
 		return new Response("Wrong or missing secret.", { status: 403 });
@@ -146,14 +147,14 @@ async function register(url, env) {
 		headers: { Authorization: "Bot " + env.DISCORD_BOT_TOKEN, "content-type": "application/json" },
 		body: JSON.stringify([
 			{
-				name: "verify",
+				name: "discordverify",
 				description: "Link your Roblox account and get your Spike Rush reward",
 				options: [{ type: 3, name: "code", description: "Your code from the Codes window in Spike Rush", required: true }],
 			},
 		]),
 	});
 	const text = await r.text();
-	return new Response(r.ok ? "/verify is registered. You can close this tab." : "Discord said " + r.status + ": " + text, { status: r.ok ? 200 : 500 });
+	return new Response(r.ok ? "/discordverify is registered. You can close this tab." : "Discord said " + r.status + ": " + text, { status: r.ok ? 200 : 500 });
 }
 
 async function verifySignature(request, body, publicKey) {
