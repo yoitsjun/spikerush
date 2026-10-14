@@ -842,9 +842,10 @@ do
 			end
 		end
 	end
-	local g = PatchNotes.Reward
-	check(latest ~= nil and latest.Title == "The S+ Update" and okShape and okIcons and (g.Gold or 0) + (g.VP or 0) > 0 and (g.Gold or 0) <= 5000 and (g.VP or 0) <= 200,
-		"patch notes: the newest is the S+ Update, every entry well formed, a small reading reward",
+	local g = PatchNotes.reward(latest)
+	check(latest ~= nil and latest.Title == "Breakthroughs" and okShape and okIcons and (g.Gold or 0) + (g.VP or 0) > 0 and (g.Gold or 0) <= 5000 and (g.VP or 0) <= 200 and (g.Lucky or 0) <= 1
+		and PatchNotes.reward(PatchNotes.List[2]) == PatchNotes.Reward,
+		"patch notes: the newest is Breakthroughs, every entry well formed, a small reading reward (its own, else the usual)",
 		string.format("%d patch(es), %d lines, reward %d Gold %d VP", #PatchNotes.List, lines, g.Gold or 0, g.VP or 0))
 end
 

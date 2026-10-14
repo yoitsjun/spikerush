@@ -1985,7 +1985,7 @@ local function onRequest(plr, kind, a, b, c)
 		if latest and a == latest.Id and not profile.patchClaimed[latest.Id] then
 			profile.patchClaimed[latest.Id] = true
 			profile.patchSeen = latest.Id
-			local g = Economy.cleanGrant(PatchNotes.Reward)
+			local g = Economy.cleanGrant(PatchNotes.reward(latest))
 			local added = Economy.apply(profile, g, os.time())
 			dirty[plr] = true
 			save(plr, true)

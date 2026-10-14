@@ -5845,7 +5845,7 @@ function Extra.refreshPatch(prof)
 		notes.asked = false -- (a claim that didn't land can be tried again)
 	end
 	notes.footText.Text = notes.claimed and "Thanks for reading! Your reward is claimed."
-		or ("You made it to the bottom: " .. Economy.describe(Economy.cleanGrant(Extra.PatchNotes.Reward)) .. "!")
+		or ("You made it to the bottom: " .. Economy.describe(Economy.cleanGrant(Extra.PatchNotes.reward())) .. "!")
 	if ui.home and ui.home.newsDot then
 		ui.home.newsDot.Visible = unseen or not notes.claimed
 	end

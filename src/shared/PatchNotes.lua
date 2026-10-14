@@ -4,7 +4,8 @@
 -- reward for reading if you scroll to the very bottom").
 --
 -- To ship a patch: add an entry at the top of List with a new Id (a date is fine), a Title, a Date
--- and Sections of Items. Item.Icon is an Assets key (an ability icon) shown beside the line.
+-- and Sections of Items. Item.Icon is an Assets key (an ability icon) shown beside the line. A
+-- patch's own Reward replaces the usual one (PatchNotes.reward).
 
 local PatchNotes = {}
 
@@ -12,6 +13,43 @@ local PatchNotes = {}
 PatchNotes.Reward = { Gold = 1000 }
 
 PatchNotes.List = {
+	{
+		Id = "2026-10-14",
+		Title = "Breakthroughs",
+		Date = "October 14, 2026",
+		-- (the owner: "make a patchnotes for breakthroughs aswell as a scrolling reward")
+		Reward = { Gold = 2500, Lucky = 1 },
+		Sections = {
+			{
+				Heading = "Breakthroughs",
+				Items = {
+					{ Text = "Duplicate players now become <b>fragments</b> of their tier: S- and S give S fragments, and S+ has its own. Duplicate cosmetics still give V Points." },
+					{ Text = "Spend fragments in <b>Players > Breakthrough</b> to take a player up to <b>+5</b>. Every step adds stats past their ceiling, and S and S+ abilities grow stronger too: each player's page shows all five steps." },
+					{ Text = "Sell fragments you don't need from <b>Recruit > Breakthrough</b> for the V Points a duplicate gave. An S+ fragment adds a lucky spin." },
+					{ Text = "Sell players you don't want from their Breakthrough tab: their V Points, the Gold you spent upgrading them and their fragments all come back. Players now lists only the players you have." },
+				},
+			},
+			{
+				Heading = "Player changes",
+				Items = {
+					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> reworked. He jumps to block now, with a block a little bigger than anyone's. A 185 km/h or a clean spike breaks a shield, and every spike a shield stops <b>cracks</b> it: the second one shatters it. A broken shield slows the spike so his team can dig it, tips go over him, his spike reaches 20% wider, and awakened he fills Intimidation twice as fast. His shields now show over his head." },
+					{ Icon = "AbilitySquall", Text = "<b>Haneul</b>: let go of Jump to stop her dash right where she is, and she stays off the net. Steer her while she hovers. New in <b>Updraft</b>: spring off a teammate's set and it slows down while she goes right at the ball." },
+				},
+			},
+			{
+				Heading = "Changes and fixes",
+				Items = {
+					{ Text = "New code: <b>300squad</b> for 1,500 VP, 16,700 Gold, 5 lucky spins and 30 minutes of 2x Luck. Thanks for 300 in the community server!" },
+					{ Text = "Verify in the community server for 750 VP, 7,500 Gold, 3 lucky spins and the Community Squad card: the steps now sit right beside Codes." },
+					{ Text = "Every S+ player has a <b>Profile</b> tab with their story." },
+					{ Text = "Jump is one tap on every device, and touch players get the double approach. Trade V Points for lucky spins in the Shop's Lucky tab." },
+					{ Text = "Phones: the scoreboard shrinks to fit, and your ability, the speed readout and quick chat no longer sit on it. The touch layout editor moves every HUD piece, each team's scoreboard on its own." },
+					{ Text = "Setters can aim into the back court, Set wins over the receive assist, and deep sets arc higher." },
+					{ Text = "New <b>Bug Catcher</b> card, for players who catch bugs for us." },
+				},
+			},
+		},
+	},
 	{
 		Id = "2026-10-12",
 		Title = "The S+ Update",
@@ -50,6 +88,12 @@ PatchNotes.List = {
 		},
 	},
 }
+
+-- What reading a patch (the newest) to the bottom pays: its own Reward, else the usual.
+function PatchNotes.reward(patch)
+	patch = patch or PatchNotes.List[1]
+	return (patch and patch.Reward) or PatchNotes.Reward
+end
 
 -- The newest patch (nil with none).
 function PatchNotes.latest()
