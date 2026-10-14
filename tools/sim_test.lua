@@ -767,13 +767,13 @@ do
 	local Economy = require("Economy")
 	local card = nil
 	for _, c in ipairs(Config.Cards.List) do
-		if c.Key == "Almighty" then card = c end
+		if c.Key == "Almighty2" then card = c end
 	end
-	local g = Economy.cleanGrant({ Cards = { "Almighty" } })
+	local g = Economy.cleanGrant({ Cards = { "Almighty2" } })
 	local profile = { vp = 0, gold = 0, lucky = 0, owned = {}, cards = {} }
 	Economy.apply(profile, g, 0)
 	local Cards = require("Cards")
-	check(card ~= nil and card.Grant == true and Cards.look(card).Fx.Wings == true and g.Cards[1] == "Almighty" and profile.cards.Almighty == true and string.find(Economy.describe(g), "Almighty", 1, true) ~= nil,
+	check(card ~= nil and card.Grant == true and Cards.look(card).Fx.Wings == true and g.Cards[1] == "Almighty2" and profile.cards.Almighty2 == true and Economy.cleanGrant({ Cards = { "Almighty" } }).Cards[1] == nil and string.find(Economy.describe(g), "Almighty", 1, true) ~= nil,
 		"the Almighty card can be given and is owned", Economy.describe(g))
 end
 

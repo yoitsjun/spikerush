@@ -156,6 +156,15 @@ local function noteOwner(key, userId, name, has)
 	end)
 end
 
+local function cardName(key)
+	for _, c in ipairs(Config.Cards.List) do
+		if c.Key == key then
+			return c.Name
+		end
+	end
+	return key
+end
+
 local function isGrantCard(key)
 	for _, c in ipairs(Config.Cards.List) do
 		if c.Key == key then
@@ -329,7 +338,7 @@ local function onAdmin(plr, op, a, b)
 			local done, when = reg.ProfileService.takeCardFrom(userId, b)
 			if done then
 				noteOwner(b, userId, name, false)
-				reply(plr, string.format("Took the %s card back from %s: %s.", b, name, when), { owners = { card = b, list = cardOwners(b) } })
+				reply(plr, string.format("Took the %s card back from %s: %s.", cardName(b), name, when), { owners = { card = b, list = cardOwners(b) } })
 			else
 				reply(plr, when or "That didn't work.")
 			end
@@ -341,7 +350,7 @@ local function onAdmin(plr, op, a, b)
 		end
 		task.spawn(function()
 			local list = cardOwners(a)
-			reply(plr, string.format("%d %s the %s card.", #list, #list == 1 and "player has" or "players have", a), { owners = { card = a, list = list } })
+			reply(plr, string.format("%d %s the %s card.", #list, #list == 1 and "player has" or "players have", cardName(a)), { owners = { card = a, list = list } })
 		end)
 	elseif op == "wipe" then
 		-- reset someone's match stats (wins, matches, kills, aces, blocks, MVPs, streaks) and take

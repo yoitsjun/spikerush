@@ -704,7 +704,10 @@ Config.Cards = {
 		-- banners for reference): the very best players, given from the admin panel (Give a player >
 		-- Card). A crimson ribbon in gold with their own avatar mid-spike; its Fx add gold wings, a
 		-- crown, turning rays, a sweeping shine, a breathing glow and sparkles (Gui.playerCard)
-		{ Key = "Almighty", Name = "Almighty", Stat = "grant", Grant = true, Goal = "Given to the very best players",
+		-- (Key was "Almighty": renamed to take back every copy given by mistake, the owner: "wipe it
+		-- from everyone and only give it back to one guy". A profile drops a card key it doesn't
+		-- know when it loads, so the old copies are gone; never reuse "Almighty")
+		{ Key = "Almighty2", Name = "Almighty", Stat = "grant", Grant = true, Goal = "Given to the very best players",
 			Look = { Base = Color3.fromRGB(58, 4, 12), Sweep = Color3.fromRGB(205, 26, 42), Accent = Color3.fromRGB(255, 222, 120), Edge = Color3.fromRGB(255, 210, 80), Pattern = "rays", Big = "ALMIGHTY", Avatar = true, Fx = { Wings = true, Crest = true, Glow = true, Halo = true, Shine = true, Sparkles = true, WordShine = true } } },
 		-- the VIP game pass's card (Config.Passes.VIP): given with the pass, never earned
 		-- the Discord's card (Config.Discord): only from verifying your account in the Discord
