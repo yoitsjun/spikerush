@@ -232,7 +232,7 @@ function HitService.process(entity, input, opts)
 		groundY = TS.groundY(entity),
 		stamina = TS.staminaOf(team),
 		forceQuality = opts.forceQuality,
-		ironWall = action == "Block" and ((entity.ability == "IronWall" and armed) or (entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) > 0)) or nil,
+		ironWall = action == "Block" and entity.ability == "IronWall" and armed or nil,
 		ironclad = entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) > 0 or nil,
 		awakened = entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) == 0 or nil,
 		enemyPoints = (MS.scores or {})[Court.other(team)] or 0,
@@ -289,10 +289,15 @@ function HitService.process(entity, input, opts)
 		-- Bulwark: a block broken through costs a shield (none left: awakened); awakened, every touch
 		-- fills Intimidation, and full brings the shields back
 		local lives = HitLogic.ironLives(entity.ironLives)
-		if meta.wallBroken then
-			TS.setIron(entity, lives - 1, 0)
-		elseif lives == 0 then
-			local m = (entity.intimidation or 0) + IRON.MeterPerTouch
+		if lives > 0 then
+			-- (a break, or a spike stopped: Cracks)
+			local left, cracks = HitLogic.ironAfterBlock(lives, entity.ironCracks, meta)
+			if left ~= lives or cracks ~= (entity.ironCracks or 0) then
+				TS.setIron(entity, left, 0, cracks)
+			end
+		else
+			-- (a stuff block fills it more; his kills are added when the point's judged: MatchService)
+			local m = (entity.intimidation or 0) + IRON.MeterPerTouch + (meta.hitType == "Block" and meta.outcome == "Stuff" and IRON.MeterBonus or 0)
 			if m >= 100 then
 				TS.setIron(entity, IRON.Lives, 0)
 			else

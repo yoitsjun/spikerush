@@ -1191,22 +1191,41 @@ Config.Abilities = {
 		Name = "Ironclad",
 		Tier = "S+",
 		Role = "MB",
-		Blurb = "Bulwark: while you have shields (3), you're Iron Wall at the net, always. An attack of 150 km/h or more breaks through and costs a shield. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Every touch then fills Intimidation by 10%; full, your shields are back.",
+		Blurb = "Bulwark: while you have shields (3), every block you get your hands on is a perfect shut-down, and your block reaches a little further than anyone's. A 185 km/h spike or a clean one breaks a shield, and every spike you stop cracks it (the second shatters it); tips go over. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Every touch then fills Intimidation by 20%; full, your shields are back.",
 		Kind = "Passive: shields, then awakened",
 		Color = Color3.fromRGB(255, 112, 52), -- awakened: molten
 		WallColor = Color3.fromRGB(170, 200, 235), -- the shields: steel
 		ChargeColor = Color3.fromRGB(255, 50, 60), -- Forge's charge: red
 		Lives = 3,
 		-- Bulwark: Iron Wall's perfect shut-down while he has shields, but an attack this fast (or a
-		-- piercing or block-smashing one) breaks through it, barely slowed, and costs a shield
-		BreakKmh = 150,
+		-- piercing or block-smashing one) breaks through it and costs a shield (was 150: nearly every
+		-- S+ spike broke it; the owner: "185kmh makes him literally unbeatable against lower tiers"),
+		-- so a clean spike from anyone (contact quality CleanBreak or better) breaks it too. Tips
+		-- aren't shut down (they go over him, or meet an ordinary block)
+		BreakKmh = 185,
+		CleanBreak = 0.85,
+		-- Cracks (the owner wanted a way to wear his shields down without power, "highlighted with a
+		-- flash", after Spike Cross's weak spots; a body-part spot read as luck here, where a spike is
+		-- aimed at the court): every spike his shield stops still gets shut down, but it cracks the
+		-- shield (a white flash on him and on the shield over his head); the CracksToBreak-th stop
+		-- shatters it. A new shield (a new set, Intimidation) starts whole
+		CracksToBreak = 2,
+		-- Shrapnel: a spike that breaks a shield keeps only this much of its speed (diggable)
+		ShrapnelKeep = 0.6,
+		-- his block box (the owner: "remove his full iron wall hitbox because thats busted... but
+		-- maybe slightly enhanced because he's s+"): a little more than anyone's while he has shields
+		-- (studs over the usual: up, off the net, either side of it), nowhere near Iron Wall's
+		Box = { ReachUp = 1.8, NetExtra = 0.8, OwnDepth = 0.5, OverDepth = 0.5 },
 		-- Unbreakable (the owner: "a chance to completely shutdown a guardbreak... make this a
 		-- passive", with the chance falling the harder the spike): a block that would break gets
 		-- shut down instead (no shield lost) this often, from the first chance at the first speed
 		-- down to the second at the second
 		UnbreakableChance = { 0.35, 0.15 },
-		UnbreakableKmh = { 150, 250 },
-		MeterPerTouch = 10, -- awakened: each touch fills Intimidation this much (of 100)
+		UnbreakableKmh = { 185, 250 },
+		-- awakened: each touch fills Intimidation this much (of 100; was 10), a spike of his that
+		-- scores (a kill) or a block that stuffs this much more
+		MeterPerTouch = 20,
+		MeterBonus = 15,
 		-- Forge: off the floor his fall is slow (part of gravity off on the way down) and the spike
 		-- charges with the time he's been up (WallBoost with shields, MaxBoost awakened); a jump before
 		-- his team's set gets all of it, one after it LateShare
@@ -1223,12 +1242,14 @@ Config.Abilities = {
 		ReachMul = 0.35, -- Steel Reach: his spike reaches up to 1 + this x the charge wider
 		AutoCharge = 0.5, -- the AI awakened: its spikes get this much of the full charge
 		Passives = {
-			{ Name = "Bulwark", Blurb = "3 shields: while you have one you're an Iron Wall at the net, no jump needed. An attack of 150 km/h or more breaks through and shatters a shield." },
-			{ Name = "Unbreakable", Blurb = "A spike that would break through your shields has a chance to be shut down anyway, shield kept: 35% at 150 km/h, down to 15% for the hardest." },
+			{ Name = "Bulwark", Blurb = "3 shields: while you have one, every block you touch is a perfect shut-down, and your block reaches a little further. A spike of 185 km/h or more, or a clean one, shatters a shield. Tips go over you." },
+			{ Name = "Cracks", Blurb = "Every spike a shield stops cracks it; the next one it stops shatters it." },
+			{ Name = "Unbreakable", Blurb = "A spike that would break through your shields has a chance to be shut down anyway, shield kept: 35% at 185 km/h, down to 15% for the hardest." },
+			{ Name = "Shrapnel", Blurb = "A spike that breaks a shield loses 40% of its speed: your team can dig it." },
 			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: Forge charges far harder and widens your reach." },
 			{ Name = "Forge", Blurb = "Your fall is slow; jump before the set and hang: the longer you're up, the harder the spike (up to +39% with shields, +68% awakened). Jumping after the set gets 30% of it." },
 			{ Name = "Steel Reach", Blurb = "Awakened, the charge widens your spike's reach (up to 35%)." },
-			{ Name = "Intimidation", Blurb = "Awakened, every touch fills the meter 10%. Full: your 3 shields are back." },
+			{ Name = "Intimidation", Blurb = "Awakened, every touch fills the meter 20%, a kill or a stuff block 35%. Full: your 3 shields are back." },
 		},
 	},
 	IronWall = {

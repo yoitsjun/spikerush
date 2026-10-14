@@ -253,17 +253,30 @@ function HitLogic.floatZone(root, ball, side)
 end
 
 -- Block: hands above the tape, reaching over the net. Returns ok, quality, fingertips. iron:
+-- The block box's extra reach (blockBox's `iron`): Iron Wall's whole wall while it's up; Ironclad's
+-- Bulwark (shields left) a little more than anyone's (IRON.Box), but not against a tip; else nil.
+function HitLogic.wallReach(ironWallUp, bulwark, hitType)
+	if ironWallUp then
+		return true
+	end
+	if bulwark and hitType ~= "Feint" then
+		return IRON.Box
+	end
+	return nil
+end
+
 -- Iron Wall is up, and the box is bigger (Config.Abilities.IronWall).
+-- `iron`: true for Iron Wall's whole wall, or a table of the same extras (Ironclad's Box).
 function HitLogic.blockBox(root, ball, side, stats, iron)
-	local IW = Config.Abilities.IronWall
-	if math.abs(root.Z) > Z.BlockNetDistance + (iron and IW.NetExtra or 0) then
+	local IW = iron == true and Config.Abilities.IronWall or (type(iron) == "table" and iron or nil)
+	if math.abs(root.Z) > Z.BlockNetDistance + (IW and IW.NetExtra or 0) then
 		return false, 0, false
 	end
 	local zs = ball.Z * side
-	if zs > Z.BlockOwnDepth + (iron and IW.OwnDepth or 0) or zs < -(Z.BlockOverDepth + (iron and IW.OverDepth or 0)) then
+	if zs > Z.BlockOwnDepth + (IW and IW.OwnDepth or 0) or zs < -(Z.BlockOverDepth + (IW and IW.OverDepth or 0)) then
 		return false, 0, false
 	end
-	local top = root.Y + Z.BlockReachUp + (iron and IW.ReachUp or 0)
+	local top = root.Y + Z.BlockReachUp + (IW and IW.ReachUp or 0)
 	if ball.Y > top + R or ball.Y < C.NetTop - 0.6 then
 		return false, 0, false
 	end
@@ -271,6 +284,26 @@ function HitLogic.blockBox(root, ball, side, stats, iron)
 	local qz = falloff(math.abs(zs - 0.1) / (Z.BlockOwnDepth + R), 1.3)
 	local q = clamp((qy * 0.5 + qz * 0.5) * ((stats and stats.BlockPower) or 1), 0, 1.15)
 	return true, q, (top + R - ball.Y) < 0.9
+end
+
+-- Ironclad's shields after a block of his (meta): a break costs one; a spike stopped cracks the
+-- shield, and the CracksToBreak-th crack shatters it. Returns the shields and cracks left.
+function HitLogic.ironAfterBlock(lives, cracks, meta)
+	lives = HitLogic.ironLives(lives)
+	cracks = math.max(0, math.floor(tonumber(cracks) or 0))
+	if lives == 0 or type(meta) ~= "table" or meta.hitType ~= "Block" then
+		return lives, cracks
+	end
+	if meta.wallBroken then
+		return lives - 1, 0
+	end
+	if meta.ironWall then
+		cracks = cracks + 1
+		if cracks >= IRON.CracksToBreak then
+			return lives - 1, 0
+		end
+	end
+	return lives, cracks
 end
 
 ------------------------------------------------------------------------------------------
@@ -1254,11 +1287,11 @@ function HitLogic.compute(input, ctx)
 
 	-- Block -----------------------------------------------------------------------------------
 	if action == "Block" then
-		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, ctx.ironWall)
+		local last = ctx.lastHit
+		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, HitLogic.wallReach(ctx.ironWall, ctx.ironclad, last and last.hitType))
 		if not ok then
 			return false, "zone"
 		end
-		local last = ctx.lastHit
 		if not last or last.team == ctx.team then
 			return false, "own"
 		end
@@ -1288,11 +1321,12 @@ function HitLogic.compute(input, ctx)
 		-- Feral Leap: a full-gauge spike leaping at the net smashes through a blocker with less
 		-- Attack than the attacker had
 		local smash = last.hitType == "Spike" and type(last.breakAtk) == "number" and last.breakAtk > stats.Attack
-		-- Ironclad's Bulwark (ctx.ironclad: he has shields): Iron Wall's wall and perfect shut-down,
-		-- no jump needed (the owner tried a jump-only version, then: "revert his blocks to before when
-		-- you didnt have to jump"), but an attack hard enough (or piercing, or built to smash blocks)
+		-- Ironclad's Bulwark (ctx.ironclad: he has shields): Iron Wall's perfect shut-down in a block
+		-- box a little bigger than anyone's (no longer Iron Wall's whole wall: the owner, "thats
+		-- busted"), but an attack hard enough or clean enough (or piercing, or built to smash blocks)
 		-- breaks through it and costs a shield (HitService), unless Unbreakable stops it
-		local wallBreak = ctx.ironclad == true and last.hitType == "Spike" and (attackKmh >= IRON.BreakKmh or last.pierce == true or type(last.breakAtk) == "number")
+		local wallBreak = ctx.ironclad == true and last.hitType == "Spike"
+			and (attackKmh >= IRON.BreakKmh or (last.quality or 0) >= IRON.CleanBreak or last.pierce == true or type(last.breakAtk) == "number")
 		-- Unbreakable: a chance it's shut down anyway, falling the harder the spike (the ball's own
 		-- seed rolls it, so both sides agree)
 		local unbreakable = false
@@ -1302,7 +1336,8 @@ function HitLogic.compute(input, ctx)
 				wallBreak, unbreakable = false, true
 			end
 		end
-		local perfect = ctx.ironWall or ctx.ironclad
+		-- (Bulwark doesn't shut tips down: they go over him, or meet an ordinary block)
+		local perfect = ctx.ironWall or (ctx.ironclad and last.hitType ~= "Feint")
 		if wallBreak then
 			smash = true
 		elseif perfect then
@@ -1330,7 +1365,8 @@ function HitLogic.compute(input, ctx)
 			if vin.Z * side < 2.5 * SPM then
 				vin = Vector3.new(0, math.min(vin.Y, -2 * SPM), side * 18 * SPM)
 			end
-			v = vin * FERAL.BreakKeep
+			-- (Shrapnel: through Taesan's shield it loses more, so his team can dig it)
+			v = vin * (wallBreak and IRON.ShrapnelKeep or FERAL.BreakKeep)
 			a = Vector3.new(0, -G * H.SpikeGravityScale, 0)
 			hold = 0.06
 		elseif perfect then

@@ -2471,6 +2471,64 @@ do
 	local IRON = Config.Abilities.Ironclad
 	local shieldGuis = {} -- model -> { gui, icons = { ImageLabel }, lives }
 
+	-- Cracks: jagged dark lines across a shield icon (n of them: one a crack), or none
+	local CRACKS = { { 0.42, 0.3, 0.5, 38 }, { 0.6, 0.62, 0.42, -52 }, { 0.36, 0.7, 0.3, 75 } }
+	local function drawCracks(icon, n)
+		for _, c in ipairs(icon:GetChildren()) do
+			if c.Name == "Crack" then
+				c:Destroy()
+			end
+		end
+		for i = 1, math.min(n, #CRACKS) do
+			local spec = CRACKS[i]
+			for j = 0, 1 do
+				-- two short segments with a kink, so it reads as a crack, not a scratch
+				local line = Instance.new("Frame")
+				line.Name = "Crack"
+				line.AnchorPoint = Vector2.new(0.5, 0.5)
+				line.Position = UDim2.fromScale(spec[1] + (j == 0 and -0.06 or 0.06), spec[2] + (j == 0 and -0.08 or 0.08))
+				line.Size = UDim2.new(0, 3, spec[3] * 0.6, 0)
+				line.Rotation = spec[4] + (j == 0 and 18 or -14)
+				line.BackgroundColor3 = Color3.fromRGB(30, 36, 48)
+				line.BorderSizePixel = 0
+				line.ZIndex = 2
+				line.Parent = icon
+			end
+		end
+	end
+
+	-- a crack: the shield and he flash white, it shakes, the crack lines go on
+	local function crackShield(model, icon, n)
+		drawCracks(icon, n)
+		icon.ImageColor3 = Color3.new(1, 1, 1)
+		local flash = Instance.new("Highlight")
+		flash.Adornee = model
+		flash.FillColor = Color3.new(1, 1, 1)
+		flash.OutlineColor = IRON.WallColor
+		flash.FillTransparency = 0.15
+		flash.OutlineTransparency = 0
+		flash.DepthMode = Enum.HighlightDepthMode.Occluded
+		flash.Parent = model
+		TweenService:Create(flash, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { FillTransparency = 1, OutlineTransparency = 1 }):Play()
+		task.delay(0.45, function()
+			flash:Destroy()
+		end)
+		local home = icon.Position
+		icon.Rotation = 14
+		TweenService:Create(icon, TweenInfo.new(0.35, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), { Rotation = 0, Position = home }):Play()
+		TweenService:Create(icon, TweenInfo.new(0.5), { ImageColor3 = Color3.fromRGB(200, 210, 225) }):Play()
+		local hrp = model:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local pos = hrp.Position + Vector3.new(0, 4.4, 0)
+			Fx.play("Glints", pos, { color = Color3.fromRGB(255, 255, 255) })
+			shards(pos, IRON.WallColor, 6, 30)
+			VFXController.popup(pos + Vector3.new(0, 1.5, 0), "Cracked!", IRON.WallColor, 1)
+			if mods and mods.AudioController.hearsMatch() then
+				mods.AudioController.play("Block", { volume = 0.6, speed = 1.6, pos = pos, minGap = 0.05 })
+			end
+		end
+	end
+
 	local function shatterShield(model, icon)
 		-- the shield flies up and off, spinning and fading, while steel shards burst where he is
 		local hrp = model:FindFirstChild("HumanoidRootPart")
@@ -2514,7 +2572,7 @@ do
 						for i = 1, IRON.Lives do
 							local img = Instance.new("ImageLabel")
 							img.BackgroundTransparency = 1
-							img.Image = Assets.id(Assets.IroncladShield) or ""
+							img.Image = Assets.image("IroncladShield") or "" -- (was Assets.IroncladShield: nil, so the shields never showed)
 							img.ImageColor3 = Color3.fromRGB(255, 255, 255)
 							img.AnchorPoint = Vector2.new(0.5, 0.5)
 							img.Size = UDim2.fromScale(0.3, 0.9)
@@ -2523,15 +2581,17 @@ do
 							icons[i] = img
 						end
 						gui.Parent = hrp
-						s = { gui = gui, icons = icons, lives = lives }
+						s = { gui = gui, icons = icons, lives = lives, cracks = 0 }
 						shieldGuis[model] = s
 						for i, img in ipairs(icons) do
 							img.ImageTransparency = i <= lives and 0 or 1
 						end
 					end
+					local cracks = model:GetAttribute("IronCracks") or 0
 					if lives < s.lives then
 						-- a shield broken (or several): shatter each one lost, right to left
 						for i = s.lives, lives + 1, -1 do
+							drawCracks(s.icons[i], 0)
 							shatterShield(model, s.icons[i])
 						end
 						local pos = hrp.Position + Vector3.new(0, 6.5, 0)
@@ -2552,6 +2612,8 @@ do
 						-- Intimidation full: the shields are back
 						for i = s.lives + 1, lives do
 							local img = s.icons[i]
+							drawCracks(img, 0)
+							img.ImageColor3 = Color3.fromRGB(255, 255, 255)
 							img.Position = UDim2.fromScale((i - 0.5) / IRON.Lives, 0.5)
 							img.Rotation = 0
 							img.ImageTransparency = 1
@@ -2563,7 +2625,12 @@ do
 							mods.AudioController.play("IronRestore", { volume = 0.8, pos = hrp.Position })
 						end
 					end
-					s.lives = lives
+					if lives > 0 and lives == s.lives and cracks > s.cracks then
+						crackShield(model, s.icons[lives], cracks) -- a spike stopped: Cracks
+					elseif lives > 0 and cracks ~= s.cracks then
+						drawCracks(s.icons[lives], cracks)
+					end
+					s.lives, s.cracks = lives, cracks
 					-- Forge (the owner: "really show him charging", with his references: a red ring
 					-- bursting on the floor as he leaves it, then a red-white flare with a cross twinkle on
 					-- him in the air, growing as it charges, flashing once it's full)

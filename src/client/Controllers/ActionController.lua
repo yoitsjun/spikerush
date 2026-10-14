@@ -137,7 +137,7 @@ local function buildCtx(info, action, t)
 		ability = ability,
 		groundY = info.groundY,
 		stamina = State.stamina(State.myTeam),
-		ironWall = action == "Block" and ((ability == "IronWall" and ActionController.abilityActive()) or ActionController.bulwark()) or nil,
+		ironWall = action == "Block" and ability == "IronWall" and ActionController.abilityActive() or nil,
 		ironclad = ActionController.bulwark() or nil,
 		awakened = ability == "Ironclad" and not ActionController.bulwark() or nil,
 		enemyPoints = State.enemyPoints(State.myTeam),
@@ -167,8 +167,8 @@ function ActionController.abilityActive()
 	return now <= math.max(serverUntil, localAbilityUntil)
 end
 
--- Ironclad: he still has shields (Bulwark: an Iron Wall at the net, no jump needed; the owner put it
--- back: "revert his blocks to before when you didnt have to jump").
+-- Ironclad: he still has shields (Bulwark: he blocks at the net without pressing Block, with a
+-- block box a little bigger than anyone's, HitLogic.wallReach; no longer Iron Wall's whole wall).
 function ActionController.bulwark()
 	return State.myAbility() == "Ironclad" and HitLogic.ironLives(player:GetAttribute("IronLives")) > 0
 end
@@ -1567,11 +1567,12 @@ local function processBlock(info, now)
 		return
 	end
 	local path = BR.getPath()
+	local reach = HitLogic.wallReach(State.myAbility() == "IronWall" and ActionController.abilityActive(), ActionController.bulwark(), meta.hitType)
 	for i = 1, 6 do
 		local t = t0 + (now - t0) * i / 6
 		local p = BallPhysics.positionAt(path, t)
 		local v = BallPhysics.velocityAt(path, t)
-		if v.Z * State.mySide > 0 and HitLogic.blockBox(info.root, p, State.mySide, State.myStats(), iron) then
+		if v.Z * State.mySide > 0 and HitLogic.blockBox(info.root, p, State.mySide, State.myStats(), reach) then
 			block.active = false
 			execute("Block", info, {}, t, p)
 			return

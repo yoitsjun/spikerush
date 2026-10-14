@@ -245,6 +245,7 @@ function TeamService.applyToModel(e)
 			inst:SetAttribute("IronLives", e.ability == "Ironclad" and HitLogic.ironLives(e.ironLives) or nil)
 			inst:SetAttribute("Static", e.ability == "Thunder" and (e.static or 0) or nil)
 			inst:SetAttribute("Intimidation", e.ability == "Ironclad" and (e.intimidation or 0) or nil)
+			inst:SetAttribute("IronCracks", e.ability == "Ironclad" and (e.ironCracks or 0) or nil)
 			inst:SetAttribute("AbilityUntil", e.abilityUntil or -1)
 			inst:SetAttribute("AbilityReadyAt", e.abilityReadyAt or 0)
 		end
@@ -360,15 +361,17 @@ function TeamService.resetStatic()
 	end
 end
 
--- Ironclad: his shields (0..Lives; none: awakened) and the Intimidation meter (0..100), for every
--- client's HUD and effects.
-function TeamService.setIron(e, lives, meter)
+-- Ironclad: his shields (0..Lives; none: awakened), the Intimidation meter (0..100) and the
+-- cracks in his current shield (Cracks; none when left out), for every client's HUD and effects.
+function TeamService.setIron(e, lives, meter, cracks)
 	e.ironLives = HitLogic.ironLives(lives)
 	e.intimidation = meter
+	e.ironCracks = cracks or 0
 	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
 		if inst then
 			inst:SetAttribute("IronLives", e.ironLives)
 			inst:SetAttribute("Intimidation", meter)
+			inst:SetAttribute("IronCracks", e.ironCracks)
 		end
 	end
 end
