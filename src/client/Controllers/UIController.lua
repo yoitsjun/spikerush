@@ -245,11 +245,15 @@ local function buildTopBar()
 	serveDot.ZIndex = 5
 	-- the attack readout under the scoreboard: "129.75 km/h   3.85 m"
 	local readout = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 108), Size = UDim2.fromOffset(440, 42), BackgroundTransparency = 1 }, gui)
-	local kmh = label(readout, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 36, RichText = true, Size = UDim2.new(0.6, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Right })
+	-- (its words in a frame of their own that shrinks on a narrow touch screen: fitTop; the
+	-- readout's own scale is the layout editor's)
+	local readoutIn = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, readout)
+	local readoutFit = make("UIScale", {}, readoutIn)
+	local kmh = label(readoutIn, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 36, RichText = true, Size = UDim2.new(0.6, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Right })
 	stroke(kmh, 2, UI.Ink)
-	local height = label(readout, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 32, RichText = true, TextColor3 = UI.Fog, Size = UDim2.new(0.38, 0, 1, 0), Position = UDim2.fromScale(0.62, 0) })
+	local height = label(readoutIn, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 32, RichText = true, TextColor3 = UI.Fog, Size = UDim2.new(0.38, 0, 1, 0), Position = UDim2.fromScale(0.62, 0) })
 	stroke(height, 2, UI.Ink)
-	ui.top = { bar = bar, mid = mid, Home = home, Away = away, sHome = sHome, sAway = sAway, setLine = setLine, serveDot = serveDot, readout = readout, kmh = kmh, height = height, shownAt = -10, target = target, diamond = vs, tag = tag }
+	ui.top = { bar = bar, mid = mid, Home = home, Away = away, sHome = sHome, sAway = sAway, setLine = setLine, serveDot = serveDot, readout = readout, readoutFit = readoutFit, kmh = kmh, height = height, shownAt = -10, target = target, diamond = vs, tag = tag }
 end
 
 local function refreshTopBar()
@@ -1098,6 +1102,29 @@ local function showBadge(b, ability, id, model, team, mine)
 	b.name.TextColor3 = hot and def.Color or UI.Chalk
 end
 
+-- On touch the scoreboard fits between the screen's left edge and the corner buttons (Forfeit,
+-- Timeout, Settings: CORNER_W from the right): a phone held sideways is narrower than it is wide
+-- (the owner's phone: the scoreboard ran under your ability badge and the corner buttons), so
+-- it shrinks and sits left of centre when it has to, with the attack readout under it. Returns
+-- the y under the scoreboard (its set line) and its centre's x on touch.
+local CORNER_W, TOP_W = 226 + 8, 820
+local function fitTop(touch)
+	local t = ui.top
+	if not t.scale then
+		t.scale = make("UIScale", {}, t.bar)
+	end
+	local s, cx = 1, nil
+	if touch then
+		local w = gui.AbsoluteSize.X
+		s = math.clamp((w - 12 - CORNER_W) / TOP_W, 0.5, 1)
+		cx = math.floor(math.min(w / 2, w - CORNER_W - TOP_W * s / 2))
+	end
+	t.scale.Scale = s
+	t.bar.Position = cx and UDim2.fromOffset(cx, 6) or UDim2.new(0.5, 0, 0, 6)
+	t.readout.Position = cx and UDim2.fromOffset(cx, 6 + math.floor(102 * s)) or UDim2.new(0.5, 0, 0, 108)
+	return 6 + math.floor(106 * s), cx
+end
+
 local function updateAbility()
 	local B = ui.badges
 	local playing = State.isPlaying and State.match.inMatch == true
@@ -1105,7 +1132,7 @@ local function updateAbility()
 	-- (a drill's coach card sits top right, and the other side is only there to feed you)
 	B.right.Visible = playing and type(State.match.practice) ~= "table"
 	-- where the sides go: halfway down each edge (The Spike's), or on touch, clear of the skill
-	-- column and the big buttons: yours top left (the skill buttons hold your AI teammates'),
+	-- column and the big buttons: yours under the scoreboard (the skill buttons hold your AI teammates'),
 	-- theirs top right under the corner buttons. Placed out of a match too, so the touch layout
 	-- editor finds them where they'll be; on touch each side's size is yours too (HudLayout).
 	local cam = workspace.CurrentCamera
@@ -1113,10 +1140,25 @@ local function updateAbility()
 	local k = math.clamp(h / 760, 0.6, 1.2)
 	B.leftScale.Scale, B.rightScale.Scale = k * HudLayout.size("Ability"), k * HudLayout.size("Foes")
 	local touch = State.isMobile == true
+	local underTop, topX = fitTop(touch)
 	if touch then
-		B.left.AnchorPoint, B.left.Position = Vector2.new(0, 0), UDim2.fromOffset(12, 6)
-		B.right.AnchorPoint, B.right.Position = Vector2.new(1, 0), UDim2.new(1, -8, 0, 120)
+		-- yours under the scoreboard's left end, right of the skill column (MobileControls: the
+		-- skills' centres 70 px in, 76 across with their labels 1.6 times that, all scaled with
+		-- the screen's height); in the corner it sat on the scoreboard and its line ran into the
+		-- skill under it. Theirs clear of the quick chat button (under Settings).
+		local ts = math.clamp((cam and cam.ViewportSize.Y or 720) / 720, 0.7, 1.1)
+		local x = math.floor((70 + 76 * 0.8) * ts) + 16
+		B.left.AnchorPoint, B.left.Position = Vector2.new(0, 0), UDim2.fromOffset(x, underTop + 8)
+		-- the attack readout (440 across) between your badge and the corner buttons, smaller
+		-- when it has to be
+		local ro = ui.top.readout
+		local left = x + math.floor(BADGE_BIG * B.leftScale.Scale) + 8
+		local r = math.clamp((gui.AbsoluteSize.X - CORNER_W - left) / 440, 0.55, 1)
+		ui.top.readoutFit.Scale = r
+		ro.Position = UDim2.fromOffset(math.floor(math.max(left + 220 * r, math.min(topX, gui.AbsoluteSize.X - CORNER_W - 220 * r))), ro.Position.Y.Offset)
+		B.right.AnchorPoint, B.right.Position = Vector2.new(1, 0), UDim2.new(1, -84, 0, 128)
 	else
+		ui.top.readoutFit.Scale = 1
 		B.left.AnchorPoint, B.left.Position = Vector2.new(0, 0.5), UDim2.new(0, 18, 0.44, 0)
 		B.right.AnchorPoint, B.right.Position = Vector2.new(1, 0.5), UDim2.new(1, -10, 0.5, 0)
 	end

@@ -12,6 +12,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -304,6 +305,14 @@ local function build()
 	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, button)
 	button:SetAttribute("NoNav", true)
 	button.MouseButton1Click:Connect(QuickChat.toggle)
+	-- never higher than just under the corner buttons (Settings ends 82 px under the top bar): on
+	-- a phone held sideways 36% down the screen was on top of Settings
+	local function place()
+		local y = math.max(gui.AbsoluteSize.Y * 0.36, GuiService:GetGuiInset().Y + 82 + 8 + 28)
+		button.Position = UDim2.new(1, -16, 0, math.floor(y))
+	end
+	place()
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 	HudLayout.register("Chat", button) -- moved and sized in the touch layout editor
 
 	-- the wheel: 8 slices round a hub with Edit in it
