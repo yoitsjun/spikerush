@@ -1849,7 +1849,6 @@ Config.Halloween = {
 		{ Key = "Lucky1", Name = "1 lucky spin", Price = 120, Limit = 5, Grant = { Lucky = 1 } },
 		{ Key = "Gold", Name = "2,500 Gold", Price = 40, Limit = 20, Grant = { Gold = 2500 } },
 		{ Key = "VP", Name = "150 VP", Price = 75, Limit = 10, Grant = { VP = 150 } },
-		{ Key = "Pull", Name = "Halloween recruit", Price = 25, Pull = true },
 		{ Key = "CandyCorn", Name = "Candy Corn trail", Price = 160, Item = { Kind = "Trail", Key = "CandyCorn" } },
 		{ Key = "GraveMist", Name = "Grave Mist jump", Price = 160, Item = { Kind = "Jump", Key = "GraveMist" } },
 		{ Key = "PumpkinColor", Name = "Pumpkin spike colour", Price = 120, Item = { Kind = "Color", Key = "Pumpkin" } },

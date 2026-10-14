@@ -35,6 +35,7 @@ TeamService.benched = {} -- userId -> id of the AI standing in for them
 TeamService.idle = {} -- userId -> seconds without input while the ball was live
 TeamService.rallyUntil = { Home = -1, Away = -1 } -- Rally Cry: the team's boost lasts until then
 TeamService.chain = { Home = 0, Away = 0 } -- Chain Reaction: the team's explosions this rally
+TeamService.event = nil -- the Halloween Match's run while one plays (MatchService): { hands, ai, ... }
 
 local botCounter = 0
 local usedNames = {}
@@ -68,6 +69,25 @@ local function newEntity(id, name, isBot, plr, team, tier, ability, build)
 	}
 end
 
+-- The Halloween Match's cards (TeamService.event, set by MatchService for an event run): the Hex
+-- string of every card that hits this character (Halloween.hexFor: its own, its side's team cards,
+-- the other side's curses), and a player's ability card in place of their character's ability
+-- (a stand-in plays it too).
+function TeamService.dealHex(e)
+	local ev = TeamService.event
+	if not ev then
+		e.hex = nil
+		return
+	end
+	local u = (e.player and e.player.UserId) or e.standInFor
+	e.hex = Halloween.hexFor(Halloween.holders(ev.hands, ev.ai), e.team, u)
+	local ab = u and Halloween.abilityOf(ev.hands[u])
+	if ab and Characters.isAbility(ab) then
+		e.ability = ab
+		e.hexAbility = true
+	end
+end
+
 -- A player's entity is their selected roster character.
 local function playerEntity(plr, team)
 	local c, tier, build, brk = reg.ProfileService.characterBuild(plr)
@@ -75,6 +95,7 @@ local function playerEntity(plr, team)
 	e.breakLevel = brk or 0 -- breakthroughs: its ability grows (Breakthrough.ab)
 	e.charId, e.charName, e.prefRole = c.Id, c.Name, c.Role
 	usedChars[c.Id] = true
+	TeamService.dealHex(e)
 	return e
 end
 
@@ -231,6 +252,20 @@ function TeamService.applyToModel(e)
 		Characters.writeAttributes(e.player, e.tier, e.build)
 	end
 	reg.CharacterService.applyStats(model, e.liveStats or e.charStats)
+	-- the Halloween Match's cards that hit it (both sides read them: HitLogic's ctx.hex), and a
+	-- player's ability card (the client predicts its own touches from the player's Ability)
+	model:SetAttribute("Hex", e.hex ~= nil and e.hex ~= "" and e.hex or nil)
+	if e.player then
+		e.player:SetAttribute("Hex", e.hex ~= nil and e.hex ~= "" and e.hex or nil)
+		if e.hexAbility then
+			e.player:SetAttribute("Ability", e.ability or "")
+			e.player:SetAttribute("HexAbility", true)
+		end
+	end
+	-- a skin its player has on for this character (the Reaper: the server's word, so nobody
+	-- draws one they don't have)
+	local skinOwner = e.player or (e.standInFor and Players:GetPlayerByUserId(e.standInFor)) or nil
+	model:SetAttribute("Skin", skinOwner and e.charId and reg.ProfileService.skinFor(skinOwner, e.charId) or nil)
 	-- ability state for the HUDs and effects (a new entity starts with it ready)
 	for _, inst in ipairs({ model, e.player or false }) do
 		if inst then
@@ -473,19 +508,22 @@ function TeamService.staminaOf(team)
 end
 
 -- A team's pool is the average of its players' pools (Defense raises it), times a tournament's
--- stamina modifiers (Cups: every team's, and the bot team's, which is Away in a cup).
+-- stamina modifiers (Cups: every team's, and the bot team's, which is Away in a cup) and the
+-- Halloween Match's pool cards (the average over the team of what hits each).
 local function poolFor(team)
-	local sum, n = 0, 0
+	local sum, n, cards = 0, 0, 0
 	for _, e in ipairs(TeamService.members(team)) do
 		sum = sum + e.charStats.StaminaPool
 		n = n + 1
+		local fx = Halloween.effects(e.hex)
+		cards = cards + (fx and fx.pool or 1)
 	end
 	if n == 0 then
 		return 100
 	end
 	local mods = ReplicatedStorage:GetAttribute("CupMods")
 	local f = Cups.factor(mods, "Stamina") * (team == "Away" and Cups.factor(mods, "OppStamina") or 1)
-	return sum / n * f
+	return sum / n * f * cards / n
 end
 
 function TeamService.fillStamina(team)
@@ -601,6 +639,7 @@ local function addBot(team, index, role, captain, pickId)
 		e.name = friend.name
 	end
 	e.role = role
+	TeamService.dealHex(e) -- (the Halloween Match: its side's team cards, the other side's curses)
 	-- it plays at the lobby's bot level even as a lower-tier character (an S+ lobby with S
 	-- middles and setters)
 	local lvl = Characters.tierIndex(TeamService.botTier)
@@ -637,6 +676,17 @@ function TeamService.clear()
 	for _, e in pairs(TeamService.entities) do
 		if e.isBot then
 			reg.BotService.despawn(e)
+		end
+	end
+	-- the Halloween Match's cards end with it: players get their own character's ability back
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr:GetAttribute("Hex") ~= nil or plr:GetAttribute("HexAbility") then
+			local restore = plr:GetAttribute("HexAbility") == true
+			plr:SetAttribute("Hex", nil)
+			plr:SetAttribute("HexAbility", nil)
+			if restore then
+				reg.ProfileService.applyActive(plr)
+			end
 		end
 	end
 	TeamService.entities = {}
@@ -827,6 +877,7 @@ function TeamService.swapCharacter(plr)
 	e.coronaStacks = 0 -- a substitution clears Corona's penalty
 	usedChars[c.Id] = true
 	reg.ProfileService.applyActive(plr) -- the player's own attributes (the client predicts from them)
+	TeamService.dealHex(e) -- (the Halloween Match: an ability card stays the ability)
 	TeamService.applyToModel(e)
 	TeamService.fillStamina(e.team) -- re-applies the boosts (Rising Sun, Rally Cry) to the new build
 	reg.MatchService.broadcast()
@@ -869,6 +920,7 @@ local function standIn(e, index)
 	bot.firstStrikeUsed = e.firstStrikeUsed
 	bot.abilityUntil, bot.abilityReadyAt = e.abilityUntil, e.abilityReadyAt
 	bot.standInFor = plr and plr.UserId
+	bot.hex, bot.hexAbility = e.hex, e.hexAbility -- (the Halloween Match's cards go with the character)
 	local hum = plr and plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
 	if hum then
 		pcall(function()

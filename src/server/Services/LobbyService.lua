@@ -33,6 +33,7 @@ local Config = require(Shared.Config)
 local Lobbies = require(Shared.Lobbies)
 local Tutorial = require(Shared.Tutorial)
 local Cups = require(Shared.Cups)
+local Halloween = require(Shared.Halloween)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 
@@ -263,7 +264,7 @@ end
 -- Whether a lobby goes in the shared list: not hidden (practice), open, or holding players from
 -- elsewhere (they read it), or started with their reserved server's code.
 local function shared(l)
-	return net.on and not l.hidden and not l.cup and lobbies[l.id] == l and (l.state == "Open" or hasRemote(l) or l.launch ~= nil or watchable(l))
+	return net.on and not l.hidden and not l.cup and not l.event and lobbies[l.id] == l and (l.state == "Open" or hasRemote(l) or l.launch ~= nil or watchable(l))
 end
 
 local function writeEntry(l, expire)
@@ -605,6 +606,12 @@ function LobbyService.leave(plr)
 		return
 	end
 	cupRefund(l, plr.UserId)
+	if l.event then
+		l.event.hands[plr.UserId] = nil
+		if l.event.draft then
+			l.event.draft[plr.UserId] = nil
+		end
+	end
 	local empty = Lobbies.remove(l, plr.UserId)
 	if l.state ~= "Playing" and (empty or (hasRemote(l) and #members(l) == 0)) then
 		l.closeWhy = "host" -- the players from other servers are told
@@ -667,11 +674,21 @@ function LobbyService.join(plr, id, password)
 		notify(plr, NOTICES[why] or "Can't join that lobby.")
 		return false
 	end
-	if l.cup and #l.Home >= l.mode then
+	if (l.cup or l.event) and #l.Home >= l.mode then
 		notify(plr, NOTICES.full)
 		return false
 	end
 	LobbyService.leave(plr)
+	if l.event then
+		-- a friend's Halloween Match: on the players' side, free
+		if not lobbies[id] or l.state ~= "Open" or not Lobbies.seat(l, plr.UserId, "Home") then
+			notify(plr, NOTICES.full)
+			return false
+		end
+		memberOf[plr.UserId] = id
+		markDirty()
+		return true
+	end
 	if l.cup then
 		-- a friend's run: they pay the entry too, and sit on the players' side
 		local c = Cups.cup(l.cup.key)
@@ -780,6 +797,215 @@ function LobbyService.enterCup(plr, key)
 	end
 	notify(plr, string.format("%s: %s. Friends in this server can join from Lobbies; press Start when you're ready.", c.Name, table.concat(names, ", ")))
 	markDirty()
+end
+
+------------------------------------------------------------------------------------------
+-- the Halloween Match (Config.Halloween, the Halloween module)
+------------------------------------------------------------------------------------------
+
+-- A run is l.event = { diff, stage, hands = { [userId] = cards }, ai = the AI team's cards,
+-- ready (this stage's picks are done), draft = { [userId] = { pick, offers, endsAt } } while the
+-- players pick, rng }. A friends-only lobby of your own against the AI (players Home); Start
+-- opens stage 1's picks, and once everyone has picked it plays like a tournament round.
+function LobbyService.enterEvent(plr, diffKey)
+	local HW = Config.Halloween
+	local diff = Halloween.difficulty(diffKey)
+	if not diff then
+		return
+	end
+	if not Halloween.active(os.time()) then
+		notify(plr, "The Halloween event has ended.")
+		return
+	end
+	if LobbyService.lobbyOf(plr) or net.remoteOf[plr.UserId] then
+		notify(plr, "You're already in a lobby: leave it first.")
+		return
+	end
+	local l = LobbyService.create(plr, { mode = HW.Mode, privacy = "Friends", fill = true, botTier = diff.Bots, points = HW.Points, sets = 1, timeouts = HW.Timeouts }, false)
+	if not l then
+		return
+	end
+	l.event = { diff = diff.Key, stage = 1, hands = {}, ai = {} }
+	notify(plr, string.format("Halloween Match (%s): friends in this server can join from Lobbies; press Start when you're ready.", diff.Name))
+	markDirty()
+end
+
+-- The next pick's offers for one player (the roulette stops on these), and its deadline.
+local function dealPick(l, u, now)
+	local HW = Config.Halloween
+	local ev = l.event
+	local d = ev.draft[u]
+	d.offers = Halloween.offers(ev.rng, ev.hands[u] or {}, HW.Offers)
+	d.endsAt = now + HW.PickTime + HW.SpinTime
+end
+
+-- A stage's picks: every player picks Picks cards, one of Offers each time; the AI team takes
+-- its cards at once (Halloween.aiPick).
+local function startDraft(l)
+	local HW = Config.Halloween
+	local ev = l.event
+	ev.ready = false
+	ev.rng = ev.rng or Random.new()
+	ev.draft = {}
+	local now = Util.now()
+	for _, plr in ipairs(members(l)) do
+		local u = plr.UserId
+		ev.hands[u] = ev.hands[u] or {}
+		ev.draft[u] = { pick = 1 }
+		dealPick(l, u, now)
+	end
+	local diff = Halloween.difficulty(ev.diff)
+	local took = {}
+	for _ = 1, diff and diff.AiCards or 0 do
+		local k = Halloween.aiPick(Halloween.offers(ev.rng, ev.ai, HW.Offers, true))
+		if k then
+			ev.ai = Halloween.addCard(ev.ai, k)
+			table.insert(took, Halloween.card(k).Name)
+		end
+	end
+	l.state = "Picking"
+	for _, plr in ipairs(members(l)) do
+		notify(plr, string.format("Halloween Match, stage %d of %d: pick your cards.%s", ev.stage, HW.Stages, #took > 0 and (" The AI took " .. table.concat(took, " and ") .. ".") or ""))
+	end
+	markDirty()
+end
+
+local function draftDone(l)
+	local draft = l.event.draft or {}
+	for _, plr in ipairs(members(l)) do
+		local d = draft[plr.UserId]
+		if d and d.pick <= Config.Halloween.Picks then
+			return false
+		end
+	end
+	return true
+end
+
+local function finishDraft(l)
+	l.event.ready = true
+	l.event.draft = nil
+	l.state = "Open"
+	markDirty()
+	LobbyService.launch(l)
+end
+
+local function takeCard(l, u, key)
+	local ev = l.event
+	local d = ev.draft and ev.draft[u]
+	if not d then
+		return
+	end
+	ev.hands[u] = Halloween.addCard(ev.hands[u] or {}, key)
+	d.pick = d.pick + 1
+	d.offers = nil
+	if d.pick <= Config.Halloween.Picks then
+		dealPick(l, u, Util.now())
+	end
+	markDirty()
+	if draftDone(l) then
+		finishDraft(l)
+	end
+end
+
+-- A player picks one of their offers (1..Offers).
+function LobbyService.pickCard(plr, index)
+	local l = LobbyService.lobbyOf(plr)
+	local ev = l and l.event
+	if not ev or l.state ~= "Picking" or not ev.draft then
+		return
+	end
+	local d = ev.draft[plr.UserId]
+	local i = tonumber(index)
+	local key = d and d.offers and i and d.offers[math.floor(i)]
+	if key then
+		takeCard(l, plr.UserId, key)
+	end
+end
+
+-- A pick left too long takes its first offer; a run nobody is left in closes.
+local function eventTick(now)
+	local list = {}
+	for _, id in ipairs(order) do
+		table.insert(list, lobbies[id])
+	end
+	for _, l in ipairs(list) do
+		local ev = l.event
+		if ev and l.state == "Picking" and ev.draft and lobbies[l.id] == l then
+			if #members(l) == 0 then
+				dissolve(l)
+			else
+				for _, plr in ipairs(members(l)) do
+					local d = ev.draft and ev.draft[plr.UserId]
+					if d and d.offers and d.pick <= Config.Halloween.Picks and now >= d.endsAt then
+						takeCard(l, plr.UserId, d.offers[1])
+					end
+				end
+				if lobbies[l.id] == l and l.state == "Picking" and draftDone(l) then
+					finishDraft(l)
+				end
+			end
+		end
+	end
+end
+
+-- What a run looks like to one of its players (Lobbies' mine.event).
+local function eventView(l, u)
+	local HW = Config.Halloween
+	local ev = l.event
+	local d = ev.draft and ev.draft[u]
+	local mates, waiting = {}, 0
+	for _, plr in ipairs(members(l)) do
+		if plr.UserId ~= u then
+			table.insert(mates, { name = plr.DisplayName, cards = ev.hands[plr.UserId] or {} })
+			local md = ev.draft and ev.draft[plr.UserId]
+			if md and md.pick <= HW.Picks then
+				waiting = waiting + 1
+			end
+		end
+	end
+	return {
+		diff = ev.diff,
+		stage = ev.stage,
+		stages = HW.Stages,
+		hand = ev.hands[u] or {},
+		ai = ev.ai,
+		mates = mates,
+		picking = l.state == "Picking" or nil,
+		draft = d and d.pick <= HW.Picks and { pick = d.pick, picks = HW.Picks, offers = d.offers, endsAt = d.endsAt } or nil,
+		waiting = waiting,
+	}
+end
+
+-- A Halloween Match stage is over: after a stage-1 win, stage 2's picks; otherwise the Candy
+-- (ProfileService.eventPayout) and the run is over.
+local function eventFinished(l)
+	local HW = Config.Halloween
+	local ev = l.event
+	local res = l.eventResult
+	l.eventResult = nil
+	local diff = Halloween.difficulty(ev.diff)
+	local list = members(l)
+	if res and res.won and ev.stage < HW.Stages then
+		ev.stage = ev.stage + 1
+		for _, plr in ipairs(list) do
+			notify(plr, string.format("Stage %d cleared! Pick %d more cards for stage %d.", ev.stage - 1, HW.Picks, ev.stage))
+		end
+		startDraft(l)
+		return
+	end
+	if res and diff then
+		for _, plr in ipairs(list) do
+			local candy, first = reg.ProfileService.eventPayout(plr, ev.diff, ev.stage, res.won)
+			if res.won then
+				notify(plr, string.format("Halloween Match cleared on %s! +%d Candy%s.", diff.Name, candy, first and " (today's first clear)" or ""))
+			elseif candy > 0 then
+				notify(plr, string.format("Out in stage %d: +%d Candy for getting there.", ev.stage, candy))
+			else
+				notify(plr, "Out in stage 1. Pick new cards and try again!")
+			end
+		end
+	end
+	dissolve(l)
 end
 
 -- A tournament match is over: on to the next round after a win (straight back on this court),
@@ -913,6 +1139,13 @@ function LobbyService.launch(l)
 	if not ok then
 		return false, why
 	end
+	if l.event then
+		l.hidden = true -- started: out of the list
+		if not l.event.ready then
+			startDraft(l) -- (finishDraft launches it again)
+			return true
+		end
+	end
 	if l.cup then
 		l.hidden = true -- started: out of the list
 		if l.cup.round == 1 then
@@ -1015,7 +1248,11 @@ function LobbyService.finished(l)
 		cupFinished(l)
 		return
 	end
-	if l.quick or l.tutorial or l.practice or l.cup or #members(l) == 0 then
+	if l.event and #members(l) > 0 then
+		eventFinished(l)
+		return
+	end
+	if l.quick or l.tutorial or l.practice or l.cup or l.event or #members(l) == 0 then
 		dissolve(l)
 		return
 	end
@@ -1424,6 +1661,7 @@ local function payloadFor(plr)
 		mine.tutorial = l.tutorial
 		mine.practice = l.practice
 		mine.cup = l.cup and { key = l.cup.key, name = l.cup.name, round = l.cup.round, mods = l.cup.mods } or nil
+		mine.event = l.event and eventView(l, plr.UserId) or nil
 		mine.arriveBy = l.arriveBy
 		mine.reserved = LobbyService.reserved
 		for i, id in ipairs(courtQueue) do
@@ -1491,6 +1729,12 @@ local function onRequest(plr, op, a, b)
 		if type(a) == "string" then
 			LobbyService.enterCup(plr, a)
 		end
+	elseif op == "halloween" then
+		if type(a) == "string" then
+			LobbyService.enterEvent(plr, a)
+		end
+	elseif op == "pick" then
+		LobbyService.pickCard(plr, a)
 	elseif op == "quick" then
 		local mode = tonumber(a)
 		if mode == 1 or mode == 2 or mode == 3 then
@@ -1511,7 +1755,7 @@ local function onRequest(plr, op, a, b)
 			return
 		end
 		local l = LobbyService.lobbyOf(plr)
-		if l and (l.state == "Open" or l.state == "Queued") then
+		if l and (l.state == "Open" or l.state == "Queued" or l.state == "Picking") then
 			LobbyService.leave(plr)
 			if l.state == "Queued" and Lobbies.count(l) == 0 then
 				dissolve(l)
@@ -1579,7 +1823,7 @@ local function onRequest(plr, op, a, b)
 			return
 		end
 		local l = LobbyService.lobbyOf(plr)
-		if l and l.state == "Open" and not l.cup and Lobbies.swap(l, plr.UserId) then
+		if l and l.state == "Open" and not l.cup and not l.event and Lobbies.swap(l, plr.UserId) then
 			markDirty()
 		end
 	elseif op == "move" then
@@ -1608,7 +1852,7 @@ local function onRequest(plr, op, a, b)
 		end
 	elseif op == "settings" then
 		local l = LobbyService.lobbyOf(plr)
-		if not l or l.host ~= plr.UserId or l.state ~= "Open" or l.cup then
+		if not l or l.host ~= plr.UserId or l.state ~= "Open" or l.cup or l.event then
 			return
 		end
 		local s, why = Lobbies.settings(a)
@@ -1738,6 +1982,7 @@ function LobbyService.init(r)
 				end
 			end
 			arrivalTick(now)
+			eventTick(now)
 			local ok, err = pcall(netTick)
 			if not ok then
 				warn("[SpikeRush] lobbies across servers: " .. tostring(err))

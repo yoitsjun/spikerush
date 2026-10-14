@@ -136,6 +136,7 @@ function MatchService.state()
 		forfeitVote = MatchService.forfeitTally(), -- per team: { votes, needed } while a vote is open
 		timeoutReady = MatchService.timeoutReady and { tallyReady() } or nil,
 		tutorial = l and l.tutorial or nil,
+		event = l and l.event and { diff = l.event.diff, stage = l.event.stage, stages = Config.Halloween.Stages } or nil, -- a Halloween Match
 		court = MatchService.court,
 		practice = MatchService.practice, -- the drill in play (PracticeService), or nil
 	}
@@ -535,8 +536,9 @@ local function results(winner, forfeitTeam)
 	local mvp, mvpScore = nil, -math.huge
 	local P = Config.Progression
 	local tutorial = MatchService.lobby and MatchService.lobby.tutorial
-	-- a tournament's matches pay only its prize (LobbyService, Cups.payout)
-	local cup = MatchService.lobby and MatchService.lobby.cup
+	-- a tournament's matches pay only its prize (LobbyService, Cups.payout), and a Halloween Match's
+	-- only its Candy (ProfileService.eventPayout)
+	local cup = MatchService.lobby and (MatchService.lobby.cup or MatchService.lobby.event)
 	-- a custom lobby's shorter sets pay less and don't count for your record (a 3-point match
 	-- against bots would farm them)
 	local points = MatchService.rules.points
@@ -682,8 +684,10 @@ function MatchService.playMatch()
 	-- a tournament's modifiers, for every server script and client (Cups)
 	ReplicatedStorage:SetAttribute("CupMods", lobby.cup and lobby.cup.mods or nil)
 	lobby.cupResult = nil
+	lobby.eventResult = nil
 	reg.ArenaBuilder.setCourt(MatchService.court)
 	TS.botTier = lobby.botTier
+	TS.event = lobby.event -- the Halloween Match's cards (TeamService.dealHex)
 	TS.assign(lobby.mode, reg.LobbyService.plan(lobby), Lobbies.botPicks(lobby))
 	TS.resetStats()
 	MatchService.pendingTimeout = nil
@@ -700,7 +704,7 @@ function MatchService.playMatch()
 	TS.resetPositions(MatchService.servingTeam)
 	BS.hide()
 	MatchService.setPhase("PreMatch", M.PreMatchTime)
-	MatchService.announce({ kind = "MatchStart", mode = TS.teamSize, court = MatchService.court, cup = lobby.cup and { name = lobby.cup.name, round = lobby.cup.round, mods = lobby.cup.mods } or nil })
+	MatchService.announce({ kind = "MatchStart", mode = TS.teamSize, court = MatchService.court, cup = lobby.cup and { name = lobby.cup.name, round = lobby.cup.round, mods = lobby.cup.mods } or nil, event = lobby.event and { diff = lobby.event.diff, stage = lobby.event.stage, stages = Config.Halloween.Stages } or nil })
 	waitUntil(MatchService.phaseEnd)
 
 	while true do
@@ -727,7 +731,7 @@ function MatchService.playMatch()
 				waitUntil(MatchService.phaseEnd)
 				more = true
 			end
-		elseif not MatchService.forfeitTeam and MatchService.setNumber < M.MaxSets and not lobby.cup then
+		elseif not MatchService.forfeitTeam and MatchService.setNumber < M.MaxSets and not lobby.cup and not lobby.event then
 			if MatchService.setNumber < M.Sets then
 				MatchService.setPhase("SetEnd", M.SetEndTime)
 				MatchService.announce({ kind = "SetEnd", winner = winner, sets = MatchService.sets, scores = MatchService.scores, setNumber = MatchService.setNumber })
@@ -746,6 +750,9 @@ function MatchService.playMatch()
 			local overall = forfeit and Court.other(forfeit) or Rewards.winner(MatchService.setWinners, MatchService.totals)
 			if lobby.cup then
 				lobby.cupResult = { won = overall == "Home" } -- the players are Home in a cup
+			end
+			if lobby.event then
+				lobby.eventResult = { won = overall == "Home" } -- and in a Halloween Match
 			end
 			local list, mvp = results(overall, forfeit)
 			MatchService.forfeitTeam = nil -- let the results screen run its course
@@ -773,6 +780,7 @@ end
 function MatchService.intermission()
 	local TS, BS = reg.TeamService, reg.BallService
 	TS.endMatch()
+	TS.event = nil
 	BS.hide()
 	MatchService.lobby = nil
 	MatchService.serverId = nil

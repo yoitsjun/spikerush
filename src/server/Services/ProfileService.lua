@@ -73,6 +73,7 @@ local Economy = require(Shared.Economy)
 local PatchNotes = require(Shared.PatchNotes)
 local Cards = require(Shared.Cards)
 local Leaderboards = require(Shared.Leaderboards)
+local Halloween = require(Shared.Halloween)
 local Net = require(Shared.Net)
 
 local ProfileService = {}
@@ -202,7 +203,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -279,6 +280,12 @@ local function sanitizeProfile(data)
 			end
 		end
 	end
+	-- the Halloween event: Candy, scout points, today's first clears, the Candy shop's buys; and the
+	-- skins (the Reaper's copies and the characters they're on)
+	out.halloween = Halloween.clean(data.halloween)
+	out.skins = Halloween.cleanSkins(data.skins, function(id)
+		return Roster.get(id) ~= nil
+	end)
 	-- breakthroughs: the fragments in hand, and each character's level (Config.Breakthrough)
 	out.fragments = Breakthrough.cleanFragments(data.fragments)
 	if type(data.breaks) == "table" then
@@ -836,14 +843,25 @@ function ProfileService.characterBuild(plr)
 	return c, tier, build, brk
 end
 
+-- The skin this player shows on a character (applied and switched on), or nil.
+function ProfileService.skinFor(plr, charId)
+	local profile = profiles[plr]
+	return profile and Halloween.skinOf(profile.skins, charId) or nil
+end
+
 -- Write the active character onto the Player (and its avatar) so clients can read it.
 function ProfileService.applyActive(plr)
 	local c, tier, build, brk = ProfileService.characterBuild(plr)
 	local ability = c.Ability or ""
+	if plr:GetAttribute("HexAbility") then
+		-- (a Halloween Match's ability card stays the ability until the match ends: TeamService)
+		ability = plr:GetAttribute("Ability") or ability
+	end
 	local char = plr.Character
 	for _, inst in ipairs({ plr, char or plr }) do
 		Characters.writeAttributes(inst, tier, build)
 		inst:SetAttribute("Ability", ability)
+		inst:SetAttribute("Skin", ProfileService.skinFor(plr, c.Id))
 		inst:SetAttribute("Break", brk > 0 and brk or nil)
 		inst:SetAttribute("CharId", c.Id)
 		inst:SetAttribute("CharName", c.Name)
@@ -970,6 +988,20 @@ function ProfileService.snapshot(plr)
 		end)(),
 		-- the Discord: their verification code ("" until they ask for one) and whether it's done
 		discord = { code = profile.discordCode or "", done = profile.discordDone == true },
+		-- the Halloween event (Config.Halloween): Candy, scout points, today's first clears (by
+		-- difficulty), the Candy shop's buys, and the skins (copies, and the characters they're on)
+		halloween = (function()
+			local ev = profile.halloween
+			local today = ev.day == Halloween.day(os.time())
+			return { candy = ev.candy, scout = ev.scout, cleared = today and table.clone(ev.cleared) or {}, bought = table.clone(ev.bought), endsIn = Halloween.secondsLeft(os.time()) }
+		end)(),
+		skins = (function()
+			local out = {}
+			for key, row in pairs(profile.skins) do
+				out[key] = { copies = row.copies, free = Halloween.freeCopies(profile.skins, key), on = table.clone(row.on) }
+			end
+			return out
+		end)(),
 	}
 end
 
@@ -1422,6 +1454,24 @@ function ProfileService.award(plr, vp, gold)
 	push(plr)
 end
 
+-- A Halloween Match run is over after `stage` (won: that stage was won): its Candy (the first
+-- clear of the difficulty today pays in full: Halloween.payout). Returns the Candy and whether it
+-- was today's first clear.
+function ProfileService.eventPayout(plr, diff, stage, won)
+	local profile = profiles[plr]
+	if not profile then
+		return 0, false
+	end
+	local ev = profile.halloween
+	local cleared = won and stage >= Config.Halloween.Stages
+	local first = Halloween.firstClear(ev, diff, Halloween.day(os.time()), cleared)
+	local candy = Halloween.payout(diff, stage, won, first)
+	ev.candy = ev.candy + candy
+	dirty[plr] = true
+	push(plr)
+	return candy, first and cleared
+end
+
 -- A developer (recruits and tournament entries are free for them).
 function ProfileService.isDev(plr)
 	local profile = profiles[plr]
@@ -1712,6 +1762,166 @@ local function autoRoll(plr, profile, banner)
 			push(plr, notice)
 		end
 	end)
+end
+
+------------------------------------------------------------------------------------------
+-- the Halloween event's banner, scout points, Candy shop and skins (Config.Halloween)
+------------------------------------------------------------------------------------------
+
+local function eventOn()
+	return Halloween.active(os.time())
+end
+
+-- One banner item to the profile: a skin is one more copy; a cosmetic is yours, or Candy when you
+-- have it already. Returns dup, candy.
+local function grantEventItem(profile, item)
+	if item.kind == "Skin" then
+		Halloween.addCopy(profile.skins, item.key)
+		return false, 0
+	end
+	if owns(profile, item.kind, item.key) then
+		local candy = Halloween.dupCandy(item.rarity)
+		profile.halloween.candy = profile.halloween.candy + candy
+		return true, candy
+	end
+	profile.owned[item.kind][item.key] = true
+	return false, 0
+end
+
+-- Halloween recruits: `count` (1 or 10) for VP or Candy; each one is a scout point too. The
+-- reveal goes out as `hwReveal` (its own sequence on the client).
+local function eventSpin(plr, profile, count, currency)
+	if not eventOn() then
+		push(plr, "The Halloween event has ended.")
+		return
+	end
+	count = tonumber(count)
+	local cost = Halloween.cost(currency, count)
+	if not cost then
+		return
+	end
+	if not profile.dev then
+		if currency == "VP" then
+			if profile.vp < cost then
+				push(plr, "Not enough VP. Get more in the shop or by playing.")
+				return
+			end
+			profile.vp = profile.vp - cost
+		else
+			if profile.halloween.candy < cost then
+				push(plr, "Not enough Candy: clear Halloween Matches for more.")
+				return
+			end
+			profile.halloween.candy = profile.halloween.candy - cost
+		end
+	end
+	local rng = Random.new()
+	local items, refund = {}, 0
+	for i = 1, count do
+		local item = Halloween.roll(rng)
+		local dup, candy = grantEventItem(profile, item)
+		refund = refund + candy
+		items[i] = { kind = item.kind, key = item.key, rarity = item.rarity, dup = dup or nil, candy = candy > 0 and candy or nil }
+	end
+	profile.halloween.scout = profile.halloween.scout + count * Config.Halloween.Banner.ScoutPerPull
+	dirty[plr] = true
+	local snap = ProfileService.snapshot(plr)
+	snap.notice = refund > 0 and string.format("+%d Candy from duplicates.", refund) or nil
+	snap.hwReveal = { count = count, items = items, candy = refund, currency = currency }
+	Net.get("Profile"):FireClient(plr, snap)
+end
+
+-- Spend scout points on one banner item outright.
+local function eventScout(plr, profile, kind, key)
+	if not eventOn() then
+		push(plr, "The Halloween event has ended.")
+		return
+	end
+	local item = Halloween.bannerItem(kind, key)
+	if not item then
+		return
+	end
+	if item.kind ~= "Skin" and owns(profile, item.kind, item.key) then
+		push(plr, "You have " .. item.name .. " already.")
+		return
+	end
+	if profile.halloween.scout < item.scout then
+		push(plr, string.format("%s takes %d scout points.", item.name, item.scout))
+		return
+	end
+	profile.halloween.scout = profile.halloween.scout - item.scout
+	grantEventItem(profile, item)
+	dirty[plr] = true
+	push(plr, item.name .. " is yours!")
+	if item.kind == "Skin" then
+		applyCosmetics(plr, profile)
+	end
+end
+
+-- One row of the Candy shop.
+local function eventShop(plr, profile, key)
+	if not eventOn() then
+		push(plr, "The Halloween event has ended.")
+		return
+	end
+	local row = nil
+	for _, r in ipairs(Config.Halloween.Shop) do
+		if r.Key == key then
+			row = r
+		end
+	end
+	if not row then
+		return
+	end
+	local ev = profile.halloween
+	if row.Limit and (ev.bought[row.Key] or 0) >= row.Limit then
+		push(plr, "Sold out: that's all of those for this event.")
+		return
+	end
+	if row.Item and owns(profile, row.Item.Kind, row.Item.Key) then
+		push(plr, "You have that already.")
+		return
+	end
+	if ev.candy < row.Price then
+		push(plr, string.format("That takes %d Candy.", row.Price))
+		return
+	end
+	ev.candy = ev.candy - row.Price
+	ev.bought[row.Key] = (ev.bought[row.Key] or 0) + 1
+	if row.Grant then
+		Economy.apply(profile, Economy.cleanGrant(row.Grant), os.time())
+	end
+	if row.Item then
+		profile.owned[row.Item.Kind][row.Item.Key] = true
+	end
+	dirty[plr] = true
+	push(plr, row.Name .. " bought.")
+end
+
+-- A skin onto one of your characters for good ("apply"), or switched "on" / "off" there.
+local function skinRequest(plr, profile, op, charId, key)
+	key = Halloween.isSkin(key) and key or Config.Halloween.SkinOrder[1]
+	local c = type(charId) == "string" and Roster.get(charId)
+	if not c or not owns(profile, "Char", c.Id) then
+		return
+	end
+	local ok, why
+	if op == "apply" then
+		ok, why = Halloween.applySkin(profile.skins, key, c.Id)
+	elseif op == "on" or op == "off" then
+		ok, why = Halloween.toggleSkin(profile.skins, key, c.Id, op == "on")
+	else
+		return
+	end
+	local name = Config.Halloween.Skins[key].Name
+	if not ok then
+		local text = { none = "No " .. name .. " copies left: pull more on the Halloween banner.", applied = name .. " is on " .. c.Name .. " already.", notApplied = "Apply a " .. name .. " copy to " .. c.Name .. " first." }
+		push(plr, text[why] or "Can't do that.")
+		return
+	end
+	dirty[plr] = true
+	ProfileService.applyActive(plr)
+	push(plr, op == "apply" and string.format("%s applied to %s, for good.", name, c.Name) or string.format("%s %s for %s.", name, op == "on" and "on" or "off", c.Name))
 end
 
 -- A pack's grant added to a profile (VP, Gold, lucky spins, a boost's time). Returns what it was
@@ -2124,6 +2334,14 @@ local function onRequest(plr, kind, a, b, c)
 			applyCosmetics(plr, profile)
 		end
 		push(plr)
+	elseif kind == "hwSpin" then
+		eventSpin(plr, profile, a, b == "Candy" and "Candy" or "VP")
+	elseif kind == "hwScout" then
+		eventScout(plr, profile, a, b)
+	elseif kind == "hwShop" then
+		eventShop(plr, profile, a)
+	elseif kind == "skin" then
+		skinRequest(plr, profile, a, b, c)
 	elseif kind == "luckyTrade" then
 		-- lucky spins for VP (Config.Lucky.VPCost each), in one of the Shop's amounts
 		local n = tonumber(a)

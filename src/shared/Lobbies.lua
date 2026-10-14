@@ -21,6 +21,7 @@
 local Config = require(script.Parent.Config)
 local Characters = require(script.Parent.Characters)
 local Cups = require(script.Parent.Cups)
+local Halloween = require(script.Parent.Halloween)
 local Roster = require(script.Parent.Roster)
 
 local Lobbies = {}
@@ -121,9 +122,10 @@ function Lobbies.cleanPicks(raw)
 	return out
 end
 
--- Whether this lobby takes picks: a custom lobby (not Quick Match, a tournament or practice).
+-- Whether this lobby takes picks: a custom lobby (not Quick Match, a tournament, a Halloween Match
+-- or practice).
 function Lobbies.canPick(l)
-	return not l.quick and not l.cup and not l.practice and not l.tutorial
+	return not l.quick and not l.cup and not l.event and not l.practice and not l.tutorial
 end
 
 -- The host sets one spot (id "" or nil for a random bot). Returns whether it changed anything.
@@ -282,7 +284,7 @@ end
 -- spot there (or its last one). Returns whether anything moved.
 function Lobbies.hostMove(l, userId)
 	local side, i = Lobbies.teamOf(l, userId)
-	if not side or l.state ~= "Open" or l.quick or l.cup then
+	if not side or l.state ~= "Open" or l.quick or l.cup or l.event then
 		return false
 	end
 	local other = side == "Home" and "Away" or "Home"
@@ -403,6 +405,7 @@ function Lobbies.summary(l, viewerId)
 		host = l.host,
 		hostName = l.hostName,
 		cup = l.cup and { key = l.cup.key, name = l.cup.name, round = l.cup.round } or nil,
+		event = l.event and { diff = l.event.diff, stage = l.event.stage } or nil,
 		mode = l.mode,
 		privacy = l.privacy,
 		locked = l.privacy == "Private",
@@ -422,9 +425,39 @@ function Lobbies.summary(l, viewerId)
 	}
 end
 
+-- A Halloween Match run as plain data (teleport data: string keys), or nil.
+function Lobbies.exportEvent(ev)
+	if not ev then
+		return nil
+	end
+	local hands = {}
+	for u, cards in pairs(ev.hands or {}) do
+		hands[tostring(u)] = Halloween.encode(cards)
+	end
+	return { diff = ev.diff, stage = ev.stage, hands = hands, ai = Halloween.encode(ev.ai) }
+end
+
+-- A run back from teleport data (it passes through the client: everything is checked), its picks
+-- for this stage done.
+function Lobbies.importEvent(data)
+	if type(data) ~= "table" or not Halloween.difficulty(data.diff) then
+		return nil
+	end
+	local ev = { diff = data.diff, stage = math.clamp(math.floor(tonumber(data.stage) or 1), 1, Config.Halloween.Stages), hands = {}, ai = Halloween.cleanHand(Halloween.parse(data.ai)), ready = true }
+	if type(data.hands) == "table" then
+		for u, s in pairs(data.hands) do
+			local id = tonumber(u)
+			if id then
+				ev.hands[id] = Halloween.cleanHand(Halloween.parse(s))
+			end
+		end
+	end
+	return ev
+end
+
 -- The lobby as plain data for a teleport to its own server.
 function Lobbies.export(l)
-	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, host = l.host, hostName = l.hostName, quick = l.quick == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, picks = l.picks, Home = {}, Away = {} }
+	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, host = l.host, hostName = l.hostName, quick = l.quick == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, event = Lobbies.exportEvent(l.event), picks = l.picks, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(out[side], u)
@@ -459,6 +492,11 @@ function Lobbies.import(data, id)
 	if type(data.cup) == "table" and Cups.cup(data.cup.key) then
 		local c = Cups.cup(data.cup.key)
 		l.cup = { key = c.Key, name = c.Name, round = math.clamp(math.floor(tonumber(data.cup.round) or 1), 1, Config.Tournament.Rounds), mods = Cups.encode(Cups.parse(data.cup.mods)) }
+		l.hidden = true
+	end
+	-- a Halloween Match run (its hands and stage) too
+	l.event = Lobbies.importEvent(data.event)
+	if l.event then
 		l.hidden = true
 	end
 	l.expected = {}

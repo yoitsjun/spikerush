@@ -3211,6 +3211,17 @@ do
 		and Halloween.cost("Candy", 10) == 250 and Halloween.cost("VP", 1) == 60 and Halloween.cost("VP", 3) == nil,
 		"the Halloween banner: odds add up, the Reaper is 0.6%, limited items stay off the usual banners", string.format("%d Reapers in %d pulls", reapers, pulls))
 
+	-- a run carried through a teleport (Lobbies.export/import): its stage, every hand and the AI's,
+	-- made safe on the way in; the players' hands are Home's, the AI's Away's
+	local run = { diff = "Hard", stage = 2, hands = { [101] = { "aThunder", "Coven" }, [202] = { "BatWings" } }, ai = { "BoneArmor" } }
+	local back = Lobbies.importEvent(Lobbies.exportEvent(run))
+	local junk = Lobbies.importEvent({ diff = "Hard", stage = 9, hands = { ["303"] = "aThunder,aAzure,nope,Coven,Coven" }, ai = "aFeral,BoneArmor" })
+	local hs = Halloween.holders(back.hands, back.ai)
+	check(back.diff == "Hard" and back.stage == 2 and back.ready and table.concat(back.hands[101], ",") == "aThunder,Coven" and table.concat(back.hands[202], ",") == "BatWings"
+		and table.concat(back.ai, ",") == "BoneArmor" and Lobbies.importEvent({ diff = "Spooky" }) == nil and junk.stage == Config.Halloween.Stages and table.concat(junk.hands[303], ",") == "aAzure,Coven"
+		and #hs == 3 and hs[1].userId == 101 and hs[1].team == "Home" and hs[3].team == "Away" and hs[3].userId == nil,
+		"a Halloween run survives a teleport (stage, every hand, the AI's), checked on the way in", table.concat(junk.hands[303], ","))
+
 	-- the Reaper: copies stack; one is applied to a character for good, switched off and on any time
 	local skins = Halloween.cleanSkins({ Reaper = { copies = 1, on = { yejun = true, ghost = 5 } } }, function(id) return Roster.get(id) ~= nil end)
 	local okA, whyA = Halloween.applySkin(skins, "Reaper", "dante")

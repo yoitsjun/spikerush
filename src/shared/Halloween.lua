@@ -300,6 +300,25 @@ function Halloween.hexFor(holders, team, userId)
 	return Halloween.encode(out)
 end
 
+-- Every hand in a run (Halloween.hexFor's holders): the players' (hands: userId -> cards) on
+-- `side` (the players' side, Home), the AI's on the other.
+function Halloween.holders(hands, ai, side)
+	side = side or "Home"
+	local out = {}
+	local ids = {}
+	for u in pairs(hands or {}) do
+		table.insert(ids, u)
+	end
+	table.sort(ids) -- (the same order everywhere: a Hex string doesn't depend on table order)
+	for _, u in ipairs(ids) do
+		table.insert(out, { team = side, userId = u, cards = hands[u] })
+	end
+	if ai and #ai > 0 then
+		table.insert(out, { team = side == "Home" and "Away" or "Home", cards = ai })
+	end
+	return out
+end
+
 -- What the cards in a Hex string add up to (cached by the string), or nil for none:
 -- { add, height, mul, perPoint, spikeMul, serveMul, spikeReach, block, stuff, drainTake,
 -- drainDeal, pool }. HitLogic reads it as ctx.hex.
