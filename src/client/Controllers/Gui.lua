@@ -1057,7 +1057,7 @@ function Gui.playerCard(parent, props)
 	local NR = 90
 	local WOOD = Color3.fromRGB(176, 118, 62)
 	local net = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W - 12, 22), Size = UDim2.fromOffset(NR * 2, NR * 2), BackgroundTransparency = 1, Visible = false, ZIndex = z + 6 }, root)
-	local handle = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(NR + 31, NR + 39), Size = UDim2.fromOffset(7, 66), Rotation = -15, BackgroundColor3 = WOOD, BorderSizePixel = 0, ZIndex = z + 6 }, net)
+	local handle = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(NR + 28, NR + 37), Size = UDim2.fromOffset(7, 66), Rotation = -15, BackgroundColor3 = WOOD, BorderSizePixel = 0, ZIndex = z + 6 }, net)
 	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, handle)
 	make("UIStroke", { Color = Color3.fromRGB(60, 34, 14), Thickness = 1.5 }, handle)
 	make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 20), BackgroundColor3 = Color3.fromRGB(70, 40, 20), BorderSizePixel = 0, ZIndex = z + 6 }, handle) -- the grip
