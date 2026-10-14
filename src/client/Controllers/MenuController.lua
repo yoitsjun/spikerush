@@ -6312,13 +6312,46 @@ function Extra.buildAdmin()
 		onClick(b, function()
 			Extra.adminCard = opt[1] or nil
 			cardDrop.Visible = false
+			Extra.adminOwners = nil
+			if Extra.adminCard then
+				Net.get("Admin"):FireServer("cardOwners", Extra.adminCard) -- who has it (shown below)
+			end
 			MenuController.refresh()
 		end)
 	end
 	Extra.adminCardDrop = cardDrop
+	-- who has the picked card (the owner: "a list of those who own it, so i can easily take it
+	-- away"): click a name to fill in the username, then Take card
+	local ownersList = make("ScrollingFrame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 198), Size = UDim2.fromOffset(250, 230), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 39 }, right)
+	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, ownersList)
+	make("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, ownersList)
+	function Extra.showOwners(owners)
+		for _, c in ipairs(ownersList:GetChildren()) do
+			if c:IsA("GuiObject") then
+				c:Destroy()
+			end
+		end
+		if not owners or owners.card ~= Extra.adminCard then
+			ownersList.Visible = false
+			return
+		end
+		local head = #owners.list == 0 and "Nobody has it" or ("Who has it (" .. #owners.list .. "): click to pick")
+		Gui.label(ownersList, { Text = head, TextSize = 14, TextColor3 = Gui.DIM, Size = UDim2.new(1, -16, 0, 26), Position = UDim2.fromOffset(8, 0), LayoutOrder = 0, ZIndex = 40 })
+		for i, o in ipairs(owners.list) do
+			local b = make("TextButton", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = Gui.LINE, BackgroundTransparency = 0.3, BorderSizePixel = 0, AutoButtonColor = false, Text = "", LayoutOrder = i, ZIndex = 40 }, ownersList)
+			Gui.label(b, { Text = o.name .. (o.pending and "  (not opened yet)" or ""), display = true, TextSize = 15, Position = UDim2.fromOffset(10, 0), Size = UDim2.new(1, -20, 1, 0), ZIndex = 41 })
+			b:SetAttribute("Sound", "UISelect")
+			onClick(b, function()
+				user.Text = o.name
+				ownersList.Visible = false
+			end)
+		end
+		ownersList.Visible = true
+	end
 	onClick(creatorBtn, function()
 		cardDrop.Visible = not cardDrop.Visible
 		tabDrop.Visible = false
+		ownersList.Visible = false
 	end)
 	local grid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 22 }, right)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(158, 36), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
@@ -6353,7 +6386,32 @@ function Extra.buildAdmin()
 	-- the cosmetics grid (one kind at a time), in the characters' place
 	local cosGrid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 22 }, right)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(158, 36), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, cosGrid)
-	local picked = Gui.label(right, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 512), Size = UDim2.new(1, -220, 0, 48), ZIndex = 22 })
+	local picked = Gui.label(right, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 512), Size = UDim2.new(1, -384, 0, 48), ZIndex = 22 })
+	-- take the card picked above back from the username (press twice within 4 s)
+	local takeBtn, takeL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -212, 0, 512), Size = UDim2.fromOffset(160, 48) }, "Take card", 18)
+	onClick(takeBtn, function()
+		if not Extra.adminCard then
+			takeL.Text = "Pick a card"
+			task.delay(2, function()
+				takeL.Text = "Take card"
+			end)
+			return
+		end
+		if Extra.adminTakeArmed and os.clock() - Extra.adminTakeArmed < 4 then
+			Extra.adminTakeArmed = nil
+			takeL.Text = "Take card"
+			Net.get("Admin"):FireServer("takeCard", user.Text, Extra.adminCard)
+		else
+			Extra.adminTakeArmed = os.clock()
+			takeL.Text = "Sure? Again"
+			task.delay(4, function()
+				if Extra.adminTakeArmed and os.clock() - Extra.adminTakeArmed >= 4 then
+					Extra.adminTakeArmed = nil
+					takeL.Text = "Take card"
+				end
+			end)
+		end
+	end)
 	local give = actionPlate(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 512), Size = UDim2.fromOffset(200, 48) }, "Give", 22)
 	onClick(give, function()
 		local chars = {}
@@ -7188,6 +7246,9 @@ function MenuController.init(m)
 	end)
 	-- the admin panel's answers
 	Net.get("Admin").OnClientEvent:Connect(function(data)
+		if type(data) == "table" and type(data.owners) == "table" and type(data.owners.list) == "table" and Extra.showOwners then
+			Extra.showOwners(data.owners)
+		end
 		if type(data) == "table" and type(data.msg) == "string" then
 			ui.admin.status.Text = data.msg
 			if not ui.admin.modal.root.Visible then

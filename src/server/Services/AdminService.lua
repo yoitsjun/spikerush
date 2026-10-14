@@ -132,8 +132,102 @@ local function isAdmin(plr)
 	return profile ~= nil and profile.dev == true
 end
 
-local function reply(plr, msg)
-	Net.get("Admin"):FireClient(plr, { msg = msg, events = Economy.running(events, os.time()) })
+local function reply(plr, msg, extra)
+	local data = { msg = msg, events = Economy.running(events, os.time()) }
+	for k, v in pairs(extra or {}) do
+		data[k] = v
+	end
+	Net.get("Admin"):FireClient(plr, data)
+end
+
+-- Who has each give-only card (Config.Admin.CardOwnersStore): written when the admin panel gives
+-- one and when Take card takes it back; key = the card, value = { [userId] = { n = name, t } }.
+local ownersStore, mailStoreA = nil, nil
+local function noteOwner(key, userId, name, has)
+	if not ownersStore then
+		return
+	end
+	pcall(function()
+		ownersStore:UpdateAsync(key, function(old)
+			local t = type(old) == "table" and old or {}
+			t[tostring(userId)] = has and { n = name, t = os.time() } or nil
+			return t
+		end)
+	end)
+end
+
+local function isGrantCard(key)
+	for _, c in ipairs(Config.Cards.List) do
+		if c.Key == key then
+			return c.Grant == true
+		end
+	end
+	return false
+end
+
+-- Everyone with `key`: the list, plus gifts of it still unopened in anyone's mail (sent before
+-- the list was kept, or not delivered yet), which join the list. { { id, name, pending } }
+local function cardOwners(key)
+	local found = {}
+	local ok, data = pcall(function()
+		return ownersStore and ownersStore:GetAsync(key)
+	end)
+	if ok and type(data) == "table" then
+		for id, v in pairs(data) do
+			local uid = tonumber(id)
+			if uid then
+				found[uid] = { id = uid, name = type(v) == "table" and v.n or tostring(uid) }
+			end
+		end
+	end
+	if mailStoreA then
+		pcall(function()
+			local pages = mailStoreA:ListKeysAsync("u_", 100)
+			local seen = 0
+			while seen < 200 do
+				for _, k in ipairs(pages:GetCurrentPage()) do
+					seen = seen + 1
+					local uid = tonumber(string.match(k.KeyName, "^u_(%d+)$"))
+					local okM, mail = pcall(function()
+						return mailStoreA:GetAsync(k.KeyName)
+					end)
+					local has = nil
+					for _, m in ipairs(okM and type(mail) == "table" and type(mail.list) == "table" and mail.list or {}) do
+						if type(m) == "table" and type(m.g) == "table" and type(m.g.Cards) == "table" and table.find(m.g.Cards, key) then
+							has = true
+						elseif type(m) == "table" and m.takeCard == key then
+							has = false
+						end
+					end
+					if uid and has then
+						found[uid] = found[uid] or { id = uid }
+						found[uid].pending = true
+					end
+				end
+				if pages.IsFinished then
+					break
+				end
+				pages:AdvanceToNextPageAsync()
+			end
+		end)
+	end
+	local list = {}
+	for uid, e in pairs(found) do
+		if not e.name then
+			local okN, n = pcall(function()
+				return Players:GetNameFromUserIdAsync(uid)
+			end)
+			e.name = okN and n or tostring(uid)
+			if e.pending then
+				noteOwner(key, uid, e.name, true) -- on the list from now on
+			end
+		end
+		table.insert(list, e)
+	end
+	table.sort(list, function(x, y)
+		return string.lower(x.name) < string.lower(y.name)
+	end)
+	return list
 end
 
 local function eventName(kind)
@@ -208,11 +302,46 @@ local function onAdmin(plr, op, a, b)
 			end
 			local sent, why = reg.ProfileService.giveUser(userId, g, nil, "A gift from the developers.")
 			if sent then
+				for _, key in ipairs(g.Cards or {}) do
+					if isGrantCard(key) then
+						noteOwner(key, userId, name, true)
+					end
+				end
 				local where = Players:GetPlayerByUserId(userId) and "now" or "when they're next in the game (at once if they're online)"
 				reply(plr, string.format("Gave %s %s: they get it %s.", name, Economy.describe(g), where))
 			else
 				reply(plr, why or "That didn't work.")
 			end
+		end)
+	elseif op == "takeCard" then
+		-- take a given card back (b: its key) from a username or user id
+		local name = type(a) == "string" and string.match(a, "^%s*([%w_]+)%s*$") or nil
+		if not name or type(b) ~= "string" then
+			reply(plr, "Enter a username (or a user id) and pick the card to take back.")
+			return
+		end
+		task.spawn(function()
+			local userId, why = reg.ProfileService.findUser(name)
+			if not userId then
+				reply(plr, why)
+				return
+			end
+			local done, when = reg.ProfileService.takeCardFrom(userId, b)
+			if done then
+				noteOwner(b, userId, name, false)
+				reply(plr, string.format("Took the %s card back from %s: %s.", b, name, when), { owners = { card = b, list = cardOwners(b) } })
+			else
+				reply(plr, when or "That didn't work.")
+			end
+		end)
+	elseif op == "cardOwners" then
+		-- who has a give-only card (a: its key)
+		if type(a) ~= "string" or not isGrantCard(a) then
+			return
+		end
+		task.spawn(function()
+			local list = cardOwners(a)
+			reply(plr, string.format("%d %s the %s card.", #list, #list == 1 and "player has" or "players have", a), { owners = { card = a, list = list } })
 		end)
 	elseif op == "wipe" then
 		-- reset someone's match stats (wins, matches, kills, aces, blocks, MVPs, streaks) and take
@@ -266,6 +395,14 @@ function AdminService.init(r)
 		return DataStoreService:GetDataStore(A.LiveStore)
 	end)
 	liveStore = ok and store or nil
+	local okO, os2 = pcall(function()
+		return DataStoreService:GetDataStore(A.CardOwnersStore)
+	end)
+	ownersStore = okO and os2 or nil
+	local okM, ms = pcall(function()
+		return DataStoreService:GetDataStore(A.MailStore)
+	end)
+	mailStoreA = okM and ms or nil
 	writeEvents()
 	Net.get("Admin").OnServerEvent:Connect(onAdmin)
 	Players.PlayerRemoving:Connect(function(plr)

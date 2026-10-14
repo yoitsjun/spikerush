@@ -880,6 +880,9 @@ Config.Admin = {
 	GiveMax = { VP = 1000000, Gold = 10000000, Lucky = 1000 },
 	LiveStore = "SpikeRushLive_v1", -- the running events (DataStore), for servers that start later
 	MailStore = "SpikeRushMail_v1", -- gifts waiting for their player (DataStore)
+	-- who was given each give-only card from the admin panel (DataStore, a key per card): the
+	-- owner: "i also want a list of those who own it, so i can easily take it away"
+	CardOwnersStore = "SpikeRushCardOwners_v1",
 	PollInterval = 60, -- seconds between a server's reads of the events and of its players' mail
 }
 

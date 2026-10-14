@@ -716,6 +716,19 @@ local function applyCard(plr, profile)
 	end
 end
 
+-- Takes a given card back (the owner: "i need to remove almighty card", "from people i accidently
+-- gave"); one they wear goes back to the default. Returns whether they had it.
+local function takeCard(plr, profile, key)
+	local had = profile.cards[key] == true
+	profile.cards[key] = nil
+	if profile.equip.Card == key then
+		profile.equip.Card = nil
+	end
+	dirty[plr] = true
+	applyCard(plr, profile)
+	return had
+end
+
 -- Player profiles (the owner: "add player profiles that display all that, but also your stats
 -- and your leaderboard standings as well. these stats are spikes blocks, etc"): what anyone may
 -- see of a player: the card they wear (and what it shows), their character, their record and
@@ -1126,6 +1139,44 @@ function ProfileService.wipeUser(userId)
 	return true
 end
 
+-- Takes a given card (Config.Cards, Grant) back from anyone by user id: now if they're in this
+-- server, else through their mail when they're next in the game (after any gift still waiting
+-- there, so a card sent by mistake and not opened yet goes too).
+function ProfileService.takeCardFrom(userId, key)
+	local card = Cards.get(key)
+	if not card or not card.Grant then
+		return false, "Only cards given from the admin panel can be taken back."
+	end
+	local plr = Players:GetPlayerByUserId(userId)
+	local profile = plr and profiles[plr]
+	if profile then
+		local had = takeCard(plr, profile, key)
+		save(plr, true)
+		push(plr)
+		return true, had and "now" or "now (they didn't have it)"
+	end
+	if not mailStore then
+		return false, "They aren't in this server, and reaching other servers needs DataStore access."
+	end
+	local ok, err = pcall(function()
+		mailStore:UpdateAsync(mailKey(userId), function(old)
+			local list = (type(old) == "table" and type(old.list) == "table") and old.list or {}
+			table.insert(list, { id = "take-" .. HttpService:GenerateGUID(false), takeCard = key, t = os.time() })
+			while #list > 100 do
+				table.remove(list, 1)
+			end
+			return { list = list }
+		end)
+	end)
+	if not ok then
+		return false, "It couldn't be sent: " .. tostring(err)
+	end
+	if reg.AdminService then
+		reg.AdminService.pingMail(userId)
+	end
+	return true, "when they're next in the game (at once if they're online)"
+end
+
 -- Gives a player in this server a clean grant (Economy.cleanGrant) with a notice. Returns the
 -- characters it added.
 function ProfileService.grant(plr, g, notice)
@@ -1197,6 +1248,8 @@ function ProfileService.checkMail(plr)
 				ids[m.id] = true
 				if m.wipe == true then
 					wipeStats(plr, profile, m.id)
+				elseif type(m.takeCard) == "string" then
+					takeCard(plr, profile, m.takeCard)
 				else
 					deliver(plr, profile, m.id, Economy.cleanGrant(m.g), type(m.from) == "string" and m.from or nil, type(m.note) == "string" and m.note or nil)
 				end
