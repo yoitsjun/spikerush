@@ -1,13 +1,13 @@
 -- HUD pieces you can move and size on touch (the owner: "allow full menu tweaking... not just
 -- play buttons"): the scoreboard, the attack readout, Forfeit, Timeout, Settings, the quick chat
--- button, the ability badges and the practice coach (Config.Settings.Hud). The touch layout
+-- button and the ability badges (Config.Settings.Hud). The touch layout
 -- editor (MobileControls) drags and sizes them with the buttons; they're saved with your settings
 -- (State.settings.hudLayout: key -> { x, y, size }, x and y a shift as a fraction of the screen).
 --
 -- Each piece is wrapped in a see-through full-screen frame that the shift moves, so the code that
 -- places the piece (the badges move every frame) keeps working inside it; the size is a UIScale
--- on the piece (around its anchor point). A piece that already has its own UIScale (the badges,
--- the coach) multiplies its scale by size(key) instead. Only on touch: a keyboard or controller
+-- on the piece (around its anchor point). A piece that already has its own UIScale (the badges)
+-- multiplies its scale by size(key) instead. Only on touch: a keyboard or controller
 -- player sees the usual layout.
 
 local State = require(script.Parent.State)

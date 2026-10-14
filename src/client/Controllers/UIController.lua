@@ -1457,7 +1457,7 @@ local function updateCoach()
 	end
 	local cam = workspace.CurrentCamera
 	if cam then
-		ui.coachScale.Scale = math.clamp(cam.ViewportSize.Y / 760, 0.62, 1.1) * HudLayout.size("Coach")
+		ui.coachScale.Scale = math.clamp(cam.ViewportSize.Y / 760, 0.62, 1.1)
 	end
 	local d = Tutorial.drill(pr.drill)
 	if pr.finished or not d then
@@ -2375,8 +2375,8 @@ function UIController.init(m)
 	buildContinue()
 	buildSpectate()
 	buildNotice()
-	-- the pieces the touch layout editor moves and sizes (HudLayout); the badges and the coach set
-	-- their own scale
+	-- the pieces the touch layout editor moves and sizes (HudLayout); the badges set their own scale
+	-- (the practice card stays put: the owner, "dont really need to move that one")
 	HudLayout.register("Score", ui.top.bar)
 	HudLayout.register("Readout", ui.top.readout)
 	HudLayout.register("Forfeit", ui.forfeit)
@@ -2384,7 +2384,6 @@ function UIController.init(m)
 	HudLayout.register("Settings", ui.gear)
 	HudLayout.register("Ability", ui.badges.left, true)
 	HudLayout.register("Foes", ui.badges.right, true)
-	HudLayout.register("Coach", ui.coach.frame, true)
 	Net.get("Notice").OnClientEvent:Connect(UIController.notice)
 
 	State.signals.Announce:Connect(function(a)
