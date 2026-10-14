@@ -619,7 +619,7 @@ local function buildEditor()
 	ed.shade.ZIndex = 1
 	ed.shade.Visible = false
 	ed.shade.Parent = root
-	local bar = Gui.card(root, { Name = "EditBar", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 14), Size = UDim2.fromOffset(736, 132), BackgroundTransparency = 0.08, ZIndex = 6, Visible = false })
+	local bar = Gui.card(root, { Name = "EditBar", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(736, 132), BackgroundTransparency = 0.08, ZIndex = 6, Visible = false })
 	ed.bar = bar
 	label(bar, { Text = "LAYOUT", display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, Position = UDim2.fromOffset(18, 8), Size = UDim2.fromOffset(260, 34) })
 	local tick = Gui.plate(bar, { Size = UDim2.fromOffset(56, 5), Position = UDim2.fromOffset(20, 44) }, Gui.SIGNAL)

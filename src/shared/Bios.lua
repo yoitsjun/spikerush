@@ -1,22 +1,30 @@
--- Character profiles: the story shown on a player's Profile tab (Players screen), in the style
--- of The Spike Cross's character pages (the owner wrote Haneul's, Dante's, YeJun's, Taesan's and
--- Seojin's on 2026-10-13; Laith's and Taeho's were written to match). Keyed by roster id; a
--- character without one shows a short line instead.
+-- Character descriptions: a short line or two on who they are and what their ability does, in the
+-- style of The Spike Cross's recruit cards (the owner: "talk about their main abilities, make it
+-- short and quick... yejun's insane vertical and his thunder"). Shown on Home's Featured recruit
+-- card and a player's Profile tab. Keyed by roster id; a character without one shows its ability's
+-- text (the card) or a short line (the tab).
 
 local Bios = {
-	haneul = "One of the World's Big Five Spikers. Having hidden her true talent just to play alongside Siwoo, she has finally revealed her full potential. Though she is usually gentle and kind, she is a girl of \"iron will in a velvet glove\" who shows unparalleled skill once the match begins. Despite being a minor, she debuted in the American-based global pro league LOV (League One Volleyball) and led her team to victory in her first season. After winning back-to-back MVP titles, she rose to become the final member of the World's Big Five Spikers. The world is now buzzing over the birth of this new superstar.",
-
-	dante = "One of the Big Five attackers. With overwhelming power, he crushes his opponents on the court. Not only is he incredibly strong, but his ball control is frighteningly precise, allowing him to fire cannon-like serves straight onto the sideline without hesitation. Once known for recording the highest transfer fee across all five major leagues, he shattered multiple personal award records and drew global attention from fans. He even declared he would claim the MVP title in all five leagues and transferred teams to compete with Viktor for the championship. However, after a major incident that caused a huge uproar and led to his suspension, he is now seeking redemption in the Phantom League.",
-
-	yejun = "One of the Big Five attackers. When he spikes, thunder echoes through the gym, earning him the nickname 'Thunder Nishikawa.' Considered to have the best jumping skills among the Big Five, he's the one every young volleyball player dreams of becoming. He's the perfect example of the 'handsome without glasses' trope, hiding his sharp, piercing eyes behind thick-rimmed glasses. As a child, his sharp gaze often led to misunderstandings, so he began wearing glasses to get along better with others. The outdated design of his frames was chosen by his mentor.",
-
-	laith = "One of the Big Five attackers, known the world over as the 'Sun Spiker.' When his power flares, he leaps higher than anyone on the court and dives onto the ball from above like a falling sun, and the whole gym lights up with every spike. Raised in a desert town where the afternoon heat stopped everything but his training, he practised his approach on sand under the midday sun until his legs could carry him to any height. Warm, generous and always smiling, he treats every match like a festival and every opponent like a guest. But he burns brightest when he burns himself out: he pushes past his limits again and again, and even his coaches worry about what each blaze costs him. His dream: to play a final under an open sky, at high noon.",
-
-	taeha = "One of the Big Five attackers, and the one the other four call a genius without a hint of irony. He touched a volleyball for the first time at fifteen and was starting for his national team two years later. His Zero Point, a spike met just in front of his head, is so fast that no speed gun has ever agreed on a number, and so straight that blockers swear it passed through their hands. He learns by watching: show him a skill once and he hands it back to you, better, in the very next rally. Easygoing to a fault, he skips practice, naps on the bench and loses track of the score, yet he has never lost a deciding set. Coaches call his talent a gift; his opponents call it unfair. The only thing he fears is boredom, so he is always searching for the one rival who can finally make him try.",
-
-	taesan = "A key middle blocker and the team's mood-maker, with an unmatched presence both on and off the court. His confidence is well-founded, and he has plenty of nerve. The deeper his team falls into trouble, the more fired up he gets, sending everyone's morale soaring. Straightforward and action-oriented, he dislikes beating around the bush and is clear about his likes and dislikes, but never holds a grudge. Despite his intimidating first impression, he is remarkably friendly and approaches even strangers without hesitation. He also has an unexpectedly caring side: he might quietly give a dejected junior a gentle tap on the head and casually say, \"Let's grab something to eat.\" His goal: to be the strongest in the world!",
-
-	seojin = "Student council president of Seonrim High and grand disciple of the traditional martial art 'Seonrim.' Raised from childhood by Seonrim's master as his top student, he wants to carry on the master's legacy and continue Seonrim's martial arts tradition, but his growing love for volleyball creates an inner conflict. His body, forged through years of martial arts training, allows him to deliver powerful spikes from any position. Even after a long break from volleyball, his spikes remain as heavy as stone.",
+	-- S+
+	yejun = "The Thunder Spiker. The highest vertical in the game: hit the ball above 4 m and it comes down as lightning. Call the storm and every spike he throws cracks like thunder.",
+	haneul = "The Wind Spiker. The fastest player alive: she rides the wind under any set, springs up before the block can blink, and hovers in the air until she's ready to strike.",
+	dante = "The hardest hitter in the game. He crouches, charges and leaps: the longer the charge, the further he flies, and a full one at the net smashes straight through the block.",
+	laith = "The Sun Spiker. When Corona flares he leaps higher than anyone and dives onto the ball from above like a falling sun. He burns brightest, even when it burns him out.",
+	seojin = "The Azure Dragon. He hangs in the air gathering energy as gravity lets go; a full bar unleashes a spike that pierces any block. Hold too long, though, and it flies out.",
+	taeha = "A once-in-a-generation talent. His Zero Point, met just in front of his head, is too fast for any speed gun and too straight to read: it goes through the block and drains whoever digs it.",
+	taesan = "A wall of steel. Three shields make him an Iron Wall at the net; break them all and he awakens into a monster attacker, hanging in the air to forge his heaviest spikes.",
+	-- S
+	daon = "The Rising Sun. The further his team falls behind, the stronger he grows: every three points against him he levels up, until nobody on the court can match him.",
+	ines = "The Counter Edge. Every dig charges her meter, and hard spikes barely scratch her. When it's full, her next spike releases everything she's absorbed.",
+	seora = "Skyward. Her jump starts low and keeps climbing: every spike lifts her hitting point and her power higher, and her Talon Drop feint drives straight down over the net.",
+	shoyo = "Pure adrenaline. When his team is running on empty he jumps higher and hits harder than ever: the tighter the rally, the more dangerous he gets.",
+	yeonho = "The Plunge Spin. His spikes shoot over the net flat and fast, then spin down hard with a boom, diving in where nobody's standing.",
+	joon = "The team's heartbeat. His Rally Cry fires everyone up: for ten seconds the whole team jumps higher, hits harder and moves faster.",
+	tetsuo = "The Iron Wall. Call it and nothing gets past him: every attack in front of him at the net is shut straight down, however high or hard.",
+	arin = "Featherfall. Her sets go up high and float down slowly, and the longer the ball has been falling, the harder her hitter's spike lands.",
+	haeri = "The Turnabout. The block sees a set coming, and she spins it into a spike over the net instead.",
+	ilya = "The Vector Set. His sets pulse tight to the net and high, and the steeper his hitter brings it down, the harder it hits.",
+	seoyeon = "The Chain Reaction. Her sets are charged: the spike off one explodes, and every explosion in a rally makes the next one bigger.",
 }
 
 return Bios
