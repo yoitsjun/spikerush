@@ -5763,6 +5763,7 @@ function Extra.buildPatch()
 		})
 		return l
 	end
+	local foot, footText = nil, nil
 	for i, patch in ipairs(Extra.PatchNotes.List) do
 		if i > 1 then
 			order = order + 1
@@ -5797,18 +5798,21 @@ function Extra.buildPatch()
 				l.TextYAlignment = Enum.TextYAlignment.Top
 			end
 		end
+		if i == 1 then
+			-- the end of the newest patch: the reading reward (the owner: "only to the bottom of the
+			-- newest update. not the very bottom")
+			order = order + 1
+			foot = Gui.plate(scroll, { Size = UDim2.new(1, 0, 0, 56), LayoutOrder = order }, Gui.SIGNAL)
+			footText = Gui.label(foot, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+		end
 	end
-	-- the very bottom: the reading reward
-	order = order + 1
-	local foot = Gui.plate(scroll, { Size = UDim2.new(1, 0, 0, 56), LayoutOrder = order }, Gui.SIGNAL)
-	local footText = Gui.label(foot, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
 	local notes = { modal = m, scroll = scroll, foot = foot, footText = footText, claimed = false, asked = false }
 	scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-		if notes.claimed or notes.asked or not m.root.Visible then
+		if notes.claimed or notes.asked or not m.root.Visible or not foot then
 			return
 		end
-		local bottom = scroll.AbsoluteCanvasSize.Y - scroll.AbsoluteWindowSize.Y
-		if bottom > 0 and scroll.CanvasPosition.Y >= bottom - 6 then
+		-- the reward plate has come all the way into view
+		if foot.AbsolutePosition.Y + foot.AbsoluteSize.Y <= scroll.AbsolutePosition.Y + scroll.AbsoluteWindowSize.Y + 2 then
 			local latest = Extra.PatchNotes.latest()
 			if latest then
 				notes.asked = true
@@ -5845,7 +5849,7 @@ function Extra.refreshPatch(prof)
 		notes.asked = false -- (a claim that didn't land can be tried again)
 	end
 	notes.footText.Text = notes.claimed and "Thanks for reading! Your reward is claimed."
-		or ("You made it to the bottom: " .. Economy.describe(Economy.cleanGrant(Extra.PatchNotes.reward())) .. "!")
+		or ("You read it all: " .. Economy.describe(Economy.cleanGrant(Extra.PatchNotes.reward())) .. "!")
 	if ui.home and ui.home.newsDot then
 		ui.home.newsDot.Visible = unseen or not notes.claimed
 	end

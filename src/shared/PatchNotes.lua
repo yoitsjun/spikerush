@@ -1,7 +1,8 @@
 -- PatchNotes: what changed in each update, newest first, for the What's New panel (Home's News
 -- button). The newest patch opens by itself once for each player the first time they see the menus
--- after it ships, and reading it to the very bottom pays Reward once (the owner: "maybe a small
--- reward for reading if you scroll to the very bottom").
+-- after it ships, and reading to the end of it (the newest patch, not the older ones under it) pays
+-- Reward once (the owner: "maybe a small reward for reading if you scroll to the very bottom", then
+-- "only to the bottom of the newest update").
 --
 -- To ship a patch: add an entry at the top of List with a new Id (a date is fine), a Title, a Date
 -- and Sections of Items. Item.Icon is an Assets key (an ability icon) shown beside the line. A
