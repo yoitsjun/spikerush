@@ -1051,39 +1051,14 @@ function Gui.playerCard(parent, props)
 	-- the point's word ("KILL!"), on a tag over the top right
 	local tag = Gui.plate(root, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, -16), Size = UDim2.fromOffset(150, 34), ZIndex = z + 6 }, Gui.SIGNAL)
 	local word = Gui.label(tag, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = z + 7 })
-	-- (Net, the Bug Catcher card) a bug net hung by its hoop from a peg near the right edge, its
-	-- handle hanging out past the side; the hoop seen edge-on, a mesh sack with a ladybug in it.
-	-- `net` is a square centred on the peg, so turning it swings everything about the peg.
-	local NR = 90
-	local WOOD = Color3.fromRGB(176, 118, 62)
-	local net = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W - 12, 22), Size = UDim2.fromOffset(NR * 2, NR * 2), BackgroundTransparency = 1, Visible = false, ZIndex = z + 6 }, root)
-	local handle = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(NR + 28, NR + 37), Size = UDim2.fromOffset(7, 66), Rotation = -15, BackgroundColor3 = WOOD, BorderSizePixel = 0, ZIndex = z + 6 }, net)
-	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, handle)
-	make("UIStroke", { Color = Color3.fromRGB(60, 34, 14), Thickness = 1.5 }, handle)
-	make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 20), BackgroundColor3 = Color3.fromRGB(70, 40, 20), BorderSizePixel = 0, ZIndex = z + 6 }, handle) -- the grip
-	local sack = make("CanvasGroup", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(NR, NR + 2), Size = UDim2.fromOffset(38, 60), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = z + 6 }, net)
-	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, sack)
-	make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0) }) }, sack)
-	for i = 1, 7 do
-		for _, rot in ipairs({ 40, -40 }) do
-			make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale((i - 1) / 6 * 1.4 - 0.2, 0.5), Size = UDim2.new(0, 1, 1.6, 0), Rotation = rot, BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = z + 6 }, sack)
-		end
-	end
-	local bug = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 3, 1, -15), Size = UDim2.fromOffset(13, 11), Rotation = 20, BackgroundColor3 = Color3.fromRGB(225, 30, 30), BorderSizePixel = 0, ZIndex = z + 6 }, sack)
-	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, bug)
-	make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(0, 1, 1, 0), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = z + 6 }, bug)
-	for _, spot in ipairs({ { 0.27, 0.4 }, { 0.73, 0.4 }, { 0.3, 0.75 }, { 0.7, 0.75 } }) do
-		local dot = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(spot[1], spot[2]), Size = UDim2.fromOffset(3, 3), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = z + 6 }, bug)
-		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, dot)
-	end
-	local head = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, 1), Size = UDim2.fromOffset(7, 5), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = z + 6 }, bug)
-	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, head)
-	local hoop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(NR, NR + 7), Size = UDim2.fromOffset(46, 14), BackgroundTransparency = 1, ZIndex = z + 7 }, net)
-	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, hoop)
-	make("UIStroke", { Color = Color3.fromRGB(235, 235, 240), Thickness = 3.5 }, hoop)
-	local peg = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(NR, NR), Size = UDim2.fromOffset(9, 9), BackgroundColor3 = Color3.fromRGB(40, 40, 46), BorderSizePixel = 0, ZIndex = z + 7 }, net)
-	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, peg)
-	make("UIStroke", { Color = Color3.fromRGB(200, 200, 210), Thickness = 1.5 }, peg)
+	-- (Net, the Bug Catcher card; the owner sent a bug net to go by, mirrored so the net's on the
+	-- right) the net hooked over the card's top right by its cuff: the sack hangs out past the side,
+	-- the handle curls down over the card's corner. `net` is a square centred on the cuff, so turning
+	-- it swings the net about it. In a list (NoWings) it's smaller, clear of the text beside it.
+	local NR = 160
+	local netH = noWings and math.floor(H * 1.05) or math.floor(H * 1.5)
+	local net = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W + (noWings and 4 or 20), -4), Size = UDim2.fromOffset(NR * 2, NR * 2), BackgroundTransparency = 1, Visible = false, ZIndex = z + 7 }, root)
+	make("ImageLabel", { Image = Assets.image("CardBugNet") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.66, 0.05), Position = UDim2.fromOffset(NR, NR), Size = UDim2.fromOffset(math.floor(netH * 0.95), netH), ZIndex = z + 7 }, net)
 
 	local card = { root = root, viewport = viewport }
 	-- (Divine) one frame of its motion
@@ -1106,7 +1081,7 @@ function Gui.playerCard(parent, props)
 		wingL.Rotation = flap
 		wingR.Rotation = -flap
 		-- (Net) a lazy swing on its peg, with a little extra wobble now and then
-		net.Rotation = math.sin(t * 1.3) * 5 + math.sin(t * 3.7) * 1.2
+		net.Rotation = math.sin(t * 1.3) * 3 + math.sin(t * 3.7) * 0.8
 	end
 	root.Destroying:Connect(function()
 		if divineConn then
