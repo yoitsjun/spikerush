@@ -719,6 +719,12 @@ Config.Cards = {
 			Look = { Base = Color3.fromRGB(14, 16, 44), Sweep = Color3.fromRGB(88, 101, 242), Accent = Color3.fromRGB(235, 238, 255), Edge = Color3.fromRGB(130, 142, 255), Pattern = "halftone", Big = "COMMUNITY\nSQUAD" } },
 		{ Key = "VIP", Name = "VIP", Stat = "grant", Grant = true, Goal = "Comes with the VIP game pass",
 			Look = { Base = Color3.fromRGB(20, 14, 2), Sweep = Color3.fromRGB(255, 196, 40), Accent = Color3.fromRGB(255, 245, 200), Edge = Color3.fromRGB(255, 220, 100), Pattern = "stars", Big = "VIP" } },
+		-- the owner: "a bug catcher card... put in the admin panel that i can give and take at any
+		-- time. maybe have a bug net on the right hand side hanging off": given from the admin panel
+		-- to players who report bugs; Fx.Net hangs a swaying bug net (with a ladybug in it) off the
+		-- card's right edge (Gui.playerCard)
+		{ Key = "BugCatcher", Name = "Bug Catcher", Stat = "grant", Grant = true, Goal = "Given for catching bugs in Spike Rush",
+			Look = { Base = Color3.fromRGB(8, 28, 14), Sweep = Color3.fromRGB(110, 205, 60), Accent = Color3.fromRGB(255, 214, 80), Edge = Color3.fromRGB(140, 225, 80), Pattern = "halftone", Big = "BUG\nCATCHER", Fx = { Net = true } } },
 	},
 }
 

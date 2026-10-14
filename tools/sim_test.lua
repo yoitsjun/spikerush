@@ -2421,6 +2421,11 @@ do
 	check(wv == "62%" and wlab == "120 W  74 L" and Cards.met(Cards.get("WinLoss"), wlStats) and not Cards.met(creator, wlStats) and Cards.isGrant(creator)
 		and #g.Cards == 1 and prof.cards.Creator == true and not Economy.isEmpty(g) and Cards.look(creator, nil, nil).Avatar == true,
 		"the Win/Loss card shows the share won and the record; the Content Creator card is given, never earned", wv .. " / " .. wlab)
+	-- the Bug Catcher card: given and taken from the admin panel only, with its hanging net
+	local bugCard = Cards.get("BugCatcher")
+	local bugGrant = Economy.cleanGrant({ Cards = { "BugCatcher" } })
+	check(bugCard ~= nil and Cards.isGrant(bugCard) and not Cards.met(bugCard, wlStats) and Cards.look(bugCard).Fx.Net == true and bugGrant.Cards[1] == "BugCatcher",
+		"the Bug Catcher card is given, never earned, and hangs its net")
 	local default = Cards.get(Cards.default())
 	check(ok and default and not default.Stat and #Cards.list() >= 10, "player cards: each has its own look, goal and achievement; the default needs nothing", #Cards.list() .. " cards")
 	-- they unlock by achievement: a streak, wins, spikes, MVPs, recruits, a leaderboard place

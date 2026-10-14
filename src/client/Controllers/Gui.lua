@@ -1051,6 +1051,39 @@ function Gui.playerCard(parent, props)
 	-- the point's word ("KILL!"), on a tag over the top right
 	local tag = Gui.plate(root, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, -16), Size = UDim2.fromOffset(150, 34), ZIndex = z + 6 }, Gui.SIGNAL)
 	local word = Gui.label(tag, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = z + 7 })
+	-- (Net, the Bug Catcher card) a bug net hung by its hoop from a peg near the right edge, its
+	-- handle hanging out past the side; the hoop seen edge-on, a mesh sack with a ladybug in it.
+	-- `net` is a square centred on the peg, so turning it swings everything about the peg.
+	local NR = 90
+	local WOOD = Color3.fromRGB(176, 118, 62)
+	local net = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W - 12, 22), Size = UDim2.fromOffset(NR * 2, NR * 2), BackgroundTransparency = 1, Visible = false, ZIndex = z + 6 }, root)
+	local handle = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(NR + 31, NR + 39), Size = UDim2.fromOffset(7, 66), Rotation = -15, BackgroundColor3 = WOOD, BorderSizePixel = 0, ZIndex = z + 6 }, net)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, handle)
+	make("UIStroke", { Color = Color3.fromRGB(60, 34, 14), Thickness = 1.5 }, handle)
+	make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 20), BackgroundColor3 = Color3.fromRGB(70, 40, 20), BorderSizePixel = 0, ZIndex = z + 6 }, handle) -- the grip
+	local sack = make("CanvasGroup", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(NR, NR + 2), Size = UDim2.fromOffset(38, 60), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = z + 6 }, net)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, sack)
+	make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0) }) }, sack)
+	for i = 1, 7 do
+		for _, rot in ipairs({ 40, -40 }) do
+			make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale((i - 1) / 6 * 1.4 - 0.2, 0.5), Size = UDim2.new(0, 1, 1.6, 0), Rotation = rot, BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = z + 6 }, sack)
+		end
+	end
+	local bug = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 3, 1, -15), Size = UDim2.fromOffset(13, 11), Rotation = 20, BackgroundColor3 = Color3.fromRGB(225, 30, 30), BorderSizePixel = 0, ZIndex = z + 6 }, sack)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, bug)
+	make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(0, 1, 1, 0), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = z + 6 }, bug)
+	for _, spot in ipairs({ { 0.27, 0.4 }, { 0.73, 0.4 }, { 0.3, 0.75 }, { 0.7, 0.75 } }) do
+		local dot = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(spot[1], spot[2]), Size = UDim2.fromOffset(3, 3), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = z + 6 }, bug)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, dot)
+	end
+	local head = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, 1), Size = UDim2.fromOffset(7, 5), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = z + 6 }, bug)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, head)
+	local hoop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(NR, NR + 7), Size = UDim2.fromOffset(46, 14), BackgroundTransparency = 1, ZIndex = z + 7 }, net)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, hoop)
+	make("UIStroke", { Color = Color3.fromRGB(235, 235, 240), Thickness = 3.5 }, hoop)
+	local peg = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(NR, NR), Size = UDim2.fromOffset(9, 9), BackgroundColor3 = Color3.fromRGB(40, 40, 46), BorderSizePixel = 0, ZIndex = z + 7 }, net)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, peg)
+	make("UIStroke", { Color = Color3.fromRGB(200, 200, 210), Thickness = 1.5 }, peg)
 
 	local card = { root = root, viewport = viewport }
 	-- (Divine) one frame of its motion
@@ -1072,6 +1105,8 @@ function Gui.playerCard(parent, props)
 		local flap = math.sin(t * 1.7) * 3
 		wingL.Rotation = flap
 		wingR.Rotation = -flap
+		-- (Net) a lazy swing on its peg, with a little extra wobble now and then
+		net.Rotation = math.sin(t * 1.3) * 5 + math.sin(t * 3.7) * 1.2
 	end
 	root.Destroying:Connect(function()
 		if divineConn then
@@ -1096,8 +1131,12 @@ function Gui.playerCard(parent, props)
 		end
 		local hasValue = type(data.value) == "string" and data.value ~= ""
 		local bigOn = type(look.Big) == "string" and look.Big ~= ""
+		local fx = look.Fx or {}
+		-- (Net) the big word steps left, out from under the net
+		local bigShift = fx.Net == true and 46 or 0
 		big.Visible = bigOn
 		big.Text = bigOn and look.Big or ""
+		big.Position = UDim2.new(1, -16 - bigShift, 0.5, 2)
 		viewport.Visible = look.Avatar == true
 		for _, c in ipairs(chevrons) do
 			c.Visible = not hasValue and not bigOn
@@ -1107,8 +1146,8 @@ function Gui.playerCard(parent, props)
 		value.Text = hasValue and data.value or ""
 		valueLabel.Text = data.label or ""
 		valueLabel.TextColor3 = accent
-		name.Size = UDim2.new(1, -x - ((hasValue or bigOn) and (bigOn and bigW + 24 or 200) or 120), 0, 38)
-		line.Size = UDim2.new(1, -x - ((hasValue or bigOn) and (bigOn and bigW + 24 or 230) or 60), 0, 30)
+		name.Size = UDim2.new(1, -x - ((hasValue or bigOn) and (bigOn and bigW + 24 + bigShift or 200) or 120), 0, 38)
+		line.Size = UDim2.new(1, -x - ((hasValue or bigOn) and (bigOn and bigW + 24 + bigShift or 230) or 60), 0, 30)
 		shot.Image = (data.userId or 0) > 0 and string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", data.userId) or ""
 		shot.Visible = look.Avatar ~= true -- the avatar takes the headshot's place
 		shotEdge.Color = accent
@@ -1123,7 +1162,6 @@ function Gui.playerCard(parent, props)
 		Gui.tint(tag, accent)
 		-- the special cards' effects (Look.Fx: Wings, Crest, Glow, Halo, Shine, Sparkles, WordShine),
 		-- the glow and the halo in the card's edge colour (a rank card's gold, silver or bronze)
-		local fx = look.Fx or {}
 		local shine = look.Edge or Color3.fromRGB(255, 214, 100)
 		glow.Visible = fx.Glow == true
 		Gui.tint(glow, shine)
@@ -1138,6 +1176,7 @@ function Gui.playerCard(parent, props)
 			s.frame.Visible = fx.Sparkles == true
 		end
 		bigShine.Enabled = fx.WordShine == true
+		net.Visible = fx.Net == true
 		local divine = next(fx) ~= nil
 		if divine and not divineConn then
 			divineConn = RunService.Heartbeat:Connect(divineStep)
