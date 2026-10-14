@@ -706,10 +706,14 @@ function HitLogic.canTouch(touch, team, id, action, teamSize)
 		return true, nil, false
 	end
 	local count = touch.count or 0
+	local double = touch.lastId == id and not touch.lastWasBlock and (teamSize or 3) > 1
 	if count >= 3 then
-		return false, "count", false
+		-- (your own ball again, say your serve still frozen at your hand by Zero Point, is a
+		-- double touch, never the four-touch fault: the community saw "4 touches" spiking with
+		-- Taeho, "usually on serves")
+		return false, double and "double" or "count", false
 	end
-	if touch.lastId == id and not touch.lastWasBlock and (teamSize or 3) > 1 then
+	if double then
 		return false, "double", false
 	end
 	return true, nil, count == 2

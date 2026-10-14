@@ -667,7 +667,7 @@ local function planBlock(team, now)
 	end
 	local attSide = Court.sideOf(last.team)
 	local cT, cP = descentTo(BS.path, now, H.SetArriveY, attSide)
-	if not cT or math.abs(cP.Z) > 2.2 * SPM then
+	if not cT or math.abs(cP.Z) > B.BlockSetMaxDepth then
 		return
 	end
 	local side = Court.sideOf(team)
@@ -688,7 +688,15 @@ end
 
 local function plan(now)
 	local BS, MS = reg.BallService, reg.MatchService
+	-- a block in progress survives the attack it was set up for (the community: "sometimes the
+	-- middle blocker doesn't block or jump"): every touch re-plans, and the spike's re-plan wiped
+	-- the blocker's task, so it never checked the spike (in the air) or never jumped (still waiting
+	-- for its jump time); 10 S+ spikes, 0 blocks
+	local blocking = {}
 	for _, b in pairs(bots) do
+		if b.task == "Block" then
+			blocking[b] = { jumpAt = b.jumpAt, targetZ = b.targetZ }
+		end
 		resetTask(b)
 	end
 	if MS.phase ~= "Rally" or BS.state ~= "Flight" or not BS.path then
@@ -714,6 +722,25 @@ local function plan(now)
 	end
 	planPlay(defTeam, now)
 	planBlock(Court.other(defTeam), now)
+	-- (the blockers keep their block over the defence's plan: they're at the net, in the air)
+	local last = BS.lastHit
+	if next(blocking) and last and (last.hitType == "Spike" or last.hitType == "Feint") then
+		for b, was in pairs(blocking) do
+			if last.team ~= b.entity.team then
+				resetTask(b)
+				b.task = "Block"
+				b.targetZ = was.targetZ
+				if was.jumpAt then
+					-- not up yet: go in time for the attack to reach the net
+					local side = Court.sideOf(b.entity.team)
+					local tC = BallPhysics.findTime(BS.path, now, function(pos)
+						return pos.Z * side >= -0.2
+					end)
+					b.jumpAt = tC and math.min(was.jumpAt, tC - b.tApex) or was.jumpAt
+				end
+			end
+		end
+	end
 end
 
 ------------------------------------------------------------------------------------------
@@ -1165,22 +1192,33 @@ function BotService.spawn(e)
 	if not desc and avatarId then
 		desc = reg.FriendService.description(avatarId)
 	end
-	if not desc then
-		desc = Instance.new("HumanoidDescription")
+	local function plain()
+		local d = Instance.new("HumanoidDescription")
 		local skin = SKIN[math.random(#SKIN)]
-		desc.HeadColor = skin
-		desc.LeftArmColor = skin
-		desc.RightArmColor = skin
-		desc.TorsoColor = teamCfg.Color
-		desc.LeftLegColor = teamCfg.Dark
-		desc.RightLegColor = teamCfg.Dark
+		d.HeadColor = skin
+		d.LeftArmColor = skin
+		d.RightArmColor = skin
+		d.TorsoColor = teamCfg.Color
+		d.LeftLegColor = teamCfg.Dark
+		d.RightLegColor = teamCfg.Dark
+		return d
 	end
+	desc = desc or plain()
 	local ok, model = pcall(function()
 		return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
 	end)
 	if not ok or not model then
-		warn("[SpikeRush] Could not create a bot rig: " .. tostring(model))
-		return nil
+		-- an avatar that won't build (a friend's, or a stand-in's player who just left) gets a plain
+		-- rig instead: a bot with no body played on unseen, and its team was a player short (the
+		-- community: "sometimes a character disappears making it a 2v3")
+		warn("[SpikeRush] Could not create a bot rig, using a plain one: " .. tostring(model))
+		ok, model = pcall(function()
+			return Players:CreateHumanoidModelFromDescription(plain(), Enum.HumanoidRigType.R15)
+		end)
+		if not ok or not model then
+			warn("[SpikeRush] Could not create a plain bot rig either: " .. tostring(model))
+			return nil
+		end
 	end
 	-- building the rig yields: the bot may have been despawned meanwhile (the match ended, or
 	-- its player took the slot back), and a rig parented now would be left on court untracked

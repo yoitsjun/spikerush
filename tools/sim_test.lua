@@ -2905,12 +2905,26 @@ do
 		"S- has its own colour (green), apart from the S tier's gold; other tiers keep their letter's")
 end
 
+print("== AI blocks ==")
+do
+	-- the AI goes up against open and back sets too (it only ever blocked quicks: the open set lands
+	-- past the old 2.2 m), at odds that don't stuff every spike
+	local B = Config.Bots
+	check(B.BlockSetMaxDepth > Court.attackDepth("Open") + 0.5 and B.BlockSetMaxDepth >= Court.attackDepth("Back") and B.BlockChance[1] < B.BlockChance[2] and B.BlockChance[2] <= 0.5,
+		"the AI blocks open and back sets, not just quicks, and not every time",
+		string.format("up to %.1f m (open %.1f, back %.1f); %d-%d%%", B.BlockSetMaxDepth / Config.Scale.StudsPerMeter, Court.attackDepth("Open") / Config.Scale.StudsPerMeter, Court.attackDepth("Back") / Config.Scale.StudsPerMeter, B.BlockChance[1] * 100, B.BlockChance[2] * 100))
+end
+
 print("== four touches ==")
 do
 	local touch = { team = "Away", count = 3, lastId = "a" }
 	local ok, why = HitLogic.canTouch(touch, "Away", "b", "Spike", 3)
-	check(not ok and HitLogic.isFourthTouchFault(why, "Spike") and HitLogic.isFourthTouchFault(why, "Set") and not HitLogic.isFourthTouchFault(why, "Bump") and not HitLogic.isFourthTouchFault("double", "Spike"),
-		"a swing or a set on your team's fourth ball is a fault (an automatic receive isn't)")
+	-- your own serve (count 3) still at your hand: a second swing is a double, not a fault (Taeho)
+	local served = HitLogic.nextTouch({ count = 0 }, "Away", "taeho", "Serve")
+	local okS, whyS = HitLogic.canTouch(served, "Away", "taeho", "Spike", 3)
+	check(not ok and HitLogic.isFourthTouchFault(why, "Spike") and HitLogic.isFourthTouchFault(why, "Set") and not HitLogic.isFourthTouchFault(why, "Bump") and not HitLogic.isFourthTouchFault("double", "Spike")
+		and not okS and whyS == "double" and not HitLogic.isFourthTouchFault(whyS, "Spike"),
+		"a swing or a set on your team's fourth ball is a fault (an automatic receive isn't); swinging again at your own serve isn't")
 end
 
 print("== the third wave ==")

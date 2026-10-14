@@ -700,6 +700,18 @@ function TeamService.resetStats()
 	end
 end
 
+-- Every bot on court has a body: one whose rig never built, or fell out of the world, gets a new
+-- one (at each serve; the community saw matches go 2v3 with a player gone).
+function TeamService.ensureBodies()
+	for _, e in pairs(TeamService.entities) do
+		if e.isBot and not e.despawned and not (e.model and e.model.Parent) then
+			if reg.BotService.spawn(e) and TeamService.entities[e.id] == e then
+				TeamService.applyToModel(e)
+			end
+		end
+	end
+end
+
 -- Snap everybody to their formation for the next serve, facing the net.
 function TeamService.resetPositions(servingTeam)
 	for _, team in ipairs(Config.TeamOrder) do
@@ -762,6 +774,18 @@ function TeamService.onCharacterAdded(plr, char)
 	local e = TeamService.entityForPlayer(plr)
 	if e then
 		TeamService.applyToModel(e)
+		-- a character that respawns mid-match (a reset, a reload) comes in at the lobby spawn, behind
+		-- one end line: on the other team's side it was stuck there behind the net until the next
+		-- serve (the community: "sometimes the enemy is on the player side"). Back to its own side
+		if TeamService.inMatch then
+			local side = Court.sideOf(e.team)
+			local spot = Court.formationSpot("Receive", e.role, side)
+			task.defer(function()
+				if char.Parent and TeamService.entityForPlayer(plr) == e then
+					char:PivotTo(Court.facing(spot + Vector3.new(0, TeamService.groundY(e) + 0.2, 0), side))
+				end
+			end)
+		end
 	else
 		char:SetAttribute("Role", "Solo")
 	end

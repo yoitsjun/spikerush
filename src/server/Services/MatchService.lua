@@ -448,6 +448,7 @@ end
 function MatchService.playRally()
 	local TS, BS = reg.TeamService, reg.BallService
 	TS.hotJoin()
+	TS.ensureBodies()
 	checkAbort()
 	if halted() then
 		return nil
