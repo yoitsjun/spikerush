@@ -2143,6 +2143,30 @@ do
 		"the touch Jump button takes the same jump as Spike (the double approach included)")
 end
 
+print("== HUD layout ==")
+do
+	local Settings = require("Settings")
+	local H = Config.Settings.Hud
+	local clean = Settings.clean({ hudLayout = {
+		Score = { x = 0.1, y = -0.05, size = 1.2 },
+		Chat = { x = 5, y = -5, size = 9 },
+		Forfeit = { x = 0 / 0, y = 0, size = 1 },
+		Bogus = { x = 0, y = 0, size = 1 },
+	} })
+	local L = clean.hudLayout
+	check(L.Score.x == 0.1 and L.Score.y == -0.05 and L.Score.size == 1.2
+		and L.Chat.x == H.MaxShift and L.Chat.y == -H.MaxShift and L.Chat.size == H.MaxSize
+		and L.Forfeit == nil and L.Bogus == nil and #H.Pieces == 9,
+		"HUD pieces save their shift and size (clamped, no NaN, known pieces only)")
+	local button = {}
+	for _, name in ipairs(Config.Settings.Touch.Buttons) do
+		button[name] = true
+	end
+	for _, key in ipairs(H.Pieces) do
+		check(H.Names[key] ~= nil and not button[key], "HUD piece " .. key .. " has a name and isn't a touch button's")
+	end
+end
+
 print("== character profiles ==")
 do
 	local Bios = require("Bios")

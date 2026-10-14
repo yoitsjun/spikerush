@@ -19,6 +19,7 @@ local Net = require(Shared.Net)
 local Settings = require(Shared.Settings)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
+local HudLayout = require(script.Parent.HudLayout)
 
 local QuickChat = {}
 local mods
@@ -303,6 +304,7 @@ local function build()
 	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, button)
 	button:SetAttribute("NoNav", true)
 	button.MouseButton1Click:Connect(QuickChat.toggle)
+	HudLayout.register("Chat", button) -- moved and sized in the touch layout editor
 
 	-- the wheel: 8 slices round a hub with Edit in it
 	wheel = make("Frame", { Name = "QuickWheel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(RADIUS * 2 + SLICE.X + 10, RADIUS * 2 + SLICE.Y + 20), BackgroundTransparency = 1, Visible = false }, gui)

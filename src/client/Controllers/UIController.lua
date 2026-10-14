@@ -32,6 +32,7 @@ local Cards = require(Shared.Cards)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
+local HudLayout = require(script.Parent.HudLayout)
 
 local UIController = {}
 local mods
@@ -1102,16 +1103,14 @@ local function updateAbility()
 	B.left.Visible = playing
 	-- (a drill's coach card sits top right, and the other side is only there to feed you)
 	B.right.Visible = playing and type(State.match.practice) ~= "table"
-	if not playing then
-		return
-	end
 	-- where the sides go: halfway down each edge (The Spike's), or on touch, clear of the skill
 	-- column and the big buttons: yours top left (the skill buttons hold your AI teammates'),
-	-- theirs top right under the corner buttons
+	-- theirs top right under the corner buttons. Placed out of a match too, so the touch layout
+	-- editor finds them where they'll be; on touch each side's size is yours too (HudLayout).
 	local cam = workspace.CurrentCamera
 	local h = cam and cam.ViewportSize.Y or 720
 	local k = math.clamp(h / 760, 0.6, 1.2)
-	B.leftScale.Scale, B.rightScale.Scale = k, k
+	B.leftScale.Scale, B.rightScale.Scale = k * HudLayout.size("Ability"), k * HudLayout.size("Foes")
 	local touch = State.isMobile == true
 	if touch then
 		B.left.AnchorPoint, B.left.Position = Vector2.new(0, 0), UDim2.fromOffset(12, 6)
@@ -1131,6 +1130,9 @@ local function updateAbility()
 				b.frame.Position = UDim2.new(1, -8, 0, (i - 1) * (BADGE_FOE + 44))
 			end
 		end
+	end
+	if not playing then
+		return
 	end
 	-- yours (with Q on the badge for an ability you press)
 	local myModel = player.Character
@@ -1455,7 +1457,7 @@ local function updateCoach()
 	end
 	local cam = workspace.CurrentCamera
 	if cam then
-		ui.coachScale.Scale = math.clamp(cam.ViewportSize.Y / 760, 0.62, 1.1)
+		ui.coachScale.Scale = math.clamp(cam.ViewportSize.Y / 760, 0.62, 1.1) * HudLayout.size("Coach")
 	end
 	local d = Tutorial.drill(pr.drill)
 	if pr.finished or not d then
@@ -1530,7 +1532,7 @@ local SETTINGS = {
 	{
 		key = "touchLayout",
 		text = "Touch controls",
-		sub = "Move and resize your buttons",
+		sub = "Move and resize your buttons, the scoreboard and the rest of the HUD",
 		touch = true,
 		button = "Edit",
 		press = function()
@@ -2373,6 +2375,16 @@ function UIController.init(m)
 	buildContinue()
 	buildSpectate()
 	buildNotice()
+	-- the pieces the touch layout editor moves and sizes (HudLayout); the badges and the coach set
+	-- their own scale
+	HudLayout.register("Score", ui.top.bar)
+	HudLayout.register("Readout", ui.top.readout)
+	HudLayout.register("Forfeit", ui.forfeit)
+	HudLayout.register("Timeout", ui.timeout)
+	HudLayout.register("Settings", ui.gear)
+	HudLayout.register("Ability", ui.badges.left, true)
+	HudLayout.register("Foes", ui.badges.right, true)
+	HudLayout.register("Coach", ui.coach.frame, true)
 	Net.get("Notice").OnClientEvent:Connect(UIController.notice)
 
 	State.signals.Announce:Connect(function(a)

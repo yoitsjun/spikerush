@@ -1780,6 +1780,15 @@ Config.Settings = {
 		MaxSize = 1.6,
 		SizeStep = 0.1,
 	},
+	-- the HUD pieces the same editor moves and sizes (the owner: "allow full menu tweaking...
+	-- not just play buttons"); each piece's shift is at most MaxShift of the screen either way
+	Hud = {
+		Pieces = { "Score", "Readout", "Forfeit", "Timeout", "Settings", "Chat", "Ability", "Foes", "Coach" },
+		Names = { Score = "Scoreboard", Readout = "Speed", Forfeit = "Forfeit", Timeout = "Timeout", Settings = "Settings", Chat = "Chat", Ability = "Your ability", Foes = "Their abilities", Coach = "Practice card" },
+		MinSize = 0.5,
+		MaxSize = 1.6,
+		MaxShift = 1,
+	},
 	SaveDelay = 1, -- seconds after the last change before the client sends them
 }
 

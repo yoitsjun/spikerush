@@ -12,7 +12,9 @@
 -- A button keeps the action it was pressed as until the finger lifts, and holds release when the
 -- finger lifts anywhere on screen.
 -- Every button can be moved and resized in the layout editor (Settings > Touch controls); the
--- layout is saved with your settings (State.settings.touchLayout).
+-- layout is saved with your settings (State.settings.touchLayout). The same editor moves and sizes
+-- the HUD (the scoreboard, Forfeit, Timeout, Settings, quick chat, the ability badges and more:
+-- HudLayout, State.settings.hudLayout), each with a labelled handle over it.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -26,6 +28,7 @@ local Assets = require(Shared.Assets)
 local Settings = require(Shared.Settings)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
+local HudLayout = require(script.Parent.HudLayout)
 
 local MobileControls = {}
 local mods
@@ -33,10 +36,15 @@ local mods
 local player = Players.LocalPlayer
 local UI = Config.UI
 local TOUCH = Config.Settings.Touch
+local HUD = Config.Settings.Hud
+local isHud = {}
+for _, key in ipairs(HUD.Pieces) do
+	isHud[key] = true
+end
 local gui, root, uiScale = nil, nil, nil
 local buttons = {}
 local held = {}
-local editor = nil -- while the layout editor is open: { layout, selected, drag }
+local editor = nil -- while the layout editor is open: { layout, hud, selected, drag }
 local ed = nil -- the editor's shade and toolbar
 
 local WHITE = Color3.new(1, 1, 1)
@@ -435,21 +443,44 @@ local function onScreen(name, spot)
 	return Settings.touchButton(spot)
 end
 
+-- A HUD piece's shift and size in the editor ({ x, y, size }).
+local function hudSpot(key)
+	local l = editor.hud[key]
+	return { x = l and l.x or 0, y = l and l.y or 0, size = l and l.size or 1 }
+end
+
+local function setHud(key, spot)
+	editor.hud[key] = Settings.hudPiece(spot)
+	HudLayout.setPreview(editor.hud)
+end
+
 local function refreshEditor()
 	local sel = editor.selected
 	for _, name in ipairs(TOUCH.Buttons) do
 		local on = sel == "All" or sel == name
 		ring(name, on and Gui.SIGNAL or nil, on)
 	end
+	for key, h in pairs(ed.handles) do
+		local on = sel == "All" or sel == key
+		h.stroke.Color = on and Gui.SIGNAL or WHITE
+		h.stroke.Thickness = on and 3 or 1.5
+		h.box.BackgroundTransparency = on and 0.72 or 0.86
+	end
 	local size
 	if sel == "All" then
-		local sum = 0
+		local sum, n = 0, 0
 		for _, name in ipairs(TOUCH.Buttons) do
 			local l = editor.layout[name]
-			sum = sum + (l and l.size or 1)
+			sum, n = sum + (l and l.size or 1), n + 1
 		end
-		size = sum / #TOUCH.Buttons
-		ed.picked.Text = "ALL BUTTONS"
+		for _, key in ipairs(HUD.Pieces) do
+			sum, n = sum + hudSpot(key).size, n + 1
+		end
+		size = sum / n
+		ed.picked.Text = "EVERYTHING"
+	elseif isHud[sel] then
+		size = hudSpot(sel).size
+		ed.picked.Text = string.upper(HUD.Names[sel] or sel)
 	else
 		local l = editor.layout[sel]
 		size = l and l.size or 1
@@ -466,8 +497,30 @@ end
 
 startDrag = function(name, input)
 	selectButton(name)
+	local from = Vector2.new(input.Position.X, input.Position.Y)
+	if isHud[name] then
+		local f = HudLayout.frame(name)
+		if f then
+			editor.drag = { name = name, input = input, from = from, start = f.AbsolutePosition + f.AbsoluteSize / 2, spot = hudSpot(name) }
+		end
+		return
+	end
 	local b = buttons[name].button
-	editor.drag = { name = name, input = input, from = Vector2.new(input.Position.X, input.Position.Y), start = b.AbsolutePosition + b.AbsoluteSize / 2 }
+	editor.drag = { name = name, input = input, from = from, start = b.AbsolutePosition + b.AbsoluteSize / 2 }
+end
+
+-- A HUD piece dragged: its shift follows the finger, its centre kept on its screen.
+local function dragHud(d, input)
+	local sg = HudLayout.screen(d.name)
+	if not sg then
+		return
+	end
+	local lo, hi = sg.AbsolutePosition, sg.AbsolutePosition + sg.AbsoluteSize
+	local c = d.start + Vector2.new(input.Position.X, input.Position.Y) - d.from
+	c = Vector2.new(math.clamp(c.X, lo.X, hi.X), math.clamp(c.Y, lo.Y, hi.Y))
+	local moved = c - d.start
+	local size = sg.AbsoluteSize
+	setHud(d.name, { x = d.spot.x + moved.X / math.max(size.X, 1), y = d.spot.y + moved.Y / math.max(size.Y, 1), size = d.spot.size })
 end
 
 local function dragTo(input)
@@ -477,6 +530,10 @@ local function dragTo(input)
 	end
 	local mouse = d.input.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseMovement
 	if input ~= d.input and not mouse then
+		return
+	end
+	if isHud[d.name] then
+		dragHud(d, input)
 		return
 	end
 	local rp, rs = root.AbsolutePosition, root.AbsoluteSize
@@ -496,12 +553,19 @@ local function endDrag(input)
 end
 
 local function resize(step)
-	local names = editor.selected == "All" and TOUCH.Buttons or { editor.selected }
+	local sel = editor.selected
+	local names = sel == "All" and TOUCH.Buttons or (isHud[sel] and {} or { sel })
 	for _, name in ipairs(names) do
 		local spot = current(name)
 		spot.size = math.floor((spot.size + step) * 10 + 0.5) / 10
 		editor.layout[name] = onScreen(name, spot)
 		place(name)
+	end
+	local pieces = sel == "All" and HUD.Pieces or (isHud[sel] and { sel } or {})
+	for _, key in ipairs(pieces) do
+		local spot = hudSpot(key)
+		spot.size = math.floor((spot.size + step) * 10 + 0.5) / 10
+		setHud(key, spot)
 	end
 	refreshEditor()
 end
@@ -511,9 +575,14 @@ local function closeEditor(save)
 	editor = nil
 	if save then
 		State.setSetting("touchLayout", e.layout)
+		State.setSetting("hudLayout", e.hud)
 	end
+	HudLayout.setPreview(nil)
 	ed.shade.Visible = false
 	ed.bar.Visible = false
+	for _, h in pairs(ed.handles) do
+		h.box.Visible = false
+	end
 	gui.DisplayOrder = 8
 	for _, name in ipairs(TOUCH.Buttons) do
 		ring(name, nil, false)
@@ -552,10 +621,10 @@ local function buildEditor()
 	ed.shade.Parent = root
 	local bar = Gui.card(root, { Name = "EditBar", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 14), Size = UDim2.fromOffset(736, 132), BackgroundTransparency = 0.08, ZIndex = 6, Visible = false })
 	ed.bar = bar
-	label(bar, { Text = "TOUCH CONTROLS", display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, Position = UDim2.fromOffset(18, 8), Size = UDim2.fromOffset(260, 34) })
+	label(bar, { Text = "LAYOUT", display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, Position = UDim2.fromOffset(18, 8), Size = UDim2.fromOffset(260, 34) })
 	local tick = Gui.plate(bar, { Size = UDim2.fromOffset(56, 5), Position = UDim2.fromOffset(20, 44) }, Gui.SIGNAL)
 	tick.ZIndex = 7
-	label(bar, { Text = "Drag a button to move it. Tap one, then size it with - and +.", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(280, 8), Size = UDim2.fromOffset(440, 44) })
+	label(bar, { Text = "Drag a button or any HUD box to move it. Tap one, then size it with - and +.", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(280, 8), Size = UDim2.fromOffset(440, 44) })
 	ed.picked = label(bar, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, TextColor3 = Gui.SIGNAL, Position = UDim2.fromOffset(18, 64), Size = UDim2.fromOffset(142, 52), TextWrapped = true })
 	local minus = Gui.squareButton(bar, "-", { Position = UDim2.fromOffset(160, 64), Size = UDim2.fromOffset(52, 52), ZIndex = 7 })
 	ed.pct = label(bar, { Text = "100%", display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Position = UDim2.fromOffset(214, 64), Size = UDim2.fromOffset(74, 52), TextXAlignment = Enum.TextXAlignment.Center })
@@ -588,9 +657,43 @@ local function buildEditor()
 	ed.setAll = setAll
 	toolButton(bar, "Reset", 426, 90, function()
 		editor.layout = {}
+		editor.hud = {}
+		HudLayout.setPreview(editor.hud)
 		applyLayout()
 		refreshEditor()
 	end)
+	-- a handle over each HUD piece: a see-through box with its name, dragged like a button
+	ed.handles = {}
+	for _, key in ipairs(HUD.Pieces) do
+		local box = Instance.new("TextButton")
+		box.Name = "Hud" .. key
+		box.Text = ""
+		box.AutoButtonColor = false
+		box.AnchorPoint = Vector2.new(0.5, 0.5)
+		box.BackgroundColor3 = WHITE
+		box.BackgroundTransparency = 0.86
+		box.BorderSizePixel = 0
+		box.ZIndex = 3
+		box.Visible = false
+		box.Parent = root
+		local c = Instance.new("UICorner")
+		c.CornerRadius = UDim.new(0, 6)
+		c.Parent = box
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = WHITE
+		stroke.Thickness = 1.5
+		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		stroke.Parent = box
+		local l = label(box, { Text = HUD.Names[key] or key, display = true, weight = Enum.FontWeight.Heavy, TextScaled = true, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -8, 0, 22), TextXAlignment = Enum.TextXAlignment.Center })
+		l.ZIndex = 4
+		l.TextStrokeTransparency = 0.3
+		box.InputBegan:Connect(function(input)
+			if editor and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
+				startDrag(key, input)
+			end
+		end)
+		ed.handles[key] = { box = box, stroke = stroke }
+	end
 	toolButton(bar, "Cancel", 524, 94, function()
 		closeEditor(false)
 	end)
@@ -614,7 +717,8 @@ function MobileControls.editLayout()
 		held[name] = nil
 		mods.ActionController.release(h.action)
 	end
-	editor = { layout = table.clone(State.settings.touchLayout or {}), selected = "All", drag = nil }
+	editor = { layout = table.clone(State.settings.touchLayout or {}), hud = table.clone(State.settings.hudLayout or {}), selected = "All", drag = nil }
+	HudLayout.setPreview(editor.hud)
 	gui.Enabled = true
 	gui.DisplayOrder = 60
 	ed.shade.Visible = true
@@ -636,8 +740,24 @@ end
 -- per frame
 ------------------------------------------------------------------------------------------
 
+-- Each HUD handle over its piece (in the root's units: the root is scaled by uiScale).
+local function placeHandles()
+	local rp, k = root.AbsolutePosition, uiScale.Scale
+	for key, h in pairs(ed.handles) do
+		local f = HudLayout.frame(key)
+		h.box.Visible = f ~= nil
+		if f then
+			local size = f.AbsoluteSize
+			local c = f.AbsolutePosition + size / 2 - rp
+			h.box.Position = UDim2.fromOffset(c.X / k, c.Y / k)
+			h.box.Size = UDim2.fromOffset(math.max(size.X / k, 44), math.max(size.Y / k, 32))
+		end
+	end
+end
+
 local function update()
 	if editor then
+		placeHandles()
 		return
 	end
 	-- a finger that has lifted lets go of its button (or the stick), even if its end wasn't heard

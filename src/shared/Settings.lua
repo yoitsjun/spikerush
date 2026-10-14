@@ -39,6 +39,19 @@ function Settings.touchButton(b)
 	}
 end
 
+-- One HUD piece's shift (x, y: a fraction of the screen) and size, or nil when it isn't valid.
+function Settings.hudPiece(b)
+	if type(b) ~= "table" or not finite(b.x) or not finite(b.y) or not finite(b.size) then
+		return nil
+	end
+	local H = S.Hud
+	return {
+		x = round(math.clamp(b.x, -H.MaxShift, H.MaxShift)),
+		y = round(math.clamp(b.y, -H.MaxShift, H.MaxShift)),
+		size = round(math.clamp(b.size, H.MinSize, H.MaxSize)),
+	}
+end
+
 -- The saved settings in `t`, cleaned. A key that's missing or of the wrong type is left out
 -- (the client keeps its default); an empty touch layout means every button in its usual place.
 function Settings.clean(t)
@@ -62,6 +75,13 @@ function Settings.clean(t)
 			layout[name] = Settings.touchButton(t.touchLayout[name])
 		end
 		out.touchLayout = layout
+	end
+	if type(t.hudLayout) == "table" then
+		local layout = {}
+		for _, name in ipairs(S.Hud.Pieces) do
+			layout[name] = Settings.hudPiece(t.hudLayout[name])
+		end
+		out.hudLayout = layout
 	end
 	-- your own keys: { [action] = key name }, allowed keys only, each key for one action
 	if type(t.keys) == "table" then

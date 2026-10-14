@@ -706,8 +706,11 @@ local function buildHome()
 	local evTier = Gui.plate(ev, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 18), Size = UDim2.fromOffset(78, 34) }, Gui.SIGNAL)
 	local evTierText = Gui.label(evTier, { Text = "", display = true, TextSize = 24, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
 	local evLine = Gui.label(ev, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, Size = UDim2.fromOffset(434, 20), Position = UDim2.fromOffset(18, 88) })
-	local evBlurb = Gui.label(ev, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.fromOffset(434, 56), Position = UDim2.fromOffset(18, 112) })
-	local evOdds = Gui.label(ev, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(434, 16), Position = UDim2.fromOffset(18, 170) })
+	-- their story (Bios, The Spike Cross's recruit text; the owner: "i was referencing this"), in a
+	-- box that scrolls: a story runs longer than the card; the odds sit right of the links
+	local evScroll = make("ScrollingFrame", { Name = "Story", Size = UDim2.fromOffset(440, 86), Position = UDim2.fromOffset(18, 112), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Gui.HAIRLINE, ScrollingDirection = Enum.ScrollingDirection.Y, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, ev)
+	local evBlurb = Gui.label(evScroll, { Text = "", TextSize = 14, TextColor3 = Gui.CHALK, TextTransparency = 0.12, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, -10, 0, 0) })
+	local evOdds = Gui.label(ev, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(136, 36), Position = UDim2.new(1, -16, 0, 214) })
 	local links = make("Frame", { Size = UDim2.fromOffset(434, 80), Position = UDim2.fromOffset(12, 200), BackgroundTransparency = 1 }, ev)
 	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, links)
 	onClick(navItem(links, Gui.icon.recruit, "Recruit", { LayoutOrder = 1 }), goRecruit)
@@ -818,6 +821,7 @@ local function buildHome()
 		evMark = evMark,
 		evLine = evLine,
 		evBlurb = evBlurb,
+		evScroll = evScroll,
 		evOdds = evOdds,
 		tipText = tipText,
 		match = match,
@@ -958,7 +962,11 @@ local function refreshHome(prof)
 		Gui.tint(hm.evTier, tierColor(f.Tier))
 		hm.evLine.Text = string.format("%s, %d cm. %s", roleName(f.Role), f.Height, def and def.Name or "")
 		hm.evLine.TextColor3 = def and def.Color or Gui.WHITE
-		hm.evBlurb.Text = def and def.Blurb or ""
+		hm.evBlurb.Text = Bios[f.Id] or (def and def.Blurb) or ""
+		if hm.evStoryOf ~= f.Id then
+			hm.evStoryOf = f.Id
+			hm.evScroll.CanvasPosition = Vector2.zero -- a new face starts at the top of their story
+		end
 		local odds = 0
 		for _, row in ipairs(Spins.table("Char")) do
 			if row.item.Key == f.Id then
