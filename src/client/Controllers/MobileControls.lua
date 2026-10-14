@@ -4,8 +4,8 @@
 -- touch controls are off: this place has no PlayerModule to read their stick from.
 --   holding the serve ... Basic Serve (underhand) | Spike Serve (tap: overhand, hold: toss) |
 --                         Jump Serve (a standard jump-serve toss)
---   on the ground ....... Slide | Bump (Block at the net) | Jump (straight up, a spike's wind-up;
---                         the owner: "on mobile, make approach just make you jump")
+--   on the ground ....... Slide | Bump (Block at the net) | Jump (Spike's jump, as on every device:
+--                         one tap, or Approach then Jump with the double approach setting)
 --   in the air .......... Slide (off) | Feint (the bump button) | Spike (Charge with Azure Dragon)
 -- At the net the Bump button blocks: hold to charge, let go to jump. Set pops up over it when you
 -- can set the ball. The skill column holds your active ability (Q) and your AI teammates' (1, 2).
@@ -673,7 +673,7 @@ local function update()
 		if holding then
 			set("C", "Spike", "Jump Serve", "IconJump") -- a standard jump-serve toss
 		else
-			local label = air and "Spike" or (ctx.spikeLabel == "Leap" and "Leap" or "Jump")
+			local label = air and "Spike" or ((ctx.spikeLabel == "Leap" or ctx.spikeLabel == "Approach") and ctx.spikeLabel or "Jump")
 			set("C", air and "Spike" or "Jump", label, air and "IconAttack" or "IconJump")
 		end
 		set("Set", nil)
@@ -693,7 +693,8 @@ local function update()
 	else
 		set("A", "SlideFeint", "Slide", "IconSpeed", not air)
 		local atNet = ctx.nearNet == true and not air
-		local jumpLabel = ctx.spikeLabel == "Leap" and "Leap" or "Jump"
+		-- Leap while Feral Leap charges; Approach before a double approach's first tap
+		local jumpLabel = (ctx.spikeLabel == "Leap" or ctx.spikeLabel == "Approach") and ctx.spikeLabel or "Jump"
 		if air then
 			set("B", "SlideFeint", "Feint", "IconDefense")
 			set("C", "Spike", ctx.spikeLabel == "Charge" and "Charge" or "Spike", "IconAttack")

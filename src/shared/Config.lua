@@ -84,14 +84,16 @@ Config.Player = {
 	RootGround = 3.0, -- typical HumanoidRootPart height when standing (R15)
 	HangVelocityWindow = 9, -- |vy| below this counts as "near the top of the jump"
 	HangGravityCancel = 0.45, -- fraction of gravity cancelled near the apex (anime hang time)
-	ApproachGather = 0.1, -- crouch before an approach jump
-	ApproachDash = 2.2, -- run-up speed (x walk speed x Approach) during the gather
-	ApproachBoost = 18, -- takeoff speed along the court for a run-up jump (x Approach)
-	-- Double approach (a setting): the first press squeaks on the floor and readies the jump (you
-	-- don't move; the stick walks as usual), the second takes off as one press would without the
-	-- setting (the owner: "double approach shouldn't make you move, only you have to hit jump twice
-	-- in order to actually jump, and it should play a floor squeak audio"). With no second press
-	-- inside ApproachArmTime it's let go.
+	-- Spike's jump on the ground is one tap with no run-in dash on every device, as the touch Jump
+	-- button was (the owner, 2026-10-13: "no run in dash"). The gather and dash below are Feral
+	-- Leap's now.
+	ApproachGather = 0.1, -- crouch before a Feral Leap
+	ApproachDash = 2.2, -- run-in speed (x walk speed x Approach) during a leap's gather
+	ApproachBoost = 18, -- takeoff speed along the court for a leap (x Approach)
+	-- Double approach (a setting, every device): the first tap squeaks on the floor and starts the
+	-- approach (you don't move; the stick walks as usual), the second jumps as one tap would without
+	-- the setting (the owner: "tap once to start and tap again to jump"). With no second tap inside
+	-- ApproachArmTime it's let go.
 	ApproachArmTime = 1.0,
 	AirControl = 0.55, -- air drift speed as a fraction of walk speed
 	-- Slides (buffed 2026-10-10, the owner: "major buff to sliding"): was 50 / 0.42 / 0.38 / 0.75,
@@ -758,6 +760,10 @@ Config.Lucky = {
 		{ Id = 3715530562, Lucky = 5, Name = "5 Lucky Spins" }, -- 299 (was 199)
 		{ Id = 3715530621, Lucky = 10, Name = "10 Lucky Spins" }, -- 549 (was 379)
 	},
+	-- traded for V Points in the Shop's Lucky tab (the owner, 2026-10-13: "exchange vp for lucky
+	-- spins rate of 250 vpoints for 1"): VPCost each, in these amounts
+	VPCost = 250,
+	Trade = { 1, 5, 10 },
 }
 
 -- Boosts (the owner: "developer products for 2x vpoints on timers"): a pack doubles the VP your

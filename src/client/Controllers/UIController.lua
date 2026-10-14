@@ -1509,7 +1509,7 @@ end
 -- line under the name; `touch` rows show on touch devices only, `keyboard` rows everywhere else.
 local Keys = {} -- Settings > Controls (Keys.build)
 local SETTINGS = {
-	{ key = "doubleApproach", text = "Double approach", sub = "Press Jump twice to jump (a squeak on the first)" },
+	{ key = "doubleApproach", text = "Double approach", sub = "Tap Jump once to start your approach, again to jump" },
 	{ key = "setterAim", text = "Setter aim", sub = "As the setter, aim your sets (your team sees it)" },
 	{ key = "landingMarker", text = "Landing marker" },
 	{ key = "dramatic", text = "Impact frames and speed lines" },

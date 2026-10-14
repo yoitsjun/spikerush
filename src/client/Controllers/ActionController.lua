@@ -1,7 +1,7 @@
 -- ActionController: turns button presses into volleyball touches (The Spike's control scheme).
 --
---   Spike ........ ground: run-up jump (with the double approach setting: the first press squeaks
---                  and readies it, the second jumps) / air: spike. Azure Dragon: hold in the air to gather
+--   Spike ........ ground: jump, one tap (with the double approach setting: the first tap squeaks
+--                  and starts the approach, the second jumps) / air: spike. Azure Dragon: hold in the air to gather
 --                  energy (hover), release to swing. Holding past full overcharges it. Feral
 --                  Leap: hold on the ground to charge (he runs faster), let go to leap; the
 --                  charge carries him along the court and powers the spike (or the jump serve:
@@ -773,7 +773,7 @@ local function serveLeapAim(info, gauge)
 	return { dir = dz >= 0 and 1 or -1, carry = math.min(math.abs(dz) / airTime, FERAL.CarryMax * gauge) }
 end
 
--- Let go: a tap is the usual jump (Spike's run-up, or touch's Jump straight up); a hold leaps
+-- Let go: a tap is the usual jump (or the double approach's first tap); a hold leaps
 -- the way you hold (at the net when you hold nothing; a serve's leap goes after the toss),
 -- carried by the charge, and the gauge goes with the spike or the serve.
 local function releaseProwl(info)
@@ -792,11 +792,7 @@ local function releaseProwl(info)
 		if p.tossed then
 			return -- the tap that tossed the ball: the next press jumps, as for everyone
 		end
-		if p.kind == "Jump" then
-			MC.jump(jumpKind)
-		else
-			MC.approach(jumpKind)
-		end
+		MC.approach(jumpKind)
 		return
 	end
 	local gauge = math.clamp(held / FERAL.ChargeTime, 0, 1)
@@ -1304,8 +1300,8 @@ function ActionController.chargeState()
 	return charge
 end
 
--- The touch Jump button: straight up (the owner: "on mobile, make approach just make you
--- jump"), winding up a spike, or a jump serve once the toss is up; in the air it's the spike.
+-- The touch Jump button: Spike's jump on the ground (one tap, or two with the double approach),
+-- winding up a spike, or a jump serve once the toss is up; in the air it's the spike.
 -- Feral Leap: held on the ground it charges, and letting go leaps.
 local function pressJump(info)
 	if not info.grounded then
@@ -1317,7 +1313,7 @@ local function pressJump(info)
 			if isFeral() and startProwl("Jump", true) then
 				return -- Feral Leap: charge the jump serve
 			end
-			mods.MovementController.jump("Serve")
+			mods.MovementController.approach("Serve")
 		end
 		return
 	end
@@ -1328,7 +1324,7 @@ local function pressJump(info)
 	if State.isPlaying and State.phase() == "Rally" and isSquall() and startRush("Jump", info) then
 		return
 	end
-	mods.MovementController.jump("Spike")
+	mods.MovementController.approach("Spike")
 end
 
 function ActionController.press(action)

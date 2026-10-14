@@ -2123,6 +2123,34 @@ do
 	-- readies the jump and the second has a moment to come
 	check(P.ApproachRun == nil and P.ApproachRunMax == nil and P.ApproachArmTime >= 0.5 and P.ApproachArmTime <= 2,
 		"double approach: no run-up; the second press has a moment to come", string.format("%.1f s", P.ApproachArmTime))
+	-- Spike's jump is one tap with no run-in dash on every device (the owner: "no run in dash"), and
+	-- the touch Jump button goes the same way, so the double approach setting works on touch too
+	local function src(path)
+		local f = io.open(ROOT .. path)
+		local s = f and f:read("a") or ""
+		if f then
+			f:close()
+		end
+		return s
+	end
+	local mc = src("/src/client/Controllers/MovementController.lua")
+	local approach = mc:match("function MovementController%.approach%(kind%)(.-)\nend")
+	check(approach ~= nil and not approach:find("gather") and approach:find("MovementController%.jump") ~= nil and approach:find("doubleApproach") ~= nil,
+		"Spike's ground jump: no gather dash; one tap jumps, or two with the double approach")
+	local ac = src("/src/client/Controllers/ActionController.lua")
+	local pj = ac:match("local function pressJump%(info%)(.-)\nend")
+	check(pj ~= nil and not pj:find("MovementController%.jump") and pj:find("MovementController%.approach") ~= nil,
+		"the touch Jump button takes the same jump as Spike (the double approach included)")
+end
+
+print("== lucky spins for VP ==")
+do
+	local L = Config.Lucky
+	local ok = L.VPCost == 250 and #L.Trade > 0
+	for _, n in ipairs(L.Trade) do
+		ok = ok and n == math.floor(n) and n >= 1
+	end
+	check(ok, "lucky spins trade at 250 VP each, in whole amounts", string.format("%d VP; %d amounts", L.VPCost or 0, #L.Trade))
 end
 
 print("== ball skins ==")

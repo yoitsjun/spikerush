@@ -1,7 +1,7 @@
 -- Local character movement for the side view, on top of the Humanoid:
 --  * lane lock: you only ever move along the court (left/right on screen)
---  * run-up jump: a short dash (longer with a higher Jump stat) then takeoff, with a boom; with
---    the double approach setting the first press squeaks and readies it, the second takes off
+--  * spike jump: one tap jumps, with a boom (no run-in dash, the same on every device); with the
+--    double approach setting the first tap squeaks and starts the approach, the second jumps
 --  * block jump: hold to charge a higher jump
 --  * slide: a receive dive along the court
 --  * air control: drift in the air to line up with the ball (that sets your spike angle)
@@ -269,21 +269,15 @@ local function heldDir()
 	return dir > 0 and 1 or -1
 end
 
--- A readied double approach's second press: the usual gather and takeoff (a dash the way you
--- hold, or straight up).
-local function plant()
-	gather = { t0 = os.clock(), dir = heldDir(), kind = run.kind }
-	run = nil
-	mods.AnimationController.pose(State.myId, "Gather")
-end
-
--- Run-up jump: dash in the held direction (or jump in place), then take off. With the double
--- approach setting the first press only readies it, with a floor squeak (you don't move), and the
--- second takes off.
+-- A spike (or jump serve) jump: one tap and you're up, carrying the way you walk, on every device
+-- (the touch Jump button's jump; the owner: "no run in dash"). With the double approach setting the
+-- first tap only starts the approach, with a floor squeak (you don't move), and the second jumps
+-- (the owner: "tap once to start and tap again to jump"); untaken for ApproachArmTime it's let go.
 function MovementController.approach(kind)
 	if run then
-		plant()
-		return true
+		local k = run.kind
+		run = nil
+		return MovementController.jump(k)
 	end
 	if not MovementController.canJump() then
 		return false
@@ -294,9 +288,7 @@ function MovementController.approach(kind)
 		Net.get("ActionFX"):FireServer("Approach") -- the others hear the squeak
 		return true
 	end
-	gather = { t0 = os.clock(), dir = heldDir(), kind = kind or "Spike" }
-	mods.AnimationController.pose(State.myId, "Gather")
-	return true
+	return MovementController.jump(kind or "Spike")
 end
 
 -- Feral Leap: while the charge is held (t0: when it started, nil when it ends) he runs faster.

@@ -1980,6 +1980,21 @@ local function onRequest(plr, kind, a, b, c)
 			applyCosmetics(plr, profile)
 		end
 		push(plr)
+	elseif kind == "luckyTrade" then
+		-- lucky spins for VP (Config.Lucky.VPCost each), in one of the Shop's amounts
+		local n = tonumber(a)
+		if not n or not table.find(Config.Lucky.Trade, n) then
+			return
+		end
+		local cost = n * Config.Lucky.VPCost
+		if profile.vp < cost then
+			push(plr, string.format("You need %d VP for that.", cost))
+			return
+		end
+		profile.vp = profile.vp - cost
+		profile.lucky = (profile.lucky or 0) + n
+		dirty[plr] = true
+		push(plr, n == 1 and "+1 lucky spin" or string.format("+%d lucky spins", n))
 	elseif kind == "perkBuy" then
 		-- a perk for VP (the game pass is bought through Roblox's prompt)
 		local def = Config.Perks[a]

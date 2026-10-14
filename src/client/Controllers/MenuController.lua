@@ -1011,7 +1011,7 @@ end
 -- How to play: one row per action, its keys drawn as keycaps, and what it does.
 local HELP_ROWS = {
 	{ "Move", { "A", "D" }, "Or the arrow keys. You only ever move along the court." },
-	{ "Spike", { "Space", "Z" }, "On the ground your run-up jump (Double approach in Settings: once to run in, again to jump), in the air the spike. J and left click too." },
+	{ "Spike", { "Space", "Z" }, "On the ground your jump (Double approach in Settings: tap once to start your approach, again to jump), in the air the spike. J and left click too." },
 	{ "Receive", { "S", "K" }, "Press a little before the ball arrives: early is perfect. Right click works too." },
 	{ "Slide / feint", { "C", "Shift" }, "On the ground a diving receive that costs far less stamina, in the air a roll shot." },
 	{ "Block", { "W" }, "Hold near the net, then let go to jump. Longer holds jump higher." },
@@ -3725,6 +3725,28 @@ function Extra.refreshDeals(prof)
 	end
 end
 
+-- The Lucky tab's second row: lucky spins for V Points (Config.Lucky.VPCost each, the owner:
+-- "exchange vp for lucky spins rate of 250 vpoints for 1"), one card per Config.Lucky.Trade amount.
+-- refreshShop says how much VP you have in its note.
+function Extra.buildLuckyTrade(holder, y)
+	Gui.label(holder, { Text = "Trade V Points", display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextStrokeTransparency = 0.6, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 36), Position = UDim2.fromOffset(0, y) })
+	Extra.luckyTradeNote = Gui.label(holder, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextStrokeTransparency = 0.6, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(420, 20), Position = UDim2.new(1, 0, 0, y + 12) })
+	Gui.plate(holder, { Size = UDim2.fromOffset(60, 6), Position = UDim2.fromOffset(2, y + 40) }, Gui.SIGNAL)
+	for i, n in ipairs(Config.Lucky.Trade) do
+		local card = Gui.card(holder, { Size = UDim2.fromOffset(200, 224), Position = UDim2.fromOffset((i - 1) * 214, y + 56), ClipsDescendants = true })
+		Gui.halftone(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.94 })
+		local icon = Gui.sparkle(card, 58, Gui.GOLD)
+		icon.AnchorPoint = Vector2.new(0.5, 0)
+		icon.Position = UDim2.new(0.5, 0, 0, 16)
+		Gui.label(card, { Text = "x" .. n, display = true, weight = Enum.FontWeight.Heavy, TextSize = 42, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center })
+		Gui.label(card, { Text = n == 1 and "Lucky Spin" or (n .. " Lucky Spins"), TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 128), TextXAlignment = Enum.TextXAlignment.Center })
+		local buy = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(172, 44) }, Gui.num(n * Config.Lucky.VPCost) .. " VP", 20)
+		onClick(buy, function()
+			Net.get("Profile"):FireServer("luckyTrade", n)
+		end)
+	end
+end
+
 local function buildShop()
 	local p = page("shop")
 	mainChrome(p, "shop")
@@ -3786,6 +3808,7 @@ local function buildShop()
 		end
 	end
 	Extra.buildDeals(tabs.Deals, prices)
+	Extra.buildLuckyTrade(tabs.Lucky, 284)
 
 	-- Recruit: the big way in, bottom right like Home's Match plate
 	local recruit, recruitPlate = Gui.plateButton(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M), Size = UDim2.fromOffset(440, 128) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
@@ -3987,6 +4010,9 @@ local function refreshShop(prof)
 		end
 	end
 	Extra.refreshDeals(prof)
+	if Extra.luckyTradeNote then
+		Extra.luckyTradeNote.Text = string.format("%s VP each, you have %s VP", Gui.num(Config.Lucky.VPCost), Gui.num(prof.vp or 0))
+	end
 end
 
 ------------------------------------------------------------------------------------------
