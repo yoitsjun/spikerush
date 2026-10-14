@@ -207,6 +207,9 @@ Config.Hits = {
 	SetAimLowY = lift(2.6),
 	SetAimHighY = lift(4.6),
 	SetChargeTime = 1.4,
+	-- a set going deeper than BackDepth goes this much higher per stud further back (the owner:
+	-- "maybe higher sets too"): a set to the back line climbs about 2.3 m more, time to get there
+	SetDeepApex = 0.5,
 	OpenDepth = 2.3 * M, -- attack spots, distance from the net
 	QuickDepth = 1.2 * M,
 	BackDepth = 3.9 * M,

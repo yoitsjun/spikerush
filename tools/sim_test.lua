@@ -786,6 +786,23 @@ do
 		"switching to a setter in a timeout makes you the setter when an AI had it")
 end
 
+print("== deep sets go higher ==")
+do
+	-- (the owner: "unrestrict the horizontal distance on setter mode", "to reach the very back
+	-- court", "maybe higher sets too"): a set aimed at the back line climbs higher than an open
+	-- set and still comes down at the aimed spot
+	local H = Config.Hits
+	local from = vec(0, GROUND + 4, side * 1.2)
+	local function apexOf(depth)
+		local v, g = HitLogic.setArc(from, side, "Open", depth, false, 0, H.SetArriveY)
+		return from.Y + v.Y * v.Y / (2 * g)
+	end
+	local near, far = apexOf(H.OpenDepth), apexOf(H.SetAimMax)
+	check(far > near + 1.5 * C.SideDepth / 9 and H.SetAimMax >= 8.5 * C.SideDepth / 9,
+		"setter aim reaches the back line, and a deep set arcs higher",
+		string.format("open set apex %.1f, back-line set apex %.1f studs", near, far))
+end
+
 print("== patch notes ==")
 do
 	local PatchNotes = require("PatchNotes")

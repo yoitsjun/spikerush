@@ -1359,6 +1359,9 @@ function ActionController.press(action)
 	elseif action == "Block" then
 		pressBlock(info)
 	elseif action == "Set" then
+		-- Set wins over a receive stance that hasn't played the ball yet (the owner: "on first touch
+		-- over on a free ball i cannot set it says double touch": the receive assist bumped it first)
+		stance = nil
 		if mods.SetterAim and mods.SetterAim.on() and not mods.SetterAim.charged() then
 			doSet(info, mods.SetterAim.aim()) -- the mouse's aim: set there at once
 		elseif mods.SetterAim and mods.SetterAim.on() then
@@ -1472,7 +1475,9 @@ local function processStance(info, now)
 		local v = BallPhysics.velocityAt(path, t)
 		local inRecv = HitLogic.receiveZone(info.root, p, side, stats, false)
 		local inSet = HitLogic.setZone(info.root, p, side, stats)
-		local ready = (inRecv and v.Y < 0 and p.Y - info.root.Y <= Z.ReceiveIdealY + 0.6) or (inSet and v.Y < 0 and p.Y - info.root.Y <= Z.SetIdealY + 0.3)
+		-- (the setter's assist waits for the bump zone: higher up, the ball is theirs to set)
+		local setterAssist = stance.assist and State.myRole == "SE"
+		local ready = (inRecv and v.Y < 0 and p.Y - info.root.Y <= Z.ReceiveIdealY + 0.6) or (not setterAssist and inSet and v.Y < 0 and p.Y - info.root.Y <= Z.SetIdealY + 0.3)
 		if ready then
 			local opts = { stanceAge = t - stance.t0, assist = stance.assist }
 			if HitLogic.touchNumber(BR.getTouch(), State.myTeam) == 2 then
@@ -1622,6 +1627,9 @@ end
 local function autoAssist(info, now)
 	if not State.settings.assist or stance or slideCheck or not info.grounded or not inPlay() then
 		return
+	end
+	if setCharge or (buffered and buffered.action == "Set") then
+		return -- setting it yourself
 	end
 	local BR = mods.BallRenderer
 	local meta = BR.getMeta()

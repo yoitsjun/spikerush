@@ -384,6 +384,7 @@ function HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY)
 	apex = apex + (arriveY - H.SetArriveY)
 	apex = math.max(apex, ball.Y + 0.38 * SPM, arriveY + 0.5 * SPM)
 	depth = math.max(depth or Court.attackDepth(setType), 0.47 * SPM)
+	apex = apex + H.SetDeepApex * math.max(0, depth - H.BackDepth) -- deep sets go higher
 	local g = G * H.SetGravityScale
 	return ownSideArc(ball, Vector3.new(0, arriveY, side * depth), apex, g, side, 0.38 * SPM), g
 end
