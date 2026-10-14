@@ -929,12 +929,15 @@ function Gui.playerCard(parent, props)
 	-- winged title banners): gold wings out of both sides and a crown over the top, a breathing glow
 	-- round the edge, a halo of turning rays behind the avatar, a shine sweeping across, sparkles
 	-- twinkling and gold light running through the big word. Hidden on every other card.
-	local wingH = math.floor(H * 1.5)
+	local wingH = math.floor(H * 1.3)
 	local wingW = math.floor(wingH * 1.6)
 	local glow = Gui.plate(root, { Position = UDim2.fromOffset(-12, -12), Size = UDim2.fromOffset(W + 24, H + 24), Visible = false, ZIndex = z }, Color3.fromRGB(255, 214, 100))
-	-- (each wing's root, the gold boss, sits at 92% / 72% of its image: on the card's side)
-	local wingL = make("ImageLabel", { Image = Assets.image("CardWingL") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.92, 0.72), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(wingW, wingH), Visible = false, ZIndex = z }, root)
-	local wingR = make("ImageLabel", { Image = Assets.image("CardWingR") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.08, 0.72), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(wingW, wingH), Visible = false, ZIndex = z }, root)
+	-- (each wing's root, the gold boss, sits at 92% / 72% of its image: tucked in behind the card's
+	-- side, so the wings grow from behind it; the owner: "it would look better if the wings were more
+	-- inward")
+	local tuck = math.floor(H * 0.55)
+	local wingL = make("ImageLabel", { Image = Assets.image("CardWingL") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.92, 0.72), Position = UDim2.new(0, tuck, 0.5, 0), Size = UDim2.fromOffset(wingW, wingH), Visible = false, ZIndex = z }, root)
+	local wingR = make("ImageLabel", { Image = Assets.image("CardWingR") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.08, 0.72), Position = UDim2.new(1, -tuck, 0.5, 0), Size = UDim2.fromOffset(wingW, wingH), Visible = false, ZIndex = z }, root)
 	local crestH = math.floor(H * 0.78)
 	local crest = make("ImageLabel", { Image = Assets.image("CardCrest") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.8), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(math.floor(crestH * 1.28), crestH), Visible = false, ZIndex = z + 7 }, root)
 	local edge = Gui.plate(root, { Position = UDim2.fromOffset(-5, -5), Size = UDim2.fromOffset(W + 10, H + 10), ZIndex = z }, Gui.CHALK)
