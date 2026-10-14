@@ -321,6 +321,54 @@ Config.TierScale = { Low = 0.42, Exponent = 1.1 } -- D- stats are Low of the way
 -- StartFraction of the way up from Stats.Min and is upgraded with Gold, one point at a time.
 -- A point costs more the higher the stat already is, and more on a higher-tier character.
 -- Taking points back refunds exactly what they cost.
+-- Breakthroughs (the owner, after Spike Cross: "getting a dupe of a character gets you a fragment
+-- named based on the tier of a character... say you pull a dupe shoyo, you get an s tier fragment.
+-- you can put that onto ines to upgrade her up to +5", with Spike Cross's tables for scale, "more
+-- fit the balance of our game"). A duplicate character pulled gives a fragment of its letter
+-- (S- and S give S; S+ has its own) instead of VP. Spending Cost[n] fragments of a character's
+-- letter takes it to breakthrough n (Max at most): Stats[role][n] stat points over its roster
+-- ceiling (x NoAbilityMul for a character with no ability, which gets nothing else), and each of
+-- its ability's Ability entries grows (at Max: x 1 + Grow; Kind "excess": only the part over 1
+-- grows, for a multiplier like 1.12). A fragment sells for its rarity's duplicate VP
+-- (Spins.SellValue), and SellLucky lucky spins with it (the owner: "the higher tier fragment you
+-- sell, maybe you can get a lucky spin").
+Config.Breakthrough = {
+	Max = 5,
+	Groups = { "D", "C", "B", "A", "S", "S+" },
+	Cost = { 1, 1, 1, 1, 1 },
+	-- about 8 points a step, 40 at +5 (some 5% of an S+'s stats; Spike Cross's are on a smaller scale)
+	Stats = {
+		WS = { { Attack = 4, Jump = 4 }, { Attack = 3, Speed = 2, Jump = 3 }, { Attack = 3, Defense = 2, Jump = 3 }, { Attack = 4, Speed = 4 }, { Attack = 4, Jump = 4 } },
+		MB = { { Defense = 4, Jump = 4 }, { Attack = 3, Defense = 3, Jump = 2 }, { Defense = 4, Jump = 4 }, { Attack = 3, Defense = 3, Speed = 2 }, { Defense = 4, Jump = 4 } },
+		SE = { { Speed = 4, Defense = 4 }, { Speed = 3, Defense = 3, Jump = 2 }, { Speed = 4, Defense = 4 }, { Attack = 3, Speed = 3, Defense = 2 }, { Speed = 4, Defense = 4 } },
+	},
+	NoAbilityMul = 1.5,
+	-- per ability: the settings that grow, and how each shows in the Breakthrough table (Show: "pct"
+	-- a share as %, "excess" a multiplier's part over 1 as %, "num" points, "s" seconds, "kmh";
+	-- Field: the entry of a table setting to show)
+	Ability = {
+		Thunder = { SecondBoost = { Grow = 0.3, Label = "Second swing", Show = "pct" }, StaticPer = { Grow = 0.3, Label = "Static Charge a stack", Show = "pct" } },
+		Azure = { MaxBoost = { Grow = 0.15, Label = "Full charge", Show = "pct" } },
+		Feral = { MaxBoost = { Grow = 0.2, Label = "Full leap", Show = "pct" } },
+		ZeroPoint = { ZeroKmh = { Grow = 0.04, Label = "Zero Point", Show = "kmh", Field = 2 } },
+		Corona = { Boost = { Grow = 0.2, Label = "Flare: every stat", Show = "pct" }, SpikeBoost = { Grow = 0.3, Label = "Sunfire", Show = "pct" } },
+		Squall = { SpikeBoost = { Grow = 0.25, Label = "Shear", Show = "pct" }, HoverBoost = { Grow = 0.25, Label = "Full hover", Show = "pct" } },
+		Ironclad = { WallBoost = { Grow = 0.2, Label = "Forge with shields", Show = "pct" }, MaxBoost = { Grow = 0.15, Label = "Forge awakened", Show = "pct" } },
+		Adrenaline = { AttackBonus = { Grow = 0.4, Label = "Adrenaline Attack", Show = "num" }, JumpBonus = { Grow = 0.4, Label = "Adrenaline Jump", Show = "num" } },
+		IronWall = { Duration = { Grow = 0.3, Label = "Iron Wall lasts", Show = "s" } },
+		ChainReaction = { PowerMul = { Grow = 0.3, Kind = "excess", Label = "Biggest explosion", Show = "excess", Field = 3 } },
+		Vector = { MaxBoost = { Grow = 0.3, Label = "Steepest spike", Show = "pct" } },
+		Featherfall = { MaxBoost = { Grow = 0.3, Label = "Longest fall", Show = "pct" } },
+		Turnabout = { PowerMul = { Grow = 0.4, Kind = "excess", Label = "Turnabout power", Show = "excess" } },
+		RisingSun = { PerLevel = { Grow = 0.3, Label = "Attack a Sunrise level", Show = "num", Field = "Attack" } },
+		RallyCry = { Duration = { Grow = 0.3, Label = "Rally Cry lasts", Show = "s" } },
+		Counter = { ReleaseBoost = { Grow = 0.2, Label = "Counter Edge release", Show = "pct" } },
+		Plunge = { PowerBoost = { Grow = 0.5, Label = "Plunge power", Show = "pct" } },
+		Skyward = { AttackAtMax = { Grow = 0.3, Label = "Attack at full lift", Show = "num" } },
+	},
+	SellLucky = { ["S+"] = 1 },
+}
+
 Config.Upgrades = {
 	StartFraction = 0.55,
 	BaseCost = 8, -- gold for a point at Stats.Min

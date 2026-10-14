@@ -169,11 +169,13 @@ function Characters.upgradeCost(c, from, to)
 end
 
 -- A roster entry as a tier and a build. levels: the saved stat values ({ Attack = 150, ... }),
--- nil for a fresh recruit, or "max" for the fully upgraded character (bots).
-function Characters.fromRoster(c, levels)
+-- nil for a fresh recruit, or "max" for the fully upgraded character (bots). breaks: its
+-- breakthroughs (0..5), stat points past the ceiling (Breakthrough.stats).
+function Characters.fromRoster(c, levels, breaks)
 	local b = { Height = c.Height }
+	local extra = (breaks and breaks > 0) and require(script.Parent.Breakthrough).stats(c, breaks) or {}
 	for _, stat in ipairs(ST.Order) do
-		b[stat] = Characters.statLevel(c, levels, stat)
+		b[stat] = Characters.statLevel(c, levels, stat) + (extra[stat] or 0)
 	end
 	return c.Tier, Characters.sanitize(c.Tier, b)
 end

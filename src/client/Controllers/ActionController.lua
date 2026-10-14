@@ -33,6 +33,7 @@ local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
+local Breakthrough = require(Shared.Breakthrough)
 local Cups = require(Shared.Cups)
 local Lobbies = require(Shared.Lobbies)
 local State = require(script.Parent.State)
@@ -139,6 +140,7 @@ local function buildCtx(info, action, t)
 		stamina = State.stamina(State.myTeam),
 		ironWall = action == "Block" and ability == "IronWall" and ActionController.abilityActive() or nil,
 		ironclad = ActionController.bulwark() or nil,
+		breakLevel = player:GetAttribute("Break"),
 		awakened = ability == "Ironclad" and not ActionController.bulwark() or nil,
 		enemyPoints = State.enemyPoints(State.myTeam),
 		teamBoost = State.rallyOn(State.myTeam, t) or nil,
@@ -275,7 +277,7 @@ local function pressAbility()
 		return
 	end
 	localAbilityAt = os.clock()
-	localAbilityUntil = Util.now() + def.Duration
+	localAbilityUntil = Util.now() + Breakthrough.ab(State.myAbility(), "Duration", player:GetAttribute("Break"))
 	Net.get("ActionFX"):FireServer("Ability")
 	mods.VFXController.ability(State.myId, State.myAbility())
 	if State.myAbility() == "Turnabout" then

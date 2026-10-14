@@ -2419,6 +2419,53 @@ do
 		"2x VP boosts: start when received, stack on a running one, never hold more than a day, and end on time")
 end
 
+print("== breakthroughs ==")
+do
+	local BTm = require("Breakthrough")
+	local BT = Config.Breakthrough
+	-- fragments go by letter, S+ on its own
+	local groups = BTm.group("S-") == "S" and BTm.group("S") == "S" and BTm.group("S+") == "S+" and BTm.group("A+") == "A" and BTm.group("D") == "D"
+	-- +5 adds about 40 stat points to a character with an ability, half again to one without
+	local yejun, junseo = Roster.get("yejun"), Roster.get("junseo")
+	local function total(t)
+		local n = 0
+		for _, v in pairs(t) do
+			n = n + v
+		end
+		return n
+	end
+	local withAb, without = total(BTm.stats(yejun, 5)), total(BTm.stats(junseo, 5))
+	local _, plain = Characters.fromRoster(yejun, "max")
+	local _, broken = Characters.fromRoster(yejun, "max", 5)
+	local lifted = broken.Attack - plain.Attack == BTm.stats(yejun, 5).Attack and broken.Attack > yejun.Attack
+	-- abilities grow: a share (Thunder's second swing), a multiplier's part over 1 (Turnabout), a table
+	-- (Chain Reaction), a duration (Iron Wall); nothing grows at +0, and a setting with no growth stays
+	local TH = Config.Abilities.Thunder
+	local second = BTm.ab("Thunder", "SecondBoost", 5)
+	local turn = BTm.ab("Turnabout", "PowerMul", 5)
+	local chain = BTm.ab("ChainReaction", "PowerMul", 5)
+	local wall = BTm.ab("IronWall", "Duration", 5)
+	local grows = math.abs(second - TH.SecondBoost * 1.3) < 1e-9 and math.abs(turn - (1 + 0.12 * 1.4)) < 1e-9 and chain[3] > Config.Abilities.ChainReaction.PowerMul[3]
+		and wall > Config.Abilities.IronWall.Duration and BTm.ab("Thunder", "SecondBoost", 0) == TH.SecondBoost and BTm.ab("Thunder", "Cooldown", 5) == TH.Cooldown
+	-- Adrenaline's boost in a touch grows with the toucher's breakthroughs (ctx.breakLevel)
+	local shoyo = Characters.derive(Characters.fromRoster(Roster.get("shoyo"), "max"))
+	local low = { value = 10, max = 100 }
+	local s0 = HitLogic.effectiveStats(shoyo, "Adrenaline", low, {})
+	local s5 = HitLogic.effectiveStats(shoyo, "Adrenaline", low, { breakLevel = 5 })
+	-- costs and selling: 5 fragments to +5; an S+ fragment sells with a lucky spin, an S one for VP
+	local cost = 0
+	for i = 0, BT.Max - 1 do
+		cost = cost + BTm.cost(i)
+	end
+	local sPlus, sOne = BTm.sellGrant("S+"), BTm.sellGrant("S")
+	local d = BTm.describe(yejun, 5)
+	check(groups and withAb >= 35 and withAb <= 45 and without > withAb and lifted and grows and s5.Attack > s0.Attack
+		and cost == 5 and BTm.cost(5) == nil and sPlus.Lucky == 1 and sOne.Lucky == 0 and sOne.VP == Config.Spins.SellValue.Legendary
+		and #d.stats > 0 and #d.ability == 2 and BTm.level(9) == 5 and BTm.level(-2) == 0 and BTm.cleanFragments({ S = 3, Q = 9, A = -1 }).S == 3,
+		"Breakthroughs: letter fragments (S+ its own), +5 for 5 of them adds ~40 stats past the ceiling (more without an ability) and grows the ability; S+ fragments sell with a lucky spin",
+		string.format("+5: %d stat points (%d without an ability); second swing %.0f%% -> %.0f%%; Adrenaline Attack +%d -> +%d", withAb, without, TH.SecondBoost * 100, second * 100, s0.Attack - shoyo.Attack, s5.Attack - shoyo.Attack))
+end
+
 print("== player cards ==")
 do
 	local Cards = require("Cards")

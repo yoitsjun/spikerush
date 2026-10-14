@@ -16,6 +16,7 @@ local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
+local Breakthrough = require(Shared.Breakthrough)
 local Cups = require(Shared.Cups)
 
 local HitService = {}
@@ -234,6 +235,7 @@ function HitService.process(entity, input, opts)
 		forceQuality = opts.forceQuality,
 		ironWall = action == "Block" and entity.ability == "IronWall" and armed or nil,
 		ironclad = entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) > 0 or nil,
+		breakLevel = entity.breakLevel,
 		awakened = entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) == 0 or nil,
 		enemyPoints = (MS.scores or {})[Court.other(team)] or 0,
 		teamBoost = (TS.rallyUntil[team] or -1) >= input.t - 0.05 or nil,
@@ -544,7 +546,7 @@ function HitService.activateAbility(entity)
 	end
 	entity.abilityReadyAt = now + def.Cooldown
 	writeAbility(entity, "AbilityReadyAt", entity.abilityReadyAt)
-	HitService.setAbilityWindow(entity, now + def.Duration)
+	HitService.setAbilityWindow(entity, now + Breakthrough.ab(entity.ability, "Duration", entity.breakLevel)) -- (Iron Wall and Rally Cry last longer with breakthroughs)
 	if entity.ability == "RallyCry" then
 		reg.TeamService.rally(entity.team, entity.abilityUntil)
 	elseif entity.ability == "Corona" then

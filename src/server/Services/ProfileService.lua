@@ -18,6 +18,9 @@
 --   ("buy", packIndex, kind)        -> Studio only: grant a pack ("VP", "Gold", "Lucky") whose
 --                                       product id isn't set yet
 --   ("spin", banner, 1|10, "lucky")  -> spend lucky spins instead of VP (Config.Lucky's odds)
+--   ("breakthrough", charId)         -> spend fragments of its letter on its next breakthrough
+--   ("sellFragment", group, n)       -> sell n fragments for a duplicate's VP (S+: lucky spins too)
+--   ("sellChar", charId)             -> sell a character: its VP, upgrade Gold and fragments back
 --   ("code", text)                   -> redeem a code, once each
 --   ("daily")                        -> claim the daily reward
 --   ("liked")                        -> "I liked the game" (their word: Roblox can't tell a game)
@@ -59,6 +62,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Characters = require(Shared.Characters)
 local Roster = require(Shared.Roster)
+local Breakthrough = require(Shared.Breakthrough)
 local Court = require(Shared.Court)
 local Tutorial = require(Shared.Tutorial)
 local Rewards = require(Shared.Rewards)
@@ -198,7 +202,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -272,6 +276,16 @@ local function sanitizeProfile(data)
 						out.teams[mode][role] = c.Id
 					end
 				end
+			end
+		end
+	end
+	-- breakthroughs: the fragments in hand, and each character's level (Config.Breakthrough)
+	out.fragments = Breakthrough.cleanFragments(data.fragments)
+	if type(data.breaks) == "table" then
+		for id, lv in pairs(data.breaks) do
+			local level = Breakthrough.level(lv)
+			if Roster.get(id) and level > 0 then
+				out.breaks[id] = level
 			end
 		end
 	end
@@ -528,6 +542,8 @@ local function save(plr, force)
 		bestRank = profile.bestRank,
 		pity = profile.pity,
 		favor = profile.favor,
+		fragments = profile.fragments,
+		breaks = profile.breaks,
 		bundles = profile.bundles,
 		sTickets = profile.sTickets,
 		retiredPaid = profile.retiredPaid,
@@ -810,21 +826,25 @@ function ProfileService.publicProfile(userId)
 	return summary
 end
 
--- The tier and build this player plays: their character with its upgrades.
+-- The tier and build this player plays: their character with its upgrades and breakthroughs
+-- (the level, 0..5, comes back last: its ability grows with it).
 function ProfileService.characterBuild(plr)
 	local c = ProfileService.character(plr)
-	local tier, build = Characters.fromRoster(c, ProfileService.get(plr).levels[c.Id])
-	return c, tier, build
+	local profile = ProfileService.get(plr)
+	local brk = profile.breaks and profile.breaks[c.Id] or 0
+	local tier, build = Characters.fromRoster(c, profile.levels[c.Id], brk)
+	return c, tier, build, brk
 end
 
 -- Write the active character onto the Player (and its avatar) so clients can read it.
 function ProfileService.applyActive(plr)
-	local c, tier, build = ProfileService.characterBuild(plr)
+	local c, tier, build, brk = ProfileService.characterBuild(plr)
 	local ability = c.Ability or ""
 	local char = plr.Character
 	for _, inst in ipairs({ plr, char or plr }) do
 		Characters.writeAttributes(inst, tier, build)
 		inst:SetAttribute("Ability", ability)
+		inst:SetAttribute("Break", brk > 0 and brk or nil)
 		inst:SetAttribute("CharId", c.Id)
 		inst:SetAttribute("CharName", c.Name)
 		inst:SetAttribute("CharRole", c.Role)
@@ -855,8 +875,9 @@ function ProfileService.teamPick(plr, size, role)
 	if not c or not owns(profile, "Char", c.Id) then
 		return nil
 	end
-	local tier, build = Characters.fromRoster(c, profile.levels[c.Id])
-	return c, tier, build
+	local brk = profile.breaks and profile.breaks[c.Id] or 0
+	local tier, build = Characters.fromRoster(c, profile.levels[c.Id], brk)
+	return c, tier, build, brk
 end
 
 function ProfileService.snapshot(plr)
@@ -908,6 +929,8 @@ function ProfileService.snapshot(plr)
 			return out
 		end)(),
 		autoRolling = profile.autoRolling and profile.autoRolling.banner or nil,
+		fragments = table.clone(profile.fragments or {}),
+		breaks = table.clone(profile.breaks or {}),
 		dev = profile.dev or nil,
 		admin = profile.dev or nil, -- the admin panel (developers)
 		cards = (function()
@@ -1575,6 +1598,7 @@ local function spinOnce(plr, profile, banner, count, lucky)
 	dirty[plr] = true
 	local rng = Random.new()
 	local items, refund = {}, 0
+	local frags = nil -- fragments from duplicate characters this spin ({ S = 1, ... })
 	-- 2x Luck: the admin panel's event and your own boost each double the luck of usual recruits on
 	-- the Characters banner, and they stack (both: 4x)
 	local mult = 1
@@ -1596,17 +1620,27 @@ local function spinOnce(plr, profile, banner, count, lucky)
 		local item = Spins.item(banner, k)
 		local dup = owns(profile, banner, k)
 		local sold = not dup and Spins.autoSells(profile.autoSell, banner, item.Rarity)
-		if dup or sold then
+		local frag = nil
+		if dup and banner == "Char" then
+			-- Breakthroughs: a duplicate character is a fragment of its letter (S- and S: S)
+			local c = Roster.get(k)
+			frag = c and Breakthrough.group(c.Tier) or nil
+		end
+		if frag then
+			profile.fragments[frag] = (profile.fragments[frag] or 0) + 1
+			frags = frags or {}
+			frags[frag] = (frags[frag] or 0) + 1
+		elseif dup or sold then
 			refund = refund + Spins.sellValue(item.Rarity)
 		else
 			profile.owned[banner][k] = true
 		end
-		items[i] = { key = k, dup = dup or nil, sold = sold or nil, pity = how }
+		items[i] = { key = k, dup = dup or nil, sold = sold or nil, pity = how, frag = frag }
 	end
 	if not profile.dev then
 		profile.vp = profile.vp + refund
 	end
-	return { banner = banner, count = count, items = items, refund = refund, free = free or nil, lucky = lucky or nil }
+	return { banner = banner, count = count, items = items, refund = refund, free = free or nil, lucky = lucky or nil, frags = frags }
 end
 
 local function spin(plr, profile, banner, count, lucky)
@@ -1624,6 +1658,15 @@ local function spin(plr, profile, banner, count, lucky)
 	local notice = nil
 	if reveal.refund > 0 and not profile.dev then
 		notice = string.format("+%d VP from duplicates and auto-sell.", reveal.refund)
+	end
+	if reveal.frags then
+		local parts = {}
+		for _, g in ipairs(Config.Breakthrough.Groups) do
+			if reveal.frags[g] then
+				table.insert(parts, string.format("%d %s", reveal.frags[g], g))
+			end
+		end
+		notice = (notice and notice .. " " or "") .. "+" .. table.concat(parts, ", +") .. " Fragment" .. "s from duplicates."
 	end
 	push(plr, notice, reveal)
 	ProfileService.checkCards(plr)
@@ -1740,6 +1783,107 @@ local function onRequest(plr, kind, a, b, c)
 		if reg.LeaderboardService and reg.LeaderboardService.updateEntrance then
 			task.spawn(reg.LeaderboardService.updateEntrance, plr)
 		end
+	elseif kind == "breakthrough" then
+		-- spend a fragment of the character's letter on its next breakthrough
+		local c = type(a) == "string" and Roster.get(a)
+		if not c or not owns(profile, "Char", a) then
+			return
+		end
+		if a == ProfileService.character(plr).Id and inMatch(plr) then
+			push(plr, "Your character is locked until this match ends.")
+			return
+		end
+		local level = profile.breaks[a] or 0
+		local cost = Breakthrough.cost(level)
+		if not cost then
+			push(plr, c.Name .. " is at +" .. Config.Breakthrough.Max .. " already.")
+			return
+		end
+		local g = Breakthrough.group(c.Tier)
+		if not profile.dev then
+			if (profile.fragments[g] or 0) < cost then
+				push(plr, string.format("That takes %d %s Fragment%s: duplicate %s-tier recruits give them.", cost, g, cost == 1 and "" or "s", g))
+				return
+			end
+			profile.fragments[g] = profile.fragments[g] - cost
+			if profile.fragments[g] <= 0 then
+				profile.fragments[g] = nil
+			end
+		end
+		profile.breaks[a] = level + 1
+		dirty[plr] = true
+		if a == ProfileService.character(plr).Id then
+			ProfileService.applyActive(plr)
+		end
+		push(plr, string.format("%s broke through: +%d!", c.Name, level + 1))
+	elseif kind == "sellFragment" then
+		-- fragments you don't need, for a duplicate's VP (S+: a lucky spin too)
+		local g = type(a) == "string" and Breakthrough.isGroup(a) and a or nil
+		local have = g and (profile.fragments[g] or 0) or 0
+		local n = math.clamp(math.floor(tonumber(b) or 1), 1, math.max(have, 1))
+		if not g or have <= 0 then
+			return
+		end
+		local one = Breakthrough.sellGrant(g)
+		local grant = Economy.cleanGrant({ VP = one.VP * n, Lucky = one.Lucky * n })
+		profile.fragments[g] = have - n
+		if profile.fragments[g] <= 0 then
+			profile.fragments[g] = nil
+		end
+		Economy.apply(profile, grant, os.time())
+		dirty[plr] = true
+		push(plr, string.format("Sold %d %s Fragment%s: %s.", n, g, n == 1 and "" or "s", Economy.describe(grant)))
+	elseif kind == "sellChar" then
+		-- a character you don't want (the owner: "sell extra characters you dont want so they dont
+		-- leave room in your inventory"): its duplicate's VP, the Gold its upgrades cost and the
+		-- fragments its breakthroughs took come back. Not a starter, nor the one you play
+		local c = type(a) == "string" and Roster.get(a)
+		if not c or profile.dev or not owns(profile, "Char", a) then
+			if profile.dev then
+				push(plr, "Developers own every character: there's nothing to sell.")
+			end
+			return
+		end
+		if Spins.starters("Char")[a] then
+			push(plr, "Starters can't be sold.")
+			return
+		end
+		if a == ProfileService.character(plr).Id then
+			push(plr, "Pick another character first: you can't sell the one you play.")
+			return
+		end
+		local gold = 0
+		for _, stat in ipairs(Config.Stats.Order) do
+			local base = Characters.baseStat(c, stat)
+			local cur = Characters.statLevel(c, profile.levels[a], stat)
+			if cur > base then
+				gold = gold + Characters.upgradeCost(c, base, cur)
+			end
+		end
+		local g = Breakthrough.group(c.Tier)
+		local back = 0
+		for i = 1, profile.breaks[a] or 0 do
+			back = back + (Config.Breakthrough.Cost[i] or 0)
+		end
+		local item = Spins.item("Char", a)
+		local grant = Economy.cleanGrant({ VP = Spins.sellValue(item and item.Rarity or "Common"), Gold = gold })
+		Economy.apply(profile, grant, os.time())
+		if back > 0 then
+			profile.fragments[g] = (profile.fragments[g] or 0) + back
+		end
+		profile.owned.Char[a] = nil
+		profile.levels[a] = nil
+		profile.breaks[a] = nil
+		profile.fav[a] = nil
+		for _, picks in pairs(profile.teams) do
+			for role, id in pairs(picks) do
+				if id == a then
+					picks[role] = nil
+				end
+			end
+		end
+		dirty[plr] = true
+		push(plr, string.format("Sold %s: %s%s.", c.Name, Economy.describe(grant), back > 0 and string.format(" and %d %s Fragment%s back", back, g, back == 1 and "" or "s") or ""))
 	elseif kind == "favor" then
 		-- Boost or Lower a character's odds on the Characters banner (or reset it)
 		local item = type(a) == "string" and Spins.item("Char", a)

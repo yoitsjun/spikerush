@@ -68,6 +68,8 @@ local refreshQueued = false
 -- Codes, the daily reward, gifts, the admin panel and the running events keep their pieces in
 -- this table rather than in locals: this chunk is close to Luau's 200 locals.
 local Extra = {}
+-- (Breakthroughs' shared rules, kept on Extra: this chunk is near Luau's 200-local limit)
+Extra.BT = require(Shared.Breakthrough)
 Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns count from then)
 Extra.shopTab = "Deals" -- the Shop's tab: "Deals" (bundles and game passes), "Currency" (VP and Gold), "Lucky" or "Boosts"
 Extra.Cards = require(Shared.Cards) -- player cards (the Locker's Cards tab)
@@ -1151,6 +1153,25 @@ local function buildRecruit()
 		end)
 		rows[kind] = { button = b, edge = edge, dim = dim, owned = owned }
 	end
+	-- Breakthrough (the owner: "make a breakthrough tab around here"): under the Player banners, the
+	-- fragments you hold; it opens Fragments (sell them, or go spend them in Players)
+	local btCard = make("TextButton", { Name = "Breakthrough", Size = UDim2.new(1, 0, 0, 100), BackgroundColor3 = Color3.fromRGB(96, 24, 40), BorderSizePixel = 0, Text = "", AutoButtonColor = false, LayoutOrder = 100, ClipsDescendants = true }, list)
+	make("UICorner", { CornerRadius = UDim.new(0, 8) }, btCard)
+	Gui.halftone(btCard, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.75, 1), ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 0.72 })
+	make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.62, 0.5), Size = UDim2.new(0, 46, 2, 0), Rotation = 28, BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.88, BorderSizePixel = 0 }, btCard)
+	Gui.iconImage(btCard, "IconStar", 62, Color3.new(1, 1, 1), { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -18, 0.5, 0), ImageTransparency = 0.45 })
+	Gui.label(btCard, { Text = "Breakthrough", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextStrokeTransparency = 0.45, Position = UDim2.fromOffset(16, 16), Size = UDim2.new(1, -100, 0, 34) })
+	local btHave = Gui.label(btCard, { Text = "", TextSize = 15, weight = Enum.FontWeight.Medium, TextStrokeTransparency = 0.55, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(18, 58), Size = UDim2.new(1, -100, 0, 18) })
+	make("UIStroke", { Color = Gui.SIGNAL, Thickness = 2, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, btCard)
+	btCard.MouseEnter:Connect(function()
+		if Gui.onHover then
+			Gui.onHover()
+		end
+	end)
+	onClick(btCard, function()
+		Extra.openFragments()
+	end)
+	Extra.recruitBreak = { button = btCard, have = btHave }
 
 	-- centre: the banner's title, description, odds and tools
 	local info = make("Frame", { Name = "Info", Position = UDim2.fromOffset(M + 366, 146), Size = UDim2.fromOffset(660, 440), BackgroundTransparency = 1 }, p)
@@ -1181,6 +1202,7 @@ local function buildRecruit()
 		sells[r] = { button = b, label = l }
 	end
 	local status = Gui.label(info, { Text = "", TextSize = 17, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, TextStrokeTransparency = 0.5, Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(4, 356) })
+
 
 	-- bottom right: Recruit x1 and x10
 	local function costPill(parent)
@@ -1320,6 +1342,14 @@ local function refreshRecruit(prof)
 	end
 	if not show[banner] then
 		banner = visible[1]
+	end
+	if Extra.recruitBreak then
+		Extra.recruitBreak.button.Visible = recruitTab == "Player"
+		local n = 0
+		for _, v in pairs(prof.fragments or {}) do
+			n = n + v
+		end
+		Extra.recruitBreak.have.Text = n > 0 and string.format("%d fragment%s to spend or sell", n, n == 1 and "" or "s") or "Duplicates become fragments"
 	end
 	for kind, row in pairs(R.rows) do
 		row.button.Visible = show[kind] == true
@@ -2171,7 +2201,10 @@ local function showCard(kind, it)
 		end
 	end
 	local sell = Spins.sellValue(rarity)
-	if it.dup then
+	if it.dup and it.frag then
+		K.foot.Text = string.format("Duplicate: +1 %s Fragment", it.frag)
+		K.foot.TextColor3 = Gui.GOLD_LIGHT
+	elseif it.dup then
 		K.foot.Text = string.format("Duplicate: +%d VP", sell)
 		K.foot.TextColor3 = Gui.MUTED
 	elseif it.sold then
@@ -2379,7 +2412,7 @@ local rosterSort = "Tier" -- Tier or Name
 local teamMode = "3v3" -- the Players screen's team tab: 3v3, 2v2 or 1v1
 local teamRole = nil -- the slot shown on the team card (nil: the one you play)
 local picking = nil -- { mode, role, you } while a card click fills a team slot
-local playerTab = "Growth" -- the player page's tab: Growth, Info or Profile
+local playerTab = "Growth" -- the player page's tab: Growth, Break, Info or Profile
 local statStep = Config.Upgrades.Steps[1] -- the player page's + and - move a stat by this much
 
 local function favs(prof)
@@ -2404,7 +2437,9 @@ local function rosterList(prof)
 	local fav = favs(prof)
 	local list = {}
 	for _, c in ipairs(Roster) do
-		if (rosterRole == "All" or c.Role == rosterRole) and (not rosterFav or fav[c.Id]) then
+		-- (only the ones you have: the owner, "instead of showing all them, jus only show the ones
+		-- you have")
+		if owns(prof, "Char", c.Id) and (rosterRole == "All" or c.Role == rosterRole) and (not rosterFav or fav[c.Id]) then
 			table.insert(list, c)
 		end
 	end
@@ -2939,7 +2974,7 @@ local function buildPlayer()
 		end
 	end)
 
-	local _, setTab = Gui.tabs(panel, { { key = "Growth", text = "Growth" }, { key = "Info", text = "Information" }, { key = "Profile", text = "Profile" } }, { Name = "Tabs", Position = UDim2.fromOffset(16, 120), Size = UDim2.new(1, -32, 0, 52) }, function(key)
+	local _, setTab = Gui.tabs(panel, { { key = "Growth", text = "Growth" }, { key = "Break", text = "Breakthrough" }, { key = "Info", text = "Information" }, { key = "Profile", text = "Profile" } }, { Name = "Tabs", Position = UDim2.fromOffset(16, 120), Size = UDim2.new(1, -32, 0, 52) }, function(key)
 		click("UISelect")
 		playerTab = key
 		MenuController.refresh()
@@ -3045,6 +3080,54 @@ local function buildPlayer()
 		factCells[key] = v
 	end
 
+	-- Breakthrough (Config.Breakthrough): the level, the fragments of its letter, the next step's
+	-- button, the five steps side by side (Spike Cross's table: stats, then the ability's numbers at
+	-- that level), and Sell for one you don't want
+	local bt = make("Frame", { Position = UDim2.fromOffset(0, 184), Size = UDim2.new(1, 0, 1, -184), BackgroundTransparency = 1, Visible = false }, panel)
+	local btLevel = Gui.label(bt, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, Position = UDim2.fromOffset(22, 2), Size = UDim2.fromOffset(170, 50) })
+	local btHave = Gui.label(bt, { Text = "", TextSize = 19, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, RichText = true, Position = UDim2.fromOffset(196, 4), Size = UDim2.new(1, -196 - 290, 0, 50), TextWrapped = true })
+	local btGo, btGoL = actionPlate(bt, { Name = "BreakThrough", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 4), Size = UDim2.fromOffset(260, 52) }, "", 20)
+	onClick(btGo, function()
+		if selectedChar then
+			sendProfile("breakthrough", selectedChar)
+		end
+	end)
+	local cols = {}
+	local colW = 1 / Config.Breakthrough.Max
+	for i = 1, Config.Breakthrough.Max do
+		local col = make("Frame", { Position = UDim2.new(colW * (i - 1), 16 - (i - 1) * 32 / Config.Breakthrough.Max + (i - 1) * 6 / Config.Breakthrough.Max, 0, 66), Size = UDim2.new(colW, -32 / Config.Breakthrough.Max - 6, 0, 290), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0 }, bt)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, col)
+		local edge = make("UIStroke", { Color = Gui.SIGNAL, Thickness = 2, Transparency = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, col)
+		local head = Gui.plate(col, { Position = UDim2.fromOffset(6, 6), Size = UDim2.new(1, -12, 0, 36) }, Gui.LINE)
+		local headL = Gui.label(head, { Text = "+" .. i, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+		-- (big type: the owner, "can we make the text bigger lot of empty space")
+		local body = Gui.label(col, { Text = "", TextSize = 21, LineHeight = 1.1, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(10, 50), Size = UDim2.new(1, -16, 1, -56) })
+		cols[i] = { frame = col, edge = edge, head = head, headL = headL, body = body }
+	end
+	local sellB, sellL = hairButton(bt, { Name = "Sell", Position = UDim2.fromOffset(16, 372), Size = UDim2.fromOffset(200, 48) }, "Sell player", 19)
+	local sellNote = Gui.label(bt, { Text = "", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(228, 370), Size = UDim2.new(1, -228 - 170, 0, 52) })
+	local fragOpen = hairButton(bt, { Name = "Fragments", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 372), Size = UDim2.fromOffset(150, 48) }, "Fragments", 19)
+	onClick(fragOpen, function()
+		Extra.openFragments()
+	end)
+	-- Sell takes a second press within 3 s
+	onClick(sellB, function()
+		if not selectedChar then
+			return
+		end
+		if Extra.sellArmed and Extra.sellArmed.id == selectedChar and os.clock() - Extra.sellArmed.at < 3 then
+			Extra.sellArmed = nil
+			sendProfile("sellChar", selectedChar)
+			selectedChar = nil
+			MenuController.go("players")
+			return
+		end
+		Extra.sellArmed = { id = selectedChar, at = os.clock() }
+		MenuController.refresh()
+		task.delay(3.1, MenuController.refresh)
+	end)
+	Extra.bt = { frame = bt, level = btLevel, have = btHave, go = btGo, goL = btGoL, cols = cols, sell = sellB, sellL = sellL, sellNote = sellNote }
+
 	-- Profile: the character's story (Bios), like The Spike Cross's character pages
 	local profPage = make("Frame", { Position = UDim2.fromOffset(0, 184), Size = UDim2.new(1, 0, 1, -184), BackgroundTransparency = 1, Visible = false }, panel)
 	local bioBox = make("Frame", { Position = UDim2.fromOffset(16, 12), Size = UDim2.new(1, -32, 1, -28), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0 }, profPage)
@@ -3082,6 +3165,137 @@ local function buildPlayer()
 	}
 end
 
+-- The Breakthrough tab for roster character `c` (mine: you own it).
+function Extra.refreshBreak(prof, c, mine)
+	local B = Extra.bt
+	B.frame.Visible = playerTab == "Break"
+	if not B.frame.Visible then
+		return
+	end
+	local BT = Config.Breakthrough
+	local level = mine and Extra.BT.level(prof.breaks and prof.breaks[c.Id]) or 0
+	local g = Extra.BT.group(c.Tier)
+	local have = (prof.fragments or {})[g] or 0
+	local cost = Extra.BT.cost(level)
+	B.level.Text = string.format("+%d / %d", level, BT.Max)
+	B.level.TextColor3 = level >= BT.Max and Gui.SIGNAL or Gui.CHALK
+	B.have.Text = string.format('<font color="#%s"><b>%s Fragments: %d</b></font>   Duplicate %s-tier recruits give them.', tierColor(c.Tier):ToHex(), g, have, g == "S+" and "S+" or g)
+	if not mine then
+		B.goL.Text = "Recruit first"
+	elseif not cost then
+		B.goL.Text = "Fully broken through"
+	else
+		B.goL.Text = string.format("Break through (%d %s)", cost, g)
+	end
+	Gui.enable(B.go, B.goL, mine and cost ~= nil and (prof.dev or have >= cost))
+	local def = c.Ability and Config.Abilities[c.Ability]
+	for i, col in ipairs(B.cols) do
+		local d = Extra.BT.describe(c, i)
+		local lines = { "<b>Stats</b>" }
+		for _, s in ipairs(d.stats) do
+			table.insert(lines, s)
+		end
+		if def and #d.ability > 0 then
+			table.insert(lines, "")
+			table.insert(lines, string.format('<font color="#%s"><b>%s</b></font>', def.Color:ToHex(), def.Name))
+			for _, a in ipairs(d.ability) do
+				table.insert(lines, string.format('%s <font color="#%s">%s</font>', a[1], Gui.SIGNAL:ToHex(), a[2]))
+			end
+		end
+		col.body.Text = table.concat(lines, "\n")
+		local reached = i <= level
+		local nextUp = mine and i == level + 1
+		Gui.tint(col.head, reached and Gui.SIGNAL or Gui.LINE)
+		col.headL.TextColor3 = reached and Gui.LINE or Gui.CHALK
+		col.body.TextTransparency = (reached or nextUp) and 0 or 0.4
+		col.edge.Transparency = nextUp and 0.1 or 1
+	end
+	-- Sell: what comes back
+	local starter = table.find(Roster.Starters, c.Id) ~= nil
+	local playing = c.Id == (prof.char or player:GetAttribute("CharId"))
+	B.sell.Visible = mine and not starter and not prof.dev
+	if B.sell.Visible then
+		local armed = Extra.sellArmed and Extra.sellArmed.id == c.Id and os.clock() - Extra.sellArmed.at < 3
+		B.sellL.Text = armed and "Press again to sell" or "Sell player"
+		Gui.enable(B.sell, B.sellL, not playing)
+		local item = Spins.item("Char", c.Id)
+		local gold = 0
+		for _, stat in ipairs(Config.Stats.Order) do
+			local base = Characters.baseStat(c, stat)
+			local cur = Characters.statLevel(c, prof.levels and prof.levels[c.Id], stat)
+			if cur > base then
+				gold = gold + Characters.upgradeCost(c, base, cur)
+			end
+		end
+		local back = 0
+		for i = 1, level do
+			back = back + (BT.Cost[i] or 0)
+		end
+		B.sellNote.Text = playing and "You can't sell the player you play: pick another first."
+			or string.format("Sells for %d VP%s%s. Recruit them again any time.", Spins.sellValue(item and item.Rarity or "Common"), gold > 0 and (", " .. Gui.num(gold) .. " Gold") or "", back > 0 and string.format(" and %d %s Fragment%s", back, g, back == 1 and "" or "s") or "")
+	else
+		B.sellNote.Text = (mine and starter) and "Starters can't be sold." or ""
+	end
+end
+
+-- Fragments (Recruit and the Breakthrough tab): what you hold of each letter, what one sells for,
+-- and Sell 1 / Sell all.
+function Extra.buildFragments()
+	local m = modal("Fragments", "Fragments", 760, 620, true)
+	Gui.label(m.panel, { Text = "A duplicate character is a fragment of its letter (S- and S give S). Spend them on Breakthroughs in Players, or sell them.", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 40), ZIndex = 21 })
+	local rows = {}
+	for i, g in ipairs(Config.Breakthrough.Groups) do
+		local r = make("Frame", { Position = UDim2.fromOffset(28, 132 + (i - 1) * 66), Size = UDim2.new(1, -56, 0, 58), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 21 }, m.panel)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
+		local _, setBadge = Gui.tierBadge(r, 42, { Position = UDim2.fromOffset(10, 8), ZIndex = 22 })
+		setBadge(g, tierColor(g), false)
+		Gui.label(r, { Text = g .. " Fragment", display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, Position = UDim2.fromOffset(64, 4), Size = UDim2.fromOffset(200, 28), ZIndex = 22 })
+		local worth = Gui.label(r, { Text = "", TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(64, 32), Size = UDim2.fromOffset(260, 18), ZIndex = 22 })
+		local count = Gui.label(r, { Text = "", display = true, TextSize = 28, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -262, 0.5, 0), Size = UDim2.fromOffset(110, 34), ZIndex = 22 })
+		local one, oneL = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -134, 0.5, 0), Size = UDim2.fromOffset(116, 40), ZIndex = 22 }, "Sell 1", 16)
+		local all, allL = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(116, 40), ZIndex = 22 }, "Sell all", 16)
+		onClick(one, function()
+			sendProfile("sellFragment", g, 1)
+		end)
+		onClick(all, function()
+			sendProfile("sellFragment", g, (profile().fragments or {})[g] or 0)
+		end)
+		rows[g] = { worth = worth, count = count, one = one, oneL = oneL, all = all, allL = allL }
+	end
+	local goPlayers = actionPlate(m.panel, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -28, 1, -20), Size = UDim2.fromOffset(300, 50) }, "Break through in Players", 19)
+	onClick(goPlayers, function()
+		m.hide()
+		playerTab = "Break"
+		selectedChar = nil -- (the one you play; pick another in Players)
+		MenuController.go("player")
+	end)
+	ui.fragments = { modal = m, rows = rows }
+end
+
+function Extra.refreshFragments(prof)
+	local F = ui.fragments
+	if not F then
+		return
+	end
+	for g, r in pairs(F.rows) do
+		local n = (prof.fragments or {})[g] or 0
+		local one = Extra.BT.sellGrant(g)
+		r.worth.Text = string.format("Sells for %d VP%s", one.VP, one.Lucky > 0 and string.format(" and %d lucky spin%s", one.Lucky, one.Lucky == 1 and "" or "s") or "")
+		r.count.Text = "x" .. n
+		r.count.TextColor3 = n > 0 and Gui.CHALK or Gui.DIM
+		Gui.enable(r.one, r.oneL, n > 0)
+		Gui.enable(r.all, r.allL, n > 1)
+	end
+end
+
+function Extra.openFragments()
+	if not ui.fragments then
+		return
+	end
+	Extra.refreshFragments(profile())
+	ui.fragments.modal.root.Visible = true
+end
+
 local function refreshPlayer(prof)
 	local d = ui.player
 	local current = prof.char or player:GetAttribute("CharId")
@@ -3110,6 +3324,7 @@ local function refreshPlayer(prof)
 	d.favL.TextColor3 = isFav and Gui.SIGNAL or Gui.CHALK
 	d.setTab(playerTab)
 	d.growth.Visible = playerTab == "Growth"
+	Extra.refreshBreak(prof, c, mine)
 	d.info.Visible = playerTab == "Info"
 	Extra.bio.frame.Visible = playerTab == "Profile"
 	d.setStep(statStep)
@@ -3119,12 +3334,14 @@ local function refreshPlayer(prof)
 	local free = prof.dev == true
 	local span = Config.Stats.Ref - Config.Stats.Min
 	local built = {}
+	-- (breakthroughs add on top of the ceiling: shown after it, and in the numbers below)
+	local brk = mine and Extra.BT.stats(c, prof.breaks and prof.breaks[c.Id]) or {}
 	for stat, row in pairs(d.rows) do
 		local base = Characters.baseStat(c, stat)
 		local cur = levels and levels[stat] or base
 		local ceil = c[stat]
-		built[stat] = cur
-		row.value.Text = cur >= ceil and string.format("MAX / %d", ceil) or string.format("%d / %d", cur, ceil)
+		built[stat] = cur + (brk[stat] or 0)
+		row.value.Text = (cur >= ceil and string.format("MAX / %d", ceil) or string.format("%d / %d", cur, ceil)) .. ((brk[stat] or 0) > 0 and string.format(" +%d", brk[stat]) or "")
 		row.value.TextColor3 = cur >= ceil and Gui.SIGNAL or Gui.CHALK
 		row.cap.Size = UDim2.fromScale(math.clamp((ceil - Config.Stats.Min) / span, 0, 1), 1)
 		row.fill.Size = UDim2.fromScale(math.clamp((cur - Config.Stats.Min) / span, 0, 1), 1)
@@ -5641,7 +5858,10 @@ end
 
 -- Codes (the owner: "add a codes system"): a box and Redeem, under the requirements.
 function Extra.buildCodes()
-	local m = modal("Codes", "Codes", 660, 392 + 168, true)
+	local m = modal("Codes", "Codes", 660, 392, true)
+	-- (the Discord card sits beside it: the owner, "a lot of people are missing the text here. lets
+	-- maybe blow it up a bit bigger and put it right on the side of the code menu")
+	m.panel.Position = UDim2.new(0.5, -225, 0.5, 0)
 	Gui.label(m.panel, { Text = "Codes are for members of the group who favorited and liked the game. Each works once.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
 	local req = Extra.requirements(m.panel, 116)
 	local box = Extra.inputBox(m.panel, { Position = UDim2.fromOffset(26, 302), Size = UDim2.new(1, -52 - 190, 0, 54), TextSize = 22 }, "Enter a code")
@@ -5664,11 +5884,14 @@ function Extra.buildCodes()
 	-- verify your account"). Players Roblox lets see a Discord link get the invite and the word
 	-- Discord; everyone else gets BedWars' wording: the Community link on the game page (Roblox shows
 	-- that link only to players allowed it), no Discord named
-	local dc = make("Frame", { Position = UDim2.fromOffset(26, 376), Size = UDim2.new(1, -52, 0, 156), BackgroundColor3 = Color3.fromRGB(56, 64, 110), BackgroundTransparency = 0.15, BorderSizePixel = 0, Visible = false, ZIndex = 21 }, m.panel)
+	local dc = make("TextButton", { Name = "Discord", Text = "", AutoButtonColor = false, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.5, 125, 0.5, 0), Size = UDim2.fromOffset(440, 430), BackgroundColor3 = Color3.fromRGB(56, 64, 110), BackgroundTransparency = 0.06, BorderSizePixel = 0, Visible = false, ZIndex = 21 }, m.root)
+	dc:SetAttribute("NoNav", true)
 	make("UICorner", { CornerRadius = UDim.new(0, 8) }, dc)
-	local head = Gui.label(dc, { Text = "", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, TextWrapped = true, Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -28, 0, 34), ZIndex = 22 })
+	make("UIStroke", { Color = Color3.new(1, 1, 1), Transparency = 0.6, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, dc)
+	Gui.label(dc, { Text = "Free reward", display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, TextColor3 = Gui.CHALK, Position = UDim2.fromOffset(22, 14), Size = UDim2.new(1, -44, 0, 40), ZIndex = 22 })
+	local head = Gui.label(dc, { Text = "", TextSize = 20, weight = Enum.FontWeight.Medium, TextColor3 = Gui.CHALK, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(22, 56), Size = UDim2.new(1, -44, 0, 76), ZIndex = 22 })
 	local function copyBox(props)
-		local b = make("TextBox", { Text = "", TextEditable = false, ClearTextOnFocus = false, FontFace = Gui.display(), TextSize = 20, TextColor3 = Gui.CHALK, TextXAlignment = Enum.TextXAlignment.Left, BackgroundColor3 = Color3.fromRGB(10, 12, 34), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 22 }, dc)
+		local b = make("TextBox", { Text = "", TextEditable = false, ClearTextOnFocus = false, FontFace = Gui.display(), TextSize = 24, TextColor3 = Gui.CHALK, TextXAlignment = Enum.TextXAlignment.Left, BackgroundColor3 = Color3.fromRGB(10, 12, 34), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 22 }, dc)
 		for k, v in pairs(props) do
 			b[k] = v
 		end
@@ -5681,12 +5904,13 @@ function Extra.buildCodes()
 		end)
 		return b
 	end
-	local linkBox = copyBox({ Text = Config.Discord.Invite, Position = UDim2.fromOffset(14, 42), Size = UDim2.new(0.55, -20, 0, 30), Visible = false })
-	local codeBox = copyBox({ Text = "", Position = UDim2.fromOffset(14, 42), Size = UDim2.new(0.45, -14, 0, 30) })
-	local steps = Gui.label(dc, { Text = "", TextSize = 14, weight = Enum.FontWeight.Medium, TextColor3 = Gui.LINE, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(14, 82), Size = UDim2.new(1, -28 - 150, 0, 64), ZIndex = 22 })
-	local verify, verifyPlate = Gui.plateButton(dc, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -12), Size = UDim2.fromOffset(136, 46), ZIndex = 22 }, Color3.fromRGB(40, 200, 110), Color3.fromRGB(80, 230, 140))
+	local linkBox = copyBox({ Text = Config.Discord.Invite, Position = UDim2.fromOffset(22, 136), Size = UDim2.new(1, -44, 0, 44), Visible = false })
+	-- your code, big: the one thing to type in the Discord
+	local codeBox = copyBox({ Text = "", TextSize = 36, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(22, 136), Size = UDim2.new(1, -44, 0, 58) })
+	local steps = Gui.label(dc, { Text = "", TextSize = 18, weight = Enum.FontWeight.Medium, TextColor3 = Gui.CHALK, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, LineHeight = 1.1, Position = UDim2.fromOffset(22, 204), Size = UDim2.new(1, -44, 0, 100), ZIndex = 22 })
+	local verify, verifyPlate = Gui.plateButton(dc, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -22, 1, -18), Size = UDim2.fromOffset(200, 58), ZIndex = 22 }, Color3.fromRGB(40, 200, 110), Color3.fromRGB(80, 230, 140))
 	verify:SetAttribute("Sound", "UIConfirm")
-	Gui.label(verify, { Text = "Verify", display = true, TextSize = 22, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+	Gui.label(verify, { Text = "Verify", display = true, TextSize = 28, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
 	onClick(verify, function()
 		Net.get("Profile"):FireServer("discordVerify")
 	end)
@@ -5708,7 +5932,8 @@ function Extra.buildCodes()
 		if allowed then
 			dc.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
 			linkBox.Visible = true
-			codeBox.Position = UDim2.new(0.55, 0, 0, 42)
+			codeBox.Position = UDim2.fromOffset(22, 188)
+			steps.Position = UDim2.fromOffset(22, 254)
 		end
 		dc.Visible = true
 		Extra.refreshCodes(profile())
@@ -5728,7 +5953,7 @@ function Extra.refreshCodes(prof)
 	C.verify.Visible = not d.done
 	local reward = Economy.describe(Economy.cleanGrant(Config.Discord.Reward))
 	local code = d.code ~= "" and d.code or "CODE"
-	C.head.Text = (C.linkOk and "Verify in the Spike Rush Discord for " or "Verify in the Spike Rush community server for ") .. reward
+	C.head.Text = (C.linkOk and "Verify in the Spike Rush Discord for " or "Verify in the Spike Rush community server for ") .. reward .. "."
 	if d.done then
 		C.codeBox.Text = "Verified"
 		C.steps.Text = "You're verified. Thanks for joining! The Community Squad card is in your cards."
@@ -6841,6 +7066,9 @@ local function doRefresh()
 		refreshMatchScreen(prof)
 	end
 	refreshMatch()
+	if ui.fragments and ui.fragments.modal.root.Visible then
+		Extra.refreshFragments(prof)
+	end
 	if swapMode then
 		refreshSwap(prof)
 	end
@@ -7216,6 +7444,7 @@ function MenuController.init(m)
 	Extra.buildPityPick()
 	Extra.buildTicketPick()
 	Extra.buildHowTo()
+	Extra.buildFragments()
 	Extra.buildPlayerProfile()
 	buildMatch()
 	buildMatchScreen()

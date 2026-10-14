@@ -69,8 +69,9 @@ end
 
 -- A player's entity is their selected roster character.
 local function playerEntity(plr, team)
-	local c, tier, build = reg.ProfileService.characterBuild(plr)
+	local c, tier, build, brk = reg.ProfileService.characterBuild(plr)
 	local e = newEntity("P_" .. tostring(plr.UserId), plr.DisplayName, false, plr, team, tier, c.Ability, build)
+	e.breakLevel = brk or 0 -- breakthroughs: its ability grows (Breakthrough.ab)
 	e.charId, e.charName, e.prefRole = c.Id, c.Name, c.Role
 	usedChars[c.Id] = true
 	return e
@@ -246,6 +247,7 @@ function TeamService.applyToModel(e)
 			inst:SetAttribute("Static", e.ability == "Thunder" and (e.static or 0) or nil)
 			inst:SetAttribute("Intimidation", e.ability == "Ironclad" and (e.intimidation or 0) or nil)
 			inst:SetAttribute("IronCracks", e.ability == "Ironclad" and (e.ironCracks or 0) or nil)
+			inst:SetAttribute("Break", (e.breakLevel or 0) > 0 and e.breakLevel or nil)
 			inst:SetAttribute("AbilityUntil", e.abilityUntil or -1)
 			inst:SetAttribute("AbilityReadyAt", e.abilityReadyAt or 0)
 		end
@@ -270,6 +272,7 @@ function TeamService.boostCtx(e, t)
 		coronaOn = e.ability == "Corona" and (e.abilityUntil or -1) >= (t or Util.now()) or nil,
 		coronaStacks = e.ability == "Corona" and (e.coronaStacks or 0) or nil,
 		squallOn = e.ability == "Squall" and (e.abilityUntil or -1) >= (t or Util.now()) or nil,
+		breakLevel = e.breakLevel,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 	}
 end
@@ -561,14 +564,14 @@ local function addBot(team, index, role, captain, pickId)
 	local id = "B_" .. botCounter
 	role = role or "WS"
 	local e
-	local c, tier, build = nil, nil, nil
+	local c, tier, build, brk = nil, nil, nil, 0
 	local picked = pickId and Roster.get(pickId)
 	if picked and not usedChars[picked.Id] then
 		c = picked
 		tier, build = Characters.fromRoster(c, "max")
 	end
 	if captain and not c then
-		c, tier, build = reg.ProfileService.teamPick(captain, TeamService.teamSize, role)
+		c, tier, build, brk = reg.ProfileService.teamPick(captain, TeamService.teamSize, role)
 		if c and (usedChars[c.Id] or reservedChars[c.Id]) then
 			c = nil -- already on the court (the captain plays it themselves), or the host's pick
 		end
@@ -583,6 +586,7 @@ local function addBot(team, index, role, captain, pickId)
 		usedChars[c.Id] = true
 		e = newEntity(id, c.Name, true, nil, team, tier, c.Ability, build)
 		e.charId, e.charName = c.Id, c.Name
+		e.breakLevel = brk or 0 -- (the captain's own build of it, breakthroughs too)
 	else
 		local build = Characters.template(TeamService.botTier, role, Characters.rollHeight(Random.new()))
 		e = newEntity(id, pickBotName(), true, nil, team, TeamService.botTier, nil, build)
@@ -770,10 +774,11 @@ function TeamService.swapCharacter(plr)
 	if not e or not TeamService.inMatch then
 		return
 	end
-	local c, tier, build = reg.ProfileService.characterBuild(plr)
+	local c, tier, build, brk = reg.ProfileService.characterBuild(plr)
 	if not Characters.isTier(tier) then
 		return
 	end
+	e.breakLevel = brk or 0
 	e.tier = tier
 	e.ability = Characters.isAbility(c.Ability) and c.Ability or nil
 	e.build = Characters.sanitize(tier, build)
