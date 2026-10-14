@@ -2143,6 +2143,21 @@ do
 		"the touch Jump button takes the same jump as Spike (the double approach included)")
 end
 
+print("== character profiles ==")
+do
+	local Bios = require("Bios")
+	local ok, missing = true, {}
+	for id, text in pairs(Bios) do
+		ok = ok and Roster.get(id) ~= nil and type(text) == "string" and #text > 80
+	end
+	for _, c in ipairs(Roster) do
+		if c.Tier == "S+" and not Bios[c.Id] then
+			table.insert(missing, c.Name)
+		end
+	end
+	check(ok and #missing == 0, "every profile belongs to a roster character, and every S+ has one", table.concat(missing, ", "))
+end
+
 print("== lucky spins for VP ==")
 do
 	local L = Config.Lucky

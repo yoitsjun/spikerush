@@ -37,6 +37,7 @@ local Court = require(Shared.Court)
 local Tutorial = require(Shared.Tutorial)
 local Assets = require(Shared.Assets)
 local Economy = require(Shared.Economy)
+local Bios = require(Shared.Bios)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
@@ -2370,7 +2371,7 @@ local rosterSort = "Tier" -- Tier or Name
 local teamMode = "3v3" -- the Players screen's team tab: 3v3, 2v2 or 1v1
 local teamRole = nil -- the slot shown on the team card (nil: the one you play)
 local picking = nil -- { mode, role, you } while a card click fills a team slot
-local playerTab = "Growth" -- the player page's tab: Growth or Info
+local playerTab = "Growth" -- the player page's tab: Growth, Info or Profile
 local statStep = Config.Upgrades.Steps[1] -- the player page's + and - move a stat by this much
 
 local function favs(prof)
@@ -2930,7 +2931,7 @@ local function buildPlayer()
 		end
 	end)
 
-	local _, setTab = Gui.tabs(panel, { { key = "Growth", text = "Growth" }, { key = "Info", text = "Information" } }, { Name = "Tabs", Position = UDim2.fromOffset(16, 120), Size = UDim2.new(1, -32, 0, 52) }, function(key)
+	local _, setTab = Gui.tabs(panel, { { key = "Growth", text = "Growth" }, { key = "Info", text = "Information" }, { key = "Profile", text = "Profile" } }, { Name = "Tabs", Position = UDim2.fromOffset(16, 120), Size = UDim2.new(1, -32, 0, 52) }, function(key)
 		click("UISelect")
 		playerTab = key
 		MenuController.refresh()
@@ -3036,6 +3037,17 @@ local function buildPlayer()
 		factCells[key] = v
 	end
 
+	-- Profile: the character's story (Bios), like The Spike Cross's character pages
+	local profPage = make("Frame", { Position = UDim2.fromOffset(0, 184), Size = UDim2.new(1, 0, 1, -184), BackgroundTransparency = 1, Visible = false }, panel)
+	local bioBox = make("Frame", { Position = UDim2.fromOffset(16, 12), Size = UDim2.new(1, -32, 1, -28), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0 }, profPage)
+	make("UICorner", { CornerRadius = UDim.new(0, 6) }, bioBox)
+	Gui.label(bioBox, { Text = "Profile", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Position = UDim2.fromOffset(22, 14), Size = UDim2.fromOffset(200, 18) })
+	local bioName = Gui.label(bioBox, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, Position = UDim2.fromOffset(22, 34), Size = UDim2.new(1, -44, 0, 46) })
+	local bioLine = Gui.label(bioBox, { Text = "", TextSize = 17, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, Position = UDim2.fromOffset(22, 82), Size = UDim2.new(1, -44, 0, 20) })
+	Gui.plate(bioBox, { Size = UDim2.fromOffset(60, 5), Position = UDim2.fromOffset(22, 112) }, Gui.SIGNAL)
+	local bioText = Gui.label(bioBox, { Text = "", TextSize = 20, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, LineHeight = 1.15, Position = UDim2.fromOffset(22, 134), Size = UDim2.new(1, -44, 1, -150) })
+	Extra.bio = { frame = profPage, name = bioName, line = bioLine, text = bioText }
+
 	ui.player = {
 		setBadge = setBadge,
 		name = name,
@@ -3091,6 +3103,7 @@ local function refreshPlayer(prof)
 	d.setTab(playerTab)
 	d.growth.Visible = playerTab == "Growth"
 	d.info.Visible = playerTab == "Info"
+	Extra.bio.frame.Visible = playerTab == "Profile"
 	d.setStep(statStep)
 
 	-- Growth
@@ -3182,6 +3195,14 @@ local function refreshPlayer(prof)
 	d.facts["Per recruit"].Text = table.find(Roster.Starters, c.Id) and "Starter" or string.format("%.2f%%", odds * 100)
 	d.facts.Status.Text = mine and "Recruited" or "Not yet"
 	d.facts.Status.TextColor3 = mine and Gui.CHALK or Gui.DIM
+
+	-- Profile
+	local bio = Bios[c.Id]
+	Extra.bio.name.Text = c.Name
+	Extra.bio.line.Text = string.format("%s  /  %s  /  %d cm", c.Tier, role and role.Name or c.Role, c.Height)
+	Extra.bio.line.TextColor3 = color
+	Extra.bio.text.Text = bio or (c.Name .. " hasn't shared their story yet.")
+	Extra.bio.text.TextColor3 = bio and Gui.CHALK or Gui.DIM
 end
 
 ------------------------------------------------------------------------------------------
