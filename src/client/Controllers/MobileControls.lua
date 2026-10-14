@@ -523,7 +523,26 @@ local function dragHud(d, input)
 	setHud(d.name, { x = d.spot.x + moved.X / math.max(size.X, 1), y = d.spot.y + moved.Y / math.max(size.Y, 1), size = d.spot.size })
 end
 
+-- The toolbar dragged by its title strip, kept wholly on screen.
+local function dragBar(input)
+	local d = ed.barDrag
+	local mouse = d.input.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseMovement
+	if input ~= d.input and not mouse then
+		return
+	end
+	local k = uiScale.Scale
+	local half = ed.bar.AbsoluteSize / 2
+	local rp, rs = root.AbsolutePosition, root.AbsoluteSize
+	local c = d.start + Vector2.new(input.Position.X, input.Position.Y) - d.from
+	c = Vector2.new(math.clamp(c.X, rp.X + half.X, math.max(rp.X + half.X, rp.X + rs.X - half.X)), math.clamp(c.Y, rp.Y + half.Y, math.max(rp.Y + half.Y, rp.Y + rs.Y - half.Y)))
+	ed.bar.Position = UDim2.fromOffset((c.X - rp.X) / k, (c.Y - rp.Y) / k)
+end
+
 local function dragTo(input)
+	if editor and ed.barDrag then
+		dragBar(input)
+		return
+	end
 	local d = editor and editor.drag
 	if not d then
 		return
@@ -546,6 +565,10 @@ local function dragTo(input)
 end
 
 local function endDrag(input)
+	local b = ed.barDrag
+	if b and (input == b.input or (b.input.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1)) then
+		ed.barDrag = nil
+	end
 	local d = editor and editor.drag
 	if d and (input == d.input or (d.input.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1)) then
 		editor.drag = nil
@@ -578,6 +601,7 @@ local function closeEditor(save)
 		State.setSetting("hudLayout", e.hud)
 	end
 	HudLayout.setPreview(nil)
+	ed.barDrag = nil
 	ed.shade.Visible = false
 	ed.bar.Visible = false
 	for _, h in pairs(ed.handles) do
@@ -590,14 +614,16 @@ local function closeEditor(save)
 	applyLayout()
 end
 
-local function toolButton(parent, text, x, w, onPress, signal)
+local BAR_W = 250 -- the editor's toolbar, in the root's units
+
+local function toolButton(parent, text, x, y, w, h, onPress, signal)
 	local b
 	if signal then
-		b = Gui.plateButton(parent, { Position = UDim2.fromOffset(x, 64), Size = UDim2.fromOffset(w, 52), ZIndex = 7 }, Gui.SIGNAL, Gui.SIGNAL_HOT)
+		b = Gui.plateButton(parent, { Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, h), ZIndex = 7 }, Gui.SIGNAL, Gui.SIGNAL_HOT)
 	else
-		b = Gui.cardButton(parent, { Position = UDim2.fromOffset(x, 64), Size = UDim2.fromOffset(w, 52), ZIndex = 7 })
+		b = Gui.cardButton(parent, { Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, h), ZIndex = 7 })
 	end
-	label(b, { Text = text, display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = signal and Gui.LINE or Gui.CHALK, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+	label(b, { Text = text, display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, TextColor3 = signal and Gui.LINE or Gui.CHALK, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
 	b.MouseButton1Click:Connect(function()
 		if mods.AudioController then
 			mods.AudioController.play(signal and "UIConfirm" or "UISelect")
@@ -619,16 +645,31 @@ local function buildEditor()
 	ed.shade.ZIndex = 1
 	ed.shade.Visible = false
 	ed.shade.Parent = root
-	local bar = Gui.card(root, { Name = "EditBar", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(736, 132), BackgroundTransparency = 0.08, ZIndex = 6, Visible = false })
+	-- the toolbar: a small panel (the owner: "make it more of a square so it doesnt cover
+	-- anything"), dragged anywhere by its title strip; it stays where you leave it
+	local bar = Gui.card(root, { Name = "EditBar", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(BAR_W, 232), BackgroundTransparency = 0.08, ZIndex = 6, Visible = false })
 	ed.bar = bar
-	label(bar, { Text = "LAYOUT", display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, Position = UDim2.fromOffset(18, 8), Size = UDim2.fromOffset(260, 34) })
-	local tick = Gui.plate(bar, { Size = UDim2.fromOffset(56, 5), Position = UDim2.fromOffset(20, 44) }, Gui.SIGNAL)
+	local grip = Instance.new("TextButton")
+	grip.Name = "Grip"
+	grip.Text = ""
+	grip.AutoButtonColor = false
+	grip.BackgroundTransparency = 1
+	grip.Size = UDim2.new(1, 0, 0, 40)
+	grip.ZIndex = 7
+	grip.Parent = bar
+	label(grip, { Text = "LAYOUT", display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(120, 28) })
+	label(grip, { Text = "drag here", TextSize = 13, TextColor3 = Gui.DIM, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(100, 16) })
+	local tick = Gui.plate(bar, { Size = UDim2.fromOffset(48, 4), Position = UDim2.fromOffset(13, 36) }, Gui.SIGNAL)
 	tick.ZIndex = 7
-	label(bar, { Text = "Drag a button or any HUD box to move it. Tap one, then size it with - and +.", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(280, 8), Size = UDim2.fromOffset(440, 44) })
-	ed.picked = label(bar, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, TextColor3 = Gui.SIGNAL, Position = UDim2.fromOffset(18, 64), Size = UDim2.fromOffset(142, 52), TextWrapped = true })
-	local minus = Gui.squareButton(bar, "-", { Position = UDim2.fromOffset(160, 64), Size = UDim2.fromOffset(52, 52), ZIndex = 7 })
-	ed.pct = label(bar, { Text = "100%", display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Position = UDim2.fromOffset(214, 64), Size = UDim2.fromOffset(74, 52), TextXAlignment = Enum.TextXAlignment.Center })
-	local plus = Gui.squareButton(bar, "+", { Position = UDim2.fromOffset(290, 64), Size = UDim2.fromOffset(52, 52), ZIndex = 7 })
+	grip.InputBegan:Connect(function(input)
+		if editor and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
+			ed.barDrag = { input = input, from = Vector2.new(input.Position.X, input.Position.Y), start = bar.AbsolutePosition + bar.AbsoluteSize / 2 }
+		end
+	end)
+	ed.picked = label(bar, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 17, TextColor3 = Gui.SIGNAL, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(12, 46), Size = UDim2.new(1, -24, 0, 20) })
+	local minus = Gui.squareButton(bar, "-", { Position = UDim2.fromOffset(10, 72), Size = UDim2.fromOffset(48, 46), ZIndex = 7 })
+	ed.pct = label(bar, { Text = "100%", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Position = UDim2.fromOffset(60, 72), Size = UDim2.fromOffset(60, 46), TextXAlignment = Enum.TextXAlignment.Center })
+	local plus = Gui.squareButton(bar, "+", { Position = UDim2.fromOffset(122, 72), Size = UDim2.fromOffset(48, 46), ZIndex = 7 })
 	for _, child in ipairs({ minus, plus }) do
 		for _, d in ipairs(child:GetDescendants()) do
 			if d:IsA("GuiObject") then
@@ -646,7 +687,7 @@ local function buildEditor()
 		Gui.click("UITick")
 		resize(TOUCH.SizeStep)
 	end)
-	local chips, setAll = Gui.chips(bar, { { key = "All", text = "All", width = 64 } }, { Position = UDim2.fromOffset(350, 64), Size = UDim2.fromOffset(64, 52), ZIndex = 7 }, function()
+	local chips, setAll = Gui.chips(bar, { { key = "All", text = "All", width = 64 } }, { Position = UDim2.fromOffset(176, 72), Size = UDim2.fromOffset(64, 46), ZIndex = 7 }, function()
 		selectButton("All")
 	end)
 	for _, d in ipairs(chips:GetDescendants()) do
@@ -655,7 +696,7 @@ local function buildEditor()
 		end
 	end
 	ed.setAll = setAll
-	toolButton(bar, "Reset", 426, 90, function()
+	toolButton(bar, "Reset", 10, 124, 112, 44, function()
 		editor.layout = {}
 		editor.hud = {}
 		HudLayout.setPreview(editor.hud)
@@ -694,10 +735,10 @@ local function buildEditor()
 		end)
 		ed.handles[key] = { box = box, stroke = stroke }
 	end
-	toolButton(bar, "Cancel", 524, 94, function()
+	toolButton(bar, "Cancel", 128, 124, 112, 44, function()
 		closeEditor(false)
 	end)
-	toolButton(bar, "Save", 626, 94, function()
+	toolButton(bar, "Save", 10, 176, BAR_W - 20, 46, function()
 		closeEditor(true)
 	end, true)
 	UserInputService.InputChanged:Connect(dragTo)
