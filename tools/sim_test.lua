@@ -2156,7 +2156,7 @@ do
 	local L = clean.hudLayout
 	check(L.Score.x == 0.1 and L.Score.y == -0.05 and L.Score.size == 1.2
 		and L.Chat.x == H.MaxShift and L.Chat.y == -H.MaxShift and L.Chat.size == H.MaxSize
-		and L.Forfeit == nil and L.Bogus == nil and #H.Pieces == 8,
+		and L.Forfeit == nil and L.Bogus == nil and #H.Pieces == 10,
 		"HUD pieces save their shift and size (clamped, no NaN, known pieces only)")
 	local button = {}
 	for _, name in ipairs(Config.Settings.Touch.Buttons) do

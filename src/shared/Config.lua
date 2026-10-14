@@ -1781,10 +1781,11 @@ Config.Settings = {
 		SizeStep = 0.1,
 	},
 	-- the HUD pieces the same editor moves and sizes (the owner: "allow full menu tweaking...
-	-- not just play buttons"); each piece's shift is at most MaxShift of the screen either way
+	-- not just play buttons"; "make the two team scoreboards separate"); each piece's shift is at
+	-- most MaxShift of the screen either way
 	Hud = {
-		Pieces = { "Score", "Readout", "Forfeit", "Timeout", "Settings", "Chat", "Ability", "Foes" },
-		Names = { Score = "Scoreboard", Readout = "Speed", Forfeit = "Forfeit", Timeout = "Timeout", Settings = "Settings", Chat = "Chat", Ability = "Your ability", Foes = "Their abilities" },
+		Pieces = { "TeamLeft", "Score", "TeamRight", "Readout", "Forfeit", "Timeout", "Settings", "Chat", "Ability", "Foes" },
+		Names = { TeamLeft = "Left team", Score = "Score", TeamRight = "Right team", Readout = "Speed", Forfeit = "Forfeit", Timeout = "Timeout", Settings = "Settings", Chat = "Chat", Ability = "Your ability", Foes = "Their abilities" },
 		MinSize = 0.5,
 		MaxSize = 1.6,
 		MaxShift = 1,

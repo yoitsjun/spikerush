@@ -1,11 +1,13 @@
 -- HUD pieces you can move and size on touch (the owner: "allow full menu tweaking... not just
--- play buttons"): the scoreboard, the attack readout, Forfeit, Timeout, Settings, the quick chat
+-- play buttons"): each team's scoreboard and the score between them, the attack readout, Forfeit, Timeout, Settings, the quick chat
 -- button and the ability badges (Config.Settings.Hud). The touch layout
 -- editor (MobileControls) drags and sizes them with the buttons; they're saved with your settings
 -- (State.settings.hudLayout: key -> { x, y, size }, x and y a shift as a fraction of the screen).
 --
--- Each piece is wrapped in a see-through full-screen frame that the shift moves, so the code that
--- places the piece (the badges move every frame) keeps working inside it; the size is a UIScale
+-- Each piece is wrapped in a see-through frame the size of its parent that the shift moves (in
+-- pixels: a share of the screen, so a piece inside another, like a team's scoreboard in the top
+-- bar, moves the same), and the code that places the piece (the badges move every frame) keeps
+-- working inside it; the size is a UIScale
 -- on the piece (around its anchor point). A piece that already has its own UIScale (the badges)
 -- multiplies its scale by size(key) instead. Only on touch: a keyboard or controller
 -- player sees the usual layout.
@@ -31,7 +33,8 @@ local function apply(key)
 		return
 	end
 	local l = layoutOf(key)
-	p.wrap.Position = UDim2.fromScale(l and l.x or 0, l and l.y or 0)
+	local screen = p.screen and p.screen.AbsoluteSize or Vector2.zero
+	p.wrap.Position = UDim2.fromOffset(math.floor((l and l.x or 0) * screen.X + 0.5), math.floor((l and l.y or 0) * screen.Y + 0.5))
 	if p.scale then
 		p.scale.Scale = l and l.size or 1
 	end
@@ -57,8 +60,15 @@ function HudLayout.register(key, frame, ownScale)
 		scale.Name = "HudSize"
 		scale.Parent = frame
 	end
-	pieces[key] = { frame = frame, wrap = wrap, scale = scale }
+	local screen = wrap:FindFirstAncestorWhichIsA("ScreenGui")
+	pieces[key] = { frame = frame, wrap = wrap, scale = scale, screen = screen }
 	apply(key)
+	-- a shift is a share of the screen: a new screen size moves it again
+	if screen then
+		screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			apply(key)
+		end)
+	end
 end
 
 -- A piece's size (1: as usual), for a piece that scales itself.
@@ -77,7 +87,7 @@ end
 -- 1 means).
 function HudLayout.screen(key)
 	local p = pieces[key]
-	return p and p.wrap:FindFirstAncestorWhichIsA("ScreenGui")
+	return p and p.screen
 end
 
 function HudLayout.applyAll()

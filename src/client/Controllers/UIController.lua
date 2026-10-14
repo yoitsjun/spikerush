@@ -217,7 +217,7 @@ local function buildTeamBlock(parent, team, align)
 	for i = 1, math.max(Config.Timeout.PerSet, Config.Match.Custom.TimeoutsMax) do
 		table.insert(pipList, make("Frame", { Size = UDim2.fromOffset(18, 5), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 2 }, pips))
 	end
-	return { name = name, bar = bar, fill = fill, barStroke = barStroke, broken = broken, pips = pipList, barX = barX, barY = barY }
+	return { frame = f, name = name, bar = bar, fill = fill, barStroke = barStroke, broken = broken, pips = pipList, barX = barX, barY = barY }
 end
 
 local function buildTopBar()
@@ -237,10 +237,11 @@ local function buildTopBar()
 	end
 	local sHome = scoreBox(-36)
 	local sAway = scoreBox(36)
-	local setLine = label(bar, { Text = "", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = UI.Fog, Size = UDim2.new(1, 0, 0, 16), Position = UDim2.fromOffset(0, 88), TextXAlignment = Enum.TextXAlignment.Center })
+	-- (the set line and the serve ball sit in the centre, so they move with the score)
+	local setLine = label(mid, { Text = "", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = UI.Fog, AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(400, 16), Position = UDim2.new(0.5, 0, 0, 88), TextXAlignment = Enum.TextXAlignment.Center })
 	stroke(setLine, 1, UI.Ink, 0.4)
 	-- who serves: a small ball beside that team's score box
-	local serveDot = Gui.icon.vp(bar, 20)
+	local serveDot = Gui.icon.vp(mid, 20)
 	serveDot.ZIndex = 5
 	-- the attack readout under the scoreboard: "129.75 km/h   3.85 m"
 	local readout = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 108), Size = UDim2.fromOffset(440, 42), BackgroundTransparency = 1 }, gui)
@@ -248,7 +249,7 @@ local function buildTopBar()
 	stroke(kmh, 2, UI.Ink)
 	local height = label(readout, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 32, RichText = true, TextColor3 = UI.Fog, Size = UDim2.new(0.38, 0, 1, 0), Position = UDim2.fromScale(0.62, 0) })
 	stroke(height, 2, UI.Ink)
-	ui.top = { bar = bar, Home = home, Away = away, sHome = sHome, sAway = sAway, setLine = setLine, serveDot = serveDot, readout = readout, kmh = kmh, height = height, shownAt = -10, target = target, diamond = vs, tag = tag }
+	ui.top = { bar = bar, mid = mid, Home = home, Away = away, sHome = sHome, sAway = sAway, setLine = setLine, serveDot = serveDot, readout = readout, kmh = kmh, height = height, shownAt = -10, target = target, diamond = vs, tag = tag }
 end
 
 local function refreshTopBar()
@@ -272,9 +273,9 @@ local function refreshTopBar()
 		Gui.tint(t.diamond, Gui.SIGNAL)
 	end
 	if m.servingTeam == "Away" then
-		t.serveDot.Position = UDim2.fromOffset(410 + 36 + 38, 59)
+		t.serveDot.Position = UDim2.fromOffset(85 + 36 + 38, 59)
 	else
-		t.serveDot.Position = UDim2.fromOffset(410 - 36 - 38 - 20, 59)
+		t.serveDot.Position = UDim2.fromOffset(85 - 36 - 38 - 20, 59)
 	end
 	-- someone else's match on this court stays out of the menus
 	local mine = m.inMatch == true and State.watching()
@@ -2377,7 +2378,9 @@ function UIController.init(m)
 	buildNotice()
 	-- the pieces the touch layout editor moves and sizes (HudLayout); the badges set their own scale
 	-- (the practice card stays put: the owner, "dont really need to move that one")
-	HudLayout.register("Score", ui.top.bar)
+	HudLayout.register("TeamLeft", ui.top.Home.frame)
+	HudLayout.register("TeamRight", ui.top.Away.frame)
+	HudLayout.register("Score", ui.top.mid)
 	HudLayout.register("Readout", ui.top.readout)
 	HudLayout.register("Forfeit", ui.forfeit)
 	HudLayout.register("Timeout", ui.timeout)
