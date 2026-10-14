@@ -846,6 +846,9 @@ Config.Discord = {
 Config.Codes = {
 	-- a code posted in the Discord (see Config.Discord; verifying there pays more, and the card)
 	spikesquad = { VP = 500, Gold = 5000, Lucky = 2 },
+	-- the owner: 300 members in the Discord, "a big code... 300squad... 1.5k vpoints and 16.7k
+	-- gold" (with 5 lucky spins and 30 minutes of 2x Luck to spend them in)
+	["300squad"] = { VP = 1500, Gold = 16700, Lucky = 5, BoostLuck = 30 * 60 },
 	-- the owner: "make a new code. HolyS+" (for the S+ Update; the "+" is dropped when a code is
 	-- read, so "HolyS+" and "holys" both work)
 	holys = { VP = 600, Gold = 7500, Lucky = 3 },
