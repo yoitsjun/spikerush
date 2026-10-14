@@ -1239,7 +1239,11 @@ Config.Abilities = {
 		LateShare = 0.3,
 		ChargeSlack = 0.15, -- charge a spike may claim over the time the server saw him up
 		EarlyGrace = 0.35, -- a jump this soon after the set still counts as before it (latency)
-		ReachMul = 0.35, -- Steel Reach: his spike reaches up to 1 + this x the charge wider
+		-- (the owner: "give taesan also extended spike range"): his spike always reaches SpikeReach
+		-- times the usual (Haneul's Shear is 1.2 too), and awakened Steel Reach adds up to ReachMul
+		-- more with the charge (up to 1.5 in all)
+		SpikeReach = 1.2,
+		ReachMul = 0.3, -- Steel Reach: + this x the charge
 		AutoCharge = 0.5, -- the AI awakened: its spikes get this much of the full charge
 		Passives = {
 			{ Name = "Bulwark", Blurb = "3 shields: while you have one, every block you touch is a perfect shut-down, and your block reaches a little further. A spike of 185 km/h or more, or a clean one, shatters a shield. Tips go over you." },
@@ -1248,7 +1252,7 @@ Config.Abilities = {
 			{ Name = "Shrapnel", Blurb = "A spike that breaks a shield loses 40% of its speed: your team can dig it." },
 			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: Forge charges far harder and widens your reach." },
 			{ Name = "Forge", Blurb = "Your fall is slow; jump before the set and hang: the longer you're up, the harder the spike (up to +39% with shields, +68% awakened). Jumping after the set gets 30% of it." },
-			{ Name = "Steel Reach", Blurb = "Awakened, the charge widens your spike's reach (up to 35%)." },
+			{ Name = "Steel Reach", Blurb = "Your spike reaches 20% wider than usual, and awakened the charge widens it up to 50%." },
 			{ Name = "Intimidation", Blurb = "Awakened, every touch fills the meter 20%, a kill or a stuff block 35%. Full: your 3 shields are back." },
 		},
 	},

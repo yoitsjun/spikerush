@@ -140,13 +140,11 @@ function HitLogic.spikeReach(ability, gauge)
 	elseif ability == "Squall" then
 		return SQUALL.ReachMul -- Shear
 	elseif ability == "Ironclad" then
-		return 1 + IRON.ReachMul * clamp(tonumber(gauge) or 0, 0, 1) -- Steel Reach (gauge: Forge's charge)
+		return IRON.SpikeReach + IRON.ReachMul * clamp(tonumber(gauge) or 0, 0, 1) -- Steel Reach (gauge: Forge's charge)
 	end
 	return 1
 end
 
--- Squall: a hover's charge (0..1) as the spot it sends the spike to, from `lo` (just over the net)
--- to `hi` (the very back) in AimSteps jumps: the target flashes from one to the next as it charges.
 -- Updraft (Squall): whether the ball's last touch is a set she slows (a teammate's, not her own).
 function HitLogic.updraftCanSlow(meta, team, id)
 	return type(meta) == "table" and meta.hitType == "Set" and meta.team ~= nil and meta.team == team and meta.id ~= id
@@ -161,6 +159,8 @@ function HitLogic.updraftLaunch(path, t, f)
 	return BallPhysics.newLaunch(p, BallPhysics.velocityAt(path, t) * f, s.a * (f * f), t)
 end
 
+-- Squall: a hover's charge (0..1) as the spot it sends the spike to, from `lo` (just over the net)
+-- to `hi` (the very back) in AimSteps jumps: the target flashes from one to the next as it charges.
 function HitLogic.galeDepth(gale, lo, hi)
 	local n = SQUALL.AimSteps
 	local i = math.floor(clamp(tonumber(gale) or 0, 0, 1) * (n - 1) + 1e-6)
