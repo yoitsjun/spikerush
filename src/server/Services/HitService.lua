@@ -547,7 +547,7 @@ function HitService.activateAbility(entity)
 	if now < (entity.abilityReadyAt or 0) then
 		return false
 	end
-	entity.abilityReadyAt = now + def.Cooldown
+	entity.abilityReadyAt = now + Breakthrough.cooldown(entity.ability, entity.breakLevel) -- (shorter with breakthroughs)
 	writeAbility(entity, "AbilityReadyAt", entity.abilityReadyAt)
 	HitService.setAbilityWindow(entity, now + Breakthrough.ab(entity.ability, "Duration", entity.breakLevel)) -- (Iron Wall and Rally Cry last longer with breakthroughs)
 	if entity.ability == "RallyCry" then

@@ -2468,9 +2468,39 @@ do
 	local d = BTm.describe(yejun, 5)
 	check(groups and withAb >= 35 and withAb <= 45 and without > withAb and lifted and grows and s5.Attack > s0.Attack
 		and cost == 5 and BTm.cost(5) == nil and sPlus.Lucky == 1 and sOne.Lucky == 0 and sOne.VP == Config.Spins.SellValue.Legendary
-		and #d.stats > 0 and #d.ability == 2 and BTm.level(9) == 5 and BTm.level(-2) == 0 and BTm.cleanFragments({ S = 3, Q = 9, A = -1 }).S == 3,
+		and #d.stats > 0 and #d.ability == 3 and d.ability[3][1] == "Cooldown" and BTm.level(9) == 5 and BTm.level(-2) == 0 and BTm.cleanFragments({ S = 3, Q = 9, A = -1 }).S == 3,
 		"Breakthroughs: letter fragments (S+ its own), +5 for 5 of them adds ~40 stats past the ceiling (more without an ability) and grows the ability; S+ fragments sell with a lucky spin",
 		string.format("+5: %d stat points (%d without an ability); second swing %.0f%% -> %.0f%%; Adrenaline Attack +%d -> +%d", withAb, without, TH.SecondBoost * 100, second * 100, s0.Attack - shoyo.Attack, s5.Attack - shoyo.Attack))
+end
+
+print("== breakthroughs: lower tiers gain more, cooldowns shorter ==")
+do
+	-- the owner (2026-10-15): "make breakthroughs way more powerful on lower tier" and "make ability
+	-- cooldowns reduced"
+	local BTm = require("Breakthrough")
+	local BT = Config.Breakthrough
+	local function sum(t)
+		local n = 0
+		for _, v in pairs(t) do
+			n = n + v
+		end
+		return n
+	end
+	local function maxed(c, brk)
+		local _, b = Characters.fromRoster(c, "max", brk)
+		return b.Attack + b.Defense + b.Speed + b.Jump
+	end
+	-- by tier, wing spikers without an ability (D, C, B, A) and the S+ with one
+	local riku, eunwoo, nagi, sora, dante = Roster.get("riku"), Roster.get("eunwoo"), Roster.get("nagi"), Roster.get("sora"), Roster.get("dante")
+	local gain = { D = sum(BTm.stats(riku, 5)), C = sum(BTm.stats(eunwoo, 5)), B = sum(BTm.stats(nagi, 5)), A = sum(BTm.stats(sora, 5)), SP = sum(BTm.stats(dante, 5)) }
+	local dPlus5, aMax = maxed(riku, 5), maxed(sora)
+	check(gain.D > gain.C and gain.C > gain.B and gain.B > gain.A and gain.A > gain.SP and gain.D >= 3 * gain.SP and dPlus5 >= aMax - 15 and maxed(riku, 5) < maxed(dante, 5),
+		"breakthroughs give lower tiers far more: a +5 D-tier stands with a maxed A-tier, still under a +5 S+",
+		string.format("+5 adds D %d, C %d, B %d, A %d, S+ %d; +5 Riku %d vs maxed Sora %d", gain.D, gain.C, gain.B, gain.A, gain.SP, dPlus5, aMax))
+	local cd0, cd5, cd3 = BTm.cooldown("Thunder", 0), BTm.cooldown("Thunder", 5), BTm.cooldown("Thunder", 3)
+	check(cd0 == Config.Abilities.Thunder.Cooldown and math.abs(cd5 - cd0 * (1 - BT.CooldownCut)) < 1e-9 and cd3 < cd0 and cd3 > cd5 and BTm.cooldown("Thunder", 99) == cd5
+		and BTm.cooldown("Adrenaline", 5) == nil and BTm.cooldown(nil, 5) == nil,
+		"breakthroughs shorten an active ability's cooldown, 30% at +5 (passives have none)", string.format("Storm Call %.0f s -> %.1f s at +5", cd0, cd5))
 end
 
 print("== player cards ==")

@@ -2564,7 +2564,7 @@ local function characterCard(parent, c)
 	local _, setBadge = Gui.tierBadge(b, 46, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 8) })
 	setBadge(c.Tier, color, false)
 	Gui.label(b, { Text = c.Role, display = true, TextSize = 21, TextStrokeTransparency = 0.35, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 58), Size = UDim2.fromOffset(70, 24), TextXAlignment = Enum.TextXAlignment.Right })
-	local plus = Gui.label(b, { Text = "", display = true, TextSize = 17, TextStrokeTransparency = 0.35, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 82), Size = UDim2.fromOffset(70, 20), TextXAlignment = Enum.TextXAlignment.Right })
+	local plus = Gui.label(b, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, TextStrokeTransparency = 0.3, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 82), Size = UDim2.fromOffset(70, 22), TextXAlignment = Enum.TextXAlignment.Right })
 	local tag = Gui.label(b, { Text = "", display = true, TextSize = 17, TextStrokeTransparency = 0.35, Position = UDim2.new(0, 10, 1, -62), Size = UDim2.new(1, -20, 0, 20) })
 	Gui.label(b, { Text = c.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextStrokeTransparency = 0.35, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.new(0, 10, 1, -42), Size = UDim2.new(1, -20, 0, 34) })
 	local star = Gui.iconImage(b, "IconStar", 22, Gui.SIGNAL, { Position = UDim2.fromOffset(8, 8), Visible = false })
@@ -2853,7 +2853,8 @@ local function refreshTeams(prof)
 	local lv = prof.levels and prof.levels[c.Id]
 	local _, maxed = upgradeState(c, lv)
 	pl.setCBadge(c.Tier, tierColor(c.Tier), maxed)
-	pl.cLine.Text = string.format("%d cm   %s", c.Height, isYou and '<font color="#FFD21F">You</font>' or "AI teammate")
+	local tagText = Extra.breakTag(prof, c.Id)
+	pl.cLine.Text = string.format("%d cm   %s%s", c.Height, isYou and '<font color="#FFD21F">You</font>' or "AI teammate", tagText ~= "" and ('   <font color="#FFD21F"><b>' .. tagText .. "</b></font>") or "")
 	local span = Config.Stats.Ref - Config.Stats.Min
 	for stat, row in pairs(pl.statRows) do
 		local cur = lv and lv[stat] or Characters.baseStat(c, stat)
@@ -2912,9 +2913,8 @@ local function refreshPlayers(prof)
 			fillPortrait(card.vp, card.role)
 		end
 		local mine = owns(prof, "Char", id)
-		local bought, maxed = upgradeState(c, mine and prof.levels and prof.levels[id] or nil)
 		card.lock.Visible = not mine
-		card.plus.Text = (mine and maxed) and "MAX" or (bought > 0 and ("+" .. bought) or "")
+		card.plus.Text, card.plus.TextColor3 = Extra.breakTag(mine and prof or nil, id)
 		local playing = id == current
 		card.button:SetAttribute("Playing", playing)
 		if playing then
@@ -2936,7 +2936,8 @@ local function refreshPlayers(prof)
 	local _, maxed = upgradeState(c, prof.levels and prof.levels[c.Id] or nil)
 	pl.setNowBadge(c.Tier, tierColor(c.Tier), maxed)
 	pl.nowName.Text = c.Name
-	pl.nowLine.Text = string.format("%s / %d cm%s", c.Role, c.Height, def and string.format(' / <font color="#%s">%s</font>', def.Color:ToHex(), def.Name) or "")
+	local nowTag = Extra.breakTag(prof, c.Id)
+	pl.nowLine.Text = string.format("%s%s / %d cm%s", c.Role, nowTag ~= "" and (' <font color="#FFD21F"><b>' .. nowTag .. "</b></font>") or "", c.Height, def and string.format(' / <font color="#%s">%s</font>', def.Color:ToHex(), def.Name) or "")
 end
 
 -- A player's page: back to the roster top left, your avatar in the room, and the panel on the
@@ -3197,6 +3198,16 @@ local function buildPlayer()
 	}
 end
 
+-- A character's breakthrough as its card shows it, under the role (Spike Cross's grid: "+2"; the
+-- owner, 2026-10-15: "display breakthrough like this"): "" before the first, gold at +Max.
+function Extra.breakTag(prof, id)
+	local lv = Extra.BT.level(prof and prof.breaks and prof.breaks[id])
+	if lv <= 0 then
+		return "", Gui.CHALK
+	end
+	return "+" .. lv, lv >= Config.Breakthrough.Max and Gui.SIGNAL or Gui.CHALK
+end
+
 -- The Breakthrough tab for roster character `c` (mine: you own it).
 function Extra.refreshBreak(prof, c, mine)
 	local B = Extra.bt
@@ -3245,11 +3256,12 @@ function Extra.refreshBreak(prof, c, mine)
 	-- Sell: what comes back
 	local starter = table.find(Roster.Starters, c.Id) ~= nil
 	local playing = c.Id == (prof.char or player:GetAttribute("CharId"))
+	local locked = favs(prof)[c.Id] == true -- (a favourite can't be sold: the star locks it)
 	B.sell.Visible = mine and not starter and not prof.dev
 	if B.sell.Visible then
 		local armed = Extra.sellArmed and Extra.sellArmed.id == c.Id and os.clock() - Extra.sellArmed.at < 3
-		B.sellL.Text = armed and "Press again to sell" or "Sell player"
-		Gui.enable(B.sell, B.sellL, not playing)
+		B.sellL.Text = locked and "Locked (favorite)" or (armed and "Press again to sell" or "Sell player")
+		Gui.enable(B.sell, B.sellL, not playing and not locked)
 		local item = Spins.item("Char", c.Id)
 		local gold = 0
 		for _, stat in ipairs(Config.Stats.Order) do
@@ -3263,7 +3275,8 @@ function Extra.refreshBreak(prof, c, mine)
 		for i = 1, level do
 			back = back + (BT.Cost[i] or 0)
 		end
-		B.sellNote.Text = playing and "You can't sell the player you play: pick another first."
+		B.sellNote.Text = (playing and "You can't sell the player you play: pick another first.")
+			or (locked and "Favorites are locked from selling. Unfavorite them (the star at the top) to sell.")
 			or string.format("Sells for %d VP%s%s. Recruit them again any time.", Spins.sellValue(item and item.Rarity or "Common"), gold > 0 and (", " .. Gui.num(gold) .. " Gold") or "", back > 0 and string.format(" and %d %s Fragment%s", back, g, back == 1 and "" or "s") or "")
 	else
 		B.sellNote.Text = (mine and starter) and "Starters can't be sold." or ""
@@ -3418,7 +3431,7 @@ local function refreshPlayer(prof)
 		d.abName.Text = def.Name
 		d.abName.TextColor3 = def.Color
 		d.abKind.Visible = true
-		d.abKindL.Text = def.Active and string.format("Active: Q, %d s cooldown", def.Cooldown or 0) or def.Kind or "Passive"
+		d.abKindL.Text = def.Active and string.format("Active: Q, %d s cooldown", math.floor((Extra.BT.cooldown(c.Ability, mine and prof.breaks and prof.breaks[c.Id]) or def.Cooldown or 0) + 0.5)) or def.Kind or "Passive"
 		d.abText.Text = def.Blurb or ""
 		d.abText.TextColor3 = Gui.CHALK
 		local pv = def.Passives and def.Passives[1]

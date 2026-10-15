@@ -134,52 +134,72 @@ local function hand(model)
 	return model:FindFirstChild("RightHand") or model:FindFirstChild("Right Arm")
 end
 
--- Where the scythe is held this frame: its grip in the hand; the shaft upright by the leg on the
--- ground, drawn back over the shoulder in the air (`air` 0..1), and chopped through, forward
--- and down, when a spike lands on the blade (`swing`: seconds since Skins.slash). The shaft
--- turns about the body's side and the blade turns with it, reaching where the body faces when
--- upright. (Welded along the hand, a raised arm had turned the blade down to the hips; and the
--- arm's own angle doesn't track the swing: a cocked arm bends its hand back down by the ear.)
-local DRAWN = math.rad(-35)
-local CHOP = math.rad(115)
-local function holdFrame(model, h, air, swing)
+-- The hitting arm's line this frame, shoulder to hand (R15's upper arm and hand, or R6's one
+-- arm), or nil.
+local function armLine(model, h)
+	local upper = model:FindFirstChild("RightUpperArm")
+	if upper then
+		return upper.Position + upper.CFrame.UpVector * (upper.Size.Y * 0.4), h.Position
+	end
+	if h.Name == "Right Arm" then
+		local cf = h.CFrame
+		return h.Position + cf.UpVector * (h.Size.Y * 0.4), h.Position - cf.UpVector * (h.Size.Y * 0.45)
+	end
+	return nil
+end
+
+-- Where the scythe is held this frame: its grip in the hand, and the shaft steered by the arm
+-- (the owner, 2026-10-15: "i want the scythe to move with the body of course, and the scythe to
+-- be swung right now it sits idly"). With the arm down, the shaft stands by the leg and rocks
+-- with the arm's swing (running, the approach's arm pump); the higher the arm, the more the shaft
+-- lies along it, shoulder to hand and on out past the fist, so the bow-and-arrow draws it back
+-- over the shoulder and the arm swing whips it through. The blade reaches where the body faces,
+-- turning down as the arm rises (the edge leads the swing). A spike on the blade (`swing`:
+-- seconds since Skins.slash) chops it on through, forward and down, on top. (The arm's line, not
+-- the hand's own turn: a cocked arm bends the hand back down by the ear.)
+local CHOP = math.rad(75)
+local function holdFrame(model, h, swing)
 	local at = (h.CFrame * CFrame.new(0, -0.15, 0)).Position
 	local root = model:FindFirstChild("HumanoidRootPart")
 	if not root then
 		return CFrame.new(at)
 	end
 	local body = root.CFrame
-	local up, look = body.UpVector, body.LookVector
-	local lean = DRAWN * (air or 0)
+	local up, look, right = body.UpVector, body.LookVector, body.RightVector
+	local shoulder, fist = armLine(model, h)
+	local arm = -up
+	if shoulder and (fist - shoulder).Magnitude > 0.05 then
+		arm = (fist - shoulder).Unit
+	end
+	-- 0 with the arm hanging, 1 from a little over level
+	local raised = math.clamp((arm:Dot(up) + 0.25) / 0.55, 0, 1)
+	local idle = (up + look * (arm:Dot(look) * 0.8) + right * 0.12).Unit
+	local shaft = idle * (1 - raised) + arm * raised
+	if shaft.Magnitude < 1e-3 then
+		shaft = up
+	end
+	shaft = shaft.Unit
+	local reach = look * (1 - 0.5 * raised) - up * (0.7 * raised)
 	if swing and swing < 0.6 then
-		-- through in a tenth of a second, held, then eased back
+		-- on through in a tenth of a second, held, then eased back
 		local k = 1
 		if swing < 0.1 then
 			k = 1 - (1 - swing / 0.1) ^ 3
 		elseif swing > 0.32 then
 			k = 1 - math.min((swing - 0.32) / 0.28, 1) ^ 2
 		end
-		lean = lean + (CHOP - lean) * k
+		local turn = CFrame.fromAxisAngle(right, -CHOP * k) -- (about the body's side: up goes forward)
+		shaft = turn:VectorToWorldSpace(shaft)
+		reach = turn:VectorToWorldSpace(reach)
 	end
-	local shaft = up * math.cos(lean) + look * math.sin(lean)
-	local blade = look * math.cos(lean) - up * math.sin(lean)
-	shaft = (shaft + body.RightVector * 0.12).Unit -- (a little out, clear of the leg)
-	blade = (blade - shaft * blade:Dot(shaft)).Unit
-	return CFrame.lookAt(at, at + blade, shaft)
-end
-
--- Whether a character is off the ground: nothing under its root within its standing height.
-local downParams = RaycastParams.new()
-downParams.FilterType = Enum.RaycastFilterType.Exclude
-local function airborne(model)
-	local root = model:FindFirstChild("HumanoidRootPart")
-	local hum = model:FindFirstChildOfClass("Humanoid")
-	if not (root and hum) then
-		return false
+	local blade = reach - shaft * reach:Dot(shaft)
+	if blade.Magnitude < 1e-3 then
+		blade = look - shaft * look:Dot(shaft)
 	end
-	local stand = hum.HipHeight + root.Size.Y / 2
-	downParams.FilterDescendantsInstances = { model, folder }
-	return workspace:Raycast(root.Position, Vector3.new(0, -(stand + 0.8), 0), downParams) == nil
+	if blade.Magnitude < 1e-3 then
+		blade = -up
+	end
+	return CFrame.lookAt(at, at + blade.Unit, shaft)
 end
 
 local function attachAt(part, worldPos, name)
@@ -244,7 +264,7 @@ local function dress(model)
 		s:Destroy()
 		return
 	end
-	s:PivotTo(holdFrame(model, h, 0))
+	s:PivotTo(holdFrame(model, h))
 	if not folder or not folder.Parent then
 		folder = Instance.new("Folder")
 		folder.Name = "SpikeRushSkins"
@@ -252,7 +272,7 @@ local function dress(model)
 	end
 	s.Parent = folder
 
-	local st = { scythe = s, hand = h, air = 0, kits = {}, slash = {} }
+	local st = { scythe = s, hand = h, kits = {}, slash = {} }
 	dressed[model] = st
 	local tipPart = s:FindFirstChild("Tip", true)
 	local heelPart = s:FindFirstChild("Heel", true)
@@ -356,13 +376,10 @@ function Skins.init(m)
 			acc = 0
 			sweep()
 		end
-		-- every held scythe follows its hand (after the frame's animation and physics), easing
-		-- between its ground and air holds
+		-- every held scythe follows its hand and arm (after the frame's animation and physics)
 		for model, st in pairs(dressed) do
 			if st.hand.Parent == model and st.scythe.Parent then
-				local goal = airborne(model) and 1 or 0
-				st.air = st.air + (goal - st.air) * math.min(1, dt * 12)
-				st.scythe:PivotTo(holdFrame(model, st.hand, st.air, st.swingAt and os.clock() - st.swingAt))
+				st.scythe:PivotTo(holdFrame(model, st.hand, st.swingAt and os.clock() - st.swingAt))
 			end
 		end
 	end)

@@ -2025,7 +2025,11 @@ local function onRequest(plr, kind, a, b, c)
 		if a == ProfileService.character(plr).Id then
 			ProfileService.applyActive(plr)
 		end
-		push(plr, string.format("%s broke through: +%d!", c.Name, level + 1))
+		-- the client plays the reveal (BreakReveal: "Breakthrough N Achieved!")
+		local snap = ProfileService.snapshot(plr)
+		snap.notice = string.format("%s broke through: +%d!", c.Name, level + 1)
+		snap.breakReveal = { id = a, level = level + 1 }
+		Net.get("Profile"):FireClient(plr, snap)
 	elseif kind == "sellFragment" then
 		-- fragments you don't need, for a duplicate's VP (S+: a lucky spin too)
 		local g = type(a) == "string" and Breakthrough.isGroup(a) and a or nil
@@ -2060,6 +2064,11 @@ local function onRequest(plr, kind, a, b, c)
 		end
 		if a == ProfileService.character(plr).Id then
 			push(plr, "Pick another character first: you can't sell the one you play.")
+			return
+		end
+		if profile.fav and profile.fav[a] then
+			-- a favourite is locked (the owner: "character selling lock probably favorite button")
+			push(plr, c.Name .. " is a favorite, so they're locked: unfavorite them to sell.")
 			return
 		end
 		local gold = 0

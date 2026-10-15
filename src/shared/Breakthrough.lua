@@ -53,10 +53,11 @@ local function hasAbility(c)
 	return c ~= nil and c.Ability ~= nil and Config.Abilities[c.Ability] ~= nil
 end
 
--- The stat points step `i` (1..Max) gives roster character `c`.
+-- The stat points step `i` (1..Max) gives roster character `c`: its role's plan, more without an
+-- ability (NoAbilityMul) and more the lower its tier (TierMul).
 function Breakthrough.step(c, i)
 	local plan = (BT.Stats[c and c.Role or "WS"] or BT.Stats.WS)[i] or {}
-	local mul = hasAbility(c) and 1 or BT.NoAbilityMul
+	local mul = (hasAbility(c) and 1 or BT.NoAbilityMul) * (BT.TierMul[Breakthrough.group(c and c.Tier)] or 1)
 	local out = {}
 	for k, v in pairs(plan) do
 		out[k] = math.floor(v * mul + 0.5)
@@ -105,6 +106,17 @@ function Breakthrough.ab(ability, key, level)
 	return one(v)
 end
 
+-- An active ability's cooldown at breakthrough `level` (CooldownCut shorter at +Max), or nil for
+-- an ability without one.
+function Breakthrough.cooldown(ability, level)
+	local def = Config.Abilities[ability or ""]
+	local cd = def and def.Cooldown
+	if type(cd) ~= "number" then
+		return nil
+	end
+	return cd * (1 - BT.CooldownCut * Breakthrough.level(level) / BT.Max)
+end
+
 local function show(spec, v)
 	if type(v) == "table" then
 		v = v[spec.Field or 1]
@@ -142,6 +154,10 @@ function Breakthrough.describe(c, i)
 		for _, key in ipairs(keys) do
 			table.insert(out.ability, { specs[key].Label, show(specs[key], Breakthrough.ab(c.Ability, key, i)) })
 		end
+	end
+	local cd = hasAbility(c) and Config.Abilities[c.Ability].Active and Breakthrough.cooldown(c.Ability, i)
+	if cd then
+		table.insert(out.ability, { "Cooldown", string.format("%.1f s", cd) })
 	end
 	return out
 end

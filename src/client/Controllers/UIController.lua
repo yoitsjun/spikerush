@@ -28,6 +28,7 @@ local Court = require(Shared.Court)
 local Util = require(Shared.Util)
 local Tutorial = require(Shared.Tutorial)
 local HitLogic = require(Shared.HitLogic)
+local Breakthrough = require(Shared.Breakthrough)
 local Cards = require(Shared.Cards)
 local Net = require(Shared.Net)
 local State = require(script.Parent.State)
@@ -977,7 +978,8 @@ local function badgeState(ability, id, model, team, mine)
 				p = 1 -- pressed, the server's window on its way
 			end
 		elseif left > 0 then
-			p, count, dim = 1 - left / def.Cooldown, tostring(math.ceil(left)), true
+			local cd = Breakthrough.cooldown(ability, model and model:GetAttribute("Break")) or def.Cooldown -- (shorter with breakthroughs)
+			p, count, dim = 1 - left / math.max(cd, 0.1), tostring(math.ceil(left)), true
 		else
 			p, hot, sub = 1, true, "READY"
 		end

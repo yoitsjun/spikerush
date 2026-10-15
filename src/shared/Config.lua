@@ -343,6 +343,13 @@ Config.Breakthrough = {
 		SE = { { Speed = 4, Defense = 4 }, { Speed = 3, Defense = 3, Jump = 2 }, { Speed = 4, Defense = 4 }, { Attack = 3, Speed = 3, Defense = 2 }, { Speed = 4, Defense = 4 } },
 	},
 	NoAbilityMul = 1.5,
+	-- the lower the tier, the more each step gives (the owner, 2026-10-15: "make breakthroughs way
+	-- more powerful on lower tier"): a maxed D is about 400 stat points and an S+ about 650, so a +5
+	-- D (x3, x NoAbilityMul: 180 points) lands near a maxed A, a +5 B (x1.8: 108) near an S
+	TierMul = { D = 3, C = 2.4, B = 1.8, A = 1.4, S = 1.15, ["S+"] = 1 },
+	-- an active ability's cooldown is this much shorter at +Max, a fifth of it a step (the owner:
+	-- "for breakthroughs, also maybe make ability cooldowns reduced")
+	CooldownCut = 0.3,
 	-- per ability: the settings that grow, and how each shows in the Breakthrough table (Show: "pct"
 	-- a share as %, "excess" a multiplier's part over 1 as %, "num" points, "s" seconds, "kmh";
 	-- Field: the entry of a table setting to show)

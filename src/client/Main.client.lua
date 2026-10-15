@@ -46,6 +46,7 @@ local order = {
 	"SceneController",
 	"MenuController",
 	"HalloweenMenu",
+	"BreakReveal",
 	"LineupController",
 	"MobileControls",
 	"CrowdController",
