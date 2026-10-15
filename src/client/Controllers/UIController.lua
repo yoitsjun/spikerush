@@ -686,6 +686,16 @@ local function setHidden(m, on)
 	end
 end
 
+-- A character's abilities in a short line: the first one's name, and "+N" for the rest (the
+-- Halloween Match's ability cards stack beside its own); "" for none.
+local function abilitiesText(list)
+	local def = list[1] and Config.Abilities[list[1]]
+	if not def then
+		return ""
+	end
+	return #list > 1 and string.format("%s +%d", def.Name, #list - 1) or def.Name
+end
+
 local function refreshTags()
 	local seen = {}
 	for _, info in ipairs(allModels()) do
@@ -710,8 +720,7 @@ local function refreshTags()
 			t.name.Text = info.name
 			t.name.TextColor3 = team and teamColor(team) or UI.Chalk
 			local h = m:GetAttribute("Height")
-			local ability = m:GetAttribute("Ability")
-			local abilityName = ability and Config.Abilities[ability] and Config.Abilities[ability].Name or ""
+			local abilityName = abilitiesText(Characters.abilitiesOf(m)) -- (its own, "+N" for its cards')
 			local charName = m:GetAttribute("CharName")
 			local who = (charName and charName ~= info.name) and (charName .. "   ") or ""
 			if h then
@@ -739,12 +748,16 @@ end
 -- beside it (1 and 2 on your AI teammates' actives, a key or a click); the other team's on the
 -- right. A ring around the icon fills clockwise with the ability's charge, meter, level or
 -- cooldown (the owner: "with charged up abilities, they wrap around in a circle"), and throbs
--- when it's full or ready.
+-- when it's full or ready. The Halloween Match's ability cards stack with a character's own (the
+-- owner: "i want them to stack"): its first ability keeps the badge, and each further one gets a
+-- smaller badge beside it with a ring of its own (yours named, a teammate's or foe's a mini).
 ------------------------------------------------------------------------------------------
 
 local FERAL = Config.Abilities.Feral
 local ICON_FILL = { RisingSun = 0.92 } -- icons drawn with padding of their own get more room
 local BADGE_BIG, BADGE_MATE, BADGE_FOE = 100, 70, 80
+local BADGE_CARD, BADGE_MINI = 64, 34 -- your further abilities; a teammate's or foe's
+local CARD_STEP, MINI_STEP = BADGE_CARD + 30, BADGE_MINI + 6
 
 -- the badges keep their places (a roster is in rotation order, so a side-out would shuffle them)
 local function byId(a, b)
@@ -810,8 +823,10 @@ local function progressRing(parent, t)
 end
 
 -- A badge `size` px across: the dim track and the ring, a dark disc with the icon, a count over
--- it (a cooldown's seconds), the name and a line under it, and a key tag for actives.
-local function newBadge(parent, size, clickable)
+-- it (a cooldown's seconds), the name and a line under it, and a key tag for actives. A `mini` one
+-- is the ring and the icon (its name and line are there, hidden); `nameW` narrows the name and line
+-- (their text shrinks to fit), for badges side by side.
+local function newBadge(parent, size, clickable, mini, nameW)
 	local t = math.max(3, math.floor(size * 0.06 + 0.5))
 	local f = make(clickable and "TextButton" or "Frame", {
 		BackgroundTransparency = 1,
@@ -851,8 +866,9 @@ local function newBadge(parent, size, clickable)
 		TextSize = math.max(13, math.floor(size * 0.2)),
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 1, 2),
-		Size = UDim2.fromOffset(220, 18),
+		Size = UDim2.fromOffset(nameW or 220, 18),
 		TextXAlignment = Enum.TextXAlignment.Center,
+		Visible = not mini,
 	})
 	stroke(name, 1.5, UI.Ink)
 	local sub = label(f, {
@@ -862,18 +878,26 @@ local function newBadge(parent, size, clickable)
 		TextColor3 = UI.Fog,
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 1, 20),
-		Size = UDim2.fromOffset(220, 14),
+		Size = UDim2.fromOffset(nameW or 220, 14),
 		TextXAlignment = Enum.TextXAlignment.Center,
+		Visible = not mini,
 	})
 	stroke(sub, 1.5, UI.Ink)
+	if nameW then
+		for _, l in ipairs({ name, sub }) do
+			make("UITextSizeConstraint", { MaxTextSize = l.TextSize, MinTextSize = 8 }, l)
+			l.TextScaled = true
+		end
+	end
+	local ks = mini and 16 or 22
 	local key = make("TextLabel", {
 		BackgroundColor3 = UI.Chalk,
 		BorderSizePixel = 0,
 		Position = UDim2.fromOffset(-2, -2),
-		Size = UDim2.fromOffset(22, 22),
+		Size = UDim2.fromOffset(ks, ks),
 		Text = "",
 		TextColor3 = UI.Ink,
-		TextSize = 14,
+		TextSize = mini and 11 or 14,
 		FontFace = Gui.display(Enum.FontWeight.Heavy),
 		ZIndex = 4,
 		Visible = false,
@@ -888,6 +912,8 @@ local function buildAbility()
 	local right = make("Frame", { Name = "AbilitiesTheirs", BackgroundTransparency = 1, Size = UDim2.fromOffset(BADGE_FOE + 40, 3 * (BADGE_FOE + 44)), Visible = false }, gui)
 	local leftScale = make("UIScale", {}, left)
 	local rightScale = make("UIScale", {}, right)
+	-- yours: your first ability (your character's own, or with none your first card's); each
+	-- further one a smaller badge (mineExtra, made as they're needed)
 	local mine = newBadge(left, BADGE_BIG, false)
 	mine.frame.Position = UDim2.fromOffset(0, 0)
 	local mates = {}
@@ -899,6 +925,7 @@ local function buildAbility()
 				mods.ActionController.press("Team" .. b.press)
 			end
 		end)
+		b.minis = {} -- their further abilities, a row under the badge
 		mates[i] = b
 	end
 	local foes = {}
@@ -906,6 +933,7 @@ local function buildAbility()
 		local b = newBadge(right, BADGE_FOE, false)
 		b.frame.AnchorPoint = Vector2.new(1, 0)
 		b.frame.Position = UDim2.new(1, -8, 0, (i - 1) * (BADGE_FOE + 44))
+		b.minis = {} -- (the AI takes no ability cards, so these stay empty in a Halloween Match)
 		foes[i] = b
 	end
 	-- a Rally Cry on your team: a gold tag under your badges while it lasts
@@ -919,7 +947,7 @@ local function buildAbility()
 		Visible = false,
 	})
 	stroke(rally, 1.5, UI.Ink)
-	ui.badges = { left = left, right = right, leftScale = leftScale, rightScale = rightScale, mine = mine, mates = mates, foes = foes, rally = rally }
+	ui.badges = { left = left, right = right, leftScale = leftScale, rightScale = rightScale, mine = mine, mineExtra = {}, mates = mates, foes = foes, rally = rally }
 	-- Azure Dragon's charge, from ActionController (the arc shows it on the court too)
 	ui.charge = { e = 0, g = 1, st = "idle" }
 
@@ -957,28 +985,33 @@ end
 -- What a badge shows for an ability: the ring's fill (0..1), the count over the icon (a
 -- cooldown's seconds, or ""), the line under the name, whether it throbs (full, ready, on) and
 -- whether it's dimmed (cooling down, or not charged). `id` / `model` are the entity's; `mine` is
--- your own character (its exact local state).
+-- your own character (its exact local state). Each ability has its own window and cooldown
+-- ("AbilityUntil_<Name>", "AbilityReadyAt_<Name>"), and breakthroughs grow only the character's
+-- own ability (a card's plays at +0).
 local function badgeState(ability, id, model, team, mine)
 	local def = Config.Abilities[ability]
 	local now = Util.now()
 	local p, count, sub, hot, dim = 0, "", "", false, false
 	local AC = mods.ActionController
+	local inst = mine and player or model
+	local lvl = (inst and inst:GetAttribute("Ability") == ability) and inst:GetAttribute("Break") or 0
 	if def.Active then
-		local untilT = (model and model:GetAttribute("AbilityUntil")) or -1
-		local readyAt = (model and model:GetAttribute("AbilityReadyAt")) or 0
+		local untilT = (inst and inst:GetAttribute("AbilityUntil_" .. ability)) or -1
+		local readyAt = (inst and inst:GetAttribute("AbilityReadyAt_" .. ability)) or 0
 		local on = untilT >= now
 		local left = math.max(0, readyAt - now)
 		if mine then
-			on = AC.abilityActive()
-			left = AC.abilityCooldown()
+			on = AC.abilityActive(ability)
+			left = AC.abilityCooldown(ability)
 		end
 		if on then
-			p, hot, sub = math.clamp((untilT - now) / def.Duration, 0.05, 1), true, "ON"
+			local dur = Breakthrough.ab(ability, "Duration", lvl) or def.Duration -- (Iron Wall and Rally Cry last longer with breakthroughs)
+			p, hot, sub = math.clamp((untilT - now) / math.max(dur, 0.1), 0.05, 1), true, "ON"
 			if mine and untilT < now then
 				p = 1 -- pressed, the server's window on its way
 			end
 		elseif left > 0 then
-			local cd = Breakthrough.cooldown(ability, model and model:GetAttribute("Break")) or def.Cooldown -- (shorter with breakthroughs)
+			local cd = Breakthrough.cooldown(ability, lvl) or def.Cooldown -- (shorter with breakthroughs)
 			p, count, dim = 1 - left / math.max(cd, 0.1), tostring(math.ceil(left)), true
 		else
 			p, hot, sub = 1, true, "READY"
@@ -1004,7 +1037,7 @@ local function badgeState(ability, id, model, team, mine)
 		if mine then
 			v = AC.prowlCharge() or AC.leapGauge()
 		else
-			v = model and mods.VFXController.chargeOf(model) or 0
+			v = model and mods.VFXController.chargeOf(model, "feral") or 0
 		end
 		p, hot = v, v >= FERAL.FullAt
 		if mine and not player:GetAttribute("FirstStrikeUsed") then
@@ -1020,7 +1053,7 @@ local function badgeState(ability, id, model, team, mine)
 				p, dim = c.g, c.g < 1 -- the gauge refilling on the ground
 			end
 		else
-			p = model and mods.VFXController.chargeOf(model) or 0
+			p = model and mods.VFXController.chargeOf(model, "azure") or 0
 			hot = p >= 1
 		end
 	elseif ability == "Thunder" then
@@ -1127,6 +1160,13 @@ local function fitTop(touch)
 	return 6 + math.floor(106 * s), cx
 end
 
+-- A badge's key tag: `text` ("Q", or 1 and 2 for an AI teammate's) on an ability you press.
+local function keyTag(b, ability, text)
+	local def = ability and Config.Abilities[ability]
+	b.key.Visible = text ~= nil and def ~= nil and def.Active == true
+	b.key.Text = text or ""
+end
+
 local function updateAbility()
 	local B = ui.badges
 	local playing = State.isPlaying and State.match.inMatch == true
@@ -1167,7 +1207,6 @@ local function updateAbility()
 	if B.touch ~= touch then
 		-- theirs: a column down the right edge, or on touch a row (the big buttons are below)
 		B.touch = touch
-		B.right.Size = touch and UDim2.fromOffset(3 * (BADGE_FOE + 40), BADGE_FOE + 40) or UDim2.fromOffset(BADGE_FOE + 40, 3 * (BADGE_FOE + 44))
 		for i, b in ipairs(B.foes) do
 			if touch then
 				b.frame.Position = UDim2.new(1, -8 - (i - 1) * (BADGE_FOE + 40), 0, 0)
@@ -1176,51 +1215,151 @@ local function updateAbility()
 			end
 		end
 	end
+	-- each side is as big as the badges in it (the touch layout editor draws its box from that):
+	-- yours and two teammates', their three, and more where cards add badges (below)
+	local leftW, leftH = BADGE_BIG + 30 + 2 * (BADGE_MATE + 26) + 20, BADGE_BIG + 60
+	local rightW, rightH = BADGE_FOE + 40, 3 * (BADGE_FOE + 44)
+	if touch then
+		rightW, rightH = 3 * (BADGE_FOE + 40), BADGE_FOE + 40
+	end
 	if not playing then
+		B.left.Size, B.right.Size = UDim2.fromOffset(leftW, leftH), UDim2.fromOffset(rightW, rightH)
 		return
 	end
-	-- yours (with Q on the badge for an ability you press)
+	-- yours, with Q on each one you press (Q fires every one that's ready); your further abilities
+	-- (your Halloween cards') right of it, or on touch in a row under it
 	local myModel = player.Character
-	local myDef = Config.Abilities[State.myAbility() or ""]
-	B.mine.key.Visible = myDef ~= nil and myDef.Active == true and not touch
-	B.mine.key.Text = "Q"
-	showBadge(B.mine, State.myAbility(), State.myId, myModel, State.myTeam, true)
+	local myList = State.myAbilities()
+	keyTag(B.mine, myList[1], not touch and "Q" or nil)
+	showBadge(B.mine, myList[1], State.myId, myModel, State.myTeam, true)
+	local extras = math.max(0, #myList - 1)
+	for i = 1, math.max(extras, #B.mineExtra) do
+		local b = B.mineExtra[i]
+		if not b then
+			b = newBadge(B.left, BADGE_CARD, false, false, CARD_STEP - 4)
+			B.mineExtra[i] = b
+		end
+		if touch then
+			b.frame.Position = UDim2.fromOffset((i - 1) * CARD_STEP, BADGE_BIG + 40)
+		else
+			b.frame.Position = UDim2.fromOffset(BADGE_BIG + 30 + (i - 1) * CARD_STEP, (BADGE_BIG - BADGE_CARD) / 2)
+		end
+		keyTag(b, myList[i + 1], not touch and "Q" or nil)
+		showBadge(b, myList[i + 1], State.myId, myModel, State.myTeam, true)
+	end
+	if touch and extras > 0 then
+		leftW = math.max(leftW, extras * CARD_STEP)
+		leftH = math.max(leftH, BADGE_BIG + 40 + BADGE_CARD + 40)
+	end
 	-- your teammates', with 1 and 2 on your AI teammates' actives (the keys, or a click); not on
-	-- touch, where the skill buttons hold those
+	-- touch, where the skill buttons hold those. Each one's further abilities are minis in a row
+	-- under it, its slot as wide as the row.
 	local keys = {}
 	for j, m in ipairs(mods.ActionController.teamAbilities()) do
 		keys[m.id] = j
 	end
 	local mates = {}
 	for _, e in ipairs(State.myTeam and State.roster(State.myTeam) or {}) do
-		if e.id ~= State.myId and e.ability and Config.Abilities[e.ability] then
-			table.insert(mates, e)
+		local list = Characters.abilityList(nil, e.abilities or { e.ability })
+		if e.id ~= State.myId and list[1] then
+			table.insert(mates, { id = e.id, list = list })
 		end
 	end
 	table.sort(mates, byId)
-	local x0 = B.mine.frame.Visible and BADGE_BIG + 30 or 0 -- with no ability of your own, theirs start at the edge
+	-- (with no ability of your own, theirs start at the edge)
+	local x = (B.mine.frame.Visible and BADGE_BIG + 30 or 0) + (not touch and extras * CARD_STEP or 0)
+	local miniY = (BADGE_BIG - BADGE_MATE) / 2 + BADGE_MATE + 36
+	local mateMinis = false
 	for i, b in ipairs(B.mates) do
 		local m = not touch and mates[i] or nil
-		b.frame.Position = UDim2.fromOffset(x0 + (i - 1) * (BADGE_MATE + 26), (BADGE_BIG - BADGE_MATE) / 2)
+		local list = m and m.list or {}
+		local model = m and Util.modelOf(m.id)
+		local n = math.max(0, #list - 1)
+		local row = n * MINI_STEP - 6
+		local slotW = math.max(BADGE_MATE + 26, row + 26)
+		b.frame.Position = UDim2.fromOffset(x + (slotW - 26 - BADGE_MATE) / 2, (BADGE_BIG - BADGE_MATE) / 2)
 		b.press = m and keys[m.id] or nil
-		b.key.Visible = b.press ~= nil
-		b.key.Text = tostring(b.press or "")
-		showBadge(b, m and m.ability or nil, m and m.id, m and Util.modelOf(m.id), State.myTeam, false)
-	end
-	-- the other team's, top to bottom
-	local list = {}
-	local other = State.myTeam and Court.other(State.myTeam)
-	for _, e in ipairs(other and State.roster(other) or {}) do
-		if e.ability and Config.Abilities[e.ability] then
-			table.insert(list, e)
+		keyTag(b, list[1], b.press and tostring(b.press) or nil)
+		showBadge(b, list[1], m and m.id, model, State.myTeam, false)
+		for k = 1, math.max(n, #b.minis) do
+			local mb = b.minis[k]
+			if not mb then
+				mb = newBadge(B.left, BADGE_MINI, true, true)
+				mb.frame:SetAttribute("NoNav", true)
+				mb.frame.MouseButton1Click:Connect(function()
+					if b.press then
+						mods.ActionController.press("Team" .. b.press)
+					end
+				end)
+				b.minis[k] = mb
+			end
+			mb.frame.Position = UDim2.fromOffset(x + (slotW - 26 - row) / 2 + (k - 1) * MINI_STEP, miniY)
+			keyTag(mb, list[k + 1], b.press and tostring(b.press) or nil)
+			showBadge(mb, list[k + 1], m and m.id, model, State.myTeam, false)
+		end
+		if m then
+			x = x + slotW
+			mateMinis = mateMinis or n > 0
 		end
 	end
-	table.sort(list, byId)
-	for i, b in ipairs(B.foes) do
-		local e = list[i]
-		showBadge(b, e and e.ability or nil, e and e.id, e and Util.modelOf(e.id), other, false)
+	if not touch then
+		leftW = math.max(leftW, x + 20)
 	end
-	-- your team's Rally Cry
+	-- the other team's, top to bottom (on touch a row); their further abilities as minis left of
+	-- each (on touch, under it)
+	local foes = {}
+	local other = State.myTeam and Court.other(State.myTeam)
+	for _, e in ipairs(other and State.roster(other) or {}) do
+		local list = Characters.abilityList(nil, e.abilities or { e.ability })
+		if list[1] then
+			table.insert(foes, { id = e.id, list = list })
+		end
+	end
+	table.sort(foes, byId)
+	local foeMinis = 0
+	for i, b in ipairs(B.foes) do
+		local e = foes[i]
+		local list = e and e.list or {}
+		local model = e and Util.modelOf(e.id)
+		local n = math.max(0, #list - 1)
+		local row = n * MINI_STEP - 6
+		showBadge(b, list[1], e and e.id, model, other, false)
+		for k = 1, math.max(n, #b.minis) do
+			local mb = b.minis[k]
+			if not mb then
+				mb = newBadge(B.right, BADGE_MINI, false, true)
+				mb.frame.AnchorPoint = Vector2.new(1, 0)
+				b.minis[k] = mb
+			end
+			if touch then
+				mb.frame.Position = UDim2.new(1, -8 - (i - 1) * (BADGE_FOE + 40) - (BADGE_FOE + row) / 2 + (k - 1) * MINI_STEP + BADGE_MINI, 0, BADGE_FOE + 40)
+			else
+				mb.frame.Position = UDim2.new(1, -8 - BADGE_FOE - 16 - (k - 1) * MINI_STEP, 0, (i - 1) * (BADGE_FOE + 44) + (BADGE_FOE - BADGE_MINI) / 2)
+			end
+			showBadge(mb, list[k + 1], e and e.id, model, other, false)
+		end
+		if e then
+			foeMinis = math.max(foeMinis, n)
+		end
+	end
+	if foeMinis > 0 then
+		if touch then
+			rightH = rightH + BADGE_MINI + 6
+		else
+			rightW = rightW + 16 + foeMinis * MINI_STEP
+		end
+	end
+	-- your team's Rally Cry, under everything on your side
+	local rallyY = BADGE_BIG + 38
+	if touch and extras > 0 then
+		rallyY = BADGE_BIG + 40 + BADGE_CARD + 40
+	end
+	if mateMinis then
+		rallyY = math.max(rallyY, miniY + BADGE_MINI + 8)
+	end
+	B.rally.Position = UDim2.fromOffset(0, rallyY)
+	leftH = math.max(leftH, rallyY + 22)
+	B.left.Size, B.right.Size = UDim2.fromOffset(leftW, leftH), UDim2.fromOffset(rightW, rightH)
 	local rallyLeft = (ReplicatedStorage:GetAttribute("RallyUntil_" .. tostring(State.myTeam)) or -1) - Util.now()
 	B.rally.Visible = rallyLeft > 0
 	if B.rally.Visible then
@@ -1364,12 +1503,22 @@ local function updateRail()
 		Set = ctx.canSet == true,
 		Serve = ctx.serving == true,
 		EasyServe = ctx.serving == true and ctx.spikeLabel == "Toss",
-		Ability = mods.ActionController.abilityCooldown() <= 0 and not mods.ActionController.abilityActive(),
+		Ability = false,
 	}
-	local abilityDef = Config.Abilities[State.myAbility() or ""]
+	-- the Ability pill: there with any active you play (your own or a card's), lit while one of
+	-- them is ready and not already on (the key fires every ready one)
+	local hasActive = false
+	for _, a in ipairs(State.myAbilities()) do
+		if Config.Abilities[a].Active then
+			hasActive = true
+			if mods.ActionController.abilityCooldown(a) <= 0 and not mods.ActionController.abilityActive(a) then
+				live.Ability = true
+			end
+		end
+	end
 	for action, sl in pairs(r.slots) do
 		local def = sl.def
-		sl.slot.Visible = ((action ~= "Serve" and action ~= "EasyServe") or ctx.serving == true) and (action ~= "Ability" or (abilityDef ~= nil and abilityDef.Active == true))
+		sl.slot.Visible = ((action ~= "Serve" and action ~= "EasyServe") or ctx.serving == true) and (action ~= "Ability" or hasActive)
 		sl.badge.Text = pad and def.pad or def.key
 		local namer = RAIL_NAMES[action]
 		sl.name.Text = namer and namer(ctx) or (action == "SlideFeint" and "Slide" or action)
@@ -1988,9 +2137,9 @@ local function showScoreCard(a)
 	if role then
 		table.insert(parts, role)
 	end
-	local ability = m and Config.Abilities[m:GetAttribute("Ability") or ""]
-	if ability then
-		table.insert(parts, ability.Name)
+	local abilities = abilitiesText(Characters.abilitiesOf(m)) -- (its own, "+N" for its cards')
+	if abilities ~= "" then
+		table.insert(parts, abilities)
 	end
 	-- the card they wear, and the number it shows (the server keeps these on their character)
 	local def = Cards.get(m and m:GetAttribute("PlayerCard")) or Cards.get(Cards.default())

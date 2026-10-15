@@ -313,32 +313,35 @@ local function onHit(snap)
 	local who = meta.id
 	if ht == "Spike" or ht == "JumpServe" then
 		-- the hitter's own spike sound (a jump serve: their serve sound first) replaces the crack;
-		-- the ability layers (thunder, Azure) and the whoosh stay
+		-- the ability layers (thunder, Azure, Zero Point, Talon Drop) and the whoosh stay. One spike
+		-- can carry several (the Halloween Match's ability cards stack): each layer plays, over one
+		-- crack, picked in the effects' order (Zero Point, Thunder, Azure, Talon Drop)
 		local own = (ht == "JumpServe" and AudioController.custom(who, "SoundServe")) or AudioController.custom(who, "SoundSpike")
 		if meta.thunder then
 			AudioController.play("Thunder", { pos = pos, volume = 1.2 })
-			if not own then
-				AudioController.play("SpikeHeavy", { pos = pos })
-			end
-		elseif meta.energy then
+		end
+		if meta.energy then
 			AudioController.play("AzureRelease", { pos = pos, speed = 1.1 - 0.35 * math.min(meta.energy, 1) })
-			if kmh >= 130 and not own then
-				AudioController.play("SpikeHeavy", { pos = pos, volume = 0.8 })
-			end
+		end
+		if meta.zero then
+			AudioController.play("ZeroPoint", { pos = pos, volume = 1.1 })
+		end
+		if meta.talon then
+			AudioController.play("TalonDrop", { pos = pos }) -- (a short swish straight down)
+		end
+		if own then
+			-- theirs played
 		elseif meta.zero then
 			-- Zero Point: the crack, deeper, under the whoosh and its reverberant hit
-			if not own then
-				AudioController.play("SpikeHeavy", { pos = pos, volume = 1.1 })
+			AudioController.play("SpikeHeavy", { pos = pos, volume = 1.1 })
+		elseif meta.thunder then
+			AudioController.play("SpikeHeavy", { pos = pos })
+		elseif meta.energy then
+			if kmh >= 130 then
+				AudioController.play("SpikeHeavy", { pos = pos, volume = 0.8 })
 			end
-			AudioController.play("ZeroPoint", { pos = pos, volume = 1.1 })
 		elseif meta.talon then
-			-- Talon Drop: the crack and a short swish straight down
-			if not own then
-				AudioController.play("Spike", { pos = pos, speed = 0.95, volume = 1.1 })
-			end
-			AudioController.play("TalonDrop", { pos = pos })
-		elseif own then
-			-- theirs played
+			AudioController.play("Spike", { pos = pos, speed = 0.95, volume = 1.1 })
 		elseif kmh >= 130 then
 			AudioController.play("SpikeHeavy", { pos = pos })
 		else

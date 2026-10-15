@@ -830,12 +830,16 @@ function LobbyService.enterEvent(plr, diffKey)
 	markDirty()
 end
 
--- The next pick's offers for one player (the roulette stops on these), and its deadline.
+-- The next pick's offers for one player (the roulette stops on these), and its deadline. No
+-- ability card for their character's own ability: the cards stack beside it, so it would only
+-- repeat it.
 local function dealPick(l, u, now)
 	local HW = Config.Halloween
 	local ev = l.event
 	local d = ev.draft[u]
-	d.offers = Halloween.offers(ev.rng, ev.hands[u] or {}, HW.Offers)
+	local plr = Players:GetPlayerByUserId(u)
+	local own = plr and { reg.ProfileService.character(plr).Ability } or {}
+	d.offers = Halloween.offers(ev.rng, ev.hands[u] or {}, HW.Offers, false, own)
 	d.endsAt = now + HW.PickTime + HW.SpinTime
 end
 

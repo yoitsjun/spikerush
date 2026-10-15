@@ -102,17 +102,11 @@ local function baseJump()
 end
 
 -- A spike or serve jump's height: Corona's Sun Leap goes far higher while it's on; Squall's
--- Updraft always does.
+-- Updraft and Thunder's High Strike always do. With stacked abilities the highest of them counts
+-- (HitLogic.leapMul: the product would leave the court camera's frame).
 local function spikeJump()
-	local h = baseJump()
-	if State.myAbility() == "Corona" and mods and mods.ActionController.abilityActive() then
-		h = h * Config.Abilities.Corona.LeapMul
-	elseif State.myAbility() == "Squall" then
-		h = h * Config.Abilities.Squall.LeapMul
-	elseif State.myAbility() == "Thunder" then
-		h = h * Config.Abilities.Thunder.LeapMul -- High Strike
-	end
-	return h
+	local coronaOn = State.hasAbility("Corona") and mods ~= nil and mods.ActionController.abilityActive("Corona")
+	return baseJump() * HitLogic.leapMul(State.abilitySet(), coronaOn)
 end
 
 local function onCharacter(c)
@@ -496,10 +490,10 @@ function MovementController.airCancel(vy)
 	if math.abs(vy) < P.HangVelocityWindow then
 		cancel = P.HangGravityCancel
 	end
-	if vy <= 0 and State.myAbility() == "Squall" then
+	if vy <= 0 and State.hasAbility("Squall") then
 		cancel = math.max(cancel, SQUALL.FallCancel)
 	end
-	if vy <= 0 and State.myAbility() == "Ironclad" then
+	if vy <= 0 and State.hasAbility("Ironclad") then
 		-- Ironclad's Forge: a slow fall, slower still awakened
 		local IC = Config.Abilities.Ironclad
 		local awake = HitLogic.ironLives(player:GetAttribute("IronLives")) == 0
@@ -734,7 +728,7 @@ local function moveStep()
 	end
 	if airborne then
 		local air = P.AirControl
-		if State.myAbility() == "Azure" then
+		if State.hasAbility("Azure") then
 			air = air * AZURE.AirSpeedBonus
 		end
 		if diving then

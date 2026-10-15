@@ -18,6 +18,9 @@
 --     (input.gale: let go at once, just over the net; the whole charge, their back line).
 --   * Corona (Laith): Sundive, dropping onto the ball from above, multiplies power; Zenith bursts some
 --     spikes (the seeded rng picks them, so the hitter's client agrees).
+--   * the Halloween Match's ability cards stack with the character's own (ctx.abilities): every one
+--     applies and the boosts multiply, the widest reach and the highest jump count once, Zero
+--     Point's speed is the base the rest multiply, and breakthroughs grow only its own.
 -- Receives drain the receiving team's stamina (a guard meter) depending on ball speed and the
 -- receiver's Defense. Low stamina makes receives unreliable; a broken guard can't stop strong
 -- spikes at all. Slides pay only Hits.SlideDrainMul of the drain and skip the knockback and the
@@ -54,9 +57,98 @@ local CORONA = Config.Abilities.Corona
 local SQUALL = Config.Abilities.Squall
 
 -- An ability's setting grown by breakthroughs (Config.Breakthrough): `level` is the character's
--- (ctx.breakLevel), or for a setter's ability read on the spike, the set's meta.setBreak.
+-- (ctx.breakLevel, for its own ability only: levelOf), or for a setter's ability read on the spike,
+-- the set's meta.setBreak (setLevel).
 local function ab(ability, key, level)
 	return Breakthrough.ab(ability, key, level)
+end
+
+-- Stacked abilities (Characters.abilityList): ctx.ability is the character's own (the primary),
+-- ctx.abilities a set of every ability it plays (primary included) and ctx.abilityList the same in
+-- order (primary, then the Halloween Match's ability cards in hand order). Without them it's the one
+-- ability, as before.
+local function hasIn(ability, set, name)
+	return ability == name or (type(set) == "table" and set[name] == true)
+end
+
+function HitLogic.has(ctx, name)
+	return ctx ~= nil and hasIn(ctx.ability, ctx.abilities, name)
+end
+
+-- Breakthroughs grow only the character's own ability: a card's plays at +0.
+function HitLogic.levelOf(ctx, name)
+	if ctx ~= nil and ctx.ability == name then
+		return ctx.breakLevel or 0
+	end
+	return 0
+end
+
+-- Inputs two abilities claim: the first of them in the character's order owns it (the other's use
+-- of that input is off; the rest of it still works). GroundJump: hold Jump on the ground (Feral's
+-- prowl and leap, Squall's Tailwind). AirSpike: hold Spike in the air (Azure's charge, Squall's
+-- Eye of the Storm); a Sundive (Corona) takes the press when the ball is below reach.
+HitLogic.INPUTS = { GroundJump = { "Feral", "Squall" }, AirSpike = { "Azure", "Squall" } }
+
+-- The first of `names` in `list` (an ordered ability list), or nil.
+function HitLogic.firstOf(list, names)
+	for _, a in ipairs(list or {}) do
+		for _, n in ipairs(names) do
+			if a == n then
+				return a
+			end
+		end
+	end
+	return nil
+end
+
+function HitLogic.inputOwner(list, slot)
+	return HitLogic.firstOf(list, HitLogic.INPUTS[slot] or {})
+end
+
+-- A set from a name or a set.
+local function asSet(abilities)
+	if type(abilities) == "table" then
+		return abilities
+	end
+	return { [abilities or ""] = true }
+end
+
+-- The widest spike zone of the abilities held (the largest, not the product: four of them
+-- multiplied would be three times the zone). leap: Feral's gauge; forge: Ironclad's charge.
+function HitLogic.spikeReachAll(abilities, leap, forge)
+	local r = 1
+	for name in pairs(asSet(abilities)) do
+		r = math.max(r, HitLogic.spikeReach(name, name == "Ironclad" and forge or leap))
+	end
+	return r
+end
+
+-- A spike or serve jump's height multiplier: the largest that applies (Thunder's High Strike,
+-- Squall's Updraft, Corona's Sun Leap while its window is on), never the product.
+function HitLogic.leapMul(abilities, coronaOn)
+	local set = asSet(abilities)
+	local m = 1
+	if set.Thunder then
+		m = math.max(m, THUNDER.LeapMul)
+	end
+	if set.Squall then
+		m = math.max(m, SQUALL.LeapMul)
+	end
+	if set.Corona and coronaOn then
+		m = math.max(m, CORONA.LeapMul)
+	end
+	return m
+end
+
+local has, levelOf = HitLogic.has, HitLogic.levelOf
+
+-- A setter's breakthroughs read on the spike off her set (meta.setBreak): they grow her own ability
+-- only (meta.setBreakFor), so a set ability from a card plays at +0.
+local function setLevel(last, name)
+	if last ~= nil and last.setBreakFor == name then
+		return last.setBreak
+	end
+	return 0
 end
 
 local ACTION_CODE = { Bump = 1, Set = 2, Spike = 3, Feint = 4, Block = 5, Toss = 6, Serve = 7, Underhand = 8 }
@@ -130,12 +222,16 @@ end
 
 -- How far forward a character's serve toss can go (x TossForwardMax): Feral Leap's goes further.
 function HitLogic.tossReach(ability)
-	if ability == "Feral" then
-		return FERAL.TossReachMul
-	elseif ability == "Corona" then
-		return CORONA.TossReachMul -- Laith's Long Toss
+	-- (a name or a set: the largest, Feral's and Corona's both 1.6, never 2.56)
+	local set = asSet(ability)
+	local r = 1
+	if set.Feral then
+		r = math.max(r, FERAL.TossReachMul)
 	end
-	return 1
+	if set.Corona then
+		r = math.max(r, CORONA.TossReachMul) -- Laith's Long Toss
+	end
+	return r
 end
 
 -- The spike zone's size for an ability (x the usual): Feral Leap reaches wider.
@@ -305,7 +401,8 @@ function HitLogic.ironAfterBlock(lives, cracks, meta)
 	if meta.wallBroken then
 		return lives - 1, 0
 	end
-	if meta.ironWall then
+	-- (only Bulwark's own stops crack it, meta.bulwark: one made with Iron Wall up doesn't)
+	if meta.ironWall and meta.bulwark then
 		cracks = cracks + 1
 		if cracks >= IRON.CracksToBreak then
 			return lives - 1, 0
@@ -493,9 +590,10 @@ function HitLogic.isHeavy(lastHit)
 	return ht == "Spike" or ht == "JumpServe" or ht == "Overhand"
 end
 
--- Adrenaline: active while the team's stamina is below the threshold.
-function HitLogic.adrenaline(ability, stamina)
-	if ability ~= "Adrenaline" or type(stamina) ~= "table" or not stamina.max or stamina.max <= 0 then
+-- Adrenaline: active while the team's stamina is below the threshold. (set: every ability played,
+-- HitLogic.has's ctx.abilities, so a card's Adrenaline counts)
+function HitLogic.adrenaline(ability, stamina, set)
+	if not hasIn(ability, set, "Adrenaline") or type(stamina) ~= "table" or not stamina.max or stamina.max <= 0 then
 		return false
 	end
 	return stamina.value / stamina.max < ADRENALINE.StaminaBelow
@@ -575,28 +673,36 @@ end
 -- Feral Leap played by the AI (extra.auto) loses Attack; Rally Cry (extra.teamBoost) multiplies
 -- every stat of the team; Corona multiplies his own, up while it's on and down by his uses while
 -- it's off (extra.coronaOn, extra.coronaStacks). extra: { enemyPoints, counter, auto, teamBoost,
--- coronaOn, coronaStacks } (a touch passes its ctx). The server raises the humanoid's jump and run speed to match (TeamService), so the
--- hitting point is real.
+-- coronaOn, coronaStacks, breakLevel, abilities } (a touch passes its ctx). `ability` is the
+-- character's own, the one its breakthroughs (extra.breakLevel) grow; extra.abilities is the set of
+-- every ability it plays (a Halloween card's at +0), and each one's boost applies. The server raises
+-- the humanoid's jump and run speed to match (TeamService), so the hitting point is real.
 function HitLogic.effectiveStats(stats, ability, stamina, extra)
 	local add = {}
 	local any = false
-	local adrenaline = HitLogic.adrenaline(ability, stamina)
-	local level = extra and extra.breakLevel
+	local set = extra and extra.abilities
+	local function on(name)
+		return hasIn(ability, set, name)
+	end
+	local function lv(name)
+		return ability == name and extra and extra.breakLevel or 0
+	end
+	local adrenaline = HitLogic.adrenaline(ability, stamina, set)
 	if adrenaline then
-		add.Attack = math.floor(ab("Adrenaline", "AttackBonus", level) + 0.5)
-		add.Jump = math.floor(ab("Adrenaline", "JumpBonus", level) + 0.5)
+		add.Attack = math.floor(ab("Adrenaline", "AttackBonus", lv("Adrenaline")) + 0.5)
+		add.Jump = math.floor(ab("Adrenaline", "JumpBonus", lv("Adrenaline")) + 0.5)
 		any = true
 	end
-	if ability == "RisingSun" then
+	if on("RisingSun") then
 		local lvl = HitLogic.sunLevel(extra and extra.enemyPoints)
 		if lvl > 0 then
-			for k, v in pairs(ab("RisingSun", "PerLevel", level)) do
+			for k, v in pairs(ab("RisingSun", "PerLevel", lv("RisingSun"))) do
 				add[k] = (add[k] or 0) + math.floor(v * lvl + 0.5)
 			end
 			any = true
 		end
 	end
-	if ability == "Counter" then
+	if on("Counter") then
 		-- Counter Edge: she scales with the spikes she has received (the meter, 0..100)
 		local c = clamp((extra and extra.counter) or 0, 0, 100) / 100
 		if c > 0 then
@@ -606,22 +712,22 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 			any = true
 		end
 	end
-	if ability == "Skyward" then
+	if on("Skyward") then
 		-- Skyward: her hitting point climbs with her spikes this set (extra.lift, metres), and her
 		-- Attack with it
 		local lift = HitLogic.skyLift(extra and extra.lift)
 		add.Lift = lift
-		add.Attack = (add.Attack or 0) + math.floor(ab("Skyward", "AttackAtMax", level) * (lift - SKY.StartLift) / (SKY.MaxLift - SKY.StartLift) + 0.5)
+		add.Attack = (add.Attack or 0) + math.floor(ab("Skyward", "AttackAtMax", lv("Skyward")) * (lift - SKY.StartLift) / (SKY.MaxLift - SKY.StartLift) + 0.5)
 		any = true
 	end
-	if ability == "Squall" and extra and extra.squallOn then
+	if on("Squall") and extra and extra.squallOn then
 		-- Squall: faster, and Attack with her (boosted) Speed
 		local speed = math.floor(stats.Speed * SQUALL.SpeedBoost + 0.5)
 		add.Speed = (add.Speed or 0) + speed
 		add.Attack = (add.Attack or 0) + math.floor(SQUALL.AttackPerSpeed * (stats.Speed + speed) + 0.5)
 		any = true
 	end
-	if ability == "Feral" and extra and extra.auto then
+	if on("Feral") and extra and extra.auto then
 		-- the AI playing him (a bot, or a stand-in for an idle player) hits with less
 		add.Attack = (add.Attack or 0) - math.floor(stats.Attack * (1 - FERAL.AutoAttackMul) + 0.5)
 		any = true
@@ -656,11 +762,11 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		mul = mul * hex.mul
 	end
 	if extra and extra.teamBoost then
-		mul = 1 + RALLY.Boost
+		mul = mul * (1 + RALLY.Boost) -- (on top of Monster Mash's, not in its place)
 		any = true
 	end
-	if ability == "Corona" then
-		local k = HitLogic.coronaMul(extra and extra.coronaOn, extra and extra.coronaStacks, extra and extra.breakLevel)
+	if on("Corona") then
+		local k = HitLogic.coronaMul(extra and extra.coronaOn, extra and extra.coronaStacks, lv("Corona"))
 		if k ~= 1 then
 			mul = mul * k
 			any = true
@@ -788,7 +894,9 @@ local function attackDepth(dz, qContact, rng, deepest, shortest)
 	return depth + jitter(rng, (1 - qContact) ^ 1.5 * H.SpikeError)
 end
 
-local function attackPower(kind, q, qContact, heightM, stats, ability, energy, level)
+-- ctx: the hitter's (nil: no ability, Talon Drop's plain power). zeroRange: Zero Point's km/h range
+-- when the ball is in his sweet spot (it beats the lightning range: the base the rest multiplies)
+local function attackPower(kind, q, qContact, heightM, stats, ctx, energy, zeroRange)
 	local lo, hi = H.SpikeKmhMin, H.SpikeKmhMax
 	local tlo, thi = H.ThunderKmhMin, H.ThunderKmhMax
 	if kind == "JumpServe" then
@@ -796,20 +904,23 @@ local function attackPower(kind, q, qContact, heightM, stats, ability, energy, l
 		tlo, thi = H.ThunderServeKmhMin, H.ThunderServeKmhMax
 	end
 	local kmh = lerp(lo, hi, q ^ 1.1) * stats.Power
-	local thunder = ability == "Thunder" and heightM >= H.ThunderHeight
+	local thunder = has(ctx, "Thunder") and heightM >= H.ThunderHeight
 	if thunder then
 		local over = clamp((heightM - H.ThunderHeight) / H.ThunderHeightSpan, 0, 1)
 		kmh = lerp(tlo, thi, qContact * 0.55 + over * 0.45) * stats.Power
 	end
+	if zeroRange then
+		kmh = math.max(kmh, lerp(zeroRange[1], zeroRange[2], qContact) * stats.Power)
+	end
 	local overcharge, pierce = false, false
-	if ability == "Azure" then
+	if has(ctx, "Azure") then
 		local e = clamp(energy or 0, 0, 1.4)
 		if e > 1.02 then
 			overcharge = true
 			e = 1
 		end
 		energy = e
-		kmh = kmh * (1 + ab("Azure", "MaxBoost", level) * e ^ 1.2)
+		kmh = kmh * (1 + ab("Azure", "MaxBoost", levelOf(ctx, "Azure")) * e ^ 1.2)
 		pierce = e >= AZURE.PierceAt and not overcharge
 	else
 		energy = 0
@@ -821,12 +932,10 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local side = ctx.side
 	local ball, root, t = input.ball, input.root, input.t
 	if kind == "Spike" then
-		-- (Ironclad awakened: Forge's charge widens it)
-		local reach = input.gauge
-		if ctx.ability == "Ironclad" then
-			reach = ctx.awakened and (ctx.auto and IRON.AutoCharge or input.metal) or 0
-		end
-		scale = scale * HitLogic.spikeReach(ctx.ability, reach) * (ctx.hex and ctx.hex.spikeReach or 1)
+		-- (the widest of his abilities' reaches, each off its own input: Feral's leap gauge, and
+		-- awakened Ironclad's Forge charge; Long Claws on top)
+		local forge = has(ctx, "Ironclad") and ctx.awakened and (ctx.auto and IRON.AutoCharge or input.metal) or 0
+		scale = scale * HitLogic.spikeReachAll(ctx.abilities or ctx.ability, input.gauge, forge) * (ctx.hex and ctx.hex.spikeReach or 1)
 	end
 	local ok, qContact, dz, dy = HitLogic.spikeZone(root, ball, side, stats, scale)
 	if not ok then
@@ -836,11 +945,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		qContact = ctx.forceQuality
 	end
 	local qHeight = HitLogic.heightQuality(ball.Y, stats, ctx.groundY)
+	local qTop = qHeight -- (how near the top it really was: Skyward climbs off this, not a dive's floor)
 	-- Sundive (Corona): the further he dropped onto it (input.sundive, studs), the harder (the AI
 	-- gets a share without diving); a dive meets the ball under the top of his jump, which doesn't
 	-- cost him
 	local dive = 0
-	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Corona" then
+	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Corona") then
 		dive = ctx.auto and CORONA.AutoDive or HitLogic.diveFraction(input.sundive)
 		if dive > 0 and not ctx.auto then
 			qHeight = math.max(qHeight, CORONA.DiveHeightFloor)
@@ -854,30 +964,28 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	-- Thunder: Storm Call (ctx.stormOn) makes every spike a thunder spike, as if met at the very top
 	-- of the range, and harder still; Static Charge (ctx.static: his thunder spikes this rally) adds
 	-- StaticPer a stack
-	local storm = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Thunder" and ctx.stormOn == true
-	local kmh, thunder, energy, overcharge, pierce = attackPower(kind, q, qContact, storm and (H.ThunderHeight + H.ThunderHeightSpan) or heightM, stats, ctx.ability, input.energy, ctx.breakLevel)
-	local level = ctx.breakLevel
+	local storm = (kind == "Spike" or kind == "JumpServe") and has(ctx, "Thunder") and ctx.stormOn == true
+	-- Zero Point: the ball slightly in front of his raised hand and above his head makes his spike
+	-- far faster, nearly straight and through the block (below)
+	-- (his jump serves too, a little slower); its speed is the base every other boost multiplies
+	local zero = (kind == "Spike" or kind == "JumpServe") and has(ctx, "ZeroPoint") and HitLogic.zeroSpot(dz, dy, stats) and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
+	local zeroRange = zero and (kind == "JumpServe" and ZERO.ZeroServeKmh or ab("ZeroPoint", "ZeroKmh", levelOf(ctx, "ZeroPoint"))) or nil
+	local kmh, thunder, energy, overcharge, pierce = attackPower(kind, q, qContact, storm and (H.ThunderHeight + H.ThunderHeightSpan) or heightM, stats, ctx, input.energy, zeroRange)
 	if storm then
 		kmh = kmh * (1 + THUNDER.StormBoost)
 	end
 	local static = 0
-	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Thunder" then
+	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Thunder") then
 		static = clamp(math.floor(tonumber(ctx.static) or 0), 0, THUNDER.StaticMax)
-		kmh = kmh * (1 + ab("Thunder", "StaticPer", level) * static)
+		kmh = kmh * (1 + ab("Thunder", "StaticPer", levelOf(ctx, "Thunder")) * static)
 	end
 	-- Thunder Spiker's second swing in one jump hits harder (input.second: the server counts the
 	-- swings itself)
-	local second = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Thunder" and input.second == true
+	local second = (kind == "Spike" or kind == "JumpServe") and has(ctx, "Thunder") and input.second == true
 	if second then
-		kmh = kmh * (1 + ab("Thunder", "SecondBoost", level))
+		kmh = kmh * (1 + ab("Thunder", "SecondBoost", levelOf(ctx, "Thunder")))
 	end
-	-- Zero Point: the ball slightly in front of his raised hand and above his head makes his spike
-	-- far faster, nearly straight and through the block (below)
-	-- (his jump serves too, a little slower)
-	local zero = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "ZeroPoint" and HitLogic.zeroSpot(dz, dy, stats) and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
 	if zero then
-		local range = kind == "JumpServe" and ZERO.ZeroServeKmh or ab("ZeroPoint", "ZeroKmh", level)
-		kmh = lerp(range[1], range[2], qContact) * stats.Power
 		-- the ball meets his hand: it holds there through the freeze frame and leaves from there
 		-- (the owner saw him "swinging right below the ball" when it was met high in the spot)
 		ball = Vector3.new(0, root.Y + Z.SpikeUp + ZERO.HandUp, root.Z - side * (Z.SpikeForward + ZERO.HandAhead))
@@ -885,17 +993,17 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local boom = kind == "Spike" and reaction(ctx)
 	local link = HitLogic.chainStep(ctx.chain)
 	if boom then
-		kmh = kmh * ab("ChainReaction", "PowerMul", ctx.lastHit and ctx.lastHit.setBreak)[link] -- (the setter's breakthroughs)
+		kmh = kmh * ab("ChainReaction", "PowerMul", setLevel(ctx.lastHit, "ChainReaction"))[link] -- (the setter's breakthroughs)
 	end
 	-- Corona: the dive's power, and Zenith (only his spikes draw from the rng, so nobody else's
 	-- hits change)
 	if dive > 0 then
 		kmh = kmh * (1 + CORONA.DiveBoost * dive)
 	end
-	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Corona" then
-		kmh = kmh * (1 + ab("Corona", "SpikeBoost", level)) -- Sunfire
+	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Corona") then
+		kmh = kmh * (1 + ab("Corona", "SpikeBoost", levelOf(ctx, "Corona"))) -- Sunfire
 	end
-	local zenith = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Corona" and rng:NextNumber() < CORONA.ZenithChance
+	local zenith = (kind == "Spike" or kind == "JumpServe") and has(ctx, "Corona") and rng:NextNumber() < CORONA.ZenithChance
 	if zenith then
 		kmh = kmh * (1 + CORONA.ZenithPower)
 	end
@@ -905,25 +1013,25 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local last = ctx.lastHit
 	if kind == "Spike" and last and last.featherSet == true and last.team == ctx.team and last.hitType == "Set" and tonumber(last.featherTop) then
 		feather = clamp((t - last.featherTop) / FEATHER.FullFall, 0, 1)
-		kmh = kmh * (1 + ab("Featherfall", "MaxBoost", last.setBreak) * feather)
+		kmh = kmh * (1 + ab("Featherfall", "MaxBoost", setLevel(last, "Featherfall")) * feather)
 	end
 	-- Ironclad: Forge's charge (input.metal, 0..1, the time he's been up), all of it off a jump before
 	-- his team's set (input.early), LateShare after; WallBoost with shields, MaxBoost awakened; the
 	-- AI gets AutoCharge
 	local metal = 0
-	if kind == "Spike" and ctx.ability == "Ironclad" then
+	if kind == "Spike" and has(ctx, "Ironclad") then
 		if ctx.auto then
 			metal = IRON.AutoCharge
 		else
 			metal = clamp(tonumber(input.metal) or 0, 0, 1) * (input.early == true and 1 or IRON.LateShare)
 		end
-		kmh = kmh * (1 + ab("Ironclad", ctx.awakened and "MaxBoost" or "WallBoost", level) * metal)
+		kmh = kmh * (1 + ab("Ironclad", ctx.awakened and "MaxBoost" or "WallBoost", levelOf(ctx, "Ironclad")) * metal)
 	end
 	-- Squall: Eye of the Storm's hover charges the spike (input.gale, 0..1; the AI gets a share)
 	local gale = 0
-	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Squall" then
+	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Squall") then
 		gale = ctx.auto and SQUALL.AutoGale or clamp(tonumber(input.gale) or 0, 0, 1)
-		kmh = kmh * (1 + ab("Squall", "SpikeBoost", level)) * (1 + ab("Squall", "HoverBoost", level) * gale) -- (Shear: every spike of hers harder)
+		kmh = kmh * (1 + ab("Squall", "SpikeBoost", levelOf(ctx, "Squall"))) * (1 + ab("Squall", "HoverBoost", levelOf(ctx, "Squall")) * gale) -- (Shear: every spike of hers harder)
 	end
 	local meta = meta0(kind, q)
 	meta.height = heightM
@@ -936,8 +1044,8 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.breakAtk = 999 -- through any block but Iron Wall's
 		meta.tierDrain = meta.tierDrain * ZERO.DrainMul
 	end
-	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Skyward" then -- (serves climb her too)
-		meta.liftGain = HitLogic.skyGain(qHeight)
+	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Skyward") then -- (serves climb her too)
+		meta.liftGain = HitLogic.skyGain(qTop)
 	end
 	if boom then
 		meta.reaction = true
@@ -957,12 +1065,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if metal > 0 and not ctx.auto then
 		meta.metal = math.floor(metal * 100 + 0.5) / 100
 		meta.early = input.early == true or nil
-		meta.forgeBoost = math.floor(ab("Ironclad", ctx.awakened and "MaxBoost" or "WallBoost", ctx.breakLevel) * metal * 1000 + 0.5) / 1000
+		meta.forgeBoost = math.floor(ab("Ironclad", ctx.awakened and "MaxBoost" or "WallBoost", levelOf(ctx, "Ironclad")) * metal * 1000 + 0.5) / 1000
 	end
 	if gale > 0 and not ctx.auto then
 		meta.gale = math.floor(gale * 100 + 0.5) / 100
 	end
-	meta.shear = (kind == "Spike" and ctx.ability == "Squall") or nil -- (her spikes fly wild off blocks)
+	meta.shear = (kind == "Spike" and has(ctx, "Squall")) or nil -- (her spikes fly wild off blocks)
 	-- Dragon Surge: a full Azure bar costs the digger more
 	if pierce then
 		meta.tierDrain = meta.tierDrain * AZURE.FullDrainMul
@@ -996,7 +1104,8 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	end
 	-- Squall: a hover's spike goes as deep as it was charged (input.gale: none, just over the net; the
 	-- whole charge, their back line), straying less than usual and more with a poor contact
-	local hovered = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Squall" and not ctx.auto and tonumber(input.gale) or nil
+	-- (an overcharge flies out whatever she charged)
+	local hovered = (kind == "Spike" or kind == "JumpServe") and has(ctx, "Squall") and not overcharge and not ctx.auto and tonumber(input.gale) or nil
 	if hovered then
 		-- (in AimSteps spots, the last at the very back: never past their end line)
 		local back = C.SideDepth - SQUALL.BackMargin
@@ -1008,10 +1117,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		depth = C.SideDepth + SPM * (1.25 + rng:NextNumber() * 2.5)
 	end
 	-- Plunge Spin: high enough over the tape, the spike (or jump serve) shoots flat over the net and turns down
-	-- just past it (below)
-	local plunge = (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Plunge" and qContact >= PLUNGE.MinContact and ball.Y >= C.NetTop + PLUNGE.MinOverNet
+	-- just past it (below). One path a spike: an overcharge (out), then a Zero Point's laser, then a
+	-- hover's aimed spot, then the plunge
+	local plunge = (kind == "Spike" or kind == "JumpServe") and has(ctx, "Plunge") and not overcharge and not zero and not hovered
+		and qContact >= PLUNGE.MinContact and ball.Y >= C.NetTop + PLUNGE.MinOverNet
 	if plunge then
-		kmh = kmh * (1 + ab("Plunge", "PowerBoost", ctx.breakLevel))
+		kmh = kmh * (1 + ab("Plunge", "PowerBoost", levelOf(ctx, "Plunge")))
 		meta.plunge = true
 	end
 	local target = Vector3.new(0, R, -side * depth)
@@ -1020,15 +1131,15 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if kind == "Spike" and HitLogic.vectorSet(ctx) then
 		local dropAngle = math.deg(math.atan(math.max(ball.Y - R, 0) / math.max(math.abs(target.Z - ball.Z), 1)))
 		local k = clamp((dropAngle - VECTOR.AngleMin) / (VECTOR.AngleMax - VECTOR.AngleMin), 0, 1)
-		local boost = ab("Vector", "MaxBoost", ctx.lastHit and ctx.lastHit.setBreak) * k
+		local boost = ab("Vector", "MaxBoost", setLevel(ctx.lastHit, "Vector")) * k
 		kmh = kmh * (1 + boost)
 		meta.vector = true
 		meta.vectorBoost = math.floor(boost * 1000 + 0.5) / 1000
 	end
 	-- Counter Edge: the meter's Attack is already in `stats`; the spike releases the meter on top
-	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Counter" and (ctx.counter or 0) > 0 then
+	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Counter") and (ctx.counter or 0) > 0 then
 		local c = clamp(ctx.counter, 0, 100)
-		kmh = kmh * (1 + ab("Counter", "ReleaseBoost", ctx.breakLevel) * c / 100)
+		kmh = kmh * (1 + ab("Counter", "ReleaseBoost", levelOf(ctx, "Counter")) * c / 100)
 		meta.counterRelease = c
 	end
 	-- Feral Leap: the gauge his leap took off with powers the spike or the jump serve (input.gauge,
@@ -1036,18 +1147,18 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	-- Attack than his (meta.breakAtk, read by the blocker's touch; serves are never blocked), and
 	-- his first full one of the match (ctx.firstStrike: not used yet) hits harder still
 	local fullLeap = false
-	if (kind == "Spike" or kind == "JumpServe") and ctx.ability == "Feral" then
+	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Feral") then
 		local g = clamp(input.gauge or 0, 0, 1)
 		local bonus = ctx.auto and FERAL.AutoBoostMul or 1 -- the AI gets less out of it
 		if g > 0 then
-			kmh = kmh * (1 + ab("Feral", "MaxBoost", ctx.breakLevel) * bonus * g ^ 1.2)
+			kmh = kmh * (1 + ab("Feral", "MaxBoost", levelOf(ctx, "Feral")) * bonus * g ^ 1.2)
 			meta.gauge = math.floor(g * 100 + 0.5) / 100
 		end
 		if g >= FERAL.FullAt then
 			fullLeap = true
 			meta.fullLeap = true
 			if input.toward and kind == "Spike" then
-				meta.breakAtk = stats.Attack
+				meta.breakAtk = math.max(meta.breakAtk or 0, stats.Attack) -- (a Zero Point's 999 stays)
 			end
 			if ctx.firstStrike then
 				kmh = kmh * (1 + FERAL.FirstBoost * bonus)
@@ -1072,6 +1183,19 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		local flat = 2 * math.max(ball.Y - R, 1) * (speed / dist) ^ 2
 		g = math.max(G * H.ServeGravityScale, flat * H.ServeTopspin)
 	end
+	-- the hit stop: a Zero Point's freeze frame first, then a first strike's, then a big hit's
+	local hold = 0
+	if zero then
+		hold = ZERO.Freeze -- the freeze-frame cut-in
+	elseif meta.firstStrike then
+		hold = FERAL.FirstFreeze
+	elseif thunder or pierce or fullLeap or zenith or dive >= 0.7 or gale >= 0.95 or metal >= 0.9 then
+		hold = H.HitStopThunder
+	elseif q >= H.PerfectAt then
+		hold = H.HitStopPerfect
+	elseif q >= H.GreatAt then
+		hold = H.HitStopGreat
+	end
 	if plunge then
 		-- the turn: past the net, a little under the contact; from there it plunges
 		-- to land where the contact sends it (below)
@@ -1092,7 +1216,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		local tau = math.abs(turn.Z - ball.Z) / math.max(math.abs(v1.Z), 1)
 		local down = Vector3.new(0, R, -side * land) - turn
 		local v2 = down.Unit * speed * PLUNGE.DiveSpeed
-		local hold = q >= H.PerfectAt and H.HitStopPerfect or H.HitStopGreat
+		hold = math.max(hold, H.HitStopGreat) -- (never less than a great hit's)
 		meta.turnAt = math.floor(tau * 1000 + 0.5) / 1000
 		local ok, res = launchResult(meta, ball, v1, Vector3.new(0, -g1, 0), t, hold)
 		res.launch.dive = { tau = tau, v = planar(v2), a = planar(Vector3.new(0, -G, 0)) }
@@ -1105,18 +1229,6 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		g = g * CORONA.ZenithSpin -- heavy topspin: it dips harder onto the same spot
 	end
 	local v = speedWithAssist(ball, target, speed, g, side, steps)
-	local hold = 0
-	if zero then
-		hold = ZERO.Freeze -- the freeze-frame cut-in
-	elseif meta.firstStrike then
-		hold = FERAL.FirstFreeze
-	elseif thunder or pierce or fullLeap or zenith or dive >= 0.7 or gale >= 0.95 or metal >= 0.9 then
-		hold = H.HitStopThunder
-	elseif q >= H.PerfectAt then
-		hold = H.HitStopPerfect
-	elseif q >= H.GreatAt then
-		hold = H.HitStopGreat
-	end
 	return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t, hold)
 end
 
@@ -1136,7 +1248,7 @@ local function talon(input, ctx, rng, stats)
 	local qHeight = HitLogic.heightQuality(ball.Y, stats, ctx.groundY)
 	local q = clamp(qContact * (H.ContactWeight + (1 - H.ContactWeight) * qHeight), 0, 1)
 	local heightM = HitLogic.meters(math.min(ball.Y, stats.contactMaxStuds))
-	local kmh = attackPower("Spike", q, qContact, heightM, stats, ctx.ability) * SKY.TalonPower
+	local kmh = attackPower("Spike", q, qContact, heightM, stats, nil) * SKY.TalonPower -- (plain power: no lightning or charge)
 	local meta = meta0("Spike", q)
 	meta.talon = true
 	meta.height = heightM
@@ -1144,8 +1256,9 @@ local function talon(input, ctx, rng, stats)
 	meta.tierDrain = HitLogic.tierDrain(stats.tier)
 	meta.liftGain = HitLogic.skyGain(qHeight)
 	if reaction(ctx) then
+		-- (off a charged set it explodes like a spike, the setter's breakthroughs too)
 		local link = HitLogic.chainStep(ctx.chain)
-		kmh = kmh * CHAIN.PowerMul[link]
+		kmh = kmh * ab("ChainReaction", "PowerMul", setLevel(ctx.lastHit, "ChainReaction"))[link]
 		meta.reaction = true
 		meta.drainMul = CHAIN.DrainMul[link]
 		meta.flatDrain = CHAIN.FlatDrain[link]
@@ -1211,7 +1324,9 @@ end
 --        aim, SetterAim), gauge and toward (Feral Leap: the leap's gauge, and whether it went
 --        at the net)
 -- ctx:   side, team, teamSize, seq, ballVel, lastHit, thirdTouch, touchNumber, stats,
---        ability, groundY, stamina = { value, max } (own team), forceQuality?, ironWall?,
+--        ability (the character's own: its breakthroughs, breakLevel, grow it), abilities (the set
+--        of every ability it plays, a Halloween card's at +0, its own included; nil: just
+--        `ability`), groundY, stamina = { value, max } (own team), forceQuality?, ironWall?,
 --        enemyPoints (Rising Sun), teamBoost (Rally Cry), counter (Counter Edge meter 0..100),
 --        turnabout (Turnabout armed), firstStrike (Feral Leap's first full charge not used yet),
 --        auto (played by the AI), chain (Chain Reaction: the team's explosions this rally),
@@ -1228,7 +1343,7 @@ function HitLogic.compute(input, ctx)
 
 	-- Serve toss ------------------------------------------------------------------------
 	if action == "Toss" then
-		local p, v, h, fwd = HitLogic.tossLaunch(root, side, input.tossHeight, input.tossForward, HitLogic.tossReach(ctx.ability))
+		local p, v, h, fwd = HitLogic.tossLaunch(root, side, input.tossHeight, input.tossForward, HitLogic.tossReach(ctx.abilities or ctx.ability))
 		local meta = meta0("Toss", 1)
 		meta.grade = "TOSS"
 		meta.serveKind = h > H.TossLow + 0.5 and "Jump" or "Overhand"
@@ -1290,8 +1405,8 @@ function HitLogic.compute(input, ctx)
 		if action == "Spike" then
 			return attack("Spike", input, ctx, rng, stats, 1)
 		end
-		if ctx.ability == "Skyward" then
-			return talon(input, ctx, rng, stats) -- her feint is Talon Drop
+		if has(ctx, "Skyward") then
+			return talon(input, ctx, rng, stats) -- her feint is Talon Drop (before Azure's roll shot)
 		end
 		local ok, qContact, dz = HitLogic.spikeZone(root, ball, side, stats, 1.25)
 		if not ok then
@@ -1316,7 +1431,7 @@ function HitLogic.compute(input, ctx)
 		local depth = lerp(H.FeintMaxDepth, 0.95 * SPM, frac) + jitter(rng, (1 - qContact) * H.FeintError)
 		local target = Vector3.new(0, R, -side * clamp(depth, 0.6 * SPM, H.FeintMaxDepth + 0.95 * SPM))
 		local g = G
-		if ctx.ability == "Azure" then
+		if has(ctx, "Azure") then
 			g = G * 1.6 -- topspin roll shot: drops faster
 		end
 		local v = arcWithAssist(ball, target, math.max(ball.Y + 0.16 * SPM, C.NetTop + H.FeintApexOverNet), g)
@@ -1363,7 +1478,8 @@ function HitLogic.compute(input, ctx)
 		-- box a little bigger than anyone's (no longer Iron Wall's whole wall: the owner, "thats
 		-- busted"), but an attack hard enough or clean enough (or piercing, or built to smash blocks)
 		-- breaks through it and costs a shield (HitService), unless Unbreakable stops it
-		local wallBreak = ctx.ironclad == true and last.hitType == "Spike"
+		-- (not with Iron Wall up, ctx.ironWall: it is completely unbreakable, Bulwark or not)
+		local wallBreak = not ctx.ironWall and ctx.ironclad == true and last.hitType == "Spike"
 			and (attackKmh >= IRON.BreakKmh or (last.quality or 0) >= IRON.CleanBreak or last.pierce == true or type(last.breakAtk) == "number")
 		-- Unbreakable: a chance it's shut down anyway, falling the harder the spike (the ball's own
 		-- seed rolls it, so both sides agree)
@@ -1389,6 +1505,7 @@ function HitLogic.compute(input, ctx)
 		local meta = meta0("Block", clamp(q, 0, 1))
 		meta.attackKmh = attackKmh
 		meta.ironWall = (perfect and not wallBreak) or nil
+		meta.bulwark = (ctx.ironclad and not ctx.ironWall) or nil -- (Bulwark's block: its stops crack a shield)
 		meta.wallBroken = wallBreak or nil
 		meta.unbreakable = unbreakable or nil
 		local p, v, a, hold = nil, nil, nil, 0
@@ -1565,7 +1682,7 @@ function HitLogic.compute(input, ctx)
 				drain = math.max(drain + (last.flatDrain or 0), stam.value + 1)
 			end
 		end
-		if ctx.ability == "Counter" and touchN == 1 and last and last.team ~= ctx.team then
+		if has(ctx, "Counter") and touchN == 1 and last and last.team ~= ctx.team then
 			-- Counter Edge: any ball of theirs she digs fills the meter; a hard spike fills it most
 			-- (blades burst out and sink back in) and costs only SpikeDrainMul of the guard (the
 			-- owner: "she should have very high defense but no invincible"); a Chain Reaction's
@@ -1617,8 +1734,9 @@ function HitLogic.compute(input, ctx)
 		meta.score = math.floor(q * 100 + 0.5)
 
 		-- Turnabout: an armed set spins into a spike over the net instead
-		if ctx.turnabout and ctx.ability == "Turnabout" and touchN == 2 and not ctx.thirdTouch then
-			return turnabout(meta, ball, side, rng, t, stats, q, ctx.breakLevel)
+		-- (before any set ability: the press armed it)
+		if ctx.turnabout and has(ctx, "Turnabout") and touchN == 2 and not ctx.thirdTouch then
+			return turnabout(meta, ball, side, rng, t, stats, q, levelOf(ctx, "Turnabout"))
 		end
 
 		-- third touch: the only touch that goes over
@@ -1664,9 +1782,12 @@ function HitLogic.compute(input, ctx)
 			meta.hitType = "Set"
 			meta.setType = setType
 			meta.dotted = true
-			meta.charged = ctx.ability == "ChainReaction" or nil
+			-- (every set ability she plays at once: Vector's spot and lift feed Featherfall's float, and
+			-- Chain Reaction charges it)
+			meta.charged = has(ctx, "ChainReaction") or nil
 			meta.setBreak = (tonumber(ctx.breakLevel) or 0) > 0 and Breakthrough.level(ctx.breakLevel) or nil -- (Chain Reaction, Vector, Featherfall grow with it)
-			meta.vectorSet = ctx.ability == "Vector" or nil -- the pulsing ball
+			meta.setBreakFor = meta.setBreak and ctx.ability or nil -- (her own ability's: setLevel)
+			meta.vectorSet = has(ctx, "Vector") or nil -- the pulsing ball
 			meta.underhand = underhand or nil
 			if type(input.targetId) == "string" then
 				meta.targetId = input.targetId
@@ -1687,7 +1808,7 @@ function HitLogic.compute(input, ctx)
 			local lift = 0
 			if setType ~= "Quick" then
 				lift = math.max(0, ball.Y - ((ctx.groundY or Config.Player.RootGround) + Z.SetIdealY))
-				if ctx.ability == "Vector" and not aimed then
+				if has(ctx, "Vector") and not aimed then
 					-- Vector Set: tight to the net and high, for the steepest spike
 					depth = depth * VECTOR.SetDepthMul
 					lift = lift + VECTOR.SetLift
@@ -1697,7 +1818,7 @@ function HitLogic.compute(input, ctx)
 			if aimed and type(input.aimHeight) == "number" and input.aimHeight == input.aimHeight then
 				arriveY = clamp(input.aimHeight, H.SetAimLowY, H.SetAimHighY)
 			end
-			if ctx.ability == "Featherfall" and setType ~= "Quick" then
+			if has(ctx, "Featherfall") and setType ~= "Quick" then
 				-- Featherfall: up higher, then floating down from the top (lighter gravity) to the same
 				-- spot; the spike off it reads how long it has been falling from meta.featherTop
 				local g = G * H.SetGravityScale

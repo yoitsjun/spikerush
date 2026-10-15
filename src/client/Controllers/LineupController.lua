@@ -311,7 +311,7 @@ local function emblem(parent, team, size, props)
 	return disc
 end
 
--- A chip for one character on the team plate: tier badge, character, role, ability.
+-- A chip for one character on the team plate: tier badge, character, role, abilities.
 local function chip(parent, e, x, w)
 	local c = Gui.card(parent, { Position = UDim2.fromOffset(x, 24), Size = UDim2.fromOffset(w, 128), BackgroundTransparency = 0.18, ZIndex = parent.ZIndex + 1 })
 	local tier = e.tier or ""
@@ -321,9 +321,17 @@ local function chip(parent, e, x, w)
 	label(c, { Text = e.char or e.name or "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(72, 10), Size = UDim2.new(1, -80, 0, 32), ZIndex = c.ZIndex + 1 })
 	local role = Config.Roles[e.role or ""]
 	label(c, { Text = role and role.Name or "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(72, 42), Size = UDim2.new(1, -80, 0, 20), ZIndex = c.ZIndex + 1 })
-	local ab = Config.Abilities[e.ability or ""]
+	-- its abilities, each in its colour: its own first, then its Halloween cards' (they stack)
+	local list = Characters.abilityList(nil, e.abilities or { e.ability })
+	local names = {}
+	for _, a in ipairs(list) do
+		local def = Config.Abilities[a]
+		table.insert(names, string.format('<font color="#%s">%s</font>', def.Color:ToHex(), def.Name))
+	end
+	local ab = list[1] and Config.Abilities[list[1]]
 	label(c, {
-		Text = ab and ab.Name or "No ability",
+		Text = #names > 0 and table.concat(names, " + ") or "No ability",
+		RichText = true,
 		display = true,
 		TextSize = 20,
 		TextColor3 = ab and ab.Color or Gui.MUTED,

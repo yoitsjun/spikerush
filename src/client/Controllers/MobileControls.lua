@@ -6,9 +6,11 @@
 --                         Jump Serve (a standard jump-serve toss)
 --   on the ground ....... Slide | Bump (Block at the net) | Jump (Spike's jump, as on every device:
 --                         one tap, or Approach then Jump with the double approach setting)
---   in the air .......... Slide (off) | Feint (the bump button) | Spike (Charge with Azure Dragon)
+--   in the air .......... Slide (off) | Feint (the bump button) | Spike (what the hold does: Charge
+--                         with Azure Dragon, Hover then Swing with Squall, Dive for Corona's Sundive)
 -- At the net the Bump button blocks: hold to charge, let go to jump. Set pops up over it when you
--- can set the ball. The skill column holds your active ability (Q) and your AI teammates' (1, 2).
+-- can set the ball. The skill column holds your active abilities (Q: one button pops every one
+-- that's ready, your own and the Halloween cards') and your AI teammates' (1, 2).
 -- A button keeps the action it was pressed as until the finger lifts, and holds release when the
 -- finger lifts anywhere on screen.
 -- Every button can be moved and resized in the layout editor (Settings > Touch controls); the
@@ -834,7 +836,9 @@ local function update()
 		if holding then
 			set("C", "Spike", "Jump Serve", "IconJump") -- a standard jump-serve toss
 		else
-			local label = air and "Spike" or ((ctx.spikeLabel == "Leap" or ctx.spikeLabel == "Approach") and ctx.spikeLabel or "Jump")
+			-- (in the air the hold's label: Charge, Hover, Swing or Dive)
+			local airLabel = (ctx.spikeLabel == nil or ctx.spikeLabel == "Serve") and "Spike" or ctx.spikeLabel
+			local label = air and airLabel or ((ctx.spikeLabel == "Leap" or ctx.spikeLabel == "Approach") and ctx.spikeLabel or "Jump")
 			set("C", air and "Spike" or "Jump", label, air and "IconAttack" or "IconJump")
 		end
 		set("Set", nil)
@@ -858,7 +862,7 @@ local function update()
 		local jumpLabel = (ctx.spikeLabel == "Leap" or ctx.spikeLabel == "Approach") and ctx.spikeLabel or "Jump"
 		if air then
 			set("B", "SlideFeint", "Feint", "IconDefense")
-			set("C", "Spike", ctx.spikeLabel == "Charge" and "Charge" or "Spike", "IconAttack")
+			set("C", "Spike", ctx.spikeLabel or "Spike", "IconAttack") -- (Charge, Hover, Swing, Dive)
 		elseif atNet then
 			-- at the net the bump button blocks: hold to charge, let go to jump
 			set("B", "Block", "Block", "IconDefense")
@@ -886,15 +890,20 @@ local function update()
 		ring("Set", UI.Spark, ctx.canSet == true)
 	end
 
-	-- skills: your active ability, then your AI teammates'
+	-- skills: your active abilities, then your AI teammates'. Stacked ones share a button that pops
+	-- every one that's ready (as Q): it names the first ready one (else the soonest), "+N" for the
+	-- rest, and counts down the soonest
 	local skills = {}
-	local mine = State.myAbility()
-	local def = Config.Abilities[mine or ""]
-	if def and def.Active then
-		table.insert(skills, { action = "Ability", ability = mine, left = mods.ActionController.abilityCooldown() })
+	local AC = mods.ActionController
+	local mine, left, count = AC.mySkill()
+	if mine then
+		table.insert(skills, { action = "Ability", ability = mine, left = left, extra = count - 1 })
 	end
-	for i, mate in ipairs(mods.ActionController.teamAbilities()) do
-		table.insert(skills, { action = "Team" .. i, ability = mate.ability, left = mods.ActionController.cooldownOf(mate.id) })
+	for i, mate in ipairs(AC.teamAbilities()) do
+		local a, l, n = AC.skillOf(mate.id)
+		if a then
+			table.insert(skills, { action = "Team" .. i, ability = a, left = l, extra = n - 1 })
+		end
 	end
 	for i = 1, 3 do
 		local s = skills[i]
@@ -902,7 +911,8 @@ local function update()
 		if s then
 			local d = Config.Abilities[s.ability]
 			local ready = s.left <= 0
-			set(name, s.action, ready and d.Name or string.format("%s  %ds", d.Name, math.ceil(s.left)), Assets.image("Ability" .. s.ability) and ("Ability" .. s.ability) or "IconStar")
+			local title = s.extra > 0 and (d.Name .. " +" .. s.extra) or d.Name
+			set(name, s.action, ready and title or string.format("%s  %ds", title, math.ceil(s.left)), Assets.image("Ability" .. s.ability) and ("Ability" .. s.ability) or "IconStar")
 			buttons[name].icon.ImageColor3 = d.Color
 			ring(name, d.Color, ready)
 		else

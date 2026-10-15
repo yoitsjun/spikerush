@@ -42,8 +42,53 @@ local usedNames = {}
 local usedChars = {} -- roster ids already on court this match
 local reservedChars = {} -- the host's picks while the bots are being made (TeamService.assign)
 
+-- The active abilities (Config.Abilities[x].Active), in the usual order: each has its own window
+-- and cooldown attributes (AbilityUntil_<Name>, AbilityReadyAt_<Name>).
+local ACTIVES = {}
+for _, name in ipairs(Config.AbilityOrder) do
+	if Config.Abilities[name] and Config.Abilities[name].Active then
+		table.insert(ACTIVES, name)
+	end
+end
+
 local function newRecord()
 	return { kills = 0, aces = 0, blocks = 0, digs = 0, assists = 0, errors = 0, topKmh = 0 }
+end
+
+-- Stacked abilities (the owner, 2026-10-15: the Halloween Match's ability cards "stack" with the
+-- character's own): e.ability is the character's own (the primary; a card never changes it),
+-- e.extraAbilities the cards' (hand order), e.abilities both in order (Characters.abilityList:
+-- primary first, none twice) and e.abilitySet the same as a set. `extras` nil: none.
+function TeamService.setAbilities(e, extras)
+	e.extraAbilities = extras or {}
+	e.abilities = Characters.abilityList(e.ability, e.extraAbilities)
+	e.abilitySet = Characters.abilitySet(e.abilities)
+end
+
+-- Whether the character plays `name` (its own ability or a card's).
+function TeamService.has(e, name)
+	return e ~= nil and name ~= nil and (e.ability == name or (e.abilitySet ~= nil and e.abilitySet[name] == true))
+end
+
+-- An active's own window (shared clock; -1 when it's off) and cooldown (0 when it's ready).
+function TeamService.windowOf(e, name)
+	return (e and e.windows and e.windows[name]) or -1
+end
+
+function TeamService.readyAtOf(e, name)
+	return (e and e.readyAt and e.readyAt[name]) or 0
+end
+
+-- The first active ability in the character's order, or nil: the old single "AbilityUntil" and
+-- "AbilityReadyAt" attributes follow it (new code reads the per-name ones).
+function TeamService.firstActive(e)
+	for _, name in ipairs((e and e.abilities) or {}) do
+		local def = Config.Abilities[name]
+		if def and def.Active then
+			return name
+		end
+	end
+	return nil
 end
 
 local function newEntity(id, name, isBot, plr, team, tier, ability, build)
@@ -54,7 +99,7 @@ local function newEntity(id, name, isBot, plr, team, tier, ability, build)
 		ability = nil
 	end
 	build = Characters.sanitize(tier, build)
-	return {
+	local e = {
 		id = id,
 		name = name,
 		isBot = isBot,
@@ -66,29 +111,28 @@ local function newEntity(id, name, isBot, plr, team, tier, ability, build)
 		role = "WS",
 		charStats = Characters.derive(tier, build),
 		stats = newRecord(),
+		windows = {}, -- active ability -> its window's end (shared clock)
+		readyAt = {}, -- active ability -> when it's off cooldown (shared clock)
 	}
+	TeamService.setAbilities(e, nil)
+	return e
 end
 
 -- The Halloween Match's cards (TeamService.event, set by MatchService for an event run): the Hex
 -- string of every card that hits this character (Halloween.hexFor: its own, its side's team cards,
--- the other side's curses), and a player's ability card in place of their character's ability
--- (a stand-in plays it too).
+-- the other side's curses), and a player's ability cards, played beside their character's own
+-- ability (a stand-in plays them too). The character's own keeps its breakthroughs; a card's
+-- plays at +0 (HitLogic.levelOf).
 function TeamService.dealHex(e)
 	local ev = TeamService.event
 	if not ev then
 		e.hex = nil
+		TeamService.setAbilities(e, nil)
 		return
 	end
 	local u = (e.player and e.player.UserId) or e.standInFor
 	e.hex = Halloween.hexFor(Halloween.holders(ev.hands, ev.ai), e.team, u)
-	local ab = u and Halloween.abilityOf(ev.hands[u])
-	if ab and Characters.isAbility(ab) then
-		if ab ~= e.ability then
-			e.breakLevel = 0 -- (a borrowed ability doesn't grow with this character's breakthroughs)
-		end
-		e.ability = ab
-		e.hexAbility = true
-	end
+	TeamService.setAbilities(e, u and Halloween.abilitiesOf(ev.hands[u]) or nil)
 end
 
 -- A player's entity is their selected roster character.
@@ -265,6 +309,7 @@ function TeamService.applyToModel(e)
 	model:SetAttribute("Team", e.team)
 	model:SetAttribute("Role", e.role)
 	model:SetAttribute("Ability", e.ability or "")
+	model:SetAttribute("Abilities", Characters.encodeAbilities(e.abilities)) -- (the cards' too, primary first)
 	model:SetAttribute("CharName", e.charName or e.name)
 	model:SetAttribute("EntityId", e.id)
 	-- whose Roblox avatar it wears (a player, the player an AI stands in for, a bot's friend)
@@ -275,40 +320,54 @@ function TeamService.applyToModel(e)
 		Characters.writeAttributes(e.player, e.tier, e.build)
 	end
 	reg.CharacterService.applyStats(model, e.liveStats or e.charStats)
-	-- the Halloween Match's cards that hit it (both sides read them: HitLogic's ctx.hex), and a
-	-- player's ability card (the client predicts its own touches from the player's Ability)
+	-- the Halloween Match's cards that hit it (both sides read them: HitLogic's ctx.hex), and every
+	-- ability a player plays (the client predicts its own touches from the player's Ability, its own,
+	-- and Abilities, the cards' too)
 	model:SetAttribute("Hex", e.hex ~= nil and e.hex ~= "" and e.hex or nil)
 	if e.player then
 		e.player:SetAttribute("Hex", e.hex ~= nil and e.hex ~= "" and e.hex or nil)
-		if e.hexAbility then
-			e.player:SetAttribute("Ability", e.ability or "")
-			e.player:SetAttribute("HexAbility", true)
-		end
+		e.player:SetAttribute("Ability", e.ability or "")
+		e.player:SetAttribute("Abilities", Characters.encodeAbilities(e.abilities))
 	end
 	-- a skin its player has on for this character (the Reaper: the server's word, so nobody
 	-- draws one they don't have)
 	local skinOwner = TeamService.skinOwner(e)
 	model:SetAttribute("Skin", skinOwner and e.charId and reg.ProfileService.skinFor(skinOwner, e.charId) or nil)
-	-- ability state for the HUDs and effects (a new entity starts with it ready)
+	-- ability state for the HUDs and effects (a new entity starts with it ready), for every ability
+	-- it plays (a card's too)
+	local has = TeamService.has
+	local first = TeamService.firstActive(e)
 	for _, inst in ipairs({ model, e.player or false }) do
 		if inst then
-			inst:SetAttribute("Counter", e.ability == "Counter" and (e.counter or 0) or nil)
-			inst:SetAttribute("Lift", e.ability == "Skyward" and HitLogic.skyLift(e.lift) or nil)
-			if e.ability ~= "Skyward" or not e.peakM then
+			inst:SetAttribute("Counter", has(e, "Counter") and (e.counter or 0) or nil)
+			inst:SetAttribute("Lift", has(e, "Skyward") and HitLogic.skyLift(e.lift) or nil)
+			if has(e, "Skyward") and e.peakM then
+				-- (a stand-in's new body shows the peak its player had)
+				inst:SetAttribute("PeakM", e.peakM)
+				inst:SetAttribute("PeakY", e.peakY)
+				inst:SetAttribute("PeakZ", e.peakZ)
+			else
 				-- (a peak left on a player who played Seora before must not show)
 				inst:SetAttribute("PeakM", nil)
 				inst:SetAttribute("PeakY", nil)
 				inst:SetAttribute("PeakZ", nil)
 			end
-			inst:SetAttribute("FirstStrikeUsed", e.ability == "Feral" and e.firstStrikeUsed or nil)
-			inst:SetAttribute("CoronaStacks", e.ability == "Corona" and (e.coronaStacks or 0) or nil)
-			inst:SetAttribute("IronLives", e.ability == "Ironclad" and HitLogic.ironLives(e.ironLives) or nil)
-			inst:SetAttribute("Static", e.ability == "Thunder" and (e.static or 0) or nil)
-			inst:SetAttribute("Intimidation", e.ability == "Ironclad" and (e.intimidation or 0) or nil)
-			inst:SetAttribute("IronCracks", e.ability == "Ironclad" and (e.ironCracks or 0) or nil)
-			inst:SetAttribute("Break", (e.breakLevel or 0) > 0 and e.breakLevel or nil)
-			inst:SetAttribute("AbilityUntil", e.abilityUntil or -1)
-			inst:SetAttribute("AbilityReadyAt", e.abilityReadyAt or 0)
+			inst:SetAttribute("FirstStrikeUsed", has(e, "Feral") and e.firstStrikeUsed or nil)
+			inst:SetAttribute("CoronaStacks", has(e, "Corona") and (e.coronaStacks or 0) or nil)
+			inst:SetAttribute("IronLives", has(e, "Ironclad") and HitLogic.ironLives(e.ironLives) or nil)
+			inst:SetAttribute("Static", has(e, "Thunder") and (e.static or 0) or nil)
+			inst:SetAttribute("Intimidation", has(e, "Ironclad") and (e.intimidation or 0) or nil)
+			inst:SetAttribute("IronCracks", has(e, "Ironclad") and (e.ironCracks or 0) or nil)
+			inst:SetAttribute("Break", (e.breakLevel or 0) > 0 and e.breakLevel or nil) -- (its own ability's)
+			-- each active's own window and cooldown (nil for one it doesn't play: none left from an
+			-- earlier match's card); the old single pair follows its first active
+			for _, name in ipairs(ACTIVES) do
+				local held = has(e, name)
+				inst:SetAttribute("AbilityUntil_" .. name, held and TeamService.windowOf(e, name) or nil)
+				inst:SetAttribute("AbilityReadyAt_" .. name, held and TeamService.readyAtOf(e, name) or nil)
+			end
+			inst:SetAttribute("AbilityUntil", first and TeamService.windowOf(e, first) or -1)
+			inst:SetAttribute("AbilityReadyAt", first and TeamService.readyAtOf(e, first) or 0)
 		end
 	end
 end
@@ -318,20 +377,25 @@ end
 ------------------------------------------------------------------------------------------
 
 -- What a character's stats depend on besides the team's stamina (HitLogic.effectiveStats'
--- `extra`): the other team's points this set (Rising Sun), the Counter Edge meter, whether the AI
--- plays it (Feral Leap) and its own team's Rally Cry.
+-- `extra`): every ability it plays (its own and its cards'), the other team's points this set
+-- (Rising Sun), the Counter Edge meter, whether the AI plays it (Feral Leap) and its own team's
+-- Rally Cry.
 function TeamService.boostCtx(e, t)
 	local scores = reg.MatchService.scores or {}
+	local now = t or Util.now()
 	return {
+		ability = e.ability,
+		abilities = e.abilitySet,
+		abilityList = e.abilities,
 		enemyPoints = scores[Court.other(e.team)] or 0,
 		counter = e.counter or 0,
 		lift = e.lift,
 		auto = e.isBot or nil,
-		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= (t or Util.now()),
-		coronaOn = e.ability == "Corona" and (e.abilityUntil or -1) >= (t or Util.now()) or nil,
-		coronaStacks = e.ability == "Corona" and (e.coronaStacks or 0) or nil,
-		squallOn = e.ability == "Squall" and (e.abilityUntil or -1) >= (t or Util.now()) or nil,
-		breakLevel = e.breakLevel,
+		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= now,
+		coronaOn = TeamService.has(e, "Corona") and TeamService.windowOf(e, "Corona") >= now or nil,
+		coronaStacks = TeamService.has(e, "Corona") and (e.coronaStacks or 0) or nil,
+		squallOn = TeamService.has(e, "Squall") and TeamService.windowOf(e, "Squall") >= now or nil,
+		breakLevel = e.breakLevel, -- (its own ability's)
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 		hex = Halloween.effects(e.hex), -- the Halloween Match's cards that hit it
 	}
@@ -359,14 +423,16 @@ function TeamService.refreshBoosts(team)
 		end
 		if model then
 			model:SetAttribute("Adrenaline", on or nil)
-			model:SetAttribute("SunLevel", e.ability == "RisingSun" and HitLogic.sunLevel(extra.enemyPoints) or nil)
+			model:SetAttribute("SunLevel", TeamService.has(e, "RisingSun") and HitLogic.sunLevel(extra.enemyPoints) or nil)
 		end
 	end
 end
 local refreshBoosts = TeamService.refreshBoosts
 
 -- Rally Cry: the whole team is boosted until `untilT` (shared clock), for every client's HUD too.
+-- (Two on one team, a card's and a teammate's own: the longer boost stands.)
 function TeamService.rally(team, untilT)
+	untilT = math.max(untilT, TeamService.rallyUntil[team] or -1)
 	TeamService.rallyUntil[team] = untilT
 	ReplicatedStorage:SetAttribute("RallyUntil_" .. team, untilT)
 	refreshBoosts(team)
@@ -388,18 +454,18 @@ function TeamService.setCorona(e, untilT, stacks)
 	end
 	refreshBoosts(e.team)
 	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
-		if e.abilityUntil == untilT then
+		if TeamService.windowOf(e, "Corona") == untilT then
 			refreshBoosts(e.team)
 		end
 	end)
 end
 
--- An active ability that boosts its own stats (Squall) is on until `untilT`: the stats follow it now
--- and again when the window ends.
-function TeamService.boostWindow(e, untilT)
+-- An active ability that boosts its own stats (Squall: `name`) is on until `untilT`: the stats
+-- follow it now and again when its window ends.
+function TeamService.boostWindow(e, untilT, name)
 	refreshBoosts(e.team)
 	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
-		if e.abilityUntil == untilT then
+		if name == nil or TeamService.windowOf(e, name) == untilT then
 			refreshBoosts(e.team)
 		end
 	end)
@@ -418,7 +484,7 @@ end
 -- A new rally: every Thunder's Static Charge is spent.
 function TeamService.resetStatic()
 	for _, e in pairs(TeamService.entities) do
-		if e.ability == "Thunder" and (e.static or 0) > 0 then
+		if TeamService.has(e, "Thunder") and (e.static or 0) > 0 then
 			TeamService.setStatic(e, 0)
 		end
 	end
@@ -442,7 +508,7 @@ end
 -- A timeout (or a substitution) clears every Corona's penalty.
 function TeamService.clearCorona()
 	for _, e in pairs(TeamService.entities) do
-		if e.ability == "Corona" and (e.coronaStacks or 0) > 0 then
+		if TeamService.has(e, "Corona") and (e.coronaStacks or 0) > 0 then
 			e.coronaStacks = 0
 			for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
 				if inst then
@@ -494,6 +560,7 @@ end
 -- for the marker that stays there; nil clears it.
 function TeamService.setPeak(e, m, y, z)
 	e.peakM = m
+	e.peakY, e.peakZ = m and y or nil, m and z or nil -- (a stand-in's new body shows it too)
 	local model = TeamService.getModel(e)
 	for _, inst in ipairs({ model or false, e.player or false }) do
 		if inst then
@@ -504,15 +571,18 @@ function TeamService.setPeak(e, m, y, z)
 	end
 end
 
--- A new set: meters that build over a set start again (Rising Sun follows the score).
+-- A new set: meters that build over a set start again (Rising Sun follows the score), every one
+-- the character plays (a card's too).
 function TeamService.resetSetAbilities()
 	for _, e in pairs(TeamService.entities) do
-		if e.ability == "Counter" then
+		if TeamService.has(e, "Counter") then
 			TeamService.setCounter(e, 0)
-		elseif e.ability == "Skyward" then
+		end
+		if TeamService.has(e, "Skyward") then
 			TeamService.setLift(e, nil) -- back to the bottom of her climb
 			TeamService.setPeak(e, nil)
-		elseif e.ability == "Ironclad" then
+		end
+		if TeamService.has(e, "Ironclad") then
 			TeamService.setIron(e, Config.Abilities.Ironclad.Lives, 0) -- a new set: his shields whole
 		end
 	end
@@ -704,14 +774,17 @@ function TeamService.clear()
 			reg.BotService.despawn(e)
 		end
 	end
-	-- the Halloween Match's cards end with it: players get their own character's ability back
+	-- the match's abilities end with it (the Halloween Match's cards too): outside a match a player
+	-- plays only their character's own (its Ability, which a card never replaced)
 	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr:GetAttribute("Hex") ~= nil or plr:GetAttribute("HexAbility") then
-			local restore = plr:GetAttribute("HexAbility") == true
-			plr:SetAttribute("Hex", nil)
-			plr:SetAttribute("HexAbility", nil)
-			if restore then
-				reg.ProfileService.applyActive(plr)
+		for _, inst in ipairs({ plr, plr.Character or false }) do
+			if inst then
+				inst:SetAttribute("Hex", nil)
+				inst:SetAttribute("Abilities", nil)
+				for _, name in ipairs(ACTIVES) do
+					inst:SetAttribute("AbilityUntil_" .. name, nil)
+					inst:SetAttribute("AbilityReadyAt_" .. name, nil)
+				end
 			end
 		end
 	end
@@ -830,7 +903,8 @@ function TeamService.roster()
 					name = e.name,
 					isBot = e.isBot,
 					tier = e.tier,
-					ability = e.ability,
+					ability = e.ability, -- its own
+					abilities = e.abilities, -- every one it plays, its own first (the cards' after)
 					char = e.charName,
 					role = e.role,
 					height = e.build.Height,
@@ -899,11 +973,11 @@ function TeamService.swapCharacter(plr)
 	end
 	e.liveStats = nil
 	e.counter = 0
-	e.abilityUntil = -1
+	e.windows = {} -- every active's window off (the cooldowns stay)
 	e.coronaStacks = 0 -- a substitution clears Corona's penalty
 	usedChars[c.Id] = true
 	reg.ProfileService.applyActive(plr) -- the player's own attributes (the client predicts from them)
-	TeamService.dealHex(e) -- (the Halloween Match: an ability card stays the ability)
+	TeamService.dealHex(e) -- (the Halloween Match: the ability cards stack on the new character's own)
 	TeamService.applyToModel(e)
 	TeamService.fillStamina(e.team) -- re-applies the boosts (Rising Sun, Rally Cry) to the new build
 	reg.MatchService.broadcast()
@@ -932,22 +1006,34 @@ function TeamService.benchedCount()
 	return n
 end
 
--- An AI that plays `e`'s character (same build, ability, role, slot and stat line) in the
+-- Every ability's meters from one entity to another (a stand-in and back): each ability it plays
+-- keeps its own.
+local function carryAbilityState(to, from)
+	to.counter = from.counter
+	to.firstStrikeUsed = from.firstStrikeUsed
+	to.lift = from.lift
+	to.peakM, to.peakY, to.peakZ = from.peakM, from.peakY, from.peakZ
+	to.static = from.static
+	to.coronaStacks = from.coronaStacks
+	to.ironLives, to.ironCracks, to.intimidation = from.ironLives, from.ironCracks, from.intimidation
+end
+
+-- An AI that plays `e`'s character (same build, abilities, role, slot and stat line) in the
 -- player's own avatar.
 local function standIn(e, index)
 	botCounter = botCounter + 1
 	local id = "B_" .. botCounter
 	local plr = e.player
 	local bot = newEntity(id, e.name .. " (AI)", true, nil, e.team, e.tier, e.ability, e.build)
+	TeamService.setAbilities(bot, e.extraAbilities) -- (the Halloween Match's ability cards go with the character)
 	bot.charId, bot.charName = e.charId, e.charName
 	bot.role = e.role
 	bot.stats = e.stats
-	bot.counter = e.counter
-	bot.firstStrikeUsed = e.firstStrikeUsed
-	bot.abilityUntil, bot.abilityReadyAt = e.abilityUntil, e.abilityReadyAt
+	bot.windows, bot.readyAt = table.clone(e.windows or {}), table.clone(e.readyAt or {})
+	carryAbilityState(bot, e)
 	bot.standInFor = plr and plr.UserId
-	bot.hex, bot.hexAbility = e.hex, e.hexAbility -- (the Halloween Match's cards go with the character)
-	bot.breakLevel = e.breakLevel -- (and its breakthroughs: the ability's growth and cooldown)
+	bot.hex = e.hex -- (and the cards that hit it)
+	bot.breakLevel = e.breakLevel -- (and its breakthroughs: its own ability's growth and cooldown)
 	local hum = plr and plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
 	if hum then
 		pcall(function()
@@ -1071,9 +1157,8 @@ function TeamService.hotJoin()
 			e.role = role
 			if bot.standInFor == plr.UserId then
 				e.stats = bot.stats -- carry on the same stat line
-				e.counter = bot.counter
-				e.firstStrikeUsed = bot.firstStrikeUsed
-				e.abilityUntil, e.abilityReadyAt = bot.abilityUntil, bot.abilityReadyAt
+				e.windows, e.readyAt = bot.windows or {}, bot.readyAt or {}
+				carryAbilityState(e, bot) -- (the ability cards come again from dealHex)
 			end
 			TeamService.entities[e.id] = e
 			table.insert(TeamService.teams[team].order, index or 1, e.id)

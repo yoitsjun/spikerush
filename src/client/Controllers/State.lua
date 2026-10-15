@@ -167,8 +167,10 @@ end
 -- client paths (every zone test, every frame), so the derived table is cached until the server
 -- rewrites any of the build attributes. derive() is pure, so the cache can't change a result.
 local statsCache = nil
+local abilitiesCache = nil -- { list, set, actives } (myAbilities: read every frame and physics step too)
 player.AttributeChanged:Connect(function()
 	statsCache = nil
+	abilitiesCache = nil
 end)
 
 function State.myStats()
@@ -178,13 +180,57 @@ function State.myStats()
 	return statsCache
 end
 
--- My character's ability, or nil (only S and S+ characters have one).
+-- My character's ability, or nil (only S and S+ characters have one). With the Halloween Match's
+-- ability cards it's still my own (the primary): the cards stack beside it (myAbilities).
 function State.myAbility()
 	local a = player:GetAttribute("Ability")
 	if Characters.isAbility(a) then
 		return a
 	end
 	return nil
+end
+
+-- Every ability I play, in order: my own first, then each ability card's in hand order (the owner,
+-- 2026-10-15: "i want them to stack"). Read from the "Abilities" attribute the server writes, so
+-- the touch predicted here plays the same list the server's does. Cached; don't change the tables.
+local function abilities()
+	if not abilitiesCache then
+		local list = Characters.abilitiesOf(player)
+		local actives = {}
+		for _, name in ipairs(list) do
+			if Config.Abilities[name].Active then
+				table.insert(actives, name)
+			end
+		end
+		abilitiesCache = { list = list, set = Characters.abilitySet(list), actives = actives }
+	end
+	return abilitiesCache
+end
+
+function State.myAbilities()
+	return abilities().list
+end
+
+-- { [name] = true } for myAbilities (what HitLogic's ctx.abilities takes).
+function State.abilitySet()
+	return abilities().set
+end
+
+function State.hasAbility(name)
+	return abilities().set[name] == true
+end
+
+-- The ones the Ability key pops (Config.Abilities[x].Active), in the same order.
+function State.myActives()
+	return abilities().actives
+end
+
+-- An ability's breakthrough level: my character's for my own, +0 for a card's.
+function State.breakOf(name)
+	if name ~= nil and name == State.myAbility() then
+		return player:GetAttribute("Break") or 0
+	end
+	return 0
 end
 
 -- Depth lane I stand on (players never walk toward or away from the camera).
