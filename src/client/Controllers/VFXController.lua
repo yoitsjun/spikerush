@@ -5736,7 +5736,7 @@ function HW.jack(size)
 		local m = mesh:Clone()
 		m.Anchored, m.CanCollide, m.CanQuery, m.CanTouch, m.CastShadow = true, false, false, false, false
 		m.Size = m.Size * (size / math.max(m.Size.Y, 0.01))
-		m.CFrame = CFrame.Angles(0, math.rad(-90), 0) -- (its face toward the camera)
+		m.CFrame = CFrame.Angles(0, math.rad(90), 0) -- (its face, -z on the mesh, toward the camera)
 		m.TextureID = Assets.id(Assets.BallSkins.Pumpkin) or m.TextureID
 		m.Color = HW.PUMPKIN
 		m.Parent = model

@@ -437,10 +437,12 @@ Assets.BallSkins = {
 	Lava = "136063469609688",
 	Galaxy = "136596164467380",
 	Planet = "95862712000351",
-	-- the owner's Halloween balls, baked in Blender onto their own UVs (assets/balls/BallPumpkin.fbx
-	-- and BallWitchHat.fbx: these maps are on the meshes there too)
-	Pumpkin = "110443908414192",
-	WitchHat = "103486535160481",
+	-- the owner's Halloween balls, baked in Blender onto their own UVs (assets/balls/Pumpkin.png and
+	-- WitchHat.png, embedded in BallPumpkin.fbx and BallWitchHat.fbx). These are the copies Studio's
+	-- 3D importer uploaded with the meshes: they loaded at once, while the same images uploaded on
+	-- their own (110443908414192, 103486535160481) were still processing
+	Pumpkin = "136024092259388",
+	WitchHat = "120836544400364",
 }
 
 -- Font families (a FontFace family: rbxasset://fonts/families/<Name>.json, or a Creator Store

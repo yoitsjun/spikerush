@@ -172,6 +172,9 @@ local function build(key, radius, owner)
 			local across = radius * 2 * (look.span or 1)
 			if look.fit then
 				core.Size = core.Size * (across / math.max(core.Size.X, core.Size.Y, core.Size.Z, 0.01))
+				-- upright: Studio's 3D importer turns a mesh's pivot a quarter over (the older balls
+				-- were tuned with it turned, so only these undo it)
+				core.PivotOffset = CFrame.new()
 			else
 				core.Size = Vector3.one * across
 			end

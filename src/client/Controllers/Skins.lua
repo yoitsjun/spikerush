@@ -42,10 +42,11 @@ local LOOK = {
 }
 local MARKERS = { Tip = true, Heel = true, Grip = true }
 
-local dressed = {} -- character model -> { scythe, kits = { handles }, slash = { trails } }
+local dressed = {} -- character model -> { scythe, hand, kits = { handles }, slash = { trails } }
+local folder -- the held scythes (kept out of the characters: they're placed every frame)
 
 local function prep(p)
-	p.Anchored = false
+	p.Anchored = true
 	p.CanCollide = false
 	p.CanQuery = false
 	p.CanTouch = false
@@ -109,8 +110,18 @@ local function scythe()
 		end
 	end
 	c.PrimaryPart = c:FindFirstChild("Shaft", true) or c:FindFirstChildWhichIsA("BasePart", true)
-	if src and c.PrimaryPart then
-		-- whatever size the importer gave it: HEIGHT tall
+	local root = c.PrimaryPart
+	local grip, heel, tip = c:FindFirstChild("Grip", true), c:FindFirstChild("Heel", true), c:FindFirstChild("Tip", true)
+	if root and grip and heel and tip then
+		-- its pivot from the markers, whatever axes the importer gave it (Studio's turned the
+		-- model's pivot a quarter over): at the grip, up the shaft, facing where the blade reaches
+		local up = (heel.Position - grip.Position).Unit
+		local reach = tip.Position - heel.Position
+		local fwd = (reach - up * reach:Dot(up)).Unit
+		root.PivotOffset = root.CFrame:ToObjectSpace(CFrame.lookAt(grip.Position, grip.Position + fwd, up))
+	end
+	if src and root then
+		-- whatever size the importer gave it: HEIGHT tall (the extents are along the pivot's axes)
 		local size = c:GetExtentsSize()
 		if size.Y > 0.1 then
 			c:ScaleTo(c:GetScale() * HEIGHT / size.Y)
@@ -121,6 +132,54 @@ end
 
 local function hand(model)
 	return model:FindFirstChild("RightHand") or model:FindFirstChild("Right Arm")
+end
+
+-- Where the scythe is held this frame: its grip in the hand; the shaft upright by the leg on the
+-- ground, drawn back over the shoulder in the air (`air` 0..1), and chopped through, forward
+-- and down, when a spike lands on the blade (`swing`: seconds since Skins.slash). The shaft
+-- turns about the body's side and the blade turns with it, reaching where the body faces when
+-- upright. (Welded along the hand, a raised arm had turned the blade down to the hips; and the
+-- arm's own angle doesn't track the swing: a cocked arm bends its hand back down by the ear.)
+local DRAWN = math.rad(-35)
+local CHOP = math.rad(115)
+local function holdFrame(model, h, air, swing)
+	local at = (h.CFrame * CFrame.new(0, -0.15, 0)).Position
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return CFrame.new(at)
+	end
+	local body = root.CFrame
+	local up, look = body.UpVector, body.LookVector
+	local lean = DRAWN * (air or 0)
+	if swing and swing < 0.6 then
+		-- through in a tenth of a second, held, then eased back
+		local k = 1
+		if swing < 0.1 then
+			k = 1 - (1 - swing / 0.1) ^ 3
+		elseif swing > 0.32 then
+			k = 1 - math.min((swing - 0.32) / 0.28, 1) ^ 2
+		end
+		lean = lean + (CHOP - lean) * k
+	end
+	local shaft = up * math.cos(lean) + look * math.sin(lean)
+	local blade = look * math.cos(lean) - up * math.sin(lean)
+	shaft = (shaft + body.RightVector * 0.12).Unit -- (a little out, clear of the leg)
+	blade = (blade - shaft * blade:Dot(shaft)).Unit
+	return CFrame.lookAt(at, at + blade, shaft)
+end
+
+-- Whether a character is off the ground: nothing under its root within its standing height.
+local downParams = RaycastParams.new()
+downParams.FilterType = Enum.RaycastFilterType.Exclude
+local function airborne(model)
+	local root = model:FindFirstChild("HumanoidRootPart")
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	if not (root and hum) then
+		return false
+	end
+	local stand = hum.HipHeight + root.Size.Y / 2
+	downParams.FilterDescendantsInstances = { model, folder }
+	return workspace:Raycast(root.Position, Vector3.new(0, -(stand + 0.8), 0), downParams) == nil
 end
 
 local function attachAt(part, worldPos, name)
@@ -173,8 +232,7 @@ local function undress(model)
 end
 
 -- Puts the scythe in the hitting hand with its void effects: held low on the shaft (the Grip
--- marker), upright along the arm, so standing it rests by the leg with the blade over the head,
--- and in a spike the raised arm swings the blade over and through.
+-- marker, its pivot), placed every frame by holdFrame.
 local function dress(model)
 	local h = hand(model)
 	if not h then
@@ -186,30 +244,15 @@ local function dress(model)
 		s:Destroy()
 		return
 	end
-	local held = h.CFrame * CFrame.new(0, -0.15, 0) * CFrame.Angles(0, 0, math.rad(-8)) -- (tilted out, clear of the leg)
-	local grip = s:FindFirstChild("Grip", true)
-	if grip then
-		local offset = s:GetPivot():PointToObjectSpace(grip.Position)
-		s:PivotTo(held * CFrame.new(-offset))
-	else
-		s:PivotTo(held * CFrame.new(0, 0.8, 0))
+	s:PivotTo(holdFrame(model, h, 0))
+	if not folder or not folder.Parent then
+		folder = Instance.new("Folder")
+		folder.Name = "SpikeRushSkins"
+		folder.Parent = workspace
 	end
-	-- every part rides the shaft, the shaft rides the hand
-	for _, d in ipairs(s:GetDescendants()) do
-		if d:IsA("BasePart") and d ~= root then
-			local w = Instance.new("WeldConstraint")
-			w.Part0 = root
-			w.Part1 = d
-			w.Parent = d
-		end
-	end
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = h
-	weld.Part1 = root
-	weld.Parent = root
-	s.Parent = model
+	s.Parent = folder
 
-	local st = { scythe = s, kits = {}, slash = {} }
+	local st = { scythe = s, hand = h, air = 0, kits = {}, slash = {} }
 	dressed[model] = st
 	local tipPart = s:FindFirstChild("Tip", true)
 	local heelPart = s:FindFirstChild("Heel", true)
@@ -243,12 +286,14 @@ local function dress(model)
 	st.slash = slashTrails(blade, heel, tip)
 end
 
--- The blade's slash trail for `seconds` (a Reaper's spike: VFXController's onHit).
+-- A Reaper's spike (VFXController's onHit): the scythe chops through (holdFrame) with the blade's
+-- slash trail lit for `seconds`.
 function Skins.slash(model, seconds)
 	local st = model and dressed[model]
 	if not st then
 		return
 	end
+	st.swingAt = os.clock()
 	for _, t in ipairs(st.slash) do
 		t.Enabled = true
 	end
@@ -287,7 +332,7 @@ local function sweep()
 		seen[model] = true
 		local want = Skins.isReaper(model)
 		local st = dressed[model]
-		local has = st and st.scythe and st.scythe.Parent == model
+		local has = st and st.scythe and st.scythe.Parent ~= nil and st.hand.Parent == model
 		if want and not has then
 			undress(model)
 			dress(model)
@@ -310,6 +355,15 @@ function Skins.init(m)
 		if acc >= 0.5 then
 			acc = 0
 			sweep()
+		end
+		-- every held scythe follows its hand (after the frame's animation and physics), easing
+		-- between its ground and air holds
+		for model, st in pairs(dressed) do
+			if st.hand.Parent == model and st.scythe.Parent then
+				local goal = airborne(model) and 1 or 0
+				st.air = st.air + (goal - st.air) * math.min(1, dt * 12)
+				st.scythe:PivotTo(holdFrame(model, st.hand, st.air, st.swingAt and os.clock() - st.swingAt))
+			end
 		end
 	end)
 end
