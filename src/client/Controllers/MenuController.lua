@@ -3145,8 +3145,8 @@ local function buildPlayer()
 	end)
 	-- Sell takes a second press within 3 s
 	onClick(sellB, function()
-		if not selectedChar then
-			return
+		if not selectedChar or not sellB.Active then
+			return -- (locked: a favourite, or the one you play; Active doesn't stop a click)
 		end
 		if Extra.sellArmed and Extra.sellArmed.id == selectedChar and os.clock() - Extra.sellArmed.at < 3 then
 			Extra.sellArmed = nil

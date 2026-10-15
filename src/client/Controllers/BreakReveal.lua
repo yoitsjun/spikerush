@@ -172,6 +172,22 @@ local function show(id, level)
 			close(card)
 		end
 	end)
+	-- a controller: the card takes it (no selection left on the page behind it: A there had pressed
+	-- Break through again), A or B closes it
+	if mods.PadNav then
+		mods.PadNav.root(fade, {
+			prio = 45,
+			noSelect = true,
+			press = function()
+				if os.clock() - card.at > 0.8 then
+					close(card)
+				end
+			end,
+			back = function()
+				close(card)
+			end,
+		})
+	end
 
 	if mods.AudioController then
 		mods.AudioController.play(level >= Config.Breakthrough.Max and "RecruitRevealGold" or "RecruitReveal", { volume = 0.9 })
@@ -189,13 +205,21 @@ function BreakReveal.init(m)
 		local r = type(p) == "table" and p.breakReveal
 		if r and r ~= last and type(r.id) == "string" then
 			last = r
-			show(r.id, Breakthrough.level(r.level))
+			if not State.isPlaying then
+				show(r.id, Breakthrough.level(r.level))
+			end
 		end
 	end)
-	-- a controller's A (or Enter) closes it too
-	UserInputService.InputBegan:Connect(function(input, processed)
+	-- a match starting (a queue filling) takes the screen: the card goes
+	State.signals.Match:Connect(function()
+		if State.isPlaying and current then
+			close(current)
+		end
+	end)
+	-- Enter closes it too (a controller's A and B go through PadNav)
+	UserInputService.InputBegan:Connect(function(input)
 		local card = current
-		if card and os.clock() - card.at > 0.8 and (input.KeyCode == Enum.KeyCode.ButtonA or input.KeyCode == Enum.KeyCode.Return) then
+		if card and os.clock() - card.at > 0.8 and input.KeyCode == Enum.KeyCode.Return then
 			close(card)
 		end
 	end)
