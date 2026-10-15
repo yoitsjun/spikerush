@@ -5730,15 +5730,18 @@ function HW.jack(size)
 	local box = ReplicatedStorage:FindFirstChild("ToolboxAssets")
 	local skins = box and box:FindFirstChild("BallSkins")
 	local mesh = skins and skins:FindFirstChild("BallPumpkin", true)
+	local holder
 	if mesh and mesh:IsA("MeshPart") then
+		-- (its carved face is painted lit on its map; a light in front of the face shows it off)
 		local m = mesh:Clone()
 		m.Anchored, m.CanCollide, m.CanQuery, m.CanTouch, m.CastShadow = true, false, false, false, false
 		m.Size = m.Size * (size / math.max(m.Size.Y, 0.01))
 		m.CFrame = CFrame.Angles(0, math.rad(-90), 0) -- (its face toward the camera)
+		m.TextureID = Assets.id(Assets.BallSkins.Pumpkin) or m.TextureID
 		m.Color = HW.PUMPKIN
 		m.Parent = model
-		table.insert(glow, HW.part("Part", Vector3.one * size * 0.78, CFrame.new(), HW.GRIN, Enum.Material.Neon, model))
-		glow[1].Shape = Enum.PartType.Ball
+		holder = HW.part("Part", Vector3.one * 0.2, CFrame.new(-size * 0.7, 0, 0), WHITE, Enum.Material.SmoothPlastic, model)
+		holder.Transparency = 1
 	else
 		for i = 0, 5 do
 			local a = i * math.pi / 3
@@ -5763,7 +5766,7 @@ function HW.jack(size)
 	light.Color = HW.PUMPKIN
 	light.Range = size * 3
 	light.Brightness = 3
-	light.Parent = glow[1]
+	light.Parent = holder or glow[1]
 	model.WorldPivot = CFrame.new() -- (its middle)
 	return model, glow
 end

@@ -31,11 +31,12 @@ local LOOKS = {
 	Planet = { texture = "Planet", color = Color3.fromRGB(220, 170, 110), ring = Color3.fromRGB(230, 205, 160) },
 	Spiky = { mesh = "BallSpiky", color = Color3.fromRGB(150, 156, 170), material = Enum.Material.Metal, reflect = 0.25, span = 1.55 },
 	Disco = { mesh = "BallDisco", color = Color3.fromRGB(225, 230, 240), material = Enum.Material.Metal, reflect = 0.7, embers = Color3.fromRGB(255, 255, 255) },
-	-- Halloween (the owner's own models: assets/balls/PumpkinBallModel.fbx and WitchHatBall.fbx,
-	-- imported into ToolboxAssets.BallSkins as BallPumpkin and BallWitchHat; their textures are
-	-- still to be painted, Assets.BallSkins). Until then, a glowing ball in the main colour
-	Pumpkin = { mesh = "BallPumpkin", texture = "Pumpkin", color = Color3.fromRGB(255, 120, 20), light = Color3.fromRGB(255, 150, 40), embers = Color3.fromRGB(255, 170, 60) },
-	WitchHat = { mesh = "BallWitchHat", texture = "WitchHat", color = Color3.fromRGB(60, 30, 90), light = Color3.fromRGB(150, 80, 255), embers = Color3.fromRGB(190, 255, 120) },
+	-- Halloween (the owner's own models, cut down to ~13k triangles and painted in Blender:
+	-- assets/balls/BallPumpkin.fbx and BallWitchHat.fbx, imported into ToolboxAssets.BallSkins
+	-- under those names; their maps are Assets.BallSkins'). Until then, a glowing ball in the main
+	-- colour. `fit`: keeps its own proportions (the hat is wider than it's tall)
+	Pumpkin = { mesh = "BallPumpkin", texture = "Pumpkin", fit = true, color = Color3.fromRGB(255, 120, 20), light = Color3.fromRGB(255, 150, 40), embers = Color3.fromRGB(255, 170, 60) },
+	WitchHat = { mesh = "BallWitchHat", texture = "WitchHat", fit = true, span = 1.15, color = Color3.fromRGB(60, 30, 90), light = Color3.fromRGB(150, 80, 255), embers = Color3.fromRGB(190, 255, 120) },
 }
 
 local function prep(p)
@@ -168,7 +169,12 @@ local function build(key, radius, owner)
 		model.Name = "BallSkin"
 		local core = mesh(look.mesh or "BallSphere")
 		if core then
-			core.Size = Vector3.one * radius * 2 * (look.span or 1)
+			local across = radius * 2 * (look.span or 1)
+			if look.fit then
+				core.Size = core.Size * (across / math.max(core.Size.X, core.Size.Y, core.Size.Z, 0.01))
+			else
+				core.Size = Vector3.one * across
+			end
 			if look.texture then
 				core.TextureID = Assets.id(Assets.BallSkins[look.texture]) or ""
 			end

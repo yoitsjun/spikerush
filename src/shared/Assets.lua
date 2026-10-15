@@ -437,6 +437,10 @@ Assets.BallSkins = {
 	Lava = "136063469609688",
 	Galaxy = "136596164467380",
 	Planet = "95862712000351",
+	-- the owner's Halloween balls, baked in Blender onto their own UVs (assets/balls/BallPumpkin.fbx
+	-- and BallWitchHat.fbx: these maps are on the meshes there too)
+	Pumpkin = "110443908414192",
+	WitchHat = "103486535160481",
 }
 
 -- Font families (a FontFace family: rbxasset://fonts/families/<Name>.json, or a Creator Store
