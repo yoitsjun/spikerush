@@ -299,12 +299,11 @@ function HitService.process(entity, input, opts)
 		TS.setStatic(entity, math.min(Config.Abilities.Thunder.StaticMax, (entity.static or 0) + 1))
 	end
 	if TS.has(entity, "Ironclad") then
-		-- Bulwark: a block broken through costs a shield (none left: awakened); awakened, every touch
-		-- fills Intimidation, and full brings the shields back
+		-- Bulwark: every attack a shield stops cracks it and the second shatters it (none left:
+		-- awakened); awakened, every touch fills Intimidation, and full brings the shields back
 		local lives = HitLogic.ironLives(entity.ironLives)
 		if lives > 0 then
-			-- (a break, or a spike stopped: Cracks; only Bulwark's own blocks: an Iron Wall up takes
-			-- the spike whole and leaves his shield be)
+			-- (only Bulwark's own blocks: an Iron Wall up takes the spike whole and leaves his shield be)
 			if meta.bulwark then
 				local left, cracks = HitLogic.ironAfterBlock(lives, entity.ironCracks, meta)
 				if left ~= lives or cracks ~= (entity.ironCracks or 0) then

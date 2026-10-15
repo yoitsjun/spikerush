@@ -971,7 +971,7 @@ Config.Admin = {
 	Multiplier = 2,
 	AnnounceMax = 200, -- characters
 	AnnounceSeconds = 10, -- how long an announcement shows
-	GiveMax = { VP = 1000000, Gold = 10000000, Lucky = 1000 },
+	GiveMax = { VP = 1000000, Gold = 10000000, Lucky = 1000, Fragments = 1000 },
 	LiveStore = "SpikeRushLive_v1", -- the running events (DataStore), for servers that start later
 	MailStore = "SpikeRushMail_v1", -- gifts waiting for their player (DataStore)
 	-- who was given each give-only card from the admin panel (DataStore, a key per card): the
@@ -1267,37 +1267,20 @@ Config.Abilities = {
 		Name = "Ironclad",
 		Tier = "S+",
 		Role = "MB",
-		Blurb = "Bulwark: while you have shields (3), every block you get your hands on is a perfect shut-down, and your block reaches a little further than anyone's. A 185 km/h spike or a clean one breaks a shield, and every spike you stop cracks it (the second shatters it); tips go over. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Every touch then fills Intimidation by 20%; full, your shields are back.",
+		Blurb = "Bulwark: while you have shields (3), you're an Iron Wall at the net: every attack that crosses in front of you is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Every touch then fills Intimidation by 20%; full, your shields are back.",
 		Kind = "Passive: shields, then awakened",
 		Color = Color3.fromRGB(255, 112, 52), -- awakened: molten
 		WallColor = Color3.fromRGB(170, 200, 235), -- the shields: steel
 		ChargeColor = Color3.fromRGB(255, 50, 60), -- Forge's charge: red
 		Lives = 3,
-		-- Bulwark: Iron Wall's perfect shut-down while he has shields, but an attack this fast (or a
-		-- piercing or block-smashing one) breaks through it and costs a shield (was 150: nearly every
-		-- S+ spike broke it; the owner: "185kmh makes him literally unbeatable against lower tiers"),
-		-- so a clean spike from anyone (contact quality CleanBreak or better) breaks it too. Tips
-		-- aren't shut down (they go over him, or meet an ordinary block)
-		BreakKmh = 185,
-		CleanBreak = 0.85,
-		-- Cracks (the owner wanted a way to wear his shields down without power, "highlighted with a
-		-- flash", after Spike Cross's weak spots; a body-part spot read as luck here, where a spike is
-		-- aimed at the court): every spike his shield stops still gets shut down, but it cracks the
-		-- shield (a white flash on him and on the shield over his head); the CracksToBreak-th stop
-		-- shatters it. A new shield (a new set, Intimidation) starts whole
+		-- Bulwark: while he has shields he's Iron Wall (the owner, 2026-10-15: "buff taesan block to
+		-- be iron wall for 3 lives. it cracks on one hit and breaks on the next"): Iron Wall's whole
+		-- wall (HitLogic.wallReach) and its perfect shut-down on every attack, tips and the hardest
+		-- spikes included; nothing breaks through it any more (the 185 km/h / clean-spike break,
+		-- Unbreakable and Shrapnel are gone). Instead every spike a shield stops cracks it (a white
+		-- flash on him and on the shield over his head) and the CracksToBreak-th stop shatters it.
+		-- A new shield (Intimidation) starts whole
 		CracksToBreak = 2,
-		-- Shrapnel: a spike that breaks a shield keeps only this much of its speed (diggable)
-		ShrapnelKeep = 0.6,
-		-- his block box (the owner: "remove his full iron wall hitbox because thats busted... but
-		-- maybe slightly enhanced because he's s+"): a little more than anyone's while he has shields
-		-- (studs over the usual: up, off the net, either side of it), nowhere near Iron Wall's
-		Box = { ReachUp = 1.8, NetExtra = 0.8, OwnDepth = 0.5, OverDepth = 0.5 },
-		-- Unbreakable (the owner: "a chance to completely shutdown a guardbreak... make this a
-		-- passive", with the chance falling the harder the spike): a block that would break gets
-		-- shut down instead (no shield lost) this often, from the first chance at the first speed
-		-- down to the second at the second
-		UnbreakableChance = { 0.35, 0.15 },
-		UnbreakableKmh = { 185, 250 },
 		-- awakened: each touch fills Intimidation this much (of 100; was 10), a spike of his that
 		-- scores (a kill) or a block that stuffs this much more
 		MeterPerTouch = 20,
@@ -1322,10 +1305,8 @@ Config.Abilities = {
 		ReachMul = 0.3, -- Steel Reach: + this x the charge
 		AutoCharge = 0.5, -- the AI awakened: its spikes get this much of the full charge
 		Passives = {
-			{ Name = "Bulwark", Blurb = "3 shields: while you have one, every block you touch is a perfect shut-down, and your block reaches a little further. A spike of 185 km/h or more, or a clean one, shatters a shield. Tips go over you." },
-			{ Name = "Cracks", Blurb = "Every spike a shield stops cracks it; the next one it stops shatters it." },
-			{ Name = "Unbreakable", Blurb = "A spike that would break through your shields has a chance to be shut down anyway, shield kept: 35% at 185 km/h, down to 15% for the hardest." },
-			{ Name = "Shrapnel", Blurb = "A spike that breaks a shield loses 40% of its speed: your team can dig it." },
+			{ Name = "Bulwark", Blurb = "3 shields: while you have one you're an Iron Wall at the net. Every attack that crosses in front of you is shut down, at any height, tips and the hardest spikes too." },
+			{ Name = "Cracks", Blurb = "A shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
 			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: Forge charges far harder and widens your reach." },
 			{ Name = "Forge", Blurb = "Your fall is slow; jump before the set and hang: the longer you're up, the harder the spike (up to +39% with shields, +68% awakened). Jumping after the set gets 30% of it." },
 			{ Name = "Steel Reach", Blurb = "Your spike reaches 20% wider than usual, and awakened the charge widens it up to 50%." },
@@ -1742,8 +1723,11 @@ Config.Halloween = {
 	Stages = 2,
 	Picks = 2,
 	Offers = 3,
+	-- ability cards a hand can hold beside the character's own ability (the owner, 2026-10-15: "you
+	-- can stack up to 2 abilities alongside your main one"); with two, no more are offered
+	MaxAbilityCards = 2,
 	PickTime = 30, -- seconds for a pick before the first offer is taken for you
-	SpinTime = 2.4, -- the roulette's spin on the client before it stops on the offers
+	SpinTime = 3.2, -- the roulette's scroll on the client before it stops on the offers (the owner: "a scrolling cards motion for rolls")
 	Timeouts = 1,
 	Difficulties = {
 		{ Key = "Easy", Name = "Easy", Bots = "B", AiCards = 0, Candy = 20, Repeat = 8, StageOne = 4, Color = Color3.fromRGB(120, 220, 120) },
@@ -1866,9 +1850,13 @@ Config.Halloween = {
 		Reaper = {
 			Name = "Reaper",
 			Rarity = "Mythic",
-			Blurb = "Spike with a scythe, souls streaming behind the ball. Apply a copy to any character for good; switch it off and on any time. More copies, more characters.",
+			Blurb = "Taeho's skin: he spikes with a scythe, souls streaming behind the ball. Swap it on and off any time on his page.",
 			Trail = "Souls", -- the trail it wears (Config.Cosmetics.Trail; only with the skin)
 			Color = Color3.fromRGB(150, 220, 255),
+			-- the only character it fits (the owner, 2026-10-15: "restrict the skin to only taeho
+			-- now"); a copy applied to anyone else comes back free, and a second copy pays DupCandy
+			Chars = { "taeha" },
+			Tint = Color3.fromRGB(150, 100, 255), -- its page and pull glow: void violet
 		},
 	},
 	SkinOrder = { "Reaper" },

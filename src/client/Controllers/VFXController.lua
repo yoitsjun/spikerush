@@ -3880,20 +3880,9 @@ local function onHit(snap)
 				mods.AudioController.play("SquallGlass", { volume = 0.8, speed = 1.15, pos = pos, minGap = 0.05 })
 			end
 		end
-		if meta.unbreakable then
-			-- Taesan's Unbreakable: a spike that should have broken his shield, stopped dead
-			local steel = Config.Abilities.Ironclad.WallColor
-			Fx.play("BlockImpact", pos, { color = steel, scale = 1.6 })
-			starburst(pos, Color3.fromRGB(240, 248, 255), 12)
-			shards(pos, steel, 14, 50)
-			if close and mods.AudioController.hearsMatch() then
-				mods.AudioController.play("StuffSlam", { volume = 1, speed = 0.9, pos = pos })
-				mods.AudioController.play("IronRestore", { volume = 0.6, speed = 1.2, pos = pos })
-			end
-		end
 		if outcome == "Stuff" then
 			Fx.play("BlockImpact", pos, { color = tc })
-			VFXController.popup(pos, meta.unbreakable and "Unbreakable!" or (meta.perfectBlock and "Perfect Block!" or "Stuff!"), meta.unbreakable and Config.Abilities.Ironclad.WallColor or (meta.perfectBlock and Config.Abilities.IronWall.Color or tc), (meta.unbreakable or meta.perfectBlock) and 1.5 or 1.2)
+			VFXController.popup(pos, meta.perfectBlock and "Perfect Block!" or "Stuff!", meta.perfectBlock and Config.Abilities.IronWall.Color or tc, meta.perfectBlock and 1.5 or 1.2)
 			if close then
 				VFXController.impactFrame(meta.id, tc)
 				shaker.shake(0.5)

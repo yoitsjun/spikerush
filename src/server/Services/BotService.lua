@@ -1287,6 +1287,10 @@ function BotService.spawn(e)
 	end
 	model.PrimaryPart = hrp
 	hum.DisplayName = e.name
+	-- (a bot's humanoid never dies: a lost neck or a stray Health write broke the rig apart, and its
+	-- pieces fell out of the world)
+	hum.RequiresNeck = false
+	hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
 	reg.CharacterService.setupHumanoid(model)
 	reg.CharacterService.applyStats(model, e.charStats)
 	local side = Court.sideOf(e.team)
@@ -1344,6 +1348,18 @@ function BotService.despawn(e)
 		e.model:Destroy()
 		e.model = nil
 	end
+end
+
+-- A new body for a bot that lost its own (TeamService.ensureBodies): the old rig goes, a fresh one
+-- is built at its lane's spot (the next serve's reset puts it in formation). Returns the model or nil.
+function BotService.rebuild(e)
+	bots[e.id] = nil
+	local old = e.model
+	e.model = nil
+	if old then
+		old:Destroy()
+	end
+	return BotService.spawn(e)
 end
 
 -- The humanoid's jump changed (Adrenaline): re-time jumps from the new height.

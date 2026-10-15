@@ -851,15 +851,57 @@ function TeamService.resetStats()
 	end
 end
 
--- Every bot on court has a body: one whose rig never built, or fell out of the world, gets a new
--- one (at each serve; the community saw matches go 2v3 with a player gone).
+-- Why a bot's body can't be seen, or nil when it's fine: never built, gone from the world, its root
+-- part or humanoid lost (a rig that fell out of the world keeps its Model with the parts destroyed:
+-- the old check, `model.Parent`, passed it, and the community still saw 2v3s: "the issue with bots
+-- not appearing still exists"), dead, or somewhere off the map.
+local function bodyProblem(e)
+	local m = e.model
+	if not m or not m.Parent or not m:IsDescendantOf(workspace) then
+		return "no model"
+	end
+	local root = m:FindFirstChild("HumanoidRootPart")
+	local hum = m:FindFirstChildOfClass("Humanoid")
+	if not root or root.Parent ~= m then
+		return "no root part"
+	end
+	if not hum or hum.Health <= 0 then
+		return "no living humanoid"
+	end
+	local p = root.Position
+	if p.X ~= p.X or p.Y ~= p.Y or p.Z ~= p.Z then
+		return "position NaN"
+	end
+	if p.Y < -30 or p.Y > 250 or math.abs(p.Z) > 160 or math.abs(p.X) > 160 then
+		return string.format("off the map (%.0f, %.0f, %.0f)", p.X, p.Y, p.Z)
+	end
+	return nil
+end
+
+-- Every bot on court has a body: one that never built, or was lost (bodyProblem), gets a new one
+-- where its spot is (at each serve, and every couple of seconds in play: bodyWatch). One at a time:
+-- building a rig yields.
+local fixingBodies = false
 function TeamService.ensureBodies()
-	for _, e in pairs(TeamService.entities) do
-		if e.isBot and not e.despawned and not (e.model and e.model.Parent) then
-			if reg.BotService.spawn(e) and TeamService.entities[e.id] == e then
-				TeamService.applyToModel(e)
+	if fixingBodies then
+		return
+	end
+	fixingBodies = true
+	local ok, err = pcall(function()
+		for _, e in pairs(TeamService.entities) do
+			local why = e.isBot and not e.despawned and bodyProblem(e)
+			if why and TeamService.entities[e.id] == e then
+				warn(string.format("[SpikeRush] %s's body rebuilt (%s)", tostring(e.name), why))
+				if reg.BotService.rebuild(e) and TeamService.entities[e.id] == e then
+					TeamService.applyToModel(e)
+					refreshBoosts(e.team)
+				end
 			end
 		end
+	end)
+	fixingBodies = false
+	if not ok then
+		warn("[SpikeRush] ensureBodies: " .. tostring(err))
 	end
 end
 
@@ -1226,6 +1268,15 @@ function TeamService.init(r)
 			local ok, err = pcall(afkTick)
 			if not ok then
 				warn("[SpikeRush] afk watch: " .. tostring(err))
+			end
+		end
+	end)
+	-- a body lost mid-rally comes back within a couple of seconds, not at the next serve
+	task.spawn(function()
+		while true do
+			task.wait(2)
+			if TeamService.inMatch then
+				TeamService.ensureBodies()
 			end
 		end
 	end)

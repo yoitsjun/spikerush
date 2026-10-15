@@ -475,77 +475,55 @@ print("== Ironclad (Taesan) ==")
 do
 	local IR = Config.Abilities.Ironclad
 	local taesan = Characters.derive(Characters.fromRoster(Roster.get("taesan"), "max"))
-	-- Bulwark: a block he gets his hands on is a perfect shut-down; 185 km/h, a clean spike or a
-	-- piercing one breaks through (Shrapnel: slowed) and costs a shield; every spike stopped cracks
-	-- the shield and the second shatters it (Cracks); tips aren't shut down; and his box is a little
-	-- bigger than anyone's, no longer Iron Wall's whole wall
+	-- Bulwark (the owner, 2026-10-15: "buff taesan block to be iron wall for 3 lives. it cracks on
+	-- one hit and breaks on the next"): while he has shields he's Iron Wall, its whole wall and its
+	-- perfect shut-down on every attack, the hardest, clean and piercing spikes and tips included,
+	-- even standing; each stop cracks a shield and the next one shatters it: 3 shields, 6 stops
 	-- (a block he jumped for: his hands over the tape)
+	local IW = Config.Abilities.IronWall
 	local broot = vec(0, GROUND + Characters.jumpHeight(taesan, GROUND) * 0.8, side * 1.2)
-	local top = broot.Y + Z.BlockReachUp + IR.Box.ReachUp + Config.Ball.Radius
+	local top = broot.Y + Z.BlockReachUp + Config.Ball.Radius
 	local function under(below)
 		return vec(0, top - below, side * 0.6)
 	end
 	local palms, tips, chest, legs = under(1.5), under(0.4), under(2.8), under(4.0)
 	local function block(kmh, opts)
 		opts = opts or {}
-		local last = { hitType = opts.hitType or "Spike", team = "Home", kmh = kmh, quality = opts.quality, pierce = opts.pierce }
-		local c = ctx({ ability = "Ironclad", stats = taesan, lastHit = last, ironclad = true, ironLives = opts.lives or 3, ballVel = vec(0, -8, side * 30), seq = opts.seq or 42 })
+		local last = { hitType = opts.hitType or "Spike", team = "Home", kmh = kmh, quality = opts.quality, pierce = opts.pierce, breakAtk = opts.breakAtk }
+		local c = ctx({ ability = "Ironclad", stats = taesan, lastHit = last, ironclad = opts.lives ~= 0 or nil, ironLives = opts.lives or 3, ballVel = vec(0, -8, side * 30), seq = opts.seq or 42 })
 		return HitLogic.compute({ action = "Block", t = 0, root = opts.root or broot, ball = opts.ball or palms, vy = 0, grounded = opts.root ~= nil }, c)
 	end
-	-- (Unbreakable can stop a breaking spike: the first seed where it doesn't)
-	local function breaking(kmh, opts)
-		for seq = 1, 60 do
-			opts.seq = seq
-			local ok, r = block(kmh, opts)
-			if ok and r.meta.wallBroken then
-				return r
-			end
-		end
-		return nil
+	local function walled(ok, r)
+		return ok and r.meta.outcome == "Stuff" and r.meta.perfectBlock and r.meta.ironWall and r.meta.bulwark
+	end
+	local allHeld = true
+	for seq = 1, 40 do
+		allHeld = allHeld and walled(block(140, { seq = seq })) and walled(block(260, { seq = seq })) and walled(block(150, { seq = seq, quality = 0.95 }))
+			and walled(block(130, { seq = seq, pierce = true })) and walled(block(240, { seq = seq, breakAtk = 999 }))
 	end
 	local okW, held = block(140)
-	local broke = breaking(190, {})
-	local clean = breaking(140, { quality = 0.9 })
-	local pierced = breaking(120, { pierce = true })
-	local okA, arms = block(120, { ball = tips })
-	local okC, low = block(120, { ball = chest })
-	local okL, lower = block(120, { ball = legs })
-	local okF, tip = block(60, { hitType = "Feint" })
-	-- Cracks: a stop cracks it, the second shatters it; a break costs one outright; awakened, none
+	local tipOk = walled(block(60, { hitType = "Feint" }))
+	local highOk = walled(block(120, { ball = under(-6) }))
+	local standOk = walled(block(200, { root = vec(0, GROUND, side * 1.2), ball = vec(0, C.NetTop + 6, side * 0.6) }))
+	local reachOk = walled(block(120, { ball = tips })) and walled(block(120, { ball = chest })) and walled(block(120, { ball = legs }))
+	-- with no shields left (awakened) he blocks like anyone: the high ball is out of reach
+	local okBare = block(120, { lives = 0, ball = under(-6) })
+	-- Cracks: a stop cracks it, the next shatters it; 3 shields take 6 stops; a soft touch nothing
 	local after = HitLogic.ironAfterBlock
+	local lives, cracks, stops = 3, 0, 0
+	while lives > 0 and stops < 20 do
+		lives, cracks = after(lives, cracks, held.meta)
+		stops = stops + 1
+	end
 	local l1, c1 = after(3, 0, held.meta)
 	local l2, c2 = after(l1, c1, held.meta)
-	local l3, c3 = after(3, 1, { hitType = "Block", wallBroken = true })
 	local l4, c4 = after(3, 1, { hitType = "Block", outcome = "Soft" })
 	local l5 = after(0, 0, held.meta)
-	local okG = block(120, { root = vec(0, GROUND, side * 1.2), ball = vec(0, C.NetTop + 6, side * 0.6) })
-	check(okW and held.meta.outcome == "Stuff" and held.meta.ironWall and not held.meta.wallBroken
-		and broke and broke.meta.outcome == "Break" and clean and pierced and IR.ShrapnelKeep < Config.Abilities.Feral.BreakKeep
-		and okA and arms.meta.ironWall and okC and low.meta.ironWall and okL and lower.meta.ironWall
-		and l1 == 3 and c1 == 1 and l2 == 2 and c2 == 0 and l3 == 2 and c3 == 0 and l4 == 3 and c4 == 1 and l5 == 0 and IR.CracksToBreak == 2
-		and not (okF and tip.meta.perfectBlock) and not okG,
-		"Bulwark: a perfect shut-down anywhere on his block; 185 km/h, clean or piercing breaks it; every stop cracks the shield and the second shatters it; tips and a standing high ball get past",
-		string.format("140: %s, 190: %s; stops: 3 -> %d (%d crack) -> %d", held.meta.outcome, broke and broke.meta.outcome or "held", l1, c1, l2))
-	-- Unbreakable (the owner: "a chance to completely shutdown a guardbreak"): over many balls a
-	-- breaking spike is shut down about UnbreakableChance of the time, less the harder it is, and
-	-- one that is keeps the shield
-	local function rate(kmh)
-		local n, stopped, kept = 400, 0, true
-		for seq = 1, n do
-			local ok, r = block(kmh, { seq = seq })
-			if ok and r.meta.unbreakable then
-				stopped = stopped + 1
-				kept = kept and r.meta.outcome == "Stuff" and not r.meta.wallBroken
-			end
-		end
-		return stopped / n, kept
-	end
-	local r185, k185 = rate(185)
-	local r220 = rate(220)
-	local r260, k260 = rate(260)
-	check(math.abs(r185 - IR.UnbreakableChance[1]) < 0.07 and math.abs(r260 - IR.UnbreakableChance[2]) < 0.07 and r185 > r220 and r220 > r260 and k185 and k260,
-		"Unbreakable: a breaking spike is shut down anyway, shield kept, about 35% at 185 km/h down to 15% at 250+",
-		string.format("185: %.0f%%, 220: %.0f%%, 260: %.0f%%", r185 * 100, r220 * 100, r260 * 100))
+	check(allHeld and okW and tipOk and highOk and standOk and reachOk and not okBare
+		and l1 == 3 and c1 == 1 and l2 == 2 and c2 == 0 and stops == 6 and l4 == 3 and c4 == 1 and l5 == 0 and IR.CracksToBreak == 2
+		and HitLogic.wallReach(false, true, "Feint") == true and IW.ReachUp > 10,
+		"Bulwark is Iron Wall for 3 lives: every attack shut down (260 km/h, clean, piercing, smashing, tips, standing, any height); a stop cracks a shield, the next shatters it: 6 stops",
+		string.format("stops: 3 -> %d (%d crack) -> %d (%d); 3 shields last %d stops", l1, c1, l2, c2, stops))
 	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 20 and IR.MeterBonus > 0,
 		"Bulwark: 3 shields to start; awakened, every touch fills Intimidation 20% (a kill or a stuff more)")
 	-- Forge (awakened): a jump before the set charges up to about 215 km/h maxed; after the set,
@@ -686,6 +664,16 @@ do
 	local said = Economy.describe(g)
 	check(#g.Items == 1 and not Economy.isEmpty(g) and profile.owned[kind] and profile.owned[kind][item.Key] == true and string.find(said, item.Name, 1, true) ~= nil,
 		"admin gifts: a cosmetic in a grant is checked, given once and owned", said)
+	-- breakthrough fragments (the owner: "add breakthrough fragments to the admin panel"): real
+	-- letters only, capped, added to the purse
+	local fg = Economy.cleanGrant({ Fragments = { ["S+"] = 5, A = 2.7, Z = 9, B = -3, S = 99999 } })
+	local fp = { vp = 0, gold = 0, lucky = 0, owned = {}, fragments = { ["S+"] = 1 } }
+	Economy.apply(fp, fg, 0)
+	local fsaid = Economy.describe(fg)
+	check(fg.Fragments["S+"] == 5 and fg.Fragments.A == 2 and fg.Fragments.Z == nil and fg.Fragments.B == nil and fg.Fragments.S == Config.Admin.GiveMax.Fragments
+		and not Economy.isEmpty(Economy.cleanGrant({ Fragments = { D = 1 } })) and Economy.isEmpty(Economy.cleanGrant({ Fragments = { D = 0 } }))
+		and fp.fragments["S+"] == 6 and fp.fragments.A == 2 and string.find(fsaid, "5 S+ Fragments", 1, true) ~= nil,
+		"admin gifts: breakthrough fragments by letter, checked and capped, added to the purse", fsaid)
 end
 
 print("== the HolyS+ code ==")
@@ -3016,34 +3004,33 @@ do
 		"one path a spike: overcharge (out) over a Zero Point's laser over a hover's aim over Plunge Spin; a plunging first strike still freezes",
 		over and describe(overPath) or "-")
 
-	-- Iron Wall up beats his own Bulwark: a 220 km/h clean spike never breaks it and no shield cracks
+	-- Iron Wall up beats his own Bulwark: a 220 km/h clean spike is shut down every time and no
+	-- shield cracks; Bulwark alone shuts it down too, and its stop cracks one
 	local taesan = Characters.derive(Characters.fromRoster(Roster.get("taesan"), "max"))
 	local broot = vec(0, GROUND + Characters.jumpHeight(taesan, GROUND) * 0.8, side * 1.2)
-	local palms = vec(0, broot.Y + Z.BlockReachUp + A.Ironclad.Box.ReachUp + Config.Ball.Radius - 1.5, side * 0.6)
+	local palms = vec(0, broot.Y + Z.BlockReachUp + Config.Ball.Radius - 1.5, side * 0.6)
 	local function block(seq, wallUp)
 		local c = ctx({ ability = "Ironclad", abilities = set("Ironclad", { "IronWall" }), stats = taesan, ironclad = true, ironWall = wallUp or nil, seq = seq,
 			lastHit = { hitType = "Spike", team = "Home", kmh = 220, quality = 0.9 }, ballVel = vec(0, -8, side * 30) })
 		return HitLogic.compute({ action = "Block", t = 0, root = broot, ball = palms, vy = 0, grounded = false }, c)
 	end
-	local held, kept, broke, cracked = 0, true, 0, false
+	local held, kept, cracked = 0, true, 0
 	for seq = 1, 120 do
 		local okW, w = block(seq, true)
-		if okW and w.meta.outcome == "Stuff" and w.meta.perfectBlock and not w.meta.wallBroken and not w.meta.bulwark then
+		if okW and w.meta.outcome == "Stuff" and w.meta.perfectBlock and not w.meta.bulwark then
 			held = held + 1
 			local lives, cracks = HitLogic.ironAfterBlock(3, 1, w.meta)
 			kept = kept and lives == 3 and cracks == 1
 		end
 		local okB, bw = block(seq, false)
-		if okB and bw.meta.wallBroken then
-			broke = broke + 1
-		elseif okB and bw.meta.ironWall and bw.meta.bulwark then
+		if okB and bw.meta.outcome == "Stuff" and bw.meta.ironWall and bw.meta.bulwark then
 			local lives, cracks = HitLogic.ironAfterBlock(3, 0, bw.meta)
-			cracked = cracked or (lives == 3 and cracks == 1)
+			cracked = cracked + ((lives == 3 and cracks == 1) and 1 or 0)
 		end
 	end
-	check(held == 120 and kept and broke > 60 and cracked,
-		"Iron Wall up with Ironclad's shields: a 220 km/h spike is shut down every time and cracks nothing; Bulwark alone breaks, and its stops crack",
-		string.format("held %d of 120; without the wall broken %d", held, broke))
+	check(held == 120 and kept and cracked == 120,
+		"Iron Wall up with Ironclad's shields: a 220 km/h spike is shut down every time and cracks nothing; Bulwark alone shuts it down and its stop cracks a shield",
+		string.format("held %d of 120; Bulwark alone cracked %d", held, cracked))
 
 	-- the sets: Featherfall's own +5 grows her float's boost, not a Chain Reaction card's explosion
 	local arin = Characters.derive(Characters.fromRoster(Roster.get("arin"), "max"))
@@ -3322,6 +3309,24 @@ do
 		and Halloween.abilityOf == nil and ownOffered == 0 and thunderOffered > 0,
 		"ability cards stack: a hand keeps every one in pick order, never a card twice, Stages x Picks at most; your own ability's card isn't offered",
 		table.concat(hand, ", ") .. " / " .. table.concat(clean, ", ") .. string.format("; Thunder Spiker offered %d times in 300 picks, %d to a Thunder Spiker", thunderOffered, ownOffered))
+	-- at most two of them beside your own (the owner, 2026-10-15: "you can stack up to 2 abilities
+	-- alongside your main one"): a third isn't added or kept, and none is offered once you hold two
+	local three = Halloween.addCard(Halloween.addCard(Halloween.addCard({}, "aThunder"), "aAzure"), "aFeral")
+	local kept3 = Halloween.cleanHand({ "aThunder", "aAzure", "aFeral", "Coven" })
+	local offeredFull, offeredOne = 0, 0
+	local rf = Random.new(5)
+	for _ = 1, 300 do
+		for _, k in ipairs(Halloween.offers(rf, { "aThunder", "aAzure" }, 3)) do
+			offeredFull = offeredFull + (Halloween.card(k).Kind == "Ability" and 1 or 0)
+		end
+		for _, k in ipairs(Halloween.offers(rf, { "aThunder" }, 3)) do
+			offeredOne = offeredOne + (Halloween.card(k).Kind == "Ability" and 1 or 0)
+		end
+	end
+	check(HW.MaxAbilityCards == 2 and #three == 2 and table.concat(Halloween.abilitiesOf(three), ",") == "Thunder,Azure" and table.concat(kept3, ",") == "aThunder,aAzure,Coven"
+		and offeredFull == 0 and offeredOne > 0,
+		"two ability cards at most beside your own: a third isn't added or kept, and none is offered once you hold two",
+		string.format("ability cards offered: %d holding two, %d holding one (300 picks each)", offeredFull, offeredOne))
 
 	-- who each card hits: Self its holder (the AI's, every bot on its side), Team the holder's side,
 	-- Curse the other side
@@ -3470,19 +3475,26 @@ do
 		and #hs == 3 and hs[1].userId == 101 and hs[1].team == "Home" and hs[3].team == "Away" and hs[3].userId == nil,
 		"a Halloween run survives a teleport (stage, every hand, the AI's), checked on the way in", table.concat(junk.hands[303], ","))
 
-	-- the Reaper: copies stack; one is applied to a character for good, switched off and on any time
+	-- the Reaper is Taeho's alone (the owner, 2026-10-15: "restrict the skin to only taeho now"): a
+	-- copy applied to anyone else comes back free; it applies to Taeho only, switched off and on any
+	-- time (his page's swap); a second copy is a duplicate (Candy)
 	local skins = Halloween.cleanSkins({ Reaper = { copies = 1, on = { yejun = true, ghost = 5 } } }, function(id) return Roster.get(id) ~= nil end)
+	local freed = Halloween.freeCopies(skins, "Reaper")
+	local dupBefore = Halloween.skinDuplicate(skins, "Reaper")
 	local okA, whyA = Halloween.applySkin(skins, "Reaper", "dante")
-	Halloween.addCopy(skins, "Reaper")
-	local okB = Halloween.applySkin(skins, "Reaper", "dante")
-	local okC, whyC = Halloween.applySkin(skins, "Reaper", "dante")
-	local offOk = Halloween.toggleSkin(skins, "Reaper", "dante", false)
-	local offShow = Halloween.skinOf(skins, "dante")
-	Halloween.toggleSkin(skins, "Reaper", "dante", true)
+	local okB = Halloween.applySkin(skins, "Reaper", "taeha")
+	local okC, whyC = Halloween.applySkin(skins, "Reaper", "taeha")
+	local offOk = Halloween.toggleSkin(skins, "Reaper", "taeha", false)
+	local offShow = Halloween.skinOf(skins, "taeha")
+	Halloween.toggleSkin(skins, "Reaper", "taeha", true)
 	local okD = Halloween.toggleSkin(skins, "Reaper", "laith", false)
-	check(not okA and whyA == "none" and okB and not okC and whyC == "applied" and offOk and offShow == nil and Halloween.skinOf(skins, "dante") == "Reaper"
-		and Halloween.skinOf(skins, "yejun") == "Reaper" and not okD and Halloween.freeCopies(skins, "Reaper") == 0 and skins.Reaper.on.ghost == nil,
-		"the Reaper: one character per copy, for good; switched off and on any time; more copies, more characters")
+	local fresh = Halloween.cleanSkins({}, nil)
+	check(freed == 1 and skins.Reaper.on.yejun == nil and skins.Reaper.on.ghost == nil and dupBefore
+		and not okA and whyA == "wrongChar" and okB and not okC and whyC == "applied" and offOk and offShow == nil and Halloween.skinOf(skins, "taeha") == "Reaper"
+		and Halloween.skinOf(skins, "yejun") == nil and Halloween.skinOf({ Reaper = { copies = 1, on = { yejun = true } } }, "yejun") == nil and not okD
+		and Halloween.skinDuplicate(skins, "Reaper") and not Halloween.skinDuplicate(fresh, "Reaper") and Halloween.skinFits("Reaper", "taeha") and not Halloween.skinFits("Reaper", "yejun")
+		and Halloween.skinCharNames("Reaper") == "Taeho",
+		"the Reaper is Taeho's alone: an old copy on YeJun comes back free, it applies to Taeho only, swaps off and on, and a second copy is a duplicate")
 end
 
 print("== saving ==")

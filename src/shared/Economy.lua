@@ -6,6 +6,7 @@
 local Config = require(script.Parent.Config)
 local Roster = require(script.Parent.Roster)
 local Spins = require(script.Parent.Spins)
+local Breakthrough = require(script.Parent.Breakthrough)
 
 local Economy = {}
 
@@ -44,7 +45,17 @@ function Economy.cleanGrant(g)
 	local function amount(v, max)
 		return math.max(0, math.min(whole(v), max))
 	end
-	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {}, Items = {} }
+	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {}, Items = {}, Fragments = {} }
+	-- breakthrough fragments by letter ({ ["S+"] = 5 }; the owner: "add breakthrough fragments to the
+	-- admin panel")
+	if type(g.Fragments) == "table" then
+		for _, grp in ipairs(Config.Breakthrough.Groups) do
+			local n = amount(g.Fragments[grp], cap.Fragments)
+			if n > 0 then
+				out.Fragments[grp] = n
+			end
+		end
+	end
 	if type(g.Items) == "table" then
 		local seen = {}
 		for _, it in ipairs(g.Items) do
@@ -82,7 +93,7 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil
 end
 
 -- A boost timer (unix end) after adding `seconds` at `now`: from now if it had run out, on top
@@ -133,6 +144,12 @@ function Economy.apply(profile, g, now)
 		profile.owned[it.Kind] = profile.owned[it.Kind] or {}
 		profile.owned[it.Kind][it.Key] = true
 	end
+	if g.Fragments and next(g.Fragments) then
+		profile.fragments = Breakthrough.cleanFragments(profile.fragments)
+		for grp, n in pairs(g.Fragments) do
+			profile.fragments[grp] = math.min((profile.fragments[grp] or 0) + n, 100000)
+		end
+	end
 	return added
 end
 
@@ -169,6 +186,12 @@ function Economy.describe(g, chars)
 	for _, it in ipairs(g.Items or {}) do
 		local item = Spins.item(it.Kind, it.Key)
 		table.insert(parts, (item and item.Name or it.Key) .. " (" .. it.Kind .. ")")
+	end
+	for _, grp in ipairs(Config.Breakthrough.Groups) do
+		local n = g.Fragments and g.Fragments[grp] or 0
+		if n > 0 then
+			table.insert(parts, string.format("%s %s Fragment%s", Economy.commas(n), grp, n == 1 and "" or "s"))
+		end
 	end
 	if #parts == 0 then
 		return "nothing new"

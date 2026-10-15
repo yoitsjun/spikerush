@@ -1774,14 +1774,15 @@ local function eventOn()
 	return Halloween.active(os.time())
 end
 
--- One banner item to the profile: a skin is one more copy; a cosmetic is yours, or Candy when you
--- have it already. Returns dup, candy.
+-- One banner item to the profile: a skin is one more copy (Candy once every character it fits has
+-- one: the Reaper is Taeho's alone); a cosmetic is yours, or Candy when you have it already.
+-- Returns dup, candy.
 local function grantEventItem(profile, item)
-	if item.kind == "Skin" then
+	if item.kind == "Skin" and not Halloween.skinDuplicate(profile.skins, item.key) then
 		Halloween.addCopy(profile.skins, item.key)
 		return false, 0
 	end
-	if owns(profile, item.kind, item.key) then
+	if item.kind == "Skin" or owns(profile, item.kind, item.key) then
 		local candy = Halloween.dupCandy(item.rarity)
 		profile.halloween.candy = profile.halloween.candy + candy
 		return true, candy
@@ -1843,7 +1844,7 @@ local function eventScout(plr, profile, kind, key)
 	if not item then
 		return
 	end
-	if item.kind ~= "Skin" and owns(profile, item.kind, item.key) then
+	if (item.kind == "Skin" and Halloween.skinDuplicate(profile.skins, item.key)) or (item.kind ~= "Skin" and owns(profile, item.kind, item.key)) then
 		push(plr, "You have " .. item.name .. " already.")
 		return
 	end
@@ -1900,12 +1901,17 @@ local function eventShop(plr, profile, key)
 	push(plr, row.Name .. " bought.")
 end
 
--- A skin onto one of your characters for good ("apply"), or switched "on" / "off" there.
+-- A skin onto one of your characters for good ("apply"), or switched "on" / "off" there (swapped
+-- at will from the character's page, The Spike's way: "on" applies a free copy first).
 local function skinRequest(plr, profile, op, charId, key)
 	key = Halloween.isSkin(key) and key or Config.Halloween.SkinOrder[1]
 	local c = type(charId) == "string" and Roster.get(charId)
 	if not c or not owns(profile, "Char", c.Id) then
 		return
+	end
+	local row = profile.skins[key]
+	if op == "on" and not (row and row.on[c.Id] ~= nil) then
+		op = "apply"
 	end
 	local ok, why
 	if op == "apply" then
@@ -1920,7 +1926,7 @@ local function skinRequest(plr, profile, op, charId, key)
 	end
 	local name = Config.Halloween.Skins[key].Name
 	if not ok then
-		local text = { none = "No " .. name .. " copies left: pull more on the Halloween banner.", applied = name .. " is on " .. c.Name .. " already.", notApplied = "Apply a " .. name .. " copy to " .. c.Name .. " first." }
+		local text = { none = "No " .. name .. " copy: get it on the Halloween banner.", applied = name .. " is on " .. c.Name .. " already.", notApplied = "Apply a " .. name .. " copy to " .. c.Name .. " first.", wrongChar = name .. " is " .. Halloween.skinCharNames(key) .. "'s skin." }
 		push(plr, text[why] or "Can't do that.")
 		return
 	end
@@ -1929,7 +1935,7 @@ local function skinRequest(plr, profile, op, charId, key)
 	if reg.TeamService and reg.TeamService.inMatch then
 		reg.TeamService.refreshSkins(plr) -- (their stand-in and their AI teammates too)
 	end
-	push(plr, op == "apply" and string.format("%s applied to %s, for good.", name, c.Name) or string.format("%s %s for %s.", name, op == "on" and "on" or "off", c.Name))
+	push(plr, string.format("%s %s for %s.", name, (op == "apply" or op == "on") and "on" or "off", c.Name))
 end
 
 -- A pack's grant added to a profile (VP, Gold, lucky spins, a boost's time). Returns what it was

@@ -6612,7 +6612,7 @@ function Extra.buildAdmin()
 	local tabDrop = make("Frame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.fromOffset(240, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, Visible = false, ZIndex = 40 }, right)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, tabDrop)
 	make("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, tabDrop)
-	local tabOptions = { { "Char", "Characters" } }
+	local tabOptions = { { "Char", "Characters" }, { "Frag", "Breakthrough fragments" } }
 	for _, k in ipairs(Config.Cosmetics.Kinds) do
 		table.insert(tabOptions, { k, "Cosmetics: " .. k })
 	end
@@ -6726,6 +6726,21 @@ function Extra.buildAdmin()
 	-- the cosmetics grid (one kind at a time), in the characters' place
 	local cosGrid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 22 }, right)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(158, 36), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, cosGrid)
+	-- breakthrough fragments (the owner: "add breakthrough fragments to the admin panel"): an amount
+	-- for each letter, best first, in the grid's place
+	local fragGrid = make("Frame", { Position = UDim2.fromOffset(0, 206), Size = UDim2.new(1, 0, 0, 292), BackgroundTransparency = 1, Visible = false, ZIndex = 22 }, right)
+	local fragBoxes = {}
+	local groups = Config.Breakthrough.Groups
+	for i = #groups, 1, -1 do
+		local g = groups[i]
+		local slot = #groups - i
+		local x, y = (slot % 2) * 256, math.floor(slot / 2) * 64
+		local color = tierColor(g == "S+" and "S+" or g)
+		local tag = Gui.plate(fragGrid, { Position = UDim2.fromOffset(x, y + 6), Size = UDim2.fromOffset(64, 44), ZIndex = 23 }, color)
+		Gui.label(tag, { Text = g, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 24 })
+		fragBoxes[g] = Extra.inputBox(fragGrid, { Position = UDim2.fromOffset(x + 72, y + 6), Size = UDim2.fromOffset(160, 44) }, "0")
+	end
+	Gui.label(fragGrid, { Text = "Fragments of each letter (S+ on its own); up to " .. Config.Admin.GiveMax.Fragments .. " each.", TextSize = 14, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(0, 200), Size = UDim2.new(1, 0, 0, 36), ZIndex = 23 })
 	local picked = Gui.label(right, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 512), Size = UDim2.new(1, -384, 0, 48), ZIndex = 22 })
 	-- take the card picked above back from the username (press twice within 4 s)
 	local takeBtn, takeL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -212, 0, 512), Size = UDim2.fromOffset(160, 48) }, "Take card", 18)
@@ -6765,6 +6780,10 @@ function Extra.buildAdmin()
 				table.insert(items, { Kind = kind, Key = key })
 			end
 		end
+		local frags = {}
+		for g, box in pairs(fragBoxes) do
+			frags[g] = tonumber(box.Text) or 0
+		end
 		Net.get("Admin"):FireServer("give", user.Text, {
 			VP = tonumber(amounts.VP.Text) or 0,
 			Gold = tonumber(amounts.Gold.Text) or 0,
@@ -6772,6 +6791,7 @@ function Extra.buildAdmin()
 			Chars = chars,
 			Items = items,
 			Cards = Extra.adminCard and { Extra.adminCard } or nil,
+			Fragments = frags,
 		})
 	end)
 	-- reset the username's match stats (a faked record): press twice within 4 s
@@ -6819,7 +6839,7 @@ function Extra.buildAdmin()
 		end
 	end)
 	local status = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -20), Size = UDim2.new(1, -56, 0, 44), ZIndex = 21 })
-	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status, creatorL = creatorL, grid = grid, cosGrid = cosGrid, tabL = tabL, cosButtons = {} }
+	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status, creatorL = creatorL, grid = grid, cosGrid = cosGrid, fragGrid = fragGrid, fragBoxes = fragBoxes, tabL = tabL, cosButtons = {} }
 end
 
 function Extra.refreshAdmin()
@@ -6853,9 +6873,10 @@ function Extra.refreshAdmin()
 	-- the tab: characters, or one cosmetic kind (its grid built when the kind changes)
 	local tab = Extra.adminTab
 	A.grid.Visible = tab == "Char"
-	A.cosGrid.Visible = tab ~= "Char"
-	A.tabL.Text = (tab == "Char" and "Characters" or ("Cosmetics: " .. tab)) .. "   v"
-	if tab ~= "Char" and Extra.adminCosKind ~= tab then
+	A.fragGrid.Visible = tab == "Frag"
+	A.cosGrid.Visible = tab ~= "Char" and tab ~= "Frag"
+	A.tabL.Text = (tab == "Char" and "Characters" or (tab == "Frag" and "Breakthrough fragments" or ("Cosmetics: " .. tab))) .. "   v"
+	if A.cosGrid.Visible and Extra.adminCosKind ~= tab then
 		Extra.adminCosKind = tab
 		for _, c in ipairs(A.cosGrid:GetChildren()) do
 			if c:IsA("GuiButton") then
@@ -6893,6 +6914,13 @@ function Extra.refreshAdmin()
 	end
 	if nItems > 0 then
 		table.insert(bits, string.format("%d cosmetic%s", nItems, nItems == 1 and "" or "s"))
+	end
+	local nFrags = 0
+	for _, box in pairs(A.fragBoxes) do
+		nFrags = nFrags + math.max(0, math.floor(tonumber(box.Text) or 0))
+	end
+	if nFrags > 0 then
+		table.insert(bits, string.format("%d fragment%s", nFrags, nFrags == 1 and "" or "s"))
 	end
 	A.picked.Text = #bits > 0 and (table.concat(bits, " and ") .. " picked") or ""
 end

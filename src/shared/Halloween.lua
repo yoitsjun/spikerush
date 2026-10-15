@@ -6,6 +6,7 @@
 
 local Config = require(script.Parent.Config)
 local Spins = require(script.Parent.Spins)
+local Roster = require(script.Parent.Roster)
 
 local Halloween = {}
 local HW = Config.Halloween
@@ -165,12 +166,26 @@ function Halloween.drawable(card, ai)
 	return not card.AiOnly
 end
 
--- `n` different cards for one pick, by rarity weight, none already in `held`, and no ability card
--- for an ability in `own` (the character's own: it would only repeat it). rng: a Random.
+-- How many ability cards a hand holds.
+function Halloween.abilityCount(hand)
+	local n = 0
+	for _, k in ipairs(hand or {}) do
+		local c = CARD[k]
+		if c and c.Kind == "Ability" then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- `n` different cards for one pick, by rarity weight, none already in `held`, no ability card for
+-- an ability in `own` (the character's own: it would only repeat it), and none at all once `held`
+-- has MaxAbilityCards of them (two beside your own). rng: a Random.
 function Halloween.offers(rng, held, n, ai, own)
 	local pool, total = {}, 0
+	local full = Halloween.abilityCount(held) >= HW.MaxAbilityCards
 	for _, card in ipairs(CARDS) do
-		if Halloween.drawable(card, ai) and not has(held, card.Key) and not (card.Kind == "Ability" and has(own, card.Ability)) then
+		if Halloween.drawable(card, ai) and not has(held, card.Key) and not (card.Kind == "Ability" and (full or has(own, card.Ability))) then
 			table.insert(pool, card)
 			total = total + Halloween.rarityWeight(card)
 		end
@@ -206,9 +221,10 @@ function Halloween.aiPick(offers)
 	return best
 end
 
--- A hand with `key` added (no card twice). Ability cards stack: every one is played beside the
+-- A hand with `key` added (no card twice). Ability cards stack: each one is played beside the
 -- character's own ability (the owner, 2026-10-15: "it seems the cards take away the abilities. i
--- want them to stack"). Returns the new hand (a copy).
+-- want them to stack"), up to MaxAbilityCards ("you can stack up to 2 abilities alongside your main
+-- one"): one past that isn't added. Returns the new hand (a copy).
 function Halloween.addCard(hand, key)
 	local out = {}
 	for _, k in ipairs(hand or {}) do
@@ -216,7 +232,8 @@ function Halloween.addCard(hand, key)
 			table.insert(out, k)
 		end
 	end
-	if CARD[key] and not has(out, key) then
+	local card = CARD[key]
+	if card and not has(out, key) and not (card.Kind == "Ability" and Halloween.abilityCount(out) >= HW.MaxAbilityCards) then
 		table.insert(out, key)
 	end
 	return out
@@ -235,7 +252,8 @@ function Halloween.abilitiesOf(hand)
 	return out
 end
 
--- A hand made safe: known cards, each once, at most Stages x Picks.
+-- A hand made safe: known cards, each once, at most MaxAbilityCards ability cards (addCard), at
+-- most Stages x Picks.
 function Halloween.cleanHand(list)
 	local out = {}
 	if type(list) == "table" then
@@ -540,8 +558,41 @@ function Halloween.isSkin(key)
 	return type(key) == "string" and HW.Skins[key] ~= nil
 end
 
+-- Whether a skin fits a character: its Chars, or anyone when it has none (the Reaper is Taeho's
+-- alone since 2026-10-15).
+function Halloween.skinFits(key, charId)
+	local s = type(key) == "string" and HW.Skins[key]
+	if not s or type(charId) ~= "string" then
+		return false
+	end
+	if not s.Chars then
+		return true
+	end
+	for _, id in ipairs(s.Chars) do
+		if id == charId then
+			return true
+		end
+	end
+	return false
+end
+
+-- The characters a skin fits, by name ("Taeho"; "anyone" without Chars).
+function Halloween.skinCharNames(key)
+	local s = HW.Skins[key]
+	if not s or not s.Chars then
+		return "anyone"
+	end
+	local names = {}
+	for _, id in ipairs(s.Chars) do
+		local c = Roster.get(id)
+		table.insert(names, c and c.Name or id)
+	end
+	return table.concat(names, " and ")
+end
+
 -- Saved skins made safe: { [skin] = { copies, on = { [charId] = true | false } } } (on: applied to
--- that character, and whether it's showing). isChar: whether an id is a character.
+-- that character, and whether it's showing). isChar: whether an id is a character. A copy applied to
+-- a character the skin no longer fits comes back free.
 function Halloween.cleanSkins(data, isChar)
 	local out = {}
 	if type(data) ~= "table" then
@@ -553,7 +604,7 @@ function Halloween.cleanSkins(data, isChar)
 			local row = { copies = math.clamp(math.floor(tonumber(s.copies) or 0), 0, HW.MaxCopies), on = {} }
 			if type(s.on) == "table" then
 				for id, v in pairs(s.on) do
-					if type(id) == "string" and type(v) == "boolean" and (not isChar or isChar(id)) then
+					if type(id) == "string" and type(v) == "boolean" and (not isChar or isChar(id)) and Halloween.skinFits(key, id) then
 						row.on[id] = v
 					end
 				end
@@ -592,6 +643,9 @@ function Halloween.applySkin(skins, key, charId)
 	if not Halloween.isSkin(key) then
 		return false, "unknown"
 	end
+	if not Halloween.skinFits(key, charId) then
+		return false, "wrongChar"
+	end
 	local row = skins[key]
 	if row and row.on[charId] ~= nil then
 		return false, "applied"
@@ -613,11 +667,31 @@ function Halloween.toggleSkin(skins, key, charId, on)
 	return true
 end
 
+-- Whether a pull of this skin is a duplicate: every character it fits already has a copy
+-- applied, or a free copy is waiting for one (the Reaper fits one character: a second copy is Candy).
+function Halloween.skinDuplicate(skins, key)
+	local s = HW.Skins[key]
+	if not s or not s.Chars then
+		return false
+	end
+	local row = skins and skins[key]
+	if not row then
+		return false
+	end
+	local room = 0
+	for _, id in ipairs(s.Chars) do
+		if row.on[id] == nil then
+			room = room + 1
+		end
+	end
+	return Halloween.freeCopies(skins, key) >= room
+end
+
 -- The skin a character shows (applied and on), or nil.
 function Halloween.skinOf(skins, charId)
 	for _, key in ipairs(HW.SkinOrder) do
 		local row = skins and skins[key]
-		if row and row.on[charId] == true then
+		if row and row.on[charId] == true and Halloween.skinFits(key, charId) then
 			return key
 		end
 	end
