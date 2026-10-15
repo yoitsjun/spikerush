@@ -585,7 +585,8 @@ local function applyStyle(meta)
 			trail.Lifetime = trail.Lifetime * 1.25
 			core.Enabled = emission > 0.1 -- (a white core would show through a black trail)
 		end
-		trailKey = trailItem.Base or "Ribbon" -- (a limited one rides its Base's kit on top)
+		-- (one with its own kit, Halloween's, rides it on top; a limited one without, its Base's)
+		trailKey = Fx.has("Trail" .. trailItem.Key) and trailItem.Key or trailItem.Base or "Ribbon"
 	end
 	if trailKey ~= "Ribbon" then
 		-- the unlock's kit (flames, glints, stardust, arcs, a comet's glow) rides the ball; a

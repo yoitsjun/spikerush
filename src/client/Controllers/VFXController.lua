@@ -1166,9 +1166,16 @@ function VFXController.hasBoom(model)
 	return model ~= nil and (model:GetAttribute("Jump") or 0) >= Config.Player.BoomJumpMin
 end
 
+-- The Halloween effects (the jumps, the Reaper's spike, the score effects) live on one table: this
+-- chunk is at Luau's 200-local limit.
+local HW = { VOID = Color3.fromRGB(140, 80, 255) }
+
 -- A jump effect (Config.Cosmetics.Jump) at `foot`: `key` the item, `tint` the spike colour (some
 -- use it), `big` a full-size one (a spike or serve jump, a boom jump, the Locker's preview).
 local JUMP_COLORS = {
+	GraveMist = Color3.fromRGB(150, 230, 190),
+	BatSwarm = Color3.fromRGB(150, 80, 255),
+	JackOLantern = Color3.fromRGB(255, 130, 30),
 	Frost = Color3.fromRGB(150, 225, 255),
 	Shadow = Color3.fromRGB(120, 60, 200),
 	Fire = Color3.fromRGB(255, 130, 40),
@@ -1334,6 +1341,12 @@ local function jumpMeshes(foot, key, tint, k, model)
 		meshFx("FX_Dome", floor, c, 0.2 * k, 1.0 * k, 0.7, { alpha = 0.4, grow = 0.18, glow = 1.9 })
 		meshFx("FX_Ring", floor, Color3.fromRGB(255, 210, 70), 0.3 * k, 2.0 * k, 0.6, { glow = 2 })
 		task.delay(0.05, meshFx, "FX_Ring", floor, c, 0.2 * k, 1.4 * k, 0.5, { glow = 2 })
+	elseif key == "GraveMist" then
+		HW.graves(foot, k)
+	elseif key == "BatSwarm" then
+		HW.batMoon(foot, k)
+	elseif key == "JackOLantern" then
+		HW.jackJump(foot, k)
 	end
 end
 
@@ -3344,8 +3357,6 @@ end
 -- any other spike's, a cold cut crosses it, the air ruptures (Fx's VoidRupture: a black core
 -- swelling and gone, a star, violet motes braking hard) and two violet rings snap out at angles,
 -- spinning.
--- (the Halloween effects live on one table: this chunk is at Luau's 200-local limit)
-local HW = { VOID = Color3.fromRGB(140, 80, 255) }
 function HW.reap(model, pos, dirZ, kmh)
 	mods.Skins.slash(model, 0.3)
 	local k = kmh >= 120 and 1.25 or 1
@@ -5753,7 +5764,163 @@ function HW.jack(size)
 	light.Range = size * 3
 	light.Brightness = 3
 	light.Parent = glow[1]
+	model.WorldPivot = CFrame.new() -- (its middle)
 	return model, glow
+end
+
+-- `n` chunks of a burst jack-o'-lantern's shell (`size` studs tall) flung out of `center`,
+-- tumbling, then gone.
+function HW.shell(center, n, size, k)
+	for _ = 1, n do
+		local chunk = HW.part("WedgePart", Vector3.new(0.4, size * 0.16, size * 0.22), CFrame.new(center), HW.PUMPKIN, Enum.Material.SmoothPlastic, fxFolder)
+		chunk.Anchored = false
+		chunk.Massless = true
+		local dir = (Vector3.new(math.random() - 0.5, math.random() * 0.9 + 0.2, math.random() - 0.5)).Unit
+		chunk.AssemblyLinearVelocity = dir * (40 + math.random() * 30) * math.sqrt(k)
+		chunk.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 20
+		task.delay(1.2, function()
+			TweenService:Create(chunk, TweenInfo.new(0.4), { Transparency = 1 }):Play()
+			task.delay(0.45, chunk.Destroy, chunk)
+		end)
+	end
+end
+
+-- Out of the floor with a little overshoot: 0 at the start, 1 at the end (easing out, back).
+function HW.backOut(s)
+	return 1 + 2.4 * (s - 1) ^ 3 + 1.4 * (s - 1) ^ 2
+end
+
+-- The Grave Mist jump: three gravestones (round-topped, a cross cut in each, a cold green light
+-- on them) push up out of the cracked floor round you, left, right and behind, leaning, then
+-- sink back; the mist and the souls are the particles (Fx's JumpGraveMist).
+function HW.graves(foot, k)
+	local STONE = Color3.fromRGB(112, 118, 128)
+	local CUT = Color3.fromRGB(38, 42, 50)
+	local stones = {}
+	for i, off in ipairs({ Vector3.new(0.6, 0, -2.3), Vector3.new(-0.4, 0, 2.4), Vector3.new(1.8, 0, 0.4) }) do
+		local w, h, d = 1.25 * k, 1.5 * k, 0.35 * k
+		local m = Instance.new("Model")
+		m.Name = "Grave"
+		local slab = HW.part("Part", Vector3.new(d, h, w), CFrame.new(0, h / 2, 0), STONE, Enum.Material.Slate, m)
+		local top = HW.part("Part", Vector3.new(d, w, w), CFrame.new(0, h, 0), STONE, Enum.Material.Slate, m)
+		top.Shape = Enum.PartType.Cylinder -- (along x: a round top, seen from the side camera)
+		local f = -d / 2 - 0.02 -- the face toward the camera
+		HW.part("Part", Vector3.new(0.05, 0.62 * k, 0.12 * k), CFrame.new(f, h * 0.72, 0), CUT, Enum.Material.SmoothPlastic, m)
+		HW.part("Part", Vector3.new(0.05, 0.12 * k, 0.42 * k), CFrame.new(f, h * 0.8, 0), CUT, Enum.Material.SmoothPlastic, m)
+		local light = Instance.new("PointLight")
+		light.Color = HW.ECTO
+		light.Brightness = 1.2
+		light.Range = 5 * k
+		light.Parent = slab
+		m.WorldPivot = CFrame.new() -- (its foot)
+		local lean = CFrame.Angles(math.rad(math.random(-8, 8)), 0, math.rad(math.random(-14, 14)))
+		local at = CFrame.new(foot.X + off.X * k, 0, foot.Z + off.Z * k)
+		m:PivotTo(at * CFrame.new(0, -h * 1.3, 0) * lean)
+		m.Parent = fxFolder
+		table.insert(stones, { m = m, at = at, lean = lean, h = h, wait = (i - 1) * 0.05 })
+	end
+	groundMark("FX_Crack", foot, CUT, 0.55 * k, 1.0, 0.6)
+	local t0 = os.clock()
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - t0
+		for _, s in ipairs(stones) do
+			local u = t - s.wait
+			local sunk = 1 -- how far down, in its buried depth
+			if u >= 0.2 and u < 0.75 then
+				sunk = 0
+			elseif u >= 0.75 then
+				sunk = math.min((u - 0.75) / 0.4, 1) ^ 2
+			elseif u > 0 then
+				sunk = 1 - HW.backOut(u / 0.2)
+			end
+			s.m:PivotTo(s.at * CFrame.new(0, -s.h * 1.3 * sunk, 0) * s.lean)
+		end
+		if t > 1.3 then
+			conn:Disconnect()
+			for _, s in ipairs(stones) do
+				s.m:Destroy()
+			end
+		end
+	end)
+end
+
+-- The Bat Swarm jump: a pale full moon (craters on it) swells up behind you and the bats (Fx's
+-- JumpBatSwarm) burst out across it; a violet ring and a dark stain on the floor.
+function HW.batMoon(foot, k)
+	local r = 3.2 * k
+	local center = Vector3.new(foot.X + 6, foot.Y + 4.5 * k, foot.Z) -- (behind you: away from the camera)
+	local moon = Instance.new("Model")
+	moon.Name = "Moon"
+	local disc = HW.part("Part", Vector3.new(0.2, r * 2, r * 2), CFrame.new(), Color3.fromRGB(255, 238, 190), Enum.Material.Neon, moon)
+	disc.Shape = Enum.PartType.Cylinder -- (along x: a disc facing the camera)
+	for _, c in ipairs({ { -0.35, 0.3, 0.28 }, { 0.25, -0.2, 0.2 }, { -0.1, -0.45, 0.14 } }) do
+		local crater = HW.part("Part", Vector3.new(0.05, r * c[3] * 2, r * c[3] * 2), CFrame.new(-0.12, r * c[2], r * c[1]), Color3.fromRGB(215, 188, 140), Enum.Material.SmoothPlastic, moon)
+		crater.Shape = Enum.PartType.Cylinder
+	end
+	moon.WorldPivot = CFrame.new()
+	moon:PivotTo(CFrame.new(center))
+	moon:ScaleTo(0.2)
+	moon.Parent = fxFolder
+	burst(center, Color3.fromRGB(255, 225, 160), r * 3)
+	local t0 = os.clock()
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - t0
+		if t < 0.22 then
+			moon:ScaleTo(0.2 + 0.8 * HW.backOut(t / 0.22))
+		elseif t < 1 then
+			local fade = math.clamp((t - 0.6) / 0.4, 0, 1)
+			for _, p in ipairs(moon:GetChildren()) do
+				p.Transparency = 0.2 + 0.8 * fade
+			end
+			moon:ScaleTo(1 + 0.1 * fade)
+		else
+			conn:Disconnect()
+			moon:Destroy()
+		end
+	end)
+	meshFx("FX_Ring", CFrame.new(foot.X, 0.15, foot.Z), HW.VOID, 0.3 * k, 1.6 * k, 0.5, { glow = 1.6 })
+	groundMark("FX_Scorch", foot, Color3.fromRGB(30, 12, 45), 0.5 * k, 0.8, 0.6)
+end
+
+-- The Jack-o'-Lantern jump: a grinning jack-o'-lantern bursts up out of the cracked floor under
+-- you, its face flickering, swells and blows apart (shell chunks, a ring, a scorch); the fire,
+-- the embers and the candy corn are the particles (Fx's JumpJackOLantern).
+function HW.jackJump(foot, k)
+	local size = 2.6 * k
+	local model, glow = HW.jack(size)
+	local rest = CFrame.new(foot.X, size * 0.5, foot.Z)
+	local sunk = rest - Vector3.new(0, size * 1.2, 0)
+	model:PivotTo(sunk)
+	model.Parent = fxFolder
+	groundMark("FX_Crack", foot, Color3.fromRGB(60, 25, 8), 0.5 * k, 0.9, 0.6)
+	local t0 = os.clock()
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - t0
+		if not model.Parent then
+			conn:Disconnect()
+			return
+		end
+		if t < 0.16 then
+			model:PivotTo(sunk:Lerp(rest, HW.backOut(t / 0.16)))
+		elseif t < 0.32 then
+			for _, g in ipairs(glow) do
+				g.Transparency = math.random() < 0.3 and 0.4 or 0
+			end
+			model:PivotTo(rest * CFrame.Angles(0, 0, math.sin(t * 40) * math.rad(5)))
+			model:ScaleTo(1 + (t - 0.16) / 0.16 * 0.15)
+		else
+			conn:Disconnect()
+			local center = model:GetPivot().Position
+			model:Destroy()
+			Fx.play("PumpkinPop", center, { scale = 0.4 * k })
+			HW.shell(center, 7, size, k * 0.6)
+			meshFx("FX_Ring", CFrame.new(center) * CFrame.Angles(math.rad(70), math.rad(30), 0), HW.PUMPKIN, 0.2 * k, 1.2 * k, 0.4, { spin = 160, alpha = 0.1 })
+			groundMark("FX_Scorch", foot, Color3.fromRGB(30, 14, 6), 0.45 * k, 0.9, 0.6)
+		end
+	end)
 end
 
 -- Pumpkin Burst: the floor cracks, a giant jack-o'-lantern rises out of it grinning (its face
@@ -5783,10 +5950,7 @@ function HW.pumpkinBurst(pos, tint, k)
 			return
 		end
 		if t < RISE then
-			-- out of the floor with a little overshoot
-			local s = t / RISE
-			local back = 1 + 2.4 * (s - 1) ^ 3 + 1.4 * (s - 1) ^ 2
-			model:PivotTo(sunk:Lerp(rest, back))
+			model:PivotTo(sunk:Lerp(rest, HW.backOut(t / RISE)))
 		elseif t < RISE + HOLD + SWELL then
 			local w = math.sin(t * 9) * math.rad(4)
 			model:PivotTo(rest * CFrame.Angles(w, 0, w * 0.5))
@@ -5805,19 +5969,7 @@ function HW.pumpkinBurst(pos, tint, k)
 			Fx.play("PumpkinPop", center, { scale = k })
 			flare(center, HW.PUMPKIN, size * 3, 0.5)
 			sfx("ScoreFire", center)
-			-- the shell in chunks
-			for _ = 1, 16 do
-				local chunk = HW.part("WedgePart", Vector3.new(0.4, size * 0.16, size * 0.22), CFrame.new(center), HW.PUMPKIN, Enum.Material.SmoothPlastic, fxFolder)
-				chunk.Anchored = false
-				chunk.Massless = true
-				local dir = (Vector3.new(math.random() - 0.5, math.random() * 0.9 + 0.2, math.random() - 0.5)).Unit
-				chunk.AssemblyLinearVelocity = dir * (40 + math.random() * 30) * math.sqrt(k)
-				chunk.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 20
-				task.delay(1.2, function()
-					TweenService:Create(chunk, TweenInfo.new(0.4), { Transparency = 1 }):Play()
-					task.delay(0.45, chunk.Destroy, chunk)
-				end)
-			end
+			HW.shell(center, 16, size, k)
 			for i = 1, 2 do
 				meshFx("FX_Ring", CFrame.new(center) * CFrame.Angles(math.rad(25 + 45 * i), math.rad(60 * i), 0), HW.PUMPKIN, 0.4 * k, 3.2 * k, 0.45, { spin = 160, alpha = 0.1 })
 			end

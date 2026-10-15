@@ -564,10 +564,11 @@ Config.Cosmetics = {
 		{ Key = "Stardust", Name = "Stardust", Rarity = "Legendary" },
 		-- a solid ribbon in its own colours, whatever the spike colour (the owner: "colored trails")
 		{ Key = "Rainbow", Name = "Rainbow", Rarity = "Legendary", Solid = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }, Emission = 0.7 },
-		-- Halloween (Limited; Base: the trail it's drawn as until it has its own look). Souls is the
-		-- Reaper skin's (Config.Halloween.Skins): never on a banner, worn only with the skin
+		-- Halloween (Limited; solid ribbons with their own Fx kits riding the ball: TrailCandyCorn,
+		-- TrailBats). Souls is the Reaper skin's (Config.Halloween.Skins): never on a banner, worn
+		-- only with the skin (BallRenderer draws it; Base: its look anywhere else)
 		{ Key = "CandyCorn", Name = "Candy Corn", Rarity = "Rare", Solid = { Color3.fromRGB(255, 240, 200), Color3.fromRGB(255, 170, 30), Color3.fromRGB(255, 110, 20) }, Emission = 0.7, Limited = "Halloween" },
-		{ Key = "Bats", Name = "Bat Swarm", Rarity = "Epic", Base = "Sparkle", Solid = { Color3.fromRGB(40, 20, 60), Color3.fromRGB(130, 60, 200) }, Emission = 0.4, Limited = "Halloween" },
+		{ Key = "Bats", Name = "Bat Swarm", Rarity = "Epic", Solid = { Color3.fromRGB(40, 20, 60), Color3.fromRGB(130, 60, 200) }, Emission = 0.4, Limited = "Halloween" },
 		{ Key = "Souls", Name = "Souls", Rarity = "Mythic", Base = "Stardust", Solid = { Color3.fromRGB(230, 250, 255), Color3.fromRGB(110, 200, 255), Color3.fromRGB(40, 80, 160) }, Emission = 0.9, Limited = "Reaper", Hidden = true },
 	},
 	-- what bursts from your feet on every jump (the owner: "maybe add jump effects too... lightning
@@ -593,10 +594,11 @@ Config.Cosmetics = {
 		{ Key = "Inferno", Name = "Inferno", Rarity = "Mythic" },
 		{ Key = "Phoenix", Name = "Blue Phoenix", Rarity = "Mythic" },
 		{ Key = "Angel", Name = "Angel", Rarity = "Mythic" }, -- the owner: "add an angel jump effect with angel wings"
-		-- Halloween (Limited; Base: the effect it's drawn as until it has its own)
-		{ Key = "GraveMist", Name = "Grave Mist", Rarity = "Rare", Base = "Frost", Limited = "Halloween" },
-		{ Key = "BatSwarm", Name = "Bat Swarm", Rarity = "Epic", Base = "Shadow", Limited = "Halloween" },
-		{ Key = "JackOLantern", Name = "Jack-o'-Lantern", Rarity = "Legendary", Base = "Fire", Limited = "Halloween" },
+		-- Halloween (Limited): graves rising out of a cold mist, bats across the moon, a jack-o'-lantern
+		-- bursting under you (VFXController's HW)
+		{ Key = "GraveMist", Name = "Grave Mist", Rarity = "Rare", Limited = "Halloween" },
+		{ Key = "BatSwarm", Name = "Bat Swarm", Rarity = "Epic", Limited = "Halloween" },
+		{ Key = "JackOLantern", Name = "Jack-o'-Lantern", Rarity = "Legendary", Limited = "Halloween" },
 	},
 	Effect = {
 		{ Key = "Dust", Name = "Dust", Rarity = "Common" },

@@ -421,7 +421,8 @@ Assets.Fx = {
 	SoulWisp = "107324428805753", -- a screaming soul with a wispy tail (the Reaper's Souls trail)
 	Skull = "116674822883407", -- a skull with hollow eyes
 	GhostSheet = "128336687021408", -- a sheet ghost, black eyes (Ghost Swarm)
-	Bat = "112869581547343", -- a bat, wings spread (Bat Swarm)
+	Bat = "112869581547343", -- a bat, wings spread
+	BatFlap = "76651903127083", -- a bat's wingbeat, a 2x2 flipbook played on a loop (Bat Swarm)
 	InkSplat = "134261821932939", -- a splash of ink with flung streaks
 	CandyCorn = "98077675358365", -- a candy corn in its own colours (not tinted)
 }

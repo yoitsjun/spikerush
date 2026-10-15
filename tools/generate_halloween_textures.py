@@ -5,7 +5,8 @@ into Assets.Fx.
   SoulWisp.png    a screaming soul with a long wispy tail (the Reaper's Souls trail)
   Skull.png       a skull with hollow eyes (the Souls trail, the Reaper's landing)
   GhostSheet.png  a classic sheet ghost with black eyes (Ghost Swarm; the eyes stay black)
-  Bat.png         a bat, wings spread (the Bat Swarm jump and trail)
+  Bat.png         a bat, wings spread
+  BatFlap.png     a 2x2 flipbook of a bat's wingbeat (the Bat Swarm jump and trail)
   InkSplat.png    a splash of ink with flung drops (where a Souls spike lands)
   CandyCorn.png   a candy corn in its own colours, not tinted (Pumpkin Burst, the Candy Corn trail)
 """
@@ -118,6 +119,48 @@ def bat():
     return finish(img)
 
 
+def bat_frame(lift):
+    """One wingbeat pose: `lift` 1 is wings high, 0 level, -1 low (the wings turn about the
+    shoulders and look shorter away from level)."""
+    img, d = canvas()
+    cx, cy = 256, 290
+    d.ellipse([S(cx - 30), S(cy - 62), S(cx + 30), S(cy + 62)], fill=(255, 255, 255, 255))  # body
+    d.ellipse([S(cx - 27), S(cy - 100), S(cx + 27), S(cy - 46)], fill=(255, 255, 255, 255))  # head
+    d.polygon([(S(cx - 25), S(cy - 88)), (S(cx - 16), S(cy - 128)), (S(cx - 5), S(cy - 92))], fill=(255, 255, 255, 255))
+    d.polygon([(S(cx + 25), S(cy - 88)), (S(cx + 16), S(cy - 128)), (S(cx + 5), S(cy - 92))], fill=(255, 255, 255, 255))
+    span = 1 - 0.25 * abs(lift)
+    for side in (-1, 1):
+        # one wing, x out from the middle and y down from the body's centre: the leading edge from
+        # the shoulder over the elbow to the tip, the trailing edge from the tip back to the flank
+        shoulder, flank = (20, -40), (30, 36)
+        elbow = (20 + 100 * span, -120 - 70 * lift)
+        tip = (20 + 210 * span, -40 - 150 * lift)
+        fingers = [(tip[0] + (flank[0] - tip[0]) * f, tip[1] + (flank[1] - tip[1]) * f) for f in (0.34, 0.64)]
+        wing = [shoulder, elbow, tip, fingers[0], fingers[1], flank]
+        d.polygon([(S(cx + side * x), S(cy + y)) for x, y in wing], fill=(255, 255, 255, 255))
+        # the trailing edge bitten into scallops between the fingers (bites pushed out from the
+        # wing's middle, so they only take the edge)
+        mx = (shoulder[0] + elbow[0] + tip[0]) / 3
+        my = (shoulder[1] + elbow[1] + tip[1]) / 3
+        edge = [tip, fingers[0], fingers[1], flank]
+        for a, b in zip(edge, edge[1:]):
+            px, py = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+            r = math.dist(a, b) * 0.36
+            nx, ny = px - mx, py - my
+            n = math.hypot(nx, ny) or 1
+            px, py = px + nx / n * r * 0.55, py + ny / n * r * 0.55
+            d.ellipse([S(cx + side * px - r), S(cy + py - r), S(cx + side * px + r), S(cy + py + r)], fill=(0, 0, 0, 0))
+    return finish(img)
+
+
+def bat_flap():
+    """A 2x2 flipbook of one wingbeat (up, level, down, level), played on a loop."""
+    sheet = Image.new("RGBA", (N * 2, N * 2), (0, 0, 0, 0))
+    for i, lift in enumerate((1, 0.15, -1, 0.15)):
+        sheet.paste(bat_frame(lift), ((i % 2) * N, (i // 2) * N))
+    return sheet
+
+
 def ink_splat():
     random.seed(11)
     img, d = canvas()
@@ -175,7 +218,7 @@ def candy_corn():
 def main():
     os.makedirs(OUT, exist_ok=True)
     for name, fn in (("SoulWisp", soul_wisp), ("Skull", skull), ("GhostSheet", ghost_sheet), ("Bat", bat),
-                     ("InkSplat", ink_splat), ("CandyCorn", candy_corn)):
+                     ("BatFlap", bat_flap), ("InkSplat", ink_splat), ("CandyCorn", candy_corn)):
         img = fn()
         img.save(os.path.join(OUT, name + ".png"))
         print("wrote", name)

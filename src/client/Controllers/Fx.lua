@@ -53,7 +53,7 @@ local FADE = { { 0, 0 }, { 0.7, 0.05 }, { 1, 1 } }
 --   mode   "flat" lies on the floor, "stretch" streaks along its flight, "up" stays upright
 --   color  a Color3 or { from, to }      tint   takes the play's colour: from that colour
 --                                               lightened by this much (0..1) to the colour
---   aim    true: opts.angle turns it
+--   aim    true: opts.angle turns it     flap   frames a second: the flipbook loops (a wingbeat)
 ------------------------------------------------------------------------------------------
 
 local function layer(base, over)
@@ -302,6 +302,31 @@ local KITS = {
 		layer(WAVE, { color = C(235, 240, 255), size = { { 0, 2 }, { 1, 16 } } }),
 		layer(DISC, { color = C(220, 230, 255), size = { { 0, 2 }, { 1, 12 } } }),
 	},
+	-- Halloween (VFXController's HW draws the shapes: graves, the moon, the jack-o'-lantern)
+	-- Grave Mist: a cold mist rolls out low along the floor, lost souls drift up out of it
+	JumpGraveMist = {
+		{ t = "Smoke", grid = "Grid4x4", n = 4, life = { 1.2, 1.6 }, size = { { 0, 5 }, { 1, 12 } }, alpha = { { 0, 0.5 }, { 0.6, 0.6 }, { 1, 1 } }, mode = "flat", rot = { 0, 360 }, glow = 0.1, color = C(170, 200, 185) },
+		layer(TSMOKE, { n = 16, spread = 88, speed = { 8, 16 }, drag = 2.5, accel = Vector3.new(0, -0.5, 0), life = { 1.1, 1.6 }, size = { { 0, 2.5 }, { 1, 5.5 } }, alpha = { { 0, 0.4 }, { 0.6, 0.6 }, { 1, 1 } }, color = C(170, 200, 185), glow = 0.12 }),
+		{ t = "SoulWisp", n = 4, d = 0.12, life = { 0.9, 1.3 }, size = { { 0, 0 }, { 0.2, 2.2 }, { 1, 1.4 } }, alpha = { { 0, 0.15 }, { 0.6, 0.35 }, { 1, 1 } }, speed = { 5, 10 }, spread = 35, drag = 1.5, accel = Vector3.new(0, 3, 0), rot = { -15, 15 }, mode = "up", z = 1, color = { C(225, 255, 240), C(120, 230, 180) } },
+		layer(TSPARK, { n = 5, color = C(170, 255, 210) }),
+	},
+	-- Bat Swarm: bats burst out from under you, beating their wings, through violet-black smoke
+	JumpBatSwarm = {
+		{ t = "BatFlap", grid = "Grid2x2", flap = 16, n = 16, life = { 0.7, 1.1 }, size = { { 0, 0.5 }, { 0.15, 2.4 }, { 1, 1.6 } }, alpha = { { 0, 0 }, { 0.75, 0.1 }, { 1, 1 } }, speed = { 14, 28 }, spread = 70, drag = 2, accel = Vector3.new(0, 6, 0), rot = { -25, 25 }, mode = "up", glow = 0, z = 1.5, color = C(20, 10, 30) },
+		layer(TSMOKE, { n = 8, color = C(45, 20, 70), size = { { 0, 2.5 }, { 1, 6 } } }),
+		layer(TBURST, { color = C(170, 100, 255), size = 8 }),
+		layer(TSPARK, { n = 6, color = C(200, 150, 255) }),
+	},
+	-- Jack-o'-Lantern: pumpkin-orange fire round your feet, embers, and candy corn when the
+	-- lantern under you bursts
+	JumpJackOLantern = {
+		layer(TFIRE, { n = 16, color = two(C(255, 170, 50), C(235, 80, 10)) }),
+		layer(TCORE, { n = 7, color = two(C(255, 245, 190), C(255, 190, 60)) }),
+		{ t = "CandyCorn", n = 10, d = 0.32, life = { 0.8, 1.1 }, size = 1.1, speed = { 22, 38 }, spread = 70, accel = Vector3.new(0, -50, 0), rot = { 0, 360 }, spin = { -400, 400 }, glow = 0.1, z = 2 },
+		layer(EMBERS, { n = 14 }),
+		layer(TSMOKE, { n = 5, d = 0.2, color = C(50, 35, 28) }),
+		light = { C(255, 140, 40), 5, 22, 0.6 },
+	},
 
 	-- held kits (Fx.attach): the ball's trails, the falling meteor, auras
 	TrailFlame = {
@@ -324,6 +349,17 @@ local KITS = {
 	TrailComet = {
 		layer(GLOW, { rate = 70, life = { 0.12, 0.22 }, size = { { 0, 4.5 }, { 1, 1 } }, alpha = { { 0, 0.3 }, { 1, 1 } }, tint = 0.6, z = -0.5, color = WHITE }),
 		layer(GLINTS, { rate = 20, life = { 0.25, 0.4 }, size = { { 0, 0 }, { 0.3, 2 }, { 1, 0 } }, speed = { 0.5, 2 }, drag = 0, tint = 0.5 }),
+	},
+	-- Halloween's trails (solid ribbons in their own colours with these riding the ball): candy
+	-- corn tumbling off, and bats beating away through a violet-black haze
+	TrailCandyCorn = {
+		{ t = "CandyCorn", rate = 22, life = { 0.5, 0.9 }, size = { { 0, 0 }, { 0.15, 1.3 }, { 1, 0.9 } }, alpha = { { 0, 0 }, { 0.75, 0.1 }, { 1, 1 } }, speed = { 2, 6 }, spread = 180, drag = 1, accel = Vector3.new(0, -14, 0), rot = { 0, 360 }, spin = { -300, 300 }, glow = 0.1, z = 1 },
+		layer(SPARKLE, { rate = 18, color = C(255, 210, 120) }),
+	},
+	TrailBats = {
+		{ t = "BatFlap", grid = "Grid2x2", flap = 14, rate = 14, life = { 0.6, 1 }, size = { { 0, 0.4 }, { 0.2, 1.8 }, { 1, 1.2 } }, alpha = { { 0, 0 }, { 0.7, 0.1 }, { 1, 1 } }, speed = { 4, 9 }, spread = 180, drag = 1.5, accel = Vector3.new(0, 5, 0), rot = { -20, 20 }, mode = "up", glow = 0, z = 1, color = C(22, 12, 34) },
+		{ t = "Smoke", grid = "Grid4x4", rate = 16, life = { 0.4, 0.7 }, size = { { 0, 1.4 }, { 1, 3 } }, alpha = { { 0, 0.45 }, { 1, 1 } }, speed = { 0.5, 2 }, spread = 180, rot = { 0, 360 }, glow = 0, color = C(40, 18, 64) },
+		{ t = "Dot", rate = 24, life = { 0.3, 0.5 }, size = { { 0, 0.4 }, { 1, 0 } }, speed = { 2, 6 }, spread = 180, drag = 2, color = C(190, 120, 255) },
 	},
 	MeteorTrail = {
 		layer(FLAMES, { rate = 220, life = { 0.2, 0.35 }, size = { { 0, 5 }, { 1, 1.5 } }, speed = { 0, 2 }, spread = 180, accel = Vector3.zero, tint = 0.35 }),
@@ -469,7 +505,11 @@ local function emitter(spec, parent)
 	end
 	if spec.grid then
 		e.FlipbookLayout = Enum.ParticleFlipbookLayout[spec.grid]
-		e.FlipbookMode = Enum.ParticleFlipbookMode.OneShot
+		e.FlipbookMode = spec.flap and Enum.ParticleFlipbookMode.Loop or Enum.ParticleFlipbookMode.OneShot
+		if spec.flap then
+			e.FlipbookFramerate = NumberRange.new(spec.flap, spec.flap * 1.3)
+			e.FlipbookStartRandom = true
+		end
 	end
 	e.Rate = spec.rate or 0
 	e.Parent = parent
@@ -507,6 +547,11 @@ end
 
 function Fx.override(name)
 	return Assets.toolbox("VFX." .. name)
+end
+
+-- Whether a kit (or a Toolbox template) fills that name.
+function Fx.has(name)
+	return KITS[name] ~= nil or Fx.override(name) ~= nil
 end
 
 -- A kit's layers built on parent (a part or attachment).
