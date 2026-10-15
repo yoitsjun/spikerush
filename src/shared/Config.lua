@@ -568,7 +568,7 @@ Config.Cosmetics = {
 		-- Reaper skin's (Config.Halloween.Skins): never on a banner, worn only with the skin
 		{ Key = "CandyCorn", Name = "Candy Corn", Rarity = "Rare", Solid = { Color3.fromRGB(255, 240, 200), Color3.fromRGB(255, 170, 30), Color3.fromRGB(255, 110, 20) }, Emission = 0.7, Limited = "Halloween" },
 		{ Key = "Bats", Name = "Bat Swarm", Rarity = "Epic", Base = "Sparkle", Solid = { Color3.fromRGB(40, 20, 60), Color3.fromRGB(130, 60, 200) }, Emission = 0.4, Limited = "Halloween" },
-		{ Key = "Souls", Name = "Souls", Rarity = "Mythic", Base = "Stardust", Solid = { Color3.fromRGB(230, 250, 255), Color3.fromRGB(110, 200, 255), Color3.fromRGB(40, 80, 160) }, Emission = 0.9, Limited = "Reaper" },
+		{ Key = "Souls", Name = "Souls", Rarity = "Mythic", Base = "Stardust", Solid = { Color3.fromRGB(230, 250, 255), Color3.fromRGB(110, 200, 255), Color3.fromRGB(40, 80, 160) }, Emission = 0.9, Limited = "Reaper", Hidden = true },
 	},
 	-- what bursts from your feet on every jump (the owner: "maybe add jump effects too... lightning
 	-- effects when you jump, fire when you jump"): VFXController.jumpEffect, on top of the usual dust

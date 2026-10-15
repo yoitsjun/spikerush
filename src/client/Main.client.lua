@@ -45,9 +45,11 @@ local order = {
 	"UIController",
 	"SceneController",
 	"MenuController",
+	"HalloweenMenu",
 	"LineupController",
 	"MobileControls",
 	"CrowdController",
+	"Skins",
 	"PadNav",
 	"QuickChat",
 }

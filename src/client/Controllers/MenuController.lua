@@ -416,6 +416,37 @@ local function modal(name, title, w, h, broadcast)
 	return { root = root, panel = panel, title = t, hide = hide }
 end
 
+-- The menus' kit for the screens another module draws (HalloweenMenu): the helpers above and
+-- below, the canvas, the lobby payload and Home's right edge. Called once the menus are built.
+function MenuController.kit()
+	return {
+		make = make,
+		modal = modal,
+		actionPlate = actionPlate,
+		hairButton = hairButton,
+		onClick = onClick,
+		navItem = chrome.navItem,
+		segmented = segmented,
+		toast = toast,
+		profile = profile,
+		sendProfile = sendProfile,
+		sendLobby = sendLobby,
+		canvas = canvas,
+		lobbies = function()
+			return lobbies
+		end,
+		shown = function()
+			return shown
+		end,
+		extras = ui.home and ui.home.extras,
+		clockText = Extra.clockText,
+		iconKey = Extra.iconKey,
+		openMatch = function()
+			MenuController.openMatch()
+		end,
+	}
+end
+
 ------------------------------------------------------------------------------------------
 -- Home
 ------------------------------------------------------------------------------------------
@@ -845,6 +876,7 @@ local function buildHome()
 		adminBtn = adminBtn,
 		eventChips = eventChips,
 		boostChip = boostChip,
+		extras = extras,
 	}
 end
 
@@ -3563,9 +3595,11 @@ local function buildLocker()
 	for _, kind in ipairs(COS.Kinds) do
 		chips[kind] = {}
 		for i, item in ipairs(COS[kind]) do
-			local card = lockerCard(grid, kind, item)
-			card.button.LayoutOrder = i
-			chips[kind][item.Key] = card
+			if not item.Hidden then -- (the Reaper skin's Souls trail comes with the skin)
+				local card = lockerCard(grid, kind, item)
+				card.button.LayoutOrder = i
+				chips[kind][item.Key] = card
+			end
 		end
 	end
 	-- the Cards tab: a list of player cards (each a small copy of the real card, with your numbers)
@@ -4794,6 +4828,12 @@ local function lobbyStatus(mine)
 		return string.format("Waiting for players (%d/%d). It starts when it's full, or start it now with bots.", mine.count or 0, mine.capacity or 0)
 	elseif mine.quick then
 		return string.format("Waiting for players (%d/%d). It starts when it's full, or when %s (first in the queue) starts it with bots.", mine.count or 0, mine.capacity or 0, mine.hostName or "the first player")
+	elseif mine.state == "Picking" then
+		return "Picking cards for the next stage..."
+	elseif mine.event and mine.isHost then
+		return "Your friends in this server can join from Lobbies. Start, then pick your cards."
+	elseif mine.event then
+		return "Waiting for the host to start the run."
 	elseif mine.cup and mine.isHost then
 		return "Your friends in this server can join from Lobbies. Start when you're ready."
 	elseif mine.cup then
@@ -4826,7 +4866,10 @@ local function refreshMatch()
 	Mt.create.Visible = (mine == nil and matchTab == "Create") or (mine ~= nil and editing)
 	Mt.lobby.Visible = inLobby
 	if mine then
-		Mt.modal.title.Text = mine.cup and string.format("%s: round %d of %d", mine.cup.name, mine.cup.round, Config.Tournament.Rounds) or (mine.quick and string.format("Quick Match %dv%d", mine.mode, mine.mode) or (mine.hostName .. "'s Lobby"))
+		local ev = mine.event
+		Mt.modal.title.Text = (ev and string.format("Halloween Match (%s): stage %d of %d", ev.diff, ev.stage, ev.stages or Config.Halloween.Stages))
+			or (mine.cup and string.format("%s: round %d of %d", mine.cup.name, mine.cup.round, Config.Tournament.Rounds))
+			or (mine.quick and string.format("Quick Match %dv%d", mine.mode, mine.mode) or (mine.hostName .. "'s Lobby"))
 	else
 		Mt.modal.title.Text = "Lobbies"
 	end
@@ -4911,7 +4954,7 @@ local function refreshMatch()
 					slot.name.TextColor3 = who.id == player.UserId and Gui.SIGNAL or Gui.CHALK
 					slot.tag.Visible = who.host == true
 					slot.kick.Visible = mine.isHost and who.id ~= player.UserId and mine.state == "Open"
-					slot.move.Visible = slot.kick.Visible and not mine.quick and not mine.cup
+					slot.move.Visible = slot.kick.Visible and not mine.quick and not mine.cup and not mine.event
 				else
 					local pickId = mine.picks and mine.picks[team] and mine.picks[team][s] or ""
 					local pc = pickId ~= "" and Roster.get(pickId) or nil
@@ -4963,8 +5006,8 @@ local function refreshMatch()
 				card.tag.TextColor3 = on and Gui.SIGNAL or Gui.DIM
 			end
 		end
-		Mt.swap.Visible = open and not mine.quick and not mine.cup
-		Mt.settings.Visible = open and mine.isHost and not mine.quick and not mine.cup
+		Mt.swap.Visible = open and not mine.quick and not mine.cup and not mine.event
+		Mt.settings.Visible = open and mine.isHost and not mine.quick and not mine.cup and not mine.event
 		Mt.start.Visible = open and mine.isHost == true
 		Mt.startLabel.Text = mine.quick and "Start with bots" or "Start"
 		Mt.startLabel.TextSize = mine.quick and 24 or 28
@@ -5197,7 +5240,7 @@ local function refreshMatchScreen(prof)
 				text = string.format("%d cups running", #Config.Tournament.Cups)
 			end
 		elseif c.key == "Custom" then
-			if mine and not mine.quick and not mine.cup and mine.isHost then
+			if mine and not mine.quick and not mine.cup and not mine.event and mine.isHost then
 				text, hot = lobbyLine(mine), true
 			else
 				text = "Your court, your bots"
