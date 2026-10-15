@@ -815,13 +815,18 @@ local function silhouette(model, vp)
 	return clone
 end
 
--- The manga impact frame: white screen, black silhouette, coloured radial burst.
+-- The manga impact frame: white screen, black silhouette, coloured radial burst. (A Reaper's is its
+-- own, VFXController.reaperFrame: the white hid the scythe.)
 function VFXController.impactFrame(entityId, color)
 	if not State.settings.dramatic or not onCourt() then
 		return
 	end
 	local cam = workspace.CurrentCamera
 	local model = Util.modelOf(entityId)
+	if model and mods and mods.Skins and mods.Skins.isReaper(model) and VFXController.reaperFrame then
+		VFXController.reaperFrame(entityId, nil, 0.26, false)
+		return
+	end
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
 	if not cam or not hrp then
 		VFXController.flash(0.7, 0.2)
@@ -3397,7 +3402,7 @@ end
 -- three layers that thin away, with rings standing across it, biggest at the hand.
 local ZERO_GLOW = Color3.fromRGB(200, 225, 255)
 local ZERO_BEHIND = 90 -- studs of beam behind the hitter
-local function zeroBeam(path)
+local function zeroBeam(path, void)
 	local from = path.segs[1].p
 	local to = path.landing.pos
 	local d = to - from
@@ -3408,7 +3413,9 @@ local function zeroBeam(path)
 	local back = from - dir * ZERO_BEHIND
 	local len = (to - back).Magnitude
 	local cf = CFrame.lookAt(back:Lerp(to, 0.5), to)
-	for i, layer in ipairs({ { 2.6, 0, WHITE, 0.8 }, { 7, 0.45, ZERO_GLOW, 1.0 }, { 16, 0.82, ZERO_GLOW, 1.2 } }) do
+	-- (the Reaper's: a cold white core in a violet beam with a dark violet haze)
+	local layers = void and { { 2.6, 0, Color3.fromRGB(236, 232, 255), 0.8 }, { 7, 0.4, HW.VOID, 1.0 }, { 16, 0.78, Color3.fromRGB(46, 14, 90), 1.2 } } or { { 2.6, 0, WHITE, 0.8 }, { 7, 0.45, ZERO_GLOW, 1.0 }, { 16, 0.82, ZERO_GLOW, 1.2 } }
+	for i, layer in ipairs(layers) do
 		local w, a, col, life = layer[1], layer[2], layer[3], layer[4]
 		local p = take(Enum.PartType.Block)
 		p.Color = col
@@ -3430,13 +3437,257 @@ local function zeroBeam(path)
 	for k = 1, 8 do
 		local f = -0.35 + (k - 1) * 0.16
 		local at = f < 0 and from + dir * (ZERO_BEHIND * f / 0.35) or from + d * f
-		task.delay(math.abs(f) * 0.12, sonicRing, at, v, k % 2 == 0 and WHITE or ZERO_GLOW, k == 3 and 22 or 16 - math.abs(k - 3) * 1.2, 0.6)
+		local ringColor = void and (k % 2 == 0 and Color3.fromRGB(205, 185, 255) or HW.VOID) or (k % 2 == 0 and WHITE or ZERO_GLOW)
+		task.delay(math.abs(f) * 0.12, sonicRing, at, v, ringColor, k == 3 and 22 or 16 - math.abs(k - 3) * 1.2, 0.6)
 	end
 end
 
 ------------------------------------------------------------------------------------------
 -- reactions to gameplay
 ------------------------------------------------------------------------------------------
+
+-- The Reaper's impact frame (the owner, 2026-10-15: "because of taeho's white flash, you cannot
+-- really see the scythe swing ... custom make an impact frame to tie in with the scythes vfx"): the
+-- inverse of Zero Point's black-on-white, in the scythe's void (Blade Ball's neon on black, the
+-- concept art's souls): the world gone black under a violet bloom, the hitter a cold pale
+-- silhouette and the scythe drawn brightest (a violet blade, a white edge, the cold star at the
+-- tip), a violet crescent sweeping behind the swing, souls and skulls bursting out, violet ink at
+-- the edges, letterbox bars with a violet rule; it ends in a cut across the screen.
+-- hold: Zero Point's (a close side shot for `duration` while the ball holds on the hand); else
+-- the game camera's view for a moment (a big spike's, impactFrame's place).
+function VFXController.reaperFrame(entityId, ballPos, duration, hold)
+	local cam = workspace.CurrentCamera
+	local model = Util.modelOf(entityId)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not cam or not hrp or duration <= 0.05 or not onCourt() then
+		return false
+	end
+	local token = freezeScreen()
+	local gui = freezeGui
+	local vs = cam.ViewportSize
+	local STAR, PALE, DEEP = Color3.fromRGB(170, 205, 255), Color3.fromRGB(214, 224, 255), Color3.fromRGB(5, 3, 12)
+	if mods and not hold then
+		mods.AudioController.play("ImpactFrame", { minGap = 0.2 })
+	end
+	local ball = ballPos or hrp.Position + Vector3.new(0, 2.5, 0)
+	local vcf, fov
+	if hold then
+		local mid = hrp.Position:Lerp(ball, 0.55)
+		vcf, fov = CFrame.lookAt(mid + Vector3.new(-30, 0.5, 0), mid), 30
+	else
+		vcf, fov = cam.CFrame, cam.FieldOfView
+	end
+	-- a world point on this frame's screen (the viewport fills the screen; FieldOfView is vertical)
+	local function project(pt)
+		local rel = vcf:PointToObjectSpace(pt)
+		if rel.Z > -0.05 then
+			return Vector2.new(vs.X / 2, vs.Y / 2)
+		end
+		local t = math.tan(math.rad(fov) / 2)
+		return Vector2.new(vs.X / 2 * (1 + rel.X / -rel.Z / (t * vs.X / vs.Y)), vs.Y / 2 * (1 - rel.Y / -rel.Z / t))
+	end
+	local at = project(hrp.Position + Vector3.new(0, 1.5, 0))
+	local function sprite(key, size, color, props, z)
+		local img = Instance.new("ImageLabel")
+		img.AnchorPoint = Vector2.new(0.5, 0.5)
+		img.Position = UDim2.fromOffset(at.X, at.Y)
+		img.Size = UDim2.fromOffset(size, size)
+		img.BackgroundTransparency = 1
+		img.Image = Assets.id(Assets.Fx[key]) or ""
+		img.ImageColor3 = color
+		img.ZIndex = z or 1
+		for k, v in pairs(props or {}) do
+			img[k] = v
+		end
+		img.Parent = gui
+		return img
+	end
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.fromScale(1, 1)
+	bg.BackgroundColor3 = DEEP
+	bg.BorderSizePixel = 0
+	bg.ZIndex = 0
+	bg.Parent = gui
+	local fading = { bg }
+	-- the violet bloom and the cold heart of it, a dark ring of speed lines turning
+	table.insert(fading, sprite("Glow", vs.Y * 1.5, HW.VOID, { ImageTransparency = 0.2 }, 1))
+	table.insert(fading, sprite("Glow", vs.Y * 0.55, STAR, { ImageTransparency = 0.55 }, 1))
+	local radial = sprite("Radial", vs.Y * 1.6, Color3.fromRGB(70, 34, 140), { ImageTransparency = 0.15, Rotation = math.random() * 360 }, 1)
+	table.insert(fading, radial)
+	TweenService:Create(radial, TweenInfo.new(duration + 0.1), { Rotation = radial.Rotation + 40 }):Play()
+	-- the crescent behind the swing, sweeping on through it
+	local side = (ball.Z - hrp.Position.Z) >= 0 and 1 or -1
+	local r0 = side > 0 and -80 or 100
+	local cres = sprite("Slash", vs.Y * 1.05, HW.VOID, { Rotation = r0 }, 2)
+	local core = sprite("Slash", vs.Y * 0.9, Color3.fromRGB(236, 230, 255), { Rotation = r0 + 6, ImageTransparency = 0.1 }, 2)
+	table.insert(fading, cres)
+	table.insert(fading, core)
+	local sweep = TweenInfo.new(math.min(duration, 0.5), Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	TweenService:Create(cres, sweep, { Rotation = r0 + 55 * side }):Play()
+	TweenService:Create(core, sweep, { Rotation = r0 + 61 * side, ImageTransparency = 0.5 }):Play()
+	-- violet ink at the edges (texture on the black)
+	for i, corner in ipairs({ Vector2.new(0.04, 0.12), Vector2.new(0.95, 0.86), Vector2.new(0.9, 0.1) }) do
+		local ink = sprite("InkSplat", vs.Y * (0.5 - 0.1 * (i - 1)), Color3.fromRGB(60, 24, 112), { Position = UDim2.fromScale(corner.X, corner.Y), Rotation = math.random() * 360, ImageTransparency = 0.25 }, 1)
+		local sc = Instance.new("UIScale")
+		sc.Scale = 0.4
+		sc.Parent = ink
+		TweenService:Create(sc, TweenInfo.new(0.12, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+		table.insert(fading, ink)
+	end
+	-- the hitter and the scythe: one flat-lit viewport (Ambient white, no light), the body cold pale,
+	-- the scythe brightest
+	local vp = Instance.new("ViewportFrame")
+	vp.Size = UDim2.fromScale(1, 1)
+	vp.BackgroundTransparency = 1
+	vp.Ambient = Color3.new(1, 1, 1)
+	vp.LightColor = Color3.new(0, 0, 0)
+	vp.ZIndex = 3
+	vp.Parent = gui
+	table.insert(fading, vp)
+	local vcam = Instance.new("Camera")
+	vcam.CFrame = vcf
+	vcam.FieldOfView = fov
+	vcam.Parent = vp
+	vp.CurrentCamera = vcam
+	local starImg = nil
+	local SCYTHE_LOOK = { BladeBody = HW.VOID, BladeEdge = Color3.new(1, 1, 1), VoidRim = Color3.new(1, 1, 1), Shaft = Color3.fromRGB(90, 66, 160), Wrap = Color3.fromRGB(120, 90, 200) }
+	local function fill()
+		if freezeToken ~= token then
+			return
+		end
+		local clone = silhouette(model, vp)
+		if not clone then
+			return
+		end
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Color = PALE
+			end
+		end
+		local held = mods and mods.Skins and mods.Skins.scytheOf(model)
+		if held then
+			local was = held.Archivable
+			held.Archivable = true
+			local ok, sc = pcall(function()
+				return held:Clone()
+			end)
+			held.Archivable = was
+			if ok and sc then
+				for _, d in ipairs(sc:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.Color = SCYTHE_LOOK[d.Name] or Color3.fromRGB(70, 50, 130)
+						d.Material = Enum.Material.SmoothPlastic
+						d.LocalTransparencyModifier = 0
+						if d:IsA("MeshPart") then
+							pcall(function()
+								d.TextureID = ""
+							end)
+						end
+					elseif d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Light") then
+						d:Destroy()
+					end
+				end
+				sc.Parent = clone.Parent
+				-- the cold star where the tip is
+				local tip = sc:FindFirstChild("Tip", true)
+				if tip then
+					local tp = project(tip.Position)
+					starImg = sprite("HitStar", vs.Y * 0.16, STAR, { Position = UDim2.fromOffset(tp.X, tp.Y), Rotation = math.random() * 90 }, 5)
+					local glow = sprite("Glow", vs.Y * 0.2, STAR, { Position = UDim2.fromOffset(tp.X, tp.Y), ImageTransparency = 0.2 }, 5)
+					table.insert(fading, starImg)
+					table.insert(fading, glow)
+					TweenService:Create(starImg, TweenInfo.new(math.max(0.2, duration), Enum.EasingStyle.Sine), { Rotation = starImg.Rotation + 90 }):Play()
+				end
+			end
+		end
+		if hold then
+			local b = Instance.new("Part")
+			b.Shape = Enum.PartType.Ball
+			b.Size = Vector3.one * (Config.Ball.Radius * 2)
+			b.Anchored = true
+			b.Color = Color3.fromRGB(236, 242, 255)
+			b.Material = Enum.Material.SmoothPlastic
+			b.CFrame = CFrame.new(handBall(clone, ball))
+			b.Parent = clone.Parent
+		end
+	end
+	if hold then
+		task.delay(POSE_WAIT, fill)
+	else
+		fill()
+	end
+	-- souls and skulls bursting out of the hitter
+	for i = 1, 9 do
+		local key = i % 3 == 0 and "Skull" or "SoulWisp"
+		local a = math.rad(i * 40 + math.random() * 20)
+		local dist = vs.Y * (0.32 + math.random() * 0.22)
+		local soul = sprite(key, vs.Y * (0.08 + math.random() * 0.07), i % 2 == 0 and PALE or STAR, { Rotation = math.deg(a) + 90, ImageTransparency = 0.05 }, 4)
+		TweenService:Create(soul, TweenInfo.new(duration + 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = UDim2.fromOffset(at.X + math.cos(a) * dist, at.Y + math.sin(a) * dist), ImageTransparency = 0.6 }):Play()
+		table.insert(fading, soul)
+	end
+	-- the letterbox, a violet rule on its inner edge
+	for _, top in ipairs({ true, false }) do
+		local bar = Instance.new("Frame")
+		bar.BackgroundColor3 = Color3.new(0, 0, 0)
+		bar.BorderSizePixel = 0
+		bar.AnchorPoint = Vector2.new(0, top and 0 or 1)
+		bar.Position = UDim2.fromScale(0, top and 0 or 1)
+		bar.Size = UDim2.fromScale(1, 0.1)
+		bar.ZIndex = 8
+		bar.Parent = gui
+		local rule = Instance.new("Frame")
+		rule.BackgroundColor3 = HW.VOID
+		rule.BorderSizePixel = 0
+		rule.AnchorPoint = Vector2.new(0, top and 0 or 1)
+		rule.Position = UDim2.fromScale(0, top and 1 or 0)
+		rule.Size = UDim2.new(1, 0, 0, 3)
+		rule.ZIndex = 9
+		rule.Parent = bar
+		table.insert(fading, bar)
+		table.insert(fading, rule)
+	end
+	gui.Enabled = true
+	-- the end: a cut across the whole screen through the hitter, then it all goes
+	task.delay(duration, function()
+		if freezeToken ~= token then
+			return
+		end
+		local cut = Instance.new("Frame")
+		cut.AnchorPoint = Vector2.new(0.5, 0.5)
+		cut.Position = UDim2.fromOffset(at.X, at.Y)
+		cut.Size = UDim2.new(0, 0, 0, math.max(4, math.floor(vs.Y * 0.012)))
+		cut.Rotation = side > 0 and -28 or 28
+		cut.BackgroundColor3 = Color3.new(1, 1, 1)
+		cut.BorderSizePixel = 0
+		cut.ZIndex = 10
+		cut.Parent = gui
+		local g = Instance.new("UIGradient")
+		g.Color = ColorSequence.new(HW.VOID, Color3.new(1, 1, 1))
+		g.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1) })
+		g.Parent = cut
+		TweenService:Create(cut, TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new(0, vs.X * 2.4, 0, cut.Size.Y.Offset) }):Play()
+		local out = TweenInfo.new(0.1)
+		task.delay(0.05, function()
+			for _, f in ipairs(fading) do
+				if f:IsA("ImageLabel") then
+					TweenService:Create(f, out, { ImageTransparency = 1 }):Play()
+				elseif f:IsA("ViewportFrame") then
+					TweenService:Create(f, out, { ImageTransparency = 1 }):Play()
+				else
+					TweenService:Create(f, out, { BackgroundTransparency = 1 }):Play()
+				end
+			end
+			TweenService:Create(cut, TweenInfo.new(0.12), { BackgroundTransparency = 1 }):Play()
+		end)
+		task.delay(0.2, function()
+			if freezeToken == token then
+				gui.Enabled = false
+				gui:ClearAllChildren()
+			end
+		end)
+	end)
+	return true
+end
 
 -- The Reaper's spike (Halloween; void, Blade Ball's crescent on black): the blade's own trail
 -- lights (Skins.slash), a black crescent with a violet rim tears through the contact, bigger than
@@ -3482,9 +3733,9 @@ local function onHit(snap)
 		VFXController.popup(pos + Vector3.new(0, 2.6 + 1.3 * tagRow, 0), text, color, size)
 		tagRow = tagRow + 1
 	end
-	if reaper then
+	if reaper and not meta.zero then
 		HW.reap(model, pos, dirZ, kmh)
-	elseif ht == "Spike" or ht == "JumpServe" then
+	elseif not reaper and (ht == "Spike" or ht == "JumpServe") then
 		-- the swing's slash: a crescent through the contact, facing the camera, in the spike colour
 		local slashColor = Spins.tint(model and Spins.equipped(model, "Color")) or WHITE
 		local big = kmh >= 120
@@ -3636,6 +3887,25 @@ local function onHit(snap)
 		end
 		-- when the ball leaves the hand (after its hold: a freeze frame's length)
 		local fires = math.max(0, seg.t0 + (seg.hold or 0) - Util.now())
+		if meta.zero and reaper then
+			-- the Reaper's Zero Point (the owner: "because of taeho's white flash, you cannot really
+			-- see the scythe swing"): its own frame while the ball holds (void, the scythe drawn
+			-- bright), then as it fires the scythe chops through in the open (the slash, the void
+			-- rupture), the beam goes out violet and nothing white covers the swing
+			VFXController.reaperFrame(meta.id, pos, fires, true)
+			task.delay(fires, function()
+				HW.reap(model, pos, dirZ, math.max(kmh, 120))
+				zeroBeam(snap.path, true)
+				Fx.play("PerfectImpact", pos, { color = HW.VOID, scale = 1.6 })
+				Fx.play("Burst", pos, { color = Color3.fromRGB(170, 205, 255), scale = 1.4 })
+				if close then
+					VFXController.speedLines(0.7, Color3.fromRGB(205, 190, 255), dirZ)
+					shaker.shake(1)
+					shaker.kick(-10)
+				end
+			end)
+			return
+		end
 		if meta.zero then
 			-- Zero Point: the freeze frame while it holds, then the beam, the rings and a white burst;
 			-- nothing else on top of it
@@ -3841,7 +4111,7 @@ local function onHit(snap)
 						shaker.kick(-6 - 6 * hot)
 					end
 					shaker.shake((heavy and 0.55 or 0.25) + 0.45 * hot)
-					if hot >= 0.8 then
+					if hot >= 0.8 and not reaper then
 						VFXController.flash(0.15 + 0.15 * hot, 0.12)
 					end
 				end

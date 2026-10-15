@@ -1823,6 +1823,7 @@ Config.Halloween = {
 		-- what's on it ({ kind, key, scout cost }); the Reaper's rarity is in Skins
 		Items = {
 			{ Kind = "Skin", Key = "Reaper", Scout = 150 },
+			{ Kind = "Room", Key = "Haunted", Scout = 90 }, -- (Home's background: Config.Rooms)
 			{ Kind = "Effect", Key = "PumpkinBurst", Scout = 90 },
 			{ Kind = "Effect", Key = "GhostSwarm", Scout = 90 },
 			{ Kind = "Ball", Key = "Pumpkin", Scout = 90 },
@@ -1861,6 +1862,19 @@ Config.Halloween = {
 	},
 	SkinOrder = { "Reaper" },
 	MaxCopies = 999,
+}
+
+-- Home rooms (src/shared/Rooms.lua): the menu room you stand in on Home, Players and the player
+-- pages, swapped from Home's Decorate button (The Spike's; the owner, 2026-10-15: "add a
+-- halloween style background you can also spin for kind of like how you can swap this").
+-- SceneController draws each one's decorations.
+Config.Rooms = {
+	Default = "Clubhouse",
+	Order = { "Clubhouse", "Haunted" },
+	List = {
+		Clubhouse = { Name = "Clubhouse", Default = true, Blurb = "The club room: lockers, the ball cart and the sun through the window." },
+		Haunted = { Name = "Haunted Clubhouse", Rarity = "Legendary", Limited = "Halloween", Blurb = "The club room on Halloween night: jack-o'-lanterns, cobwebs, bats, bunting and a full moon in the window." },
+	},
 }
 
 -- Courts: where a match is played. The play area is the same everywhere (Config.Court); a

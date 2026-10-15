@@ -3495,6 +3495,24 @@ do
 		and Halloween.skinDuplicate(skins, "Reaper") and not Halloween.skinDuplicate(fresh, "Reaper") and Halloween.skinFits("Reaper", "taeha") and not Halloween.skinFits("Reaper", "yejun")
 		and Halloween.skinCharNames("Reaper") == "Taeho",
 		"the Reaper is Taeho's alone: an old copy on YeJun comes back free, it applies to Taeho only, swaps off and on, and a second copy is a duplicate")
+
+	-- Home's rooms (the owner, 2026-10-15: "add a halloween style background you can also spin for
+	-- kind of like how you can swap this"): the Clubhouse is everyone's; the Haunted Clubhouse is won
+	-- on the Halloween banner and swapped in from Decorate; a saved room you don't own falls back
+	local Rooms = require("Rooms")
+	local fresh = Rooms.clean(nil)
+	local junk = Rooms.clean({ owned = { Haunted = true, Nope = true, Clubhouse = true }, on = "Haunted" })
+	local junkOn = junk.on
+	local stolen = Rooms.clean({ owned = {}, on = "Haunted" })
+	local okLocked, whyLocked = Rooms.equip(fresh, "Haunted")
+	local okDev = Rooms.equip(Rooms.clean(nil), "Haunted", true)
+	local okOwn = Rooms.equip(junk, "Clubhouse")
+	local onBanner = Halloween.bannerItem("Room", "Haunted")
+	check(fresh.on == "Clubhouse" and junk.owned.Haunted == true and junk.owned.Nope == nil and junk.owned.Clubhouse == nil and junkOn == "Haunted"
+		and stolen.on == "Clubhouse" and not okLocked and whyLocked == "locked" and okDev and okOwn and junk.on == "Clubhouse"
+		and Rooms.current({ owned = {}, on = "Haunted" }, true) == "Haunted" and Rooms.current({ owned = {}, on = "Haunted" }) == "Clubhouse"
+		and onBanner ~= nil and onBanner.rarity == "Legendary" and onBanner.name == "Haunted Clubhouse",
+		"Home's rooms: the Clubhouse is everyone's, the Haunted Clubhouse is won on the Halloween banner and swapped in; one you don't own falls back")
 end
 
 print("== saving ==")

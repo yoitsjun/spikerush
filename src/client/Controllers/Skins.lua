@@ -336,6 +336,70 @@ function Skins.isReaper(model)
 	return model ~= nil and model:GetAttribute("Skin") == "Reaper"
 end
 
+-- A fresh scythe (coloured, its pivot at the grip), for a picture of it: the skin card's
+-- thumbnail, a posed rig's prop (the menus, the recruit's cinematic), the impact frame.
+function Skins.newScythe()
+	return scythe()
+end
+
+-- Where `model` (a character or a posed copy: its hand, arm and root are read) holds the scythe
+-- now; `swing`: seconds since a chop began (nil: none). Nil without a hand.
+function Skins.holdAt(model, swing)
+	local h = model and hand(model)
+	if not h then
+		return nil
+	end
+	return holdFrame(model, h, swing)
+end
+
+-- The scythe a character on court is holding now (nil when it holds none).
+function Skins.scytheOf(model)
+	local st = model and dressed[model]
+	return st and st.scythe and st.scythe.Parent and st.scythe or nil
+end
+
+-- Puts a still scythe in a posed rig's hand (inside the rig's model, so moving the rig moves it),
+-- or takes it away (on = false). For the menus' avatar on Taeho's page.
+function Skins.prop(model, on)
+	if not model then
+		return
+	end
+	local old = model:FindFirstChild(SCYTHE)
+	if old then
+		old:Destroy()
+	end
+	if not on then
+		return
+	end
+	local at = Skins.holdAt(model)
+	if not at then
+		return
+	end
+	local s = scythe()
+	s:PivotTo(at)
+	s.Parent = model
+	local rim = s:FindFirstChild("VoidRim", true)
+	if rim then
+		TweenService:Create(rim, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Transparency = 0.45 }):Play()
+	end
+	local blade = s:FindFirstChild("BladeBody", true)
+	local tip = s:FindFirstChild("Tip", true)
+	if blade and tip then
+		local light = Instance.new("PointLight")
+		light.Color = STAR
+		light.Range = 6
+		light.Brightness = 1.4
+		light.Shadows = false
+		light.Parent = attachAt(blade, tip.Position, "VoidStar")
+		pcall(function()
+			local handle = Fx.attach("ScytheStar", light.Parent)
+			if handle then
+				handle.set(true)
+			end
+		end)
+	end
+end
+
 -- Every character on court (and your own, in the menus): dressed while its Skin says so.
 local function sweep()
 	local list = {}

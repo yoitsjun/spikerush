@@ -70,6 +70,8 @@ local refreshQueued = false
 local Extra = {}
 -- (Breakthroughs' shared rules, kept on Extra: this chunk is near Luau's 200-local limit)
 Extra.BT = require(Shared.Breakthrough)
+Extra.HW = require(Shared.Halloween)
+Extra.Rooms = require(Shared.Rooms)
 Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns count from then)
 Extra.shopTab = "Deals" -- the Shop's tab: "Deals" (bundles and game passes), "Currency" (VP and Gold), "Lucky" or "Boosts"
 Extra.Cards = require(Shared.Cards) -- player cards (the Locker's Cards tab)
@@ -444,6 +446,16 @@ function MenuController.kit()
 		openMatch = function()
 			MenuController.openMatch()
 		end,
+		-- a character's page (the Reaper tab's "His page")
+		openPlayer = function(id)
+			Extra.openPlayer(id)
+		end,
+		-- a recruit's reveal through the usual sequence (reveal: { banner, items, theme, candy })
+		playRecruit = function(reveal)
+			if shown then
+				task.spawn(Extra.playSequence, reveal)
+			end
+		end,
 	}
 end
 
@@ -697,6 +709,12 @@ local function buildHome()
 	local adminBtn = navItem(extras, Extra.iconKey("IconAdmin", "IconSettings"), "Admin", { LayoutOrder = 3, Visible = false })
 	onClick(adminBtn, function()
 		MenuController.openAdmin()
+	end)
+	-- Decorate (The Spike's: swap Home's background; the owner, 2026-10-15): the room you stand in
+	local decorBtn = navItem(extras, Extra.iconKey("IconDecorate", "IconHome"), "Decorate", { LayoutOrder = 4 })
+	extras.Size = UDim2.fromOffset(extras.Size.X.Offset, extras.Size.Y.Offset + 84)
+	onClick(decorBtn, function()
+		Extra.openDecorate()
 	end)
 
 	-- the admin panel's running events (2x VP, 2x Gold) with their time left, under the nav
@@ -1843,7 +1861,8 @@ local function trayCard(parent, i)
 	local rar = text(bar, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 12, TextColor3 = Gui.INK, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 35 })
 	local big = text(c, { Text = "", Font = Gui.FONT_TITLE, TextSize = 34, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 26), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 34 })
 	Gui.stroke(big, 2, Gui.INK, 0)
-	local name = text(c, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 15, TextWrapped = true, Size = UDim2.new(1, -8, 0, 36), Position = UDim2.fromOffset(4, 68), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 34 })
+	local name = text(c, { Text = "", Font = Gui.FONT_HEAVY, TextSize = 15, TextWrapped = true, TextScaled = true, Size = UDim2.new(1, -8, 0, 36), Position = UDim2.fromOffset(4, 68), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 34 })
+	make("UITextSizeConstraint", { MaxTextSize = 15, MinTextSize = 9 }, name)
 	local foot = text(c, { Text = "", TextSize = 12, TextColor3 = Gui.MUTED, Size = UDim2.new(1, -8, 0, 18), Position = UDim2.new(0, 4, 1, -24), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 34 })
 	local scale = make("UIScale", { Scale = 1 }, c)
 	return { frame = c, stroke = s, bar = bar, rar = rar, big = big, name = name, foot = foot, scale = scale }
@@ -1989,7 +2008,10 @@ end
 
 -- The recruit's glow: red when a Mythic is inside, gold for a Legendary, else pale.
 local MYTHIC = Config.Rarity.PullGlow.Mythic
-local SPARK = { mythic = MYTHIC, gold = Color3.fromRGB(255, 214, 90), green = Config.TierColors["S-"] }
+local SPARK = { mythic = MYTHIC, gold = Color3.fromRGB(255, 214, 90), green = Config.TierColors["S-"], halloween = Color3.fromRGB(255, 136, 30) }
+-- a Halloween recruit's pulls are orange (the owner, 2026-10-15: "i want the recruit pull color to be
+-- orange"), hotter and redder the rarer
+Extra.HW_GLOW = { Common = Color3.fromRGB(255, 196, 130), Rare = Color3.fromRGB(255, 176, 92), Epic = Color3.fromRGB(255, 142, 40), Legendary = Color3.fromRGB(255, 112, 14), Mythic = Color3.fromRGB(255, 72, 0) }
 
 local function sparkleBurst(tone)
 	local S = ui.seq
@@ -2036,6 +2058,12 @@ end
 -- A pull's item, rarity, rank and the colour it glows in the recruit (Mythic: red; an S-
 -- character: its tier's green, so it reads apart from the S tier's gold).
 local function pullInfo(kind, it)
+	if it.hw then
+		-- a Halloween banner item (HalloweenMenu passes its name, rarity and kind: a skin isn't a
+		-- Spins item)
+		local rarity = it.rarity or "Rare"
+		return { Name = it.name or it.key, Rarity = rarity, Kind = it.kind }, rarity, Spins.rarityRank(rarity), Extra.HW_GLOW[rarity] or SPARK.halloween
+	end
 	local item = Spins.item(kind, it.key)
 	local rarity = item and item.Rarity or "Common"
 	local glow = Config.Rarity.PullGlow[rarity] or Spins.rarityColor(rarity)
@@ -2058,11 +2086,18 @@ local function fillTray(i, kind, it)
 		card.big.Text = item.Char.Tier
 		card.big.TextColor3 = tierColor(item.Char.Tier)
 		card.name.Text = item.Name .. "\n" .. Config.Roles[item.Char.Role].Short
+	elseif it.hw then
+		-- (the kind under the name: the Pumpkin ball and the Pumpkin colour read the same)
+		local bk = SP.Banners[it.kind]
+		card.big.Text = ""
+		card.name.Text = (item and item.Name or "?") .. "\n" .. (it.kind == "Skin" and "Skin" or (it.kind == "Room" and "Home room" or (bk and bk.Name or it.kind)))
 	else
 		card.big.Text = ""
 		card.name.Text = item and item.Name or "?"
 	end
-	if it.dup then
+	if it.hw then
+		card.foot.Text = it.dup and string.format("+%d Candy", it.candy or 0) or (it.kind == "Skin" and "SKIN" or "NEW")
+	elseif it.dup then
 		card.foot.Text = "+" .. Spins.sellValue(rarity) .. " VP"
 	elseif it.sold then
 		card.foot.Text = "Auto-sold +" .. Spins.sellValue(rarity)
@@ -2084,15 +2119,33 @@ end
 
 -- The S cinematic: the silhouette leaps, draws back and hammers a black ball down as a beam of
 -- light sweeps the screen. Returns false if the sequence was cancelled.
-local function cinematic(seq, mythic)
+local function cinematic(seq, mythic, theme)
 	local S = ui.seq
 	local C = S.cin
 	local AC = mods.AnimationController
+	-- (the tray sat over the sky)
+	local trayFrame = S.tray[1] and S.tray[1].frame.Parent
+	if trayFrame then
+		trayFrame.Visible = false
+	end
 	C.root.Visible = true
 	C.root.BackgroundTransparency = 1
 	tween(C.root, 0.12, { BackgroundTransparency = 0 })
-	-- a Mythic burns red instead of the yellow screen
-	if mythic then
+	local hw = theme == "Halloween"
+	local bats = Extra.cinBats(C.root, hw, mythic)
+	-- a Mythic burns red instead of the yellow screen; a Halloween recruit is an orange moon sky (the
+	-- Reaper's: night falling, violet)
+	if hw and mythic then
+		C.grad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 120, 30)), ColorSequenceKeypoint.new(0.55, Color3.fromRGB(120, 40, 120)), ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 6, 30)) })
+		C.beam.BackgroundColor3 = Color3.fromRGB(200, 170, 255)
+		S.flash.BackgroundColor3 = Color3.fromRGB(190, 150, 255)
+		C.setGlow(0, Color3.fromRGB(255, 236, 200))
+	elseif hw then
+		C.grad.Color = ColorSequence.new(Color3.fromRGB(255, 186, 70), Color3.fromRGB(226, 78, 8))
+		C.beam.BackgroundColor3 = Color3.fromRGB(255, 240, 210)
+		S.flash.BackgroundColor3 = Color3.fromRGB(255, 220, 170)
+		C.setGlow(0, Color3.fromRGB(255, 248, 225))
+	elseif mythic then
 		C.grad.Color = ColorSequence.new(Color3.fromRGB(255, 96, 84), Color3.fromRGB(150, 0, 16))
 		C.beam.BackgroundColor3 = Color3.fromRGB(255, 214, 206)
 		S.flash.BackgroundColor3 = MYTHIC
@@ -2107,6 +2160,15 @@ local function cinematic(seq, mythic)
 	local rig = mods.SceneController.cloneAvatar(true)
 	if rig then
 		rig.model.Parent = C.world
+	end
+	-- the Reaper's silhouette swings the scythe
+	local scythe = nil
+	if hw and mythic and rig and mods.Skins then
+		local ok, sc = pcall(mods.Skins.newScythe)
+		if ok and sc then
+			scythe = sc
+			scythe.Parent = C.world
+		end
 	end
 	C.cam.CFrame = CFrame.lookAt(Vector3.new(-13, 2.5, -1), Vector3.new(0, 6.2, -2.5))
 	local style = (profile().equip and profile().equip.Style) or "Classic"
@@ -2145,7 +2207,14 @@ local function cinematic(seq, mythic)
 		if rig then
 			poseAt(rig, joints, up)
 			ground = rigGround(rig)
+			if scythe then
+				local at = mods.Skins.holdAt(rig.model, t >= CONTACT and (t - CONTACT) or nil)
+				if at then
+					scythe:PivotTo(at)
+				end
+			end
 		end
+		Extra.flyBats(bats, t)
 		local hand = Vector3.new(0, ground + up + 3.1, -1.4)
 		if t < CONTACT then
 			local a = math.clamp((t - 0.3) / (CONTACT - 0.3), 0, 1)
@@ -2163,6 +2232,9 @@ local function cinematic(seq, mythic)
 			S.flash.BackgroundTransparency = 0.2
 			tween(S.flash, 0.35, { BackgroundTransparency = 1 })
 			tween(C.beam, 0.55, { Position = UDim2.fromScale(1.3, 0.5) }, Enum.EasingStyle.Quint)
+			if hw and mythic then
+				Extra.cinSlash(C.root) -- the scythe's crescent across the screen
+			end
 		end
 		RunService.RenderStepped:Wait()
 	end
@@ -2173,7 +2245,66 @@ local function cinematic(seq, mythic)
 	if rig then
 		rig.model:Destroy()
 	end
+	if scythe then
+		scythe:Destroy()
+	end
+	if bats then
+		bats.frame:Destroy()
+	end
+	if trayFrame then
+		trayFrame.Visible = true
+	end
 	return alive(seq)
+end
+
+-- The Halloween cinematic's bats: black silhouettes beating across the sky in two flocks (more for
+-- the Reaper), and a pale full moon behind the hitter. Returns { frame, list } or nil.
+function Extra.cinBats(parent, hw, mythic)
+	if not hw then
+		return nil
+	end
+	local frame = make("Frame", { Name = "Bats", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 33 }, parent)
+	local moon = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.6, 0.42), Size = UDim2.fromScale(0.36, 0.36), BackgroundColor3 = mythic and Color3.fromRGB(255, 236, 214) or Color3.fromRGB(255, 244, 220), BackgroundTransparency = 0.06, ZIndex = 32 }, frame)
+	make("UIAspectRatioConstraint", { AspectRatio = 1 }, moon)
+	Gui.round(moon)
+	make("UIGradient", { Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(255, 200, 150)), Rotation = 60 }, moon)
+	local list = {}
+	local rng = Random.new()
+	local img = Assets.id(Assets.Fx.Bat) or ""
+	for i = 1, mythic and 16 or 11 do
+		local size = rng:NextInteger(34, 96)
+		local b = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(size, size), BackgroundTransparency = 1, Image = img, ImageColor3 = Color3.fromRGB(10, 6, 14), ZIndex = 33 }, frame)
+		local scale = make("UIScale", { Scale = 1 }, b)
+		table.insert(list, { image = b, scale = scale, y = 0.12 + rng:NextNumber() * 0.62, speed = 0.22 + rng:NextNumber() * 0.3, delay = (i % 2 == 0 and 0.5 or 0) + rng:NextNumber() * 0.8, flap = 9 + rng:NextNumber() * 5, wob = rng:NextNumber() * 6 })
+	end
+	return { frame = frame, list = list }
+end
+
+function Extra.flyBats(bats, t)
+	if not bats then
+		return
+	end
+	for _, b in ipairs(bats.list) do
+		local x = -0.1 + (t - b.delay) * b.speed
+		b.image.Visible = x > -0.1 and x < 1.15
+		b.image.Position = UDim2.fromScale(x, b.y + 0.025 * math.sin(t * 3 + b.wob))
+		b.scale.Scale = 0.75 + 0.25 * math.abs(math.sin(t * b.flap + b.wob)) -- the wingbeat
+	end
+end
+
+-- The Reaper's crescent: a violet slash sweeping across the screen as the scythe hits.
+function Extra.cinSlash(parent)
+	local slash = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.52, 0.46), Size = UDim2.fromScale(0.9, 0.9), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Slash) or "", ImageColor3 = Color3.fromRGB(150, 90, 255), Rotation = -60, ZIndex = 36 }, parent)
+	make("UIAspectRatioConstraint", { AspectRatio = 1 }, slash)
+	local core = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.8, 0.8), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Slash) or "", ImageColor3 = Color3.fromRGB(235, 225, 255), ZIndex = 37 }, slash)
+	tween(slash, 0.22, { Rotation = 20 }, Enum.EasingStyle.Quint)
+	task.delay(0.12, function()
+		tween(slash, 0.3, { ImageTransparency = 1 })
+		tween(core, 0.24, { ImageTransparency = 1 })
+	end)
+	task.delay(0.5, function()
+		slash:Destroy()
+	end)
 end
 
 local cardRig = nil
@@ -2218,6 +2349,19 @@ local function showCard(kind, it)
 				pose = "Cock_" .. style
 			end
 		end
+	elseif it.hw then
+		local skin = it.kind == "Skin" and Config.Halloween.Skins[it.key]
+		local bk = SP.Banners[it.kind]
+		K.name.Text = item and item.Name or "?"
+		K.tier.Text = ""
+		K.line.Text = skin and "Skin" or (it.kind == "Room" and "Home room" or (bk and bk.Name or it.kind))
+		local roomDef = it.kind == "Room" and Extra.Rooms.get(it.key)
+		K.ability.Text = skin and (Extra.HW.skinCharNames(it.key) .. "'s skin: swap it on his page") or (roomDef and "Home's background: put it on with Decorate" or "Equip it in the Locker")
+		K.ability.TextColor3 = skin and (skin.Tint or skin.Color) or Gui.GOLD_LIGHT
+		K.blurb.Text = skin and skin.Blurb or (roomDef and roomDef.Blurb or (bk and bk.Blurb or ""))
+		for _, b in pairs(K.bars) do
+			b.label.Visible, b.track.Visible, b.value.Visible = false, false, false
+		end
 	else
 		K.name.Text = item and item.Name or "?"
 		K.tier.Text = ""
@@ -2233,7 +2377,10 @@ local function showCard(kind, it)
 		end
 	end
 	local sell = Spins.sellValue(rarity)
-	if it.dup and it.frag then
+	if it.hw then
+		K.foot.Text = it.dup and string.format("Duplicate: +%d Candy", it.candy or 0) or "NEW"
+		K.foot.TextColor3 = it.dup and Gui.MUTED or Color3.fromRGB(255, 160, 60)
+	elseif it.dup and it.frag then
 		K.foot.Text = string.format("Duplicate: +1 %s Fragment", it.frag)
 		K.foot.TextColor3 = Gui.GOLD_LIGHT
 	elseif it.dup then
@@ -2259,6 +2406,9 @@ local function showCard(kind, it)
 		cardRig.model.Parent = K.world
 		poseAt(cardRig, mods.AnimationController.poseJoints(pose), 0, 20)
 		K.cam.CFrame = CFrame.lookAt(Vector3.new(4.5, 4.2, -11), Vector3.new(0, 3.2, 0))
+		if it.hw and it.kind == "Skin" and mods.Skins then
+			mods.Skins.prop(cardRig.model, true) -- the Reaper's card: your avatar with the scythe
+		end
 	end
 	if mods.AudioController then
 		mods.AudioController.play(Spins.rarityRank(rarity) >= 4 and "RecruitRevealGold" or "RecruitReveal", { volume = 0.9 })
@@ -2297,6 +2447,9 @@ local function playSequence(reveal)
 	if seqActive then
 		endSequence(seqActive)
 	end
+	if reveal.theme == "Halloween" and mods.HalloweenMenu and mods.HalloweenMenu.hideWindow then
+		mods.HalloweenMenu.hideWindow() -- (back when it's over)
+	end
 	local seq = { stage = "open" }
 	seqActive = seq
 	local S = ui.seq
@@ -2314,8 +2467,13 @@ local function playSequence(reveal)
 		end
 	end
 	local gold = best >= 4
-	-- red for a Mythic, gold for a Legendary, green when the best inside is an S-
+	-- red for a Mythic, gold for a Legendary, green when the best inside is an S-; a Halloween recruit
+	-- is orange whatever's inside (its cinematic tells a Legendary from the Reaper)
+	local theme = reveal.theme
 	local tone = best >= 5 and "mythic" or (gold and (realGold and "gold" or "green") or nil)
+	if theme == "Halloween" then
+		tone = "halloween"
+	end
 	-- the recruit has the screen to itself: no menus, panels or buttons behind it
 	for _, f in pairs(ui.pages) do
 		f.Visible = false
@@ -2378,7 +2536,7 @@ local function playSequence(reveal)
 		mods.SceneController.popBall(i, color)
 		if rank >= 4 then
 			seq.skipping = false -- a skip lands here
-			if not cinematic(seq, rank >= 5) then
+			if not cinematic(seq, rank >= 5, theme) then
 				return
 			end
 			seq.skipping = false
@@ -2425,12 +2583,20 @@ local function playSequence(reveal)
 	end
 	local from = (dups > 0 and sold > 0 and "duplicates and auto-sell") or (sold > 0 and "auto-sell") or "duplicates"
 	local refund = (reveal.refund or 0) > 0 and not profile().dev and string.format("   +%d VP from %s", reveal.refund, from) or ""
+	if theme == "Halloween" then
+		refund = (reveal.candy or 0) > 0 and string.format('   <font color="#FF8A1E">+%d Candy from duplicates</font>', reveal.candy) or ""
+	end
 	S.summary.Text = table.concat(parts, "   ") .. refund
 	S.summary.Visible = true
 	S.confirm.Visible = true
 	waitClick(seq, false)
 	endSequence(seq)
+	if theme == "Halloween" and mods.HalloweenMenu and mods.HalloweenMenu.open then
+		mods.HalloweenMenu.open("Banner") -- back to the banner it came from
+	end
 end
+
+Extra.playSequence = playSequence
 
 ------------------------------------------------------------------------------------------
 -- Players: the roster as cards (filter by role, favourites only, sort by tier or name), and a
@@ -2445,6 +2611,14 @@ local teamMode = "3v3" -- the Players screen's team tab: 3v3, 2v2 or 1v1
 local teamRole = nil -- the slot shown on the team card (nil: the one you play)
 local picking = nil -- { mode, role, you } while a card click fills a team slot
 local playerTab = "Growth" -- the player page's tab: Growth, Break, Info or Profile
+-- A character's page, from outside the Players screen (the Halloween window's Reaper tab).
+function Extra.openPlayer(id)
+	if Roster.get(id) then
+		selectedChar = id
+		playerTab = "Growth"
+		MenuController.go("player")
+	end
+end
 local statStep = Config.Upgrades.Steps[1] -- the player page's + and - move a stat by this much
 
 local function favs(prof)
@@ -2978,6 +3152,78 @@ local function buildPlayer()
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, panel)
 	Gui.halftone(panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.6, 0, 0, 170), ImageColor3 = Gui.CHALK, ImageTransparency = 0.95 })
 
+	-- the character's skins (The Spike's player screen: a skin card on the left with Apply, swapped
+	-- at will; the owner, 2026-10-15: "make the skin kind of like this, where you can swap at
+	-- will"): Default and each skin that fits (the Reaper is Taeho's), a picture, its name and Apply
+	local skinCard = make("Frame", { Name = "Skins", Position = UDim2.new(0, M, 0, 104), Size = UDim2.fromOffset(372, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.18, BorderSizePixel = 0, Visible = false }, p)
+	make("UICorner", { CornerRadius = UDim.new(0, 8) }, skinCard)
+	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, skinCard)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12) }, skinCard)
+	make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, skinCard)
+	local skinHead = make("Frame", { Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1, LayoutOrder = 0 }, skinCard)
+	Gui.iconImage(skinHead, "IconLocker", 22, Gui.CHALK, { Position = UDim2.fromOffset(0, 2) })
+	Gui.label(skinHead, { Text = "SKIN", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Position = UDim2.fromOffset(30, 0), Size = UDim2.new(1, -30, 1, 0) })
+	local function skinRow(order, key)
+		local def = key and Config.Halloween.Skins[key]
+		local color = def and def.Tint or Gui.CHALK
+		local r = make("Frame", { Size = UDim2.new(1, 0, 0, 68), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, LayoutOrder = order }, skinCard)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
+		local edge = make("UIStroke", { Color = color, Thickness = 2, Transparency = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, r)
+		-- the picture: your headshot for Default; the skin's own piece in 3D (the scythe)
+		local pic = make("Frame", { Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(56, 56), BackgroundColor3 = def and Color3.fromRGB(16, 10, 30) or Color3.fromRGB(30, 34, 48), BorderSizePixel = 0, ClipsDescendants = true }, r)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, pic)
+		local lock = nil
+		if def then
+			make("UIGradient", { Color = ColorSequence.new(color:Lerp(Color3.new(0, 0, 0), 0.45), Color3.fromRGB(8, 6, 14)), Rotation = 90 }, pic)
+			local vp = make("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Ambient = Color3.fromRGB(150, 150, 170), LightColor = Color3.new(1, 1, 1), LightDirection = Vector3.new(-0.5, -1, -0.4) }, pic)
+			local ok, sc = pcall(function()
+				return mods.Skins and mods.Skins.newScythe()
+			end)
+			if ok and sc then
+				sc:PivotTo(CFrame.new())
+				sc.Parent = vp
+				local cf, size = sc:GetBoundingBox()
+				local cam = make("Camera", { FieldOfView = 30 }, vp)
+				vp.CurrentCamera = cam
+				local dist = math.max(size.X, size.Y, size.Z) * 1.9
+				cam.CFrame = CFrame.lookAt(cf.Position + Vector3.new(dist, dist * 0.12, 0), cf.Position)
+			end
+			lock = Gui.iconImage(pic, "IconLock", 24, Gui.CHALK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+		else
+			make("ImageLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(player.UserId) .. "&w=150&h=150" }, pic)
+		end
+		local name = Gui.label(r, { Text = def and def.Name or "Default", display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, Position = UDim2.fromOffset(72, 8), Size = UDim2.new(1, -72 - 118, 0, 26), TextTruncate = Enum.TextTruncate.AtEnd })
+		local sub = Gui.label(r, { Text = "", TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(72, 36), Size = UDim2.new(1, -72 - 118, 0, 18), TextTruncate = Enum.TextTruncate.AtEnd })
+		local apply, applyL = actionPlate(r, { Name = "Apply" .. (key or "Default"), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(108, 44) }, "Apply", 18)
+		local row = { frame = r, edge = edge, name = name, sub = sub, apply = apply, applyL = applyL, lock = lock, key = key, color = color }
+		onClick(apply, function()
+			local c = selectedChar and Roster.get(selectedChar)
+			if not c or not apply.Active then
+				return
+			end
+			if row.action == "get" then
+				local hwMenu = mods.HalloweenMenu
+				if hwMenu and hwMenu.open then
+					hwMenu.open("Banner")
+				end
+				return
+			end
+			click("UISelect")
+			local on = Extra.HW.skinOf(profile().skins, c.Id)
+			if key then
+				sendProfile("skin", "on", c.Id, key)
+			elseif on then
+				sendProfile("skin", "off", c.Id, on)
+			end
+		end)
+		return row
+	end
+	Extra.skinRows = { skinRow(1, nil) }
+	for i, key in ipairs(Config.Halloween.SkinOrder) do
+		Extra.skinRows[i + 1] = skinRow(i + 1, key)
+	end
+	Extra.skinCard = skinCard
+
 	-- header: the badge, the name and its line, Play and Favorite
 	local _, setBadge = Gui.tierBadge(panel, 96, { Position = UDim2.fromOffset(22, 18) })
 	local name = Gui.label(panel, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 54, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(134, 16), Size = UDim2.new(1, -134 - 206, 0, 60) })
@@ -3198,6 +3444,167 @@ local function buildPlayer()
 	}
 end
 
+-- Decorate: Home's rooms side by side (Config.Rooms), each a small poster of itself, Apply, or
+-- where to get it. The room changes behind the window as you apply one.
+function Extra.buildDecorate()
+	local m = modal("Decorate", "Decorate Home", 940, 560, true)
+	local list = Extra.Rooms.list()
+	local W, GAP = 420, 24
+	local x0 = (940 - (#list * W + (#list - 1) * GAP)) / 2
+	Extra.decorCards = {}
+	for i, r in ipairs(list) do
+		local haunted = r.key == "Haunted"
+		local card = make("Frame", { Position = UDim2.fromOffset(x0 + (i - 1) * (W + GAP), 96), Size = UDim2.fromOffset(W, 420), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, ZIndex = 21 }, m.panel)
+		make("UICorner", { CornerRadius = UDim.new(0, 10) }, card)
+		local edge = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 2, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, card)
+		-- the poster: a window on the room's light (day, or Halloween night: the orange moon, bats,
+		-- a jack-o'-lantern's glow)
+		local poster = make("Frame", { Position = UDim2.fromOffset(12, 12), Size = UDim2.new(1, -24, 0, 236), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 22 }, card)
+		make("UICorner", { CornerRadius = UDim.new(0, 8) }, poster)
+		if haunted then
+			make("UIGradient", { Rotation = 90, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(14, 10, 40)), ColorSequenceKeypoint.new(0.65, Color3.fromRGB(64, 24, 92)), ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 56, 40)) }) }, poster)
+			local moon = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.68, 0.36), Size = UDim2.fromOffset(110, 110), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 23 }, poster)
+			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, moon)
+			make("UIGradient", { Rotation = 45, Color = ColorSequence.new(Color3.fromRGB(255, 226, 150), Color3.fromRGB(255, 130, 40)) }, moon)
+			for b = 1, 5 do
+				make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.15 + b * 0.14, 0.18 + (b % 3) * 0.13), Size = UDim2.fromOffset(26 + (b % 2) * 14, 26 + (b % 2) * 14), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Bat) or "", ImageColor3 = Color3.fromRGB(10, 6, 16), ZIndex = 24 }, poster)
+			end
+			make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.2, 0.86), Size = UDim2.fromOffset(170, 120), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Glow) or "", ImageColor3 = Color3.fromRGB(255, 130, 30), ImageTransparency = 0.2, ZIndex = 23 }, poster)
+			local pumpkin = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.2, 0, 1, -10), Size = UDim2.fromOffset(64, 50), BackgroundColor3 = Color3.fromRGB(255, 120, 20), BorderSizePixel = 0, ZIndex = 24 }, poster)
+			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, pumpkin)
+			for _, ex in ipairs({ { 0.32, 0.38 }, { 0.68, 0.38 } }) do
+				make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(ex[1], ex[2]), Size = UDim2.fromOffset(11, 9), Rotation = 45, BackgroundColor3 = Color3.fromRGB(255, 230, 120), BorderSizePixel = 0, ZIndex = 25 }, pumpkin)
+			end
+			local mouth = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.7), Size = UDim2.fromOffset(30, 7), BackgroundColor3 = Color3.fromRGB(255, 230, 120), BorderSizePixel = 0, ZIndex = 25 }, pumpkin)
+			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, mouth)
+		else
+			make("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(236, 248, 255), Color3.fromRGB(196, 226, 170)) }, poster)
+			for t = 1, 6 do
+				local tree = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(t / 6 - 0.05, 0.72 + (t % 2) * 0.08), Size = UDim2.fromOffset(70 + (t % 3) * 22, 70 + (t % 3) * 22), BackgroundColor3 = Color3.fromRGB(130 + t * 6, 184, 100), BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = 23 }, poster)
+				make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, tree)
+			end
+			-- the window's frame across it
+			for _, fx in ipairs({ 0.33, 0.66 }) do
+				make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(fx, 0), Size = UDim2.new(0, 8, 1, 0), BackgroundColor3 = Color3.fromRGB(244, 242, 236), BorderSizePixel = 0, ZIndex = 24 }, poster)
+			end
+			make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.new(1, 0, 0, 8), BackgroundColor3 = Color3.fromRGB(244, 242, 236), BorderSizePixel = 0, ZIndex = 24 }, poster)
+		end
+		Gui.label(card, { Text = r.def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Position = UDim2.fromOffset(18, 258), Size = UDim2.new(1, -36, 0, 34), ZIndex = 22 })
+		local tag = Gui.label(card, { Text = r.def.Rarity and (r.def.Rarity .. (r.def.Limited and ("  ·  " .. r.def.Limited) or "")) or "Everyone's", display = true, TextSize = 16, TextColor3 = r.def.Rarity and Spins.rarityColor(r.def.Rarity) or Gui.DIM, Position = UDim2.fromOffset(18, 292), Size = UDim2.new(1, -36, 0, 20), ZIndex = 22 })
+		Gui.label(card, { Text = r.def.Blurb, TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(18, 316), Size = UDim2.new(1, -36, 0, 40), ZIndex = 22 })
+		local apply, applyL = actionPlate(card, { Name = "Apply" .. r.key, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.new(1, -24, 0, 46) }, "Apply", 20)
+		local entry = { key = r.key, edge = edge, apply = apply, applyL = applyL, tag = tag }
+		onClick(apply, function()
+			if not apply.Active then
+				return
+			end
+			if entry.action == "get" then
+				m.root.Visible = false
+				local hwMenu = mods.HalloweenMenu
+				if hwMenu and hwMenu.open then
+					hwMenu.open("Banner")
+				end
+				return
+			end
+			click("UISelect")
+			sendProfile("room", r.key)
+		end)
+		table.insert(Extra.decorCards, entry)
+	end
+	Extra.decor = m
+end
+
+function Extra.openDecorate()
+	Extra.decor.root.Visible = true
+	MenuController.refresh()
+end
+
+function Extra.refreshDecorate(prof)
+	if not Extra.decor or not Extra.decor.root.Visible then
+		return
+	end
+	local rooms = prof.rooms or {}
+	local on = rooms.on or Config.Rooms.Default
+	local active = Extra.HW.active(Util.now())
+	for _, e in ipairs(Extra.decorCards) do
+		local owned = Extra.Rooms.owns(rooms, e.key, prof.dev)
+		local applied = on == e.key
+		e.edge.Color = applied and Gui.SIGNAL or Gui.HAIRLINE
+		e.edge.Transparency = applied and 0.05 or 0.5
+		e.action = nil
+		if applied then
+			e.applyL.Text = "Applied"
+			Gui.enable(e.apply, e.applyL, false)
+		elseif owned then
+			e.applyL.Text = "Apply"
+			Gui.enable(e.apply, e.applyL, true)
+		else
+			local def = Extra.Rooms.get(e.key)
+			local limited = def and def.Limited == "Halloween"
+			e.applyL.Text = (limited and active) and "Get it on the Halloween banner" or "Locked"
+			e.action = (limited and active) and "get" or nil
+			Gui.enable(e.apply, e.applyL, e.action ~= nil)
+		end
+	end
+end
+
+-- The player page's skin card for roster character `c` (mine: you own it): shown when a skin fits
+-- it; each row Applied, Apply, or Get it (to the Halloween banner) / locked.
+function Extra.refreshSkins(prof, c, mine)
+	local fits = Extra.HW.skinsFor(c.Id)
+	Extra.skinCard.Visible = #fits > 0
+	local on = mine and Extra.HW.skinOf(prof.skins, c.Id) or nil
+	local active = Extra.HW.active(Util.now())
+	for _, row in ipairs(Extra.skinRows) do
+		local key = row.key
+		local fit = key == nil or table.find(fits, key) ~= nil
+		row.frame.Visible = fit
+		if fit then
+			local s = key and prof.skins and prof.skins[key]
+			local owned = key == nil or (s ~= nil and (s.copies or 0) > 0)
+			local applied = (key == nil and on == nil) or (key ~= nil and on == key)
+			row.edge.Transparency = applied and 0.1 or 1
+			row.action = nil
+			if key then
+				local def = Config.Halloween.Skins[key]
+				row.sub.Text = applied and "On: you spike with it" or (owned and (def.Rarity .. " skin") or (active and "Halloween banner" or "From the Halloween event"))
+				row.sub.TextColor3 = applied and row.color or Gui.DIM
+				if row.lock then
+					row.lock.Visible = not owned
+				end
+			else
+				row.sub.Text = applied and "On" or "Your usual look"
+				row.sub.TextColor3 = applied and Gui.SIGNAL or Gui.DIM
+			end
+			if not mine then
+				row.applyL.Text = "Recruit"
+				Gui.enable(row.apply, row.applyL, false)
+			elseif applied then
+				row.applyL.Text = "Applied"
+				Gui.enable(row.apply, row.applyL, false)
+			elseif owned or prof.dev then
+				row.applyL.Text = "Apply"
+				Gui.enable(row.apply, row.applyL, true)
+			else
+				row.applyL.Text = active and "Get it" or "Locked"
+				row.action = active and "get" or nil
+				Gui.enable(row.apply, row.applyL, active)
+			end
+		end
+	end
+end
+
+-- What the menu room's avatar holds: the skin's piece of the character on show (Taeho's page) or
+-- of the one you play, while it's on (the Reaper's scythe).
+function Extra.refreshHomeProp(prof)
+	local id = screen == "player" and selectedChar or (prof.char or player:GetAttribute("CharId"))
+	local on = id and Extra.HW.skinOf(prof.skins, id) or nil
+	if screen == "player" and not owns(prof, "Char", id) then
+		on = nil
+	end
+	mods.SceneController.setHomeProp(on)
+end
+
 -- A character's breakthrough as its card shows it, under the role (Spike Cross's grid: "+2"; the
 -- owner, 2026-10-15: "display breakthrough like this"): "" before the first, gold at +Max.
 function Extra.breakTag(prof, id)
@@ -3370,6 +3777,7 @@ local function refreshPlayer(prof)
 	d.setTab(playerTab)
 	d.growth.Visible = playerTab == "Growth"
 	Extra.refreshBreak(prof, c, mine)
+	Extra.refreshSkins(prof, c, mine)
 	d.info.Visible = playerTab == "Info"
 	Extra.bio.frame.Visible = playerTab == "Profile"
 	d.setStep(statStep)
@@ -7156,6 +7564,9 @@ local function doRefresh()
 		refreshMatchScreen(prof)
 	end
 	refreshMatch()
+	Extra.refreshHomeProp(prof)
+	Extra.refreshDecorate(prof)
+	mods.SceneController.setRoom(prof.rooms and prof.rooms.on or Config.Rooms.Default)
 	if ui.fragments and ui.fragments.modal.root.Visible then
 		Extra.refreshFragments(prof)
 	end
@@ -7546,6 +7957,7 @@ function MenuController.init(m)
 	Extra.buildGift()
 	Extra.buildCrop()
 	Extra.buildAdmin()
+	Extra.buildDecorate()
 	Extra.buildCups()
 	Extra.buildTour()
 

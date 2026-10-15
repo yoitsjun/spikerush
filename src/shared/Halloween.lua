@@ -479,6 +479,9 @@ for _, row in ipairs(B.Items) do
 	if row.Kind == "Skin" then
 		local s = HW.Skins[row.Key]
 		item = s and { Key = row.Key, Name = s.Name, Rarity = s.Rarity } or nil
+	elseif row.Kind == "Room" then
+		local r = Config.Rooms.List[row.Key]
+		item = r and { Key = row.Key, Name = r.Name, Rarity = r.Rarity or "Legendary" } or nil
 	else
 		item = Spins.item(row.Kind, row.Key)
 	end
@@ -574,6 +577,17 @@ function Halloween.skinFits(key, charId)
 		end
 	end
 	return false
+end
+
+-- The skins that fit a character (keys in SkinOrder; a skin with no Chars fits anyone).
+function Halloween.skinsFor(charId)
+	local out = {}
+	for _, key in ipairs(HW.SkinOrder) do
+		if Halloween.skinFits(key, charId) then
+			table.insert(out, key)
+		end
+	end
+	return out
 end
 
 -- The characters a skin fits, by name ("Taeho"; "anyone" without Chars).

@@ -38,6 +38,8 @@
 --   ("favor", charId, "up"|"down"|nil) -> boost, lower or reset a character's odds (Config.Spins.Favor)
 --   ("entrance", boardKey | nil)     -> the board whose place shows over your head (nil: your best)
 --   ("profileOf", userId)            -> a player's public profile, on the PlayerProfile remote
+--   ("skin", "on"|"off", charId, key) -> swap a skin on or off for a character (the Reaper: Taeho)
+--   ("room", key)                    -> Home's room (Config.Rooms: the Haunted Clubhouse)
 -- Codes and the daily reward are for members of the group who favorited the game (the owner:
 -- "actually check"; Roblox can't tell a game who liked it, but its favorite prompt tells the
 -- client when they favorite it). Kept in the profile, so it's done once.
@@ -74,6 +76,7 @@ local PatchNotes = require(Shared.PatchNotes)
 local Cards = require(Shared.Cards)
 local Leaderboards = require(Shared.Leaderboards)
 local Halloween = require(Shared.Halloween)
+local Rooms = require(Shared.Rooms)
 local Net = require(Shared.Net)
 
 local ProfileService = {}
@@ -203,7 +206,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil) }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -286,6 +289,8 @@ local function sanitizeProfile(data)
 	out.skins = Halloween.cleanSkins(data.skins, function(id)
 		return Roster.get(id) ~= nil
 	end)
+	-- Home's rooms (Config.Rooms): the ones won, and the one on
+	out.rooms = Rooms.clean(data.rooms)
 	-- breakthroughs: the fragments in hand, and each character's level (Config.Breakthrough)
 	out.fragments = Breakthrough.cleanFragments(data.fragments)
 	if type(data.breaks) == "table" then
@@ -558,6 +563,7 @@ local function save(plr, force)
 		-- skins (the Reaper's copies and the characters they're on)
 		halloween = profile.halloween,
 		skins = profile.skins,
+		rooms = profile.rooms,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -1004,6 +1010,8 @@ function ProfileService.snapshot(plr)
 			end
 			return out
 		end)(),
+		-- Home's rooms: the ones won, and the one shown
+		rooms = { owned = table.clone(profile.rooms.owned), on = Rooms.current(profile.rooms, profile.dev) },
 	}
 end
 
@@ -1782,7 +1790,11 @@ local function grantEventItem(profile, item)
 		Halloween.addCopy(profile.skins, item.key)
 		return false, 0
 	end
-	if item.kind == "Skin" or owns(profile, item.kind, item.key) then
+	if item.kind == "Room" and not profile.rooms.owned[item.key] then
+		profile.rooms.owned[item.key] = true
+		return false, 0
+	end
+	if item.kind == "Skin" or item.kind == "Room" or owns(profile, item.kind, item.key) then
 		local candy = Halloween.dupCandy(item.rarity)
 		profile.halloween.candy = profile.halloween.candy + candy
 		return true, candy
@@ -1844,7 +1856,8 @@ local function eventScout(plr, profile, kind, key)
 	if not item then
 		return
 	end
-	if (item.kind == "Skin" and Halloween.skinDuplicate(profile.skins, item.key)) or (item.kind ~= "Skin" and owns(profile, item.kind, item.key)) then
+	local have = (item.kind == "Skin" and Halloween.skinDuplicate(profile.skins, item.key)) or (item.kind == "Room" and profile.rooms.owned[item.key] == true) or (item.kind ~= "Skin" and item.kind ~= "Room" and owns(profile, item.kind, item.key))
+	if have then
 		push(plr, "You have " .. item.name .. " already.")
 		return
 	end
@@ -1936,6 +1949,17 @@ local function skinRequest(plr, profile, op, charId, key)
 		reg.TeamService.refreshSkins(plr) -- (their stand-in and their AI teammates too)
 	end
 	push(plr, string.format("%s %s for %s.", name, (op == "apply" or op == "on") and "on" or "off", c.Name))
+end
+
+-- Home's room (Config.Rooms): put on one you own (the Decorate window).
+local function roomRequest(plr, profile, key)
+	local ok, why = Rooms.equip(profile.rooms, key, profile.dev)
+	if not ok then
+		push(plr, why == "locked" and "That room isn't yours yet: it's on the Halloween banner." or "No such room.")
+		return
+	end
+	dirty[plr] = true
+	push(plr, Rooms.get(key).Name .. " is your room now.")
 end
 
 -- A pack's grant added to a profile (VP, Gold, lucky spins, a boost's time). Returns what it was
@@ -2366,6 +2390,8 @@ local function onRequest(plr, kind, a, b, c)
 		eventShop(plr, profile, a)
 	elseif kind == "skin" then
 		skinRequest(plr, profile, a, b, c)
+	elseif kind == "room" then
+		roomRequest(plr, profile, a)
 	elseif kind == "luckyTrade" then
 		-- lucky spins for VP (Config.Lucky.VPCost each), in one of the Shop's amounts
 		local n = tonumber(a)

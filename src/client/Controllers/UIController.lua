@@ -653,6 +653,9 @@ local function tagFor(model)
 		TextXAlignment = Enum.TextXAlignment.Center,
 	})
 	stroke(sub, 1, UI.Ink)
+	if State.isMobile then
+		make("UIScale", { Scale = 0.8 }, bb)
+	end
 	return { bb = bb, mark = mark, badge = badge, name = name, sub = sub, model = model }
 end
 
@@ -729,6 +732,8 @@ local function refreshTags()
 				t.sub.Text = who .. abilityName
 			end
 			t.mark.Visible = info.me == true and State.isPlaying
+			-- (on a phone the others' character, height and ability lines piled up over the court)
+			t.sub.Visible = not State.isMobile or info.me == true
 			t.bb.Enabled = not away
 		end
 	end
@@ -1156,8 +1161,30 @@ local function fitTop(touch)
 	end
 	t.scale.Scale = s
 	t.bar.Position = cx and UDim2.fromOffset(cx, 6) or UDim2.new(0.5, 0, 0, 6)
-	t.readout.Position = cx and UDim2.fromOffset(cx, 6 + math.floor(102 * s)) or UDim2.new(0.5, 0, 0, 108)
+	if not touch then
+		-- (on touch updateAbility places it, the one writer: two writes a frame from two places, with
+		-- two answers, made it flash between them on a phone: the owner's recording)
+		t.readout.Position = UDim2.new(0.5, 0, 0, 108)
+	end
 	return 6 + math.floor(106 * s), cx
+end
+
+-- The readout's place on touch: under the scoreboard, pushed right of your badge when they'd meet
+-- (and smaller when there's no room), never under the corner buttons. Written only when it moves
+-- by a pixel or more.
+local function placeReadout(underY, topX, left)
+	local t = ui.top
+	local w = gui.AbsoluteSize.X
+	local r = math.clamp((w - CORNER_W - left) / 440, 0.55, 1)
+	local x = math.floor(math.clamp(topX, left + 220 * r, math.max(left + 220 * r, w - CORNER_W - 220 * r)))
+	local y = underY - 4
+	if math.abs(t.readoutFit.Scale - r) > 0.005 then
+		t.readoutFit.Scale = r
+	end
+	local cur = t.readout.Position
+	if cur.X.Scale ~= 0 or cur.Y.Scale ~= 0 or math.abs(cur.X.Offset - x) >= 1 or math.abs(cur.Y.Offset - y) >= 1 then
+		t.readout.Position = UDim2.fromOffset(x, y)
+	end
 end
 
 -- A badge's key tag: `text` ("Q", or 1 and 2 for an AI teammate's) on an ability you press.
@@ -1193,11 +1220,7 @@ local function updateAbility()
 		B.left.AnchorPoint, B.left.Position = Vector2.new(0, 0), UDim2.fromOffset(x, underTop + 8)
 		-- the attack readout (440 across) between your badge and the corner buttons, smaller
 		-- when it has to be
-		local ro = ui.top.readout
-		local left = x + math.floor(BADGE_BIG * B.leftScale.Scale) + 8
-		local r = math.clamp((gui.AbsoluteSize.X - CORNER_W - left) / 440, 0.55, 1)
-		ui.top.readoutFit.Scale = r
-		ro.Position = UDim2.fromOffset(math.floor(math.max(left + 220 * r, math.min(topX, gui.AbsoluteSize.X - CORNER_W - 220 * r))), ro.Position.Y.Offset)
+		placeReadout(underTop, topX, x + math.floor(BADGE_BIG * B.leftScale.Scale) + 8)
 		B.right.AnchorPoint, B.right.Position = Vector2.new(1, 0), UDim2.new(1, -84, 0, 128)
 	else
 		ui.top.readoutFit.Scale = 1
