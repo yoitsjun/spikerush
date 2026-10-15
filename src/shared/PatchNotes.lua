@@ -15,6 +15,46 @@ PatchNotes.Reward = { Gold = 1000 }
 
 PatchNotes.List = {
 	{
+		Id = "2026-10-15",
+		Title = "Halloween Night",
+		Date = "October 15, 2026",
+		Reward = { Gold = 2500, Lucky = 1 },
+		Sections = {
+			{
+				Heading = "The Halloween event (until November 2)",
+				Items = {
+					{ Text = "<b>Home > Halloween</b>: the <b>Halloween Match</b> on Easy, Normal or Hard. Two stages to 12 points against the AI: before each, a strip of cards rolls past and lands on three, and you pick one, twice. Win both stages for <b>Candy</b>; the first clear of each difficulty every day pays the most." },
+					{ Text = "59 cards: stat buffs and trade-offs, team cards, curses on the other team, rule changes, and an <b>ability card</b> for every ability. Ability cards stack on your own ability, up to <b>two</b> of them." },
+					{ Text = "The <b>Halloween banner</b> (VP or Candy): the Pumpkin and Witch Hat balls, the Pumpkin Burst and Ghost Swarm score effects, Halloween jumps, trails and colours, the <b>Haunted Clubhouse</b>, and the Mythic <b>Reaper</b>. Every recruit is a scout point: spend them to pick an item outright." },
+					{ Icon = "AbilityZeroPoint", Text = "<b>The Reaper</b> is Taeho's skin: he spikes with a void scythe, souls stream behind the ball and his Zero Point gets its own impact frame. Swap it on and off any time on his page." },
+					{ Text = "<b>The Haunted Clubhouse</b>: your Home room on Halloween night, jack-o'-lanterns, cobwebs, bats and a full moon. Put it on with Home's new <b>Decorate</b> button." },
+					{ Text = "The <b>Candy shop</b>: lucky spins, Gold, VP and Halloween cosmetics." },
+				},
+			},
+			{
+				Heading = "Breakthroughs",
+				Items = {
+					{ Text = "Lower tiers grow far more with every breakthrough: a +5 D-tier stands with a maxed A-tier. Each step also cuts an active ability's cooldown." },
+					{ Text = "Your breakthrough level shows on each player's card (+1 to +5), and every breakthrough gets its own reveal." },
+					{ Text = "Favourite a player to lock them: favourites can't be sold." },
+				},
+			},
+			{
+				Heading = "Player changes",
+				Items = {
+					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> buffed: while he has shields he's an <b>Iron Wall</b> at the net. Every attack that crosses in front of him is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
+				},
+			},
+			{
+				Heading = "Fixes",
+				Items = {
+					{ Text = "An AI player whose body was lost mid-match (the 2v3 bug) now gets a new one within a couple of seconds." },
+					{ Text = "Phones: the speed readout no longer flickers between two places, and name tags are smaller with only your own details." },
+				},
+			},
+		},
+	},
+	{
 		Id = "2026-10-14",
 		Title = "Breakthroughs",
 		Date = "October 14, 2026",
