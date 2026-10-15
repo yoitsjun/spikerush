@@ -52,9 +52,11 @@ local linesUntil, linesDir = 0, 1
 local impactGui
 local auras = {}
 local streaks = {}
--- the charge arcs (Feral Leap's, Azure Dragon's): model -> the arc's parts and state; made and
--- dropped by the functions further down, which the Azure aura uses too
-local arcs = {}
+-- the charge arcs (Feral Leap's, Azure Dragon's), by kind: model -> the arc's parts and state;
+-- made and dropped by the functions further down, which the Azure aura uses too. A character
+-- holding both (the Halloween Match's cards stack) can show both at once: Feral's on the side he
+-- faces, Azure's behind.
+local arcs = { feral = {}, azure = {} }
 local newArc, dropArc
 
 -- the HUD's display face: heavy italic
@@ -1170,6 +1172,39 @@ end
 -- chunk is at Luau's 200-local limit.
 local HW = { VOID = Color3.fromRGB(140, 80, 255) }
 
+-- Stacked abilities (the owner, 2026-10-15: the Halloween Match's ability cards "stack" with the
+-- character's own): a model plays its "Abilities" (its own first, then its cards'), and each active
+-- has its own window ("AbilityUntil_<Name>", shared clock), so every effect below asks for the one
+-- it draws.
+HW.Characters = require(Shared.Characters)
+HW.Breakthrough = require(Shared.Breakthrough)
+HW.sets = {} -- an "Abilities" string -> its set (read every frame)
+HW.abilityRow = {} -- entityId -> its last ability popup, { t, n } (VFXController.ability)
+HW.statusHl = {} -- model -> its one status Highlight (the status auras')
+HW.HL_ORDER = { "Storm", "Corona", "Squall", "Molten", "Rally", "Adrenaline" } -- which one it shows
+function HW.has(inst, name)
+	if not inst then
+		return false
+	end
+	if inst:GetAttribute("Ability") == name then
+		return true
+	end
+	local s = inst:GetAttribute("Abilities")
+	if type(s) ~= "string" or s == "" then
+		return false
+	end
+	local set = HW.sets[s]
+	if not set then
+		set = HW.Characters.abilitySet(HW.Characters.parseAbilities(s))
+		HW.sets[s] = set
+	end
+	return set[name] == true
+end
+
+function HW.untilOf(inst, name)
+	return (inst and inst:GetAttribute("AbilityUntil_" .. name)) or -1
+end
+
 -- A jump effect (Config.Cosmetics.Jump) at `foot`: `key` the item, `tint` the spike colour (some
 -- use it), `big` a full-size one (a spike or serve jump, a boom jump, the Locker's preview).
 local JUMP_COLORS = {
@@ -1597,8 +1632,8 @@ local function applyEnergy(fx, e)
 	h.sparks.Rate = 30 + 120 * math.min(e, 1)
 	h.sparks.Color = ColorSequence.new(Color3.fromRGB(230, 250, 255), color)
 	-- the curved gauge behind them fills with it (red once it's held too long)
-	local arc = fx.model and arcs[fx.model]
-	if arc and arc.kind == "azure" then
+	local arc = fx.model and arcs.azure[fx.model]
+	if arc then
 		arc.value = math.min(e, 1)
 		arc.over = over or nil
 	end
@@ -1614,8 +1649,8 @@ local function setAura(model, on, energy, remote)
 			fx.hand.att:Destroy()
 			auras[model] = nil
 		end
-		if arcs[model] and arcs[model].kind == "azure" then
-			dropArc(model)
+		if arcs.azure[model] then
+			dropArc(model, "azure")
 		end
 		return
 	end
@@ -1623,8 +1658,8 @@ local function setAura(model, on, energy, remote)
 	if not hrp then
 		return
 	end
-	if not arcs[model] then
-		arcs[model] = newArc(model, hrp, "azure")
+	if not arcs.azure[model] then
+		arcs.azure[model] = newArc(model, hrp, "azure") -- (beside a Feral Leap's, if he has both)
 	end
 	if not fx then
 		local att = Instance.new("Attachment")
@@ -1649,7 +1684,7 @@ end
 ------------------------------------------------------------------------------------------
 
 local walls = {} -- entityId -> { part, untilT, side }
-local statusFx = {} -- model -> kind -> { att, aura, hl }
+local statusFx = {} -- model -> kind -> { att, aura } (the highlight: HW.statusHl)
 local sunTrails = {} -- Corona: model -> { trail, a0, a1 }, the path he leaves through the air
 local sunSeen = {} -- model -> the Sunrise level last shown
 
@@ -1740,13 +1775,23 @@ local STATUS = {
 }
 
 -- Iron Wall: a glassy barrier above the middle's hands for the ability's duration.
-function VFXController.ability(entityId, ability)
+-- One press can fire several (the Halloween Match's ability cards stack with the character's own,
+-- and the key fires every ready one): `index` is this one's place among them (1 for the first),
+-- and each popup sits that much higher. Without it (the server's, one message per ability) the
+-- ones heard together for a character count up on their own.
+function VFXController.ability(entityId, ability, index)
 	local def = Config.Abilities[ability or ""]
 	local model = Util.modelOf(entityId)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
 	if not def or not hrp then
 		return
 	end
+	local last = HW.abilityRow[entityId]
+	if not index then
+		index = (last and os.clock() - last.t < 0.3) and last.n + 1 or 1
+	end
+	HW.abilityRow[entityId] = { t = os.clock(), n = index }
+	local up = Vector3.new(0, 1.6 * (index - 1), 0)
 	if ability == "IronWall" then
 		local w = walls[entityId]
 		if not w then
@@ -1764,12 +1809,14 @@ function VFXController.ability(entityId, ability)
 			w = { part = part }
 			walls[entityId] = w
 		end
-		w.untilT = os.clock() + def.Duration
+		-- as long as this one lasts (longer with breakthroughs, its own ability's only)
+		local lvl = model:GetAttribute("Ability") == "IronWall" and model:GetAttribute("Break") or 0
+		w.untilT = os.clock() + (HW.Breakthrough.ab("IronWall", "Duration", lvl) or def.Duration)
 		w.side = State.sideOfEntity(entityId) or 1
 		local top = hrp.Position + Vector3.new(0, 5, 0)
 		ringFx(top, def.Color, 2, 12, 0.35, 7)
 		shards(top, def.Color, 10, 40)
-		VFXController.popup(top + Vector3.new(0, 2, 0), "Iron Wall!", def.Color, 1.2)
+		VFXController.popup(top + Vector3.new(0, 2, 0) + up, "Iron Wall!", def.Color, 1.2)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("Block", { volume = 0.7 })
 		end
@@ -1778,7 +1825,7 @@ function VFXController.ability(entityId, ability)
 		local pos = hrp.Position
 		floorRing(pos, def.Color, 4.5, 0.45)
 		ringFx(pos + Vector3.new(0, 1, 0), def.Color, 2, 9, 0.35, 6)
-		VFXController.popup(pos + Vector3.new(0, 6, 0), "Turnabout!", def.Color, 1.1)
+		VFXController.popup(pos + Vector3.new(0, 6, 0) + up, "Turnabout!", def.Color, 1.1)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("Whoosh", { volume = 0.6, speed = 0.8 })
 		end
@@ -1789,7 +1836,7 @@ function VFXController.ability(entityId, ability)
 		starburst(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 240, 190), 14)
 		ringFx(pos + Vector3.new(0, 2, 0), def.Color, 2, 14, 0.45, 8)
 		meshFx("FX_Column", CFrame.new(pos.X, 0.2, pos.Z), def.Color, 0.4, 1.1, 0.6, { base = true, alpha = 0.15 })
-		VFXController.popup(pos + Vector3.new(0, 7, 0), "Corona!", def.Color, 1.3)
+		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Corona!", def.Color, 1.3)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("CoronaFlare", { volume = 0.9 })
 			mods.AudioController.play("Boom", { volume = 0.35, speed = 1.3 })
@@ -1803,7 +1850,7 @@ function VFXController.ability(entityId, ability)
 		end
 		floorRing(pos, def.Color, 10, 0.6)
 		starburst(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 255, 230), 12)
-		VFXController.popup(pos + Vector3.new(0, 7, 0), "Storm Call!", def.Color, 1.3)
+		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Storm Call!", def.Color, 1.3)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("ScoreThunder", { volume = 0.8, pos = pos })
 		end
@@ -1813,7 +1860,7 @@ function VFXController.ability(entityId, ability)
 		floorRing(pos, def.Color, 11, 0.6)
 		meshFx("FX_Spiral", CFrame.new(pos.X, 0.2, pos.Z), def.Color, 0.5, 1.6, 0.7, { base = true, spin = 720, alpha = 0.2 })
 		ringFx(pos + Vector3.new(0, 2, 0), Color3.fromRGB(220, 255, 248), 2, 12, 0.4, 8)
-		VFXController.popup(pos + Vector3.new(0, 7, 0), "Squall!", def.Color, 1.3)
+		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Squall!", def.Color, 1.3)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("SquallOn", { volume = 0.8 })
 		end
@@ -1823,7 +1870,7 @@ function VFXController.ability(entityId, ability)
 		floorRing(pos, def.Color, 16, 0.7)
 		ringFx(pos + Vector3.new(0, 3, 0), def.Color, 2, 18, 0.5, 9)
 		starburst(pos + Vector3.new(0, 3, 0), def.Color, 10, 14, 0.35)
-		VFXController.popup(pos + Vector3.new(0, 7, 0), "Rally Cry!", def.Color, 1.3)
+		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Rally Cry!", def.Color, 1.3)
 		local team = State.teamOf(entityId)
 		for _, e in ipairs(team and State.roster(team) or {}) do
 			local r = Util.rootOf(e.id)
@@ -1924,7 +1971,7 @@ local function updateSunTrails(clock)
 		for _, e in ipairs(State.roster(team)) do
 			local model = Util.modelOf(e.id)
 			local hrp = model and model:FindFirstChild("HumanoidRootPart")
-			if hrp and model:GetAttribute("Ability") == "Corona" and not sunTrails[model] then
+			if hrp and HW.has(model, "Corona") and not sunTrails[model] then
 				local a0 = Instance.new("Attachment")
 				a0.Name = "SunTrail0"
 				a0.Position = Vector3.new(0, 1.6, 0)
@@ -1950,14 +1997,14 @@ local function updateSunTrails(clock)
 	end
 	for model, st in pairs(sunTrails) do
 		local hrp = model.Parent and model:FindFirstChild("HumanoidRootPart")
-		if not hrp or model:GetAttribute("Ability") ~= "Corona" or not st.trail.Parent then
+		if not hrp or not HW.has(model, "Corona") or not st.trail.Parent then
 			st.trail:Destroy()
 			st.a0:Destroy()
 			st.a1:Destroy()
 			sunTrails[model] = nil
 		else
 			st.trail.Enabled = hrp.Position.Y > Config.Player.RootGround + 1.2
-			local on = (model:GetAttribute("AbilityUntil") or -1) >= clock
+			local on = HW.untilOf(model, "Corona") >= clock
 			st.a0.Position = Vector3.new(0, on and 2.0 or 1.6, 0)
 			st.a1.Position = Vector3.new(0, on and -1.8 or -1.4, 0)
 		end
@@ -2108,7 +2155,7 @@ local function updateSunOrbs(clock)
 		for _, e in ipairs(State.roster(team)) do
 			local model = Util.modelOf(e.id)
 			local hrp = model and model:FindFirstChild("HumanoidRootPart")
-			local on = hrp ~= nil and model:GetAttribute("Ability") == "Corona" and (model:GetAttribute("AbilityUntil") or -1) >= clock
+			local on = hrp ~= nil and HW.has(model, "Corona") and HW.untilOf(model, "Corona") >= clock
 			if on and not sunOrbs[model] then
 				local g, _, flare = sunGui(hrp, 9, hrp)
 				g.Name = "CoronaOrb"
@@ -2117,7 +2164,7 @@ local function updateSunOrbs(clock)
 		end
 	end
 	for model, o in pairs(sunOrbs) do
-		local on = model.Parent and model:GetAttribute("Ability") == "Corona" and (model:GetAttribute("AbilityUntil") or -1) >= clock
+		local on = model.Parent and HW.has(model, "Corona") and HW.untilOf(model, "Corona") >= clock
 		if not on or not o.gui.Parent then
 			o.gui:Destroy()
 			sunOrbs[model] = nil
@@ -2570,7 +2617,7 @@ do
 			for _, e in ipairs(State.roster(team)) do
 				local model = Util.modelOf(e.id)
 				local hrp = model and model:FindFirstChild("HumanoidRootPart")
-				if hrp and model:GetAttribute("Ability") == "Ironclad" then
+				if hrp and HW.has(model, "Ironclad") then -- (a card's too: without one, IronLives reads full)
 					seen[model] = true
 					local lives = HitLogic.ironLives(model:GetAttribute("IronLives"))
 					local s = shieldGuis[model]
@@ -2770,19 +2817,20 @@ local function updateAbilityFx(dt)
 				if rally then
 					w.Rally = 1
 				end
-				if model:GetAttribute("Ability") == "Turnabout" and (model:GetAttribute("AbilityUntil") or -1) >= clock then
+				-- each active on its own window (a character can hold several: their flames stack)
+				if HW.has(model, "Turnabout") and HW.untilOf(model, "Turnabout") >= clock then
 					w.Armed = 1
 				end
-				if model:GetAttribute("Ability") == "Corona" and (model:GetAttribute("AbilityUntil") or -1) >= clock then
+				if HW.has(model, "Corona") and HW.untilOf(model, "Corona") >= clock then
 					w.Corona = 1
 				end
-				if model:GetAttribute("Ability") == "Squall" and (model:GetAttribute("AbilityUntil") or -1) >= clock then
+				if HW.has(model, "Squall") and HW.untilOf(model, "Squall") >= clock then
 					w.Squall = 1
 				end
-				if model:GetAttribute("Ability") == "Thunder" and (model:GetAttribute("AbilityUntil") or -1) >= clock then
+				if HW.has(model, "Thunder") and HW.untilOf(model, "Thunder") >= clock then
 					w.Storm = 1 -- Storm Call
 				end
-				if model:GetAttribute("Ability") == "Ironclad" and HitLogic.ironLives(model:GetAttribute("IronLives")) == 0 then
+				if HW.has(model, "Ironclad") and HitLogic.ironLives(model:GetAttribute("IronLives")) == 0 then
 					w.Molten = 1 -- Ironclad awakened
 				end
 				local edge = model:GetAttribute("Counter") or 0
@@ -2804,17 +2852,7 @@ local function updateAbilityFx(dt)
 				local att = Instance.new("Attachment")
 				att.Name = "Status" .. kind
 				att.Parent = hrp
-				local hl = nil
-				if st.fill then
-					hl = Instance.new("Highlight")
-					hl.FillColor = st.fill
-					hl.FillTransparency = 0.85
-					hl.OutlineColor = st.edge
-					hl.OutlineTransparency = 0.3
-					hl.DepthMode = Enum.HighlightDepthMode.Occluded
-					hl.Parent = model
-				end
-				fx = { att = att, aura = Fx.attach("StatusAura", att), hl = hl }
+				fx = { att = att, aura = Fx.attach("StatusAura", att) }
 				list[kind] = fx
 			end
 			if fx then
@@ -2827,14 +2865,43 @@ local function updateAbilityFx(dt)
 		for kind, fx in pairs(list) do
 			if not w[kind] or not fx.att.Parent then
 				fx.att:Destroy()
-				if fx.hl then
-					fx.hl:Destroy()
-				end
 				list[kind] = nil
 			end
 		end
 		if next(list) == nil then
 			statusFx[model] = nil
+		end
+	end
+	-- one status highlight a character (Roblox draws one a model, and a place holds only so many):
+	-- the first kind on in HW.HL_ORDER's order, moving to the next when it ends
+	for model, hl in pairs(HW.statusHl) do
+		if not statusFx[model] or not hl.Parent then
+			hl:Destroy()
+			HW.statusHl[model] = nil
+		end
+	end
+	for model, list in pairs(statusFx) do
+		local top = nil
+		for _, kind in ipairs(HW.HL_ORDER) do
+			if not top and list[kind] and STATUS[kind].fill then
+				top = kind
+			end
+		end
+		local hl = HW.statusHl[model]
+		if top and not hl then
+			hl = Instance.new("Highlight")
+			hl.FillTransparency = 0.85
+			hl.OutlineTransparency = 0.3
+			hl.DepthMode = Enum.HighlightDepthMode.Occluded
+			hl.Parent = model
+			HW.statusHl[model] = hl
+		end
+		if top then
+			hl.FillColor = STATUS[top].fill
+			hl.OutlineColor = STATUS[top].edge
+		elseif hl then
+			hl:Destroy()
+			HW.statusHl[model] = nil
 		end
 	end
 	for model in pairs(sunSeen) do
@@ -2952,12 +3019,18 @@ function newArc(model, hrp, kind)
 	}
 end
 
-function dropArc(model)
-	local a = arcs[model]
+-- kind: "feral" or "azure"; nil drops both
+function dropArc(model, kind)
+	if not kind then
+		dropArc(model, "feral")
+		dropArc(model, "azure")
+		return
+	end
+	local a = arcs[kind] and arcs[kind][model]
 	if not a then
 		return
 	end
-	arcs[model] = nil
+	arcs[kind][model] = nil
 	a.aura.set(false)
 	-- the flames already out finish their life, then everything goes
 	TweenService:Create(a.gui, TweenInfo.new(0.18), { Size = UDim2.new(ARC_STUDS * 1.25, 0, ARC_STUDS * 1.25, 0) }):Play()
@@ -2971,21 +3044,21 @@ function dropArc(model)
 	end)
 end
 
--- A remote charge (another player, or a bot's charge in the air) or a leap's fixed gauge.
--- how: "prowl" (grows over `time`), "leap" (holds `value`), "end".
+-- A remote Feral Leap charge (another player, or a bot's charge in the air) or a leap's fixed
+-- gauge. how: "prowl" (grows over `time`), "leap" (holds `value`), "end".
 local function remoteArc(model, how, value, time)
 	if how == "end" then
-		dropArc(model)
+		dropArc(model, "feral")
 		return
 	end
 	local hrp = model:FindFirstChild("HumanoidRootPart")
 	if not hrp then
 		return
 	end
-	local a = arcs[model]
+	local a = arcs.feral[model]
 	if not a then
-		a = newArc(model, hrp)
-		arcs[model] = a
+		a = newArc(model, hrp, "feral")
+		arcs.feral[model] = a
 	end
 	a.remote = true
 	if how == "prowl" then
@@ -3017,22 +3090,23 @@ end
 
 local function updateArcs(dt)
 	local now = os.clock()
-	-- my own charge and leap come straight from ActionController
+	-- my own charge and leap come straight from ActionController (an Azure charge's arc is its own,
+	-- so both can show)
 	local mine = player.Character
 	local AC = mods and mods.ActionController
-	if mine and AC and not (arcs[mine] and arcs[mine].kind == "azure") then
+	if mine and AC then
 		local charging = AC.prowlCharge()
 		local gauge = AC.leapGauge()
 		local v = charging or (gauge > 0 and gauge) or nil
-		local a = arcs[mine]
+		local a = arcs.feral[mine]
 		if v and not a then
 			local hrp = mine:FindFirstChild("HumanoidRootPart")
 			if hrp then
-				a = newArc(mine, hrp)
-				arcs[mine] = a
+				a = newArc(mine, hrp, "feral")
+				arcs.feral[mine] = a
 			end
 		elseif not v and a and not a.remote then
-			dropArc(mine)
+			dropArc(mine, "feral")
 			a = nil
 		end
 		if a and v then
@@ -3043,81 +3117,93 @@ local function updateArcs(dt)
 			a.value = v
 		end
 	end
-	for model, a in pairs(arcs) do
-		local hrp = model.Parent and model:FindFirstChild("HumanoidRootPart")
-		if not hrp or (a.remote and now > (a.untilT or 0)) then
-			dropArc(model)
-		else
-			if a.remote then
-				a.value = a.fixed or math.min(1, (now - a.t0) * a.rate)
-			end
-			local v = a.value
-			local st = a.style
-			-- Feral Leap's on the side he faces, Azure's behind
-			local dir = hrp.CFrame.LookVector.Z >= 0 and 1 or -1
-			if st.back then
-				dir = -dir
-			end
-			if dir ~= a.dir then
-				a.dir = dir
-				for _, b in ipairs({ a.track, a.main, a.outer }) do
-					layoutBand(b, dir)
+	for kind, set in pairs(arcs) do
+		for model, a in pairs(set) do
+			local hrp = model.Parent and model:FindFirstChild("HumanoidRootPart")
+			if not hrp or (a.remote and now > (a.untilT or 0)) then
+				dropArc(model, kind)
+			else
+				if a.remote then
+					a.value = a.fixed or math.min(1, (now - a.t0) * a.rate)
 				end
-				a.glow.Position = UDim2.fromScale(0.5 + dir * 0.36, 0.5)
-			end
-			-- strokes are in pixels: keep them a share of the arc on any screen
-			local px = a.gui.AbsoluteSize.X
-			a.track.stroke.Thickness = px * 0.07
-			a.main.stroke.Thickness = px * 0.07
-			a.outer.stroke.Thickness = math.max(1, px * 0.016)
-			local full = v >= (a.kind == "azure" and 0.995 or Config.Abilities.Feral.FullAt)
-			if math.abs(v - a.shown) > 0.004 then
-				a.shown = v
-				if v >= 0.995 then
-					a.fill.Transparency = NumberSequence.new(0)
-				elseif v <= 0.005 then
-					a.fill.Transparency = NumberSequence.new(1)
-				else
-					a.fill.Transparency = NumberSequence.new({
-						NumberSequenceKeypoint.new(0, 0),
-						NumberSequenceKeypoint.new(v, 0),
-						NumberSequenceKeypoint.new(math.min(v + 0.02, 0.999), 1),
-						NumberSequenceKeypoint.new(1, 1),
-					})
+				local v = a.value
+				local st = a.style
+				-- Feral Leap's on the side he faces, Azure's behind
+				local dir = hrp.CFrame.LookVector.Z >= 0 and 1 or -1
+				if st.back then
+					dir = -dir
 				end
-			end
-			if full and not a.full then
-				-- full: a flash of light along the arc and a ring off him
-				a.full = true
-				Fx.play("Ring", hrp.Position + Vector3.new(0, 1, 0), { color = st.hot, scale = 0.8 })
-				if model == mine and a.kind == "feral" and mods and mods.AudioController then
-					mods.AudioController.play("FeralFull", { volume = 0.8 })
+				if dir ~= a.dir then
+					a.dir = dir
+					for _, b in ipairs({ a.track, a.main, a.outer }) do
+						layoutBand(b, dir)
+					end
+					a.glow.Position = UDim2.fromScale(0.5 + dir * 0.36, 0.5)
 				end
-			elseif not full then
-				a.full = false
-			end
-			local throb = full and (0.5 + 0.5 * math.sin(now * 14)) or 0
-			local main = full and st.main:Lerp(st.light, 0.35 + 0.4 * throb) or st.main
-			if a.over then
-				main = HOT -- Azure held too long: it'll fly out
-			end
-			a.main.stroke.Color = main
-			a.outer.stroke.Transparency = full and 0.05 or 0.45
-			a.glow.ImageTransparency = 0.85 - 0.45 * v - 0.2 * throb
-			-- the flames at his feet burn harder as it fills (repainted only when that changes)
-			local step = full and 11 or math.floor(v * 10)
-			if step ~= a.auraStep then
-				a.auraStep = step
-				a.aura.set(true, full and st.hot or st.main, 0.3 + 0.09 * step)
+				-- strokes are in pixels: keep them a share of the arc on any screen
+				local px = a.gui.AbsoluteSize.X
+				a.track.stroke.Thickness = px * 0.07
+				a.main.stroke.Thickness = px * 0.07
+				a.outer.stroke.Thickness = math.max(1, px * 0.016)
+				local full = v >= (a.kind == "azure" and 0.995 or Config.Abilities.Feral.FullAt)
+				if math.abs(v - a.shown) > 0.004 then
+					a.shown = v
+					if v >= 0.995 then
+						a.fill.Transparency = NumberSequence.new(0)
+					elseif v <= 0.005 then
+						a.fill.Transparency = NumberSequence.new(1)
+					else
+						a.fill.Transparency = NumberSequence.new({
+							NumberSequenceKeypoint.new(0, 0),
+							NumberSequenceKeypoint.new(v, 0),
+							NumberSequenceKeypoint.new(math.min(v + 0.02, 0.999), 1),
+							NumberSequenceKeypoint.new(1, 1),
+						})
+					end
+				end
+				if full and not a.full then
+					-- full: a flash of light along the arc and a ring off him
+					a.full = true
+					Fx.play("Ring", hrp.Position + Vector3.new(0, 1, 0), { color = st.hot, scale = 0.8 })
+					if model == mine and a.kind == "feral" and mods and mods.AudioController then
+						mods.AudioController.play("FeralFull", { volume = 0.8 })
+					end
+				elseif not full then
+					a.full = false
+				end
+				local throb = full and (0.5 + 0.5 * math.sin(now * 14)) or 0
+				local main = full and st.main:Lerp(st.light, 0.35 + 0.4 * throb) or st.main
+				if a.over then
+					main = HOT -- Azure held too long: it'll fly out
+				end
+				a.main.stroke.Color = main
+				a.outer.stroke.Transparency = full and 0.05 or 0.45
+				a.glow.ImageTransparency = 0.85 - 0.45 * v - 0.2 * throb
+				-- the flames at his feet burn harder as it fills (repainted only when that changes)
+				local step = full and 11 or math.floor(v * 10)
+				if step ~= a.auraStep then
+					a.auraStep = step
+					a.aura.set(true, full and st.hot or st.main, 0.3 + 0.09 * step)
+				end
 			end
 		end
 	end
 end
 
--- The charge showing on a model right now (a Feral Leap arc's, or an Azure Dragon's energy), for
--- the HUD's badges; nil when there's none.
-function VFXController.chargeOf(model)
-	local a = arcs[model]
+-- The charge showing on a model right now, for the HUD's badges; nil when there's none. kind:
+-- "feral" (its Feral Leap arc's) or "azure" (its Azure arc's, else the Azure aura's energy); with
+-- none, the Feral Leap's first.
+function VFXController.chargeOf(model, kind)
+	if kind ~= "azure" then
+		local a = arcs.feral[model]
+		if a then
+			return a.value
+		end
+		if kind == "feral" then
+			return nil
+		end
+	end
+	local a = arcs.azure[model]
 	if a then
 		return a.value
 	end
@@ -3388,6 +3474,14 @@ local function onHit(snap)
 	local shaker = mods.CameraController
 	local model = meta.id and Util.modelOf(meta.id)
 	local reaper = (ht == "Spike" or ht == "JumpServe") and model ~= nil and mods.Skins ~= nil and mods.Skins.isReaper(model)
+	-- the ability tags a hit carries, each one above the last (with the Halloween Match's cards
+	-- stacking, one spike can bring several: Forge, Eye of the Storm and Sundive, and the set's
+	-- Featherfall)
+	local tagRow = 0
+	local function tag(text, color, size)
+		VFXController.popup(pos + Vector3.new(0, 2.6 + 1.3 * tagRow, 0), text, color, size)
+		tagRow = tagRow + 1
+	end
 	if reaper then
 		HW.reap(model, pos, dirZ, kmh)
 	elseif ht == "Spike" or ht == "JumpServe" then
@@ -3415,8 +3509,8 @@ local function onHit(snap)
 	if model then
 		VFXController.swingTrail(model, 0.28) -- the follow-through
 		setAura(model, false)
-		if meta.gauge and arcs[model] and arcs[model].remote then
-			dropArc(model) -- a Feral Leap's arc goes with its spike (mine goes when the gauge is spent)
+		if meta.gauge and arcs.feral[model] and arcs.feral[model].remote then
+			dropArc(model, "feral") -- a Feral Leap's arc goes with its spike (mine goes when the gauge is spent)
 		end
 	end
 
@@ -3489,7 +3583,7 @@ local function onHit(snap)
 			local fcol = Config.Abilities.Featherfall.Color
 			local f = meta.feather
 			ringFx(pos, fcol, 1.5, 7 + 10 * f, 0.35, 6)
-			VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Featherfall +%d%%", math.floor(Config.Abilities.Featherfall.MaxBoost * f * 100 + 0.5)), fcol, 0.9 + 0.3 * f)
+			tag(string.format("Featherfall +%d%%", math.floor(Config.Abilities.Featherfall.MaxBoost * f * 100 + 0.5)), fcol, 0.9 + 0.3 * f)
 			if mods.AudioController.hearsMatch() then
 				mods.AudioController.play("FeatherHit", { volume = 0.6 + 0.4 * f, speed = 1.35, pos = pos, minGap = 0.05 })
 			end
@@ -3498,7 +3592,7 @@ local function onHit(snap)
 			-- Vector Set: the boost the spike's angle earned
 			local boost = meta.vectorBoost or 0
 			ringFx(pos, VECTOR, 1.5, 7 + 20 * boost, 0.35, 6)
-			VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("+%.1f%%", boost * 100), VECTOR, 0.9 + 2 * boost)
+			tag(string.format("+%.1f%%", boost * 100), VECTOR, 0.9 + 2 * boost)
 		end
 		if meta.plunge then
 			-- Plunge Spin: the ball leaves the hand through a big ring of wind (across its line);
@@ -3525,7 +3619,7 @@ local function onHit(snap)
 				end)
 			end
 			if close then
-				VFXController.popup(pos + Vector3.new(0, 2.6, 0), "Plunge Spin!", col, 1.1)
+				tag("Plunge Spin!", col, 1.1)
 				shaker.kick(-5)
 			end
 		end
@@ -3588,7 +3682,7 @@ local function onHit(snap)
 				Fx.play("Fire", pos, { color = col, scale = 0.8 + 0.8 * m })
 			end
 			if close then
-				VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Forge +%d%%", math.floor((meta.forgeBoost or 0) * 100 + 0.5)), red, 0.9 + 0.4 * m)
+				tag(string.format("Forge +%d%%", math.floor((meta.forgeBoost or 0) * 100 + 0.5)), red, 0.9 + 0.4 * m)
 				if mods.AudioController.hearsMatch() then
 					mods.AudioController.play("ForgeHit", { volume = 0.6 + 0.4 * m, pos = pos, minGap = 0.05 })
 				end
@@ -3605,7 +3699,7 @@ local function onHit(snap)
 				meshFx("FX_Spiral", CFrame.new(pos) * CFrame.Angles(math.pi / 2, 0, 0), col, 0.3, 0.9 + 0.5 * g, 0.4, { spin = 720, alpha = 0.2 })
 			end
 			if close then
-				VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Eye of the Storm +%d%%", math.floor(Config.Abilities.Squall.HoverBoost * g * 100 + 0.5)), col, 0.9 + 0.3 * g)
+				tag(string.format("Eye of the Storm +%d%%", math.floor(Config.Abilities.Squall.HoverBoost * g * 100 + 0.5)), col, 0.9 + 0.3 * g)
 				if mods.AudioController.hearsMatch() then
 					mods.AudioController.play("SquallHit", { volume = 0.6 + 0.4 * g, pos = pos, minGap = 0.05 })
 				end
@@ -3620,7 +3714,7 @@ local function onHit(snap)
 				sonicRing(pos, seg.v, Color3.fromRGB(255, 240, 200), 8 + 8 * d, 0.4)
 				ringFx(pos, col, 1, 8 + 10 * d, 0.35, 6)
 				if close then
-					VFXController.popup(pos + Vector3.new(0, 2.6, 0), string.format("Sundive +%d%%", math.floor(Config.Abilities.Corona.DiveBoost * d * 100 + 0.5)), col, 0.9 + 0.4 * d)
+					tag(string.format("Sundive +%d%%", math.floor(Config.Abilities.Corona.DiveBoost * d * 100 + 0.5)), col, 0.9 + 0.4 * d)
 					shaker.kick(-4 - 4 * d)
 				end
 			end
@@ -3631,7 +3725,7 @@ local function onHit(snap)
 				Fx.play("Burst", pos, { color = Color3.fromRGB(255, 250, 220), scale = 1.5 })
 				starburst(pos, col, 14)
 				burst(pos, col, 10)
-				VFXController.popup(pos + Vector3.new(0, meta.dive and 4.2 or 2.6, 0), "Zenith!", col, 1.3)
+				tag("Zenith!", col, 1.3)
 				if close then
 					VFXController.flash(0.35, 0.25)
 					shaker.shake(0.7)
@@ -3644,7 +3738,7 @@ local function onHit(snap)
 			sonicRing(pos, seg.v, col, 10, 0.4)
 			starburst(pos, col, 10)
 			if close then
-				VFXController.popup(pos + Vector3.new(0, 2.6, 0), "Talon Drop!", col, 1.1)
+				tag("Talon Drop!", col, 1.1)
 				shaker.kick(-6)
 			end
 		end
@@ -3705,7 +3799,7 @@ local function onHit(snap)
 					Fx.play("PerfectImpact", pos, { color = FERAL_HOT, scale = 0.8 + 0.5 * g })
 					if meta.firstStrike then
 						Fx.play("Burst", pos, { color = FERAL, scale = 1.3 })
-						VFXController.popup(pos + Vector3.new(0, 2.6, 0), "First Strike!", FERAL_HOT, 1.4)
+						tag("First Strike!", FERAL_HOT, 1.4)
 					end
 					if close and (meta.fullLeap or g >= 0.9) then
 						if not meta.firstStrike and not dark then
@@ -6358,7 +6452,15 @@ function VFXController.init(m)
 	State.signals.Action:Connect(function(entityId, kind, extra)
 		local model = Util.modelOf(entityId)
 		if kind == "Ability" then
-			VFXController.ability(entityId, extra)
+			-- one ability a message (each one a press fired counts up its popup's row); a list
+			-- ("Thunder,Corona") plays each in its order
+			if type(extra) == "string" and string.find(extra, ",", 1, true) then
+				for i, name in ipairs(HW.Characters.parseAbilities(extra)) do
+					VFXController.ability(entityId, name, i)
+				end
+			else
+				VFXController.ability(entityId, extra)
+			end
 		elseif kind == "Jump" then
 			VFXController.boom(entityId, extra)
 			if model and (extra == "Spike" or extra == "Serve") then

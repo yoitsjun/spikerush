@@ -2911,6 +2911,207 @@ do
 		"YeJun's Double Swing: his second swing in a jump hits harder; nobody else's does", string.format("%.0f -> %.0f km/h", first.meta.kmh, second.meta.kmh))
 end
 
+print("== stacked abilities ==")
+do
+	-- the owner (2026-10-15): "it seems the cards take away the abilities. i want them to stack."
+	-- ctx.ability stays the character's own (the only one its breakthroughs grow); ctx.abilities is
+	-- the set of every ability it plays, the Halloween Match's ability cards included
+	local Halloween = require("Halloween")
+	local BTm = require("Breakthrough")
+	local A = Config.Abilities
+	local function set(primary, cards)
+		return Characters.abilitySet(Characters.abilityList(primary, cards))
+	end
+	-- the list: its own first, then the cards in hand order, known ones only, none twice
+	local list = Characters.abilityList("Thunder", { "Azure", "Thunder", "nope", "Azure", "Feral" })
+	local parsed = Characters.parseAbilities(Characters.encodeAbilities(list))
+	check(table.concat(list, ",") == "Thunder,Azure,Feral" and table.concat(parsed, ",") == "Thunder,Azure,Feral" and table.concat(Characters.abilityList(nil, { "Squall" }), ",") == "Squall"
+		and #Characters.abilityList(nil, nil) == 0 and Characters.abilitySet(list).Feral and not Characters.abilitySet(list).nope,
+		"a character's abilities: its own first, then each card's in hand order, once each; the attribute reads back the same", table.concat(list, ","))
+	-- who owns a press two abilities claim: the first of them in that order
+	local own = HitLogic.inputOwner
+	check(own({ "Azure", "Squall" }, "AirSpike") == "Azure" and own({ "Squall", "Azure" }, "AirSpike") == "Squall" and own({ "Thunder", "Feral", "Squall" }, "GroundJump") == "Feral"
+		and own({ "Squall", "Feral" }, "GroundJump") == "Squall" and own({ "Thunder", "Corona" }, "AirSpike") == nil,
+		"a press two of them claim (hold Spike in the air, hold Jump on the ground) goes to the first in the character's order")
+
+	-- YeJun (Thunder) with an Azure card: a thunder spike over 4.00 m that his energy multiplies,
+	-- Azure at +0 while his own Thunder grows with his breakthroughs
+	local yj = Characters.derive(Characters.fromRoster(Roster.get("yejun"), "max"))
+	local r = apexRoot(yj, 3.5 * K)
+	local b = ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local ta = set("Thunder", { "Azure" })
+	local _, th = spike(r, b, { stats = yj, ability = "Thunder" })
+	local _, st = spike(r, b, { stats = yj, ability = "Thunder", abilities = ta }, { energy = 1 })
+	local _, th0 = spike(r, b, { stats = yj, ability = "Thunder" }, { second = true })
+	local _, th5 = spike(r, b, { stats = yj, ability = "Thunder", breakLevel = 5 }, { second = true })
+	local _, st5 = spike(r, b, { stats = yj, ability = "Thunder", abilities = ta, breakLevel = 5 }, { energy = 1, second = true })
+	local lc = { ability = "Thunder", abilities = ta, breakLevel = 5 }
+	check(st.meta.thunder and st.meta.pierce and st.meta.height >= 4.0 and math.abs(st.meta.kmh / th.meta.kmh - (1 + A.Azure.MaxBoost)) < 0.01
+		and math.abs(st5.meta.kmh / th5.meta.kmh - (1 + A.Azure.MaxBoost)) < 0.01 and th5.meta.kmh > th0.meta.kmh * 1.04
+		and HitLogic.levelOf(lc, "Thunder") == 5 and HitLogic.levelOf(lc, "Azure") == 0 and HitLogic.has(lc, "Azure") and not HitLogic.has(lc, "Feral"),
+		"a Thunder Spiker with an Azure card: a thunder spike his energy multiplies; his breakthroughs grow his own ability, not the card's",
+		string.format("%.0f -> %.0f km/h at %.2f m (at +5: %.0f -> %.0f)", th.meta.kmh, st.meta.kmh, st.meta.height, th5.meta.kmh, st5.meta.kmh))
+	-- stats: every ability's points add up (an Adrenaline card at +0 on a +5 Counter Edge)
+	local ines = Characters.derive(Characters.fromRoster(Roster.get("ines"), "max"))
+	local low = { value = 10, max = 100 }
+	local alone = HitLogic.effectiveStats(ines, "Counter", low, { counter = 100, breakLevel = 5 })
+	local both = HitLogic.effectiveStats(ines, "Counter", low, { counter = 100, breakLevel = 5, abilities = set("Counter", { "Adrenaline" }) })
+	check(both.Attack - alone.Attack == A.Adrenaline.AttackBonus and both.Jump - alone.Jump == A.Adrenaline.JumpBonus and alone.Attack > ines.Attack,
+		"stat boosts add up: Counter Edge's meter and an Adrenaline card's points (the card at +0)", string.format("Attack %d -> %d -> %d", ines.Attack, alone.Attack, both.Attack))
+	-- Rally Cry multiplies on top of Monster Mash (it used to take its place)
+	local mash = Halloween.effects("MonsterMash")
+	local rallied = HitLogic.effectiveStats(SP, nil, nil, { hex = mash, teamBoost = true })
+	check(rallied.Speed == math.floor(SP.Speed * (mash.mul * (1 + A.RallyCry.Boost)) + 0.5) and rallied.Speed > math.floor(SP.Speed * (1 + A.RallyCry.Boost) + 0.5),
+		"Rally Cry and Monster Mash multiply", string.format("Speed %d -> %d", SP.Speed, rallied.Speed))
+
+	-- reach, the toss and the jump: the largest of them, never the product
+	local reachAll = HitLogic.spikeReachAll
+	check(reachAll({ Feral = true, Ironclad = true }, 1, 1) == math.max(A.Feral.LeapReachMul, A.Ironclad.SpikeReach + A.Ironclad.ReachMul) and reachAll({ Feral = true, Ironclad = true }, 1, 0) == A.Feral.LeapReachMul
+		and reachAll({ Feral = true, Squall = true }, 0, 0) == math.max(A.Feral.ReachMul, A.Squall.ReachMul) and reachAll("Squall") == A.Squall.ReachMul and reachAll({}) == 1
+		and HitLogic.tossReach({ Feral = true, Corona = true }) == math.max(A.Feral.TossReachMul, A.Corona.TossReachMul) and HitLogic.tossReach({ Thunder = true }) == 1
+		and HitLogic.leapMul({ Thunder = true, Squall = true }) == A.Squall.LeapMul and HitLogic.leapMul({ Thunder = true, Corona = true }, true) == A.Corona.LeapMul
+		and HitLogic.leapMul({ Thunder = true, Corona = true }, false) == A.Thunder.LeapMul and HitLogic.leapMul("Feral") == 1,
+		"spike reach, the serve toss and the jump take the largest of the abilities', not the product",
+		string.format("reach x%.2f, toss x%.2f, jump x%.2f", reachAll({ Feral = true, Ironclad = true }, 1, 1), HitLogic.tossReach({ Feral = true, Corona = true }), HitLogic.leapMul({ Thunder = true, Squall = true, Corona = true }, true)))
+	local dn = Characters.derive(Characters.fromRoster(Roster.get("dante"), "max"))
+	local dr = apexRoot(dn, 6 * K)
+	local edge = ballAt(dr, Z.SpikeCenterDz + Z.SpikeRadiusZ * dn.Reach * 1.45, Z.SpikeCenterDy)
+	local fi = { stats = dn, ability = "Feral", abilities = set("Feral", { "Ironclad" }), awakened = true }
+	local okForge = spike(dr, edge, fi, { gauge = 1, metal = 1, early = true })
+	local okLeap = spike(dr, edge, fi, { gauge = 1, metal = 0 })
+	check(okForge and not okLeap, "Dante with an Ironclad card reaches as far as the wider of the two (his leap, or Forge's charge), not both together")
+
+	-- Zero Point is the base: a Thunder card's Storm Call and an Azure card's energy multiply it, and a
+	-- Feral card's leap leaves his 999 through the block
+	local tz = Characters.derive(Characters.fromRoster(Roster.get("taeha"), "max"))
+	local zr = apexRoot(tz, 3.5 * K)
+	local zb = ballAt(zr, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local _, zero = spike(zr, zb, { stats = tz, ability = "ZeroPoint" })
+	local _, storm = spike(zr, zb, { stats = tz, ability = "ZeroPoint", abilities = set("ZeroPoint", { "Thunder" }), stormOn = true })
+	local _, charged = spike(zr, zb, { stats = tz, ability = "ZeroPoint", abilities = set("ZeroPoint", { "Azure" }) }, { energy = 0.5 })
+	local _, leap = spike(zr, zb, { stats = tz, ability = "ZeroPoint", abilities = set("ZeroPoint", { "Feral" }) }, { gauge = 1, toward = true })
+	check(zero.meta.zero and storm.meta.zero and storm.meta.storm and math.abs(storm.meta.kmh / zero.meta.kmh - (1 + A.Thunder.StormBoost)) < 0.01
+		and charged.meta.zero and math.abs(charged.meta.kmh / zero.meta.kmh - (1 + A.Azure.MaxBoost * 0.5 ^ 1.2)) < 0.01
+		and leap.meta.zero and leap.meta.fullLeap and leap.meta.breakAtk == 999 and storm.launch.hold == A.ZeroPoint.Freeze,
+		"Zero Point keeps Storm Call's and the energy's boosts on top, and a full leap keeps his through-any-block",
+		string.format("%.0f, with Storm Call %.0f, half a bar %.0f km/h", zero.meta.kmh, storm.meta.kmh, charged.meta.kmh))
+
+	-- one path a spike: an overcharge flies out, then a Zero Point's laser, then a hover's aimed spot,
+	-- then Plunge Spin; a plunge keeps a first strike's freeze
+	local function plunging(primary, card, input, extra)
+		local c = { stats = primary == "ZeroPoint" and tz or yj, ability = primary, abilities = set(primary, { card }) }
+		for k, v in pairs(extra or {}) do c[k] = v end
+		local root = primary == "ZeroPoint" and zr or r
+		local ok, res = spike(root, primary == "ZeroPoint" and zb or b, c, input)
+		return ok and res, ok and BallPhysics.buildPath(res.launch)
+	end
+	local over, overPath = plunging("Plunge", "Azure", { energy = 1.3 })
+	local zp = plunging("ZeroPoint", "Plunge")
+	local aimed = plunging("Plunge", "Squall", { gale = 0.5 })
+	local spun = plunging("Plunge", "Squall")
+	local first = plunging("Plunge", "Feral", { gauge = 1 }, { firstStrike = true })
+	check(over and over.meta.overcharge and not over.meta.plunge and not over.launch.dive and not Court.inBounds(overPath.landing.pos)
+		and zp and zp.meta.zero and not zp.meta.plunge and not zp.launch.dive and aimed and aimed.meta.aimed and not aimed.meta.plunge
+		and spun and spun.meta.plunge and spun.launch.dive and first and first.meta.plunge and first.meta.firstStrike and first.launch.hold == A.Feral.FirstFreeze,
+		"one path a spike: overcharge (out) over a Zero Point's laser over a hover's aim over Plunge Spin; a plunging first strike still freezes",
+		over and describe(overPath) or "-")
+
+	-- Iron Wall up beats his own Bulwark: a 220 km/h clean spike never breaks it and no shield cracks
+	local taesan = Characters.derive(Characters.fromRoster(Roster.get("taesan"), "max"))
+	local broot = vec(0, GROUND + Characters.jumpHeight(taesan, GROUND) * 0.8, side * 1.2)
+	local palms = vec(0, broot.Y + Z.BlockReachUp + A.Ironclad.Box.ReachUp + Config.Ball.Radius - 1.5, side * 0.6)
+	local function block(seq, wallUp)
+		local c = ctx({ ability = "Ironclad", abilities = set("Ironclad", { "IronWall" }), stats = taesan, ironclad = true, ironWall = wallUp or nil, seq = seq,
+			lastHit = { hitType = "Spike", team = "Home", kmh = 220, quality = 0.9 }, ballVel = vec(0, -8, side * 30) })
+		return HitLogic.compute({ action = "Block", t = 0, root = broot, ball = palms, vy = 0, grounded = false }, c)
+	end
+	local held, kept, broke, cracked = 0, true, 0, false
+	for seq = 1, 120 do
+		local okW, w = block(seq, true)
+		if okW and w.meta.outcome == "Stuff" and w.meta.perfectBlock and not w.meta.wallBroken and not w.meta.bulwark then
+			held = held + 1
+			local lives, cracks = HitLogic.ironAfterBlock(3, 1, w.meta)
+			kept = kept and lives == 3 and cracks == 1
+		end
+		local okB, bw = block(seq, false)
+		if okB and bw.meta.wallBroken then
+			broke = broke + 1
+		elseif okB and bw.meta.ironWall and bw.meta.bulwark then
+			local lives, cracks = HitLogic.ironAfterBlock(3, 0, bw.meta)
+			cracked = cracked or (lives == 3 and cracks == 1)
+		end
+	end
+	check(held == 120 and kept and broke > 60 and cracked,
+		"Iron Wall up with Ironclad's shields: a 220 km/h spike is shut down every time and cracks nothing; Bulwark alone breaks, and its stops crack",
+		string.format("held %d of 120; without the wall broken %d", held, broke))
+
+	-- the sets: Featherfall's own +5 grows her float's boost, not a Chain Reaction card's explosion
+	local arin = Characters.derive(Characters.fromRoster(Roster.get("arin"), "max"))
+	local sroot = vec(0, GROUND, side * 2.0 * SPM)
+	local sball = vec(0, GROUND + Z.SetIdealY, side * 2.0 * SPM)
+	local okS, sres = HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = sball, vy = 0, grounded = true, setType = "Open" },
+		ctx({ ability = "Featherfall", abilities = set("Featherfall", { "ChainReaction", "Vector" }), stats = arin, touchNumber = 2, seq = 5, breakLevel = 5 }))
+	local sm = okS and sres.meta or {}
+	local function copy(t, changes)
+		local out = { team = "Away" }
+		for k, v in pairs(t) do out[k] = v end
+		for k, v in pairs(changes) do out[k] = v end
+		return out
+	end
+	local sr = apexRoot(SP, 3.5 * K)
+	local function spikeOff(last)
+		local _, res = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy), { lastHit = last }, { t = (sm.featherTop or 0) + A.Featherfall.FullFall + 1 })
+		return res.meta.kmh
+	end
+	local kChain = spikeOff(copy(sm, {}))
+	local kFloat = spikeOff(copy(sm, { charged = false }))
+	local kPlain = spikeOff(copy(sm, { charged = false, setBreak = false }))
+	check(okS and sm.setBreakFor == "Featherfall" and sm.charged and sm.featherSet and sm.vectorSet
+		and math.abs(kChain / kFloat - A.ChainReaction.PowerMul[1]) < 0.01 and math.abs(kFloat / kPlain - (1 + BTm.ab("Featherfall", "MaxBoost", 5)) / (1 + A.Featherfall.MaxBoost)) < 0.01,
+		"a +5 Featherfall setter with Chain Reaction and Vector cards: one set carries all three; her float's boost grows, the card's explosion doesn't",
+		string.format("%.0f plain, %.0f off the float, %.0f exploding", kPlain, kFloat, kChain))
+
+	-- the feint: Skyward's Talon Drop first (at plain power: no lightning) whichever slot holds it
+	local se = Characters.derive(Characters.fromRoster(Roster.get("seora"), "max"))
+	local top = HitLogic.effectiveStats(se, "Skyward", nil, { lift = 99 })
+	local fr = apexRoot(top, Z.SpikeForward + Z.SpikeCenterDz + 0.25 * SPM)
+	local function feint(primary, cards)
+		local okT, resT = HitLogic.compute({ action = "Feint", t = 0, root = fr, ball = ballAt(fr, Z.SpikeCenterDz, Z.SpikeCenterDy), vy = 0, grounded = false },
+			ctx({ stats = se, ability = primary, abilities = cards and set(primary, cards) or nil, lift = 99 }))
+		return okT and resT or nil
+	end
+	local talonOnly, talonCard, talonThunder = feint("Skyward"), feint("Azure", { "Skyward" }), feint("Thunder", { "Skyward" })
+	check(talonOnly and talonCard and talonThunder and talonCard.meta.talon and talonThunder.meta.talon and not talonThunder.meta.thunder
+		and talonCard.meta.kmh == talonOnly.meta.kmh and talonThunder.meta.kmh == talonOnly.meta.kmh,
+		"a Skyward card makes the feint Talon Drop, before Azure's roll shot, at its plain power", string.format("%.1f km/h", talonOnly and talonOnly.meta.kmh or 0))
+	-- Skyward climbs off how high the contact really was, not a Corona card's dive floor
+	local sw = Characters.derive(Characters.fromRoster(Roster.get("seora"), "max"))
+	local swLow = HitLogic.effectiveStats(sw, "Skyward", nil, {})
+	local lowRoot = apexRoot(swLow, 3.5 * K) - vec(0, 3.2, 0)
+	local lb = ballAt(lowRoot, 1.0, 0.4)
+	local _, skyOnly = spike(lowRoot, lb, { stats = sw, ability = "Skyward" })
+	local _, dived = spike(lowRoot, lb, { stats = sw, ability = "Skyward", abilities = set("Skyward", { "Corona" }) }, { sundive = 99 })
+	check(dived.meta.dive and dived.meta.liftGain == skyOnly.meta.liftGain and dived.meta.kmh > skyOnly.meta.kmh,
+		"a Corona card's Sundive powers her spike, but she climbs only by how high she met it", string.format("+%.3f m either way", skyOnly.meta.liftGain or 0))
+
+	-- prediction stays bit-identical: the client's list (read back from the "Abilities" attribute) is
+	-- the server's, Corona's Zenith draws included
+	local abl = Characters.abilityList("Thunder", { "Corona", "Azure" })
+	local mine = Characters.parseAbilities(Characters.encodeAbilities(abl))
+	local pr = apexRoot(SP, 4 * K)
+	local pb = ballAt(pr, 0.9, 0.3)
+	local okA, a = spike(pr, pb, { seq = 99, ability = "Thunder", abilities = Characters.abilitySet(abl), abilityList = abl }, { energy = 0.8 })
+	local okC, c = spike(pr, pb, { seq = 99, ability = "Thunder", abilities = Characters.abilitySet(mine), abilityList = mine }, { energy = 0.8 })
+	local zeniths = 0
+	for seq = 1, 300 do
+		local _, z = spike(pr, pb, { seq = seq, ability = "Thunder", abilities = Characters.abilitySet(abl) })
+		zeniths = zeniths + (z.meta.zenith and 1 or 0)
+	end
+	local pa, pc = BallPhysics.buildPath(a.launch), BallPhysics.buildPath(c.launch)
+	check(okA and okC and pa.landing.t == pc.landing.t and (pa.landing.pos - pc.landing.pos).Magnitude == 0 and a.meta.kmh == c.meta.kmh and zeniths > 30 and zeniths < 110,
+		"prediction is still bit-identical with stacked abilities (a Corona card's Zenith comes up for a Thunder Spiker)", string.format("Zenith %d of 300", zeniths))
+end
+
 print("== your own keys ==")
 local Settings = require("Settings")
 do
@@ -3096,14 +3297,31 @@ do
 		string.format("%s; 1200 offers: %d Common, %d Legendary; AI abilities %d", table.concat(offers, ", "), seen.Common, seen.Legendary, aiAbility))
 	check(Halloween.aiPick({ "PumpkinPower", "NightmareFuel", "Coven" }) == "NightmareFuel", "the AI picks the rarest card offered")
 
-	-- a hand: one ability card at a time (a new one replaces it), no card twice, Stages x Picks at most
+	-- a hand: ability cards stack (the owner, 2026-10-15: "it seems the cards take away the
+	-- abilities. i want them to stack"), every one kept in pick order; no card twice; Stages x Picks
+	-- at most; a pick never offers the card of your character's own ability (it would add nothing)
 	local hand = Halloween.addCard({}, "aThunder")
 	hand = Halloween.addCard(hand, "PumpkinPower")
 	hand = Halloween.addCard(hand, "aAzure")
 	hand = Halloween.addCard(hand, "PumpkinPower")
+	local abs = Halloween.abilitiesOf(hand)
 	local clean = Halloween.cleanHand({ "aThunder", "x", "Coven", "aFeral", "BatWings", "GhostStep", "BoneArmor", "Cobwebs" })
-	check(#hand == 2 and Halloween.abilityOf(hand) == "Azure" and hand[1] == "PumpkinPower" and #clean == HW.Stages * HW.Picks and Halloween.abilityOf(clean) == nil,
-		"one ability card at a time: a new one takes the old one's place; a hand never holds a card twice", table.concat(hand, ", ") .. " / " .. table.concat(clean, ", "))
+	local two = Halloween.cleanHand({ "aThunder", "aAzure", "aThunder" })
+	local ownOffered, thunderOffered = 0, 0
+	local ro = Random.new(11)
+	for _ = 1, 300 do
+		for _, k in ipairs(Halloween.offers(ro, {}, 3, false, { "Thunder" })) do
+			ownOffered = ownOffered + (k == "aThunder" and 1 or 0)
+		end
+		for _, k in ipairs(Halloween.offers(ro, {}, 3)) do
+			thunderOffered = thunderOffered + (k == "aThunder" and 1 or 0)
+		end
+	end
+	check(#hand == 3 and hand[1] == "aThunder" and hand[2] == "PumpkinPower" and hand[3] == "aAzure" and #abs == 2 and abs[1] == "Thunder" and abs[2] == "Azure"
+		and #clean == HW.Stages * HW.Picks and #Halloween.abilitiesOf(clean) == 0 and #two == 2 and table.concat(Halloween.abilitiesOf(two), ",") == "Thunder,Azure"
+		and Halloween.abilityOf == nil and ownOffered == 0 and thunderOffered > 0,
+		"ability cards stack: a hand keeps every one in pick order, never a card twice, Stages x Picks at most; your own ability's card isn't offered",
+		table.concat(hand, ", ") .. " / " .. table.concat(clean, ", ") .. string.format("; Thunder Spiker offered %d times in 300 picks, %d to a Thunder Spiker", thunderOffered, ownOffered))
 
 	-- who each card hits: Self its holder (the AI's, every bot on its side), Team the holder's side,
 	-- Curse the other side
@@ -3248,7 +3466,7 @@ do
 	local junk = Lobbies.importEvent({ diff = "Hard", stage = 9, hands = { ["303"] = "aThunder,aAzure,nope,Coven,Coven" }, ai = "aFeral,BoneArmor" })
 	local hs = Halloween.holders(back.hands, back.ai)
 	check(back.diff == "Hard" and back.stage == 2 and back.ready and table.concat(back.hands[101], ",") == "aThunder,Coven" and table.concat(back.hands[202], ",") == "BatWings"
-		and table.concat(back.ai, ",") == "BoneArmor" and Lobbies.importEvent({ diff = "Spooky" }) == nil and junk.stage == Config.Halloween.Stages and table.concat(junk.hands[303], ",") == "aAzure,Coven"
+		and table.concat(back.ai, ",") == "BoneArmor" and Lobbies.importEvent({ diff = "Spooky" }) == nil and junk.stage == Config.Halloween.Stages and table.concat(junk.hands[303], ",") == "aThunder,aAzure,Coven"
 		and #hs == 3 and hs[1].userId == 101 and hs[1].team == "Home" and hs[3].team == "Away" and hs[3].userId == nil,
 		"a Halloween run survives a teleport (stage, every hand, the AI's), checked on the way in", table.concat(junk.hands[303], ","))
 

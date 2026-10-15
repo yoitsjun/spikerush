@@ -165,11 +165,12 @@ function Halloween.drawable(card, ai)
 	return not card.AiOnly
 end
 
--- `n` different cards for one pick, by rarity weight, none already in `held`. rng: a Random.
-function Halloween.offers(rng, held, n, ai)
+-- `n` different cards for one pick, by rarity weight, none already in `held`, and no ability card
+-- for an ability in `own` (the character's own: it would only repeat it). rng: a Random.
+function Halloween.offers(rng, held, n, ai, own)
 	local pool, total = {}, 0
 	for _, card in ipairs(CARDS) do
-		if Halloween.drawable(card, ai) and not has(held, card.Key) then
+		if Halloween.drawable(card, ai) and not has(held, card.Key) and not (card.Kind == "Ability" and has(own, card.Ability)) then
 			table.insert(pool, card)
 			total = total + Halloween.rarityWeight(card)
 		end
@@ -205,41 +206,36 @@ function Halloween.aiPick(offers)
 	return best
 end
 
--- A hand with `key` added: one ability card at a time (a new one takes the old one's place).
--- Returns the new hand (a copy).
+-- A hand with `key` added (no card twice). Ability cards stack: every one is played beside the
+-- character's own ability (the owner, 2026-10-15: "it seems the cards take away the abilities. i
+-- want them to stack"). Returns the new hand (a copy).
 function Halloween.addCard(hand, key)
-	local card = CARD[key]
 	local out = {}
-	if has(hand, key) then
-		for _, k in ipairs(hand) do
-			table.insert(out, k)
-		end
-		return out
-	end
 	for _, k in ipairs(hand or {}) do
-		local c = CARD[k]
-		if c and k ~= key and not (card and card.Kind == "Ability" and c.Kind == "Ability") then
+		if CARD[k] then
 			table.insert(out, k)
 		end
 	end
-	if card then
+	if CARD[key] and not has(out, key) then
 		table.insert(out, key)
 	end
 	return out
 end
 
--- The ability a hand gives (its ability card's), or nil.
-function Halloween.abilityOf(hand)
+-- Every ability a hand's ability cards give, in hand order (Characters.abilityList puts them after
+-- the character's own and drops a repeat).
+function Halloween.abilitiesOf(hand)
+	local out = {}
 	for _, k in ipairs(hand or {}) do
 		local c = CARD[k]
 		if c and c.Kind == "Ability" then
-			return c.Ability
+			table.insert(out, c.Ability)
 		end
 	end
-	return nil
+	return out
 end
 
--- A hand made safe: known cards, each once, one ability card (the last), at most Stages x Picks.
+-- A hand made safe: known cards, each once, at most Stages x Picks.
 function Halloween.cleanHand(list)
 	local out = {}
 	if type(list) == "table" then

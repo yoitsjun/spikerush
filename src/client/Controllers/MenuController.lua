@@ -1060,7 +1060,7 @@ local HELP_ROWS = {
 	{ "Block", { "W" }, "Hold near the net, then let go to jump. Longer holds jump higher." },
 	{ "Set", { "E", "V" }, "Hold toward the net for a quick, away for a back set, nothing for an open set." },
 	{ "Serve", { "F", "X" }, "F serves underhand and always goes in. Tap X to serve overhand, hold X to toss for a jump serve." },
-	{ "Ability", { "Q" }, "Iron Wall, Turnabout and Rally Cry. The rest work on their own." },
+	{ "Ability", { "Q" }, "Fires every active ability you have that's ready, your character's and your ability cards'. The rest work on their own." },
 	{ "Timeout", { "T" }, "At the next dead ball: refills stamina, opens the rotation and lets you change character. Press again before then to call it off." },
 }
 -- the same on a controller (shown instead while one is in use), and how the menus work on it
@@ -1072,7 +1072,7 @@ local PAD_HELP_ROWS = {
 	{ "Block", { "Y" }, "Hold near the net, then let go to jump. Longer holds jump higher." },
 	{ "Set", { "LB" }, "Stick toward the net for a quick, away for a back set. As the setter, aim with the right stick." },
 	{ "Serve", { "X", "D-Up" }, "Tap X to serve overhand, hold X to toss for a jump serve. D-pad up serves underhand and always goes in." },
-	{ "Ability", { "L2" }, "Iron Wall, Turnabout and Rally Cry. D-pad left and right fire your AI teammates' abilities." },
+	{ "Ability", { "L2" }, "Fires every active ability you have that's ready, your ability cards' too. D-pad left and right fire your AI teammates'." },
 	{ "Timeout", { "Select" }, "At the next dead ball: refills stamina, opens the rotation. D-pad down opens Settings and Forfeit." },
 	{ "Menus", { "A", "B" }, "D-pad or left stick moves the yellow outline, A presses, B goes back. LB and RB switch tabs." },
 }

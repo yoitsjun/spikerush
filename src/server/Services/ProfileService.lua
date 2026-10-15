@@ -856,11 +856,9 @@ end
 -- Write the active character onto the Player (and its avatar) so clients can read it.
 function ProfileService.applyActive(plr)
 	local c, tier, build, brk = ProfileService.characterBuild(plr)
+	-- (always the character's own: a Halloween Match's ability cards stack beside it, in the
+	-- "Abilities" TeamService writes during a match)
 	local ability = c.Ability or ""
-	if plr:GetAttribute("HexAbility") then
-		-- (a Halloween Match's ability card stays the ability until the match ends: TeamService)
-		ability = plr:GetAttribute("Ability") or ability
-	end
 	local char = plr.Character
 	for _, inst in ipairs({ plr, char or plr }) do
 		Characters.writeAttributes(inst, tier, build)

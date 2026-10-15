@@ -106,6 +106,21 @@ local function cardFace(parent, props)
 	return { button = b, stroke = stroke, band = band, kind = kind, name = name, rarity = rarity, blurb = blurb }
 end
 
+-- Whether an ability is already yours: your character's own, or an ability card's in your hand
+-- (a card for it adds only its stats then: the ability isn't played twice).
+local function holdsAbility(name)
+	if name == State.myAbility() then
+		return true
+	end
+	local mn = mine()
+	for _, a in ipairs(Halloween.abilitiesOf(mn and mn.event and mn.event.hand)) do
+		if a == name then
+			return true
+		end
+	end
+	return false
+end
+
 local function setFace(face, key, dim)
 	local card = Halloween.card(key)
 	if not card then
@@ -123,6 +138,9 @@ local function setFace(face, key, dim)
 	face.rarity.Text = card.Rarity
 	face.rarity.TextColor3 = Spins.rarityColor(card.Rarity)
 	face.blurb.Text = Halloween.blurb(card)
+	if card.Kind == "Ability" and holdsAbility(card.Ability) then
+		face.blurb.Text = face.blurb.Text .. "\nYou have it already: its stats only"
+	end
 	face.button.BackgroundTransparency = dim and 0.5 or 0
 end
 
@@ -416,7 +434,7 @@ local function refreshPick()
 	local d = ev.draft
 	if d and d.offers then
 		ui.pick.title.Text = string.format("Stage %d of %d: card %d of %d", ev.stage, ev.stages, d.pick, d.picks)
-		ui.pickLine.Text = "Pick one. A new ability card replaces the one you have."
+		ui.pickLine.Text = "Pick one. Ability cards stack: you keep your own ability and add each card's."
 		ui.pickWait.Visible = false
 		local id = ev.stage .. ":" .. d.pick .. ":" .. table.concat(d.offers, ",")
 		if ui.pickId ~= id then
@@ -525,6 +543,16 @@ local function refreshHud()
 				end
 			end
 		end
+	end
+	-- what stacked: your character's own ability and every ability card's, in the order they play
+	local names = {}
+	for _, a in ipairs(State.myAbilities()) do
+		local def = Config.Abilities[a]
+		table.insert(names, string.format('<font color="%s">%s</font>', colorTag(def.Color), def.Name))
+	end
+	if #names > 0 then
+		table.insert(lines, "<b>Abilities</b>")
+		table.insert(lines, table.concat(names, " + "))
 	end
 	add("Your cards", ev.hand)
 	add("The AI's", ev.ai)

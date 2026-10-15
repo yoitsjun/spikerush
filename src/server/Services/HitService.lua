@@ -179,12 +179,14 @@ function HitService.process(entity, input, opts)
 		if not root then
 			return false, "noroot"
 		end
-		-- (Corona: a Sundive moves him so fast the server's copy of him lags further behind)
+		-- (Corona: a Sundive moves him so fast the server's copy of him lags further behind; one
+		-- playing both, a dive and a rush in one rally: the larger slack)
 		local slack = 1
-		if entity.ability == "Corona" and diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE then
-			slack = Config.Abilities.Corona.DiveRootSlack
-		elseif entity.ability == "Squall" and rushAt[entity.id] and os.clock() - rushAt[entity.id] <= RUSH_LIFE then
-			slack = SQUALL.RushRootSlack -- (Tailwind: she rushes too fast for the server's copy of her)
+		if TS.has(entity, "Corona") and diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE then
+			slack = math.max(slack, Config.Abilities.Corona.DiveRootSlack)
+		end
+		if TS.has(entity, "Squall") and rushAt[entity.id] and os.clock() - rushAt[entity.id] <= RUSH_LIFE then
+			slack = math.max(slack, SQUALL.RushRootSlack) -- (Tailwind: she rushes too fast for the server's copy of her)
 		end
 		if (root.Position - input.root).Magnitude > Config.Net.RootTolerance * slack then
 			return false, "rootpos"
@@ -207,6 +209,8 @@ function HitService.process(entity, input, opts)
 				touchNumber = 3,
 				stats = entity.charStats,
 				ability = entity.ability,
+				abilities = entity.abilitySet,
+				abilityList = entity.abilities,
 				groundY = TS.groundY(entity),
 				stamina = TS.staminaOf(team),
 				hex = Halloween.effects(entity.hex),
@@ -219,8 +223,10 @@ function HitService.process(entity, input, opts)
 		return false, why
 	end
 
-	-- an active ability's window (Iron Wall, Turnabout) covers this touch
-	local armed = (entity.abilityUntil or -1) >= input.t - 0.05
+	-- an active ability's own window (Iron Wall, Turnabout, Storm Call...) covers this touch
+	local function armed(name)
+		return TS.has(entity, name) and TS.windowOf(entity, name) >= input.t - 0.05 or nil
+	end
 	local ctx = {
 		side = Court.sideOf(team),
 		team = team,
@@ -231,27 +237,29 @@ function HitService.process(entity, input, opts)
 		thirdTouch = third,
 		touchNumber = HitLogic.touchNumber(BS.touch, team),
 		stats = entity.charStats,
-		ability = entity.ability,
+		ability = entity.ability, -- its own (the only one its breakthroughs grow)
+		abilities = entity.abilitySet, -- every one it plays (the Halloween Match's ability cards too)
+		abilityList = entity.abilities, -- the same in order (who owns an input two of them claim)
 		groundY = TS.groundY(entity),
 		stamina = TS.staminaOf(team),
 		forceQuality = opts.forceQuality,
-		ironWall = action == "Block" and entity.ability == "IronWall" and armed or nil,
-		ironclad = entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) > 0 or nil,
+		ironWall = action == "Block" and armed("IronWall") or nil,
+		ironclad = TS.has(entity, "Ironclad") and HitLogic.ironLives(entity.ironLives) > 0 or nil,
 		breakLevel = entity.breakLevel,
-		awakened = entity.ability == "Ironclad" and HitLogic.ironLives(entity.ironLives) == 0 or nil,
+		awakened = TS.has(entity, "Ironclad") and HitLogic.ironLives(entity.ironLives) == 0 or nil,
 		enemyPoints = (MS.scores or {})[Court.other(team)] or 0,
 		teamBoost = (TS.rallyUntil[team] or -1) >= input.t - 0.05 or nil,
-		counter = entity.ability == "Counter" and (entity.counter or 0) or nil,
-		lift = entity.ability == "Skyward" and entity.lift or nil,
-		turnabout = entity.ability == "Turnabout" and armed or nil,
-		firstStrike = entity.ability == "Feral" and not entity.firstStrikeUsed or nil,
+		counter = TS.has(entity, "Counter") and (entity.counter or 0) or nil,
+		lift = TS.has(entity, "Skyward") and entity.lift or nil,
+		turnabout = armed("Turnabout"),
+		firstStrike = TS.has(entity, "Feral") and not entity.firstStrikeUsed or nil,
 		auto = entity.isBot or nil,
 		chain = TS.chain[team] or 0,
-		coronaOn = entity.ability == "Corona" and armed or nil,
-		coronaStacks = entity.ability == "Corona" and (entity.coronaStacks or 0) or nil,
-		squallOn = entity.ability == "Squall" and armed or nil,
-		stormOn = entity.ability == "Thunder" and armed or nil,
-		static = entity.ability == "Thunder" and (entity.static or 0) or nil,
+		coronaOn = armed("Corona"),
+		coronaStacks = TS.has(entity, "Corona") and (entity.coronaStacks or 0) or nil,
+		squallOn = armed("Squall"),
+		stormOn = armed("Thunder"),
+		static = TS.has(entity, "Thunder") and (entity.static or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
 		hex = Halloween.effects(entity.hex), -- the Halloween Match's cards that hit this character
 	}
@@ -281,24 +289,27 @@ function HitService.process(entity, input, opts)
 	end
 	-- abilities the touch used up or charged
 	if meta.turnabout then
-		HitService.setAbilityWindow(entity, -1) -- spent: the next set is a set again
+		HitService.setAbilityWindow(entity, "Turnabout", -1) -- spent: the next set is a set again (its window only)
 	end
 	if meta.reaction then
 		TS.setChain(team, (TS.chain[team] or 0) + 1) -- the next explosion this rally is bigger
 	end
-	if entity.ability == "Thunder" and meta.thunder and (meta.hitType == "Spike" or meta.hitType == "JumpServe") then
+	if TS.has(entity, "Thunder") and meta.thunder and (meta.hitType == "Spike" or meta.hitType == "JumpServe") then
 		-- Static Charge: one more for his next spikes this rally
 		TS.setStatic(entity, math.min(Config.Abilities.Thunder.StaticMax, (entity.static or 0) + 1))
 	end
-	if entity.ability == "Ironclad" then
+	if TS.has(entity, "Ironclad") then
 		-- Bulwark: a block broken through costs a shield (none left: awakened); awakened, every touch
 		-- fills Intimidation, and full brings the shields back
 		local lives = HitLogic.ironLives(entity.ironLives)
 		if lives > 0 then
-			-- (a break, or a spike stopped: Cracks)
-			local left, cracks = HitLogic.ironAfterBlock(lives, entity.ironCracks, meta)
-			if left ~= lives or cracks ~= (entity.ironCracks or 0) then
-				TS.setIron(entity, left, 0, cracks)
+			-- (a break, or a spike stopped: Cracks; only Bulwark's own blocks: an Iron Wall up takes
+			-- the spike whole and leaves his shield be)
+			if meta.bulwark then
+				local left, cracks = HitLogic.ironAfterBlock(lives, entity.ironCracks, meta)
+				if left ~= lives or cracks ~= (entity.ironCracks or 0) then
+					TS.setIron(entity, left, 0, cracks)
+				end
 			end
 		else
 			-- (a stuff block fills it more; his kills are added when the point's judged: MatchService)
@@ -328,7 +339,7 @@ function HitService.process(entity, input, opts)
 			end)
 		end
 	end
-	if meta.liftGain and entity.ability == "Skyward" then
+	if meta.liftGain and TS.has(entity, "Skyward") then
 		-- Skyward: the spike raised her hitting point (the HUD shows her new peak)
 		local before = HitLogic.skyLift(entity.lift)
 		local after = HitLogic.skyLift(before + meta.liftGain)
@@ -406,14 +417,14 @@ function HitService.onRequest(plr, req)
 		end
 	end
 	local energy = 0
-	if entity.ability == "Azure" then
+	if TS.has(entity, "Azure") then
 		energy = num(req.energy, 0, 1.4, 0)
 	end
 	-- Feral Leap: no more gauge than the charge the server saw held before the leap, for the one
 	-- spike (or jump serve) off that leap
 	local gauge, toward = 0, false
 	local cap = leapCap[entity.id]
-	if entity.ability == "Feral" and (req.action == "Spike" or req.action == "Serve") and cap and os.clock() - cap.at <= LEAP_LIFE then
+	if TS.has(entity, "Feral") and (req.action == "Spike" or req.action == "Serve") and cap and os.clock() - cap.at <= LEAP_LIFE then
 		gauge = math.min(num(req.gauge, 0, 1, 0), cap.gauge)
 		toward = req.toward == true
 		leapCap[entity.id] = nil
@@ -430,14 +441,14 @@ function HitService.onRequest(plr, req)
 	-- Corona: Sundive's drop needs a dive the server heard start, and he can't claim more than he
 	-- fell since (a little slack: the server's copy of him lags)
 	local sundive = 0
-	if entity.ability == "Corona" and (req.action == "Spike" or req.action == "Serve") and diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE then
+	if TS.has(entity, "Corona") and (req.action == "Spike" or req.action == "Serve") and diveAt[entity.id] and os.clock() - diveAt[entity.id] <= DIVE_LIFE then
 		local fell = (diveFrom[entity.id] or 0) - (Util.isFiniteVector(req.root) and req.root.Y or 0)
 		sundive = math.min(num(req.sundive, 0, Config.Abilities.Corona.DiveMaxDist, 0), math.max(0, fell + 3))
 	end
 	-- Squall: a hover's charge (its power and how deep it goes) needs a hover the server heard, and
 	-- no more charge than it lasted (Eye of the Storm)
 	local gale = nil
-	if entity.ability == "Squall" and (req.action == "Spike" or req.action == "Serve") then
+	if TS.has(entity, "Squall") and (req.action == "Spike" or req.action == "Serve") then
 		local now = os.clock()
 		local cap = hoverCap[entity.id]
 		local most = nil
@@ -453,9 +464,22 @@ function HitService.onRequest(plr, req)
 	end
 	-- Ironclad (awakened): Forge's charge needs a jump the server heard, no more than he's been up
 	local metal, early = nil, nil
-	if entity.ability == "Ironclad" and req.action == "Spike" and ironJumpAt[entity.id] and os.clock() - ironJumpAt[entity.id] <= IRON_LIFE then
+	if TS.has(entity, "Ironclad") and req.action == "Spike" and ironJumpAt[entity.id] and os.clock() - ironJumpAt[entity.id] <= IRON_LIFE then
 		metal = math.min(num(req.metal, 0, 1, 0), (os.clock() - ironJumpAt[entity.id]) / IRON.ChargeTime + IRON.ChargeSlack)
 		early = req.early == true and ironEarly[entity.id] == true
+	end
+	-- holding Spike in the air is one ability's (HitLogic.INPUTS.AirSpike: the first of Azure's
+	-- charge and Squall's hover in the character's order), and a Sundive is neither
+	if energy > 0 and gale ~= nil then
+		if HitLogic.inputOwner(entity.abilities, "AirSpike") == "Squall" then
+			energy = 0
+		else
+			gale = nil
+		end
+	end
+	if sundive > 0 then
+		energy = 0
+		gale = nil
 	end
 	local H = Config.Hits
 	local input = {
@@ -528,38 +552,74 @@ function HitService.fx(entityId, kind, extra, exceptPlayer)
 	end
 end
 
--- An active ability's window ends at `untilT` (shared clock; -1 when it's spent).
-function HitService.setAbilityWindow(entity, untilT)
-	entity.abilityUntil = untilT
-	writeAbility(entity, "AbilityUntil", untilT)
+-- An active ability's window ends at `untilT` (shared clock; -1 when it's spent). Each active has
+-- its own ("AbilityUntil_<Name>"); the old single "AbilityUntil" follows the character's first.
+function HitService.setAbilityWindow(entity, name, untilT)
+	if not entity or type(name) ~= "string" then
+		return
+	end
+	entity.windows = entity.windows or {}
+	entity.windows[name] = untilT
+	writeAbility(entity, "AbilityUntil_" .. name, untilT)
+	if reg.TeamService.firstActive(entity) == name then
+		writeAbility(entity, "AbilityUntil", untilT)
+	end
 end
 
--- Active abilities (Iron Wall, Turnabout, Rally Cry): start one if it's off cooldown. The window
--- and the cooldown are written onto the character (and the player) as shared-clock times for
+-- One active starts: its cooldown, its window, what it does at once. Breakthroughs grow the
+-- character's own ability only (a card's plays at +0).
+local function startAbility(entity, name, def, now)
+	local TS = reg.TeamService
+	local lvl = name == entity.ability and entity.breakLevel or 0
+	entity.readyAt = entity.readyAt or {}
+	entity.readyAt[name] = now + Breakthrough.cooldown(name, lvl) -- (shorter with breakthroughs)
+	writeAbility(entity, "AbilityReadyAt_" .. name, entity.readyAt[name])
+	if TS.firstActive(entity) == name then
+		writeAbility(entity, "AbilityReadyAt", entity.readyAt[name])
+	end
+	local untilT = now + Breakthrough.ab(name, "Duration", lvl) -- (Iron Wall and Rally Cry last longer with breakthroughs)
+	HitService.setAbilityWindow(entity, name, untilT)
+	if name == "RallyCry" then
+		TS.rally(entity.team, untilT)
+	elseif name == "Corona" then
+		-- the flare, and one more use for the penalty once it's off
+		TS.setCorona(entity, untilT, math.min(def.MaxStacks, (entity.coronaStacks or 0) + 1))
+	elseif name == "Squall" then
+		TS.boostWindow(entity, untilT, "Squall") -- faster, and Attack with it
+	end
+	HitService.fx(entity.id, "Ability", name, entity.player) -- the player already shows it
+end
+
+-- Active abilities (Storm Call, Corona, Squall, Iron Wall, Turnabout, Rally Cry), each on its own
+-- window and cooldown. With `name`, that one starts if the character plays it and it's off
+-- cooldown; without, every one it plays that's ready does, in its order (its own, then its
+-- Halloween cards': the cards "stack", the owner, 2026-10-15, so one press pops them all). The
+-- windows and cooldowns are written onto the character (and the player) as shared-clock times for
 -- every client's HUD and effects; Rally Cry also boosts the whole team for the window.
--- Returns true when it started.
-function HitService.activateAbility(entity)
-	local def = entity and entity.ability and Config.Abilities[entity.ability]
-	if not def or not def.Active then
-		return false
+-- Returns whether any started, and the names that did (in order).
+function HitService.activateAbility(entity, name)
+	local fired = {}
+	if not entity then
+		return false, fired
 	end
 	local now = Util.now()
-	if now < (entity.abilityReadyAt or 0) then
-		return false
+	for _, ab in ipairs(entity.abilities or { entity.ability }) do
+		local def = Config.Abilities[ab]
+		if def and def.Active and (name == nil or name == ab) and now >= reg.TeamService.readyAtOf(entity, ab) then
+			startAbility(entity, ab, def, now)
+			table.insert(fired, ab)
+		end
 	end
-	entity.abilityReadyAt = now + Breakthrough.cooldown(entity.ability, entity.breakLevel) -- (shorter with breakthroughs)
-	writeAbility(entity, "AbilityReadyAt", entity.abilityReadyAt)
-	HitService.setAbilityWindow(entity, now + Breakthrough.ab(entity.ability, "Duration", entity.breakLevel)) -- (Iron Wall and Rally Cry last longer with breakthroughs)
-	if entity.ability == "RallyCry" then
-		reg.TeamService.rally(entity.team, entity.abilityUntil)
-	elseif entity.ability == "Corona" then
-		-- the flare, and one more use for the penalty once it's off
-		reg.TeamService.setCorona(entity, entity.abilityUntil, math.min(def.MaxStacks, (entity.coronaStacks or 0) + 1))
-	elseif entity.ability == "Squall" then
-		reg.TeamService.boostWindow(entity, entity.abilityUntil) -- faster, and Attack with it
+	return #fired > 0, fired
+end
+
+-- A remote's ability name: an active the character plays, or nil.
+local function heldActive(entity, name)
+	local def = type(name) == "string" and Config.Abilities[name]
+	if def and def.Active and reg.TeamService.has(entity, name) then
+		return name
 	end
-	HitService.fx(entity.id, "Ability", entity.ability, entity.player) -- the player already shows it
-	return true
+	return nil
 end
 
 function HitService.init(r)
@@ -600,22 +660,26 @@ function HitService.init(r)
 	Players.PlayerRemoving:Connect(function(plr)
 		aimAt[plr] = nil
 	end)
-	Net.get("ActionFX").OnServerEvent:Connect(function(plr, kind, extra)
+	Net.get("ActionFX").OnServerEvent:Connect(function(plr, kind, extra, which)
 		if kind == "Ability" then
+			-- (`extra`: one active by name; none: every one that's ready)
 			local e = reg.TeamService.entityForPlayer(plr)
 			local phase = reg.MatchService.phase
-			if e and (phase == "Rally" or phase == "Serving") then
-				HitService.activateAbility(e)
+			if e and (phase == "Rally" or phase == "Serving") and (extra == nil or heldActive(e, extra)) then
+				HitService.activateAbility(e, extra)
 			end
 			return
 		end
 		if kind == "TeamAbility" then
-			-- a player pops an AI teammate's active ability (bots on a player's team never do)
+			-- a player pops an AI teammate's active abilities (bots on a player's team never do;
+			-- `which`: one by name, none: every one that's ready)
 			local e = reg.TeamService.entityForPlayer(plr)
 			local mate = type(extra) == "string" and reg.TeamService.getEntity(extra)
 			local phase = reg.MatchService.phase
 			if e and mate and mate.isBot and mate.team == e.team and (phase == "Rally" or phase == "Serving") and not rateLimited(plr) then
-				HitService.activateAbility(mate)
+				if which == nil or heldActive(mate, which) then
+					HitService.activateAbility(mate, which)
+				end
 			end
 			return
 		end
@@ -633,20 +697,20 @@ function HitService.init(r)
 			missedAt[e.id] = os.clock()
 			countSwing(e) -- an empty swing in the air is the jump's swing too
 		end
-		if e.ability == "Corona" and kind == "Dive" then
+		if reg.TeamService.has(e, "Corona") and kind == "Dive" then
 			-- Sundive: his next spike may claim the dive's drop
 			diveAt[e.id] = os.clock()
 			local root = reg.TeamService.getRoot(e)
 			diveFrom[e.id] = root and root.Position.Y or 0
 		end
-		if e.ability == "Ironclad" and kind == "Jump" then
+		if reg.TeamService.has(e, "Ironclad") and kind == "Jump" then
 			-- Forge: when he left the floor, and whether his team had set yet (a set only just made
 			-- still counts as after his jump: EarlyGrace)
 			local last = reg.BallService.lastHit
 			ironJumpAt[e.id] = os.clock()
 			ironEarly[e.id] = not (last and last.hitType == "Set" and last.team == e.team and Util.now() - (tonumber(last.t) or 0) > IRON.EarlyGrace)
 		end
-		if e.ability == "Squall" then
+		if reg.TeamService.has(e, "Squall") then
 			local now = os.clock()
 			if kind == "Rush" or kind == "RushJump" then
 				rushAt[e.id] = now
@@ -683,7 +747,7 @@ function HitService.init(r)
 				hoverAt[e.id] = nil
 			end
 		end
-		if e.ability == "Feral" then
+		if reg.TeamService.has(e, "Feral") then
 			-- Feral Leap: the charge starts, then the leap goes with what was held
 			if kind == "Prowl" then
 				prowlAt[e.id] = os.clock()

@@ -13,6 +13,7 @@ local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
+local Characters = require(Shared.Characters)
 local Spins = require(Shared.Spins)
 local State = require(script.Parent.State)
 local Fx = require(script.Parent.Fx)
@@ -406,7 +407,9 @@ local function applyStyle(meta)
 	aura.Enabled = false
 	aura.Rate = 90
 	glow.Brightness = 0
-	local vectorSet = meta ~= nil and meta.vectorSet == true and ht == "Set"
+	-- one setter can make a set several of these (stacked abilities): the look goes Chain Reaction,
+	-- then Featherfall, then Vector, the same as the aura and the dots below
+	local vectorSet = meta ~= nil and meta.vectorSet == true and ht == "Set" and not meta.charged and not meta.featherSet
 	chargedOn = meta ~= nil and (meta.charged == true or meta.reaction == true or vectorSet)
 	pulseRate = vectorSet and 7 or 14
 	if chargedHl then
@@ -799,6 +802,23 @@ end
 -- per frame
 ------------------------------------------------------------------------------------------
 
+-- Whether a character plays an ability: its own or a Halloween card's (they stack), from its
+-- "Abilities" attribute (sets kept by the string: this runs every frame of a spike).
+local heldSets = {}
+local function holds(model, name)
+	if model:GetAttribute("Ability") == name then
+		return true
+	end
+	local s = model:GetAttribute("Abilities")
+	if type(s) ~= "string" or s == "" then
+		return false
+	end
+	if not heldSets[s] then
+		heldSets[s] = Characters.abilitySet(Characters.parseAbilities(s))
+	end
+	return heldSets[s][name] == true
+end
+
 -- Whether the attack at `ball` (gameplay position, moving with `vel`) is at the hands of someone
 -- on the other side who's up for a block (not you: your own block predicts).
 local function atABlock(ball, vel)
@@ -817,8 +837,9 @@ local function atABlock(ball, vel)
 						local model = Util.modelOf(e.id)
 						local hrp = model and model:FindFirstChild("HumanoidRootPart")
 						if hrp then
-							local wall = model:GetAttribute("Ability") == "IronWall" and (model:GetAttribute("AbilityUntil") or -1) >= serverNow
-							local bulwark = model:GetAttribute("Ability") == "Ironclad" and HitLogic.ironLives(model:GetAttribute("IronLives")) > 0
+							-- (both can be up on one character: wallReach takes Iron Wall's whole wall first)
+							local wall = holds(model, "IronWall") and (model:GetAttribute("AbilityUntil_IronWall") or -1) >= serverNow
+							local bulwark = holds(model, "Ironclad") and HitLogic.ironLives(model:GetAttribute("IronLives")) > 0
 							local reach = HitLogic.wallReach(wall, bulwark, meta.hitType)
 							if (wall or bulwark or (blockingUntil[e.id] or 0) > clock) and HitLogic.blockBox(hrp.Position, ball, side, nil, reach) then
 								return true
@@ -954,7 +975,7 @@ local function update(dt)
 		d.born = clock
 		d.part.CFrame = CFrame.new(pos)
 		-- a Chain Reaction set is charged: red dots
-		d.part.Color = (cur.meta.charged and Config.Abilities.ChainReaction.Color) or (cur.meta.vectorSet and VECTOR) or (cur.meta.featherSet and Config.Abilities.Featherfall.Color) or Config.UI.Chalk
+		d.part.Color = (cur.meta.charged and Config.Abilities.ChainReaction.Color) or (cur.meta.featherSet and Config.Abilities.Featherfall.Color) or (cur.meta.vectorSet and VECTOR) or Config.UI.Chalk
 		dotsAliveUntil = clock + 1.4
 	end
 	if clock < dotsAliveUntil then

@@ -54,7 +54,23 @@ local function tierPair(b, pair)
 	return pair[1] + (pair[2] - pair[1]) * skillOf(b.entity)
 end
 
--- The stats this bot plays with right now (Adrenaline, Rising Sun and Rally Cry boost them).
+-- Stacked abilities (the owner, 2026-10-15: the Halloween Match's ability cards "stack" with the
+-- character's own; a stand-in carries its player's): whether it plays `name`, its own or a card's,
+-- and that active's own window (on) and cooldown (ready). Each active has its own.
+local function has(e, name)
+	return reg.TeamService.has(e, name)
+end
+
+local function on(e, name, now)
+	return reg.TeamService.windowOf(e, name) >= now
+end
+
+local function ready(e, name, now)
+	return now >= reg.TeamService.readyAtOf(e, name)
+end
+
+-- The stats this bot plays with right now (Adrenaline, Rising Sun and Rally Cry boost them; the
+-- boost context carries every ability it plays, the same as its humanoid's: TeamService.refreshBoosts).
 local function statsOf(e)
 	local TS = reg.TeamService
 	return (HitLogic.effectiveStats(e.charStats, e.ability, TS.staminaOf(e.team), TS.boostCtx(e)))
@@ -477,7 +493,7 @@ local function planSet(team, now, exclude)
 	b.setStandZ = p.Z -- where it sets from the ground if a jump set falls through
 	local e = b.entity
 	local near = math.abs(p.Z) <= B.JumpSetPassDepth
-	local turn = e.ability == "Turnabout" and (e.abilityUntil or -1) >= now -- already armed: no quick
+	local turn = has(e, "Turnabout") and on(e, "Turnabout", now) -- already armed: no quick
 	-- the wing spiker gets the ball; off a good pass (near the net) the setter sometimes calls a
 	-- quick to the middle instead, if the middle is close enough to the net to hit it. Whoever
 	-- passed (`exclude`) can't set, but can hit the third touch: a wing spiker who took the serve
@@ -498,7 +514,7 @@ local function planSet(team, now, exclude)
 	end
 	if not target and ws and ws.id ~= b.entity.id then
 		target = ws
-		if ws.isBot and b.rng:NextNumber() > 0.9 and b.entity.ability ~= "Vector" then
+		if ws.isBot and b.rng:NextNumber() > 0.9 and not has(b.entity, "Vector") then
 			setType = "Back" -- (a Vector setter keeps it in front, tight to the net)
 		end
 	end
@@ -521,11 +537,11 @@ local function planSet(team, now, exclude)
 	end
 	-- a jump set off a pass near the net; Turnabout is only armed for a ball it can jump for
 	-- (from the ground it would just be a dump)
-	local arm = not turn and e.ability == "Turnabout" and not playerLed(team) and near and now >= (e.abilityReadyAt or 0) and b.rng:NextNumber() < tierPair(b, B.TurnaboutChance)
+	local arm = not turn and has(e, "Turnabout") and not playerLed(team) and near and ready(e, "Turnabout", now) and b.rng:NextNumber() < tierPair(b, B.TurnaboutChance)
 	-- (a Vector setter always jumps for it: the higher her set, the steeper the spike)
-	if turn or arm or (near and e.role == "SE" and (e.ability == "Vector" or b.rng:NextNumber() < tierPair(b, B.JumpSetChance))) then
+	if turn or arm or (near and e.role == "SE" and (has(e, "Vector") or b.rng:NextNumber() < tierPair(b, B.JumpSetChance))) then
 		if planJumpSet(b, side, now) and arm then
-			reg.HitService.activateAbility(e)
+			reg.HitService.activateAbility(e, "Turnabout") -- (Turnabout alone: any other active it plays pops on its own)
 		end
 	end
 end
@@ -576,7 +592,7 @@ local function planAttack(team, now, exclude)
 	spiker.tApex = jumpTime(spiker.hum.JumpHeight, P.HangGravityCancel)
 	local contactY = stats.contactMaxStuds - 0.15
 	local lead = spiker.tApex
-	local azure = spiker.entity.ability == "Azure"
+	local azure = has(spiker.entity, "Azure") -- (with Feral too, both charge on this jump: chargeFrom and leapFrom)
 	if azure then
 		-- jump early, reach the top, then hover down (low gravity while charging) and meet the
 		-- ball with a full bar
@@ -859,7 +875,7 @@ local function serveLogic(b, now, grounded, side)
 			stop(b) -- (the jump goes straight up from where it stands; the steering above takes it on)
 			b.hum.Jump = true
 			reg.HitService.fx(e.id, "Jump", "Serve")
-			if e.ability == "Feral" then
+			if has(e, "Feral") then
 				-- Feral Leap on auto: the jump serve's gauge fills in the air too
 				b.leapFrom = now
 				reg.HitService.fx(e.id, "Prowl", "auto")
@@ -901,22 +917,39 @@ local function serveLogic(b, now, grounded, side)
 end
 
 -- Rally Cry (and Corona, Squall): once it's ready, a bot pops it at some serves (the boost covers
--- the rally; Corona's penalty after makes it pop his less often).
+-- the rally; Corona's penalty after makes it pop his less often). Each one it plays (its own, then
+-- its cards in hand order) rolls its own chance once a serve, on its own cooldown, so two can be
+-- on at once.
 local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance", Thunder = "ThunderChance" }
 local function rallyCry(b, now)
 	local e = b.entity
-	if not POP_CHANCE[e.ability or ""] or b.rallyRolled or now < (e.abilityReadyAt or 0) or playerLed(e.team) then
+	if playerLed(e.team) then
 		return
 	end
-	b.rallyRolled = true
-	if b.rng:NextNumber() < B[POP_CHANCE[e.ability]] then
-		reg.HitService.activateAbility(e)
+	b.rallyRolled = b.rallyRolled or {}
+	for _, name in ipairs(e.abilities or { e.ability }) do
+		local key = POP_CHANCE[name]
+		if key and not b.rallyRolled[name] and ready(e, name, now) then
+			b.rallyRolled[name] = true
+			if b.rng:NextNumber() < B[key] then
+				reg.HitService.activateAbility(e, name)
+			end
+		end
 	end
 end
 
--- Iron Wall's window is up, or Ironclad still has shields.
+-- Iron Wall's window is up, or Ironclad still has shields (with both, Iron Wall's whole wall
+-- comes first: HitLogic.wallReach).
+local function ironWallOn(e, now)
+	return has(e, "IronWall") and on(e, "IronWall", now)
+end
+
+local function bulwarkUp(e)
+	return has(e, "Ironclad") and HitLogic.ironLives(e.ironLives) > 0
+end
+
 local function wallUp(e, now)
-	return (e.ability == "IronWall" and (e.abilityUntil or -1) >= now) or (e.ability == "Ironclad" and HitLogic.ironLives(e.ironLives) > 0)
+	return ironWallOn(e, now) or bulwarkUp(e)
 end
 
 local function blockCheck(b, now, root, side)
@@ -927,7 +960,7 @@ local function blockCheck(b, now, root, side)
 	end
 	local t, p = sweep(b, BS.path, now, function(pos, vel)
 		local e = b.entity
-		local reach = HitLogic.wallReach(e.ability == "IronWall" and (e.abilityUntil or -1) >= now, e.ability == "Ironclad" and HitLogic.ironLives(e.ironLives) > 0, last.hitType)
+		local reach = HitLogic.wallReach(ironWallOn(e, now), bulwarkUp(e), last.hitType)
 		return vel.Z * side > 0 and (HitLogic.blockBox(root, pos, side, e.charStats, reach))
 	end)
 	if t then
@@ -1070,16 +1103,18 @@ local function updateBot(b, now)
 			elseif b.task == "Block" then
 				reg.HitService.fx(e.id, "Jump", "Block")
 				reg.HitService.fx(e.id, "Block")
-				if e.ability == "IronWall" and not playerLed(e.team) then
-					reg.HitService.activateAbility(e) -- whenever it's off cooldown
+				if has(e, "IronWall") and not playerLed(e.team) then
+					-- whenever it's off cooldown (Bulwark's shields or not: Iron Wall is the bigger wall)
+					reg.HitService.activateAbility(e, "IronWall")
 				end
 			end
 			if b.chargeFrom == true then
 				b.chargeFrom = now + 0.08
 				reg.HitService.fx(e.id, "Charge")
 			end
-			if e.ability == "Feral" and (b.task == "Spike" or b.task == "Quick") then
-				-- Feral Leap on auto: the gauge fills in the air (every client grows the arc)
+			if has(e, "Feral") and (b.task == "Spike" or b.task == "Quick") then
+				-- Feral Leap on auto: the gauge fills in the air (every client grows the arc; with
+				-- Azure's charge on the same jump, both)
 				b.leapFrom = now
 				reg.HitService.fx(e.id, "Prowl", "auto")
 			end

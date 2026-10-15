@@ -11,7 +11,8 @@
 --   Set ............. E or V                (hold toward the net for a quick, away for a back set)
 --   Serve ........... X                     (tap = overhand serve; hold = jump-serve toss, longer = higher)
 --   Easy serve ...... F                     (an underhand serve straight from the hand: slow, always in)
---   Ability ......... Q                     (active abilities: Iron Wall)
+--   Ability ......... Q                     (active abilities: Iron Wall; every one of yours that's
+--                                            ready goes at once, your own and the Halloween cards')
 --   Timeout ......... T
 --
 -- Gamepad: A spike, B receive, X serve, D-pad up easy serve, Y block, RB slide/feint, LB set,

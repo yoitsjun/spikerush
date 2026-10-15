@@ -9,6 +9,12 @@
 --                  Squall: on the ground (Jump too) it dashes under the ball and springs up
 --                  (Tailwind); held in the air, once a jump, it hovers and charges, and
 --                  letting go swings: at once, a short drop; the longer, the deeper and harder.
+--                  With the Halloween Match's ability cards stacked on your own, a hold two of
+--                  them want goes by your order (your own first, then the cards): on the ground
+--                  the first that starts (a Tailwind with no ball falls through to Feral's
+--                  prowl), in the air the first of Azure and Squall; a Sundive there to take
+--                  (Corona) goes before either.
+--   Ability ...... every one of your active abilities that's ready goes at once.
 --   Receive ...... arms a receive stance; the touch happens automatically when the ball arrives.
 --                  Pressed a little early (not too early) = perfect timing = almost no stamina lost.
 --   Slide/feint .. ground: slide receive (a fraction of the stamina) / air: roll shot over the block.
@@ -34,6 +40,7 @@ local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
 local Breakthrough = require(Shared.Breakthrough)
+local Characters = require(Shared.Characters)
 local Cups = require(Shared.Cups)
 local Halloween = require(Shared.Halloween)
 local Lobbies = require(Shared.Lobbies)
@@ -125,7 +132,10 @@ local function buildCtx(info, action, t)
 	if BR.getState() == "Flight" and path then
 		ballVel = BallPhysics.velocityAt(path, t)
 	end
-	local ability = State.myAbility()
+	-- (my own ability is ctx.ability, the one Break grows; ctx.abilities and ctx.abilityList are
+	-- every one I play, the Halloween cards' too, built from the same "Abilities" the server's is)
+	local has = State.abilitySet()
+	local AC = ActionController
 	return {
 		side = State.mySide,
 		team = State.myTeam,
@@ -136,50 +146,66 @@ local function buildCtx(info, action, t)
 		thirdTouch = third,
 		touchNumber = HitLogic.touchNumber(touch, State.myTeam),
 		stats = State.myStats(),
-		ability = ability,
+		ability = State.myAbility(),
+		abilities = has,
+		abilityList = State.myAbilities(),
 		groundY = info.groundY,
 		stamina = State.stamina(State.myTeam),
-		ironWall = action == "Block" and ability == "IronWall" and ActionController.abilityActive() or nil,
-		ironclad = ActionController.bulwark() or nil,
+		ironWall = action == "Block" and has.IronWall and AC.abilityActive("IronWall") or nil,
+		ironclad = AC.bulwark() or nil,
 		breakLevel = player:GetAttribute("Break"),
-		awakened = ability == "Ironclad" and not ActionController.bulwark() or nil,
+		awakened = has.Ironclad and not AC.bulwark() or nil,
 		enemyPoints = State.enemyPoints(State.myTeam),
 		teamBoost = State.rallyOn(State.myTeam, t) or nil,
-		counter = ability == "Counter" and (player:GetAttribute("Counter") or 0) or nil,
-		lift = ability == "Skyward" and player:GetAttribute("Lift") or nil,
-		turnabout = ability == "Turnabout" and ActionController.abilityActive() or nil,
-		firstStrike = ability == "Feral" and not player:GetAttribute("FirstStrikeUsed") or nil,
+		counter = has.Counter and (player:GetAttribute("Counter") or 0) or nil,
+		lift = has.Skyward and player:GetAttribute("Lift") or nil,
+		turnabout = has.Turnabout and AC.abilityActive("Turnabout") or nil,
+		firstStrike = has.Feral and not player:GetAttribute("FirstStrikeUsed") or nil,
 		chain = ReplicatedStorage:GetAttribute("Chain_" .. tostring(State.myTeam)) or 0,
-		coronaOn = ability == "Corona" and ActionController.abilityActive() or nil,
-		coronaStacks = ability == "Corona" and (player:GetAttribute("CoronaStacks") or 0) or nil,
-		squallOn = ability == "Squall" and ActionController.abilityActive() or nil,
-		stormOn = ability == "Thunder" and ActionController.abilityActive() or nil,
-		static = ability == "Thunder" and (player:GetAttribute("Static") or 0) or nil,
+		coronaOn = has.Corona and AC.abilityActive("Corona") or nil,
+		coronaStacks = has.Corona and (player:GetAttribute("CoronaStacks") or 0) or nil,
+		squallOn = has.Squall and AC.abilityActive("Squall") or nil,
+		stormOn = has.Thunder and AC.abilityActive("Thunder") or nil,
+		static = has.Thunder and (player:GetAttribute("Static") or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 		hex = Halloween.effects(player:GetAttribute("Hex")), -- the Halloween Match's cards that hit me
 	}, ok, why
 end
 
--- Active abilities (Iron Wall, Turnabout, Rally Cry). The server confirms one by writing
--- AbilityUntil/AbilityReadyAt onto the player; until then the press is predicted locally so the
--- touch right after it counts.
-local localAbilityUntil, localAbilityAt = -1, -10
+-- Active abilities (Storm Call, Corona, Squall, Iron Wall, Turnabout, Rally Cry), each with its own
+-- window and cooldown (a Halloween card's stack beside your own). The server confirms one by
+-- writing AbilityUntil_<Name>/AbilityReadyAt_<Name> onto the player; until then the press is
+-- predicted locally, per ability, so the touch right after it counts.
+local localUntil, localAt = {}, {} -- name -> shared-clock window end / os.clock() of the press
 
-function ActionController.abilityActive()
-	local serverUntil = player:GetAttribute("AbilityUntil") or -1
+local function activeOn(name, now)
+	local serverUntil = player:GetAttribute("AbilityUntil_" .. name) or -1
+	return now <= math.max(serverUntil, localUntil[name] or -1)
+end
+
+-- Whether that active's window is on (nil: any of mine is).
+function ActionController.abilityActive(name)
 	local now = Util.now()
-	return now <= math.max(serverUntil, localAbilityUntil)
+	if name ~= nil then
+		return State.hasAbility(name) and activeOn(name, now)
+	end
+	for _, a in ipairs(State.myActives()) do
+		if activeOn(a, now) then
+			return true
+		end
+	end
+	return false
 end
 
 -- Ironclad: he still has shields (Bulwark: he blocks at the net without pressing Block, with a
 -- block box a little bigger than anyone's, HitLogic.wallReach; no longer Iron Wall's whole wall).
 function ActionController.bulwark()
-	return State.myAbility() == "Ironclad" and HitLogic.ironLives(player:GetAttribute("IronLives")) > 0
+	return State.hasAbility("Ironclad") and HitLogic.ironLives(player:GetAttribute("IronLives")) > 0
 end
 
 -- Ironclad: Forge's charge this jump (0..1), and whether he jumped before the set.
 function ActionController.forgeCharge()
-	if State.myAbility() ~= "Ironclad" or not forge.t0 then
+	if not State.hasAbility("Ironclad") or not forge.t0 then
 		return 0, false
 	end
 	return math.clamp((os.clock() - forge.t0) / IRON.ChargeTime, 0, 1), forge.early
@@ -193,15 +219,56 @@ local function forgeReach()
 	return (ActionController.forgeCharge())
 end
 
--- 0 when ready, else seconds of cooldown left.
-function ActionController.abilityCooldown()
-	local readyAt = player:GetAttribute("AbilityReadyAt") or 0
-	return math.max(0, readyAt - Util.now())
+-- The active abilities in an ability list, in its order.
+local function activesIn(list)
+	local out = {}
+	for _, name in ipairs(list or {}) do
+		local def = Config.Abilities[name or ""]
+		if def and def.Active then
+			table.insert(out, name)
+		end
+	end
+	return out
+end
+
+-- Over a list of actives with their cooldowns (left(name): seconds): the one to name on a button
+-- (the first that's ready, else the soonest), the seconds left (0: at least one is ready), and how
+-- many actives there are.
+local function nextReady(actives, left)
+	local best, bestLeft = nil, math.huge
+	for _, name in ipairs(actives) do
+		local l = left(name)
+		if l <= 0 then
+			return name, 0, #actives
+		end
+		if l < bestLeft then
+			best, bestLeft = name, l
+		end
+	end
+	return best, best and bestLeft or 0, #actives
+end
+
+-- 0 when that active is ready, else seconds of cooldown left (nil: 0 when any of mine is ready,
+-- else the soonest).
+function ActionController.abilityCooldown(name)
+	local now = Util.now()
+	if name ~= nil then
+		return math.max(0, (player:GetAttribute("AbilityReadyAt_" .. name) or 0) - now)
+	end
+	local _, left = nextReady(State.myActives(), ActionController.abilityCooldown)
+	return left
+end
+
+-- My actives for a skill button (Q pops every ready one): the one to name (the first ready, else
+-- the soonest), the seconds left on the soonest (0: one is ready) and how many there are.
+function ActionController.mySkill()
+	return nextReady(State.myActives(), ActionController.abilityCooldown)
 end
 
 -- Your AI teammates with an active ability, in a fixed order (by id: the roster is in rotation
--- order, so a side-out would swap them): keys 1 and 2 (D-pad left and right) pop theirs. Their
--- AI never does it on its own.
+-- order, so a side-out would swap them): keys 1 and 2 (D-pad left and right) pop theirs (every
+-- one that's ready: a stand-in carries its player's Halloween cards). Their AI never does it on
+-- its own.
 local function byId(a, b)
 	return a.id < b.id
 end
@@ -210,8 +277,7 @@ function ActionController.teamAbilities()
 	local list = {}
 	local rosters = State.match and State.match.rosters
 	for _, info in ipairs(rosters and rosters[State.myTeam or ""] or {}) do
-		local def = info.isBot and Config.Abilities[info.ability or ""]
-		if def and def.Active then
+		if info.isBot and #activesIn(info.abilities or { info.ability }) > 0 then
 			table.insert(list, info)
 		end
 	end
@@ -219,11 +285,38 @@ function ActionController.teamAbilities()
 	return list
 end
 
--- 0 when an entity's ability is ready, else the seconds of cooldown left.
-function ActionController.cooldownOf(id)
+-- An entity's actives: its roster entry's (as teamAbilities), else its model's "Abilities".
+local function activesOf(id)
+	local e = State.entry(id)
+	if e then
+		return activesIn(e.abilities or { e.ability })
+	end
+	return activesIn(Characters.abilitiesOf(Util.modelOf(id)))
+end
+
+-- 0 when an entity's active is ready, else the seconds of cooldown left (nil: 0 when any of its
+-- actives is ready, else the soonest).
+function ActionController.cooldownOf(id, name)
 	local model = Util.modelOf(id)
-	local readyAt = model and model:GetAttribute("AbilityReadyAt") or 0
-	return math.max(0, readyAt - Util.now())
+	local now = Util.now()
+	if name ~= nil then
+		return math.max(0, (model and model:GetAttribute("AbilityReadyAt_" .. name) or 0) - now)
+	end
+	local actives = activesOf(id)
+	if #actives == 0 then
+		return math.max(0, (model and model:GetAttribute("AbilityReadyAt") or 0) - now)
+	end
+	local _, left = nextReady(actives, function(a)
+		return ActionController.cooldownOf(id, a)
+	end)
+	return left
+end
+
+-- An AI teammate's actives for a skill button, as mySkill.
+function ActionController.skillOf(id)
+	return nextReady(activesOf(id), function(a)
+		return ActionController.cooldownOf(id, a)
+	end)
 end
 
 local function pressTeamAbility(i)
@@ -234,10 +327,11 @@ local function pressTeamAbility(i)
 	if not mate then
 		return
 	end
-	local def = Config.Abilities[mate.ability]
-	local left = ActionController.cooldownOf(mate.id)
+	-- (the server pops every one of theirs that's ready, as Q does yours)
+	local name, left = ActionController.skillOf(mate.id)
 	if left > 0 then
-		State.hint(string.format("%s's %s is ready in %d s", mate.char or mate.name, def.Name, math.ceil(left)))
+		local def = Config.Abilities[name or ""]
+		State.hint(string.format("%s's %s is ready in %d s", mate.char or mate.name, def and def.Name or "ability", math.ceil(left)))
 		return
 	end
 	Net.get("ActionFX"):FireServer("TeamAbility", mate.id)
@@ -262,9 +356,13 @@ local function pressTimeout()
 	end
 end
 
+-- Q (L2, the touch skill button): every one of my actives that's ready goes at once (my own, then
+-- the Halloween cards'), each predicted on its own window; the server pops the same ones off the
+-- one remote. A card's lasts its plain Duration (its breakthroughs are my own ability's only).
 local function pressAbility()
-	local def = Config.Abilities[State.myAbility() or ""]
-	if not def or not def.Active then
+	local actives = State.myActives()
+	if #actives == 0 then
+		local def = Config.Abilities[State.myAbilities()[1] or ""]
 		if def then
 			State.hint(def.Name .. " works on its own, no key needed")
 		end
@@ -273,22 +371,30 @@ local function pressAbility()
 	if not State.isPlaying or not State.match.inMatch then
 		return
 	end
-	local left = ActionController.abilityCooldown()
-	if left > 0 or os.clock() - localAbilityAt < 0.5 then
-		State.hint(string.format("%s is ready in %d s", def.Name, math.ceil(left)))
+	local fired = 0
+	for _, name in ipairs(actives) do
+		if ActionController.abilityCooldown(name) <= 0 and os.clock() - (localAt[name] or -10) >= 0.5 then
+			fired = fired + 1
+			localAt[name] = os.clock()
+			localUntil[name] = Util.now() + Breakthrough.ab(name, "Duration", State.breakOf(name))
+			mods.VFXController.ability(State.myId, name, fired)
+			if name == "Turnabout" then
+				State.hint("Turnabout armed: your next set spins into a spike (jump for it)")
+			end
+		end
+	end
+	if fired > 0 then
+		Net.get("ActionFX"):FireServer("Ability")
 		return
 	end
-	localAbilityAt = os.clock()
-	localAbilityUntil = Util.now() + Breakthrough.ab(State.myAbility(), "Duration", player:GetAttribute("Break"))
-	Net.get("ActionFX"):FireServer("Ability")
-	mods.VFXController.ability(State.myId, State.myAbility())
-	if State.myAbility() == "Turnabout" then
-		State.hint("Turnabout armed: your next set spins into a spike (jump for it)")
+	local name, left = nextReady(actives, ActionController.abilityCooldown)
+	if left > 0 then
+		State.hint(string.format("%s is ready in %d s", Config.Abilities[name].Name, math.ceil(left)))
 	end
 end
 
 local function isAzure()
-	return State.myAbility() == "Azure"
+	return State.hasAbility("Azure")
 end
 
 local function towardNetAxis()
@@ -382,10 +488,10 @@ local function execute(action, info, opts, t, ballPos)
 		metal = nil, -- (Ironclad awakened: Forge's charge, and whether it began before the set)
 		early = nil,
 	}
-	if (action == "Spike" or action == "Serve") and ctx.ability == "Feral" and leap.gauge > 0 then
+	if (action == "Spike" or action == "Serve") and HitLogic.has(ctx, "Feral") and leap.gauge > 0 then
 		input.gauge, input.toward = leap.gauge, leap.toward
 	end
-	if action == "Spike" and ctx.ability == "Ironclad" then
+	if action == "Spike" and HitLogic.has(ctx, "Ironclad") then
 		local m, e = ActionController.forgeCharge()
 		if m > 0 then
 			input.metal, input.early = m, e
@@ -397,7 +503,7 @@ local function execute(action, info, opts, t, ballPos)
 	end
 	local meta = result.meta
 	if meta.turnabout then
-		localAbilityUntil = -1 -- spent (the server clears its window too)
+		localUntil.Turnabout = -1 -- spent (the server clears its window too, Turnabout's alone)
 	end
 	if input.gauge then
 		leap.gauge = 0 -- the leap's one spike (the server spends it too)
@@ -623,7 +729,7 @@ local function tryAttack(action, info, opts)
 	end
 	local scale = ATTACK_SCALE[action] or 1
 	if action == "Spike" then
-		scale = scale * HitLogic.spikeReach(State.myAbility(), State.myAbility() == "Ironclad" and forgeReach() or leap.gauge) -- Feral Leap reaches wider (wider still off a leap); Ironclad's Steel Reach too
+		scale = scale * HitLogic.spikeReachAll(State.abilitySet(), leap.gauge, forgeReach()) -- Feral Leap reaches wider (wider still off a leap); Ironclad's Steel Reach too (the widest of mine)
 	end
 	local nz, ny = zoneOffset(info.root, ball, scale)
 	local d = math.sqrt(nz * nz + ny * ny)
@@ -637,7 +743,7 @@ local function tryAttack(action, info, opts)
 	end
 	-- Corona: the ball below his reach is a Sundive, along a path onto it (the swing lands on it);
 	-- his jump serve too (the owner: "on serves for laith i cant dash")
-	if (action == "Spike" or action == "Serve") and not swingNow and State.myAbility() == "Corona" and not info.grounded then
+	if (action == "Spike" or action == "Serve") and not swingNow and State.hasAbility("Corona") and not info.grounded then
 		local target, t, meet = divePlan(info, now)
 		local p0 = info.root
 		local c, drop = nil, nil
@@ -645,8 +751,11 @@ local function tryAttack(action, info, opts)
 			c, drop = mods.MovementController.dive(target, t, meet)
 		end
 		if c then
-			-- the spike claims how far the dive dropped him (he hangs still there for the swing)
+			-- the spike claims how far the dive dropped him (he hangs still there for the swing);
+			-- a dive at the end of a hover or a charge is the dive's alone (the server drops their
+			-- gale and energy too)
 			opts.sundive = drop
+			opts.gale, opts.energy = nil, nil
 			buffered = { action = action, opts = opts, expires = os.clock() + t + Config.Abilities.Corona.DiveHold + 0.05, scale = scale, lastQ = nil }
 			mods.AnimationController.pose(State.myId, "Charge", 1)
 			-- the streak and its ribbon when the dash goes, after the hang
@@ -714,7 +823,7 @@ local function tossForward()
 end
 
 local function isFeral()
-	return State.myAbility() == "Feral"
+	return State.hasAbility("Feral")
 end
 
 -- Feral Leap: the charge held on the ground, 0..1 (nil when not charging).
@@ -815,7 +924,7 @@ end
 ------------------------------------------------------------------------------------------
 
 isSquall = function()
-	return State.myAbility() == "Squall"
+	return State.hasAbility("Squall")
 end
 
 -- The spot along the court (z) under where the ball comes down through her hitting point on her
@@ -1005,6 +1114,76 @@ processHover = function(info, dt)
 	end
 end
 
+------------------------------------------------------------------------------------------
+-- stacked abilities: who takes a held press (the Halloween Match's cards play beside your own)
+------------------------------------------------------------------------------------------
+
+-- Azure Dragon: start gathering energy (the rally's press also poses and plays the charge sound).
+local function startCharge(withPose)
+	charge.holding, charge.energy, charge.overT = true, 0, 0
+	mods.MovementController.setCharging(true)
+	if withPose then
+		mods.AnimationController.pose(State.myId, "Charge", 2)
+		mods.AudioController.play("AzureCharge", { volume = 0.7 })
+	end
+	Net.get("ActionFX"):FireServer("Charge")
+end
+
+-- Hold Jump (or Spike) on the ground in a rally: Feral's prowl and Squall's Tailwind both want it
+-- (HitLogic.INPUTS.GroundJump). Mine go in order, my own first, and the first that starts takes
+-- the press: a Tailwind with no ball to go under doesn't, so it falls through to the prowl.
+local function startGroundHold(kind, info)
+	if not State.isPlaying or State.phase() ~= "Rally" then
+		return false
+	end
+	for _, name in ipairs(State.myAbilities()) do
+		if name == "Feral" and startProwl(kind) then
+			return true
+		elseif name == "Squall" and startRush(kind, info) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Hold Spike in the air: Azure's charge or Squall's hover, whichever comes first of mine
+-- (HitLogic.inputOwner; the other's hold is off, and the server keeps only the owner's input).
+local function startAirHold(kind)
+	local owner = HitLogic.inputOwner(State.myAbilities(), "AirSpike")
+	if owner == "Squall" then
+		return startHover(kind)
+	elseif owner == "Azure" and charge.gauge > 0.05 then
+		startCharge(kind == "Spike")
+		return true
+	end
+	return false
+end
+
+-- Corona's Sundive is there to take: in the air, the ball out of reach below him and a path onto
+-- it. It takes an air press before either hold (the swing it ends in can't wait for one), and the
+-- HUD says Dive by this same test. kind: "Serve" (his own toss) or "Spike". Returns { target, meet }.
+local function sundive(info, now, kind)
+	if info.grounded or not State.hasAbility("Corona") or mods.MovementController.isDiving() then
+		return nil
+	end
+	local BR = mods.BallRenderer
+	local scale = ATTACK_SCALE.Serve
+	if kind ~= "Serve" then
+		if not HitLogic.canTouch(BR.getTouch(), State.myTeam, State.myId, "Bump", State.teamSize()) then
+			return nil
+		end
+		scale = HitLogic.spikeReachAll(State.abilitySet(), leap.gauge, forgeReach())
+	end
+	if HitLogic.spikeZone(info.root, BR.getPosition(now), State.mySide, State.myStats(), scale) then
+		return nil
+	end
+	local target, _, meet = divePlan(info, now)
+	if not target then
+		return nil
+	end
+	return { target = target, meet = meet }
+end
+
 local function pressSpike(info)
 	local MC = mods.MovementController
 	if serving() then
@@ -1027,13 +1206,8 @@ local function pressSpike(info)
 					return -- Feral Leap: charge the jump serve, let go to leap into the toss
 				end
 				MC.approach("Serve")
-			elseif isAzure() and charge.gauge > 0.05 then
-				charge.holding, charge.energy, charge.overT = true, 0, 0
-				MC.setCharging(true)
-				Net.get("ActionFX"):FireServer("Charge")
-			elseif isSquall() and startHover("Serve") then
-				return -- Eye of the Storm on her jump serve too
-			else
+			elseif sundive(info, Util.now(), "Serve") or not startAirHold("Serve") then
+				-- (Azure's charge or Eye of the Storm on the jump serve too; a Sundive first)
 				tryAttack("Serve", info, {})
 			end
 		end
@@ -1043,10 +1217,7 @@ local function pressSpike(info)
 		-- a jump whenever you like (the owner: "make it so i can jump whenever"): waiting for the
 		-- serve, between points and out of a match too; Feral Leap charges only in a rally, and
 		-- Squall's Tailwind rushes only in one
-		if State.isPlaying and State.phase() == "Rally" and isFeral() and startProwl("Spike") then
-			return
-		end
-		if State.isPlaying and State.phase() == "Rally" and isSquall() and startRush("Spike", info) then
+		if startGroundHold("Spike", info) then
 			return
 		end
 		MC.approach("Spike")
@@ -1059,15 +1230,8 @@ local function pressSpike(info)
 		end
 		return
 	end
-	if isSquall() and startHover("Spike") then
-		return -- Eye of the Storm: hover and charge, let go to swing
-	end
-	if isAzure() and charge.gauge > 0.05 then
-		charge.holding, charge.energy, charge.overT = true, 0, 0
-		MC.setCharging(true)
-		mods.AnimationController.pose(State.myId, "Charge", 2)
-		mods.AudioController.play("AzureCharge", { volume = 0.7 })
-		Net.get("ActionFX"):FireServer("Charge")
+	-- Eye of the Storm (hover and charge) or Azure's charge: let go to swing; a Sundive goes first
+	if not sundive(info, Util.now(), "Spike") and startAirHold("Spike") then
 		return
 	end
 	if os.clock() - lastActionAt < P.ActionCooldown or os.clock() < whiffUntil then
@@ -1279,7 +1443,7 @@ local function tossGuide(info)
 			if held >= P.ServeTapTime then
 				local k = math.clamp((held - P.ServeTapTime) / H.TossChargeTime, 0, 1)
 				local height = H.TossHighMin + (H.TossHighMax - H.TossHighMin) * k
-				local p, v = HitLogic.tossLaunch(info.root, State.mySide, height, tossForward(), HitLogic.tossReach(State.myAbility()))
+				local p, v = HitLogic.tossLaunch(info.root, State.mySide, height, tossForward(), HitLogic.tossReach(State.abilitySet()))
 				path = BallPhysics.buildPath(BallPhysics.newLaunch(p, v, Vector3.new(0, -Config.Ball.Gravity, 0), 0))
 			end
 		elseif myToss() then
@@ -1349,10 +1513,8 @@ local function pressJump(info)
 		return
 	end
 	-- straight up whenever you like; Feral Leap charges only in a rally, Squall's Tailwind too
-	if State.isPlaying and State.phase() == "Rally" and isFeral() and startProwl("Jump") then
-		return
-	end
-	if State.isPlaying and State.phase() == "Rally" and isSquall() and startRush("Jump", info) then
+	-- (the first of them that starts, as on Spike)
+	if startGroundHold("Jump", info) then
 		return
 	end
 	mods.MovementController.approach("Spike")
@@ -1411,13 +1573,9 @@ function ActionController.release(action)
 	if action == "Spike" then
 		releaseSpike(info)
 	elseif action == "Jump" then
-		if rush then
-			stopRush() -- (Tailwind: let go and she stops; the dash springs by itself)
-		elseif hover then
-			releaseHover(info) -- (touch: Jump is the spike in the air)
-		else
-			releaseProwl(info)
-		end
+		-- (Tailwind: let go and she stops; touch: Jump is the spike in the air, so a hover or an
+		-- Azure charge it started lets go here too)
+		releaseSpike(info)
 	elseif action == "Block" then
 		releaseBlock(info)
 	elseif action == "Serve" then
@@ -1550,7 +1708,8 @@ end
 
 local function processBlock(info, now)
 	-- Iron Wall up: you're a wall at the net, jumping or not (no block press or timing needed)
-	local iron = (State.myAbility() == "IronWall" and ActionController.abilityActive()) or ActionController.bulwark()
+	local wallUp = ActionController.abilityActive("IronWall") -- (beats Ironclad's Bulwark when both are up)
+	local iron = wallUp or ActionController.bulwark()
 	if not block.active and not iron then
 		return
 	end
@@ -1571,7 +1730,7 @@ local function processBlock(info, now)
 		return
 	end
 	local path = BR.getPath()
-	local reach = HitLogic.wallReach(State.myAbility() == "IronWall" and ActionController.abilityActive(), ActionController.bulwark(), meta.hitType)
+	local reach = HitLogic.wallReach(wallUp, ActionController.bulwark(), meta.hitType)
 	for i = 1, 6 do
 		local t = t0 + (now - t0) * i / 6
 		local p = BallPhysics.positionAt(path, t)
@@ -1602,7 +1761,7 @@ end
 
 local function processCharge(info, dt)
 	if charge.holding then
-		if info.grounded then
+		if info.grounded or not isAzure() then
 			charge.holding = false
 			charge.energy = 0
 			mods.MovementController.setCharging(false)
@@ -1696,6 +1855,29 @@ local function groundSpikeLabel()
 	return "Jump"
 end
 
+-- What Spike does in the air, by pressSpike's own tests: a hold that's on lets go ("Swing" off
+-- the hover, "Charge" while charging), a Sundive there to take ("Dive": it goes before a hold),
+-- the hold the press would start (the AirSpike owner's), else `base` ("Spike", or "Serve" on the
+-- jump serve).
+local function airLabel(base, dive)
+	if hover then
+		return "Swing"
+	end
+	if charge.holding then
+		return "Charge"
+	end
+	if dive then
+		return "Dive"
+	end
+	local owner = HitLogic.inputOwner(State.myAbilities(), "AirSpike")
+	if owner == "Squall" and not hoverUsed then
+		return "Hover"
+	elseif owner == "Azure" and charge.gauge > 0.05 then
+		return "Charge"
+	end
+	return base
+end
+
 local function evaluate(info, now)
 	local ctx = {}
 	if not info or not State.isPlaying then
@@ -1717,16 +1899,10 @@ local function evaluate(info, now)
 				ctx.warn = "Step behind the end line"
 			end
 		elseif myToss() then
-			ctx.spikeLabel = info.grounded and groundSpikeLabel() or "Serve"
 			ctx.inZone = not info.grounded and (HitLogic.spikeZone(info.root, BR.getPosition(now), side, stats, 1.1))
-			-- Corona: a Sundive onto his own toss
-			if not info.grounded and not ctx.inZone and State.myAbility() == "Corona" and not mods.MovementController.isDiving() then
-				local target, _, meet = divePlan(info, now)
-				if target then
-					ctx.spikeLabel = "Dive"
-					ctx.dive = { target = target, meet = meet }
-				end
-			end
+			-- Corona: a Sundive onto his own toss (its path is drawn)
+			ctx.dive = sundive(info, now, "Serve")
+			ctx.spikeLabel = info.grounded and groundSpikeLabel() or airLabel("Serve", ctx.dive)
 		end
 		return ctx
 	end
@@ -1742,19 +1918,10 @@ local function evaluate(info, now)
 		ctx.spikeLabel = groundSpikeLabel()
 		ctx.canSet = ok and (HitLogic.setZone(info.root, bp, side, stats))
 	else
-		ctx.spikeLabel = isAzure() and "Charge" or "Spike"
-		if isSquall() then
-			ctx.spikeLabel = hover and "Swing" or (not hoverUsed and "Hover") or "Spike"
-		end
-		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReach(State.myAbility(), State.myAbility() == "Ironclad" and forgeReach() or leap.gauge)))
+		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReachAll(State.abilitySet(), leap.gauge, forgeReach())))
 		-- Corona: a Sundive is there to take (the HUD says Dive, and its path is drawn)
-		if State.myAbility() == "Corona" and ok and not ctx.inZone and not mods.MovementController.isDiving() then
-			local target, _, meet = divePlan(info, now)
-			if target then
-				ctx.spikeLabel = "Dive"
-				ctx.dive = { target = target, meet = meet }
-			end
-		end
+		ctx.dive = sundive(info, now, "Spike")
+		ctx.spikeLabel = airLabel("Spike", ctx.dive)
 	end
 	local meta = BR.getMeta()
 	ctx.incoming = meta ~= nil and meta.team ~= State.myTeam and bp.Z * side > -0.6 * Config.Scale.StudsPerMeter

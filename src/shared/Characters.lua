@@ -67,6 +67,62 @@ function Characters.isAbility(ability)
 	return type(ability) == "string" and Config.Abilities[ability] ~= nil
 end
 
+-- Stacked abilities (the owner, 2026-10-15: the Halloween Match's ability cards "stack" with the
+-- character's own): a character plays an ordered list, its own ability (the primary, "Ability")
+-- first, then each card's in hand order, known names only, none twice. The list rides on the
+-- "Abilities" attribute (comma-joined) beside "Ability"; the order decides who owns an input two
+-- abilities claim (HitLogic.inputOwner).
+function Characters.abilityList(primary, extras)
+	local out, seen = {}, {}
+	local function add(name)
+		if Characters.isAbility(name) and not seen[name] then
+			seen[name] = true
+			table.insert(out, name)
+		end
+	end
+	add(primary)
+	for _, name in ipairs(extras or {}) do
+		add(name)
+	end
+	return out
+end
+
+function Characters.encodeAbilities(list)
+	return table.concat(list or {}, ",")
+end
+
+function Characters.parseAbilities(s)
+	local list = {}
+	if type(s) == "string" then
+		for name in string.gmatch(s, "[^,]+") do
+			table.insert(list, name)
+		end
+	end
+	return Characters.abilityList(nil, list)
+end
+
+-- { [name] = true } for a list.
+function Characters.abilitySet(list)
+	local set = {}
+	for _, name in ipairs(list or {}) do
+		set[name] = true
+	end
+	return set
+end
+
+-- The abilities a Player or character model plays (client helper: its "Abilities" attribute, else
+-- just its "Ability").
+function Characters.abilitiesOf(inst)
+	if not inst then
+		return {}
+	end
+	local s = inst:GetAttribute("Abilities")
+	if type(s) == "string" and s ~= "" then
+		return Characters.parseAbilities(s)
+	end
+	return Characters.abilityList(inst:GetAttribute("Ability"), nil)
+end
+
 function Characters.isStat(stat)
 	for _, k in ipairs(ST.Order) do
 		if k == stat then
