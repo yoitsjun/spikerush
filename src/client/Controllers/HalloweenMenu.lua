@@ -250,7 +250,10 @@ local function buildReaperTab(body)
 	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 21 }, body)
 	Gui.label(f, { Text = skin.Name:upper(), display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, TextColor3 = skin.Color, Size = UDim2.new(1, 0, 0, 44), ZIndex = 22 })
 	Gui.label(f, { Text = skin.Blurb, TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(0, 46), ZIndex = 22 })
-	local copies = Gui.label(f, { Text = "", display = true, TextSize = 22, Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 96), ZIndex = 22 })
+	local copies = Gui.label(f, { Text = "", display = true, TextSize = 22, Size = UDim2.fromOffset(330, 28), Position = UDim2.fromOffset(0, 96), ZIndex = 22 })
+	-- where copies come from, or where it shows (the trace: "Apply" and "On" read as if it showed
+	-- at once, but only the character you play wears it)
+	local hint = Gui.label(f, { Text = "", TextSize = 16, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, Size = UDim2.new(1, -340, 0, 34), Position = UDim2.fromOffset(340, 92), ZIndex = 22 })
 	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 132), Size = UDim2.new(1, 0, 0, 364), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 22 }, f)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(360, 56), CellPadding = UDim2.fromOffset(10, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local rows = {}
@@ -258,9 +261,14 @@ local function buildReaperTab(body)
 		local r = make("Frame", { BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, LayoutOrder = i, Visible = false, ZIndex = 22 }, list)
 		Gui.corner(r, 6)
 		Gui.label(r, { Text = c.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Position = UDim2.fromOffset(12, 2), Size = UDim2.fromOffset(170, 30), ZIndex = 23 })
-		local state = Gui.label(r, { Text = "", TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(12, 30), Size = UDim2.fromOffset(170, 20), ZIndex = 23 })
-		local act, actL = kit.hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(160, 40), ZIndex = 23 }, "", 17)
-		local entry = { frame = r, state = state, act = act, actL = actL, char = c }
+		local state = Gui.label(r, { Text = "", TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(12, 30), Size = UDim2.fromOffset(150, 20), ZIndex = 23 })
+		local act, actL = kit.hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(120, 40), ZIndex = 23 }, "", 16)
+		-- play this character (the skin shows on the one you play)
+		local play = kit.hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -136, 0.5, 0), Size = UDim2.fromOffset(62, 40), ZIndex = 23 }, "Play", 16)
+		kit.onClick(play, function()
+			Net.get("Profile"):FireServer("select", c.Id)
+		end)
+		local entry = { frame = r, state = state, act = act, actL = actL, play = play, char = c }
 		kit.onClick(act, function()
 			local p = prof()
 			local row = p.skins and p.skins[key]
@@ -270,7 +278,7 @@ local function buildReaperTab(body)
 		end)
 		rows[i] = entry
 	end
-	return { frame = f, rows = rows, copies = copies, key = key }
+	return { frame = f, rows = rows, copies = copies, hint = hint, key = key }
 end
 
 local function setTab(key)
@@ -297,6 +305,9 @@ local function buildWindow()
 end
 
 function HalloweenMenu.open(which)
+	if not Halloween.active(Util.now()) then
+		which = "Reaper" -- (the match, banner and shop have closed)
+	end
 	if which then
 		setTab(which)
 	end
@@ -532,9 +543,16 @@ function HalloweenMenu.refresh()
 	local ev = eventOf(p)
 	local now = Util.now()
 	local active = Halloween.active(now)
+	local reaper = p.skins and p.skins[HW.SkinOrder[1]]
 	if ui.homeBtn then
-		ui.homeBtn.Visible = active
+		-- (after the event, still there for anyone holding a Reaper: switching it off and on, applying
+		-- a copy left over)
+		ui.homeBtn.Visible = active or (reaper ~= nil and reaper.copies > 0)
 		ui.homeLeft.Text = active and leftText(Halloween.secondsLeft(now)) or ""
+	end
+	-- a match started with the window open: it goes (the menus hide their own modals then)
+	if State.isPlaying and ui.window.root.Visible then
+		ui.window.root.Visible = false
 	end
 	ui.info.Text = string.format("%s left  ·  %s Candy  ·  %d scout", active and leftText(Halloween.secondsLeft(now)) or "Ended", Gui.num(ev.candy or 0), ev.scout or 0)
 	if ui.window.root.Visible then
@@ -576,18 +594,27 @@ function HalloweenMenu.refresh()
 		elseif tab == "Reaper" then
 			local R = T.Reaper
 			local row = p.skins and p.skins[R.key]
-			R.copies.Text = string.format("%d cop%s  ·  %d free to apply", row and row.copies or 0, (row and row.copies or 0) == 1 and "y" or "ies", row and row.free or 0)
+			local free = row and row.free or 0
+			R.copies.Text = string.format("%d cop%s  ·  %d free to apply", row and row.copies or 0, (row and row.copies or 0) == 1 and "y" or "ies", free)
+			if free < 1 and not p.dev then
+				R.hint.Text = "Get a copy on the Banner tab: 0.6% a recruit, or Scout · 150 with scout points (1 a recruit)."
+			else
+				R.hint.Text = "It shows on the character you play, in matches: Apply a copy, then Play that character."
+			end
 			for _, e in ipairs(R.rows) do
 				local owned = p.owned and p.owned.Char and p.owned.Char[e.char.Id] == true
 				e.frame.Visible = owned == true
 				if owned then
 					local on = row and row.on and row.on[e.char.Id]
+					local playing = e.char.Id == p.char
+					e.play.Visible = not playing
 					if on == nil then
-						e.state.Text = "Not applied"
+						e.state.Text = playing and "Not applied · Playing" or "Not applied"
+						e.state.TextColor3 = playing and Gui.SIGNAL or Gui.DIM
 						e.actL.Text = "Apply a copy"
-						e.act.Visible = (row and row.free or 0) > 0
+						e.act.Visible = free > 0 or p.dev == true -- (developers get a copy as they apply)
 					else
-						e.state.Text = on and "On" or "Off"
+						e.state.Text = (on and "On" or "Off") .. (playing and " · Playing" or "")
 						e.state.TextColor3 = on and HW.Skins[R.key].Color or Gui.DIM
 						e.actL.Text = on and "Switch off" or "Switch on"
 						e.act.Visible = true

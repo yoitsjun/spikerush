@@ -83,6 +83,9 @@ function TeamService.dealHex(e)
 	e.hex = Halloween.hexFor(Halloween.holders(ev.hands, ev.ai), e.team, u)
 	local ab = u and Halloween.abilityOf(ev.hands[u])
 	if ab and Characters.isAbility(ab) then
+		if ab ~= e.ability then
+			e.breakLevel = 0 -- (a borrowed ability doesn't grow with this character's breakthroughs)
+		end
 		e.ability = ab
 		e.hexAbility = true
 	end
@@ -234,6 +237,26 @@ function TeamService.rotate(team)
 end
 
 -- Push tier, ability, role and team onto the character so every client can read them.
+-- Whose skins a character wears: its player, the player an AI stands in for, or the player whose
+-- team pick an AI teammate is (e.skinOwner: "apply a copy to any character" covers your AI
+-- teammates too).
+function TeamService.skinOwner(e)
+	return e.player or (e.standInFor and Players:GetPlayerByUserId(e.standInFor)) or (e.skinOwner and e.skinOwner.Parent and e.skinOwner) or nil
+end
+
+-- A player switched a skin on or off (or applied one) mid-match: every character on court that wears
+-- their skins shows it now.
+function TeamService.refreshSkins(plr)
+	for _, e in pairs(TeamService.entities) do
+		if TeamService.skinOwner(e) == plr then
+			local model = TeamService.getModel(e)
+			if model then
+				model:SetAttribute("Skin", e.charId and reg.ProfileService.skinFor(plr, e.charId) or nil)
+			end
+		end
+	end
+end
+
 function TeamService.applyToModel(e)
 	local model = TeamService.getModel(e)
 	if not model then
@@ -264,7 +287,7 @@ function TeamService.applyToModel(e)
 	end
 	-- a skin its player has on for this character (the Reaper: the server's word, so nobody
 	-- draws one they don't have)
-	local skinOwner = e.player or (e.standInFor and Players:GetPlayerByUserId(e.standInFor)) or nil
+	local skinOwner = TeamService.skinOwner(e)
 	model:SetAttribute("Skin", skinOwner and e.charId and reg.ProfileService.skinFor(skinOwner, e.charId) or nil)
 	-- ability state for the HUDs and effects (a new entity starts with it ready)
 	for _, inst in ipairs({ model, e.player or false }) do
@@ -610,11 +633,13 @@ local function addBot(team, index, role, captain, pickId)
 		c = picked
 		tier, build = Characters.fromRoster(c, "max")
 	end
+	local fromPick = false
 	if captain and not c then
 		c, tier, build, brk = reg.ProfileService.teamPick(captain, TeamService.teamSize, role)
 		if c and (usedChars[c.Id] or reservedChars[c.Id]) then
 			c = nil -- already on the court (the captain plays it themselves), or the host's pick
 		end
+		fromPick = c ~= nil
 	end
 	if not c then
 		c = rosterFor(TeamService.botTier, role)
@@ -627,6 +652,7 @@ local function addBot(team, index, role, captain, pickId)
 		e = newEntity(id, c.Name, true, nil, team, tier, c.Ability, build)
 		e.charId, e.charName = c.Id, c.Name
 		e.breakLevel = brk or 0 -- (the captain's own build of it, breakthroughs too)
+		e.skinOwner = fromPick and captain or nil -- (and the captain's skin on it)
 	else
 		local build = Characters.template(TeamService.botTier, role, Characters.rollHeight(Random.new()))
 		e = newEntity(id, pickBotName(), true, nil, team, TeamService.botTier, nil, build)
@@ -921,6 +947,7 @@ local function standIn(e, index)
 	bot.abilityUntil, bot.abilityReadyAt = e.abilityUntil, e.abilityReadyAt
 	bot.standInFor = plr and plr.UserId
 	bot.hex, bot.hexAbility = e.hex, e.hexAbility -- (the Halloween Match's cards go with the character)
+	bot.breakLevel = e.breakLevel -- (and its breakthroughs: the ability's growth and cooldown)
 	local hum = plr and plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
 	if hum then
 		pcall(function()

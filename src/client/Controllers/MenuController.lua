@@ -6949,15 +6949,17 @@ local function buildSwap()
 	for _, kind in ipairs(COS.Kinds) do
 		chips[kind] = {}
 		for i, item in ipairs(COS[kind]) do
-			local b = make("TextButton", { BackgroundColor3 = Color3.fromRGB(34, 36, 46), BorderSizePixel = 0, Text = "", AutoButtonColor = false, LayoutOrder = i, Visible = false, ZIndex = 21 }, looks)
-			make("UICorner", { CornerRadius = UDim.new(0, 8) }, b)
-			local s = make("UIStroke", { Color = Spins.rarityColor(item.Rarity), Thickness = 2, Transparency = 0.2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
-			Gui.label(b, { Text = item.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 19, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -16, 0, 22), Position = UDim2.fromOffset(10, 8), ZIndex = 22 })
-			local tag = Gui.label(b, { Text = "", display = true, TextSize = 14, TextColor3 = Spins.rarityColor(item.Rarity), Size = UDim2.new(1, -16, 0, 16), Position = UDim2.fromOffset(10, 36), ZIndex = 22 })
-			onClick(b, function()
-				Net.get("Profile"):FireServer("equip", kind, item.Key)
-			end)
-			chips[kind][item.Key] = { button = b, stroke = s, tag = tag, item = item }
+			if not item.Hidden then -- (the Reaper skin's Souls trail comes with the skin)
+				local b = make("TextButton", { BackgroundColor3 = Color3.fromRGB(34, 36, 46), BorderSizePixel = 0, Text = "", AutoButtonColor = false, LayoutOrder = i, Visible = false, ZIndex = 21 }, looks)
+				make("UICorner", { CornerRadius = UDim.new(0, 8) }, b)
+				local s = make("UIStroke", { Color = Spins.rarityColor(item.Rarity), Thickness = 2, Transparency = 0.2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+				Gui.label(b, { Text = item.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 19, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -16, 0, 22), Position = UDim2.fromOffset(10, 8), ZIndex = 22 })
+				local tag = Gui.label(b, { Text = "", display = true, TextSize = 14, TextColor3 = Spins.rarityColor(item.Rarity), Size = UDim2.new(1, -16, 0, 16), Position = UDim2.fromOffset(10, 36), ZIndex = 22 })
+				onClick(b, function()
+					Net.get("Profile"):FireServer("equip", kind, item.Key)
+				end)
+				chips[kind][item.Key] = { button = b, stroke = s, tag = tag, item = item }
+			end
 		end
 	end
 	ui.swap = { modal = m, cards = cards, setKind = setKind, chips = chips }

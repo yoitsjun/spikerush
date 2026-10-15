@@ -3267,6 +3267,32 @@ do
 		"the Reaper: one character per copy, for good; switched off and on any time; more copies, more characters")
 end
 
+print("== saving ==")
+do
+	-- every field the loader reads back (sanitizeProfile's out.<field> = ...) is in the save
+	-- payload (the Halloween event's Candy, scout points and Reaper copies once weren't, so a rejoin
+	-- lost them)
+	local f = io.open(ROOT .. "/src/server/Services/ProfileService.lua")
+	local src = f and f:read("*a") or ""
+	if f then
+		f:close()
+	end
+	local loader = string.match(src, "local function sanitizeProfile%(data%)(.-)\nend\n") or ""
+	local payload = string.match(src, "local payload = (%b{})") or ""
+	local missing, n = {}, 0
+	local seen = {}
+	for field in string.gmatch(loader, "\n%s*out%.([%w_]+)%s*=") do
+		if not seen[field] then
+			seen[field] = true
+			n = n + 1
+			if not string.find(payload, "\n%s*" .. field .. "%s*=%s*profile%." .. field) then
+				table.insert(missing, field)
+			end
+		end
+	end
+	check(n > 20 and #missing == 0, "every profile field the loader reads is saved", n .. " fields; missing: " .. table.concat(missing, ", "))
+end
+
 print("== determinism ==")
 do
 	local root = apexRoot(SP, 4 * K)

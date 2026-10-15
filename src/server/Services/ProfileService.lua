@@ -554,6 +554,10 @@ local function save(plr, force)
 		bundles = profile.bundles,
 		sTickets = profile.sTickets,
 		retiredPaid = profile.retiredPaid,
+		-- the Halloween event (Candy, scout points, today's first clears, the shop's buys) and the
+		-- skins (the Reaper's copies and the characters they're on)
+		halloween = profile.halloween,
+		skins = profile.skins,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -1907,6 +1911,9 @@ local function skinRequest(plr, profile, op, charId, key)
 	end
 	local ok, why
 	if op == "apply" then
+		if profile.dev and Halloween.freeCopies(profile.skins, key) < 1 then
+			Halloween.addCopy(profile.skins, key) -- (developers own everything: a copy when they apply one)
+		end
 		ok, why = Halloween.applySkin(profile.skins, key, c.Id)
 	elseif op == "on" or op == "off" then
 		ok, why = Halloween.toggleSkin(profile.skins, key, c.Id, op == "on")
@@ -1921,6 +1928,9 @@ local function skinRequest(plr, profile, op, charId, key)
 	end
 	dirty[plr] = true
 	ProfileService.applyActive(plr)
+	if reg.TeamService and reg.TeamService.inMatch then
+		reg.TeamService.refreshSkins(plr) -- (their stand-in and their AI teammates too)
+	end
 	push(plr, op == "apply" and string.format("%s applied to %s, for good.", name, c.Name) or string.format("%s %s for %s.", name, op == "on" and "on" or "off", c.Name))
 end
 
@@ -2337,7 +2347,8 @@ local function onRequest(plr, kind, a, b, c)
 		end
 		push(plr)
 	elseif kind == "equip" then
-		if Spins.isCosmetic(a) and owns(profile, a, b) then
+		local item = Spins.isCosmetic(a) and Spins.item(a, b)
+		if item and not item.Hidden and owns(profile, a, b) then -- (Hidden: a skin's own, like Souls)
 			profile.equip[a] = b
 			dirty[plr] = true
 			applyCosmetics(plr, profile)

@@ -159,14 +159,15 @@ end
 -- the hand's own turn: a cocked arm bends the hand back down by the ear.)
 local CHOP = math.rad(75)
 local function holdFrame(model, h, swing)
-	local at = (h.CFrame * CFrame.new(0, -0.15, 0)).Position
+	local shoulder, fist = armLine(model, h)
+	-- (R15's hand; R6's one arm part ends in the fist)
+	local at = (h.Name == "Right Arm" and fist) or (h.CFrame * CFrame.new(0, -0.15, 0)).Position
 	local root = model:FindFirstChild("HumanoidRootPart")
 	if not root then
 		return CFrame.new(at)
 	end
 	local body = root.CFrame
 	local up, look, right = body.UpVector, body.LookVector, body.RightVector
-	local shoulder, fist = armLine(model, h)
 	local arm = -up
 	if shoulder and (fist - shoulder).Magnitude > 0.05 then
 		arm = (fist - shoulder).Unit
@@ -179,7 +180,10 @@ local function holdFrame(model, h, swing)
 		shaft = up
 	end
 	shaft = shaft.Unit
-	local reach = look * (1 - 0.5 * raised) - up * (0.7 * raised)
+	-- the blade leads the swing: in the swing's plane (about the body's side), square to the shaft,
+	-- toward the front (shaft x side: forward with the shaft upright, forward-up with it drawn back
+	-- over the shoulder, down with it out in front); a fixed body direction would flip it on the cock
+	local reach = look * (1 - raised) + shaft:Cross(right) * raised
 	if swing and swing < 0.6 then
 		-- on through in a tenth of a second, held, then eased back
 		local k = 1
@@ -282,6 +286,7 @@ local function dress(model)
 	-- the cold star on the tip, with its light
 	local tipAt = attachAt(blade, tip, "VoidStar")
 	local light = Instance.new("PointLight")
+	st.light = light
 	light.Color = STAR
 	light.Range = 7
 	light.Brightness = 1.2
@@ -376,10 +381,29 @@ function Skins.init(m)
 			acc = 0
 			sweep()
 		end
-		-- every held scythe follows its hand and arm (after the frame's animation and physics)
+		-- every held scythe follows its hand and arm (after the frame's animation and physics), and
+		-- hides when its character is hidden (LocalTransparencyModifier: the menus hide a character
+		-- waiting at the lobby spawn; it isn't under the character, so it doesn't inherit that)
 		for model, st in pairs(dressed) do
 			if st.hand.Parent == model and st.scythe.Parent then
-				st.scythe:PivotTo(holdFrame(model, st.hand, st.swingAt and os.clock() - st.swingAt))
+				local hidden = st.hand.LocalTransparencyModifier > 0.5 or st.hand.Transparency > 0.95
+				if hidden ~= (st.hidden == true) then
+					st.hidden = hidden
+					for _, d in ipairs(st.scythe:GetDescendants()) do
+						if d:IsA("BasePart") then
+							d.LocalTransparencyModifier = hidden and 1 or 0
+						end
+					end
+					for _, k in ipairs(st.kits) do
+						pcall(k.set, not hidden)
+					end
+					if st.light then
+						st.light.Enabled = not hidden
+					end
+				end
+				if not hidden then
+					st.scythe:PivotTo(holdFrame(model, st.hand, st.swingAt and os.clock() - st.swingAt))
+				end
 			end
 		end
 	end)
