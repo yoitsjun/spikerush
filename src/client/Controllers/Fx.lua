@@ -364,11 +364,30 @@ local KITS = {
 	-- where the scythe meets the ball: a hole torn in the air (a black core swelling and gone, a
 	-- cold star, violet motes flung out hard and braking)
 	VoidRupture = {
-		{ t = "Glow", n = 1, life = { 0.35, 0.35 }, size = { { 0, 1 }, { 0.3, 7 }, { 1, 0 } }, alpha = { { 0, 0 }, { 0.7, 0.1 }, { 1, 1 } }, glow = 0, z = 1.5, color = C(4, 2, 10) },
-		{ t = "Glint", n = 4, life = { 0.25, 0.35 }, size = { { 0, 0 }, { 0.2, 6 }, { 1, 0 } }, rot = { 0, 360 }, z = 2, color = C(200, 225, 255) },
+		{ t = "Glow", n = 1, life = { 0.42, 0.42 }, size = { { 0, 1 }, { 0.3, 8.5 }, { 1, 0 } }, alpha = { { 0, 0 }, { 0.7, 0.1 }, { 1, 1 } }, glow = 0, z = 1.5, color = C(4, 2, 10) },
+		{ t = "Glint", n = 2, life = { 0.25, 0.35 }, size = { { 0, 0 }, { 0.2, 4.5 }, { 1, 0 } }, rot = { -10, 10 }, z = 2, color = C(165, 200, 255) },
 		{ t = "Dot", n = 16, life = { 0.3, 0.5 }, size = { { 0, 0.6 }, { 1, 0 } }, speed = { 25, 45 }, drag = 6, spread = 180, z = 1.8, color = C(160, 100, 255) },
 		{ t = "Smoke", grid = "Grid4x4", n = 6, life = { 0.5, 0.8 }, size = { { 0, 1.5 }, { 1, 4 } }, alpha = { { 0, 0.3 }, { 1, 1 } }, speed = { 6, 12 }, drag = 4, spread = 180, rot = { 0, 360 }, glow = 0, color = C(12, 6, 22) },
 		{ t = "HitRing", grid = "Grid4x4", n = 1, life = { 0.3, 0.3 }, size = { { 0, 3 }, { 1, 10 } }, alpha = { { 0, 0 }, { 1, 0.2 } }, rot = { 0, 360 }, z = 1, color = C(140, 80, 255) },
+	},
+	-- Pumpkin Burst (Halloween score effect): the jack-o'-lantern bursts: an orange fireball, dark
+	-- smoke, candy corn and seeds flung out and falling, a hot flash
+	PumpkinPop = {
+		{ t = "HitBurst", n = 1, life = { 0.25, 0.3 }, size = { { 0, 6 }, { 0.2, 24 }, { 1, 26 } }, alpha = { { 0, 0 }, { 0.5, 0 }, { 1, 1 } }, rot = { 0, 360 }, z = 3, color = C(255, 200, 90) },
+		{ t = "FireWhite", grid = "Grid4x4", n = 18, life = { 0.5, 0.8 }, size = { { 0, 6 }, { 0.4, 10 }, { 1, 6 } }, speed = { 20, 40 }, spread = 180, drag = 3, rot = { 0, 360 }, z = 1.5, color = { C(255, 220, 120), C(255, 110, 20) } },
+		{ t = "Smoke", grid = "Grid4x4", n = 12, life = { 0.9, 1.4 }, size = { { 0, 4 }, { 1, 10 } }, alpha = { { 0, 0.15 }, { 0.7, 0.4 }, { 1, 1 } }, speed = { 10, 25 }, spread = 90, drag = 2, accel = Vector3.new(0, 6, 0), rot = { 0, 360 }, glow = 0, color = C(30, 18, 12) },
+		{ t = "CandyCorn", n = 26, life = { 1, 1.5 }, size = 1.4, speed = { 35, 60 }, spread = 75, accel = Vector3.new(0, -55, 0), rot = { 0, 360 }, spin = { -400, 400 }, glow = 0.15, z = 2 },
+		{ t = "Dot", n = 30, life = { 0.9, 1.3 }, size = { { 0, 0.5 }, { 1, 0.3 } }, speed = { 30, 55 }, spread = 80, accel = Vector3.new(0, -60, 0), glow = 0, z = 1.8, color = C(250, 236, 200) },
+		{ t = "Glow", n = 1, life = { 0.35, 0.35 }, size = { { 0, 6 }, { 1, 26 } }, alpha = { { 0, 0.2 }, { 1, 1 } }, z = 1, color = C(255, 150, 40) },
+	},
+	-- Ghost Swarm (Halloween score effect): the ghosts scatter in every direction in a spectral
+	-- flash (a crisp ring, cold sparkles), a thin mist left behind
+	GhostScatter = {
+		{ t = "GhostSheet", n = 18, life = { 1, 1.5 }, size = { { 0, 0 }, { 0.1, 4 }, { 1, 3 } }, alpha = { { 0, 0 }, { 0.7, 0.2 }, { 1, 1 } }, speed = { 35, 60 }, spread = 85, drag = 2.5, rot = { -20, 20 }, mode = "up", glow = 0, z = 2, color = C(235, 255, 245) },
+		{ t = "Glow", n = 1, life = { 0.3, 0.3 }, size = { { 0, 6 }, { 1, 24 } }, alpha = { { 0, 0.25 }, { 1, 1 } }, z = 1, color = C(150, 255, 210) },
+		{ t = "HitRing", grid = "Grid4x4", n = 1, life = { 0.35, 0.35 }, size = { { 0, 4 }, { 1, 18 } }, alpha = { { 0, 0 }, { 0.6, 0.2 }, { 1, 1 } }, rot = { 0, 360 }, z = 1.5, color = C(170, 255, 220) },
+		{ t = "Sparkle", n = 8, life = { 0.4, 0.7 }, size = { { 0, 0 }, { 0.3, 2 }, { 1, 0 } }, speed = { 14, 30 }, spread = 180, drag = 4, rot = { 0, 90 }, z = 2.2, color = C(205, 255, 235) },
+		{ t = "Smoke", grid = "Grid4x4", n = 7, life = { 1, 1.5 }, size = { { 0, 4 }, { 1, 9 } }, alpha = { { 0, 0.6 }, { 1, 1 } }, speed = { 6, 14 }, spread = 90, drag = 2, rot = { 0, 360 }, glow = 0.15, color = C(70, 190, 150) },
 	},
 	AzureAura = {
 		layer(WHITEFIRE, { rate = 40, life = { 0.3, 0.55 }, size = { { 0, 2.4 }, { 1, 0.4 } }, speed = { 2, 5 }, spread = 180, drag = 0, accel = Vector3.new(0, 7, 0), tint = 0.45, color = { Color3.fromRGB(150, 245, 255), Color3.fromRGB(30, 100, 255) } }),

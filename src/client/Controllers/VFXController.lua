@@ -3344,18 +3344,19 @@ end
 -- any other spike's, a cold cut crosses it, the air ruptures (Fx's VoidRupture: a black core
 -- swelling and gone, a star, violet motes braking hard) and two violet rings snap out at angles,
 -- spinning.
-local VOID = Color3.fromRGB(140, 80, 255)
-local function reaperReap(model, pos, dirZ, kmh)
+-- (the Halloween effects live on one table: this chunk is at Luau's 200-local limit)
+local HW = { VOID = Color3.fromRGB(140, 80, 255) }
+function HW.reap(model, pos, dirZ, kmh)
 	mods.Skins.slash(model, 0.3)
 	local k = kmh >= 120 and 1.25 or 1
 	local turn = CFrame.Angles(0, 0, math.rad(dirZ > 0 and -35 or 215))
 	meshFx("FX_Slash", CFrame.new(pos + Vector3.new(0.35, 0, 0)) * FACE_CAMERA * turn, Color3.fromRGB(6, 3, 14), 0.5 * k, 1.25 * k, 0.32, { alpha = 0.02, glow = 0.4 })
-	meshFx("FX_Slash", CFrame.new(pos) * FACE_CAMERA * turn, VOID, 0.45 * k, 1.1 * k, 0.26, { alpha = 0.05 })
+	meshFx("FX_Slash", CFrame.new(pos) * FACE_CAMERA * turn, HW.VOID, 0.45 * k, 1.1 * k, 0.26, { alpha = 0.05 })
 	local cross = CFrame.Angles(0, 0, math.rad(dirZ > 0 and 55 or 125))
 	meshFx("FX_Slash", CFrame.new(pos + Vector3.new(-0.2, 0, 0)) * FACE_CAMERA * cross, Color3.fromRGB(200, 225, 255), 0.3 * k, 0.8 * k, 0.2, { alpha = 0.1 })
 	Fx.play("VoidRupture", pos, { scale = k })
 	for i = 1, 2 do
-		meshFx("FX_Ring", CFrame.new(pos) * CFrame.Angles(math.rad(30 + 50 * i), math.rad(40 * i), 0), VOID, 0.3, 1.4 * k, 0.35, { spin = 220, alpha = 0.1 })
+		meshFx("FX_Ring", CFrame.new(pos) * CFrame.Angles(math.rad(30 + 50 * i), math.rad(40 * i), 0), HW.VOID, 0.3, 1.4 * k, 0.35, { spin = 220, alpha = 0.1 })
 	end
 	rubble(pos, 4, 0.5, Color3.fromRGB(10, 6, 18), 0.2)
 end
@@ -3377,7 +3378,7 @@ local function onHit(snap)
 	local model = meta.id and Util.modelOf(meta.id)
 	local reaper = (ht == "Spike" or ht == "JumpServe") and model ~= nil and mods.Skins ~= nil and mods.Skins.isReaper(model)
 	if reaper then
-		reaperReap(model, pos, dirZ, kmh)
+		HW.reap(model, pos, dirZ, kmh)
 	elseif ht == "Spike" or ht == "JumpServe" then
 		-- the swing's slash: a crescent through the contact, facing the camera, in the spike colour
 		local slashColor = Spins.tint(model and Spins.equipped(model, "Color")) or WHITE
@@ -3714,7 +3715,7 @@ local function onHit(snap)
 			else
 				-- the attacker's spike colour (a V Points unlock) replaces the default hot pink
 				local tint = Spins.tint(Spins.equipped(model, "Color"))
-				local accent = (reaper and VOID) or tint or HOT -- (the Reaper's hits are void)
+				local accent = (reaper and HW.VOID) or tint or HOT -- (the Reaper's hits are void)
 				-- how hard it was (HitLogic.speedFeel): a shockwave off the contact, a second sonic
 				-- boom past the middle, and more shake and speed lines
 				local hot = HitLogic.speedFeel(kmh)
@@ -5686,10 +5687,253 @@ end
 -- A score effect at pos: the effect's key, the spike colour's tint (or nil), which way the
 -- attack travelled along z, the scale and the point's callout. False for Dust, the plain floor
 -- impact.
+-- The Halloween score effects (the owner asked for two custom ones; Blade Ball's explosions are
+-- one readable idea each, layered: a core, a shell, rings at angles, debris, a lasting mark).
+HW.PUMPKIN = Color3.fromRGB(255, 120, 20)
+HW.GRIN = Color3.fromRGB(255, 220, 90)
+HW.ECTO = Color3.fromRGB(120, 255, 190)
+
+function HW.part(class, size, cf, color, material, parent)
+	local p = Instance.new(class)
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Parent = parent
+	return p
+end
+
+-- A jack-o'-lantern `size` studs tall, centred on the origin, its face toward the side camera
+-- (-x): the owner's pumpkin (ToolboxAssets.BallSkins.BallPumpkin) with a light inside showing
+-- through its carved face once it's imported, else ribbed lobes with a glowing carved face.
+-- Returns the model and the face's glowing parts (they flicker).
+function HW.jack(size)
+	local model = Instance.new("Model")
+	model.Name = "JackOLantern"
+	local glow = {}
+	local box = ReplicatedStorage:FindFirstChild("ToolboxAssets")
+	local skins = box and box:FindFirstChild("BallSkins")
+	local mesh = skins and skins:FindFirstChild("BallPumpkin", true)
+	if mesh and mesh:IsA("MeshPart") then
+		local m = mesh:Clone()
+		m.Anchored, m.CanCollide, m.CanQuery, m.CanTouch, m.CastShadow = true, false, false, false, false
+		m.Size = m.Size * (size / math.max(m.Size.Y, 0.01))
+		m.CFrame = CFrame.Angles(0, math.rad(-90), 0) -- (its face toward the camera)
+		m.Color = HW.PUMPKIN
+		m.Parent = model
+		table.insert(glow, HW.part("Part", Vector3.one * size * 0.78, CFrame.new(), HW.GRIN, Enum.Material.Neon, model))
+		glow[1].Shape = Enum.PartType.Ball
+	else
+		for i = 0, 5 do
+			local a = i * math.pi / 3
+			local lobe = HW.part("Part", Vector3.new(size * 0.62, size * 0.9, size * 0.62), CFrame.new(math.cos(a) * size * 0.22, 0, math.sin(a) * size * 0.22), HW.PUMPKIN, Enum.Material.SmoothPlastic, model)
+			local round = Instance.new("SpecialMesh") -- (an ellipsoid: a Ball-shaped part is always a sphere)
+			round.MeshType = Enum.MeshType.Sphere
+			round.Parent = lobe
+		end
+		local stem = HW.part("Part", Vector3.new(size * 0.28, size * 0.11, size * 0.11), CFrame.new(0, size * 0.5, 0) * CFrame.Angles(0, 0, math.rad(80)), Color3.fromRGB(70, 110, 40), Enum.Material.Wood, model)
+		stem.Shape = Enum.PartType.Cylinder
+		local f = -size * 0.47 -- the face, on the camera's side
+		for _, z in ipairs({ -0.17, 0.17 }) do -- diamond eyes
+			table.insert(glow, HW.part("Part", Vector3.new(0.2, size * 0.17, size * 0.17), CFrame.new(f, size * 0.12, size * z) * CFrame.Angles(math.rad(45), 0, 0), HW.GRIN, Enum.Material.Neon, model))
+		end
+		table.insert(glow, HW.part("Part", Vector3.new(0.2, size * 0.08, size * 0.08), CFrame.new(f, -size * 0.02, 0) * CFrame.Angles(math.rad(45), 0, 0), HW.GRIN, Enum.Material.Neon, model))
+		table.insert(glow, HW.part("Part", Vector3.new(0.2, size * 0.1, size * 0.52), CFrame.new(f, -size * 0.18, 0), HW.GRIN, Enum.Material.Neon, model))
+		for _, z in ipairs({ -0.12, 0.12 }) do -- teeth: pumpkin cut back into the grin
+			HW.part("Part", Vector3.new(0.25, size * 0.05, size * 0.06), CFrame.new(f - 0.02, -size * 0.15, size * z), HW.PUMPKIN, Enum.Material.SmoothPlastic, model)
+		end
+	end
+	local light = Instance.new("PointLight")
+	light.Color = HW.PUMPKIN
+	light.Range = size * 3
+	light.Brightness = 3
+	light.Parent = glow[1]
+	return model, glow
+end
+
+-- Pumpkin Burst: the floor cracks, a giant jack-o'-lantern rises out of it grinning (its face
+-- flickering), swells, and bursts (Fx PumpkinPop: an orange fireball, smoke, candy corn and seeds),
+-- shell chunks flying, two orange rings snapping out at angles; a scorch stays.
+function HW.pumpkinBurst(pos, tint, k)
+	local size = 7 * k
+	local close = near(pos)
+	shockDisc(pos, HW.PUMPKIN, 6 * k, 0.5)
+	Fx.play("Crack", pos + Vector3.new(0, 0.1, 0), { color = HW.PUMPKIN, scale = 1.4 * k })
+	if close then
+		mods.CameraController.shake(0.3)
+		grade(Color3.fromRGB(255, 200, 150), -0.15, 2.4)
+	end
+	local model, glow = HW.jack(size)
+	local rest = CFrame.new(pos + Vector3.new(0, size * 0.45, 0))
+	local sunk = rest - Vector3.new(0, size * 1.1, 0)
+	model:PivotTo(sunk)
+	model.Parent = fxFolder
+	local t0 = os.clock()
+	local RISE, HOLD, SWELL = 0.55, 0.6, 0.2
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - t0
+		if not model.Parent then
+			conn:Disconnect()
+			return
+		end
+		if t < RISE then
+			-- out of the floor with a little overshoot
+			local s = t / RISE
+			local back = 1 + 2.4 * (s - 1) ^ 3 + 1.4 * (s - 1) ^ 2
+			model:PivotTo(sunk:Lerp(rest, back))
+		elseif t < RISE + HOLD + SWELL then
+			local w = math.sin(t * 9) * math.rad(4)
+			model:PivotTo(rest * CFrame.Angles(w, 0, w * 0.5))
+			for _, g in ipairs(glow) do
+				g.Transparency = math.random() < 0.25 and 0.35 or 0 -- the candle inside flickers
+			end
+			if t > RISE + HOLD then
+				-- it swells before it goes
+				local s = (t - RISE - HOLD) / SWELL
+				model:ScaleTo(1 + 0.18 * s)
+			end
+		else
+			conn:Disconnect()
+			local center = rest.Position
+			model:Destroy()
+			Fx.play("PumpkinPop", center, { scale = k })
+			flare(center, HW.PUMPKIN, size * 3, 0.5)
+			sfx("ScoreFire", center)
+			-- the shell in chunks
+			for _ = 1, 16 do
+				local chunk = HW.part("WedgePart", Vector3.new(0.4, size * 0.16, size * 0.22), CFrame.new(center), HW.PUMPKIN, Enum.Material.SmoothPlastic, fxFolder)
+				chunk.Anchored = false
+				chunk.Massless = true
+				local dir = (Vector3.new(math.random() - 0.5, math.random() * 0.9 + 0.2, math.random() - 0.5)).Unit
+				chunk.AssemblyLinearVelocity = dir * (40 + math.random() * 30) * math.sqrt(k)
+				chunk.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 20
+				task.delay(1.2, function()
+					TweenService:Create(chunk, TweenInfo.new(0.4), { Transparency = 1 }):Play()
+					task.delay(0.45, chunk.Destroy, chunk)
+				end)
+			end
+			for i = 1, 2 do
+				meshFx("FX_Ring", CFrame.new(center) * CFrame.Angles(math.rad(25 + 45 * i), math.rad(60 * i), 0), HW.PUMPKIN, 0.4 * k, 3.2 * k, 0.45, { spin = 160, alpha = 0.1 })
+			end
+			floorRing(pos, HW.PUMPKIN, 26 * k)
+			meshFx("FX_Scorch", CFrame.new(pos + Vector3.new(0, 0.12, 0)), Color3.fromRGB(30, 14, 6), 0.6 * k, 1.6 * k, 2.6, { hold = 1.6, alpha = 0.05, glow = 0.5 })
+			if close then
+				mods.CameraController.shake(0.85)
+				VFXController.flash(0.28, 0.25)
+			end
+		end
+	end)
+end
+
+-- Ghost Swarm: a dark pool spreads across the floor with a glowing rim; sheet ghosts pour up out
+-- of it in a spinning column (emitted round the pool's edge from a turning part, so they circle
+-- as they rise), then scatter in every direction in a spectral flash (Fx GhostScatter); a cold
+-- mist stays low.
+function HW.ghostSwarm(pos, tint, k)
+	local close = near(pos)
+	local r = 5 * k
+	if close then
+		grade(Color3.fromRGB(190, 255, 225), -0.35, 2.8)
+	end
+	-- the pool and its rim
+	local pool = HW.part("Part", Vector3.new(0.12, 1, 1), CFrame.new(pos + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(8, 22, 16), Enum.Material.SmoothPlastic, fxFolder)
+	pool.Shape = Enum.PartType.Cylinder
+	TweenService:Create(pool, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = Vector3.new(0.12, r * 2, r * 2) }):Play()
+	meshFx("FX_Ring", CFrame.new(pos + Vector3.new(0, 0.2, 0)), HW.ECTO, 0.2 * k, 1.05 * r / 4, 2.2, { grow = 0.35, hold = 1.6, alpha = 0.05 })
+	-- the column: ghosts and wisps pour straight up from six points round the pool's edge on a
+	-- turning part (locked to it, so they circle as they rise)
+	local spinner = HW.part("Part", Vector3.one, CFrame.new(pos + Vector3.new(0, 0.3, 0)), WHITE, Enum.Material.SmoothPlastic, fxFolder)
+	spinner.Transparency = 1
+	local pour = {}
+	for i = 0, 5 do
+		local a = i * math.pi / 3
+		local at = Instance.new("Attachment")
+		at.Position = Vector3.new(math.cos(a) * r * 0.8, 0, math.sin(a) * r * 0.8)
+		at.Parent = spinner
+		local ghosts = Instance.new("ParticleEmitter")
+		ghosts.Texture = Assets.id(Assets.Fx.GhostSheet) or ""
+		ghosts.EmissionDirection = Enum.NormalId.Top
+		ghosts.LockedToPart = true
+		ghosts.LightEmission = 0
+		ghosts.LightInfluence = 0
+		ghosts.Orientation = Enum.ParticleOrientation.FacingCameraWorldUp
+		ghosts.Color = ColorSequence.new(Color3.fromRGB(240, 255, 248))
+		ghosts.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.15, 3 * k), NumberSequenceKeypoint.new(1, 2.4 * k) })
+		ghosts.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.75, 0.2), NumberSequenceKeypoint.new(1, 1) })
+		ghosts.Lifetime = NumberRange.new(1.1, 1.6)
+		ghosts.Speed = NumberRange.new(6 * k, 10 * k)
+		ghosts.SpreadAngle = Vector2.new(12, 12)
+		ghosts.Rotation = NumberRange.new(-15, 15)
+		ghosts.Rate = 6
+		ghosts.Parent = at
+		local wisps = Instance.new("ParticleEmitter")
+		wisps.Texture = Assets.id(Assets.Fx.Glow) or ""
+		wisps.EmissionDirection = Enum.NormalId.Top
+		wisps.LockedToPart = true
+		wisps.LightEmission = 1
+		wisps.LightInfluence = 0
+		wisps.Color = ColorSequence.new(HW.ECTO)
+		wisps.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2 * k), NumberSequenceKeypoint.new(1, 0) })
+		wisps.Transparency = NumberSequence.new(0.4, 1)
+		wisps.Lifetime = NumberRange.new(1, 1.4)
+		wisps.Speed = NumberRange.new(6 * k, 10 * k)
+		wisps.SpreadAngle = Vector2.new(8, 8)
+		wisps.Rate = 7
+		wisps.Parent = at
+		table.insert(pour, ghosts)
+		table.insert(pour, wisps)
+	end
+	local scattered = false
+	local t0 = os.clock()
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - t0
+		if not spinner.Parent then
+			conn:Disconnect()
+			return
+		end
+		spinner.CFrame = CFrame.new(pos + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, t * math.rad(320), 0)
+		if t > 1.45 and not scattered then
+			-- they scatter
+			scattered = true
+			for _, e in ipairs(pour) do
+				e.Enabled = false
+			end
+			local burstAt = pos + Vector3.new(0, 6 * k, 0)
+			Fx.play("GhostScatter", burstAt, { scale = k })
+			for i = 1, 2 do
+				meshFx("FX_Ring", CFrame.new(burstAt) * CFrame.Angles(math.rad(20 + 55 * i), math.rad(70 * i), 0), HW.ECTO, 0.4 * k, 3 * k, 0.5, { spin = -150, alpha = 0.1 })
+			end
+			sfx("ScoreImpact", burstAt)
+			if close then
+				mods.CameraController.shake(0.6)
+				VFXController.flash(0.2, 0.25)
+			end
+		elseif t > 3.2 then
+			conn:Disconnect()
+			spinner:Destroy()
+		end
+	end)
+	task.delay(1.9, function()
+		TweenService:Create(pool, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = Vector3.new(0.12, 0.2, 0.2), Transparency = 1 }):Play()
+		task.delay(0.85, pool.Destroy, pool)
+	end)
+end
+
 local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
 	effect = Spins.look("Effect", effect) -- (a limited one without its own look yet: its Base)
 	local always = reason == nil -- (the Locker's preview: the screen effects show there too)
-	if effect == "Freeze" then
+	if effect == "PumpkinBurst" then
+		HW.pumpkinBurst(pos, tint, k or 1)
+	elseif effect == "GhostSwarm" then
+		HW.ghostSwarm(pos, tint, k or 1)
+	elseif effect == "Freeze" then
 		deepFreeze(pos, tint, k or 1, model, always)
 	elseif effect == "Void" then
 		endlessVoid(pos, tint, k or 1, model, always)
@@ -5838,7 +6082,7 @@ local function onBallEvent(kind, ev, meta)
 			-- a Souls spike lands: souls and skulls burst up out of a splash of ink (the owner's
 			-- concept art)
 			Fx.play("SoulsBurst", pos, { scale = 1 + 0.4 * hot })
-			ringFx(pos + Vector3.new(0, 0.4, 0), VOID, 1, 10 + 10 * hot)
+			ringFx(pos + Vector3.new(0, 0.4, 0), HW.VOID, 1, 10 + 10 * hot)
 		end
 		Fx.play("FloorImpact", pos, { color = c, scale = hard and (1 + 0.8 * hot) or 0.55, count = hard and (1.4 + 1.4 * hot) or 0.6 })
 		if hard then

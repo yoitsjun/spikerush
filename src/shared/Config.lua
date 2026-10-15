@@ -629,8 +629,8 @@ Config.Cosmetics = {
 		{ Key = "Void", Name = "Endless Void", Rarity = "Mythic" },
 		{ Key = "WorldSlash", Name = "World Slash", Rarity = "Mythic" },
 		-- the owner's two Halloween score effects (Limited; Base: drawn as it until their own are made)
-		{ Key = "PumpkinBurst", Name = "Pumpkin Burst", Rarity = "Legendary", Base = "Fire", Limited = "Halloween" },
-		{ Key = "GhostSwarm", Name = "Ghost Swarm", Rarity = "Legendary", Base = "Freeze", Limited = "Halloween" },
+		{ Key = "PumpkinBurst", Name = "Pumpkin Burst", Rarity = "Legendary", Limited = "Halloween" }, -- (VFXController pumpkinBurst)
+		{ Key = "GhostSwarm", Name = "Ghost Swarm", Rarity = "Legendary", Limited = "Halloween" }, -- (VFXController ghostSwarm)
 	},
 	-- how you pose in the matchup intro and, when your team wins, the showcase after the match
 	-- (AnimationController's Intro_<Key> poses)
