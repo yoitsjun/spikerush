@@ -417,14 +417,18 @@ Assets.Fx = {
 	ToonSpark = "115949917960267", -- a four-point star flaring and shrinking
 	ToonElectric = "115855857218883", -- jagged bolts crackling out, new ones every frame
 	ToonBurst = "108360852617432", -- a spiky star blast ringing out
-	-- the Halloween event's (tools/generate_halloween_textures.py, the PNGs in assets/fx/halloween)
-	SoulWisp = "107324428805753", -- a screaming soul with a wispy tail (the Reaper's Souls trail)
-	Skull = "116674822883407", -- a skull with hollow eyes
-	GhostSheet = "128336687021408", -- a sheet ghost, black eyes (Ghost Swarm)
-	Bat = "112869581547343", -- a bat, wings spread
-	BatFlap = "76651903127083", -- a bat's wingbeat, a 2x2 flipbook played on a loop (Bat Swarm)
-	InkSplat = "134261821932939", -- a splash of ink with flung streaks
-	CandyCorn = "98077675358365", -- a candy corn in its own colours (not tinted)
+	-- the Halloween event's (tools/generate_halloween_textures.py, the PNGs in assets/fx/halloween).
+	-- These are the copies Studio's 3D importer uploaded from HalloweenSprites.fbx: they loaded at
+	-- once, while the same PNGs uploaded on their own were still processing an hour later (those
+	-- ids: SoulWisp 107324428805753, Skull 116674822883407, GhostSheet 128336687021408, Bat
+	-- 112869581547343, BatFlap 76651903127083, InkSplat 134261821932939, CandyCorn 98077675358365)
+	SoulWisp = "81697687251215", -- a screaming soul with a wispy tail (the Reaper's Souls trail)
+	Skull = "72078282943552", -- a skull with hollow eyes
+	GhostSheet = "106240366903046", -- a sheet ghost, black eyes (Ghost Swarm)
+	Bat = "73893232514689", -- a bat, wings spread
+	BatFlap = "73670445845087", -- a bat's wingbeat, a 2x2 flipbook played on a loop (Bat Swarm)
+	InkSplat = "111244076536691", -- a splash of ink with flung streaks
+	CandyCorn = "104351078141678", -- a candy corn in its own colours (not tinted)
 }
 
 -- The ball skins' textures (tools/generate_ball_skins.py, the PNGs in assets/balls): equirectangular
