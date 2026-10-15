@@ -401,6 +401,8 @@ local function applyStyle(meta)
 	end
 	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.6) })
 	core.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
+	core.Color = ColorSequence.new(Color3.new(1, 1, 1)) -- (the Souls trail paints it; everything else is white)
+	core.LightEmission = 0.6
 	aura.Enabled = false
 	aura.Rate = 90
 	glow.Brightness = 0
@@ -539,6 +541,29 @@ local function applyStyle(meta)
 		glow.Brightness = math.max(glow.Brightness, 4)
 		sparkleOn = true
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 230, 210))
+	end
+	if trailKey == "Souls" then
+		-- the Reaper's Souls (void, Blade Ball's clean ribbon): an unlit ribbon of black into deep
+		-- violet with a cold blue-white core, a violet halo, and souls, skulls and ink off the ball
+		-- (Fx's TrailSouls); it takes over from the spike's colour and ability looks
+		trail.Color = ColorSequence.new(Color3.fromRGB(8, 4, 18), Color3.fromRGB(64, 26, 130))
+		trail.LightEmission = 0
+		trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.02), NumberSequenceKeypoint.new(0.55, 0.35), NumberSequenceKeypoint.new(1, 1) })
+		trail.Lifetime = math.max(trail.Lifetime, 0.75)
+		trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.1), NumberSequenceKeypoint.new(1, 0.35) })
+		core.Color = ColorSequence.new(Color3.fromRGB(225, 238, 255), Color3.fromRGB(110, 150, 255))
+		core.LightEmission = 1
+		core.Lifetime = math.max(core.Lifetime, 0.4)
+		core.Enabled = true
+		aura.Color = ColorSequence.new(Color3.fromRGB(150, 110, 255), Color3.fromRGB(20, 8, 40))
+		aura.Rate = 50
+		aura.Enabled = true
+		glow.Color = Color3.fromRGB(140, 100, 255)
+		glow.Brightness = math.max(glow.Brightness, 3)
+		sparkleOn = false
+		trailKit = kitFor("Souls")
+		trailColor = nil
+		return
 	end
 	-- a colour that can't glow (Black): its trail is drawn unlit
 	if colorItem and colorItem.Emission and not (meta.thunder or meta.energy or gauge or meta.reaction) then

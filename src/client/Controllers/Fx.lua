@@ -329,6 +329,47 @@ local KITS = {
 		layer(FLAMES, { rate = 220, life = { 0.2, 0.35 }, size = { { 0, 5 }, { 1, 1.5 } }, speed = { 0, 2 }, spread = 180, accel = Vector3.zero, tint = 0.35 }),
 		layer(PUFFS, { rate = 60, life = { 0.4, 0.7 }, speed = { 0, 2 }, spread = 180, drag = 0, accel = Vector3.zero, size = { { 0, 3 }, { 1, 6 } }, color = Color3.fromRGB(80, 64, 58) }),
 	},
+	-- the Reaper's Souls (Halloween): souls of blue light and skulls streaming off the ball through
+	-- a haze of void, black ink flung behind (Blade Ball's clean ribbon plus a few particles;
+	-- Blox Fruits' dark flecks)
+	TrailSouls = {
+		{ t = "SoulWisp", rate = 16, life = { 0.6, 1 }, size = { { 0, 0 }, { 0.15, 2.6 }, { 1, 1.4 } }, alpha = { { 0, 0.1 }, { 0.6, 0.35 }, { 1, 1 } }, speed = { 1, 4 }, spread = 180, drag = 2, accel = Vector3.new(0, 4, 0), rot = { -20, 20 }, mode = "up", z = 1, color = { C(230, 242, 255), C(120, 170, 255) } },
+		{ t = "Skull", rate = 4, life = { 0.5, 0.8 }, size = { { 0, 0 }, { 0.2, 1.8 }, { 1, 1.1 } }, alpha = { { 0, 0.1 }, { 0.7, 0.4 }, { 1, 1 } }, speed = { 1, 3 }, spread = 180, drag = 2, rot = { -25, 25 }, spin = { -40, 40 }, z = 1.2, color = C(190, 215, 255) },
+		{ t = "Dot", rate = 40, life = { 0.3, 0.6 }, size = { { 0, 0.55 }, { 1, 0 } }, speed = { 3, 9 }, spread = 180, drag = 3, glow = 0, color = C(8, 6, 14) },
+		{ t = "Smoke", grid = "Grid4x4", rate = 18, life = { 0.5, 0.8 }, size = { { 0, 1.6 }, { 1, 3.4 } }, alpha = { { 0, 0.35 }, { 1, 1 } }, speed = { 0.5, 2 }, spread = 180, rot = { 0, 360 }, glow = 0, color = C(26, 10, 48) },
+	},
+	-- the Reaper's scythe (void; the owner's reference: a cold blue star at the blade's tip, smoke
+	-- curling up the shaft): the star on the tip, black void smoke and violet motes off the blade,
+	-- pale wisps round the heel
+	ScytheStar = {
+		{ t = "Glint", rate = 3, life = { 0.5, 0.8 }, size = { { 0, 0 }, { 0.3, 2.6 }, { 1, 0 } }, rot = { -8, 8 }, spin = { -20, 20 }, z = 1, color = C(180, 210, 255) },
+		{ t = "Sparkle", rate = 6, life = { 0.25, 0.4 }, size = { { 0, 0 }, { 0.4, 1.1 }, { 1, 0 } }, rot = { 0, 90 }, z = 1.2, color = C(235, 242, 255) },
+	},
+	ScytheVoid = {
+		{ t = "Smoke", grid = "Grid4x4", rate = 10, life = { 0.9, 1.4 }, size = { { 0, 0.6 }, { 1, 1.8 } }, alpha = { { 0, 0.45 }, { 0.7, 0.6 }, { 1, 1 } }, speed = { 0.3, 1.2 }, spread = 50, accel = Vector3.new(0, 1.6, 0), rot = { 0, 360 }, glow = 0, color = C(14, 8, 26) },
+		{ t = "Dot", rate = 10, life = { 0.6, 1 }, size = { { 0, 0.25 }, { 1, 0 } }, speed = { 0.5, 1.5 }, spread = 180, accel = Vector3.new(0, 2, 0), color = C(150, 90, 255) },
+	},
+	ScytheWisp = {
+		{ t = "Smoke", grid = "Grid4x4", rate = 5, life = { 1.4, 2 }, size = { { 0, 0.5 }, { 1, 1.7 } }, alpha = { { 0, 0.55 }, { 0.6, 0.7 }, { 1, 1 } }, speed = { 0.2, 0.6 }, spread = 30, accel = Vector3.new(0, 1.2, 0), rot = { 0, 360 }, spin = { -30, 30 }, glow = 0.15, color = C(200, 205, 220) },
+	},
+	-- where a Souls spike lands (the owner's concept art: souls and skulls bursting up out of a
+	-- splash of black ink)
+	SoulsBurst = {
+		{ t = "InkSplat", n = 1, life = { 1.6, 1.6 }, size = { { 0, 2 }, { 0.12, 9 }, { 1, 10 } }, alpha = { { 0, 0.05 }, { 0.8, 0.2 }, { 1, 1 } }, mode = "flat", rot = { 0, 360 }, glow = 0, color = C(6, 4, 12) },
+		{ t = "SoulWisp", n = 12, life = { 0.8, 1.3 }, size = { { 0, 0 }, { 0.15, 3.2 }, { 1, 2 } }, alpha = { { 0, 0.05 }, { 0.6, 0.3 }, { 1, 1 } }, speed = { 14, 26 }, spread = 50, drag = 2, accel = Vector3.new(0, 6, 0), rot = { -25, 25 }, mode = "up", z = 1, color = { C(235, 245, 255), C(110, 160, 255) } },
+		{ t = "Skull", n = 4, d = 0.05, life = { 0.7, 1 }, size = { { 0, 0 }, { 0.2, 2.6 }, { 1, 1.6 } }, alpha = { { 0, 0.05 }, { 0.7, 0.35 }, { 1, 1 } }, speed = { 10, 18 }, spread = 60, drag = 2, rot = { -30, 30 }, spin = { -60, 60 }, z = 1.2, color = C(200, 220, 255) },
+		{ t = "Dot", n = 20, life = { 0.4, 0.7 }, size = { { 0, 0.7 }, { 1, 0.2 } }, speed = { 20, 36 }, spread = 70, drag = 2, accel = Vector3.new(0, -40, 0), glow = 0, color = C(6, 4, 12) },
+		{ t = "Glow", n = 1, life = { 0.3, 0.3 }, size = { { 0, 3 }, { 1, 9 } }, alpha = { { 0, 0.3 }, { 1, 1 } }, z = 0.5, color = C(140, 180, 255) },
+	},
+	-- where the scythe meets the ball: a hole torn in the air (a black core swelling and gone, a
+	-- cold star, violet motes flung out hard and braking)
+	VoidRupture = {
+		{ t = "Glow", n = 1, life = { 0.35, 0.35 }, size = { { 0, 1 }, { 0.3, 7 }, { 1, 0 } }, alpha = { { 0, 0 }, { 0.7, 0.1 }, { 1, 1 } }, glow = 0, z = 1.5, color = C(4, 2, 10) },
+		{ t = "Glint", n = 4, life = { 0.25, 0.35 }, size = { { 0, 0 }, { 0.2, 6 }, { 1, 0 } }, rot = { 0, 360 }, z = 2, color = C(200, 225, 255) },
+		{ t = "Dot", n = 16, life = { 0.3, 0.5 }, size = { { 0, 0.6 }, { 1, 0 } }, speed = { 25, 45 }, drag = 6, spread = 180, z = 1.8, color = C(160, 100, 255) },
+		{ t = "Smoke", grid = "Grid4x4", n = 6, life = { 0.5, 0.8 }, size = { { 0, 1.5 }, { 1, 4 } }, alpha = { { 0, 0.3 }, { 1, 1 } }, speed = { 6, 12 }, drag = 4, spread = 180, rot = { 0, 360 }, glow = 0, color = C(12, 6, 22) },
+		{ t = "HitRing", grid = "Grid4x4", n = 1, life = { 0.3, 0.3 }, size = { { 0, 3 }, { 1, 10 } }, alpha = { { 0, 0 }, { 1, 0.2 } }, rot = { 0, 360 }, z = 1, color = C(140, 80, 255) },
+	},
 	AzureAura = {
 		layer(WHITEFIRE, { rate = 40, life = { 0.3, 0.55 }, size = { { 0, 2.4 }, { 1, 0.4 } }, speed = { 2, 5 }, spread = 180, drag = 0, accel = Vector3.new(0, 7, 0), tint = 0.45, color = { Color3.fromRGB(150, 245, 255), Color3.fromRGB(30, 100, 255) } }),
 	},

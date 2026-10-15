@@ -417,6 +417,13 @@ Assets.Fx = {
 	ToonSpark = "115949917960267", -- a four-point star flaring and shrinking
 	ToonElectric = "115855857218883", -- jagged bolts crackling out, new ones every frame
 	ToonBurst = "108360852617432", -- a spiky star blast ringing out
+	-- the Halloween event's (tools/generate_halloween_textures.py, the PNGs in assets/fx/halloween)
+	SoulWisp = "107324428805753", -- a screaming soul with a wispy tail (the Reaper's Souls trail)
+	Skull = "116674822883407", -- a skull with hollow eyes
+	GhostSheet = "128336687021408", -- a sheet ghost, black eyes (Ghost Swarm)
+	Bat = "112869581547343", -- a bat, wings spread (Bat Swarm)
+	InkSplat = "134261821932939", -- a splash of ink with flung streaks
+	CandyCorn = "98077675358365", -- a candy corn in its own colours (not tinted)
 }
 
 -- The ball skins' textures (tools/generate_ball_skins.py, the PNGs in assets/balls): equirectangular

@@ -3339,6 +3339,27 @@ end
 -- reactions to gameplay
 ------------------------------------------------------------------------------------------
 
+-- The Reaper's spike (Halloween; void, Blade Ball's crescent on black): the blade's own trail
+-- lights (Skins.slash), a black crescent with a violet rim tears through the contact, bigger than
+-- any other spike's, a cold cut crosses it, the air ruptures (Fx's VoidRupture: a black core
+-- swelling and gone, a star, violet motes braking hard) and two violet rings snap out at angles,
+-- spinning.
+local VOID = Color3.fromRGB(140, 80, 255)
+local function reaperReap(model, pos, dirZ, kmh)
+	mods.Skins.slash(model, 0.3)
+	local k = kmh >= 120 and 1.25 or 1
+	local turn = CFrame.Angles(0, 0, math.rad(dirZ > 0 and -35 or 215))
+	meshFx("FX_Slash", CFrame.new(pos + Vector3.new(0.35, 0, 0)) * FACE_CAMERA * turn, Color3.fromRGB(6, 3, 14), 0.5 * k, 1.25 * k, 0.32, { alpha = 0.02, glow = 0.4 })
+	meshFx("FX_Slash", CFrame.new(pos) * FACE_CAMERA * turn, VOID, 0.45 * k, 1.1 * k, 0.26, { alpha = 0.05 })
+	local cross = CFrame.Angles(0, 0, math.rad(dirZ > 0 and 55 or 125))
+	meshFx("FX_Slash", CFrame.new(pos + Vector3.new(-0.2, 0, 0)) * FACE_CAMERA * cross, Color3.fromRGB(200, 225, 255), 0.3 * k, 0.8 * k, 0.2, { alpha = 0.1 })
+	Fx.play("VoidRupture", pos, { scale = k })
+	for i = 1, 2 do
+		meshFx("FX_Ring", CFrame.new(pos) * CFrame.Angles(math.rad(30 + 50 * i), math.rad(40 * i), 0), VOID, 0.3, 1.4 * k, 0.35, { spin = 220, alpha = 0.1 })
+	end
+	rubble(pos, 4, 0.5, Color3.fromRGB(10, 6, 18), 0.2)
+end
+
 local function onHit(snap)
 	local meta = snap.meta
 	if not meta or not snap.path then
@@ -3354,7 +3375,10 @@ local function onHit(snap)
 	local close = mine or near(pos)
 	local shaker = mods.CameraController
 	local model = meta.id and Util.modelOf(meta.id)
-	if ht == "Spike" or ht == "JumpServe" then
+	local reaper = (ht == "Spike" or ht == "JumpServe") and model ~= nil and mods.Skins ~= nil and mods.Skins.isReaper(model)
+	if reaper then
+		reaperReap(model, pos, dirZ, kmh)
+	elseif ht == "Spike" or ht == "JumpServe" then
 		-- the swing's slash: a crescent through the contact, facing the camera, in the spike colour
 		local slashColor = Spins.tint(model and Spins.equipped(model, "Color")) or WHITE
 		local big = kmh >= 120
@@ -3690,7 +3714,7 @@ local function onHit(snap)
 			else
 				-- the attacker's spike colour (a V Points unlock) replaces the default hot pink
 				local tint = Spins.tint(Spins.equipped(model, "Color"))
-				local accent = tint or HOT
+				local accent = (reaper and VOID) or tint or HOT -- (the Reaper's hits are void)
 				-- how hard it was (HitLogic.speedFeel): a shockwave off the contact, a second sonic
 				-- boom past the middle, and more shake and speed lines
 				local hot = HitLogic.speedFeel(kmh)
@@ -5809,6 +5833,13 @@ local function onBallEvent(kind, ev, meta)
 		-- harder spikes hit the floor harder (HitLogic.speedFeel)
 		local attack = meta and (meta.hitType == "Spike" or meta.hitType == "JumpServe")
 		local hot = attack and HitLogic.speedFeel(meta.kmh) or 0
+		local hitter = attack and meta.id and Util.modelOf(meta.id)
+		if hitter and mods.Skins and mods.Skins.isReaper(hitter) then
+			-- a Souls spike lands: souls and skulls burst up out of a splash of ink (the owner's
+			-- concept art)
+			Fx.play("SoulsBurst", pos, { scale = 1 + 0.4 * hot })
+			ringFx(pos + Vector3.new(0, 0.4, 0), VOID, 1, 10 + 10 * hot)
+		end
 		Fx.play("FloorImpact", pos, { color = c, scale = hard and (1 + 0.8 * hot) or 0.55, count = hard and (1.4 + 1.4 * hot) or 0.6 })
 		if hard then
 			starburst(pos + Vector3.new(0, 0.8, 0), c or WHITE, 8 + 10 * hot)
