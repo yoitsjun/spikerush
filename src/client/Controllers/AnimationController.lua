@@ -1154,6 +1154,35 @@ local CLIP_DEFS = {
 	},
 }
 
+-- The attack was drawn left-handed (the owner, 2026-10-15: "just noticed all the character swing
+-- animations are left handed"): in the bow-draw the arm drawn back behind the head was the left,
+-- and it swept forward through the ball while the right only reached up. Every attacking pose (the
+-- spike's draw, contact and follow-through, each style's, the airborne windup, Azure's charge) is
+-- mirrored across the body's middle, left and right swapped, so the right arm draws back and
+-- swings (and the Reaper's scythe, in the right hand, swings with it). The serve toss stays the
+-- left hand's; the tip was already the right's.
+local function mirrorCF(cf)
+	local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = cf:GetComponents()
+	return CFrame.new(-x, y, z, r00, -r01, -r02, -r10, r11, r12, -r20, r21, r22)
+end
+local MIRRORED = { Windup = true, Swing = true, Cock = true, SpikeReach = true, SpikeSnap = true, SpikeFollow = true, Charge = true, ChargePulse = true, Rise_Circular = true, Spin_Whirl = true, Kick_Bicycle = true }
+local MIRROR_PREFIX = { Cock = true, Snap = true, Circ = true, Tuck = true, Bike = true }
+for name, joints in pairs(POSES) do
+	if MIRRORED[name] or MIRROR_PREFIX[string.match(name, "^(%a+)_") or ""] then
+		local out = {}
+		for joint, cf in pairs(joints) do
+			local other = joint
+			if string.sub(joint, 1, 4) == "Left" then
+				other = "Right" .. string.sub(joint, 5)
+			elseif string.sub(joint, 1, 5) == "Right" then
+				other = "Left" .. string.sub(joint, 6)
+			end
+			out[other] = mirrorCF(cf)
+		end
+		POSES[name] = out
+	end
+end
+
 local CLIPS = {}
 for name, def in pairs(CLIP_DEFS) do
 	local union = {}

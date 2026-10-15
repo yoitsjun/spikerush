@@ -184,7 +184,7 @@ local function holdFrame(model, h, swing)
 	-- toward the front (shaft x side: forward with the shaft upright, forward-up with it drawn back
 	-- over the shoulder, down with it out in front); a fixed body direction would flip it on the cock
 	local reach = look * (1 - raised) + shaft:Cross(right) * raised
-	if swing and swing < 0.6 then
+	if swing and swing >= 0 and swing < 0.6 then
 		-- on through in a tenth of a second, held, then eased back
 		local k = 1
 		if swing < 0.1 then

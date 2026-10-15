@@ -764,14 +764,12 @@ end
 -- "ball appears below them"). `fallback` when there's no hand.
 local POSE_WAIT = 0.04
 local function handBall(clone, fallback)
-	-- the hitting hand is the one reaching highest (the swing's arm; the owner: "the ball attaches
-	-- to the arm but the wrong one")
-	local hand = nil
-	for _, n in ipairs({ "LeftHand", "RightHand", "Left Arm", "Right Arm" }) do -- (a tie: the left, the swing's arm)
-		local part = clone and clone:FindFirstChild(n, true)
-		if part and part:IsA("BasePart") and (not hand or part.Position.Y > hand.Position.Y) then
-			hand = part
-		end
+	-- the hitting hand: the right (the attack is drawn right-handed since 2026-10-15: the owner, "all
+	-- the character swing animations are left handed"; before, the left swept through the ball and
+	-- the ball went to whichever hand reached highest)
+	local hand = clone and (clone:FindFirstChild("RightHand", true) or clone:FindFirstChild("Right Arm", true))
+	if hand and not hand:IsA("BasePart") then
+		hand = nil
 	end
 	if not hand then
 		return fallback
@@ -3551,6 +3549,7 @@ function VFXController.reaperFrame(entityId, ballPos, duration, hold)
 	vp.CurrentCamera = vcam
 	local starImg = nil
 	local SCYTHE_LOOK = { BladeBody = HW.VOID, BladeEdge = Color3.new(1, 1, 1), VoidRim = Color3.new(1, 1, 1), Shaft = Color3.fromRGB(90, 66, 160), Wrap = Color3.fromRGB(120, 90, 200) }
+	local strike = nil -- where the blade meets the ball
 	local function fill()
 		if freezeToken ~= token then
 			return
@@ -3588,6 +3587,20 @@ function VFXController.reaperFrame(entityId, ballPos, duration, hold)
 					end
 				end
 				sc.Parent = clone.Parent
+				-- struck: held along the frozen arm (Skins' own hold, read off the copy's pose), and the
+				-- ball on the blade's edge, not at the hand (the owner, 2026-10-15: "make the scythe be
+				-- hitting the ball on the swing here not the hands"); the crescent tears through there
+				local struck = mods.Skins.holdAt(clone)
+				if struck then
+					sc:PivotTo(struck)
+				end
+				local heel, edgeTip = sc:FindFirstChild("Heel", true), sc:FindFirstChild("Tip", true)
+				if heel and edgeTip then
+					strike = heel.Position:Lerp(edgeTip.Position, 0.55)
+					local sp = project(strike)
+					cres.Position = UDim2.fromOffset(sp.X, sp.Y)
+					core.Position = UDim2.fromOffset(sp.X, sp.Y)
+				end
 				-- the cold star where the tip is
 				local tip = sc:FindFirstChild("Tip", true)
 				if tip then
@@ -3600,14 +3613,15 @@ function VFXController.reaperFrame(entityId, ballPos, duration, hold)
 				end
 			end
 		end
-		if hold then
+		if hold or ballPos or strike then
+			-- the ball on the blade's edge (struck, above), or at the hand without a scythe
 			local b = Instance.new("Part")
 			b.Shape = Enum.PartType.Ball
 			b.Size = Vector3.one * (Config.Ball.Radius * 2)
 			b.Anchored = true
 			b.Color = Color3.fromRGB(236, 242, 255)
 			b.Material = Enum.Material.SmoothPlastic
-			b.CFrame = CFrame.new(handBall(clone, ball))
+			b.CFrame = CFrame.new(strike or handBall(clone, ball))
 			b.Parent = clone.Parent
 		end
 	end

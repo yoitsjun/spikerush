@@ -964,6 +964,11 @@ local function placeHeaders()
 	for _, strip in ipairs(ui.strips or {}) do
 		strip.Position = UDim2.fromOffset(M, top)
 	end
+	-- the player page's skin card under its currencies (it sat on them: the owner, "slight overlap
+	-- move it down")
+	if Extra.skinCard then
+		Extra.skinCard.Position = UDim2.fromOffset(M, top + 56 + 14)
+	end
 	-- the Match screen's title under the currencies, and its cards under the title
 	local ms = ui.matchScreen
 	if ms then
