@@ -1824,8 +1824,9 @@ function HitLogic.compute(input, ctx)
 			meta.setType = setType
 			meta.dotted = true
 			-- (every set ability she plays at once: Vector's spot and lift feed Featherfall's float, and
-			-- Chain Reaction charges it)
-			meta.charged = has(ctx, "ChainReaction") or nil
+			-- Chain Reaction charges it; never in 1v1, where she'd set herself, the owner, 2026-10-16:
+			-- "disable chain reaction in 1v1s")
+			meta.charged = (has(ctx, "ChainReaction") and (ctx.teamSize or 3) > 1) or nil
 			meta.setBreak = (tonumber(ctx.breakLevel) or 0) > 0 and Breakthrough.level(ctx.breakLevel) or nil -- (Chain Reaction, Vector, Featherfall grow with it)
 			meta.setBreakFor = meta.setBreak and ctx.ability or nil -- (her own ability's: setLevel)
 			meta.vectorSet = has(ctx, "Vector") or nil -- the pulsing ball

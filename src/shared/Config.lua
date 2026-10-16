@@ -1431,7 +1431,7 @@ Config.Abilities = {
 		Name = "Chain Reaction",
 		Tier = "S",
 		Role = "SE",
-		Blurb = "Your sets are charged. The spike or feint off one explodes: more power, and it tears through the receivers' stamina. Every explosion in a rally makes the next one bigger (up to x1.30 power).",
+		Blurb = "Your sets are charged. The spike or feint off one explodes: more power, and it tears through the receivers' stamina. Every explosion in a rally makes the next one bigger (up to x1.30 power). Off in 1v1s.",
 		Color = Color3.fromRGB(255, 64, 64),
 		-- the chain grows (the owner picked it for Seoyeon's buff): the first explosion of a rally
 		-- uses the first step, each one after it the next, until the rally ends

@@ -1572,6 +1572,15 @@ do
 	local _, feint = spike(sr, sb, { lastHit = charged }, { action = "Feint" })
 	local CR = Config.Abilities.ChainReaction
 	check(okS and charged.charged and boom.meta.reaction and math.abs(boom.meta.kmh / plain.meta.kmh - CR.PowerMul[1]) < 0.01 and feint.meta.reaction and not feint.meta.noDrain, "Chain Reaction: a charged set makes the spike (and even a feint) explode", string.format("%.1f vs %.1f km/h", boom.meta.kmh, plain.meta.kmh))
+	-- not in 1v1 (the owner, 2026-10-16: "disable chain reaction in 1v1s"): her own set there isn't
+	-- charged, and the spike off it is a plain one
+	local okSolo, soloSet = HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = vec(0, sroot.Y + Z.SetIdealY, sroot.Z), grounded = true, setType = "Open" }, ctx({ teamSize = 1, touchNumber = 2, stats = seoyeon, ability = "ChainReaction", lastHit = { team = "Away", hitType = "Bump" } }))
+	local soloMeta = (okSolo and soloSet.meta) or {}
+	soloMeta.team = "Away"
+	local _, soloPlain = spike(sr, sb, { teamSize = 1, lastHit = { team = "Away", hitType = "Set" } })
+	local _, soloSpike = spike(sr, sb, { teamSize = 1, lastHit = soloMeta })
+	check(okSolo and not soloMeta.charged and not soloSpike.meta.reaction and math.abs(soloSpike.meta.kmh - soloPlain.meta.kmh) < 0.01,
+		"Chain Reaction is off in 1v1: her own set isn't charged and the spike off it doesn't explode", string.format("%.1f km/h", soloSpike.meta.kmh))
 	-- the chain grows (the owner's buff): the team's second explosion of a rally, then the third,
 	-- hit harder and drain more; it stops growing at the last step
 	local _, boom2 = spike(sr, sb, { lastHit = charged, chain = 1 })

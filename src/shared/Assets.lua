@@ -131,7 +131,7 @@ Assets.Sounds = {
 	SinisterLaugh = "9067394653", -- a Mythic skin's pull, as the scythe cuts the screen open: "deep demonic laugh 1" (zapsplat)
 	-- the S+ skins' own (the owner, 2026-10-16: "lets make some custom sfx for the 2 s+ skins")
 	ReaperSwing = "106480446539437", -- the scythe through every spike: "Kali_Special_Vert_Atk [LoR]" (Library of Ruina)
-	ReaperSlash = "122411746821632", -- its void slash on a hard one: "Red Mist Vertical Split" (Library of Ruina)
+	ReaperSlash = "112710059259649", -- its slice on a hard one: "rien scythe slash (1)" (the Red Mist split that was here was the swing's own file)
 	ReaperSouls = "9114170094", -- souls wailing where a Souls ball lands: "Dream Weirdness Constant 6" (Pro Sound Effects, Ghosts)
 	ReaperFrame = "108165623473748", -- the Reaper's impact frame: "black wipe jwoomph faster attack"
 	FallenFlap = "9113444620", -- the broken wing flung open on a jump (played slow, a big wing): "Bird Wing Flaps Pigeon Two 1" (Pro Sound Effects)
@@ -226,6 +226,15 @@ Assets.SoundFiles = {
 	-- (2026-10-16) Dante's Bloodlust and the Mythic skin pull: start just before the sound, peak to about 400
 	["9116292530"] = { start = 0.38, gain = 2.1 }, -- Bloodlust "Lion Roar Beast Snarl 5": 0.4 s in, peak 187
 	["9067394653"] = { start = 0.02, gain = 2.8 }, -- SinisterLaugh "deep demonic laugh 1": peak 132
+	-- the S+ skins' own (measured 2026-10-16 at Volume 0.5; a layer under another sound sits lower)
+	["106480446539437"] = { gain = 0.6 }, -- ReaperSwing "Kali_Special_Vert_Atk": peak 579, under every spike
+	["112710059259649"] = { gain = 0.9 }, -- ReaperSlash "rien scythe slash (1)": peak 445
+	["9114170094"] = { start = 0.8, gain = 6.5 }, -- ReaperSouls "Dream Weirdness Constant 6": in by 0.9 s, peak 38, a wail under the landing
+	["108165623473748"] = { gain = 0.8 }, -- ReaperFrame "black wipe jwoomph faster attack": peak 479
+	["9113444620"] = { start = 0.5, gain = 6.5 }, -- FallenFlap "Bird Wing Flaps Pigeon Two 1": in by 0.66 s, peak 45 (played at 0.72)
+	["9114628818"] = { start = 0.06, gain = 2.5 }, -- FallenArms "Goliath Vocal Deep Growling Voice 22": peak 160
+	["9114658416"] = { start = 0.1, gain = 1.6 }, -- FallenDirt "Gravel Slide 1": peak 247
+	["6993372814"] = { gain = 2.6 }, -- FallenThunder "Lightning Strike": peak 155 (played at 0.82), level with Thunder
 	["9120730294"] = { start = 0.26, gain = 1.6 }, -- ForgeHit: 0.28 s in, peak 253
 	["117922524763696"] = { gain = 0.5 }, -- Thunder: peak 798
 	["86816529419846"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491
