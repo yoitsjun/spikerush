@@ -30,6 +30,8 @@ PatchNotes.List = {
 					{ Text = "<b>The Haunted Forest</b>: Home out in a moonlit forest, the clubhouse a haunted cabin among dead trees, with a graveyard, a bubbling cauldron, jack-o'-lanterns and a huge orange moon. Home's new <b>Decorate</b> shows a room behind you the moment you pick it; Apply keeps it." },
 					{ Icon = "AbilityThunder", Text = "<b>The Fallen Angel</b> is YeJun's skin: one broken black wing, lightning in violet and black, and arms from the underworld that drag him back down on every jump (his own jump while it's on). It shares the banner's Mythic slot with the Reaper." },
 					{ Text = "Pull a Mythic skin and the scythe cuts the screen open onto black. Click to go on." },
+					{ Text = "A skin brings its player with it: pull the Reaper and Taeho is yours, pull the Fallen Angel and YeJun is. Already pulled one? They've joined your roster." },
+					{ Text = "Both skins have sounds of their own. The Reaper's scythe swings through every spike and slices on a hard one, and souls wail where his ball lands. The Fallen Angel's wing beats, the underworld growls and the ground gives way on every jump, and his thunder rumbles low." },
 					{ Text = "New score effect on the banner, <b>Rest in Peace</b>: a giant gravestone drops on the spot and flings the other team. Carve your own words and a picture on it in the Locker (Customize); otherwise it bears your name." },
 					{ Text = "The <b>Candy shop</b>: lucky spins, Gold, VP and Halloween cosmetics." },
 				},
@@ -53,11 +55,18 @@ PatchNotes.List = {
 				},
 			},
 			{
+				Heading = "Gameplay",
+				Items = {
+					{ Text = "<b>Feints</b> float over blocks: a block only reaches one now and then, Iron Wall's too, and then just softens it. Dug, a feint costs a little guard, and breaks a guard at 30% or lower." },
+					{ Text = "<b>2x VP</b> (the event, your boosts and the 2x V Points pass) now doubles all the VP you earn: tournament prizes and daily rewards as well as matches. Codes, gifts and purchases stay as they are." },
+				},
+			},
+			{
 				Heading = "Player changes",
 				Items = {
 					{ Text = "<b>Daon</b>, <b>Shoyo</b> and <b>Seora</b> buffed: Daon +12 Attack, +7 Defense, +10 Speed and +10 Jump; Shoyo +7 Attack, +6 Defense, +7 Speed and +3 Jump; Seora +8 Attack, +6 Defense and +8 Speed." },
 					{ Icon = "AbilityFeral", Text = "<b>Dante</b>: new <b>Bloodlust</b> (Q). For 10 seconds his charge bar burns blood red and keeps filling past full, up to <b>165%</b>, and an overcharged leap hits around 265 km/h." },
-					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> buffed: while he has shields he's an <b>Iron Wall</b> at the net. Every attack that crosses in front of him is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
+					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> buffed: while he has shields he's an <b>Iron Wall</b> at the net. Every attack that crosses in front of him is shut down (all but feints), at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
 				},
 			},
 			{
@@ -65,6 +74,7 @@ PatchNotes.List = {
 				Items = {
 					{ Text = "An AI player whose body was lost mid-match (the 2v3 bug) now gets a new one within a couple of seconds." },
 					{ Text = "Phones: the speed readout no longer flickers between two places, and name tags are smaller with only your own details." },
+					{ Text = "Blocking on a slow connection: a spike that reaches you late is checked from the moment it left the hand, so a block that was up in time stops it. On phones, the block tutorial's spikes used to go straight through." },
 				},
 			},
 		},
