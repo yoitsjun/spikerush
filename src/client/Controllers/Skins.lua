@@ -247,7 +247,9 @@ local function wingAt(model, open, twitch)
 	-- x out to his left, y up, z forward: yaw sweeps it back along him, roll lifts it
 	local base = CFrame.fromMatrix(at.Position, -cf.RightVector, cf.UpVector)
 	local yaw = math.rad(70) * (1 - open) + math.rad(16) * open
-	local roll = math.rad(-30) * (1 - open) + math.rad(18) * open + (twitch or 0)
+	-- (folded, it droops only 10 degrees: the imported wing's broken tip hangs to just above the
+	-- floor; at 30 it went through it)
+	local roll = math.rad(-10) * (1 - open) + math.rad(18) * open + (twitch or 0)
 	return base * CFrame.Angles(0, yaw, 0) * CFrame.Angles(0, 0, roll)
 end
 
