@@ -1323,6 +1323,12 @@ function HW.underworld(foot, k, model)
 	pool.CFrame = CFrame.new(foot.X, 0.06, foot.Z) * CFrame.Angles(0, 0, math.rad(90))
 	pool.Parent = fxFolder
 	TweenService:Create(pool, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.1, 8.5 * k, 8.5 * k) }):Play()
+	if mods and mods.AudioController then
+		-- the wing flung open (slowed: a big wing), the arms' growl and the ground giving way
+		mods.AudioController.play("FallenFlap", { pos = foot, speed = 0.72, minGap = 0.2 })
+		mods.AudioController.play("FallenArms", { pos = foot, volume = 0.5 + 0.4 * k, minGap = 0.2 })
+		mods.AudioController.play("FallenDirt", { pos = foot, volume = 0.6, minGap = 0.2 })
+	end
 	floorRing(foot, VIOLET, 9 * k)
 	ringFx(foot + Vector3.new(0, 0.4, 0), VIOLET, 1, 11 * k)
 	Fx.play("VoidRupture", foot + Vector3.new(0, 0.5, 0), { scale = 0.6 * k })
@@ -3738,6 +3744,9 @@ function VFXController.reaperFrame(entityId, ballPos, duration, hold)
 	local STAR, PALE, DEEP = Color3.fromRGB(170, 205, 255), Color3.fromRGB(192, 200, 236), Color3.fromRGB(2, 1, 6)
 	if mods and not hold then
 		mods.AudioController.play("ImpactFrame", { minGap = 0.2 })
+	end
+	if mods then
+		mods.AudioController.play("ReaperFrame", { minGap = 0.3, volume = 0.9 }) -- (the skin's own sting)
 	end
 	local ball = ballPos or hrp.Position + Vector3.new(0, 2.5, 0)
 	local vcf, fov
@@ -7145,6 +7154,9 @@ local function onBallEvent(kind, ev, meta)
 			-- concept art)
 			Fx.play("SoulsBurst", pos, { scale = 1 + 0.4 * hot })
 			ringFx(pos + Vector3.new(0, 0.4, 0), HW.VOID, 1, 10 + 10 * hot)
+			if mods.AudioController and mods.AudioController.hearsMatch() then
+				mods.AudioController.play("ReaperSouls", { pos = pos, volume = 0.6 + 0.5 * hot, minGap = 0.3 })
+			end
 		end
 		Fx.play("FloorImpact", pos, { color = c, scale = hard and (1 + 0.8 * hot) or 0.55, count = hard and (1.4 + 1.4 * hot) or 0.6 })
 		if hard then

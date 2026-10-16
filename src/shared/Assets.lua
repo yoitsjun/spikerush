@@ -129,6 +129,15 @@ Assets.Sounds = {
 	FeralLeap = "", -- Feral Leap: the leap off the floor (louder the fuller the charge)
 	Bloodlust = "9116292530", -- Dante's Bloodlust (Q): "Lion Roar Beast Snarl 5" (Pro Sound Effects)
 	SinisterLaugh = "9067394653", -- a Mythic skin's pull, as the scythe cuts the screen open: "deep demonic laugh 1" (zapsplat)
+	-- the S+ skins' own (the owner, 2026-10-16: "lets make some custom sfx for the 2 s+ skins")
+	ReaperSwing = "106480446539437", -- the scythe through every spike: "Kali_Special_Vert_Atk [LoR]" (Library of Ruina)
+	ReaperSlash = "122411746821632", -- its void slash on a hard one: "Red Mist Vertical Split" (Library of Ruina)
+	ReaperSouls = "9114170094", -- souls wailing where a Souls ball lands: "Dream Weirdness Constant 6" (Pro Sound Effects, Ghosts)
+	ReaperFrame = "108165623473748", -- the Reaper's impact frame: "black wipe jwoomph faster attack"
+	FallenFlap = "9113444620", -- the broken wing flung open on a jump (played slow, a big wing): "Bird Wing Flaps Pigeon Two 1" (Pro Sound Effects)
+	FallenArms = "9114628818", -- the underworld's arms clawing up: "Goliath Vocal Deep Growling Voice 22" (Pro Sound Effects)
+	FallenDirt = "9114658416", -- and the ground giving way under them: "Gravel Slide 1" (Pro Sound Effects)
+	FallenThunder = "6993372814", -- his violet-black thunder (played low) in place of YeJun's: "Lightning Strike"
 	RallyCry = "",
 	-- the new characters' moves (2026-10-12, the owner: "add some cool sfx too"; Pro Sound Effects
 	-- unless noted, starts and gains measured in a playtest)

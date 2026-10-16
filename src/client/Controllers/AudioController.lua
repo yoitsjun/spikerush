@@ -317,8 +317,23 @@ local function onHit(snap)
 		-- can carry several (the Halloween Match's ability cards stack): each layer plays, over one
 		-- crack, picked in the effects' order (Zero Point, Thunder, Azure, Talon Drop)
 		local own = (ht == "JumpServe" and AudioController.custom(who, "SoundServe")) or AudioController.custom(who, "SoundSpike")
+		-- a skin's own layers (the owner, 2026-10-16: "lets make some custom sfx for the 2 s+ skins"):
+		-- the Reaper's scythe swings through every spike and slices on a hard one; the Fallen Angel's
+		-- thunder is its own, low and dark
+		local hitter = who and Util.modelOf(who)
+		local skin = hitter and hitter:GetAttribute("Skin")
+		if skin == "Reaper" then
+			AudioController.play("ReaperSwing", { pos = pos })
+			if kmh >= 120 or meta.zero then
+				AudioController.play("ReaperSlash", { pos = pos, volume = 1.1 })
+			end
+		end
 		if meta.thunder then
-			AudioController.play("Thunder", { pos = pos, volume = 1.2 })
+			if skin == "FallenAngel" then
+				AudioController.play("FallenThunder", { pos = pos, volume = 1.2, speed = 0.82 })
+			else
+				AudioController.play("Thunder", { pos = pos, volume = 1.2 })
+			end
 		end
 		if meta.energy then
 			AudioController.play("AzureRelease", { pos = pos, speed = 1.1 - 0.35 * math.min(meta.energy, 1) })
