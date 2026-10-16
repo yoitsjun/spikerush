@@ -1,7 +1,7 @@
 -- The menu scenes: two small sets built on this client only, far from the court.
 --   * Home: a sunlit club room (lockers, a big window, a bench, a ball cart, a clock) with
 --     your own avatar posed in front of the camera. Its room (Config.Rooms, Home's Decorate) can
---     dress it: the Haunted Clubhouse puts it on Halloween night (setRoom).
+--     swap it: the Haunted Forest puts you in a moonlit forest clearing instead (setRoom).
 --   * Gym: a school gym (vaulted ceiling with timber arches, tall windows throwing light shafts,
 --     a stage with a red curtain, a ball cart) where recruiting happens: three silhouettes of
 --     your avatar stand in for the players you can recruit, and the recruit sequence plays
@@ -43,7 +43,7 @@ local camCF, camFov = nil, 40
 local shotFrom, shotTo, shotT0, shotDur = nil, nil, 0, 0
 local grade, dof
 local homeRig, showcase = nil, {}
-local homeBits = {} -- the club room's window, sun shafts and lights (a room's decor changes them)
+local homeBits = {} -- the club room (a room in its place hides it)
 local roomState = { key = nil, decor = nil, flicker = {} } -- the room shown (setRoom) and its decor
 local practice = nil -- the Locker's practice spike (see below)
 local balls = {}
@@ -300,7 +300,6 @@ local function buildHome()
 
 	-- the window: a bright outdoor view on a SurfaceGui (sky and soft trees)
 	local win = box(room, Vector3.new(22, 12, 0.2), CFrame.new(H + Vector3.new(-5, 12.5, 17.8)), Color3.fromRGB(236, 246, 226), Enum.Material.Neon)
-	homeBits.window = win
 	local sg = Instance.new("SurfaceGui")
 	sg.Face = Enum.NormalId.Front
 	sg.LightInfluence = 0
@@ -339,14 +338,12 @@ local function buildHome()
 		box(room, Vector3.new(22.6, 0.6, 0.6), CFrame.new(H + Vector3.new(-5, y, 17.5)), frameColor)
 	end
 	box(room, Vector3.new(24, 0.5, 1.6), CFrame.new(H + Vector3.new(-5, 6.1, 17.1)), frameColor)
-	homeBits.sun = light(win, "SurfaceLight", { Face = Enum.NormalId.Front, Range = 40, Angle = 70, Brightness = 2.2, Color = Color3.fromRGB(255, 240, 214), Shadows = true })
+	light(win, "SurfaceLight", { Face = Enum.NormalId.Front, Range = 40, Angle = 70, Brightness = 2.2, Color = Color3.fromRGB(255, 240, 214), Shadows = true })
 	-- sun shafts through the window
-	homeBits.shafts = {}
 	for i, x in ipairs({ -11, -4, 3 }) do
 		local shaft = box(room, Vector3.new(4.5, 30, 0.1), CFrame.new(H + Vector3.new(x + 3, 8, 11)) * CFrame.Angles(math.rad(-38), math.rad(-12), 0), Color3.fromRGB(255, 240, 210), Enum.Material.Neon)
 		shaft.Transparency = 0.9 + i * 0.015
 		shaft.CastShadow = false
-		table.insert(homeBits.shafts, { part = shaft, alpha = shaft.Transparency })
 	end
 
 	-- a jersey pinned on the wall above the lockers: black with a gold number
@@ -376,11 +373,10 @@ local function buildHome()
 
 	-- warm room light
 	local lamp = box(room, Vector3.new(10, 0.2, 3), CFrame.new(H + Vector3.new(2, 24, 4)), Color3.fromRGB(255, 244, 222), Enum.Material.Neon)
-	homeBits.lampPart = lamp
-	homeBits.lamp = light(lamp, "SurfaceLight", { Face = Enum.NormalId.Bottom, Range = 26, Angle = 100, Brightness = 1.1, Color = Color3.fromRGB(255, 236, 206), Shadows = true })
+	light(lamp, "SurfaceLight", { Face = Enum.NormalId.Bottom, Range = 26, Angle = 100, Brightness = 1.1, Color = Color3.fromRGB(255, 236, 206), Shadows = true })
 	local fill = box(room, Vector3.new(1, 1, 1), CFrame.new(H + Vector3.new(0, 8, -6)), Color3.new(1, 1, 1))
 	fill.Transparency = 1
-	homeBits.fill = light(fill, "PointLight", { Range = 26, Brightness = 0.8, Color = Color3.fromRGB(255, 226, 196), Shadows = false })
+	light(fill, "PointLight", { Range = 26, Brightness = 0.8, Color = Color3.fromRGB(255, 226, 196), Shadows = false })
 	homeBits.room = room
 	if room and SceneController.roomKey then
 		SceneController.applyRoom()
@@ -414,54 +410,6 @@ local function jackLantern(parent, at, size, yaw)
 	local l = light(p, "PointLight", { Range = size * 3.4, Brightness = 1.4, Color = Color3.fromRGB(255, 150, 40), Shadows = false })
 	table.insert(roomState.flicker, { light = l, base = 1.4, seed = rng:NextNumber() * 10 })
 	return p
-end
-
--- A sagging string of pennants from a to b (alternating colours), `n` flags.
-local function bunting(parent, a, b, n, sag, colors)
-	local prev = a
-	for i = 1, n do
-		local t = i / n
-		local pt = a:Lerp(b, t) - Vector3.new(0, sag * 4 * t * (1 - t), 0)
-		local mid = (prev + pt) / 2
-		local cord = box(parent, Vector3.new(0.06, 0.06, (pt - prev).Magnitude), CFrame.lookAt(mid, pt), Color3.fromRGB(40, 30, 36))
-		cord.CastShadow = false
-		local flagAt = a:Lerp(b, (i - 0.5) / n) - Vector3.new(0, sag * 4 * ((i - 0.5) / n) * (1 - (i - 0.5) / n), 0)
-		local dir = (b - a).Unit
-		local w = Instance.new("WedgePart")
-		w.Anchored, w.CanCollide, w.CanQuery, w.CanTouch = true, false, false, false
-		w.Size = Vector3.new(0.05, 1.5, 1.1)
-		-- point down: the wedge's slope from its top edge to a point at the bottom
-		w.CFrame = CFrame.lookAt(flagAt - Vector3.new(0, 0.8, 0), flagAt - Vector3.new(0, 0.8, 0) + dir) * CFrame.Angles(0, math.rad(90), math.rad(180))
-		w.Color = colors[(i - 1) % #colors + 1]
-		w.Material = Enum.Material.Fabric
-		w.CastShadow = false
-		w.Parent = parent
-		prev = pt
-	end
-end
-
--- A cobweb in a corner: threads fanning out from `corner` across the two walls' plane (u, v), and
--- rings of thread between them.
-local function cobweb(parent, corner, u, v, size)
-	local spokes = {}
-	for i = 0, 5 do
-		local a = math.rad(i * 18)
-		local dir = (u * math.cos(a) + v * math.sin(a)).Unit
-		table.insert(spokes, dir)
-		local tip = corner + dir * size
-		local t = box(parent, Vector3.new(0.035, 0.035, size), CFrame.lookAt((corner + tip) / 2, tip), Color3.fromRGB(235, 235, 245))
-		t.Transparency = 0.35
-		t.CastShadow = false
-	end
-	for r = 1, 4 do
-		local len = size * r / 4.4
-		for i = 1, #spokes - 1 do
-			local p1, p2 = corner + spokes[i] * len, corner + spokes[i + 1] * len * 0.96
-			local t = box(parent, Vector3.new(0.03, 0.03, (p2 - p1).Magnitude), CFrame.lookAt((p1 + p2) / 2, p2), Color3.fromRGB(235, 235, 245))
-			t.Transparency = 0.45
-			t.CastShadow = false
-		end
-	end
 end
 
 -- A gravestone: a slab with a round top, RIP on its face.
@@ -501,26 +449,62 @@ local function floater(parent, at, key, size, color, alpha, bob)
 	return anchor
 end
 
--- The Haunted Clubhouse: the club room on Halloween night. The window goes to a night sky with an
--- orange full moon, bare trees and bats; the sun's shafts go; the lights drop to a dim orange and
--- violet; jack-o'-lanterns (the owner's pumpkin) on the floor, the bench, the shelves and the
--- lockers, candles, orange and violet bunting across the room (The Spike's festival classroom),
--- cobwebs in the corners, two gravestones, bats hanging under the ceiling, ghosts drifting and a
--- violet mist along the floor.
-local function buildHaunted(parent)
-	local H = HOME
-	local d = Instance.new("Model")
-	d.Name = "Haunted"
-	d.Parent = parent
-	-- the night window, just in front of the day one
-	local night = box(d, Vector3.new(22, 12, 0.1), CFrame.new(H + Vector3.new(-5, 12.5, 17.62)), Color3.fromRGB(30, 18, 60), Enum.Material.Neon)
+-- A dead tree: a dark trunk leaning a little, bare branches reaching out and up with a twig at
+-- each end, and now and then a dark clump of leaves still on it.
+local function deadTree(parent, base, height, rng, dark)
+	local wood = dark and Color3.fromRGB(18, 15, 16) or Color3.fromRGB(32, 25, 23)
+	local d = height * (0.045 + rng:NextNumber() * 0.02)
+	local lean = CFrame.Angles(math.rad((rng:NextNumber() - 0.5) * 8), 0, math.rad((rng:NextNumber() - 0.5) * 8))
+	local foot = CFrame.new(base) * lean
+	local trunk = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(height, d, d), CFrame = foot * CFrame.new(0, height / 2, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = wood, Material = Enum.Material.Wood }, parent)
+	trunk.CastShadow = not dark
+	for _ = 1, 3 + rng:NextInteger(0, 3) do
+		local at = foot * CFrame.new(0, height * (0.45 + rng:NextNumber() * 0.45), 0)
+		local dir = CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0) * CFrame.Angles(math.rad(25 + rng:NextNumber() * 40), 0, 0)
+		local len = height * (0.18 + rng:NextNumber() * 0.18)
+		local cf = at * dir
+		local tip = (cf * CFrame.new(0, len, 0)).Position
+		local limb = part({ Size = Vector3.new(d * 0.32, len, d * 0.32), CFrame = cf * CFrame.new(0, len / 2, 0), Color = wood, Material = Enum.Material.Wood }, parent)
+		limb.CastShadow = false
+		local twigDir = CFrame.new(tip) * dir.Rotation * CFrame.Angles(math.rad((rng:NextNumber() - 0.5) * 70), 0, math.rad((rng:NextNumber() - 0.5) * 50))
+		local tl = len * 0.45
+		part({ Size = Vector3.new(d * 0.16, tl, d * 0.16), CFrame = twigDir * CFrame.new(0, tl / 2, 0), Color = wood, Material = Enum.Material.Wood, CastShadow = false }, parent)
+		if rng:NextNumber() < 0.18 then
+			local s = height * (0.12 + rng:NextNumber() * 0.1)
+			part({ Shape = Enum.PartType.Ball, Size = Vector3.new(s, s * 0.7, s), CFrame = CFrame.new(tip), Color = Color3.fromRGB(20, 26, 22), Material = Enum.Material.Grass, CastShadow = false }, parent)
+		end
+	end
+	return trunk
+end
+
+-- A string of bulbs sagging from a to b, orange and violet, with a light or two on it.
+local function stringLights(parent, a, b, n, sag)
+	local colors = { Color3.fromRGB(255, 140, 40), Color3.fromRGB(170, 90, 255), Color3.fromRGB(255, 200, 90) }
+	local prev = a
+	for i = 1, n do
+		local t = i / n
+		local pt = a:Lerp(b, t) - Vector3.new(0, sag * 4 * t * (1 - t), 0)
+		part({ Size = Vector3.new(0.05, 0.05, (pt - prev).Magnitude), CFrame = CFrame.lookAt((prev + pt) / 2, pt), Color = Color3.fromRGB(20, 18, 22), CastShadow = false }, parent)
+		if i < n then
+			local bulb = part({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.4, CFrame = CFrame.new(pt - Vector3.new(0, 0.25, 0)), Color = colors[(i - 1) % #colors + 1], Material = Enum.Material.Neon, CastShadow = false }, parent)
+			if i % 6 == 3 then
+				light(bulb, "PointLight", { Range = 10, Brightness = 0.7, Color = bulb.Color, Shadows = false })
+			end
+		end
+		prev = pt
+	end
+end
+
+-- The night sky on the backdrop: deep blue into violet over an ember horizon, stars, a huge
+-- orange moon with a halo and cloud wisps across it, bats, and a far treeline.
+local function nightSky(wall)
 	local sg = Instance.new("SurfaceGui")
 	sg.Face = Enum.NormalId.Front
 	sg.LightInfluence = 0
-	sg.Brightness = 1.2
-	sg.PixelsPerStud = 20
+	sg.Brightness = 1
+	sg.PixelsPerStud = 4
 	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	sg.Parent = night
+	sg.Parent = wall
 	local sky = Instance.new("Frame")
 	sky.Size = UDim2.fromScale(1, 1)
 	sky.BorderSizePixel = 0
@@ -528,129 +512,311 @@ local function buildHaunted(parent)
 	sky.Parent = sg
 	local g = Instance.new("UIGradient")
 	g.Rotation = 90
-	g.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(14, 10, 40)), ColorSequenceKeypoint.new(0.6, Color3.fromRGB(56, 22, 84)), ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 50, 60)) })
+	g.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(6, 8, 26)), ColorSequenceKeypoint.new(0.62, Color3.fromRGB(38, 20, 70)), ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 46, 50)) })
 	g.Parent = sky
-	local moon = Instance.new("Frame")
-	moon.AnchorPoint = Vector2.new(0.5, 0.5)
-	moon.Position = UDim2.fromScale(0.7, 0.36)
-	moon.Size = UDim2.fromOffset(140, 140)
-	moon.BackgroundColor3 = Color3.fromRGB(255, 176, 70)
-	moon.BorderSizePixel = 0
-	moon.Parent = sky
-	local mc = Instance.new("UICorner")
-	mc.CornerRadius = UDim.new(0.5, 0)
-	mc.Parent = moon
-	local mg = Instance.new("UIGradient")
-	mg.Color = ColorSequence.new(Color3.fromRGB(255, 226, 150), Color3.fromRGB(255, 130, 40))
-	mg.Rotation = 45
-	mg.Parent = moon
-	local halo = moon:Clone()
-	halo.Size = UDim2.fromOffset(230, 230)
-	halo.BackgroundTransparency = 0.82
-	halo.ZIndex = 0
-	halo.Parent = sky
-	local rnd = Random.new(11)
-	for i = 1, 6 do
-		-- bare trees: a trunk and a dark crown along the bottom
-		local x = rnd:NextNumber()
-		local trunk = Instance.new("Frame")
-		trunk.AnchorPoint = Vector2.new(0.5, 1)
-		trunk.Position = UDim2.fromScale(x, 1)
-		trunk.Size = UDim2.fromOffset(rnd:NextInteger(8, 14), rnd:NextInteger(70, 130))
-		trunk.BackgroundColor3 = Color3.fromRGB(8, 6, 14)
-		trunk.BorderSizePixel = 0
-		trunk.Rotation = rnd:NextInteger(-8, 8)
-		trunk.Parent = sky
-		for _ = 1, 3 do
-			local br = Instance.new("Frame")
-			br.AnchorPoint = Vector2.new(0, 0.5)
-			br.Position = UDim2.new(0.5, 0, rnd:NextNumber() * 0.5, 0)
-			br.Size = UDim2.fromOffset(rnd:NextInteger(30, 60), 5)
-			br.Rotation = rnd:NextInteger(-150, -30)
-			br.BackgroundColor3 = Color3.fromRGB(8, 6, 14)
-			br.BorderSizePixel = 0
-			br.Parent = trunk
+	local rnd = Random.new(5)
+	for _ = 1, 90 do
+		local st = Instance.new("Frame")
+		local s = rnd:NextInteger(2, 5)
+		st.Size = UDim2.fromOffset(s, s)
+		st.Position = UDim2.fromScale(rnd:NextNumber(), rnd:NextNumber() * 0.55)
+		st.BackgroundColor3 = Color3.fromRGB(235, 236, 255)
+		st.BackgroundTransparency = rnd:NextNumber() * 0.5
+		st.BorderSizePixel = 0
+		st.Parent = sky
+	end
+	local function disc(size, pos, a, b, alpha, z)
+		local f = Instance.new("Frame")
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = pos
+		f.Size = UDim2.fromOffset(size, size)
+		f.BackgroundColor3 = Color3.new(1, 1, 1)
+		f.BackgroundTransparency = alpha or 0
+		f.BorderSizePixel = 0
+		f.ZIndex = z or 1
+		f.Parent = sky
+		local c = Instance.new("UICorner")
+		c.CornerRadius = UDim.new(0.5, 0)
+		c.Parent = f
+		local mg = Instance.new("UIGradient")
+		mg.Color = ColorSequence.new(a, b)
+		mg.Rotation = 45
+		mg.Parent = f
+		return f
+	end
+	local moonAt = UDim2.fromScale(0.6, 0.27)
+	disc(420, moonAt, Color3.fromRGB(255, 170, 90), Color3.fromRGB(255, 110, 60), 0.86, 1)
+	disc(300, moonAt, Color3.fromRGB(255, 190, 110), Color3.fromRGB(255, 120, 60), 0.72, 1)
+	disc(200, moonAt, Color3.fromRGB(255, 236, 170), Color3.fromRGB(255, 150, 60), 0, 2)
+	for i = 1, 3 do
+		local cloud = Instance.new("Frame")
+		cloud.AnchorPoint = Vector2.new(0.5, 0.5)
+		cloud.Position = UDim2.new(0.6, (i - 2) * 70, 0.27, (i - 2) * 26 + 18)
+		cloud.Size = UDim2.fromOffset(240 - i * 30, 22)
+		cloud.BackgroundColor3 = Color3.fromRGB(16, 10, 28)
+		cloud.BackgroundTransparency = 0.25
+		cloud.BorderSizePixel = 0
+		cloud.ZIndex = 3
+		cloud.Parent = sky
+		local c = Instance.new("UICorner")
+		c.CornerRadius = UDim.new(0.5, 0)
+		c.Parent = cloud
+	end
+	for _ = 1, 7 do
+		local bat = Instance.new("ImageLabel")
+		bat.AnchorPoint = Vector2.new(0.5, 0.5)
+		bat.BackgroundTransparency = 1
+		bat.Image = Assets.id(Assets.Fx.Bat) or ""
+		bat.ImageColor3 = Color3.fromRGB(8, 6, 14)
+		local s = rnd:NextInteger(26, 52)
+		bat.Size = UDim2.fromOffset(s, s)
+		bat.Position = UDim2.new(0.6, rnd:NextInteger(-220, 220), 0.27, rnd:NextInteger(-150, 110))
+		bat.ZIndex = 4
+		bat.Parent = sky
+	end
+	-- the far treeline
+	for i = 0, 40 do
+		local w = rnd:NextInteger(30, 70)
+		local h = rnd:NextInteger(60, 150)
+		local t = Instance.new("Frame")
+		t.AnchorPoint = Vector2.new(0.5, 1)
+		t.Position = UDim2.new(i / 40, 0, 1, 0)
+		t.Size = UDim2.fromOffset(w, h)
+		t.BackgroundColor3 = Color3.fromRGB(10, 8, 18)
+		t.BorderSizePixel = 0
+		t.ZIndex = 5
+		t.Parent = sky
+		local c = Instance.new("UICorner")
+		c.CornerRadius = UDim.new(0.5, 0)
+		c.Parent = t
+	end
+	local ground = Instance.new("Frame")
+	ground.AnchorPoint = Vector2.new(0, 1)
+	ground.Position = UDim2.fromScale(0, 1)
+	ground.Size = UDim2.new(1, 0, 0, 40)
+	ground.BackgroundColor3 = Color3.fromRGB(10, 8, 18)
+	ground.BorderSizePixel = 0
+	ground.ZIndex = 5
+	ground.Parent = sky
+end
+
+-- The clubhouse in the woods: a plank cabin with a sagging gable roof, two windows glowing orange,
+-- a door with light at its edges, a CLUBHOUSE sign, a crooked smoking chimney, a lantern by the
+-- door and jack-o'-lanterns on the porch. `at`: the middle of its front at the ground.
+local function cabin(parent, at)
+	local plank = Color3.fromRGB(56, 40, 31)
+	local dark = Color3.fromRGB(28, 22, 22)
+	local cf = CFrame.new(at)
+	box(parent, Vector3.new(18, 0.8, 4), cf * CFrame.new(0, 0.4, -1.6), Color3.fromRGB(44, 32, 26), Enum.Material.WoodPlanks)
+	box(parent, Vector3.new(16, 10, 12), cf * CFrame.new(0, 5, 6), plank, Enum.Material.WoodPlanks)
+	for _, side in ipairs({ -1, 1 }) do
+		box(parent, Vector3.new(17.6, 0.7, 8.6), cf * CFrame.new(0, 12.2, 6 + side * 3.3) * CFrame.Angles(math.rad(-side * 34), 0, 0), Color3.fromRGB(30, 24, 28), Enum.Material.Slate)
+	end
+	box(parent, Vector3.new(16, 3.4, 0.4), cf * CFrame.new(0, 11.4, 0.1), plank, Enum.Material.WoodPlanks) -- the gable's face
+	for _, x in ipairs({ -4.5, 4.5 }) do
+		local pane = box(parent, Vector3.new(2.6, 2.6, 0.2), cf * CFrame.new(x, 5.6, -0.05), Color3.fromRGB(255, 160, 70), Enum.Material.Neon)
+		light(pane, "SurfaceLight", { Face = Enum.NormalId.Front, Range = 18, Angle = 80, Brightness = 1.4, Color = Color3.fromRGB(255, 150, 60), Shadows = true })
+		box(parent, Vector3.new(2.9, 0.22, 0.3), cf * CFrame.new(x, 5.6, -0.1), dark)
+		box(parent, Vector3.new(0.22, 2.9, 0.3), cf * CFrame.new(x, 5.6, -0.1), dark)
+		box(parent, Vector3.new(3.2, 0.3, 0.6), cf * CFrame.new(x, 4.1, -0.25), dark)
+	end
+	box(parent, Vector3.new(3, 6.2, 0.3), cf * CFrame.new(0, 3.9, -0.05), dark, Enum.Material.WoodPlanks)
+	box(parent, Vector3.new(3.3, 0.12, 0.25), cf * CFrame.new(0, 7.05, -0.08), Color3.fromRGB(255, 170, 80), Enum.Material.Neon) -- light under the lintel
+	local sign = box(parent, Vector3.new(7, 1.6, 0.25), cf * CFrame.new(0, 8.6, -0.2) * CFrame.Angles(0, 0, math.rad(-3)), Color3.fromRGB(70, 50, 36), Enum.Material.WoodPlanks)
+	surfaceText(sign, Enum.NormalId.Front, "CLUBHOUSE", Color3.fromRGB(255, 170, 70), Enum.Font.Creepster)
+	local chim = box(parent, Vector3.new(2, 7, 2), cf * CFrame.new(5, 14.5, 8) * CFrame.Angles(0, 0, math.rad(6)), Color3.fromRGB(46, 42, 46), Enum.Material.Slate)
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Texture = Assets.id(Assets.Fx.Glow) or ""
+	smoke.Color = ColorSequence.new(Color3.fromRGB(90, 84, 100))
+	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(1, 1) })
+	smoke.Size = NumberSequence.new(2, 7)
+	smoke.Lifetime = NumberRange.new(3, 5)
+	smoke.Rate = 4
+	smoke.Speed = NumberRange.new(2, 4)
+	smoke.SpreadAngle = Vector2.new(15, 15)
+	smoke.EmissionDirection = Enum.NormalId.Top
+	smoke.LightInfluence = 0.3
+	smoke.Parent = chim
+	local hook = box(parent, Vector3.new(0.4, 0.4, 0.4), cf * CFrame.new(-2.6, 6.6, -0.6), Color3.fromRGB(255, 190, 90), Enum.Material.Neon)
+	local l = light(hook, "PointLight", { Range = 12, Brightness = 1.2, Color = Color3.fromRGB(255, 170, 80), Shadows = false })
+	table.insert(roomState.flicker, { light = l, base = 1.2, seed = rng:NextNumber() * 10 })
+	jackLantern(parent, at + Vector3.new(-6.5, 0.8, -1.6), 1.6, 15)
+	jackLantern(parent, at + Vector3.new(6.2, 0.8, -1.9), 1.9, -20)
+end
+
+-- An iron fence round a rectangle (x0..x1, z0..z1), open at the front's middle.
+local function fence(parent, x0, x1, z0, z1)
+	local iron = Color3.fromRGB(16, 15, 18)
+	local function run(a, b, gap)
+		local len = (b - a).Magnitude
+		local n = math.floor(len / 1.4)
+		for i = 0, n do
+			local p = a:Lerp(b, i / n)
+			if not (gap and math.abs(i / n - 0.5) < 0.16) then
+				box(parent, Vector3.new(0.18, 3.2, 0.18), CFrame.new(p + Vector3.new(0, 1.6, 0)), iron, Enum.Material.Metal).CastShadow = false
+				part({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.32, CFrame = CFrame.new(p + Vector3.new(0, 3.3, 0)), Color = iron, Material = Enum.Material.Metal, CastShadow = false }, parent)
+			end
 		end
-		if i <= 4 then
-			local bat = Instance.new("ImageLabel")
-			bat.BackgroundTransparency = 1
-			bat.Image = Assets.id(Assets.Fx.Bat) or ""
-			bat.ImageColor3 = Color3.fromRGB(8, 6, 14)
-			local sz = rnd:NextInteger(26, 46)
-			bat.Size = UDim2.fromOffset(sz, sz)
-			bat.Position = UDim2.fromScale(0.45 + rnd:NextNumber() * 0.45, 0.12 + rnd:NextNumber() * 0.35)
-			bat.Parent = sky
+		for _, y in ipairs({ 1, 2.6 }) do
+			box(parent, Vector3.new(0.12, 0.12, len), CFrame.lookAt((a + b) / 2 + Vector3.new(0, y, 0), b + Vector3.new(0, y, 0)), iron, Enum.Material.Metal).CastShadow = false
 		end
 	end
-	local hill = Instance.new("Frame")
-	hill.AnchorPoint = Vector2.new(0.5, 1)
-	hill.Position = UDim2.fromScale(0.5, 1.25)
-	hill.Size = UDim2.fromScale(1.4, 0.45)
-	hill.BackgroundColor3 = Color3.fromRGB(10, 8, 18)
-	hill.BorderSizePixel = 0
-	hill.Parent = sky
-	local hc = Instance.new("UICorner")
-	hc.CornerRadius = UDim.new(0.5, 0)
-	hc.Parent = hill
-	light(night, "SurfaceLight", { Face = Enum.NormalId.Front, Range = 30, Angle = 70, Brightness = 0.9, Color = Color3.fromRGB(255, 160, 90), Shadows = true })
-	-- jack-o'-lanterns
-	for _, spec in ipairs({
-		{ Vector3.new(-14.5, 0, 4.5), 2.6, -15 }, -- by the bench
-		{ Vector3.new(-9.6, 2.45, 5.1), 1.5, 10 }, -- on the bench
-		{ Vector3.new(-21, 4.15, 6), 1.4, 80 }, -- on the shelves
-		{ Vector3.new(-21, 8.65, 11), 1.2, 75 },
-		{ Vector3.new(11.5, 12.1, 16.3), 1.7, 0 }, -- on the lockers
-		{ Vector3.new(19.5, 12.1, 16.3), 1.4, -10 },
-		{ Vector3.new(8.8, 0, 3.2), 2, 20 }, -- beside you
-		{ Vector3.new(-18, 0, -3.5), 3.4, -25 }, -- the big one, front left
-		{ Vector3.new(17.5, 0, 9.5), 2.4, 15 },
-	}) do
-		jackLantern(d, H + spec[1], spec[2], spec[3])
+	run(Vector3.new(x0, 0, z0), Vector3.new(x1, 0, z0), true)
+	run(Vector3.new(x1, 0, z0), Vector3.new(x1, 0, z1))
+	run(Vector3.new(x1, 0, z1), Vector3.new(x0, 0, z1))
+	run(Vector3.new(x0, 0, z1), Vector3.new(x0, 0, z0))
+end
+
+-- The Haunted Forest (the owner, 2026-10-15: "lets make the halloween clubhouse more unique eh?
+-- maybe in a forest or such"): Home out in a moonlit forest. A clearing where you stand, ringed by
+-- dead trees in layers fading into violet fog; the clubhouse a plank cabin to the left with its
+-- windows glowing; a fenced graveyard to the right; a cauldron bubbling green; a tattered
+-- volleyball net strung behind you; a log bench with the witch's hat; string lights; jack-o'-
+-- lanterns (the owner's pumpkin) flickering; leaves on the ground; a huge orange moon in a starry
+-- sky; bats, ghosts and souls drifting. Closed in by the sky's backdrop and a dark lid, so it reads
+-- as night whatever the court's light, and kept small enough not to show from a court.
+local function buildForest()
+	local H = HOME
+	local d = Instance.new("Model")
+	d.Name = "HauntedForest"
+	d.Parent = folder
+	local trng = Random.new(7)
+	-- the ground, the sky and the lid
+	box(d, Vector3.new(330, 1, 230), CFrame.new(H + Vector3.new(0, -0.5, 60)), Color3.fromRGB(36, 34, 30), Enum.Material.Ground)
+	box(d, Vector3.new(40, 0.2, 30), CFrame.new(H + Vector3.new(2, 0.02, 8)), Color3.fromRGB(46, 50, 36), Enum.Material.Grass).CastShadow = false
+	local wall = box(d, Vector3.new(340, 180, 1), CFrame.new(H + Vector3.new(0, 70, 170)), Color3.fromRGB(10, 8, 20))
+	nightSky(wall)
+	box(d, Vector3.new(340, 2, 240), CFrame.new(H + Vector3.new(0, 100, 50)), Color3.fromRGB(4, 4, 8))
+	-- trees: two framing the shot, a ring round the clearing, then layers back into the fog
+	deadTree(d, H + Vector3.new(-13.5, 0, -0.5), 46, trng)
+	deadTree(d, H + Vector3.new(17.5, 0, 1.5), 44, trng)
+	for _, p in ipairs({ Vector3.new(-11, 0, 15), Vector3.new(11, 0, 19), Vector3.new(23, 0, 12), Vector3.new(-26, 0, 9) }) do
+		deadTree(d, H + p, 30 + trng:NextNumber() * 10, trng)
 	end
-	-- candles on the shelves and the window sill
-	for _, at in ipairs({ Vector3.new(-21, 4.15, 9.4), Vector3.new(-21, 8.65, 4.5), Vector3.new(-21, 13.15, 9), Vector3.new(-13, 6.35, 17), Vector3.new(2.5, 6.35, 17), Vector3.new(-9.5, 6.35, 17.1) }) do
-		candle(d, H + at, 0.6 + rng:NextNumber() * 0.6)
+	local function clearOf(x, z)
+		local cabinArea = x > -27 and x < -5 and z > 18 and z < 38
+		local graves = x > 10 and x < 28 and z > 16 and z < 34
+		local moonGap = x > -2 and x < 16 and z < 70
+		return not (cabinArea or graves or moonGap)
 	end
-	-- bunting across the room, two strings
-	local orange, violet, ink = Color3.fromRGB(255, 120, 20), Color3.fromRGB(120, 50, 200), Color3.fromRGB(26, 20, 30)
-	bunting(d, H + Vector3.new(-22.4, 21, 17.3), H + Vector3.new(22.4, 21, 17.3), 22, 2.2, { orange, ink, violet })
-	bunting(d, H + Vector3.new(-22.4, 22.5, 2), H + Vector3.new(22.4, 22.5, 12), 20, 2.6, { violet, orange, ink })
-	-- cobwebs in the back corners and over the window
-	cobweb(d, H + Vector3.new(-22.4, 23.9, 17.9), Vector3.new(1, 0, 0), Vector3.new(0, -1, 0), 5)
-	cobweb(d, H + Vector3.new(22.4, 23.9, 17.9), Vector3.new(-1, 0, 0), Vector3.new(0, -1, 0), 5.5)
-	cobweb(d, H + Vector3.new(-22.4, 23.9, -2), Vector3.new(0, 0, 1), Vector3.new(0, -1, 0), 4)
-	-- gravestones by the right wall
-	gravestone(d, H + Vector3.new(19.5, 0, 2.5), -100, 1)
-	gravestone(d, H + Vector3.new(20.5, 0, 6.2), -80, 0.8)
-	-- the witch's hat on the bench, by the towel
-	local hat = BallSkins.build("WitchHat", 0.9)
+	local placed = 0
+	while placed < 16 do
+		local x, z = -60 + trng:NextNumber() * 125, 26 + trng:NextNumber() * 40
+		if clearOf(x, z) then
+			deadTree(d, H + Vector3.new(x, 0, z), 34 + trng:NextNumber() * 18, trng)
+			placed = placed + 1
+		end
+	end
+	placed = 0
+	while placed < 28 do
+		local x, z = -150 + trng:NextNumber() * 300, 70 + trng:NextNumber() * 85
+		if clearOf(x, z) then
+			deadTree(d, H + Vector3.new(x, 0, z), 48 + trng:NextNumber() * 30, trng, true)
+			placed = placed + 1
+		end
+	end
+	-- violet fog, thicker with distance
+	for i, z in ipairs({ 42, 72, 104, 140 }) do
+		local f = box(d, Vector3.new(340, 70, 0.2), CFrame.new(H + Vector3.new(0, 30, z)), Color3.fromRGB(110, 96, 160), Enum.Material.Neon)
+		f.Transparency = 0.955 - i * 0.008
+		f.CastShadow = false
+	end
+	-- the clubhouse, the graveyard
+	cabin(d, H + Vector3.new(-16, 0, 22))
+	for _, x in ipairs({ -22, -19.5, -12, -9.5, -24.5 }) do
+		local s = 1 + trng:NextNumber() * 0.6
+		part({ Shape = Enum.PartType.Ball, Size = Vector3.new(s * 1.3, s, s * 1.3), CFrame = CFrame.new(H + Vector3.new(x, s * 0.45, 17.5 + trng:NextNumber() * 2)), Color = Color3.fromRGB(230, 110, 20), Material = Enum.Material.SmoothPlastic }, d)
+	end
+	fence(d, H.X + 12, H.X + 27, H.Z + 18, H.Z + 33)
+	for _, spec in ipairs({ { 15, 22, -6, 1 }, { 19.5, 21.5, 4, 0.85 }, { 24, 23, -10, 1.1 }, { 16.5, 27.5, 8, 0.9 }, { 21.5, 28, -3, 1 }, { 25, 30, 12, 0.8 } }) do
+		gravestone(d, H + Vector3.new(spec[1], 0, spec[2]), 180 + spec[3], spec[4])
+	end
+	deadTree(d, H + Vector3.new(25.5, 0, 31.5), 22, trng)
+	box(d, Vector3.new(0.4, 6, 0.4), CFrame.new(H + Vector3.new(13, 3, 17)), Color3.fromRGB(20, 18, 22), Enum.Material.Metal)
+	local wisp = part({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.7, CFrame = CFrame.new(H + Vector3.new(13, 6.4, 17)), Color = Color3.fromRGB(120, 255, 170), Material = Enum.Material.Neon }, d)
+	local gl = light(wisp, "PointLight", { Range = 14, Brightness = 1.3, Color = Color3.fromRGB(110, 255, 160), Shadows = false })
+	table.insert(roomState.flicker, { light = gl, base = 1.3, seed = trng:NextNumber() * 10 })
+	-- the clearing: the cauldron, the log bench with the witch's hat, the net behind you
+	local pot = part({ Shape = Enum.PartType.Ball, Size = Vector3.new(3.2, 2.6, 3.2), CFrame = CFrame.new(H + Vector3.new(9.5, 1.2, 9)), Color = Color3.fromRGB(16, 16, 20), Material = Enum.Material.Metal }, d)
+	local brew = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 2.5, 2.5), CFrame = CFrame.new(H + Vector3.new(9.5, 2.3, 9)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(110, 255, 90), Material = Enum.Material.Neon }, d)
+	local bl = light(brew, "PointLight", { Range = 14, Brightness = 1.6, Color = Color3.fromRGB(110, 255, 100), Shadows = false })
+	table.insert(roomState.flicker, { light = bl, base = 1.6, seed = trng:NextNumber() * 10 })
+	local bubbles = Instance.new("ParticleEmitter")
+	bubbles.Texture = Assets.id(Assets.Fx.Glow) or ""
+	bubbles.Color = ColorSequence.new(Color3.fromRGB(150, 255, 120), Color3.fromRGB(60, 200, 80))
+	bubbles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1.4) })
+	bubbles.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	bubbles.Lifetime = NumberRange.new(0.8, 1.6)
+	bubbles.Rate = 10
+	bubbles.Speed = NumberRange.new(1, 2.5)
+	bubbles.SpreadAngle = Vector2.new(25, 25)
+	bubbles.LightEmission = 0.8
+	bubbles.EmissionDirection = Enum.NormalId.Top
+	bubbles.Parent = pot
+	for _, a in ipairs({ 0, 120, 240 }) do
+		local leg = CFrame.new(H + Vector3.new(9.5, 0, 9)) * CFrame.Angles(0, math.rad(a), 0) * CFrame.new(0, 0.6, 1.3)
+		box(d, Vector3.new(0.3, 1.2, 0.3), leg, Color3.fromRGB(16, 16, 20), Enum.Material.Metal)
+	end
+	local logCF = CFrame.new(H + Vector3.new(-4.5, 0.7, 10.5)) * CFrame.Angles(0, math.rad(12), 0)
+	part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(7, 1.4, 1.4), CFrame = logCF, Color = Color3.fromRGB(70, 50, 36), Material = Enum.Material.Wood }, d)
+	local hat = BallSkins.build("WitchHat", 0.8)
 	if hat then
 		for _, x in ipairs(hat:GetDescendants()) do
 			if x:IsA("ParticleEmitter") then
 				x:Destroy()
 			elseif x:IsA("PointLight") then
-				x.Brightness = 0.6
+				x.Brightness = 0.5
 			end
 		end
-		hat:PivotTo(CFrame.new(H + Vector3.new(-1.6, 2.45 + 0.75, 5.3)) * CFrame.Angles(0, math.rad(-30), math.rad(-8)))
+		hat:PivotTo(logCF * CFrame.new(1.6, 1.3, 0) * CFrame.Angles(0, math.rad(-30), math.rad(-10)))
 		hat.Parent = d
 	end
-	-- bats hanging under the ceiling, ghosts drifting at the back
-	for i, at in ipairs({ Vector3.new(-12, 20.5, 14), Vector3.new(-3, 21.5, 15), Vector3.new(6, 20, 13), Vector3.new(14, 21, 10), Vector3.new(-17, 19.5, 8) }) do
-		floater(d, H + at, "Bat", 2 + (i % 2) * 0.8, Color3.fromRGB(14, 10, 20), 0, 0.3)
+	for _, x in ipairs({ -7, 13 }) do
+		box(d, Vector3.new(0.5, 8.5, 0.5), CFrame.new(H + Vector3.new(x, 4.25, 18)), Color3.fromRGB(54, 40, 32), Enum.Material.Wood)
 	end
-	floater(d, H + Vector3.new(-14, 10, 15.5), "GhostSheet", 3.4, Color3.fromRGB(235, 240, 255), 0.35, 0.8)
-	floater(d, H + Vector3.new(16, 14, 12), "GhostSheet", 2.6, Color3.fromRGB(225, 255, 240), 0.45, 0.6)
-	-- violet mist along the floor
-	local mist = box(d, Vector3.new(40, 0.2, 26), CFrame.new(H + Vector3.new(0, 0.3, 6)), Color3.new(1, 1, 1))
+	local cord = Color3.fromRGB(30, 28, 32)
+	for k = 0, 4 do
+		local y = 5.2 + k * 0.75
+		local gap = k == 2 and 0.42 or 1 -- (a torn row)
+		box(d, Vector3.new(20 * gap, 0.06, 0.06), CFrame.new(H + Vector3.new(3 - 10 * (1 - gap), y, 18)), cord).CastShadow = false
+	end
+	for k = 0, 26 do
+		if k % 7 ~= 4 then
+			box(d, Vector3.new(0.06, 3, 0.06), CFrame.new(H + Vector3.new(-6.6 + k * 0.75, 6.7, 18)), cord).CastShadow = false
+		end
+	end
+	box(d, Vector3.new(20, 0.35, 0.12), CFrame.new(H + Vector3.new(3, 8.3, 18)), Color3.fromRGB(220, 220, 214)).CastShadow = false -- the tape
+	stringLights(d, H + Vector3.new(-11, 12.5, 15.5), H + Vector3.new(11, 11.5, 19), 22, 2.4)
+	-- jack-o'-lanterns round the clearing
+	for _, spec in ipairs({ { -9.5, 4.5, 2.2, -20 }, { 7.5, 3.6, 1.8, 15 }, { -15.5, 7, 2.6, 25 }, { 14.5, 12.5, 2, -10 }, { -2.5, 16, 1.5, 0 }, { 4.8, 14.6, 1.3, 30 }, { -18, -4, 3.4, -25 } }) do
+		jackLantern(d, H + Vector3.new(spec[1], 0, spec[2]), spec[3], spec[4])
+	end
+	-- leaves on the ground
+	local leaf = { Color3.fromRGB(170, 70, 24), Color3.fromRGB(196, 110, 30), Color3.fromRGB(120, 40, 26), Color3.fromRGB(90, 60, 30) }
+	for _ = 1, 80 do
+		local x, z = -16 + trng:NextNumber() * 34, -6 + trng:NextNumber() * 24
+		local s = 0.5 + trng:NextNumber() * 0.7
+		part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.05, s, s * 0.7), CFrame = CFrame.new(H + Vector3.new(x, 0.05, z)) * CFrame.Angles(0, trng:NextNumber() * math.pi * 2, math.rad(90)), Color = leaf[trng:NextInteger(1, #leaf)], Material = Enum.Material.Fabric, CastShadow = false }, d)
+	end
+	-- bats up near the moon side, ghosts between the trees, souls round the graves
+	for i, at in ipairs({ Vector3.new(10, 26, 46), Vector3.new(20, 30, 58), Vector3.new(4, 33, 64), Vector3.new(28, 24, 50) }) do
+		floater(d, H + at, "Bat", 2.6 + (i % 2), Color3.fromRGB(10, 8, 16), 0, 1)
+	end
+	floater(d, H + Vector3.new(-30, 9, 36), "GhostSheet", 4, Color3.fromRGB(230, 236, 255), 0.4, 1.2)
+	floater(d, H + Vector3.new(34, 11, 44), "GhostSheet", 3.4, Color3.fromRGB(220, 255, 236), 0.5, 1)
+	for _, at in ipairs({ Vector3.new(16, 2.5, 25), Vector3.new(23, 3, 29), Vector3.new(19, 2, 31) }) do
+		floater(d, H + at, "SoulWisp", 1.8, Color3.fromRGB(150, 230, 255), 0.25, 0.5)
+	end
+	-- mist along the ground
+	local mist = box(d, Vector3.new(60, 0.2, 40), CFrame.new(H + Vector3.new(2, 0.3, 14)), Color3.new(1, 1, 1))
 	mist.Transparency = 1
 	local e = Instance.new("ParticleEmitter")
 	e.Texture = Assets.id(Assets.Fx.Glow) or ""
-	e.Color = ColorSequence.new(Color3.fromRGB(150, 90, 230), Color3.fromRGB(80, 40, 140))
-	e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.4, 0.82), NumberSequenceKeypoint.new(1, 1) })
-	e.Size = NumberSequence.new(5, 9)
-	e.Lifetime = NumberRange.new(5, 8)
-	e.Rate = 6
+	e.Color = ColorSequence.new(Color3.fromRGB(150, 130, 220), Color3.fromRGB(90, 70, 150))
+	e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.4, 0.84), NumberSequenceKeypoint.new(1, 1) })
+	e.Size = NumberSequence.new(6, 11)
+	e.Lifetime = NumberRange.new(6, 9)
+	e.Rate = 7
 	e.Speed = NumberRange.new(0.3, 0.8)
 	e.SpreadAngle = Vector2.new(180, 10)
 	e.LightEmission = 0.4
@@ -658,11 +824,18 @@ local function buildHaunted(parent)
 	e.Rotation = NumberRange.new(0, 360)
 	e.EmissionDirection = Enum.NormalId.Top
 	e.Parent = mist
+	-- moonlight from behind and to the right (the trees' long shadows), a cool fill on you
+	local moon = box(d, Vector3.one, CFrame.lookAt(H + Vector3.new(16, 40, 46), H + Vector3.new(2, 0, 8)), Color3.new(1, 1, 1))
+	moon.Transparency = 1
+	light(moon, "SpotLight", { Face = Enum.NormalId.Front, Range = 60, Angle = 55, Brightness = 2.4, Color = Color3.fromRGB(170, 180, 255), Shadows = true })
+	local fill = box(d, Vector3.one, CFrame.new(H + Vector3.new(1, 8, -4)), Color3.new(1, 1, 1))
+	fill.Transparency = 1
+	light(fill, "PointLight", { Range = 24, Brightness = 0.55, Color = Color3.fromRGB(150, 160, 230), Shadows = false })
 	return d
 end
 
--- Puts the room's decor on the club room (once it's built) and sets its mood: the day window and
--- the sun's shafts go for the night one, and the lights dim to orange and violet.
+-- The room on show (Config.Rooms; Home's Decorate): the club room, or the Haunted Forest in its
+-- place (the club room goes while the forest is up, and comes back after).
 function SceneController.applyRoom()
 	local key = SceneController.roomKey or Config.Rooms.Default
 	if not homeBits.room or roomState.key == key then
@@ -674,26 +847,10 @@ function SceneController.applyRoom()
 		roomState.decor = nil
 	end
 	roomState.flicker = {}
-	local haunted = key == "Haunted"
-	if haunted then
-		roomState.decor = buildHaunted(homeBits.room)
-	end
-	for _, sh in ipairs(homeBits.shafts or {}) do
-		sh.part.Transparency = haunted and 1 or sh.alpha
-	end
-	if homeBits.sun then
-		homeBits.sun.Enabled = not haunted
-	end
-	if homeBits.lamp then
-		homeBits.lamp.Color = haunted and Color3.fromRGB(190, 120, 255) or Color3.fromRGB(255, 236, 206)
-		homeBits.lamp.Brightness = haunted and 0.45 or 1.1
-	end
-	if homeBits.lampPart then
-		homeBits.lampPart.Color = haunted and Color3.fromRGB(150, 110, 200) or Color3.fromRGB(255, 244, 222)
-	end
-	if homeBits.fill then
-		homeBits.fill.Color = haunted and Color3.fromRGB(255, 140, 60) or Color3.fromRGB(255, 226, 196)
-		homeBits.fill.Brightness = haunted and 0.55 or 0.8
+	local forest = key == "Haunted"
+	homeBits.room.Parent = (not forest) and folder or nil
+	if forest then
+		roomState.decor = buildForest()
 	end
 	SceneController.refreshGrade()
 end
@@ -707,17 +864,17 @@ function SceneController.setRoom(key)
 	SceneController.applyRoom()
 end
 
--- The colour grade for the scene shown: the club room's warm one, or Halloween night's cooler,
--- violet one.
+-- The colour grade for the scene shown: the club room's warm one, or the Haunted Forest's cold
+-- moonlit one.
 function SceneController.refreshGrade()
 	if not grade then
 		return
 	end
 	local night = current == "home" and roomState.key == "Haunted"
-	grade.TintColor = night and Color3.fromRGB(236, 222, 255) or Color3.fromRGB(255, 242, 226)
-	grade.Brightness = night and -0.04 or 0.02
-	grade.Contrast = night and 0.16 or 0.08
-	grade.Saturation = night and 0.14 or 0.08
+	grade.TintColor = night and Color3.fromRGB(214, 222, 255) or Color3.fromRGB(255, 242, 226)
+	grade.Brightness = night and -0.06 or 0.02
+	grade.Contrast = night and 0.2 or 0.08
+	grade.Saturation = night and 0.06 or 0.08
 end
 
 local function updateRoom(now)

@@ -3512,7 +3512,7 @@ do
 		"Candy Corn is a spike colour in three bands (banner and shop too); Bat Swarm is the trail")
 
 	-- Home's rooms (the owner, 2026-10-15: "add a halloween style background you can also spin for
-	-- kind of like how you can swap this"): the Clubhouse is everyone's; the Haunted Clubhouse is won
+	-- kind of like how you can swap this"): the Clubhouse is everyone's; the Haunted Forest is won
 	-- on the Halloween banner and swapped in from Decorate; a saved room you don't own falls back
 	local Rooms = require("Rooms")
 	local fresh = Rooms.clean(nil)
@@ -3526,8 +3526,8 @@ do
 	check(fresh.on == "Clubhouse" and junk.owned.Haunted == true and junk.owned.Nope == nil and junk.owned.Clubhouse == nil and junkOn == "Haunted"
 		and stolen.on == "Clubhouse" and not okLocked and whyLocked == "locked" and okDev and okOwn and junk.on == "Clubhouse"
 		and Rooms.current({ owned = {}, on = "Haunted" }, true) == "Haunted" and Rooms.current({ owned = {}, on = "Haunted" }) == "Clubhouse"
-		and onBanner ~= nil and onBanner.rarity == "Legendary" and onBanner.name == "Haunted Clubhouse",
-		"Home's rooms: the Clubhouse is everyone's, the Haunted Clubhouse is won on the Halloween banner and swapped in; one you don't own falls back")
+		and onBanner ~= nil and onBanner.rarity == "Legendary" and onBanner.name == "Haunted Forest",
+		"Home's rooms: the Clubhouse is everyone's, the Haunted Forest is won on the Halloween banner and swapped in; one you don't own falls back")
 end
 
 print("== saving ==")

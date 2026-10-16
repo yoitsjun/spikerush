@@ -821,7 +821,7 @@ function LobbyService.enterEvent(plr, diffKey)
 		notify(plr, "You're already in a lobby: leave it first.")
 		return
 	end
-	local l = LobbyService.create(plr, { mode = HW.Mode, privacy = "Friends", fill = true, botTier = diff.Bots, points = HW.Points, sets = 1, timeouts = HW.Timeouts }, false)
+	local l = LobbyService.create(plr, { mode = HW.Mode, privacy = "Friends", fill = true, botTier = diff.Bots, points = HW.Points, sets = 1, timeouts = HW.Timeouts, court = HW.Court }, false)
 	if not l then
 		return
 	end

@@ -1,7 +1,7 @@
 -- Home rooms (Config.Rooms): the menu room behind Home, the Players screen and the player pages,
 -- swapped from Home's Decorate button (The Spike's "Decorate"; the owner, 2026-10-15: "add a
 -- halloween style background you can also spin for kind of like how you can swap this"). The
--- Clubhouse is everyone's; the others are won (the Haunted Clubhouse on the Halloween banner).
+-- Clubhouse is everyone's; the others are won (the Haunted Forest on the Halloween banner).
 -- Saved as profile.rooms = { owned = { [key] = true }, on = key }. Pure and shared (sims).
 
 local Config = require(script.Parent.Config)

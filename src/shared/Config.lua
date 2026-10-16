@@ -1733,6 +1733,7 @@ Config.Halloween = {
 	PickTime = 30, -- seconds for a pick before the first offer is taken for you
 	SpinTime = 3.2, -- the roulette's scroll on the client before it stops on the offers (the owner: "a scrolling cards motion for rolls")
 	Timeouts = 1,
+	Court = "Haunted", -- (Config.Courts: the Haunted Forest)
 	Difficulties = {
 		{ Key = "Easy", Name = "Easy", Bots = "B", AiCards = 0, Candy = 20, Repeat = 8, StageOne = 4, Color = Color3.fromRGB(120, 220, 120) },
 		{ Key = "Normal", Name = "Normal", Bots = "A", AiCards = 1, Candy = 30, Repeat = 12, StageOne = 6, Color = Color3.fromRGB(255, 160, 40) },
@@ -1877,7 +1878,7 @@ Config.Rooms = {
 	Order = { "Clubhouse", "Haunted" },
 	List = {
 		Clubhouse = { Name = "Clubhouse", Default = true, Blurb = "The club room: lockers, the ball cart and the sun through the window." },
-		Haunted = { Name = "Haunted Clubhouse", Rarity = "Legendary", Limited = "Halloween", Blurb = "The club room on Halloween night: jack-o'-lanterns, cobwebs, bats, bunting and a full moon in the window." },
+		Haunted = { Name = "Haunted Forest", Rarity = "Legendary", Limited = "Halloween", Blurb = "Home out in a moonlit forest: the clubhouse a haunted cabin among dead trees, a graveyard, a bubbling cauldron, jack-o'-lanterns, fog and a huge orange moon." },
 	},
 }
 
@@ -1922,6 +1923,14 @@ Config.Courts = {
 			Blurb = "A court on the roof, the city lit up behind it.",
 			Stands = { Rows = 3, EndRows = 0 },
 			Crowd = 0.9,
+		},
+		-- Halloween's (the owner, 2026-10-15: "and with that a halloween court"): the Halloween
+		-- Match's (Config.Halloween.Court), and a pick for custom lobbies; not in Rotation
+		Haunted = {
+			Name = "Haunted Forest",
+			Blurb = "An old plank court in a clearing at midnight: dead trees, jack-o'-lanterns, a graveyard and a huge orange moon.",
+			Stands = { Rows = 4, EndRows = 0 },
+			Crowd = 0.75,
 		},
 	},
 }

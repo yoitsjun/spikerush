@@ -25,9 +25,9 @@ PatchNotes.List = {
 				Items = {
 					{ Text = "<b>Home > Halloween</b>: the <b>Halloween Match</b> on Easy, Normal or Hard. Two stages to 12 points against the AI: before each, a strip of cards rolls past and lands on three, and you pick one, twice. Win both stages for <b>Candy</b>; the first clear of each difficulty every day pays the most." },
 					{ Text = "59 cards: stat buffs and trade-offs, team cards, curses on the other team, rule changes, and an <b>ability card</b> for every ability. Ability cards stack on your own ability, up to <b>two</b> of them." },
-					{ Text = "The <b>Halloween banner</b> (VP or Candy): the Pumpkin and Witch Hat balls, the Pumpkin Burst and Ghost Swarm score effects, Halloween jumps, trails and colours, the <b>Haunted Clubhouse</b>, and the Mythic <b>Reaper</b>. Every recruit is a scout point: spend them to pick an item outright." },
+					{ Text = "The <b>Halloween banner</b> (VP or Candy): the Pumpkin and Witch Hat balls, the Pumpkin Burst and Ghost Swarm score effects, Halloween jumps, trails and colours, the <b>Haunted Forest</b>, and the Mythic <b>Reaper</b>. Every recruit is a scout point: spend them to pick an item outright." },
 					{ Icon = "AbilityZeroPoint", Text = "<b>The Reaper</b> is Taeho's skin: he spikes with a void scythe, souls stream behind the ball and his Zero Point gets its own impact frame. Swap it on and off any time on his page." },
-					{ Text = "<b>The Haunted Clubhouse</b>: your Home room on Halloween night, jack-o'-lanterns, cobwebs, bats and a full moon. Put it on with Home's new <b>Decorate</b> button." },
+					{ Text = "<b>The Haunted Forest</b>: Home out in a moonlit forest, the clubhouse a haunted cabin among dead trees, with a graveyard, a bubbling cauldron, jack-o'-lanterns and a huge orange moon. Put it on with Home's new <b>Decorate</b> button." },
 					{ Text = "The <b>Candy shop</b>: lucky spins, Gold, VP and Halloween cosmetics." },
 				},
 			},

@@ -849,6 +849,177 @@ COURTS.Rooftop = {
 	end,
 }
 
+-- Haunted Forest (Halloween; the owner, 2026-10-15: "and with that a halloween court"): the
+-- Haunted Forest room's world for a match. An old plank court painted pumpkin and violet in a
+-- clearing at midnight, misty violet air, weathered wooden bleachers under orange and violet string
+-- lights, dead trees all round fading into the fog, jack-o'-lanterns (the owner's pumpkin) along
+-- the far side, a fenced graveyard down the Away end, the clubhouse cabin with its windows lit down
+-- the Home end, lantern floodlights for the play, and a huge orange moon over the trees. The
+-- Halloween Match is played here (Config.Halloween.Court).
+COURTS.Haunted = {
+	floor = { Color3.fromRGB(62, 46, 36), Enum.Material.WoodPlanks },
+	pad = Color3.fromRGB(255, 120, 20),
+	paint = { free = Color3.fromRGB(44, 28, 54), court = Color3.fromRGB(190, 92, 30), front = Color3.fromRGB(164, 76, 24), material = Enum.Material.WoodPlanks },
+	light = {
+		props = { Ambient = Color3.fromRGB(92, 84, 122), OutdoorAmbient = Color3.fromRGB(104, 94, 140), Brightness = 0.8, ClockTime = 0.3, EnvironmentDiffuseScale = 0.3, EnvironmentSpecularScale = 0.3, ExposureCompensation = 0.35, ShadowSoftness = 0.45 },
+		bloom = { Intensity = 0.55, Size = 24, Threshold = 1.45 },
+		grade = { Saturation = 0.1, Contrast = 0.12, Brightness = 0, TintColor = Color3.fromRGB(234, 226, 255) },
+		atmo = { Density = 0.4, Haze = 1.7, Glare = 0, Color = Color3.fromRGB(112, 92, 158), Decay = Color3.fromRGB(48, 28, 80) },
+	},
+	build = function(scene, id)
+		local rng = Random.new(31)
+		local D = C.WallHalfZ
+		local wood = Color3.fromRGB(30, 24, 22)
+		-- forest floor all round (short of the menu rooms 1600 out)
+		deco(part(scene, "Ground", Vector3.new(900, 1, 1000), CFrame.new(230, -0.56, 0), Color3.fromRGB(34, 32, 28), Enum.Material.Ground))
+		stands(scene, id, function(row)
+			return row.index % 2 == 0 and Color3.fromRGB(66, 48, 36) or Color3.fromRGB(54, 40, 30)
+		end, Enum.Material.WoodPlanks)
+		local back = standsBack(id)
+		-- a dead tree: a leaning trunk, bare limbs with twigs, now and then a dark clump of leaves
+		local trees = folder(scene, "Trees")
+		local function deadTree(base, height)
+			local d = height * (0.045 + rng:NextNumber() * 0.02)
+			local foot = CFrame.new(base) * CFrame.Angles(math.rad((rng:NextNumber() - 0.5) * 8), 0, math.rad((rng:NextNumber() - 0.5) * 8))
+			deco(part(trees, "Trunk", Vector3.new(height, d, d), foot * CFrame.new(0, height / 2, 0) * VERTICAL, wood, Enum.Material.Wood, { Shape = Enum.PartType.Cylinder }))
+			for _ = 1, 3 + rng:NextInteger(0, 3) do
+				local at = foot * CFrame.new(0, height * (0.45 + rng:NextNumber() * 0.45), 0)
+				local dir = CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0) * CFrame.Angles(math.rad(25 + rng:NextNumber() * 40), 0, 0)
+				local len = height * (0.18 + rng:NextNumber() * 0.18)
+				local cf = at * dir
+				deco(part(trees, "Limb", Vector3.new(d * 0.32, len, d * 0.32), cf * CFrame.new(0, len / 2, 0), wood, Enum.Material.Wood))
+				local tip = (cf * CFrame.new(0, len, 0)).Position
+				local twig = CFrame.new(tip) * dir.Rotation * CFrame.Angles(math.rad((rng:NextNumber() - 0.5) * 70), 0, 0)
+				deco(part(trees, "Twig", Vector3.new(d * 0.16, len * 0.45, d * 0.16), twig * CFrame.new(0, len * 0.225, 0), wood, Enum.Material.Wood))
+				if rng:NextNumber() < 0.18 then
+					local s = height * (0.12 + rng:NextNumber() * 0.1)
+					ball(trees, "Leaves", Vector3.new(s, s * 0.7, s), tip, Color3.fromRGB(20, 26, 22), Enum.Material.Grass)
+				end
+			end
+		end
+		-- behind the bleachers, layer after layer
+		for _ = 1, 34 do
+			deadTree(Vector3.new(back + 6 + rng:NextNumber() * 130, 0, -150 + rng:NextNumber() * 300), 34 + rng:NextNumber() * 30)
+		end
+		-- down both ends (never between the camera and the court)
+		for _, sz in ipairs({ -1, 1 }) do
+			for _ = 1, 12 do
+				local x = -30 + rng:NextNumber() * (back + 40)
+				local z = sz * (D + 18 + rng:NextNumber() * 90)
+				if not (sz > 0 and x > 6 and x < 52 and math.abs(z) < D + 60) and not (sz < 0 and x > 26 and x < 62 and math.abs(z) < D + 62) then
+					deadTree(Vector3.new(x, 0, z), 30 + rng:NextNumber() * 24)
+				end
+			end
+		end
+		-- jack-o'-lanterns along the far side of the free zone, each with a candle's light
+		local lanterns = folder(scene, "Lanterns")
+		local skins = ReplicatedStorage:FindFirstChild("ToolboxAssets")
+		skins = skins and skins:FindFirstChild("BallSkins")
+		local mesh = skins and skins:FindFirstChild("BallPumpkin")
+		local fx = C.HalfWidth + C.FreeZoneSide + 3.4
+		for i = -5, 5 do
+			local z = i * 13 + (rng:NextNumber() - 0.5) * 3
+			local size = 2 + rng:NextNumber() * 1.2
+			local p
+			local src = mesh and (mesh:IsA("BasePart") and mesh or mesh:FindFirstChildWhichIsA("BasePart", true))
+			if src then
+				p = src:Clone()
+				for _, c in ipairs(p:GetChildren()) do
+					if not c:IsA("SurfaceAppearance") then
+						c:Destroy()
+					end
+				end
+				p.Size = p.Size * (size / math.max(p.Size.X, p.Size.Y, p.Size.Z))
+				p.PivotOffset = CFrame.new()
+				p.Anchored = true
+				p.CFrame = CFrame.new(fx + rng:NextNumber() * 2, size * 0.42, z) * CFrame.Angles(0, math.rad(90 + (rng:NextNumber() - 0.5) * 40), 0)
+				deco(p)
+				p.Parent = lanterns
+			else
+				p = ball(lanterns, "Pumpkin", Vector3.new(size * 1.2, size, size * 1.2), Vector3.new(fx + rng:NextNumber() * 2, size * 0.45, z), Color3.fromRGB(240, 110, 20), Enum.Material.SmoothPlastic)
+			end
+			p.Name = "JackOLantern"
+			local l = Instance.new("PointLight")
+			l.Color = Color3.fromRGB(255, 150, 50)
+			l.Range = 10
+			l.Brightness = 1.3
+			l.Shadows = false
+			l.Parent = p
+		end
+		-- string lights over the bleachers
+		local bulbs = folder(scene, "StringLights")
+		local poles = { -66, -22, 22, 66 }
+		for _, z in ipairs(poles) do
+			deco(part(bulbs, "Pole", Vector3.new(0.5, 14, 0.5), CFrame.new(back + 1, 7, z), Color3.fromRGB(40, 30, 26), Enum.Material.Wood))
+		end
+		local bulbColors = { Color3.fromRGB(255, 140, 40), Color3.fromRGB(170, 90, 255), Color3.fromRGB(255, 200, 90) }
+		for i = 1, #poles - 1 do
+			local z0, z1 = poles[i], poles[i + 1]
+			for k = 1, 15 do
+				local t = k / 16
+				ball(bulbs, "Bulb", Vector3.new(0.6, 0.6, 0.6), Vector3.new(back + 1, 13.6 - math.sin(t * math.pi) * 3, z0 + (z1 - z0) * t), bulbColors[(k - 1) % 3 + 1], Enum.Material.Neon)
+			end
+			lamp(bulbs, Vector3.new(back - 1, 11, (z0 + z1) / 2), "PointLight", { Range = 18, Brightness = 1, Color = Color3.fromRGB(255, 170, 110), Shadows = false })
+		end
+		-- lantern floodlights at the corners: warm, enough to play by
+		for _, sz in ipairs({ -1, 1 }) do
+			local base = Vector3.new(back + 3, 0, sz * 46)
+			cylinder(scene, "FloodPole", 24, 0.8, base, Color3.fromRGB(36, 28, 24), Enum.Material.Wood)
+			deco(part(scene, "FloodHead", Vector3.new(1.6, 2.2, 3), CFrame.new(base + Vector3.new(-0.8, 24, 0)), Color3.fromRGB(255, 196, 120), Enum.Material.Neon))
+			local aim = CFrame.lookAt(base + Vector3.new(-1.5, 24, 0), Vector3.new(0, 0, sz * 16))
+			local holder = deco(part(scene, "Flood", Vector3.new(0.5, 0.5, 0.5), aim, WHITE, nil, { Transparency = 1 }))
+			local spot = Instance.new("SpotLight")
+			spot.Face = Enum.NormalId.Front
+			spot.Angle = 62
+			spot.Range = 60
+			spot.Brightness = 3
+			spot.Color = Color3.fromRGB(255, 222, 186)
+			spot.Shadows = true
+			spot.Parent = holder
+		end
+		-- the graveyard down the Away end
+		local yard = folder(scene, "Graveyard")
+		local stone = Color3.fromRGB(110, 112, 122)
+		for _ = 1, 9 do
+			local at = Vector3.new(12 + rng:NextNumber() * 36, 0, D + 14 + rng:NextNumber() * 38)
+			local s = 0.8 + rng:NextNumber() * 0.5
+			local cf = CFrame.new(at) * CFrame.Angles(0, math.rad(90 + (rng:NextNumber() - 0.5) * 30), math.rad((rng:NextNumber() - 0.5) * 10))
+			deco(part(yard, "Grave", Vector3.new(2.4 * s, 2.6 * s, 0.5 * s), cf * CFrame.new(0, 1.3 * s, 0), stone, Enum.Material.Slate))
+			deco(part(yard, "GraveTop", Vector3.new(0.5 * s, 2.4 * s, 2.4 * s), cf * CFrame.new(0, 2.6 * s, 0) * CFrame.Angles(0, math.rad(90), 0), stone, Enum.Material.Slate, { Shape = Enum.PartType.Cylinder }))
+		end
+		local iron = Color3.fromRGB(16, 15, 18)
+		for x = 8, 52, 1.6 do
+			deco(part(yard, "Bar", Vector3.new(0.2, 3.4, 0.2), CFrame.new(x, 1.7, D + 10), iron, Enum.Material.Metal))
+		end
+		deco(part(yard, "Rail", Vector3.new(44, 0.15, 0.15), CFrame.new(30, 2.8, D + 10), iron, Enum.Material.Metal))
+		deco(part(yard, "Rail", Vector3.new(44, 0.15, 0.15), CFrame.new(30, 1.1, D + 10), iron, Enum.Material.Metal))
+		lamp(yard, Vector3.new(30, 4, D + 30), "PointLight", { Range = 26, Brightness = 1.2, Color = Color3.fromRGB(110, 255, 160), Shadows = false })
+		-- the clubhouse cabin down the Home end, its windows lit
+		local cab = folder(scene, "Cabin")
+		local cz = -(D + 34)
+		local plank = Color3.fromRGB(56, 40, 31)
+		deco(part(cab, "Walls", Vector3.new(14, 10, 16), CFrame.new(44, 5, cz), plank, Enum.Material.WoodPlanks))
+		for _, side in ipairs({ -1, 1 }) do
+			deco(part(cab, "Roof", Vector3.new(8.6, 0.7, 17.6), CFrame.new(44 + side * 3.3, 12.2, cz) * CFrame.Angles(0, 0, math.rad(side * 34)), Color3.fromRGB(30, 24, 28), Enum.Material.Slate))
+		end
+		for _, z in ipairs({ cz - 4.5, cz + 4.5 }) do
+			local pane = deco(part(cab, "Window", Vector3.new(0.2, 2.6, 2.6), CFrame.new(36.95, 5.6, z), Color3.fromRGB(255, 160, 70), Enum.Material.Neon))
+			local sl = Instance.new("SurfaceLight")
+			sl.Face = Enum.NormalId.Left
+			sl.Range = 18
+			sl.Brightness = 1.4
+			sl.Color = Color3.fromRGB(255, 150, 60)
+			sl.Parent = pane
+		end
+		-- the moon over the trees, with a halo
+		deco(part(scene, "Moon", Vector3.new(2, 130, 130), CFrame.new(560, 175, -120), Color3.fromRGB(255, 200, 130), Enum.Material.Neon, { Shape = Enum.PartType.Cylinder }))
+		deco(part(scene, "MoonHalo", Vector3.new(1, 210, 210), CFrame.new(565, 175, -120), Color3.fromRGB(255, 150, 90), Enum.Material.Neon, { Shape = Enum.PartType.Cylinder, Transparency = 0.86 }))
+		banner(scene, "Tag", Vector3.new(0.3, 2.6, 34), CFrame.new(back + 0.6, 1.6, 0), Enum.NormalId.Left, "HALLOWEEN NIGHT", Color3.fromRGB(255, 140, 40), Color3.fromRGB(30, 22, 26))
+		screens(scene, { frame = Color3.fromRGB(44, 32, 30), material = Enum.Material.WoodPlanks })
+		ledBoards(scene, true)
+	end,
+}
+
 ------------------------------------------------------------------------------------------
 -- lighting
 ------------------------------------------------------------------------------------------

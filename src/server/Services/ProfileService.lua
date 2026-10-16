@@ -39,7 +39,7 @@
 --   ("entrance", boardKey | nil)     -> the board whose place shows over your head (nil: your best)
 --   ("profileOf", userId)            -> a player's public profile, on the PlayerProfile remote
 --   ("skin", "on"|"off", charId, key) -> swap a skin on or off for a character (the Reaper: Taeho)
---   ("room", key)                    -> Home's room (Config.Rooms: the Haunted Clubhouse)
+--   ("room", key)                    -> Home's room (Config.Rooms: the Haunted Forest)
 -- Codes and the daily reward are for members of the group who favorited the game (the owner:
 -- "actually check"; Roblox can't tell a game who liked it, but its favorite prompt tells the
 -- client when they favorite it). Kept in the profile, so it's done once.

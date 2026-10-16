@@ -4735,10 +4735,14 @@ local lobbyPick = nil -- the bot spot the host is picking a character for: { sid
 local joinTarget = nil -- a private lobby waiting for its password
 
 local PRIVACY_TEXT = { Public = "Public", Friends = "Friends only", Private = "Private" }
--- the court picker's choices: the rotation first, then every court in rotation order
+-- the court picker's choices: the rotation first, then every court in rotation order, then the
+-- Halloween court (Haunted Forest: not in the rotation)
 local COURT_CHOICES = { Config.Courts.Rotate }
 for _, id in ipairs(Config.Courts.Rotation) do
 	table.insert(COURT_CHOICES, id)
+end
+if Config.Courts.List[Config.Halloween.Court] then
+	table.insert(COURT_CHOICES, Config.Halloween.Court)
 end
 
 local function courtName(id)
