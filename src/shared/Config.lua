@@ -1953,7 +1953,7 @@ Config.Halloween = {
 		Reaper = {
 			Name = "Reaper",
 			Rarity = "Mythic",
-			Blurb = "Taeho's skin: he spikes with a scythe, souls streaming behind the ball. Swap it on and off any time on his page.",
+			Blurb = "Taeho's skin, and Taeho with it if he isn't yours yet: he spikes with a scythe, souls streaming behind the ball. Swap it on and off any time on his page.",
 			Trail = "Souls", -- the trail it wears (Config.Cosmetics.Trail; only with the skin)
 			Color = Color3.fromRGB(150, 220, 255),
 			-- the only character it fits (the owner, 2026-10-15: "restrict the skin to only taeho
@@ -1969,7 +1969,7 @@ Config.Halloween = {
 		FallenAngel = {
 			Name = "Fallen Angel",
 			Rarity = "Mythic",
-			Blurb = "YeJun's skin: one broken black wing, lightning in violet and black, and arms from the underworld that drag him back down on every jump. Swap it on and off any time on his page.",
+			Blurb = "YeJun's skin, and YeJun with it if he isn't yours yet: one broken black wing, lightning in violet and black, and arms from the underworld that drag him back down on every jump. Swap it on and off any time on his page.",
 			Jump = "Underworld", -- (Config.Cosmetics.Jump; only with the skin, whatever jump he has on)
 			Thunder = Color3.fromRGB(150, 70, 255), -- his thunder spikes' colour (black underneath)
 			Color = Color3.fromRGB(190, 150, 255),

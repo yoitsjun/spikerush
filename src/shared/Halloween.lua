@@ -695,6 +695,28 @@ function Halloween.addCopy(skins, key)
 	skins[key].copies = math.min(HW.MaxCopies, skins[key].copies + 1)
 end
 
+-- A skin comes with its character (the owner, 2026-10-16: "make sure pulling the skins grant the
+-- characters aswell"): every skin in `skins` with a copy gives the characters it's for (HW.Skins[key].
+-- Chars) to `ownedChars` (id -> true) where they're missing. Returns the ids it added.
+function Halloween.skinChars(skins, ownedChars)
+	local added = {}
+	if type(skins) ~= "table" or type(ownedChars) ~= "table" then
+		return added
+	end
+	for _, key in ipairs(HW.SkinOrder) do
+		local row, s = skins[key], HW.Skins[key]
+		if type(row) == "table" and (tonumber(row.copies) or 0) > 0 and s and s.Chars then
+			for _, id in ipairs(s.Chars) do
+				if not ownedChars[id] and Roster.get(id) then
+					ownedChars[id] = true
+					table.insert(added, id)
+				end
+			end
+		end
+	end
+	return added
+end
+
 -- Apply a free copy to a character, for good (it shows at once). Returns ok, why.
 function Halloween.applySkin(skins, key, charId)
 	if not Halloween.isSkin(key) then

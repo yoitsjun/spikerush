@@ -298,6 +298,8 @@ local function sanitizeProfile(data)
 	out.skins = Halloween.cleanSkins(data.skins, function(id)
 		return Roster.get(id) ~= nil
 	end)
+	-- (a skin comes with its character: one pulled before it did gets them now)
+	Halloween.skinChars(out.skins, out.owned.Char)
 	-- Home's rooms (Config.Rooms): the ones won, and the one on
 	out.rooms = Rooms.clean(data.rooms)
 	-- the Rest in Peace gravestone (Config.Grave): the epitaph (already filtered) and the picture
@@ -1829,12 +1831,13 @@ local function eventOn()
 end
 
 -- One banner item to the profile: a skin is one more copy (Candy once every character it fits has
--- one: the Reaper is Taeho's alone); a cosmetic is yours, or Candy when you have it already.
--- Returns dup, candy.
+-- one: the Reaper is Taeho's alone) and its character with it, when missing (Halloween.skinChars);
+-- a cosmetic is yours, or Candy when you have it already. Returns dup, candy, and the characters a
+-- skin brought (ids).
 local function grantEventItem(profile, item)
 	if item.kind == "Skin" and not Halloween.skinDuplicate(profile.skins, item.key) then
 		Halloween.addCopy(profile.skins, item.key)
-		return false, 0
+		return false, 0, Halloween.skinChars(profile.skins, profile.owned.Char)
 	end
 	if item.kind == "Room" and not profile.rooms.owned[item.key] then
 		profile.rooms.owned[item.key] = true
@@ -1877,17 +1880,28 @@ local function eventSpin(plr, profile, count, currency)
 		end
 	end
 	local rng = Random.new()
-	local items, refund = {}, 0
+	local items, refund, joined = {}, 0, {}
 	for i = 1, count do
 		local item = Halloween.roll(rng)
-		local dup, candy = grantEventItem(profile, item)
+		local dup, candy, chars = grantEventItem(profile, item)
 		refund = refund + candy
+		for _, id in ipairs(chars or {}) do
+			local c = Roster.get(id)
+			table.insert(joined, c and c.Name or id)
+		end
 		items[i] = { kind = item.kind, key = item.key, rarity = item.rarity, dup = dup or nil, candy = candy > 0 and candy or nil }
 	end
 	profile.halloween.scout = profile.halloween.scout + count * Config.Halloween.Banner.ScoutPerPull
 	dirty[plr] = true
 	local snap = ProfileService.snapshot(plr)
-	snap.notice = refund > 0 and string.format("+%d Candy from duplicates.", refund) or nil
+	local lines = {}
+	if #joined > 0 then
+		table.insert(lines, table.concat(joined, " and ") .. " joined your roster with the skin!")
+	end
+	if refund > 0 then
+		table.insert(lines, string.format("+%d Candy from duplicates.", refund))
+	end
+	snap.notice = #lines > 0 and table.concat(lines, " ") or nil
 	snap.hwReveal = { count = count, items = items, candy = refund, currency = currency }
 	Net.get("Profile"):FireClient(plr, snap)
 end
@@ -1912,9 +1926,14 @@ local function eventScout(plr, profile, kind, key)
 		return
 	end
 	profile.halloween.scout = profile.halloween.scout - item.scout
-	grantEventItem(profile, item)
+	local _, _, chars = grantEventItem(profile, item)
 	dirty[plr] = true
-	push(plr, item.name .. " is yours!")
+	local names = {}
+	for _, id in ipairs(chars or {}) do
+		local c = Roster.get(id)
+		table.insert(names, c and c.Name or id)
+	end
+	push(plr, item.name .. " is yours!" .. (#names > 0 and (" " .. table.concat(names, " and ") .. " joined your roster with it.") or ""))
 	if item.kind == "Skin" then
 		applyCosmetics(plr, profile)
 	end

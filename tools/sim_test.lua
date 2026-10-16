@@ -3709,6 +3709,19 @@ do
 		and Halloween.skinCharNames("Reaper") == "Taeho",
 		"the Reaper is Taeho's alone: an old copy on YeJun comes back free, it applies to Taeho only, swaps off and on, and a second copy is a duplicate")
 
+	-- a skin comes with its character (the owner, 2026-10-16: "make sure pulling the skins grant the
+	-- characters aswell"): a copy gives Taeho or YeJun when they're missing, once; no copy, nothing
+	local pulled = { Reaper = { copies = 1, on = {} }, FallenAngel = { copies = 0, on = {} } }
+	local chars = { shoyo = true }
+	local gave = Halloween.skinChars(pulled, chars)
+	local again = Halloween.skinChars(pulled, chars)
+	local noAngelYet = chars.yejun == nil
+	Halloween.addCopy(pulled, "FallenAngel")
+	local angel = Halloween.skinChars(pulled, chars)
+	check(#gave == 1 and gave[1] == "taeha" and chars.taeha and noAngelYet and #again == 0 and #angel == 1 and angel[1] == "yejun" and chars.yejun and chars.shoyo
+		and #Halloween.skinChars(nil, chars) == 0,
+		"pulling a skin brings its character: the Reaper gives Taeho, the Fallen Angel YeJun, each only when missing")
+
 	-- Candy Corn is a colour, not a trail (the owner, 2026-10-15: "you are mixing up trails and colors
 	-- again. the candy corn is a color"): a spike colour in three bands, sold and pulled as one; Bat
 	-- Swarm is the trail (its bats: Fx.batRing)
