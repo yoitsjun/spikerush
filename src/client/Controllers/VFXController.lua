@@ -3422,7 +3422,30 @@ local function updateArcs(dt)
 					a.full = false
 				end
 				local throb = full and (0.5 + 0.5 * math.sin(now * 14)) or 0
-				local main = full and st.main:Lerp(st.light, 0.35 + 0.4 * throb) or st.main
+				-- Bloodlust on (the owner, 2026-10-16: "i meant that his bar turns red"): the whole bar in
+				-- blood red, its overcharge band white-hot over it
+				local blood = false
+				if a.kind == "feral" then
+					if model == mine and mods and mods.ActionController then
+						blood = mods.ActionController.abilityActive("Feral")
+					else
+						blood = HW.has(model, "Feral") and HW.untilOf(model, "Feral") >= Util.now()
+					end
+				end
+				local FL = Config.Abilities.Feral
+				local base = blood and FL.BloodColor or st.main
+				local light = blood and Color3.fromRGB(255, 150, 140) or st.light
+				if blood ~= (a.blooded == true) then
+					a.blooded = blood
+					a.track.stroke.Color = base
+					a.outer.stroke.Color = light
+					a.glow.ImageColor3 = light
+					if a.blood then
+						a.blood.stroke.Color = blood and Color3.fromRGB(255, 214, 200) or FL.BloodColor
+					end
+					a.auraStep = nil -- (the flames repaint)
+				end
+				local main = full and base:Lerp(light, 0.35 + 0.4 * throb) or base
 				if a.over then
 					main = HOT -- Azure held too long: it'll fly out
 				end
@@ -3433,7 +3456,7 @@ local function updateArcs(dt)
 				local step = full and 11 or math.floor(v * 10)
 				if step ~= a.auraStep then
 					a.auraStep = step
-					a.aura.set(true, full and st.hot or st.main, 0.3 + 0.09 * step)
+					a.aura.set(true, full and (blood and light or st.hot) or base, 0.3 + 0.09 * step)
 				end
 			end
 		end

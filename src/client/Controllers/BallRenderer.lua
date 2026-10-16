@@ -564,36 +564,6 @@ local function applyStyle(meta)
 		sparkleOn = true
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 230, 210))
 	end
-	if meta.bloodlust then
-		-- Bloodlust (Dante's Q; the owner: "it turns his ball red"): the ball itself glows blood red
-		-- and pulses, with a red comet and red fire behind it, bigger off an overcharged leap; it
-		-- takes over from the spike's colour and trail
-		local red = Config.Abilities.Feral.BloodColor
-		local over = gauge ~= nil and gauge > 1.005
-		trail.Color = ColorSequence.new(Color3.fromRGB(255, 90, 70), Color3.fromRGB(120, 0, 12))
-		trail.LightEmission = 1
-		trail.Transparency = fade(0.04)
-		trail.Lifetime = over and 1.05 or 0.8
-		setWidth(R * (over and 5.4 or 3.8), R * 1.1)
-		core.Color = ColorSequence.new(Color3.fromRGB(255, 225, 215), red)
-		core.LightEmission = 1
-		core.Enabled = true
-		aura.Color = ColorSequence.new(Color3.fromRGB(255, 170, 160), red)
-		aura.Enabled = true
-		glow.Color = red
-		glow.Brightness = over and 7 or 5
-		sparkleOn = true
-		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 210, 200), red)
-		chargedOn = true
-		pulseRate = over and 18 or 11
-		if chargedHl then
-			chargedHl.Enabled = true
-			chargedHl.FillColor = red
-		end
-		trailKit = kitFor("Flame")
-		trailColor = red
-		return
-	end
 	if trailKey == "Souls" then
 		-- the Reaper's Souls (void, Blade Ball's clean ribbon): an unlit ribbon of black into deep
 		-- violet with a cold blue-white core, a violet halo, and souls, skulls and ink off the ball

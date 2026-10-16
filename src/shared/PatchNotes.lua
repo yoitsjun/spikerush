@@ -56,7 +56,7 @@ PatchNotes.List = {
 				Heading = "Player changes",
 				Items = {
 					{ Text = "<b>Daon</b>, <b>Shoyo</b> and <b>Seora</b> buffed: Daon +12 Attack, +7 Defense, +10 Speed and +10 Jump; Shoyo +7 Attack, +6 Defense, +7 Speed and +3 Jump; Seora +8 Attack, +6 Defense and +8 Speed." },
-					{ Icon = "AbilityFeral", Text = "<b>Dante</b>: new <b>Bloodlust</b> (Q). For 10 seconds his charge keeps filling past full, up to <b>165%</b>, and an overcharged leap hits around 265 km/h. Every spike he hits while it's on turns the ball blood red." },
+					{ Icon = "AbilityFeral", Text = "<b>Dante</b>: new <b>Bloodlust</b> (Q). For 10 seconds his charge bar burns blood red and keeps filling past full, up to <b>165%</b>, and an overcharged leap hits around 265 km/h." },
 					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> buffed: while he has shields he's an <b>Iron Wall</b> at the net. Every attack that crosses in front of him is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
 				},
 			},

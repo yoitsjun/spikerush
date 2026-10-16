@@ -411,7 +411,11 @@ end
 -- (Bloodlust).
 local function prowlRing(charge)
 	local F = Config.Abilities.Feral
-	ring("C", (charge > 1.005 and F.BloodColor) or (charge >= F.FullAt and Color3.fromRGB(255, 80, 210)) or F.Color, true)
+	if mods.ActionController.abilityActive("Feral") then
+		ring("C", charge > 1.005 and Color3.fromRGB(255, 214, 200) or F.BloodColor, true) -- (Bloodlust: the bar's red)
+		return
+	end
+	ring("C", (charge >= F.FullAt and Color3.fromRGB(255, 80, 210)) or F.Color, true)
 end
 
 ------------------------------------------------------------------------------------------

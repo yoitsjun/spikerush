@@ -1126,7 +1126,7 @@ Config.Abilities = {
 		Tier = "S+",
 		Active = true, -- Bloodlust (Q)
 		ActiveName = "Bloodlust",
-		Blurb = "Hold Jump on the ground to charge, let go to leap: the longer the charge, the further you fly and the harder you hit. A full charge at the net breaks blocks with less Attack; your first of the match hits harder still. Press Q for Bloodlust: for 10 s the charge fills past full, to 165%, and your spikes fly red.",
+		Blurb = "Hold Jump on the ground to charge, let go to leap: the longer the charge, the further you fly and the harder you hit. A full charge at the net breaks blocks with less Attack; your first of the match hits harder still. Press Q for Bloodlust: for 10 s your bar burns red and the charge fills past full, to 165%.",
 		Kind = "Hold Jump on the ground",
 		AiNote = "Your AI charges it in the air on its own, at 85% Attack",
 		Color = Color3.fromRGB(165, 80, 255),
@@ -1145,8 +1145,8 @@ Config.Abilities = {
 		-- can pop to overcharge to maybe around 160 170% bar ... and it turns his ball red"): for
 		-- Duration the charge keeps filling past full, OverTime more to OverMax (HitLogic.feralGauge),
 		-- and past full the boost grows with the bar itself (x (1 + MaxBoost x gauge): a full 165%
-		-- about 268 km/h maxed, against 220 for a full leap). Every spike and jump serve he hits while
-		-- it's on flies red.
+		-- about 268 km/h maxed, against 220 for a full leap). His charge bar burns red while it's on
+		-- (the owner: "i meant that his bar turns red"; the ball keeps the Feral comet).
 		Duration = 10,
 		Cooldown = 22,
 		OverMax = 1.65,
@@ -1154,7 +1154,7 @@ Config.Abilities = {
 		BloodColor = Color3.fromRGB(255, 36, 48),
 		Passives = {
 			{ Name = "Long Reach", Blurb = "Off a charged leap, your swing reaches much further than anyone's." },
-			{ Name = "Bloodlust", Blurb = "Press Q: for 10 s your charge fills past full, up to 165%, and an overcharged leap hits far harder. Every spike you hit while it's on turns the ball red." },
+			{ Name = "Bloodlust", Blurb = "Press Q: for 10 s your charge bar burns red and fills past full, up to 165%. An overcharged leap hits far harder." },
 		},
 		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front
 		-- played by the AI (a bot, or a stand-in for an idle player): the gauge fills in the air on

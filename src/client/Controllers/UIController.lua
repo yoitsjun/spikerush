@@ -1134,18 +1134,26 @@ local function showBadge(b, ability, id, model, team, mine)
 		b.name.Text = def.Name
 	end
 	local p, count, sub, hot, dim = badgeState(ability, id, model, team, mine)
-	local color = def.Color
+	-- (Feral Leap in Bloodlust: its bar in blood red)
+	local tone = def.Color
+	if ability == "Feral" then
+		local on = (mine and mods.ActionController.abilityActive("Feral")) or (not mine and model ~= nil and (model:GetAttribute("AbilityUntil_Feral") or -1) >= Util.now())
+		if on then
+			tone = def.BloodColor
+		end
+	end
+	local color = tone
 	if hot then
-		color = def.Color:Lerp(UI.Chalk, 0.25 + 0.25 * math.sin(os.clock() * 9))
+		color = tone:Lerp(UI.Chalk, 0.25 + 0.25 * math.sin(os.clock() * 9))
 	elseif dim then
-		color = def.Color:Lerp(UI.Fog, 0.55)
+		color = tone:Lerp(UI.Fog, 0.55)
 	end
 	b.ring.set(p, color)
 	b.count.Text = count
 	b.sub.Text = sub
-	b.sub.TextColor3 = hot and def.Color or UI.Fog
+	b.sub.TextColor3 = hot and tone or UI.Fog
 	b.icon.ImageTransparency = count ~= "" and 0.55 or 0
-	b.name.TextColor3 = hot and def.Color or UI.Chalk
+	b.name.TextColor3 = hot and tone or UI.Chalk
 end
 
 -- On touch the scoreboard fits between the screen's left edge and the corner buttons (Forfeit,
