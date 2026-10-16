@@ -900,32 +900,32 @@ Config.Boosts = {
 	-- and to the shop and accomadte prices accordingly"): each tier its own Developer Products in the
 	-- same four lengths, priced up with what they give (an S+ 0.5% x N, Spins.luckWeights). Your luck
 	-- is your strongest boost running (they don't multiply each other; each keeps its own clock),
-	-- times the admin panel's event and the Lucky pass. Id 0 until a product exists ("Soon"; free in
-	-- Studio); suggested prices on each line.
+	-- times the admin panel's event and the Lucky pass. Created through Open Cloud on 2026-10-16
+	-- (prices on each line; icons in assets/products).
 	LuckTiers = { 2, 4, 6, 8, 16 },
 	LuckPacks4 = {
-		{ Id = 0, BoostLuck = 15 * 60, LuckMul = 4, Name = "4x Luck, 15 minutes" }, -- 149 Robux
-		{ Id = 0, BoostLuck = 30 * 60, LuckMul = 4, Name = "4x Luck, 30 minutes" }, -- 249 Robux
-		{ Id = 0, BoostLuck = 60 * 60, LuckMul = 4, Name = "4x Luck, 1 hour" }, -- 379 Robux
-		{ Id = 0, BoostLuck = 3 * 3600, LuckMul = 4, Name = "4x Luck, 3 hours" }, -- 849 Robux
+		{ Id = 3719055718, BoostLuck = 15 * 60, LuckMul = 4, Name = "4x Luck, 15 minutes" }, -- 149 Robux
+		{ Id = 3719055737, BoostLuck = 30 * 60, LuckMul = 4, Name = "4x Luck, 30 minutes" }, -- 249 Robux
+		{ Id = 3719055755, BoostLuck = 60 * 60, LuckMul = 4, Name = "4x Luck, 1 hour" }, -- 379 Robux
+		{ Id = 3719055772, BoostLuck = 3 * 3600, LuckMul = 4, Name = "4x Luck, 3 hours" }, -- 849 Robux
 	},
 	LuckPacks6 = {
-		{ Id = 0, BoostLuck = 15 * 60, LuckMul = 6, Name = "6x Luck, 15 minutes" }, -- 219 Robux
-		{ Id = 0, BoostLuck = 30 * 60, LuckMul = 6, Name = "6x Luck, 30 minutes" }, -- 349 Robux
-		{ Id = 0, BoostLuck = 60 * 60, LuckMul = 6, Name = "6x Luck, 1 hour" }, -- 549 Robux
-		{ Id = 0, BoostLuck = 3 * 3600, LuckMul = 6, Name = "6x Luck, 3 hours" }, -- 1249 Robux
+		{ Id = 3719055784, BoostLuck = 15 * 60, LuckMul = 6, Name = "6x Luck, 15 minutes" }, -- 219 Robux
+		{ Id = 3719055798, BoostLuck = 30 * 60, LuckMul = 6, Name = "6x Luck, 30 minutes" }, -- 349 Robux
+		{ Id = 3719055808, BoostLuck = 60 * 60, LuckMul = 6, Name = "6x Luck, 1 hour" }, -- 549 Robux
+		{ Id = 3719055821, BoostLuck = 3 * 3600, LuckMul = 6, Name = "6x Luck, 3 hours" }, -- 1249 Robux
 	},
 	LuckPacks8 = {
-		{ Id = 0, BoostLuck = 15 * 60, LuckMul = 8, Name = "8x Luck, 15 minutes" }, -- 279 Robux
-		{ Id = 0, BoostLuck = 30 * 60, LuckMul = 8, Name = "8x Luck, 30 minutes" }, -- 449 Robux
-		{ Id = 0, BoostLuck = 60 * 60, LuckMul = 8, Name = "8x Luck, 1 hour" }, -- 699 Robux
-		{ Id = 0, BoostLuck = 3 * 3600, LuckMul = 8, Name = "8x Luck, 3 hours" }, -- 1599 Robux
+		{ Id = 3719055833, BoostLuck = 15 * 60, LuckMul = 8, Name = "8x Luck, 15 minutes" }, -- 279 Robux
+		{ Id = 3719055850, BoostLuck = 30 * 60, LuckMul = 8, Name = "8x Luck, 30 minutes" }, -- 449 Robux
+		{ Id = 3719055858, BoostLuck = 60 * 60, LuckMul = 8, Name = "8x Luck, 1 hour" }, -- 699 Robux
+		{ Id = 3719055875, BoostLuck = 3 * 3600, LuckMul = 8, Name = "8x Luck, 3 hours" }, -- 1599 Robux
 	},
 	LuckPacks16 = {
-		{ Id = 0, BoostLuck = 15 * 60, LuckMul = 16, Name = "16x Luck, 15 minutes" }, -- 499 Robux
-		{ Id = 0, BoostLuck = 30 * 60, LuckMul = 16, Name = "16x Luck, 30 minutes" }, -- 799 Robux
-		{ Id = 0, BoostLuck = 60 * 60, LuckMul = 16, Name = "16x Luck, 1 hour" }, -- 1249 Robux
-		{ Id = 0, BoostLuck = 3 * 3600, LuckMul = 16, Name = "16x Luck, 3 hours" }, -- 2799 Robux
+		{ Id = 3719055891, BoostLuck = 15 * 60, LuckMul = 16, Name = "16x Luck, 15 minutes" }, -- 499 Robux
+		{ Id = 3719055904, BoostLuck = 30 * 60, LuckMul = 16, Name = "16x Luck, 30 minutes" }, -- 799 Robux
+		{ Id = 3719055916, BoostLuck = 60 * 60, LuckMul = 16, Name = "16x Luck, 1 hour" }, -- 1249 Robux
+		{ Id = 3719055928, BoostLuck = 3 * 3600, LuckMul = 16, Name = "16x Luck, 3 hours" }, -- 2799 Robux
 	},
 }
 
