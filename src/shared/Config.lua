@@ -344,12 +344,15 @@ Config.Breakthrough = {
 	},
 	NoAbilityMul = 1.5,
 	-- the lower the tier, the more each step gives (the owner, 2026-10-15: "make breakthroughs way
-	-- more powerful on lower tier"): a maxed D is about 400 stat points and an S+ about 650, so a +5
-	-- D (x3, x NoAbilityMul: 180 points) lands near a maxed A, a +5 B (x1.8: 108) near an S
-	TierMul = { D = 3, C = 2.4, B = 1.8, A = 1.4, S = 1.15, ["S+"] = 1 },
+	-- more powerful on lower tier in terms of stats", then "a d shouldn't be hitting low s"): maxed,
+	-- D totals about 405 stat points, C 447, B 504, A 566, S 619 (Daon 575 the lowest), S+ 678; at +5
+	-- (40 a step's base, x TierMul, x NoAbilityMul without an ability, each point rounded) a D gains
+	-- 132 (Riku to 554: near a maxed A like Sora's 580, under every S), C 114, B 92, A 80, S 46, S+ 40
+	-- (D 3 put a +5 Riku at 604, over Daon; D 4 at 662)
+	TierMul = { D = 2.2, C = 1.9, B = 1.5, A = 1.25, S = 1.15, ["S+"] = 1 },
 	-- an active ability's cooldown is this much shorter at +Max, a fifth of it a step (the owner:
-	-- "for breakthroughs, also maybe make ability cooldowns reduced")
-	CooldownCut = 0.3,
+	-- "allow breakthroughs to also effect cooldowns"; was 0.3)
+	CooldownCut = 0.4,
 	-- per ability: the settings that grow, and how each shows in the Breakthrough table (Show: "pct"
 	-- a share as %, "excess" a multiplier's part over 1 as %, "num" points, "s" seconds, "kmh";
 	-- Field: the entry of a table setting to show)

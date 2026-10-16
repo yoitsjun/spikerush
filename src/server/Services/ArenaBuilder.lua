@@ -932,11 +932,11 @@ COURTS.Haunted = {
 				p.Size = p.Size * (size / math.max(p.Size.X, p.Size.Y, p.Size.Z))
 				p.PivotOffset = CFrame.new()
 				p.Anchored = true
-				p.CFrame = CFrame.new(fx + rng:NextNumber() * 2, size * 0.42, z) * CFrame.Angles(0, math.rad(90 + (rng:NextNumber() - 0.5) * 40), 0)
+				p.CFrame = CFrame.new(fx + rng:NextNumber() * 2, p.Size.Y / 2 + 0.03, z) * CFrame.Angles(0, math.rad(90 + (rng:NextNumber() - 0.5) * 40), 0) -- (on the ground)
 				deco(p)
 				p.Parent = lanterns
 			else
-				p = ball(lanterns, "Pumpkin", Vector3.new(size * 1.2, size, size * 1.2), Vector3.new(fx + rng:NextNumber() * 2, size * 0.45, z), Color3.fromRGB(240, 110, 20), Enum.Material.SmoothPlastic)
+				p = ball(lanterns, "Pumpkin", Vector3.new(size * 1.2, size, size * 1.2), Vector3.new(fx + rng:NextNumber() * 2, size / 2, z), Color3.fromRGB(240, 110, 20), Enum.Material.SmoothPlastic)
 			end
 			p.Name = "JackOLantern"
 			local l = Instance.new("PointLight")

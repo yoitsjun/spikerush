@@ -2481,14 +2481,24 @@ do
 	-- by tier, wing spikers without an ability (D, C, B, A) and the S+ with one
 	local riku, eunwoo, nagi, sora, dante = Roster.get("riku"), Roster.get("eunwoo"), Roster.get("nagi"), Roster.get("sora"), Roster.get("dante")
 	local gain = { D = sum(BTm.stats(riku, 5)), C = sum(BTm.stats(eunwoo, 5)), B = sum(BTm.stats(nagi, 5)), A = sum(BTm.stats(sora, 5)), SP = sum(BTm.stats(dante, 5)) }
+	-- ("a d shouldn't be hitting low s"): a +5 D-tier comes close to a maxed A-tier but stays under
+	-- every maxed S, and under a +5 S+
 	local dPlus5, aMax = maxed(riku, 5), maxed(sora)
-	check(gain.D > gain.C and gain.C > gain.B and gain.B > gain.A and gain.A > gain.SP and gain.D >= 3 * gain.SP and dPlus5 >= aMax - 15 and maxed(riku, 5) < maxed(dante, 5),
-		"breakthroughs give lower tiers far more: a +5 D-tier stands with a maxed A-tier, still under a +5 S+",
-		string.format("+5 adds D %d, C %d, B %d, A %d, S+ %d; +5 Riku %d vs maxed Sora %d", gain.D, gain.C, gain.B, gain.A, gain.SP, dPlus5, aMax))
+	local dTop, sLow, sLowName = 0, math.huge, "?"
+	for _, c in ipairs(Roster) do
+		if c.Tier == "D" then
+			dTop = math.max(dTop, maxed(c, 5))
+		elseif c.Tier == "S" and maxed(c) < sLow then
+			sLow, sLowName = maxed(c), c.Name
+		end
+	end
+	check(gain.D > gain.C and gain.C > gain.B and gain.B > gain.A and gain.A > gain.SP and gain.D >= 3 * gain.SP and dTop < sLow and dPlus5 >= aMax - 40 and maxed(riku, 5) < maxed(dante, 5),
+		"breakthroughs give lower tiers far more: a +5 D-tier comes close to a maxed A-tier, under every maxed S and a +5 S+",
+		string.format("+5 adds D %d, C %d, B %d, A %d, S+ %d; best +5 D %d vs lowest maxed S (%s) %d; +5 Riku %d vs maxed Sora (A) %d", gain.D, gain.C, gain.B, gain.A, gain.SP, dTop, sLowName, sLow, dPlus5, aMax))
 	local cd0, cd5, cd3 = BTm.cooldown("Thunder", 0), BTm.cooldown("Thunder", 5), BTm.cooldown("Thunder", 3)
 	check(cd0 == Config.Abilities.Thunder.Cooldown and math.abs(cd5 - cd0 * (1 - BT.CooldownCut)) < 1e-9 and cd3 < cd0 and cd3 > cd5 and BTm.cooldown("Thunder", 99) == cd5
 		and BTm.cooldown("Adrenaline", 5) == nil and BTm.cooldown(nil, 5) == nil,
-		"breakthroughs shorten an active ability's cooldown, 30% at +5 (passives have none)", string.format("Storm Call %.0f s -> %.1f s at +5", cd0, cd5))
+		string.format("breakthroughs shorten an active ability's cooldown, %d%% at +5 (passives have none)", math.floor(BT.CooldownCut * 100 + 0.5)), string.format("Storm Call %.0f s -> %.1f s at +5", cd0, cd5))
 end
 
 print("== player cards ==")

@@ -34,7 +34,7 @@ PatchNotes.List = {
 			{
 				Heading = "Breakthroughs",
 				Items = {
-					{ Text = "Lower tiers grow far more with every breakthrough: a +5 D-tier stands with a maxed A-tier. Each step also cuts an active ability's cooldown." },
+					{ Text = "Lower tiers grow far more with every breakthrough: a +5 D-tier comes close to a maxed A-tier. Each step also cuts an active ability's cooldown, 40% at +5." },
 					{ Text = "Your breakthrough level shows on each player's card (+1 to +5), and every breakthrough gets its own reveal." },
 					{ Text = "Favourite a player to lock them: favourites can't be sold." },
 				},

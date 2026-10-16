@@ -402,7 +402,10 @@ local function jackLantern(parent, at, size, yaw)
 				table.insert(roomState.flicker, { light = d, base = 1.4, seed = rng:NextNumber() * 10 })
 			end
 		end
-		m:PivotTo(CFrame.new(at + Vector3.new(0, size * 0.42, 0)) * CFrame.Angles(0, math.rad(yaw or 0), 0))
+		-- standing on the ground by its real height (at size x 0.42 it sat half under it: the owner,
+		-- "the pumpkins are hidden inside the ground")
+		local _, extent = m:GetBoundingBox()
+		m:PivotTo(CFrame.new(at + Vector3.new(0, extent.Y / 2 + 0.03, 0)) * CFrame.Angles(0, math.rad(yaw or 0), 0))
 		m.Parent = parent
 		return m
 	end
@@ -724,8 +727,13 @@ local function buildForest()
 	-- the clubhouse, the graveyard
 	cabin(d, H + Vector3.new(-16, 0, 22))
 	for _, x in ipairs({ -22, -19.5, -12, -9.5, -24.5 }) do
-		local s = 1 + trng:NextNumber() * 0.6
-		part({ Shape = Enum.PartType.Ball, Size = Vector3.new(s * 1.3, s, s * 1.3), CFrame = CFrame.new(H + Vector3.new(x, s * 0.45, 17.5 + trng:NextNumber() * 2)), Color = Color3.fromRGB(230, 110, 20), Material = Enum.Material.SmoothPlastic }, d)
+		local sz = 1 + trng:NextNumber() * 0.6
+		local at = H + Vector3.new(x, sz / 2, 17.5 + trng:NextNumber() * 2)
+		local gourd = part({ Size = Vector3.new(sz * 1.3, sz, sz * 1.3), CFrame = CFrame.new(at), Color = Color3.fromRGB(230, 110, 20), Material = Enum.Material.SmoothPlastic }, d)
+		local shape = Instance.new("SpecialMesh")
+		shape.MeshType = Enum.MeshType.Sphere
+		shape.Parent = gourd
+		box(d, Vector3.new(0.18, 0.4, 0.18), CFrame.new(at + Vector3.new(0, sz / 2 + 0.15, 0)) * CFrame.Angles(0, 0, math.rad(12)), Color3.fromRGB(70, 90, 40)) -- the stem
 	end
 	fence(d, H.X + 12, H.X + 27, H.Z + 18, H.Z + 33)
 	for _, spec in ipairs({ { 15, 22, -6, 1 }, { 19.5, 21.5, 4, 0.85 }, { 24, 23, -10, 1.1 }, { 16.5, 27.5, 8, 0.9 }, { 21.5, 28, -3, 1 }, { 25, 30, 12, 0.8 } }) do
@@ -738,7 +746,14 @@ local function buildForest()
 	table.insert(roomState.flicker, { light = gl, base = 1.3, seed = trng:NextNumber() * 10 })
 	-- the clearing: the cauldron, the log bench with the witch's hat, the net behind you
 	local pot = part({ Shape = Enum.PartType.Ball, Size = Vector3.new(3.2, 2.6, 3.2), CFrame = CFrame.new(H + Vector3.new(9.5, 1.2, 9)), Color = Color3.fromRGB(16, 16, 20), Material = Enum.Material.Metal }, d)
-	local brew = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 2.5, 2.5), CFrame = CFrame.new(H + Vector3.new(9.5, 2.3, 9)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(110, 255, 90), Material = Enum.Material.Neon }, d)
+	-- the brew inside the mouth (the pot narrows to about 2 studs there), under an iron lip (it
+	-- spilled out past the pot: the owner, "the cauldron goop is overflowing")
+	local brew = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 1.8, 1.8), CFrame = CFrame.new(H + Vector3.new(9.5, 2.12, 9)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(110, 255, 90), Material = Enum.Material.Neon }, d)
+	for k = 0, 11 do
+		local a = k / 12 * math.pi * 2
+		local seg = CFrame.new(H + Vector3.new(9.5 + math.cos(a) * 1.02, 2.24, 9 + math.sin(a) * 1.02)) * CFrame.Angles(0, -a, 0)
+		box(d, Vector3.new(0.34, 0.26, 0.6), seg, Color3.fromRGB(22, 22, 26), Enum.Material.Metal)
+	end
 	local bl = light(brew, "PointLight", { Range = 14, Brightness = 1.6, Color = Color3.fromRGB(110, 255, 100), Shadows = false })
 	table.insert(roomState.flicker, { light = bl, base = 1.6, seed = trng:NextNumber() * 10 })
 	local bubbles = Instance.new("ParticleEmitter")
