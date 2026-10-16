@@ -7408,6 +7408,64 @@ function Extra.openCups()
 	ui.cups.modal.root.Visible = true
 end
 
+-- The admin whitelist (the owner, 2026-10-16: "add a whitelist to the admin panel that only i can
+-- access"), over the admin panel, for the game's owner alone: the players they let into the panel.
+-- Add by username or user id; Remove (pressed twice) takes them off.
+function Extra.buildAdminList(m)
+	local wl = make("TextButton", { Position = UDim2.fromOffset(16, 84), Size = UDim2.new(1, -32, 1, -160), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Visible = false, ZIndex = 60 }, m.panel)
+	make("UICorner", { CornerRadius = UDim.new(0, 10) }, wl)
+	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, wl)
+	Gui.label(wl, { Text = "Admins", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Position = UDim2.fromOffset(28, 18), Size = UDim2.new(1, -56, 0, 36) })
+	Gui.plate(wl, { Size = UDim2.fromOffset(46, 5), Position = UDim2.fromOffset(30, 56) }, Gui.SIGNAL)
+	Gui.label(wl, { Text = "The players you let into this panel. They can use all of it but this list, which only you see.", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(28, 70), Size = UDim2.new(1, -56, 0, 22) })
+	local box = Extra.inputBox(wl, { Position = UDim2.fromOffset(28, 106), Size = UDim2.new(1, -268, 0, 48) }, "Username or user id")
+	local add = actionPlate(wl, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 106), Size = UDim2.fromOffset(212, 48) }, "Add admin", 20)
+	onClick(add, function()
+		if string.match(box.Text, "%S") then
+			Net.get("Admin"):FireServer("adminAdd", box.Text)
+		end
+	end)
+	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(28, 170), Size = UDim2.new(1, -56, 1, -250), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, wl)
+	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	local back = hairButton(wl, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -18), Size = UDim2.fromOffset(160, 48) }, "Back", 18)
+	onClick(back, function()
+		wl.Visible = false
+	end)
+	function Extra.showAdmins(admins)
+		for _, c in ipairs(list:GetChildren()) do
+			if c:IsA("GuiObject") then
+				c:Destroy()
+			end
+		end
+		if #admins == 0 then
+			Gui.label(list, { Text = "Nobody yet: the panel is yours alone.", TextSize = 17, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 0 })
+		end
+		for i, row in ipairs(admins) do
+			local r = make("Frame", { Size = UDim2.new(1, -8, 0, 52), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, LayoutOrder = i }, list)
+			make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
+			Gui.label(r, { Text = string.format('%s  <font color="#9aa3b5">%s</font>', tostring(row.name), tostring(row.id)), RichText = true, display = true, TextSize = 19, Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -200, 1, 0) })
+			local rm, rmL = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(150, 38) }, "Remove", 17)
+			onClick(rm, function()
+				if Extra.adminRmArmed == row.id and os.clock() - (Extra.adminRmAt or 0) < 4 then
+					Extra.adminRmArmed = nil
+					Net.get("Admin"):FireServer("adminRemove", tostring(row.id))
+				else
+					Extra.adminRmArmed, Extra.adminRmAt = row.id, os.clock()
+					rmL.Text = "Sure? Again"
+					task.delay(4, function()
+						if rmL.Parent and Extra.adminRmArmed == row.id and os.clock() - (Extra.adminRmAt or 0) >= 4 then
+							Extra.adminRmArmed = nil
+							rmL.Text = "Remove"
+						end
+					end)
+				end
+			end)
+		end
+	end
+	Extra.showAdmins({})
+	return wl
+end
+
 function Extra.buildAdmin()
 	local m = modal("Admin", "Admin panel", 1080, 780, true)
 	local function heading(parent, t, y)
@@ -7470,9 +7528,16 @@ function Extra.buildAdmin()
 		end
 	end)
 	-- testing lobbies across servers: you alone into a new server, whoever's with you stays here
-	local newServer = hairButton(left, { Position = UDim2.fromOffset(0, 548), Size = UDim2.fromOffset(480, 44), ZIndex = 22 }, "New server: test lobbies across servers", 17)
+	local newServer, newServerL = hairButton(left, { Position = UDim2.fromOffset(0, 548), Size = UDim2.fromOffset(480, 44), ZIndex = 22 }, "New server: test lobbies across servers", 17)
 	onClick(newServer, function()
 		Net.get("Admin"):FireServer("server")
+	end)
+	-- the whitelist (the game's owner alone): who else may use this panel (Extra.buildAdminList)
+	local adminsBtn = hairButton(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 548), Size = UDim2.fromOffset(150, 44), Visible = false, ZIndex = 22 }, "Admins", 17)
+	local adminList = Extra.buildAdminList(m)
+	onClick(adminsBtn, function()
+		adminList.Visible = true
+		Net.get("Admin"):FireServer("admins")
 	end)
 	-- right: give a player VP, Gold, lucky spins and characters
 	local right = make("Frame", { Position = UDim2.fromOffset(544, 92), Size = UDim2.fromOffset(508, 600), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
@@ -7717,11 +7782,24 @@ function Extra.buildAdmin()
 		end
 	end)
 	local status = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -20), Size = UDim2.new(1, -56, 0, 44), ZIndex = 21 })
-	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status, creatorL = creatorL, grid = grid, cosGrid = cosGrid, fragGrid = fragGrid, fragBoxes = fragBoxes, tabL = tabL, cosButtons = {} }
+	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status, creatorL = creatorL, grid = grid, cosGrid = cosGrid, fragGrid = fragGrid, fragBoxes = fragBoxes, tabL = tabL, cosButtons = {}, newServer = newServer, newServerL = newServerL, adminsBtn = adminsBtn, adminList = adminList }
 end
 
 function Extra.refreshAdmin()
 	local A = ui.admin
+	local prof = profile()
+	if not prof.admin then
+		A.modal.root.Visible = false -- (taken off the whitelist while it was open)
+		return
+	end
+	-- the whitelist's button, for the game's owner alone (New server makes room for it)
+	local owner = prof.adminOwner == true
+	A.adminsBtn.Visible = owner
+	A.newServer.Size = UDim2.fromOffset(owner and 318 or 480, 44)
+	A.newServerL.Text = owner and "New server: test lobbies" or "New server: test lobbies across servers"
+	if not owner then
+		A.adminList.Visible = false
+	end
 	A.setLen(Extra.adminMinutes)
 	local cardName = nil
 	for _, c in ipairs(Config.Cards.List) do
@@ -8506,6 +8584,9 @@ function MenuController.init(m)
 	Net.get("Admin").OnClientEvent:Connect(function(data)
 		if type(data) == "table" and type(data.owners) == "table" and type(data.owners.list) == "table" and Extra.showOwners then
 			Extra.showOwners(data.owners)
+		end
+		if type(data) == "table" and type(data.admins) == "table" and Extra.showAdmins then
+			Extra.showAdmins(data.admins)
 		end
 		if type(data) == "table" and type(data.msg) == "string" then
 			ui.admin.status.Text = data.msg

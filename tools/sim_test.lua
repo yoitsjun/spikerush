@@ -2820,6 +2820,29 @@ do
 		string.format("met the hands %.3f s after the hit at the latest", through))
 end
 
+print("== the admin whitelist ==")
+do
+	-- the owner (2026-10-16): "add a whitelist to the admin panel that only i can access": the stored
+	-- list is made safe (whole ids, plain usernames, at most WhitelistMax, the earliest kept) and
+	-- listed by name
+	local Economy = require("Economy")
+	local raw = { ["123"] = { n = "Zed", t = 5 }, ["45"] = { n = "amy_b", t = 2 }, ["-3"] = { n = "neg", t = 1 }, ["1.5"] = { n = "half", t = 1 }, abc = { n = "x", t = 1 }, ["77"] = { n = "<b>bad</b>", t = 9 }, ["88"] = "junk" }
+	for i = 1, Config.Admin.WhitelistMax + 5 do
+		raw[tostring(1000 + i)] = { n = "filler" .. i, t = 100 + i }
+	end
+	local clean = Economy.cleanAdmins(raw)
+	local n = 0
+	for _ in pairs(clean) do
+		n = n + 1
+	end
+	local listed = Economy.adminList({ ["123"] = { n = "Zed", t = 5 }, ["45"] = { n = "amy_b", t = 2 } })
+	check(n == Config.Admin.WhitelistMax and clean["123"] and clean["45"] and clean["77"] and clean["77"].n == "77" and not clean["-3"] and not clean["1.5"] and not clean.abc and not clean["88"]
+		and not clean[tostring(1000 + Config.Admin.WhitelistMax + 5)] and #listed == 2 and listed[1].name == "amy_b" and listed[1].id == 45 and listed[2].name == "Zed"
+		and next(Economy.cleanAdmins(nil)) == nil,
+		"the admin whitelist is kept clean: whole ids and plain names only, no more than the cap (the earliest stay), listed by name",
+		n .. " kept of " .. (Config.Admin.WhitelistMax + 12))
+end
+
 print("== codes ==")
 do
 	local Economy = require("Economy")

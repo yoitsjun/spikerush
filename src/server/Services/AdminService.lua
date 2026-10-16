@@ -9,6 +9,11 @@
 --                                 (ProfileService.giveUser: now, or through their mail)
 --   ("server")                 -> the admin alone into a new reserved server, to try lobbies across
 --                                 servers (Config.Lobby.Global) with someone who stays behind
+--   ("admins")                 -> the whitelist: who the game's owner lets into the panel
+--   ("adminAdd", username)     -> let someone in (by username or user id)
+--   ("adminRemove", userId)    -> and out again
+--                                 (the whitelist's three: the game's owner alone, never Studio's
+--                                 stand-ins; Config.Admin.WhitelistStore)
 -- Events are kept in a DataStore (a server that starts later reads them, and every server reads
 -- them again each PollInterval) and pushed at once over MessagingService, as are announcements
 -- and the "open your mail" pings for gifts. The running ones are ReplicatedStorage attributes
@@ -32,12 +37,16 @@ local AdminService = {}
 local reg
 local A = Config.Admin
 
-local TOPIC_LIVE, TOPIC_NOTICE, TOPIC_MAIL = "SpikeRushLive", "SpikeRushNotice", "SpikeRushMail"
+local TOPIC_LIVE, TOPIC_NOTICE, TOPIC_MAIL, TOPIC_ADMINS = "SpikeRushLive", "SpikeRushNotice", "SpikeRushMail", "SpikeRushAdmins"
 
 local events = {} -- kind -> the unix time it ends
 local liveStore = nil
 local lastOp = {}
 local shownNotice = {} -- ids of the notices this server has shown (its own come back to it)
+-- the admin whitelist (Economy.cleanAdmins): who the game's owner lets into the panel
+local admins = {} -- tostring(userId) -> { n = username, t = when added }
+local adminStore = nil
+local ownerOf = {} -- player -> true when they own the game (looked up as they join)
 
 local function publish(topic, data)
 	task.spawn(function()
@@ -149,9 +158,105 @@ function AdminService.pingMail(userId)
 	publish(TOPIC_MAIL, userId)
 end
 
+-- The game's owner: the account that owns it, or the owner (rank 255) of the group that does,
+-- looked up as they join (it asks Roblox). The only one who sees and changes the admin whitelist
+-- (the owner, 2026-10-16: "add a whitelist to the admin panel that only i can access"). Studio's
+-- every-session developer doesn't count here: a collaborator's playtest writes the live list.
+local function lookUpOwner(plr)
+	local yes = false
+	if game.CreatorType == Enum.CreatorType.User then
+		yes = plr.UserId == game.CreatorId
+	else
+		local ok, rank = pcall(function()
+			return plr:GetRankInGroup(game.CreatorId)
+		end)
+		yes = ok and rank == 255
+	end
+	if yes and plr.Parent then
+		ownerOf[plr] = true
+		reg.ProfileService.pushTo(plr) -- (their admin panel shows the whitelist)
+	end
+end
+
+function AdminService.isOwner(plr)
+	return ownerOf[plr] == true
+end
+
+-- Whether the game's owner has let this user into the admin panel.
+function AdminService.whitelisted(userId)
+	return admins[tostring(userId)] ~= nil
+end
+
+-- A new whitelist (read, heard from another server, or just written): anyone in this server it
+-- lets in or out is told, and their Admin button shows or goes.
+local function takeAdmins(list)
+	local before = admins
+	admins = list
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local key = tostring(plr.UserId)
+		local was, now = before[key] ~= nil, list[key] ~= nil
+		if was ~= now then
+			reg.ProfileService.pushTo(plr, now and "You're an admin now: the Admin button is on Home." or "You're not an admin anymore.")
+		end
+	end
+end
+
+local function readAdmins()
+	if not adminStore then
+		return
+	end
+	local ok, data = pcall(function()
+		return adminStore:GetAsync("list")
+	end)
+	if ok then
+		takeAdmins(Economy.cleanAdmins(data))
+	end
+end
+
+-- Lets a user into the panel (add) or out of it, in the store, then in every server. Returns true,
+-- or false and why.
+local function writeAdmins(userId, name, add)
+	if not adminStore then
+		return false, "The admin list can't be saved here (DataStores are off)."
+	end
+	local result, full = nil, false
+	local ok, err = pcall(function()
+		adminStore:UpdateAsync("list", function(old)
+			local list = Economy.cleanAdmins(old)
+			local key = tostring(userId)
+			full = false
+			if add and not list[key] then
+				local n = 0
+				for _ in pairs(list) do
+					n = n + 1
+				end
+				if n >= A.WhitelistMax then
+					full = true
+					return nil
+				end
+				list[key] = { n = name, t = os.time() }
+			elseif not add then
+				list[key] = nil
+			end
+			result = list
+			return list
+		end)
+	end)
+	if full then
+		return false, string.format("The list is full (%d admins): remove someone first.", A.WhitelistMax)
+	end
+	if not ok or not result then
+		return false, "Couldn't save the admin list: " .. tostring(err)
+	end
+	takeAdmins(result)
+	publish(TOPIC_ADMINS, os.time())
+	return true
+end
+
+-- Developers (Config.Developers), and whoever the owner's whitelist lets in.
 local function isAdmin(plr)
 	local profile = reg.ProfileService.peek(plr)
-	return profile ~= nil and profile.dev == true
+	return profile ~= nil and (profile.dev == true or AdminService.whitelisted(plr.UserId))
 end
 
 local function reply(plr, msg, extra)
@@ -275,7 +380,47 @@ local function onAdmin(plr, op, a, b, c)
 	end
 	lastOp[plr] = now
 	if op == "state" then
-		reply(plr)
+		reply(plr, nil, AdminService.isOwner(plr) and { admins = Economy.adminList(admins) } or nil)
+	elseif op == "admins" or op == "adminAdd" or op == "adminRemove" then
+		-- the whitelist: the game's owner alone
+		if not AdminService.isOwner(plr) then
+			reply(plr, "Only the game's owner can see and change the admins.")
+			return
+		end
+		if op == "admins" then
+			reply(plr, nil, { admins = Economy.adminList(admins) })
+			return
+		end
+		task.spawn(function()
+			local userId, why = nil, nil
+			if op == "adminRemove" then
+				userId = tonumber(a)
+			else
+				userId, why = reg.ProfileService.findUser(a)
+			end
+			if not userId then
+				reply(plr, why or "That isn't a username or a user id.")
+				return
+			end
+			if op == "adminAdd" and userId == plr.UserId then
+				reply(plr, "You own the game: the panel is always yours.")
+				return
+			end
+			local row = admins[tostring(userId)]
+			local name = row and row.n or nil
+			if not name then
+				local okN, n = pcall(function()
+					return Players:GetNameFromUserIdAsync(userId)
+				end)
+				name = okN and type(n) == "string" and n or tostring(userId)
+			end
+			local done, why2 = writeAdmins(userId, name, op == "adminAdd")
+			if done then
+				reply(plr, op == "adminAdd" and (name .. " can use the admin panel now.") or (name .. " isn't an admin anymore."), { admins = Economy.adminList(admins) })
+			else
+				reply(plr, why2)
+			end
+		end)
 	elseif op == "event" then
 		local minutes = tonumber(b)
 		if not Economy.isEvent(a) or not Economy.isDuration(minutes) then
@@ -441,10 +586,21 @@ function AdminService.init(r)
 		return DataStoreService:GetDataStore(A.MailStore)
 	end)
 	mailStoreA = okM and ms or nil
+	local okW, ws = pcall(function()
+		return DataStoreService:GetDataStore(A.WhitelistStore)
+	end)
+	adminStore = okW and ws or nil
 	writeEvents()
 	Net.get("Admin").OnServerEvent:Connect(onAdmin)
+	Players.PlayerAdded:Connect(function(plr)
+		task.spawn(lookUpOwner, plr)
+	end)
+	for _, plr in ipairs(Players:GetPlayers()) do
+		task.spawn(lookUpOwner, plr)
+	end
 	Players.PlayerRemoving:Connect(function(plr)
 		lastOp[plr] = nil
+		ownerOf[plr] = nil
 	end)
 	task.spawn(function()
 		pcall(function()
@@ -465,14 +621,21 @@ function AdminService.init(r)
 				end
 			end)
 		end)
+		pcall(function()
+			MessagingService:SubscribeAsync(TOPIC_ADMINS, function()
+				readAdmins() -- (the owner changed the whitelist somewhere)
+			end)
+		end)
 	end)
 	-- the events from before this server started, then again now and then (a missed message, an
 	-- event that ended); and every player's mail, in case a ping was missed
 	task.spawn(function()
 		readEvents()
+		readAdmins()
 		while true do
 			task.wait(A.PollInterval)
 			readEvents()
+			readAdmins()
 			writeEvents()
 			for _, plr in ipairs(Players:GetPlayers()) do
 				task.spawn(reg.ProfileService.checkMail, plr)

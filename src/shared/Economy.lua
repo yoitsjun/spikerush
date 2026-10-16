@@ -345,6 +345,45 @@ end
 -- the admin panel's events
 ------------------------------------------------------------------------------------------
 
+-- The admin whitelist as stored (Config.Admin.WhitelistStore): user id (a string) -> { n = the
+-- username, t = when added }, made safe: whole positive ids, names of up to 20 characters, at most
+-- WhitelistMax (the earliest added kept).
+function Economy.cleanAdmins(data)
+	local rows = {}
+	if type(data) == "table" then
+		for k, v in pairs(data) do
+			local id = tonumber(k)
+			if id and id > 0 and id == math.floor(id) and type(v) == "table" then
+				local name = type(v.n) == "string" and string.match(v.n, "^[%w_]+$") and string.sub(v.n, 1, 20) or tostring(id)
+				table.insert(rows, { id = id, n = name, t = math.max(0, whole(v.t)) })
+			end
+		end
+	end
+	table.sort(rows, function(a, b)
+		if a.t ~= b.t then
+			return a.t < b.t
+		end
+		return a.id < b.id
+	end)
+	local out = {}
+	for i = 1, math.min(#rows, Config.Admin.WhitelistMax) do
+		out[tostring(rows[i].id)] = { n = rows[i].n, t = rows[i].t }
+	end
+	return out
+end
+
+-- The whitelist for the panel, by name: { { id, name } }.
+function Economy.adminList(list)
+	local out = {}
+	for k, v in pairs(list or {}) do
+		table.insert(out, { id = tonumber(k), name = v.n })
+	end
+	table.sort(out, function(a, b)
+		return string.lower(a.name) < string.lower(b.name)
+	end)
+	return out
+end
+
 function Economy.isEvent(kind)
 	for _, k in ipairs(Config.Admin.Events) do
 		if k == kind then

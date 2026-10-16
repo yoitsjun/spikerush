@@ -979,7 +979,8 @@ function ProfileService.snapshot(plr)
 		fragments = table.clone(profile.fragments or {}),
 		breaks = table.clone(profile.breaks or {}),
 		dev = profile.dev or nil,
-		admin = profile.dev or nil, -- the admin panel (developers)
+		admin = (profile.dev or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))) or nil, -- the admin panel (developers, and whoever the owner's whitelist lets in)
+		adminOwner = (reg.AdminService and reg.AdminService.isOwner(plr)) or nil, -- the admin whitelist (the game's owner alone)
 		cards = (function()
 			local unlocked = {}
 			for _, card in ipairs(Cards.list()) do
@@ -1047,6 +1048,14 @@ local function push(plr, notice, reveal)
 	snap.notice = notice
 	snap.reveal = reveal
 	Net.get("Profile"):FireClient(plr, snap)
+end
+
+-- Sends a player their profile again, with a notice (AdminService: they were let into the admin
+-- panel or out of it). Nothing before their profile loads.
+function ProfileService.pushTo(plr, notice)
+	if profiles[plr] then
+		push(plr, notice)
+	end
 end
 
 local function inMatch(plr)

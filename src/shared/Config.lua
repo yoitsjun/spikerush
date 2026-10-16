@@ -1049,6 +1049,11 @@ Config.Admin = {
 	-- owner: "i also want a list of those who own it, so i can easily take it away"
 	CardOwnersStore = "SpikeRushCardOwners_v1",
 	PollInterval = 60, -- seconds between a server's reads of the events and of its players' mail
+	-- the admin whitelist (the owner, 2026-10-16: "add a whitelist to the admin panel that only i
+	-- can access"): the players the game's owner lets into the panel (all of it but the list, which
+	-- only the owner sees and changes); one DataStore key, read again each PollInterval
+	WhitelistStore = "SpikeRushAdmins_v1",
+	WhitelistMax = 50,
 }
 
 -- Gifting (the owner: "add a gifting system"): any pack (VP, Gold or lucky spins) can be bought
