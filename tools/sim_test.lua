@@ -2058,9 +2058,11 @@ do
 	for _, k in ipairs(Config.Stats.Order) do
 		beats = beats and sun12[k] > yejunC[k]
 	end
+	-- (the owner buffed him, 2026-10-16: "buff daon, shoyo, and seora": at 0 points he's past an A-
+	-- now, still well under YeJun)
 	local soraA = Characters.derive(Characters.fromRoster(Roster.get("sora"), "max")) -- the A- wing spiker
-	check(table.concat(lv, ",") == "0,0,1,2,3,4,4" and beats and sun12.ContactMaxM > yejunS.ContactMaxM and math.abs(sun0.ContactMaxM - soraA.ContactMaxM) < 0.2 and sun0.Attack <= soraA.Attack,
-		"Rising Sun: a low A at 0 points, a level every 3 lost, and at 12 every stat beats a maxed YeJun", string.format("%.2f m at 0, %.2f m at 12 (YeJun %.2f m); ATK %d JMP %d DEF %d SPD %d", sun0.ContactMaxM, sun12.ContactMaxM, yejunS.ContactMaxM, sun12.Attack, sun12.Jump, sun12.Defense, sun12.Speed))
+	check(table.concat(lv, ",") == "0,0,1,2,3,4,4" and beats and sun12.ContactMaxM > yejunS.ContactMaxM and sun0.Attack > soraA.Attack and sun0.Attack < yejunC.Attack - 15 and sun0.ContactMaxM < yejunS.ContactMaxM,
+		"Rising Sun: past an A- at 0 points but under YeJun, a level every 3 lost, and at 12 every stat beats a maxed YeJun", string.format("%.2f m at 0, %.2f m at 12 (YeJun %.2f m); ATK %d JMP %d DEF %d SPD %d", sun0.ContactMaxM, sun12.ContactMaxM, yejunS.ContactMaxM, sun12.Attack, sun12.Jump, sun12.Defense, sun12.Speed))
 
 	-- Rally Cry: +12% to every stat of the team
 	local rally = HitLogic.effectiveStats(SP, nil, nil, { teamBoost = true })

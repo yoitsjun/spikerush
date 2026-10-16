@@ -37,6 +37,7 @@ PatchNotes.List = {
 				Heading = "Recruits",
 				Items = {
 					{ Text = "Odds now go by tier: a recruit lands on a tier first (<b>S+ 0.5%</b>, S 3%, S- 1% and so on, all adding up to 100%), then on one of its players. Boost and Lower move your odds inside the tier. The probability table shows every tier with its chance, and each player's share of it." },
+					{ Text = "<b>51 new players</b> across the A, B and C tiers (17 for each role). The tier odds haven't changed: there's just more to find in each." },
 					{ Text = "S+ players have a line when you recruit them, starting with YeJun's." },
 					{ Text = "Luck goes up to <b>16x</b>: N times the luck makes an S+ N times as likely (16x: 8%). The Shop sells 4x, 6x, 8x and 16x Luck (pick the strength, then the length), and Luck events can be any of them." },
 					{ Text = "Pumpkin, Blood Moon and Ectoplasm have colours of their own now, so they no longer look like Tangerine, Crimson and Lime. The Locker's swatches show each colour's bands." },
@@ -53,6 +54,7 @@ PatchNotes.List = {
 			{
 				Heading = "Player changes",
 				Items = {
+					{ Text = "<b>Daon</b>, <b>Shoyo</b> and <b>Seora</b> buffed: Daon +12 Attack, +7 Defense, +10 Speed and +10 Jump; Shoyo +7 Attack, +6 Defense, +7 Speed and +3 Jump; Seora +8 Attack, +6 Defense and +8 Speed." },
 					{ Icon = "AbilityFeral", Text = "<b>Dante</b>: new <b>Bloodlust</b> (Q). For 10 seconds his charge keeps filling past full, up to <b>165%</b>, and an overcharged leap hits around 265 km/h. Every spike he hits while it's on turns the ball blood red." },
 					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> buffed: while he has shields he's an <b>Iron Wall</b> at the net. Every attack that crosses in front of him is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
 				},

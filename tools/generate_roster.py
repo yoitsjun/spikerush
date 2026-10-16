@@ -43,7 +43,8 @@ FIXED = [
     # Feral Leap (the owner: "the highest attack character in the game"): the top Attack of the
     # roster, fast on his feet for the charged run-up, a little less Jump than YeJun
     {"Name": "Dante", "Role": "WS", "Tier": "S+", "Height": 186, "Attack": 222, "Defense": 120, "Speed": 152, "Jump": 184, "Ability": "Feral"},
-    {"Name": "Shoyo", "Role": "WS", "Tier": "S", "Height": 181, "Attack": 190, "Defense": 118, "Speed": 150, "Jump": 186, "Ability": "Adrenaline"},
+    # (the owner, 2026-10-16: "buff daon, shoyo, and seora. just some pure stat buffs are enough")
+    {"Name": "Shoyo", "Role": "WS", "Tier": "S", "Height": 181, "Attack": 197, "Defense": 124, "Speed": 157, "Jump": 189, "Ability": "Adrenaline"},
     {"Name": "Tetsuo", "Role": "MB", "Tier": "S", "Height": 201, "Attack": 166, "Defense": 158, "Speed": 112, "Jump": 178, "Ability": "IronWall"},
     {"Name": "Seoyeon", "Role": "SE", "Tier": "S", "Height": 176, "Attack": 128, "Defense": 172, "Speed": 178, "Jump": 140, "Ability": "ChainReaction"},
     # the second wave of S abilities (original characters; the owner described the ideas)
@@ -55,9 +56,10 @@ FIXED = [
     {"Name": "Arin", "Role": "SE", "Tier": "S", "Height": 175, "Attack": 128, "Defense": 170, "Speed": 176, "Jump": 140, "Ability": "Featherfall"},
     {"Name": "Ilya", "Role": "SE", "Tier": "S", "Height": 178, "Attack": 130, "Defense": 170, "Speed": 180, "Jump": 142, "Ability": "Vector"},
     {"Name": "Haeri", "Role": "SE", "Tier": "S", "Height": 183, "Attack": 150, "Defense": 160, "Speed": 172, "Jump": 158, "Ability": "Turnabout"},
-    # Rising Sun: a low A at level 0; at level 4 (+40 ATK, +36 JMP, +12 DEF, +24 SPD) every stat
-    # beats a maxed YeJun (210 / 190 / 124 / 146)
-    {"Name": "Daon", "Role": "WS", "Tier": "S", "Height": 186, "Attack": 176, "Defense": 115, "Speed": 124, "Jump": 160, "Ability": "RisingSun"},
+    # Rising Sun: past an A- at level 0 (a low A before the 2026-10-16 buff); at level 4 (+40 ATK,
+    # +36 JMP, +12 DEF, +24 SPD) every stat beats a maxed YeJun (210 / 190 / 124 / 146)
+    # (buffed 2026-10-16: +12 Attack, +7 Defense, +10 Speed, +10 Jump)
+    {"Name": "Daon", "Role": "WS", "Tier": "S", "Height": 186, "Attack": 188, "Defense": 122, "Speed": 134, "Jump": 170, "Ability": "RisingSun"},
     {"Name": "Joon", "Role": "MB", "Tier": "S", "Height": 202, "Attack": 162, "Defense": 162, "Speed": 110, "Jump": 176, "Ability": "RallyCry"},
     # Counter Edge: lower Attack and Defense at an empty meter; a full one (one hard spike dug)
     # makes her 210 Attack and 200 Defense (+40 / +70) until her next spike releases it
@@ -87,7 +89,8 @@ FIXED = [
     # Skyward (the owner: "a jump that starts low, but the higher spike point she gets the higher
     # her jump increases... a high max jump, than even yejun. at her peak, maybe 4.7-4.8"): her
     # Jump here is the middle of her climb (Config.Abilities.Skyward moves her hitting point)
-    {"Name": "Seora", "Role": "WS", "Tier": "S", "Height": 178, "Attack": 196, "Defense": 118, "Speed": 150, "Jump": 196, "Ability": "Skyward"},
+    # (buffed 2026-10-16: +8 Attack, +6 Defense, +8 Speed; her Jump stays, Skyward's climb is tuned on it)
+    {"Name": "Seora", "Role": "WS", "Tier": "S", "Height": 178, "Attack": 204, "Defense": 124, "Speed": 158, "Jump": 196, "Ability": "Skyward"},
 ]
 
 # free for everyone: a D-tier character in each role
@@ -97,6 +100,26 @@ STARTERS = [("Riku", "WS", "D"), ("Daichi", "MB", "D"), ("Hana", "SE", "D")]
 SLOTS = []
 for role in ("WS", "MB", "SE"):
     SLOTS += [(role, "A+"), (role, "A-"), (role, "B+"), (role, "B-"), (role, "C+"), (role, "C-"), (role, "D+")]
+
+
+# the filler wave (the owner, 2026-10-16: "add a bunch of more filler characters. maybe like 50 more?
+# keep the odds the same but just add a lot more a, a- b, b- and so on"): 17 a role, A+ down to D+,
+# filling A, B and C too (Config.Spins.TierOdds gives each tier its chance; more characters only
+# share it). Their own names (none ever used before, the retired ones' included) and their own
+# seed, drawn after the first wave, so the first wave stays exactly as it was.
+EXTRA_NAMES = [
+    "Seungwoo", "Hyejin", "Daeho", "Soyeon", "Chanwoo", "Woojin", "Yerin", "Gyuri", "Siwoo", "Juwon",
+    "Hayeon", "Minho", "Jaehyun", "Nari", "Bomin", "Chaewon", "Donghae", "Eunbi", "Ganghyun", "Haein",
+    "Insoo", "Jinwoo", "Kyungmin", "Seulgi", "Taemin", "Yoonseo", "Hayato", "Ryota", "Akari", "Takumi",
+    "Kaori", "Shion", "Ryusei", "Natsuki", "Kotaro", "Hinata", "Ayame", "Daiki", "Emiko", "Fumito",
+    "Genji", "Hotaru", "Isamu", "Kazuki", "Makoto", "Noa", "Rei", "Sakura", "Tsubasa", "Yamato",
+    "Mateo", "Luca", "Noah", "Elias", "Marco", "Nico", "Leo", "Zara", "Iker", "Theo",
+]
+EXTRA_PER_ROLE = [("A+", 1), ("A", 3), ("A-", 2), ("B+", 1), ("B", 3), ("B-", 2), ("C+", 1), ("C", 2), ("C-", 1), ("D+", 1)]
+EXTRA_SLOTS = []
+for role in ("WS", "MB", "SE"):
+    for tier, n in EXTRA_PER_ROLE:
+        EXTRA_SLOTS += [(role, tier)] * n
 
 
 def tier_k(tier):
@@ -142,6 +165,14 @@ def main():
         chars.append(make(rnd, name, role, tier))
     for role, tier in SLOTS:
         chars.append(make(rnd, names.pop(), role, tier))
+    # the filler wave, from its own stream
+    taken = {c["Name"] for c in chars} | set(NAMES) | {"Hayun", "Gaeul", "Akira", "Taeha"}
+    extra = [n for n in EXTRA_NAMES if n not in taken]
+    rnd2 = random.Random(20261016)
+    rnd2.shuffle(extra)
+    assert len(extra) >= len(EXTRA_SLOTS), "not enough filler names"
+    for role, tier in EXTRA_SLOTS:
+        chars.append(make(rnd2, extra.pop(), role, tier))
     order = {t: i for i, t in enumerate(TIERS)}
     chars.sort(key=lambda c: (-order[c["Tier"]], ["WS", "MB", "SE"].index(c["Role"]), c["Name"]))
 
