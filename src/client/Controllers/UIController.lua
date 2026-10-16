@@ -331,7 +331,10 @@ local function showReadout(meta)
 	local t = ui.top
 	local color = UI.Chalk
 	if meta.thunder then
-		color = THUNDER
+		-- (a skin's thunder in its own colour: the Fallen Angel's violet)
+		local m = meta.id and Util.modelOf(meta.id)
+		local skin = m and Config.Halloween.Skins[m:GetAttribute("Skin") or ""]
+		color = (skin and skin.Thunder) or THUNDER
 	elseif meta.energy then
 		color = AZURE
 	elseif meta.gauge then

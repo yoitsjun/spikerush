@@ -422,8 +422,25 @@ local function applyStyle(meta)
 	sparkleOn = false
 	sparkles.Rate = 80
 	sparkles.Size = SPARKLE_SIZE
-	-- thick, nearly solid ribbons like The Spike's: a Thunder spike paints the whole court
-	if attack and meta.thunder then
+	-- thick, nearly solid ribbons like The Spike's: a Thunder spike paints the whole court (the
+	-- Fallen Angel's in violet on black: the owner, "he has a purple and black thunder spike")
+	local voidThunder = attack and meta.thunder and skin and skin.Thunder or nil
+	if voidThunder then
+		trail.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(6, 2, 14)), ColorSequenceKeypoint.new(0.45, voidThunder), ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 3, 18)) })
+		trail.Transparency = fade(0.03)
+		trail.Lifetime = 0.95
+		trail.LightEmission = 0.25 -- (the black stays black)
+		setWidth(R * 4.4, R * 1.3)
+		core.Color = ColorSequence.new(Color3.fromRGB(225, 205, 255), voidThunder)
+		core.LightEmission = 1
+		core.Lifetime = 0.5
+		aura.Color = ColorSequence.new(Color3.fromRGB(200, 170, 255), Color3.fromRGB(20, 6, 40))
+		aura.Enabled = true
+		glow.Color = voidThunder
+		glow.Brightness = 5
+		sparkleOn = true
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(215, 195, 255), voidThunder)
+	elseif attack and meta.thunder then
 		trail.Color = ColorSequence.new(Color3.fromRGB(255, 232, 40), Color3.fromRGB(255, 246, 150))
 		trail.Transparency = fade(0.05)
 		trail.Lifetime = 0.9
@@ -607,7 +624,7 @@ local function applyStyle(meta)
 		trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(1, 0.05) })
 		core.Enabled = false
 	end
-	local accent = tint or (meta.thunder and Color3.fromRGB(255, 232, 40)) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or (meta.plunge and Config.Abilities.Plunge.Color) or Color3.fromRGB(255, 90, 110)
+	local accent = tint or (voidThunder or (meta.thunder and Color3.fromRGB(255, 232, 40))) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or (meta.plunge and Config.Abilities.Plunge.Color) or Color3.fromRGB(255, 90, 110)
 	-- a solid trail (White, Black, Rainbow) is the ribbon in its own colours; an ability's spike
 	-- keeps the ability's look
 	local trailItem = Spins.resolve("Trail", trailKey)

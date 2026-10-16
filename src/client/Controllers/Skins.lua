@@ -11,6 +11,11 @@
 -- a pale edge, a cold blue star at the tip, smoke curling up the shaft; and it's void (the owner:
 -- "the scythe should have like void vfx"): a violet rim on the spine, black smoke off the blade.
 -- Until the model is in the place, a stand-in of parts.
+-- The Fallen Angel (YeJun's) wears one broken black wing on his back: ToolboxAssets.Skins.FallenWing,
+-- imported from assets/skins/FallenAngel.fbx (Blender: art/FallenAngel.blend), parts coloured by
+-- name (WING_LOOK) and three markers (Wing_Root at the shoulder, Wing_Out along the arm, Wing_Up)
+-- for its pivot. Folded back along him on the ground, flung open in the air, where it twitches
+-- (it can't beat). His jump (the arms) and his violet thunder are VFXController's and BallRenderer's.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -128,6 +133,127 @@ local function scythe()
 		end
 	end
 	return c
+end
+
+-- the Fallen Angel's broken wing
+local WING = "FallenWing"
+local WING_SPAN = 2.5 -- studs from the shoulder along the arm (the Out marker: a metre in Blender), at a default torso
+local WING_LOOK = {
+	Wing_Feathers = { Color3.fromRGB(14, 9, 22), Enum.Material.SmoothPlastic, 0 },
+	Wing_Veins = { Color3.fromRGB(150, 70, 255), Enum.Material.Neon, 0 },
+	Wing_Bone = { Color3.fromRGB(26, 19, 32), Enum.Material.SmoothPlastic, 0 },
+	Wing_Hand = { Color3.fromRGB(26, 19, 32), Enum.Material.SmoothPlastic, 0 },
+	Wing_Break = { Color3.fromRGB(214, 204, 196), Enum.Material.SmoothPlastic, 0 },
+}
+local WING_MARKERS = { Wing_Root = true, Wing_Out = true, Wing_Up = true }
+
+-- A model's pivot from three marker parts, whatever axes the importer gave it: at `root`, x toward
+-- `out`, y toward `up`. Returns it and the root-to-out distance, or nil.
+local function markerPivot(c, rootName, outName, upName)
+	local r, o, u = c:FindFirstChild(rootName, true), c:FindFirstChild(outName, true), c:FindFirstChild(upName, true)
+	if not (r and o and u) then
+		return nil
+	end
+	local x = o.Position - r.Position
+	if x.Magnitude < 1e-4 then
+		return nil
+	end
+	local span = x.Magnitude
+	x = x.Unit
+	local y = u.Position - r.Position
+	y = y - x * y:Dot(x)
+	if y.Magnitude < 1e-4 then
+		return nil
+	end
+	return CFrame.fromMatrix(r.Position, x, y.Unit), span
+end
+
+-- The wing's stand-in until the model is imported: a dark arm with black feathers hanging off it,
+-- broken at the wrist (x out, y up, z forward; the markers where the model has them).
+local function wingStandIn()
+	local model = Instance.new("Model")
+	model.Name = WING
+	local function part(name, class, size, cf, color, material)
+		local p = Instance.new(class)
+		p.Name = name
+		p.Size = size
+		p.CFrame = cf
+		p.Color = color
+		p.Material = material
+		p.Parent = model
+		return p
+	end
+	local bone = part("Wing_Bone", "Part", Vector3.new(1.1, 0.08, 0.08), CFrame.new(0.5, 0.25, 0) * CFrame.Angles(0, 0, math.rad(28)), Color3.fromRGB(26, 19, 32), Enum.Material.SmoothPlastic)
+	for i = 1, 7 do
+		local x = 0.12 + i * 0.13
+		part("Wing_Feathers", "WedgePart", Vector3.new(0.02, 0.7 + i * 0.05, 0.16), CFrame.new(x, 0.08 + i * 0.07 - (0.35 + i * 0.025), -0.08) * CFrame.Angles(math.rad(-15), 0, 0), Color3.fromRGB(14, 9, 22), Enum.Material.SmoothPlastic)
+	end
+	for i = 1, 4 do
+		part("Wing_Feathers", "WedgePart", Vector3.new(0.02, 0.9, 0.16), CFrame.new(1.08 + i * 0.07, -0.1 - i * 0.05, -0.08) * CFrame.Angles(math.rad(-15), 0, math.rad(-20)), Color3.fromRGB(14, 9, 22), Enum.Material.SmoothPlastic)
+	end
+	part("Wing_Break", "Part", Vector3.new(0.18, 0.04, 0.04), CFrame.new(1.05, 0.6, 0) * CFrame.Angles(0, 0, math.rad(45)), Color3.fromRGB(214, 204, 196), Enum.Material.SmoothPlastic)
+	part("Wing_Root", "Part", Vector3.new(0.02, 0.02, 0.02), CFrame.new(), Color3.new(), Enum.Material.SmoothPlastic)
+	part("Wing_Out", "Part", Vector3.new(0.02, 0.02, 0.02), CFrame.new(1, 0, 0), Color3.new(), Enum.Material.SmoothPlastic)
+	part("Wing_Up", "Part", Vector3.new(0.02, 0.02, 0.02), CFrame.new(0, 1, 0), Color3.new(), Enum.Material.SmoothPlastic)
+	model.PrimaryPart = bone
+	return model
+end
+
+-- A fresh wing: coloured, its pivot at the shoulder (x along the arm, y up), WING_SPAN x `scale`.
+local function wing(scale)
+	local src = Assets.toolbox("Skins." .. WING)
+	local c = src and Assets.sanitize(src:Clone()) or wingStandIn()
+	c.Name = WING
+	for _, d in ipairs(c:GetDescendants()) do
+		if d:IsA("BasePart") then
+			prep(d)
+			local look = WING_LOOK[d.Name]
+			if look then
+				d.Color, d.Material, d.Reflectance = look[1], look[2], look[3]
+				if d:IsA("MeshPart") then
+					d.TextureID = ""
+				end
+			end
+			if WING_MARKERS[d.Name] then
+				d.Transparency = 1
+			end
+		end
+	end
+	c.PrimaryPart = c:FindFirstChild("Wing_Bone", true) or c:FindFirstChildWhichIsA("BasePart", true)
+	local pivot, span = markerPivot(c, "Wing_Root", "Wing_Out", "Wing_Up")
+	if pivot and c.PrimaryPart then
+		c.PrimaryPart.PivotOffset = c.PrimaryPart.CFrame:ToObjectSpace(pivot)
+		c:ScaleTo(c:GetScale() * WING_SPAN * (scale or 1) / span)
+	end
+	-- the violet veins breathe
+	for _, d in ipairs(c:GetDescendants()) do
+		if d:IsA("BasePart") and d.Name == "Wing_Veins" then
+			d.Transparency = 0.05
+			TweenService:Create(d, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Transparency = 0.5 }):Play()
+		end
+	end
+	return c
+end
+
+-- Where the wing sits this frame on `model` (open: 0 folded back along him, 1 flung out), at his
+-- left shoulder blade (the hitting arm is the right); `twitch` adds the broken wing's stutter.
+local function wingAt(model, open, twitch)
+	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
+	if not torso then
+		return nil
+	end
+	local cf, size = torso.CFrame, torso.Size
+	local at = cf * CFrame.new(-size.X * 0.2, size.Y * 0.28, size.Z * 0.5)
+	-- x out to his left, y up, z forward: yaw sweeps it back along him, roll lifts it
+	local base = CFrame.fromMatrix(at.Position, -cf.RightVector, cf.UpVector)
+	local yaw = math.rad(70) * (1 - open) + math.rad(16) * open
+	local roll = math.rad(-30) * (1 - open) + math.rad(18) * open + (twitch or 0)
+	return base * CFrame.Angles(0, yaw, 0) * CFrame.Angles(0, 0, roll)
+end
+
+local function torsoScale(model)
+	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
+	return torso and math.clamp(torso.Size.X / 2, 0.6, 1.6) or 1
 end
 
 local function hand(model)
@@ -253,6 +379,33 @@ local function undress(model)
 	if st.scythe then
 		st.scythe:Destroy()
 	end
+	if st.wing then
+		st.wing:Destroy()
+	end
+end
+
+local function skinFolder()
+	if not folder or not folder.Parent then
+		folder = Instance.new("Folder")
+		folder.Name = "SpikeRushSkins"
+		folder.Parent = workspace
+	end
+	return folder
+end
+
+-- The Fallen Angel: the broken wing on his back (placed every frame by wingAt).
+local function dressWing(model)
+	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
+	if not torso then
+		return
+	end
+	local w = wing(torsoScale(model))
+	local at = wingAt(model, 0)
+	if at then
+		w:PivotTo(at)
+	end
+	w.Parent = skinFolder()
+	dressed[model] = { kind = "FallenAngel", wing = w, torso = torso, kits = {}, slash = {}, open = 0 }
 end
 
 -- Puts the scythe in the hitting hand with its void effects: held low on the shaft (the Grip
@@ -276,7 +429,7 @@ local function dress(model)
 	end
 	s.Parent = folder
 
-	local st = { scythe = s, hand = h, kits = {}, slash = {} }
+	local st = { kind = "Reaper", scythe = s, hand = h, kits = {}, slash = {} }
 	dressed[model] = st
 	local tipPart = s:FindFirstChild("Tip", true)
 	local heelPart = s:FindFirstChild("Heel", true)
@@ -336,6 +489,27 @@ function Skins.isReaper(model)
 	return model ~= nil and model:GetAttribute("Skin") == "Reaper"
 end
 
+-- Whether that character is wearing the Fallen Angel.
+function Skins.isFallen(model)
+	return model ~= nil and model:GetAttribute("Skin") == "FallenAngel"
+end
+
+-- The skin a character wears (Config.Halloween.Skins' entry and key), or nil.
+function Skins.skinOf(model)
+	local key = model and model:GetAttribute("Skin")
+	local def = type(key) == "string" and Config.Halloween.Skins[key] or nil
+	return def, def and key or nil
+end
+
+-- A fresh piece of a skin for a picture of it (the skin card, the recruit): the Reaper's scythe,
+-- the Fallen Angel's wing (spread).
+function Skins.newPiece(key)
+	if key == "FallenAngel" then
+		return wing(1)
+	end
+	return scythe()
+end
+
 -- A fresh scythe (coloured, its pivot at the grip), for a picture of it: the skin card's
 -- thumbnail, a posed rig's prop (the menus, the recruit's cinematic), the impact frame.
 function Skins.newScythe()
@@ -358,17 +532,29 @@ function Skins.scytheOf(model)
 	return st and st.scythe and st.scythe.Parent and st.scythe or nil
 end
 
--- Puts a still scythe in a posed rig's hand (inside the rig's model, so moving the rig moves it),
--- or takes it away (on = false). For the menus' avatar on Taeho's page.
-function Skins.prop(model, on)
+-- Puts a skin's still piece on a posed rig (inside the rig's model, so moving the rig moves it):
+-- `key` "Reaper" (true too) a scythe in its hand, "FallenAngel" the wing half open on its back;
+-- nil or false takes it away. For the menus' avatar on a skin's page, the recruit and the reveal.
+function Skins.prop(model, key)
 	if not model then
 		return
 	end
-	local old = model:FindFirstChild(SCYTHE)
-	if old then
-		old:Destroy()
+	for _, name in ipairs({ SCYTHE, WING }) do
+		local old = model:FindFirstChild(name)
+		if old then
+			old:Destroy()
+		end
 	end
-	if not on then
+	if key == "FallenAngel" then
+		local at = wingAt(model, 0.55)
+		if at then
+			local w = wing(torsoScale(model))
+			w:PivotTo(at)
+			w.Parent = model
+		end
+		return
+	end
+	if not key then
 		return
 	end
 	local at = Skins.holdAt(model)
@@ -419,14 +605,22 @@ local function sweep()
 	local seen = {}
 	for _, model in ipairs(list) do
 		seen[model] = true
-		local want = Skins.isReaper(model)
+		local skin = model:GetAttribute("Skin")
+		local want = (skin == "Reaper" or skin == "FallenAngel") and skin or nil
 		local st = dressed[model]
-		local has = st and st.scythe and st.scythe.Parent ~= nil and st.hand.Parent == model
-		if want and not has then
+		local has = nil
+		if st and st.kind == "Reaper" and st.scythe and st.scythe.Parent ~= nil and st.hand.Parent == model then
+			has = "Reaper"
+		elseif st and st.kind == "FallenAngel" and st.wing and st.wing.Parent ~= nil and st.torso.Parent == model then
+			has = "FallenAngel"
+		end
+		if want ~= has then
 			undress(model)
-			dress(model)
-		elseif has and not want then
-			undress(model)
+			if want == "Reaper" then
+				dress(model)
+			elseif want == "FallenAngel" then
+				dressWing(model)
+			end
 		end
 	end
 	for model in pairs(dressed) do
@@ -449,7 +643,31 @@ function Skins.init(m)
 		-- hides when its character is hidden (LocalTransparencyModifier: the menus hide a character
 		-- waiting at the lobby spawn; it isn't under the character, so it doesn't inherit that)
 		for model, st in pairs(dressed) do
-			if st.hand.Parent == model and st.scythe.Parent then
+			if st.kind == "FallenAngel" then
+				if st.torso.Parent == model and st.wing.Parent then
+					local hidden = st.torso.LocalTransparencyModifier > 0.5 or st.torso.Transparency > 0.95
+					if hidden ~= (st.hidden == true) then
+						st.hidden = hidden
+						for _, d in ipairs(st.wing:GetDescendants()) do
+							if d:IsA("BasePart") then
+								d.LocalTransparencyModifier = hidden and 1 or 0
+							end
+						end
+					end
+					if not hidden then
+						-- folded on the ground, flung open in the air, where it twitches (it can't beat)
+						local hum = model:FindFirstChildOfClass("Humanoid")
+						local air = hum ~= nil and hum.FloorMaterial == Enum.Material.Air
+						st.open = st.open + ((air and 1 or 0) - st.open) * math.min(1, dt * (air and 10 or 4))
+						local t = os.clock()
+						local twitch = air and math.sin(t * 13) * math.rad(9) * (0.6 + 0.4 * math.sin(t * 4.1)) or math.sin(t * 1.7) * math.rad(1.5)
+						local at = wingAt(model, st.open, twitch)
+						if at then
+							st.wing:PivotTo(at)
+						end
+					end
+				end
+			elseif st.hand.Parent == model and st.scythe.Parent then
 				local hidden = st.hand.LocalTransparencyModifier > 0.5 or st.hand.Transparency > 0.95
 				if hidden ~= (st.hidden == true) then
 					st.hidden = hidden

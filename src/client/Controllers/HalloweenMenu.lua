@@ -352,43 +352,49 @@ local function buildShopTab(body)
 	return { frame = f, rows = rows }
 end
 
-local function buildReaperTab(body)
-	local key = HW.SkinOrder[1]
-	local skin = HW.Skins[key]
+-- The skins (the Reaper, Taeho's; the Fallen Angel, YeJun's), side by side: each one's name and
+-- blurb, whether you have it, and its character's row with Apply / Remove and the page.
+local function buildSkinsTab(body)
 	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 21 }, body)
-	Gui.label(f, { Text = skin.Name:upper(), display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, TextColor3 = skin.Color, Size = UDim2.new(1, 0, 0, 44), ZIndex = 22 })
-	Gui.label(f, { Text = skin.Blurb, TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(0, 46), ZIndex = 22 })
-	local copies = Gui.label(f, { Text = "", display = true, TextSize = 22, Size = UDim2.fromOffset(520, 28), Position = UDim2.fromOffset(0, 102), ZIndex = 22 })
-	local hint = Gui.label(f, { Text = "", TextSize = 16, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 134), ZIndex = 22 })
-	-- the character it fits (Taeho): its state, Apply / Remove, and his page
-	local rows = {}
-	for i, id in ipairs(skin.Chars or {}) do
-		local c = Roster.get(id)
-		if c then
-			local r = make("Frame", { Position = UDim2.fromOffset(0, 184 + (i - 1) * 84), Size = UDim2.fromOffset(700, 74), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, ZIndex = 22 }, f)
-			Gui.corner(r, 8)
-			make("UIStroke", { Color = skin.Tint or skin.Color, Thickness = 2, Transparency = 0.4, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, r)
-			Gui.label(r, { Text = c.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, Position = UDim2.fromOffset(18, 6), Size = UDim2.fromOffset(240, 34), ZIndex = 23 })
-			local state = Gui.label(r, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(18, 42), Size = UDim2.fromOffset(300, 22), ZIndex = 23 })
-			local act, actL = kit.actionPlate(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(150, 50) }, "", 18)
-			local page = kit.hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -174, 0.5, 0), Size = UDim2.fromOffset(150, 50), ZIndex = 23 }, "His page", 17)
-			kit.onClick(page, function()
-				ui.window.hide()
-				if kit.openPlayer then
-					kit.openPlayer(c.Id)
-				end
-			end)
-			local entry = { frame = r, state = state, act = act, actL = actL, char = c }
-			kit.onClick(act, function()
-				local p = prof()
-				local row = p.skins and p.skins[key]
-				local on = row and row.on and row.on[c.Id] == true
-				Net.get("Profile"):FireServer("skin", on and "off" or "on", c.Id, key)
-			end)
-			table.insert(rows, entry)
+	local cols = {}
+	local W, GAP = 548, 28
+	for ci, key in ipairs(HW.SkinOrder) do
+		local skin = HW.Skins[key]
+		local x = (ci - 1) * (W + GAP)
+		Gui.label(f, { Text = skin.Name:upper(), display = true, weight = Enum.FontWeight.Heavy, TextSize = 36, TextColor3 = skin.Color, Position = UDim2.fromOffset(x, 0), Size = UDim2.fromOffset(W, 40), ZIndex = 22 })
+		Gui.label(f, { Text = skin.Blurb, TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(x, 44), Size = UDim2.fromOffset(W, 62), ZIndex = 22 })
+		local copies = Gui.label(f, { Text = "", display = true, TextSize = 21, Position = UDim2.fromOffset(x, 112), Size = UDim2.fromOffset(W, 26), ZIndex = 22 })
+		local hint = Gui.label(f, { Text = "", TextSize = 15, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(x, 142), Size = UDim2.fromOffset(W, 40), ZIndex = 22 })
+		local rows = {}
+		for i, id in ipairs(skin.Chars or {}) do
+			local c = Roster.get(id)
+			if c then
+				local r = make("Frame", { Position = UDim2.fromOffset(x, 192 + (i - 1) * 84), Size = UDim2.fromOffset(W, 74), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, ZIndex = 22 }, f)
+				Gui.corner(r, 8)
+				make("UIStroke", { Color = skin.Tint or skin.Color, Thickness = 2, Transparency = 0.4, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, r)
+				Gui.label(r, { Text = c.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, Position = UDim2.fromOffset(18, 6), Size = UDim2.fromOffset(200, 34), ZIndex = 23 })
+				local state = Gui.label(r, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(18, 42), Size = UDim2.fromOffset(210, 22), TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 23 })
+				local act, actL = kit.actionPlate(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(132, 50) }, "", 18)
+				local page = kit.hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -156, 0.5, 0), Size = UDim2.fromOffset(132, 50), ZIndex = 23 }, "His page", 17)
+				kit.onClick(page, function()
+					ui.window.hide()
+					if kit.openPlayer then
+						kit.openPlayer(c.Id)
+					end
+				end)
+				local entry = { frame = r, state = state, act = act, actL = actL, char = c }
+				kit.onClick(act, function()
+					local p = prof()
+					local row = p.skins and p.skins[key]
+					local on = row and row.on and row.on[c.Id] == true
+					Net.get("Profile"):FireServer("skin", on and "off" or "on", c.Id, key)
+				end)
+				table.insert(rows, entry)
+			end
 		end
+		table.insert(cols, { key = key, copies = copies, hint = hint, rows = rows })
 	end
-	return { frame = f, rows = rows, copies = copies, hint = hint, key = key }
+	return { frame = f, cols = cols }
 end
 
 local function setTab(key)
@@ -406,11 +412,11 @@ local function buildWindow()
 	local m = kit.modal("Halloween", HW.Name, 1180, 680, true)
 	ui.window = m
 	ui.info = Gui.label(m.panel, { Text = "", display = true, TextSize = 21, TextColor3 = ORANGE, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -150, 0, 26), Size = UDim2.fromOffset(560, 26), ZIndex = 22 })
-	local items = { { key = "Match", text = "Match" }, { key = "Banner", text = "Banner" }, { key = "Shop", text = "Candy shop" }, { key = "Reaper", text = "Reaper" } }
+	local items = { { key = "Match", text = "Match" }, { key = "Banner", text = "Banner" }, { key = "Shop", text = "Candy shop" }, { key = "Skins", text = "Skins" } }
 	local _, set = kit.segmented(m.panel, items, { Position = UDim2.fromOffset(28, 86), Size = UDim2.fromOffset(640, 46), ZIndex = 22 }, setTab)
 	ui.setSeg = set
 	local body = make("Frame", { Position = UDim2.fromOffset(28, 148), Size = UDim2.new(1, -56, 1, -170), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
-	ui.tabs = { Match = buildMatchTab(body), Banner = buildBannerTab(body), Shop = buildShopTab(body), Reaper = buildReaperTab(body) }
+	ui.tabs = { Match = buildMatchTab(body), Banner = buildBannerTab(body), Shop = buildShopTab(body), Skins = buildSkinsTab(body) }
 	set(tab)
 end
 
@@ -423,7 +429,7 @@ end
 
 function HalloweenMenu.open(which)
 	if not Halloween.active(Util.now()) then
-		which = "Reaper" -- (the match, banner and shop have closed)
+		which = "Skins" -- (the match, banner and shop have closed)
 	end
 	if which then
 		setTab(which)
@@ -752,11 +758,15 @@ function HalloweenMenu.refresh()
 	local ev = eventOf(p)
 	local now = Util.now()
 	local active = Halloween.active(now)
-	local reaper = p.skins and p.skins[HW.SkinOrder[1]]
+	local holding = false
+	for _, key in ipairs(HW.SkinOrder) do
+		local row = p.skins and p.skins[key]
+		holding = holding or (row ~= nil and row.copies > 0)
+	end
 	if ui.homeBtn then
-		-- (after the event, still there for anyone holding a Reaper: switching it off and on, applying
+		-- (after the event, still there for anyone holding a skin: switching it off and on, applying
 		-- a copy left over)
-		ui.homeBtn.Visible = active or (reaper ~= nil and reaper.copies > 0)
+		ui.homeBtn.Visible = active or holding
 		ui.homeLeft.Text = active and leftText(Halloween.secondsLeft(now)) or ""
 	end
 	-- a match started with the window open: it goes (the menus hide their own modals then)
@@ -805,31 +815,39 @@ function HalloweenMenu.refresh()
 				end
 				r.buy.Visible = not owned and not (row.Limit and n >= row.Limit)
 			end
-		elseif tab == "Reaper" then
-			local R = T.Reaper
-			local row = p.skins and p.skins[R.key]
-			local have = row ~= nil and (row.copies or 0) > 0
-			R.copies.Text = have and "You have it" or "You don't have it yet"
-			R.copies.TextColor3 = have and HW.Skins[R.key].Color or Gui.DIM
-			if not have and not p.dev then
-				R.hint.Text = "Get it on the Banner tab: 0.6% a recruit, or Scout · 150 with scout points (1 a recruit)."
-			else
-				R.hint.Text = "Swap it on and off any time, here or on Taeho's page. It shows when you play him."
+		elseif tab == "Skins" then
+			local chances = {}
+			for _, row in ipairs(Halloween.bannerTable()) do
+				chances[row.item.key] = row.chance
 			end
-			for _, e in ipairs(R.rows) do
-				local owned = p.owned and p.owned.Char and p.owned.Char[e.char.Id] == true
-				local on = row and row.on and row.on[e.char.Id] == true
-				local playing = e.char.Id == p.char
-				if not owned then
-					e.state.Text = "Recruit " .. e.char.Name .. " to wear it"
-					e.state.TextColor3 = Gui.DIM
-					e.actL.Text = "Apply"
-					Gui.enable(e.act, e.actL, false)
+			for _, col in ipairs(T.Skins.cols) do
+				local def = HW.Skins[col.key]
+				local row = p.skins and p.skins[col.key]
+				local have = row ~= nil and (row.copies or 0) > 0
+				col.copies.Text = have and "You have it" or "You don't have it yet"
+				col.copies.TextColor3 = have and def.Color or Gui.DIM
+				local who = Halloween.skinCharNames(col.key)
+				if not have and not p.dev then
+					local item = Halloween.bannerItem("Skin", col.key)
+					col.hint.Text = string.format("Get it on the Banner tab: %.1f%% a recruit, or Scout · %d with scout points (1 a recruit).", (chances[col.key] or 0) * 100, item and item.scout or 0)
 				else
-					e.state.Text = (on and "On" or "Off") .. (playing and "  ·  Playing" or "")
-					e.state.TextColor3 = on and HW.Skins[R.key].Color or Gui.DIM
-					e.actL.Text = on and "Remove" or "Apply"
-					Gui.enable(e.act, e.actL, on or have or p.dev == true)
+					col.hint.Text = string.format("Swap it on and off any time, here or on %s's page. It shows when you play him.", who)
+				end
+				for _, e in ipairs(col.rows) do
+					local owned = p.owned and p.owned.Char and p.owned.Char[e.char.Id] == true
+					local on = row and row.on and row.on[e.char.Id] == true
+					local playing = e.char.Id == p.char
+					if not owned then
+						e.state.Text = "Recruit " .. e.char.Name .. " to wear it"
+						e.state.TextColor3 = Gui.DIM
+						e.actL.Text = "Apply"
+						Gui.enable(e.act, e.actL, false)
+					else
+						e.state.Text = (on and "On" or "Off") .. (playing and "  ·  Playing" or "")
+						e.state.TextColor3 = on and def.Color or Gui.DIM
+						e.actL.Text = on and "Remove" or "Apply"
+						Gui.enable(e.act, e.actL, on or have or p.dev == true)
+					end
 				end
 			end
 		end

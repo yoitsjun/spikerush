@@ -2291,6 +2291,203 @@ local function cinematic(seq, mythic, theme)
 	return alive(seq)
 end
 
+-- The Mythic skin's pull (the owner, 2026-10-15: "the mythic skin gets a haunted reaper scythe pull,
+-- maybe with a sinister laughing audio. Instead of it auto continue, you click to continue. This
+-- can be like the scythe cuts open the screen and its black"): a violet night with a moon and bats,
+-- in two halves along a slant; the Reaper's scythe rises turning and whips across, the screen splits
+-- open along its cut onto black, a laugh, and the skin's name waits on the black for a click (no
+-- skip). Returns false if the sequence was cancelled.
+function Extra.scythePull(seq, it)
+	local S = ui.seq
+	local def = Config.Halloween.Skins[it.key] or {}
+	local tint = def.Tint or Color3.fromRGB(150, 90, 255)
+	local skipWas = S.skip.Visible
+	S.skip.Visible = false
+	local root = make("Frame", { Name = "ScythePull", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 40 }, S.root)
+	-- the night in two halves, split along the cut's slant through the middle (the canvas is 1600 x
+	-- 900; the halves are far bigger, so their edges never show)
+	local ANGLE = -24
+	local split = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(4000, 4000), BackgroundTransparency = 1, Rotation = ANGLE, ZIndex = 41 }, root)
+	local top = make("Frame", { Size = UDim2.fromScale(1, 0.5), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 41 }, split)
+	make("UIGradient", { Rotation = 90, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(4, 2, 10)), ColorSequenceKeypoint.new(0.8, Color3.fromRGB(30, 10, 54)), ColorSequenceKeypoint.new(1, tint:Lerp(Color3.new(0, 0, 0), 0.45)) }) }, top)
+	local bottom = make("Frame", { Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromScale(1, 0.5), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 41 }, split)
+	make("UIGradient", { Rotation = 90, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, tint:Lerp(Color3.new(0, 0, 0), 0.45)), ColorSequenceKeypoint.new(0.2, Color3.fromRGB(22, 6, 38)), ColorSequenceKeypoint.new(1, Color3.fromRGB(4, 2, 10)) }) }, bottom)
+	-- the moon high on the right, in the top half (a canvas point to the half's own coordinates)
+	local function inHalf(px, py)
+		local dx, dy = px - 800, py - 450
+		local a = math.rad(-ANGLE)
+		local lx, ly = dx * math.cos(a) - dy * math.sin(a), dx * math.sin(a) + dy * math.cos(a)
+		return UDim2.fromOffset(2000 + lx, 2000 + ly)
+	end
+	local moon = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = inHalf(1080, 250), Size = UDim2.fromOffset(330, 330), BackgroundColor3 = Color3.fromRGB(236, 226, 255), ZIndex = 42 }, top)
+	Gui.round(moon)
+	make("UIGradient", { Color = ColorSequence.new(Color3.new(1, 1, 1), tint:Lerp(Color3.new(1, 1, 1), 0.5)), Rotation = 60 }, moon)
+	make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(2.4, 2.4), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Glow) or "", ImageColor3 = tint, ImageTransparency = 0.35, ZIndex = 41 }, moon)
+	local bats = Extra.cinBats(root, true, true)
+	if bats then
+		bats.frame.ZIndex = 43
+		for _, d in ipairs(bats.frame:GetDescendants()) do
+			if d:IsA("GuiObject") then
+				d.ZIndex = 43
+			end
+		end
+		local m = bats.frame:FindFirstChildWhichIsA("Frame")
+		if m then
+			m.Visible = false -- (the night has its own moon)
+		end
+	end
+	-- the scythe, turning in the dark
+	local vp = make("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Ambient = Color3.fromRGB(150, 140, 180), LightColor = Color3.fromRGB(220, 210, 255), LightDirection = Vector3.new(-0.4, -1, -0.6), ZIndex = 44 }, root)
+	local cam = make("Camera", { FieldOfView = 40, CFrame = CFrame.lookAt(Vector3.new(0, 0, 24), Vector3.zero) }, vp)
+	vp.CurrentCamera = cam
+	local scythe = nil
+	local okS, sc = pcall(function()
+		return mods.Skins and mods.Skins.newPiece("Reaper")
+	end)
+	if okS and sc then
+		scythe = sc
+		scythe.Parent = vp
+	end
+	-- the cut: a line of light along the split, drawn as the blade passes
+	local cut = make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.new(0, 0, 0, 10), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 45 }, split)
+	make("UIGradient", { Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, tint), ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)), ColorSequenceKeypoint.new(1, tint) }) }, cut)
+	local glow = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, 0, 0, 160), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Glow) or "", ImageColor3 = tint, ImageTransparency = 1, ZIndex = 44 }, cut)
+	if mods.AudioController then
+		mods.AudioController.play("RecruitCharge", { volume = 0.7, speed = 0.8 })
+	end
+	local t0, cutAt, swept = os.clock(), 1.25, false
+	local alive2 = true
+	while os.clock() - t0 < cutAt + 0.3 do
+		if not alive(seq) then
+			alive2 = false
+			break
+		end
+		local t = os.clock() - t0
+		Extra.flyBats(bats, t)
+		if scythe then
+			if t < cutAt then
+				-- rising out of the dark on the left, turning slowly, the blade catching the moon
+				local a = math.clamp(t / cutAt, 0, 1)
+				local e = 1 - (1 - a) ^ 2
+				scythe:PivotTo(CFrame.new(-7 + 3 * e, -9 + 7 * e, 0) * CFrame.Angles(0, math.rad(-30), math.rad(20 - 50 * e)))
+			else
+				-- the whip: across the screen along the cut, spinning
+				local a = math.clamp((t - cutAt) / 0.22, 0, 1)
+				local e = a * a * (3 - 2 * a)
+				local x = -9 + 22 * e
+				scythe:PivotTo(CFrame.new(x, -x * math.tan(math.rad(-ANGLE)) * 0.55, 2) * CFrame.Angles(0, math.rad(-30), math.rad(-30 - 300 * e)))
+			end
+		end
+		if t >= cutAt and not swept then
+			swept = true
+			if mods.AudioController then
+				mods.AudioController.play("ScoreSlash", { volume = 1 })
+			end
+			tween(cut, 0.2, { Size = UDim2.new(1, 0, 0, 10) }, Enum.EasingStyle.Quint)
+			glow.ImageTransparency = 0.1
+		end
+		RunService.RenderStepped:Wait()
+	end
+	if alive2 then
+		-- split open onto black: the halves part along the cut, the light flares and goes, a laugh
+		if scythe then
+			scythe:Destroy()
+			scythe = nil
+		end
+		if bats then
+			bats.frame.Visible = false
+		end
+		S.flash.BackgroundColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.6)
+		S.flash.BackgroundTransparency = 0.35
+		tween(S.flash, 0.4, { BackgroundTransparency = 1 })
+		local part = TweenInfo.new(0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+		TweenService:Create(top, part, { Position = UDim2.fromScale(0, -0.06) }):Play()
+		TweenService:Create(bottom, part, { Position = UDim2.fromScale(0, 0.56) }):Play()
+		TweenService:Create(cut, TweenInfo.new(0.35), { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(glow, TweenInfo.new(0.5), { ImageTransparency = 1 }):Play()
+		if mods.AudioController then
+			mods.AudioController.play("SinisterLaugh", { volume = 1 })
+		end
+		-- the halves fall away; on the black, the skin's name
+		task.delay(0.5, function()
+			if root.Parent then
+				TweenService:Create(top, TweenInfo.new(0.5), { Position = UDim2.fromScale(0, -0.3) }):Play()
+				TweenService:Create(bottom, TweenInfo.new(0.5), { Position = UDim2.fromScale(0, 0.8) }):Play()
+			end
+		end)
+		local title = Gui.label(root, { Text = string.upper(def.Name or it.key), display = true, weight = Enum.FontWeight.Heavy, TextSize = 96, TextColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.35), TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromOffset(1400, 110), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 46 })
+		local sub = Gui.label(root, { Text = "MYTHIC SKIN  ·  " .. string.upper(Extra.HW.skinCharNames(it.key)), display = true, TextSize = 26, TextColor3 = MYTHIC, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.56), Size = UDim2.fromOffset(1000, 34), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 46 })
+		local prompt = Gui.label(root, { Text = mods.PadNav.usingPad() and "Press A to continue" or "Click to continue", display = true, TextSize = 24, TextColor3 = Gui.DIM, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -60), Size = UDim2.fromOffset(600, 32), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 46 })
+		task.delay(0.55, function()
+			if root.Parent then
+				tween(title, 0.5, { TextTransparency = 0 })
+				tween(sub, 0.5, { TextTransparency = 0 })
+			end
+		end)
+		task.delay(1.2, function()
+			if root.Parent then
+				tween(prompt, 0.4, { TextTransparency = 0 })
+			end
+		end)
+		-- (no auto-continue and no skip: a click after the name is up)
+		if hold(seq, 0.9) then
+			seq.skipping = false
+			waitClick(seq, false)
+		end
+	end
+	root:Destroy()
+	S.skip.Visible = skipWas
+	return alive(seq)
+end
+
+-- An S+'s line on its recruit (the owner, 2026-10-15: "a little quote for each s+ recruitment",
+-- after The Spike's): black, your avatar posed as them in the dark with their colour behind, and
+-- their quote typed out in the middle; a click goes on. Returns false if the sequence was cancelled.
+function Extra.quoteScreen(seq, charId, quote)
+	local S = ui.seq
+	local c = Roster.get(charId)
+	local def = c and c.Ability and Config.Abilities[c.Ability]
+	local color = (def and def.Color) or tierColor(c and c.Tier or "S+")
+	local root = make("Frame", { Name = "Quote", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(4, 4, 8), BorderSizePixel = 0, ZIndex = 40 }, S.root)
+	make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromOffset(1100, 1100), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Glow) or "", ImageColor3 = color, ImageTransparency = 0.7, ZIndex = 40 }, root)
+	-- your avatar in their pose, dark against the glow
+	local vp = make("ViewportFrame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.47), Size = UDim2.fromOffset(900, 900), BackgroundTransparency = 1, Ambient = Color3.fromRGB(40, 40, 52), LightColor = color, LightDirection = Vector3.new(0.6, -0.3, 0.7), ImageTransparency = 1, ZIndex = 41 }, root)
+	local rig = mods.SceneController.cloneAvatar(false)
+	if rig then
+		rig.model.Parent = vp
+		local AC = mods.AnimationController
+		poseAt(rig, AC.poseJoints(ROLE_POSE[c and c.Role or "WS"] or "Cock") or AC.poseJoints("Cock"), 0, 200)
+		local cam = make("Camera", { FieldOfView = 30, CFrame = CFrame.lookAt(Vector3.new(2.5, 3.6, -11.5), Vector3.new(0, 3.1, 0)) }, vp)
+		vp.CurrentCamera = cam
+	end
+	tween(vp, 0.5, { ImageTransparency = 0.35 })
+	local line = Gui.label(root, { Text = "", RichText = true, display = true, TextSize = 36, TextColor3 = Gui.CHALK, TextWrapped = true, TextStrokeTransparency = 0.5, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(1200, 140), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 43 })
+	local who = Gui.label(root, { Text = c and string.upper(c.Name) or "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, TextColor3 = color, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.5, 80), Size = UDim2.fromOffset(600, 30), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 43 })
+	local prompt = Gui.label(root, { Text = mods.PadNav.usingPad() and "Press A to continue" or "Click to continue", display = true, TextSize = 22, TextColor3 = Gui.DIM, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -60), Size = UDim2.fromOffset(600, 30), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 43 })
+	-- typed out, a letter at a time (a click shows the rest at once)
+	local full = '"' .. quote .. '"'
+	seq.clicked = false
+	local n = 0
+	while n < #full and alive(seq) and not seq.clicked do
+		n = n + 1
+		line.Text = string.sub(full, 1, n)
+		local ch = string.sub(full, n, n)
+		local t0 = os.clock()
+		local pause = (ch == "." or ch == ",") and 0.09 or 0.028
+		while os.clock() - t0 < pause and alive(seq) and not seq.clicked do
+			RunService.RenderStepped:Wait()
+		end
+	end
+	line.Text = full
+	tween(who, 0.35, { TextTransparency = 0 })
+	tween(prompt, 0.35, { TextTransparency = 0 })
+	if hold(seq, 0.35) then
+		waitClick(seq, false)
+	end
+	root:Destroy()
+	return alive(seq)
+end
+
 -- The Halloween cinematic's bats: black silhouettes beating across the sky in two flocks (more for
 -- the Reaper), and a pale full moon behind the hitter. Returns { frame, list } or nil.
 function Extra.cinBats(parent, hw, mythic)
@@ -2441,7 +2638,7 @@ local function showCard(kind, it)
 		poseAt(cardRig, mods.AnimationController.poseJoints(pose), 0, 20)
 		K.cam.CFrame = CFrame.lookAt(Vector3.new(4.5, 4.2, -11), Vector3.new(0, 3.2, 0))
 		if it.hw and it.kind == "Skin" and mods.Skins then
-			mods.Skins.prop(cardRig.model, true) -- the Reaper's card: your avatar with the scythe
+			mods.Skins.prop(cardRig.model, it.key) -- a skin's card: your avatar with its piece (the scythe, the wing)
 		end
 	end
 	if mods.AudioController then
@@ -2570,10 +2767,20 @@ local function playSequence(reveal)
 		mods.SceneController.popBall(i, color)
 		if rank >= 4 then
 			seq.skipping = false -- a skip lands here
-			if not cinematic(seq, rank >= 5, theme) then
+			local ok
+			if theme == "Halloween" and it.kind == "Skin" then
+				ok = Extra.scythePull(seq, it) -- (a Mythic skin: the scythe cuts the screen open)
+			else
+				ok = cinematic(seq, rank >= 5, theme)
+			end
+			if not ok then
 				return
 			end
 			seq.skipping = false
+			local quote = kind == "Char" and Config.Quotes[it.key]
+			if quote and not Extra.quoteScreen(seq, it.key, quote) then
+				return
+			end
 		end
 		fillTray(i, kind, it)
 		if rank >= 4 or #items == 1 then
@@ -3211,7 +3418,7 @@ local function buildPlayer()
 			make("UIGradient", { Color = ColorSequence.new(color:Lerp(Color3.new(0, 0, 0), 0.45), Color3.fromRGB(8, 6, 14)), Rotation = 90 }, pic)
 			local vp = make("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Ambient = Color3.fromRGB(150, 150, 170), LightColor = Color3.new(1, 1, 1), LightDirection = Vector3.new(-0.5, -1, -0.4) }, pic)
 			local ok, sc = pcall(function()
-				return mods.Skins and mods.Skins.newScythe()
+				return mods.Skins and mods.Skins.newPiece(key)
 			end)
 			if ok and sc then
 				sc:PivotTo(CFrame.new())
@@ -4294,6 +4501,13 @@ local function refreshLocker(prof)
 	local item = Spins.item(lockerKind, key)
 	L.pickName.Text = item and item.Name or key
 	L.pickSub.Text = item and string.format('<font color="#%s">%s</font>  %s', Spins.rarityColor(item.Rarity):ToHex(), item.Rarity, SP.Banners[lockerKind].Name) or ""
+	-- the character you play wears a skin with its own jump (the Fallen Angel): say it takes over
+	local skinKey = lockerKind == "Jump" and prof.char and Extra.HW.skinOf(prof.skins, prof.char) or nil
+	local skinDef = skinKey and Config.Halloween.Skins[skinKey]
+	if skinDef and skinDef.Jump then
+		local c = Roster.get(prof.char)
+		L.pickSub.Text = L.pickSub.Text .. string.format("   <font color=\"#%s\">%s jumps with the %s skin's own jump while it's on</font>", skinDef.Tint:ToHex(), c and c.Name or "Your player", skinDef.Name)
+	end
 	local equipped = prof.equip and prof.equip[lockerKind] == key
 	if owns(prof, lockerKind, key) then
 		L.equipL.Text = equipped and "Equipped" or "Equip"

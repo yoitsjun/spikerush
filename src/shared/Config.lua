@@ -624,6 +624,9 @@ Config.Cosmetics = {
 		{ Key = "GraveMist", Name = "Grave Mist", Rarity = "Rare", Limited = "Halloween" },
 		{ Key = "BatSwarm", Name = "Bat Swarm", Rarity = "Epic", Limited = "Halloween" },
 		{ Key = "JackOLantern", Name = "Jack-o'-Lantern", Rarity = "Legendary", Limited = "Halloween" },
+		-- the Fallen Angel skin's (Config.Halloween.Skins): never on a banner, the jump he wears with it
+		-- in place of the equipped one (arms from the underworld, VFXController's HW.underworld)
+		{ Key = "Underworld", Name = "Underworld", Rarity = "Mythic", Limited = "FallenAngel", Hidden = true },
 	},
 	Effect = {
 		{ Key = "Dust", Name = "Dust", Rarity = "Common" },
@@ -1746,6 +1749,13 @@ Config.Tournament = {
 --               character); it can be switched off and on for that character at any time
 --               (profile.skins). The Reaper: a scythe for the hitting hand and the Souls trail,
 --               only with the skin.
+-- The S+ characters' lines, shown on their recruit (the owner, 2026-10-15: "a little quote for each
+-- s+ recruitment. ill tell you ones i want", after The Spike's): by roster id; one without a line
+-- just isn't quoted.
+Config.Quotes = {
+	yejun = "From above the net there is no mercy... only descent.",
+}
+
 Config.Halloween = {
 	Name = "Halloween Night",
 	Ends = 1793685600, -- 2026-11-03 06:00 UTC: the end of November 2 in Chicago
@@ -1848,7 +1858,7 @@ Config.Halloween = {
 	-- and the Reaper skin
 	Banner = {
 		Name = "Halloween Night",
-		Blurb = "Limited Halloween cosmetics, and the Reaper skin. Every recruit is 1 scout point: spend them to pick an item outright.",
+		Blurb = "Limited Halloween cosmetics, and two Mythic skins: the Reaper and the Fallen Angel. Every recruit is 1 scout point: spend them to pick an item outright.",
 		Costs = { VP = { [1] = 60, [10] = 600 }, Candy = { [1] = 25, [10] = 250 } },
 		Weights = { Rare = 60, Epic = 28, Legendary = 11.4, Mythic = 0.6 },
 		ScoutPerPull = 1,
@@ -1856,6 +1866,7 @@ Config.Halloween = {
 		-- what's on it ({ kind, key, scout cost }); the Reaper's rarity is in Skins
 		Items = {
 			{ Kind = "Skin", Key = "Reaper", Scout = 150 },
+			{ Kind = "Skin", Key = "FallenAngel", Scout = 150 }, -- (the two share the Mythic weight)
 			{ Kind = "Room", Key = "Haunted", Scout = 90 }, -- (Home's background: Config.Rooms)
 			{ Kind = "Effect", Key = "PumpkinBurst", Scout = 90 },
 			{ Kind = "Effect", Key = "GhostSwarm", Scout = 90 },
@@ -1892,8 +1903,23 @@ Config.Halloween = {
 			Chars = { "taeha" },
 			Tint = Color3.fromRGB(150, 100, 255), -- its page and pull glow: void violet
 		},
+		-- (the owner, 2026-10-15: "fallen angel yejun. he has one broken wing, similar to angel. he
+		-- cannot equip other jump cosmetics. he has a purple and black thunder spike and when he jumps,
+		-- arms are summoned from the underworld and drag him back down. put him alongside taeho in the
+		-- skins gatcha"): the broken wing on his back (Skins), Jump in place of his equipped jump,
+		-- and his thunder spikes in Thunder's violet on black
+		FallenAngel = {
+			Name = "Fallen Angel",
+			Rarity = "Mythic",
+			Blurb = "YeJun's skin: one broken black wing, lightning in violet and black, and arms from the underworld that drag him back down on every jump. Swap it on and off any time on his page.",
+			Jump = "Underworld", -- (Config.Cosmetics.Jump; only with the skin, whatever jump he has on)
+			Thunder = Color3.fromRGB(150, 70, 255), -- his thunder spikes' colour (black underneath)
+			Color = Color3.fromRGB(190, 150, 255),
+			Chars = { "yejun" },
+			Tint = Color3.fromRGB(120, 60, 220),
+		},
 	},
-	SkinOrder = { "Reaper" },
+	SkinOrder = { "Reaper", "FallenAngel" },
 	MaxCopies = 999,
 }
 

@@ -60,8 +60,8 @@ local function portrait(vp, role, skin)
 	local hum = rig.model:FindFirstChildOfClass("Humanoid")
 	local standY = (hum and hum.HipHeight or 2) + rig.root.Size.Y / 2
 	AC.poseModel(rig, AC.poseJoints(POSE[role] or "ShowReady") or {}, CFrame.new(0, standY, 0))
-	if skin == "Reaper" and mods.Skins then
-		pcall(mods.Skins.prop, rig.model, true)
+	if skin and mods.Skins then
+		pcall(mods.Skins.prop, rig.model, skin) -- (the Reaper's scythe, the Fallen Angel's wing)
 	end
 	rig.model.Parent = vp
 	local cam = make("Camera", { FieldOfView = 34 }, vp)

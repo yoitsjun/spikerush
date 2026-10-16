@@ -28,6 +28,8 @@ PatchNotes.List = {
 					{ Text = "The <b>Halloween banner</b> (VP or Candy): the Pumpkin and Witch Hat balls, the Pumpkin Burst and Ghost Swarm score effects, Halloween jumps, trails and colours, the <b>Haunted Forest</b>, and the Mythic <b>Reaper</b>. Every recruit is a scout point: spend them to pick an item outright." },
 					{ Icon = "AbilityZeroPoint", Text = "<b>The Reaper</b> is Taeho's skin: he spikes with a void scythe, souls stream behind the ball and his Zero Point gets its own impact frame. Swap it on and off any time on his page." },
 					{ Text = "<b>The Haunted Forest</b>: Home out in a moonlit forest, the clubhouse a haunted cabin among dead trees, with a graveyard, a bubbling cauldron, jack-o'-lanterns and a huge orange moon. Home's new <b>Decorate</b> shows a room behind you the moment you pick it; Apply keeps it." },
+					{ Icon = "AbilityThunder", Text = "<b>The Fallen Angel</b> is YeJun's skin: one broken black wing, lightning in violet and black, and arms from the underworld that drag him back down on every jump (his own jump while it's on). It shares the banner's Mythic slot with the Reaper." },
+					{ Text = "Pull a Mythic skin and the scythe cuts the screen open onto black. Click to go on." },
 					{ Text = "The <b>Candy shop</b>: lucky spins, Gold, VP and Halloween cosmetics." },
 				},
 			},
@@ -35,6 +37,7 @@ PatchNotes.List = {
 				Heading = "Recruits",
 				Items = {
 					{ Text = "Odds now go by tier: a recruit lands on a tier first (<b>S+ 0.5%</b>, S 3%, S- 1% and so on, all adding up to 100%), then on one of its players. Boost and Lower move your odds inside the tier. The probability table shows every tier with its chance, and each player's share of it." },
+					{ Text = "S+ players have a line when you recruit them, starting with YeJun's." },
 					{ Text = "Pumpkin, Blood Moon and Ectoplasm have colours of their own now, so they no longer look like Tangerine, Crimson and Lime. The Locker's swatches show each colour's bands." },
 				},
 			},

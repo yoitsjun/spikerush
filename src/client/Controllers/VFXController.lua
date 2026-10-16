@@ -814,8 +814,9 @@ local function silhouette(model, vp)
 end
 
 -- The manga impact frame: white screen, black silhouette, coloured radial burst. (A Reaper's is its
--- own, VFXController.reaperFrame: the white hid the scythe.)
-function VFXController.impactFrame(entityId, color)
+-- own, VFXController.reaperFrame: the white hid the scythe.) dark: the frame inverted, a near-black
+-- screen and a pale silhouette (the Fallen Angel's thunder).
+function VFXController.impactFrame(entityId, color, dark)
 	if not State.settings.dramatic or not onCourt() then
 		return
 	end
@@ -836,7 +837,7 @@ function VFXController.impactFrame(entityId, color)
 	end
 	local bg = Instance.new("Frame")
 	bg.Size = UDim2.fromScale(1, 1)
-	bg.BackgroundColor3 = WHITE
+	bg.BackgroundColor3 = dark and Color3.fromRGB(5, 2, 12) or WHITE
 	bg.BorderSizePixel = 0
 	bg.Parent = impactGui
 
@@ -893,12 +894,12 @@ function VFXController.impactFrame(entityId, color)
 	slash.Size = UDim2.fromOffset(vs.Y * 0.6, vs.Y * 0.6)
 	slash.BackgroundTransparency = 1
 	slash.Parent = bg
-	table.insert(images, sprite(slash, "Slash", 1, { ImageColor3 = Color3.fromRGB(255, 205, 70), Rotation = -40 + math.random() * 80 }))
+	table.insert(images, sprite(slash, "Slash", 1, { ImageColor3 = dark and Color3.fromRGB(205, 170, 255) or Color3.fromRGB(255, 205, 70), Rotation = -40 + math.random() * 80 }))
 
 	local vp = Instance.new("ViewportFrame")
 	vp.Size = UDim2.fromScale(1, 1)
 	vp.BackgroundTransparency = 1
-	vp.Ambient = Color3.new(0, 0, 0)
+	vp.Ambient = dark and Color3.new(1, 1, 1) or Color3.new(0, 0, 0)
 	vp.LightColor = Color3.new(0, 0, 0)
 	vp.Parent = bg
 	local vcam = Instance.new("Camera")
@@ -906,7 +907,14 @@ function VFXController.impactFrame(entityId, color)
 	vcam.FieldOfView = cam.FieldOfView
 	vcam.Parent = vp
 	vp.CurrentCamera = vcam
-	silhouette(model, vp)
+	local clone = silhouette(model, vp)
+	if dark and clone then
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Color = Color3.fromRGB(205, 192, 255) -- (pale on the dark)
+			end
+		end
+	end
 
 	impactGui.Enabled = true
 	task.delay(0.09, function()
@@ -1208,6 +1216,176 @@ function HW.untilOf(inst, name)
 	return (inst and inst:GetAttribute("AbilityUntil_" .. name)) or -1
 end
 
+-- A thunder spike's colour: the hitter's skin's (the Fallen Angel's violet; true with it), else gold.
+function HW.thunderOf(meta)
+	local m = meta and meta.id and Util.modelOf(meta.id)
+	local skin = m and Config.Halloween.Skins[m:GetAttribute("Skin") or ""]
+	if skin and skin.Thunder then
+		return skin.Thunder, true
+	end
+	return THUNDER, false
+end
+
+-- The Fallen Angel's jump (Underworld; the owner: "when he jumps, arms are summoned from the
+-- underworld and drag him back down"): a black pool opens under him with a violet rim, gaunt arms
+-- claw up out of it and lean after him as he rises, then sink back into it as he comes down,
+-- dragging at him. The arm is ToolboxAssets.Skins.UnderworldArm (assets/skins/FallenAngel.fbx:
+-- Arm_* parts, markers Arm_Base, Arm_Tip at the palm and Arm_Front the way it faces), else a
+-- stand-in of parts.
+HW.ARM_LEN = 6.5 -- studs from an arm's base to its palm, at a full-size jump
+HW.ARM_LOOK = {
+	Arm_Flesh = { Color3.fromRGB(12, 8, 18), Enum.Material.SmoothPlastic },
+	Arm_Claws = { Color3.fromRGB(70, 62, 78), Enum.Material.SmoothPlastic },
+}
+function HW.armStandIn()
+	local m = Instance.new("Model")
+	local function part(name, size, cf, color, material)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.CFrame = cf
+		p.Color = color
+		p.Material = material
+		p.Parent = m
+		return p
+	end
+	local flesh = part("Arm_Flesh", Vector3.new(0.5, 4.3, 0.5), CFrame.new(0, 2.15, 0), Color3.fromRGB(12, 8, 18), Enum.Material.SmoothPlastic)
+	part("Arm_Flesh", Vector3.new(0.75, 0.8, 0.24), CFrame.new(0, 4.6, 0), Color3.fromRGB(12, 8, 18), Enum.Material.SmoothPlastic)
+	for i = -1.5, 1.5 do
+		part("Arm_Flesh", Vector3.new(0.12, 0.95, 0.12), CFrame.new(i * 0.2, 5.35, -0.12) * CFrame.Angles(math.rad(-20), 0, math.rad(-i * 9)), Color3.fromRGB(12, 8, 18), Enum.Material.SmoothPlastic)
+	end
+	part("Arm_Vein1", Vector3.new(0.06, 3.6, 0.06), CFrame.new(0.24, 2.2, -0.1) * CFrame.Angles(0, 0, math.rad(4)), Color3.fromRGB(150, 70, 255), Enum.Material.Neon)
+	part("Arm_Base", Vector3.new(0.05, 0.05, 0.05), CFrame.new(), Color3.new(), Enum.Material.SmoothPlastic)
+	part("Arm_Tip", Vector3.new(0.05, 0.05, 0.05), CFrame.new(0, 4.6, 0), Color3.new(), Enum.Material.SmoothPlastic)
+	part("Arm_Front", Vector3.new(0.05, 0.05, 0.05), CFrame.new(0, 4.6, -1), Color3.new(), Enum.Material.SmoothPlastic)
+	m.PrimaryPart = flesh
+	return m
+end
+-- A fresh arm `len` studs from its base to its palm, its pivot at the base (up along the arm, the
+-- palm forward).
+function HW.newArm(len)
+	local src = Assets.toolbox("Skins.UnderworldArm")
+	local c = src and Assets.sanitize(src:Clone()) or HW.armStandIn()
+	for _, d in ipairs(c:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+			d.CastShadow = false
+			local look = HW.ARM_LOOK[d.Name]
+			if string.sub(d.Name, 1, 8) == "Arm_Vein" then
+				look = { Color3.fromRGB(150, 70, 255), Enum.Material.Neon }
+			end
+			if look then
+				d.Color, d.Material = look[1], look[2]
+				if d:IsA("MeshPart") then
+					d.TextureID = ""
+				end
+			end
+			if d.Name == "Arm_Base" or d.Name == "Arm_Tip" or d.Name == "Arm_Front" then
+				d.Transparency = 1
+			end
+		end
+	end
+	if c:IsA("Model") then
+		c.PrimaryPart = c:FindFirstChild("Arm_Flesh", true) or c:FindFirstChildWhichIsA("BasePart", true)
+		local b, t, f = c:FindFirstChild("Arm_Base", true), c:FindFirstChild("Arm_Tip", true), c:FindFirstChild("Arm_Front", true)
+		if b and t and f and c.PrimaryPart then
+			local up = t.Position - b.Position
+			local L = up.Magnitude
+			if L > 1e-3 then
+				local palm = f.Position - t.Position
+				palm = palm - up.Unit * palm:Dot(up.Unit)
+				if palm.Magnitude < 1e-3 then
+					palm = Vector3.zAxis
+				end
+				c.PrimaryPart.PivotOffset = c.PrimaryPart.CFrame:ToObjectSpace(CFrame.lookAt(b.Position, b.Position + palm.Unit, up.Unit))
+				c:ScaleTo(c:GetScale() * len / L)
+			end
+		end
+	end
+	return c
+end
+function HW.underworld(foot, k, model)
+	local VIOLET = Color3.fromRGB(150, 70, 255)
+	local pool = Instance.new("Part")
+	pool.Name = "UnderworldPool"
+	pool.Shape = Enum.PartType.Cylinder
+	pool.Anchored = true
+	pool.CanCollide = false
+	pool.CanQuery = false
+	pool.CanTouch = false
+	pool.CastShadow = false
+	pool.Material = Enum.Material.SmoothPlastic
+	pool.Color = Color3.fromRGB(5, 2, 10)
+	pool.Size = Vector3.new(0.1, 1, 1)
+	pool.CFrame = CFrame.new(foot.X, 0.06, foot.Z) * CFrame.Angles(0, 0, math.rad(90))
+	pool.Parent = fxFolder
+	TweenService:Create(pool, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.1, 8.5 * k, 8.5 * k) }):Play()
+	floorRing(foot, VIOLET, 9 * k)
+	ringFx(foot + Vector3.new(0, 0.4, 0), VIOLET, 1, 11 * k)
+	Fx.play("VoidRupture", foot + Vector3.new(0, 0.5, 0), { scale = 0.6 * k })
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	local arms = {}
+	local n = k >= 1 and 5 or 3
+	for i = 1, n do
+		local len = HW.ARM_LEN * k * (0.85 + math.random() * 0.3)
+		local m = HW.newArm(len)
+		local ang = (i / n) * math.pi * 2 + math.random() * 0.6
+		local r = (1.6 + math.random()) * k
+		local base = Vector3.new(foot.X + math.cos(ang) * r, 0.05, foot.Z + math.sin(ang) * r)
+		m:PivotTo(CFrame.new(base - Vector3.new(0, len + 0.5, 0)))
+		m.Parent = fxFolder
+		table.insert(arms, { m = m, base = base, len = len, delay = (i - 1) * 0.035, spin = (math.random() - 0.5) * 0.7 })
+	end
+	local born, life, fallAt = os.clock(), 1.6, nil
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - born
+		if t > life then
+			conn:Disconnect()
+			for _, a in ipairs(arms) do
+				a.m:Destroy()
+			end
+			pool:Destroy()
+			return
+		end
+		local live = hrp ~= nil and hrp.Parent ~= nil
+		local target = live and hrp.Position or (foot + Vector3.new(0, 6 * k, 0))
+		local vy = live and hrp.AssemblyLinearVelocity.Y or (t > 0.45 and -1 or 1)
+		if not fallAt and t > 0.25 and vy < -1 then
+			fallAt = t -- he's coming down: they drag at him and sink with him
+		end
+		for _, a in ipairs(arms) do
+			local rise = math.clamp((t - a.delay) / 0.22, 0, 1)
+			rise = 1 - (1 - rise) ^ 3
+			local sink = fallAt and math.clamp((t - fallAt - 0.05) / 0.4, 0, 1) or 0
+			sink = sink * sink
+			local out = rise * (1 - sink)
+			local toward = target - a.base
+			if toward.Magnitude < 0.01 then
+				toward = Vector3.yAxis
+			end
+			local lean = math.clamp(0.25 + 0.4 * rise + 0.3 * sink, 0, 0.85)
+			local dir = (Vector3.yAxis * (1 - lean) + toward.Unit * lean).Unit
+			local inward = Vector3.new(foot.X - a.base.X, 0, foot.Z - a.base.Z)
+			if inward.Magnitude < 0.01 then
+				inward = Vector3.xAxis
+			end
+			local palm = inward.Unit - dir * inward.Unit:Dot(dir)
+			if palm.Magnitude < 0.01 then
+				palm = Vector3.zAxis
+			end
+			local root = a.base - dir * (a.len * (1 - out) + 0.4)
+			a.m:PivotTo(CFrame.lookAt(root, root + palm.Unit, dir) * CFrame.Angles(0, a.spin, 0))
+		end
+		if fallAt and t - fallAt > 0.35 then
+			pool.Transparency = math.clamp((t - fallAt - 0.35) / 0.3, 0, 1) -- (the pool closes after them)
+		end
+	end)
+end
+
 -- A jump effect (Config.Cosmetics.Jump) at `foot`: `key` the item, `tint` the spike colour (some
 -- use it), `big` a full-size one (a spike or serve jump, a boom jump, the Locker's preview).
 local JUMP_COLORS = {
@@ -1226,6 +1404,7 @@ local JUMP_COLORS = {
 	Foxfire = Color3.fromRGB(80, 150, 255),
 	Phoenix = Color3.fromRGB(60, 200, 255),
 	Angel = Color3.fromRGB(255, 236, 190),
+	Underworld = Color3.fromRGB(150, 70, 255),
 }
 local RAINBOW = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }
 
@@ -1385,6 +1564,8 @@ local function jumpMeshes(foot, key, tint, k, model)
 		HW.batMoon(foot, k)
 	elseif key == "JackOLantern" then
 		HW.jackJump(foot, k)
+	elseif key == "Underworld" then
+		HW.underworld(foot, k, model)
 	end
 end
 
@@ -1446,8 +1627,13 @@ function VFXController.boom(entityId, kind)
 	local foot = Vector3.new(p.X, 0.25, p.Z)
 	-- your own jump sound (the Custom sound effects perk) on every jump; the boom's otherwise
 	local own = entityId == State.myId and mods ~= nil and mods.AudioController.custom(entityId, "SoundJump", { volume = 0.7 })
-	-- their jump effect (a cosmetic), on top of the dust or the boom
+	-- their jump effect (a cosmetic), on top of the dust or the boom; a skin's own jump takes its
+	-- place (the Fallen Angel's arms: the owner, "he cannot equip other jump cosmetics")
 	local jumpKey = Spins.equipped(model, "Jump").Key
+	local skinDef = Config.Halloween.Skins[model:GetAttribute("Skin") or ""]
+	if skinDef and skinDef.Jump then
+		jumpKey = skinDef.Jump
+	end
 	if jumpKey ~= "Plain" then
 		VFXController.jumpEffect(foot, jumpKey, Spins.tint(Spins.equipped(model, "Color")), kind == "Spike" or kind == "Serve" or VFXController.hasBoom(model), model)
 	end
@@ -3429,7 +3615,7 @@ function VFXController.shield(entityId, color)
 end
 
 -- Lightning crackling along the whole flight of a Thunder spike.
-local function thunderPath(path)
+local function thunderPath(path, color)
 	for k = 1, 7 do
 		task.delay(0.03 + k * 0.045, function()
 			local p = BallPhysics.positionAt(path, Util.now())
@@ -3437,7 +3623,7 @@ local function thunderPath(path)
 			local back = v.Magnitude > 0 and -v.Unit or Vector3.new(0, 0, 1)
 			for _ = 1, 2 do
 				local d = (back + Vector3.new(0, (math.random() - 0.5) * 1.6, (math.random() - 0.5) * 1.6)).Unit
-				bolt(p, d, 4 + math.random() * 5, THUNDER)
+				bolt(p, d, 4 + math.random() * 5, color or THUNDER)
 			end
 		end)
 	end
@@ -3524,7 +3710,9 @@ function VFXController.reaperFrame(entityId, ballPos, duration, hold)
 	local token = freezeScreen()
 	local gui = freezeGui
 	local vs = cam.ViewportSize
-	local STAR, PALE, DEEP = Color3.fromRGB(170, 205, 255), Color3.fromRGB(214, 224, 255), Color3.fromRGB(5, 3, 12)
+	-- (the owner, 2026-10-16: "make the scythe impact frame a little darker": a deeper black, the
+	-- bloom, speed lines and ink dimmer, the body a shade greyer; the scythe stays brightest)
+	local STAR, PALE, DEEP = Color3.fromRGB(170, 205, 255), Color3.fromRGB(192, 200, 236), Color3.fromRGB(2, 1, 6)
 	if mods and not hold then
 		mods.AudioController.play("ImpactFrame", { minGap = 0.2 })
 	end
@@ -3569,16 +3757,16 @@ function VFXController.reaperFrame(entityId, ballPos, duration, hold)
 	bg.Parent = gui
 	local fading = { bg }
 	-- the violet bloom and the cold heart of it, a dark ring of speed lines turning
-	table.insert(fading, sprite("Glow", vs.Y * 1.5, HW.VOID, { ImageTransparency = 0.2 }, 1))
-	table.insert(fading, sprite("Glow", vs.Y * 0.55, STAR, { ImageTransparency = 0.55 }, 1))
-	local radial = sprite("Radial", vs.Y * 1.6, Color3.fromRGB(70, 34, 140), { ImageTransparency = 0.15, Rotation = math.random() * 360 }, 1)
+	table.insert(fading, sprite("Glow", vs.Y * 1.5, HW.VOID, { ImageTransparency = 0.45 }, 1))
+	table.insert(fading, sprite("Glow", vs.Y * 0.55, STAR, { ImageTransparency = 0.72 }, 1))
+	local radial = sprite("Radial", vs.Y * 1.6, Color3.fromRGB(48, 22, 100), { ImageTransparency = 0.3, Rotation = math.random() * 360 }, 1)
 	table.insert(fading, radial)
 	TweenService:Create(radial, TweenInfo.new(duration + 0.1), { Rotation = radial.Rotation + 40 }):Play()
 	-- the crescent behind the swing, sweeping on through it
 	local side = (ball.Z - hrp.Position.Z) >= 0 and 1 or -1
 	local r0 = side > 0 and -80 or 100
 	local cres = sprite("Slash", vs.Y * 1.05, HW.VOID, { Rotation = r0 }, 2)
-	local core = sprite("Slash", vs.Y * 0.9, Color3.fromRGB(236, 230, 255), { Rotation = r0 + 6, ImageTransparency = 0.1 }, 2)
+	local core = sprite("Slash", vs.Y * 0.9, Color3.fromRGB(236, 230, 255), { Rotation = r0 + 6, ImageTransparency = 0.22 }, 2)
 	table.insert(fading, cres)
 	table.insert(fading, core)
 	local sweep = TweenInfo.new(math.min(duration, 0.5), Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -3586,7 +3774,7 @@ function VFXController.reaperFrame(entityId, ballPos, duration, hold)
 	TweenService:Create(core, sweep, { Rotation = r0 + 61 * side, ImageTransparency = 0.5 }):Play()
 	-- violet ink at the edges (texture on the black)
 	for i, corner in ipairs({ Vector2.new(0.04, 0.12), Vector2.new(0.95, 0.86), Vector2.new(0.9, 0.1) }) do
-		local ink = sprite("InkSplat", vs.Y * (0.5 - 0.1 * (i - 1)), Color3.fromRGB(60, 24, 112), { Position = UDim2.fromScale(corner.X, corner.Y), Rotation = math.random() * 360, ImageTransparency = 0.25 }, 1)
+		local ink = sprite("InkSplat", vs.Y * (0.5 - 0.1 * (i - 1)), Color3.fromRGB(42, 15, 82), { Position = UDim2.fromScale(corner.X, corner.Y), Rotation = math.random() * 360, ImageTransparency = 0.32 }, 1)
 		local sc = Instance.new("UIScale")
 		sc.Scale = 0.4
 		sc.Parent = ink
@@ -4091,26 +4279,30 @@ local function onHit(snap)
 		-- dark around the hitter, lit white with the ball glowing on the hand, while it holds; the
 		-- rest of the hit plays as it fires (the owner's reference)
 		local dark = false -- (the dark frame is Zero Point's alone now: the owner, "just the white spiker guy")
+		local TH, voidThunder = HW.thunderOf(meta) -- (the Fallen Angel's thunder: violet on black)
 		task.delay(dark and fires or 0, function()
 			if heavy or meta.thunder or meta.energy or meta.gauge then
-				local ring = meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL) or WHITE
+				local ring = meta.thunder and TH or (meta.energy and AZURE) or (meta.gauge and FERAL) or WHITE
 				boomRings(snap.path, ring, (meta.thunder or meta.fullLeap) and 3 or 2)
 				if close then
-					VFXController.neonStreaks(pos, meta.thunder and THUNDER or (meta.energy and AZURE) or (meta.gauge and FERAL_HOT) or HOT)
+					VFXController.neonStreaks(pos, meta.thunder and TH or (meta.energy and AZURE) or (meta.gauge and FERAL_HOT) or HOT)
 				end
 			end
 			if meta.thunder then
-				Fx.play("ThunderImpact", pos)
+				Fx.play("ThunderImpact", pos, voidThunder and { color = TH } or nil)
+				if voidThunder then
+					Fx.play("VoidRupture", pos, { scale = 0.8 }) -- the black in it
+				end
 				for _ = 1, 3 do
 					local d = (vdir + Vector3.new(0, (math.random() - 0.5) * 1.2, (math.random() - 0.5) * 1.2)).Unit
-					bolt(pos, d, 7 + math.random() * 5, THUNDER)
+					bolt(pos, d, 7 + math.random() * 5, TH)
 				end
-				thunderPath(snap.path)
+				thunderPath(snap.path, TH)
 				if close then
 					if not dark then
-						VFXController.impactFrame(meta.id, THUNDER)
+						VFXController.impactFrame(meta.id, TH, voidThunder)
 					end
-					VFXController.speedLines(0.5, Color3.fromRGB(255, 244, 180), dirZ)
+					VFXController.speedLines(0.5, voidThunder and Color3.fromRGB(205, 175, 255) or Color3.fromRGB(255, 244, 180), dirZ)
 					shaker.shake(0.75)
 					shaker.kick(-8)
 				end
@@ -6653,7 +6845,7 @@ local function onBallEvent(kind, ev, meta)
 		local hard = speed > 45
 		local c = nil
 		if meta and meta.thunder then
-			c = THUNDER
+			c = HW.thunderOf(meta)
 		elseif meta and meta.energy then
 			c = AZURE
 		end

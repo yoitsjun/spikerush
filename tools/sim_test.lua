@@ -3503,13 +3503,15 @@ do
 	check(Halloween.day(HW.Ends) ~= Halloween.day(HW.Ends - 86400) and Halloween.active(HW.Ends - 1) and not Halloween.active(HW.Ends) and HW.Ends == 1793685600,
 		"the event runs until the end of November 2 (Chicago)")
 
-	-- the banner: chances add up to 1, the Reaper is its rarest pull, every item exists, the
-	-- limited items stay off the usual banners
-	local total, reaper, known = 0, 0, true
+	-- the banner: chances add up to 1, the two Mythic skins (the Reaper and the Fallen Angel) share
+	-- its rarest weight, every item exists, the limited items stay off the usual banners
+	local total, reaper, fallen, known = 0, 0, 0, true
 	for _, row in ipairs(Halloween.bannerTable()) do
 		total = total + row.chance
 		if row.item.key == "Reaper" then
 			reaper = row.chance
+		elseif row.item.key == "FallenAngel" then
+			fallen = row.chance
 		end
 		known = known and row.item.name ~= nil and row.item.scout > 0
 	end
@@ -3518,15 +3520,31 @@ do
 		inBall = inBall or row.item.Limited ~= nil
 	end
 	local rr = Random.new(5)
-	local pulls, reapers = 4000, 0
+	local pulls, reapers = 8000, 0
 	for _ = 1, pulls do
-		if Halloween.roll(rr).key == "Reaper" then
+		local k = Halloween.roll(rr).key
+		if k == "Reaper" or k == "FallenAngel" then
 			reapers = reapers + 1
 		end
 	end
-	check(math.abs(total - 1) < 1e-9 and math.abs(reaper - 0.006) < 1e-9 and known and #Halloween.bannerItems() == #HW.Banner.Items and not inBall and reapers > 5 and reapers < 50
+	check(math.abs(total - 1) < 1e-9 and math.abs(reaper - 0.003) < 1e-9 and math.abs(fallen - 0.003) < 1e-9 and known and #Halloween.bannerItems() == #HW.Banner.Items and not inBall and reapers > 20 and reapers < 90
 		and Halloween.cost("Candy", 10) == 250 and Halloween.cost("VP", 1) == 60 and Halloween.cost("VP", 3) == nil,
-		"the Halloween banner: odds add up, the Reaper is 0.6%, limited items stay off the usual banners", string.format("%d Reapers in %d pulls", reapers, pulls))
+		"the Halloween banner: odds add up, the two Mythic skins share 0.6%, limited items stay off the usual banners", string.format("%d Mythic skins in %d pulls", reapers, pulls))
+	-- the Fallen Angel: YeJun's alone, his jump the skin's own (hidden: never on a banner or in the
+	-- Locker), his thunder in its colour
+	local FA = HW.Skins.FallenAngel
+	local jump = Spins.item("Jump", FA.Jump)
+	check(Halloween.skinFits("FallenAngel", "yejun") and not Halloween.skinFits("FallenAngel", "taeha") and not Halloween.skinFits("Reaper", "yejun")
+		and jump ~= nil and jump.Hidden and jump.Limited ~= nil and FA.Thunder ~= nil and FA.Rarity == "Mythic"
+		and table.concat(Halloween.skinsFor("yejun"), ",") == "FallenAngel" and Halloween.cleanSkins({ FallenAngel = { copies = 1, on = { yejun = true, taeha = true } } }).FallenAngel.on.taeha == nil,
+		"the Fallen Angel is YeJun's skin alone, with its own hidden jump (Underworld) and violet thunder")
+	-- the S+ quotes on their recruits (the owner: "a little quote for each s+ recruitment"): S+ ids only
+	local quotesOk = Config.Quotes.yejun == "From above the net there is no mercy... only descent."
+	for id, q in pairs(Config.Quotes) do
+		local c = Roster.get(id)
+		quotesOk = quotesOk and c ~= nil and c.Tier == "S+" and type(q) == "string" and #q > 0 and not string.find(q, '"', 1, true)
+	end
+	check(quotesOk, "S+ recruits can carry a quote (YeJun's first), keyed by roster id")
 
 	-- a run carried through a teleport (Lobbies.export/import): its stage, every hand and the AI's,
 	-- made safe on the way in; the players' hands are Home's, the AI's Away's

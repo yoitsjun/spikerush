@@ -128,6 +128,7 @@ Assets.Sounds = {
 	FeralFull = "", -- Feral Leap: the charge is full (let go now)
 	FeralLeap = "", -- Feral Leap: the leap off the floor (louder the fuller the charge)
 	Bloodlust = "9116292530", -- Dante's Bloodlust (Q): "Lion Roar Beast Snarl 5" (Pro Sound Effects)
+	SinisterLaugh = "9067394653", -- a Mythic skin's pull, as the scythe cuts the screen open: "deep demonic laugh 1" (zapsplat)
 	RallyCry = "",
 	-- the new characters' moves (2026-10-12, the owner: "add some cool sfx too"; Pro Sound Effects
 	-- unless noted, starts and gains measured in a playtest)

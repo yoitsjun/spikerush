@@ -1127,20 +1127,20 @@ function SceneController.refreshHomeAvatar()
 		homeRig.model.Parent = folder
 		placeRig(homeRig, "ShowCool", HOME + Vector3.new(2.6, 0, 7), 196)
 		if SceneController.homeProp and mods.Skins then
-			mods.Skins.prop(homeRig.model, true)
+			mods.Skins.prop(homeRig.model, SceneController.homeProp)
 		end
 	end
 end
 
--- What your avatar in the menu room holds: "Reaper" (the scythe, on Taeho's page with the skin
--- on) or nil.
+-- What your avatar in the menu room wears: a skin's piece ("Reaper": the scythe, "FallenAngel":
+-- the wing; on that character's page with the skin on, or the one you play) or nil.
 function SceneController.setHomeProp(kind)
 	if SceneController.homeProp == kind then
 		return
 	end
 	SceneController.homeProp = kind
 	if homeRig and mods.Skins then
-		mods.Skins.prop(homeRig.model, kind == "Reaper")
+		mods.Skins.prop(homeRig.model, kind)
 	end
 end
 
