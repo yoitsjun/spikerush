@@ -400,6 +400,26 @@ function HitLogic.blockBox(root, ball, side, stats, iron)
 	return true, q, (top + R - ball.Y) < 0.9
 end
 
+-- When a ball on `path` first meets a block box (blockBox) between times `from` and `to`, heading
+-- onto the blocker's side: t and the ball's position, or nil. Checked every BLOCK_STEP seconds (a
+-- 260 km/h spike moves about a stud and a half between checks; the box is 3 studs deep), at least
+-- 6 times. The client runs it from where an attack left the hand when it hears of the attack late
+-- (the owner, 2026-10-16: "there seems to be a bug with the hitboxes on the blocking tutorial": on
+-- a phone's ping the drill's spike, hit 1.2 m off the net, was through the hands before the client
+-- knew of it, and only the last frame was ever checked).
+local BLOCK_STEP = 0.004
+function HitLogic.blockAlong(path, from, to, root, side, stats, iron)
+	local n = clamp(math.ceil((to - from) / BLOCK_STEP), 6, 240)
+	for i = 1, n do
+		local t = from + (to - from) * i / n
+		local p = BallPhysics.positionAt(path, t)
+		if BallPhysics.velocityAt(path, t).Z * side > 0 and HitLogic.blockBox(root, p, side, stats, iron) then
+			return t, p
+		end
+	end
+	return nil
+end
+
 -- Ironclad's shields after a block of his (meta): every attack a shield stops cracks it, and the
 -- CracksToBreak-th crack shatters it (the owner: "it cracks on one hit and breaks on the next").
 -- Returns the shields and cracks left.

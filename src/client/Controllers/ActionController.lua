@@ -74,7 +74,7 @@ local airSwings = 0
 local buffered = nil
 local stance = nil -- { t0, lastCheck, assist }
 local slideCheck = nil
-local block = { charging = false, t0 = 0, active = false, activeT0 = 0, lastT = nil }
+local block = { charging = false, t0 = 0, active = false, activeT0 = 0, lastT = nil, startT = nil, seq = nil }
 local serveHold = nil -- { t0 }
 local autoOverhand = false
 local charge = { holding = false, energy = 0, gauge = 1, overT = 0 }
@@ -1345,6 +1345,8 @@ local function releaseBlock(info)
 		block.active = true
 		block.activeT0 = os.clock()
 		block.lastT = Util.now()
+		block.startT = block.lastT -- (when the hands went up: a late attack is checked back to here)
+		block.seq = mods.BallRenderer.getSeq()
 		mods.AnimationController.pose(State.myId, "Block", 1.1)
 		Net.get("ActionFX"):FireServer("Block")
 	end
@@ -1733,15 +1735,23 @@ local function processBlock(info, now)
 	end
 	local path = BR.getPath()
 	local reach = HitLogic.wallReach(wallUp, ActionController.bulwark(), meta.hitType)
-	for i = 1, 6 do
-		local t = t0 + (now - t0) * i / 6
-		local p = BallPhysics.positionAt(path, t)
-		local v = BallPhysics.velocityAt(path, t)
-		if v.Z * State.mySide > 0 and HitLogic.blockBox(info.root, p, State.mySide, State.myStats(), reach) then
-			block.active = false
-			execute("Block", info, {}, t, p)
-			return
+	-- an attack we've only just heard of (a new path) is checked from where it left the hand (from
+	-- when our hands went up, if that was later; Iron Wall's are always up), as far back as the server
+	-- takes a hit (Config.Net.MaxRewind): on a phone's ping a spike near the net was already through the
+	-- block before we knew of it, and only the last frame was checked (HitLogic.blockAlong)
+	local seq = BR.getSeq()
+	if seq ~= block.seq then
+		block.seq = seq
+		local from = BallPhysics.startTime(path)
+		if not iron then
+			from = math.max(from, block.startT or from)
 		end
+		t0 = math.min(now, math.max(from, now - Config.Net.MaxRewind + 0.05))
+	end
+	local t, p = HitLogic.blockAlong(path, t0, now, info.root, State.mySide, State.myStats(), reach)
+	if t then
+		block.active = false
+		execute("Block", info, {}, t, p)
 	end
 end
 

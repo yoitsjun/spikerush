@@ -2786,6 +2786,38 @@ do
 		own = own and BallPhysics.positionAt(path, T * i / 10).Z * side > 0
 	end
 	check((at - p).Magnitude < 0.3 and own and T > PRc.AttackWindup + 0.6 and T < 2.5, "the drill's set reaches their attacker's hand on their side, with time to read it", string.format("%.2f s, off by %.2f studs", T, (at - p).Magnitude))
+
+	-- the drill's spike (PracticeService.attack, 1.2 m off the net) is through the block within a few
+	-- hundredths of a second, before a phone hears of it: the client checks an attack it heard of
+	-- late from where it left the hand (HitLogic.blockAlong; the owner, 2026-10-16: "there seems to be
+	-- a bug with the hitboxes on the blocking tutorial", Taeho's block missing every spike)
+	local me = Court.sideOf("Home")
+	local taeho = Characters.derive(Characters.fromRoster(Roster.get("taeha"), nil))
+	local broot = vec(0, GROUND + Characters.jumpHeight(taeho, GROUND) + Characters.hangGain(), me * Config.Player.BlockReach * 0.5)
+	local fromY = math.max(math.min(Config.Court.NetTop + PRc.AttackAboveNet, broot.Y + Z.BlockReachUp - PRc.BlockReachMargin), Config.Court.NetTop + PRc.BlockAboveNet)
+	local from = vec(0, fromY, side * PRc.AttackDepth)
+	local function drillSpike(kmh, depth)
+		local target = vec(0, Config.Ball.Radius, me * depth)
+		local Ts = (target - from).Magnitude / (kmh / 3.6 * SPM)
+		local vs = (target - from) / Ts + vec(0, 0.5 * Config.Ball.Gravity * Ts, 0)
+		return BallPhysics.buildPath(BallPhysics.newLaunch(from, vs, vec(0, -Config.Ball.Gravity, 0), 0))
+	end
+	local through, found, fast = 0, true, true
+	for _, kmh in ipairs({ PRc.BlockKmh[1], PRc.BlockKmh[2] }) do
+		for _, depth in ipairs({ PRc.BlockTargetDepth[1], PRc.BlockTargetDepth[2] }) do
+			local sp = drillSpike(kmh, depth)
+			local tB = HitLogic.blockAlong(sp, 0, 0.3, broot, me, taeho, nil)
+			found = found and tB ~= nil
+			through = math.max(through, tB or 1)
+			-- (a client hearing of it 0.1 s late, checking only that frame, finds nothing)
+			fast = fast and HitLogic.blockAlong(sp, 0.1, 0.1 + 1 / 60, broot, me, taeho, nil) == nil
+		end
+	end
+	-- a 260 km/h spike over the whole rewind still can't slip between two checks
+	local rocket = drillSpike(260, PRc.BlockTargetDepth[1])
+	check(found and through < 0.08 and fast and HitLogic.blockAlong(rocket, 0, Config.Net.MaxRewind, broot, me, taeho, nil) ~= nil,
+		"the block drill's spikes reach Taeho's block within 0.08 s of the hand (a late frame alone misses them); checked from the hand, every one is blocked, a 260 km/h one too",
+		string.format("met the hands %.3f s after the hit at the latest", through))
 end
 
 print("== codes ==")
