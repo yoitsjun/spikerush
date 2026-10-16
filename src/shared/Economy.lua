@@ -46,6 +46,8 @@ function Economy.cleanGrant(g)
 		return math.max(0, math.min(whole(v), max))
 	end
 	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {}, Items = {}, Fragments = {} }
+	-- a luck boost's strength (Config.Boosts.LuckTiers; 2 when it says none)
+	out.LuckMul = Economy.luckTier(g.LuckMul)
 	-- breakthrough fragments by letter ({ ["S+"] = 5 }; the owner: "add breakthrough fragments to the
 	-- admin panel")
 	if type(g.Fragments) == "table" then
@@ -96,6 +98,36 @@ function Economy.isEmpty(g)
 	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil
 end
 
+-- A luck boost's strength: one of Config.Boosts.LuckTiers, else 2.
+function Economy.luckTier(m)
+	m = tonumber(m)
+	for _, t in ipairs(Config.Boosts.LuckTiers) do
+		if t == m then
+			return t
+		end
+	end
+	return 2
+end
+
+-- The profile's boost timer key for a luck tier ("Luck" for 2x, "Luck4" for 4x...).
+function Economy.luckKey(m)
+	m = Economy.luckTier(m)
+	return m == 2 and "Luck" or ("Luck" .. m)
+end
+
+-- Your own luck at `now`: the strongest luck boost running (1 with none) and when it ends.
+function Economy.luckBoost(profile, now)
+	local b = type(profile) == "table" and type(profile.boosts) == "table" and profile.boosts or {}
+	local tiers = Config.Boosts.LuckTiers
+	for i = #tiers, 1, -1 do
+		local untilT = tonumber(b[Economy.luckKey(tiers[i])])
+		if untilT and now < untilT then
+			return tiers[i], untilT
+		end
+	end
+	return 1, nil
+end
+
 -- A boost timer (unix end) after adding `seconds` at `now`: from now if it had run out, on top
 -- if it hadn't, never more than Boosts.MaxHold ahead.
 function Economy.extendBoost(untilT, seconds, now)
@@ -124,8 +156,10 @@ function Economy.apply(profile, g, now)
 		profile.boosts.VP = Economy.extendBoost(profile.boosts.VP, g.BoostVP, now or 0)
 	end
 	if (g.BoostLuck or 0) > 0 then
+		-- (each tier on its own clock: Luck, Luck4, Luck6...)
 		profile.boosts = type(profile.boosts) == "table" and profile.boosts or {}
-		profile.boosts.Luck = Economy.extendBoost(profile.boosts.Luck, g.BoostLuck, now or 0)
+		local key = Economy.luckKey(g.LuckMul)
+		profile.boosts[key] = Economy.extendBoost(profile.boosts[key], g.BoostLuck, now or 0)
 	end
 	profile.owned = profile.owned or {}
 	profile.owned.Char = profile.owned.Char or {}
@@ -170,7 +204,7 @@ function Economy.describe(g, chars)
 		table.insert(parts, string.format("%dx VP for %s", Config.Boosts.Multiplier, Economy.duration(g.BoostVP)))
 	end
 	if (g.BoostLuck or 0) > 0 then
-		table.insert(parts, string.format("%dx Luck for %s", Config.Boosts.Multiplier, Economy.duration(g.BoostLuck)))
+		table.insert(parts, string.format("%dx Luck for %s", Economy.luckTier(g.LuckMul), Economy.duration(g.BoostLuck)))
 	end
 	for _, id in ipairs(chars or g.Chars) do
 		local c = Roster.get(id)
@@ -343,6 +377,10 @@ local PACK_LISTS = {
 	{ kind = "Lucky", list = Config.Lucky.Packs },
 	{ kind = "Boost", list = Config.Boosts.Packs },
 	{ kind = "LuckBoost", list = Config.Boosts.LuckPacks },
+	{ kind = "LuckBoost4", list = Config.Boosts.LuckPacks4 },
+	{ kind = "LuckBoost6", list = Config.Boosts.LuckPacks6 },
+	{ kind = "LuckBoost8", list = Config.Boosts.LuckPacks8 },
+	{ kind = "LuckBoost16", list = Config.Boosts.LuckPacks16 },
 	{ kind = "Bundle", list = Config.Bundles.Packs },
 }
 
@@ -372,7 +410,7 @@ end
 -- What a pack gives.
 function Economy.packGrant(entry)
 	local p = entry.pack
-	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky, BoostVP = p.BoostVP, BoostLuck = p.BoostLuck })
+	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky, BoostVP = p.BoostVP, BoostLuck = p.BoostLuck, LuckMul = p.LuckMul })
 end
 
 -- Whether a pack is a bundle sold once per player that `bought` (a profile's bundles: name ->

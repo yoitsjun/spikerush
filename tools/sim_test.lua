@@ -2811,6 +2811,40 @@ do
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
 end
 
+print("== 4x, 6x, 8x and 16x luck ==")
+do
+	-- the owner (2026-10-16): "Add 4x 6x 8x and 16x luck to admin panel and to the shop": N times the
+	-- luck makes an S+ 0.5% x N (16x: 8%), the rarest first, the weights still adding up to 100
+	local Economy = require("Economy")
+	local base = Spins.odds("Char")
+	local ok, lines = true, {}
+	for _, m in ipairs(Config.Boosts.LuckTiers) do
+		local w = Spins.luckWeights(m)
+		local o = Spins.odds("Char", w)
+		local total = 0
+		for _, r in ipairs(Config.Rarity.Order) do
+			total = total + (w[r] or 0)
+		end
+		ok = ok and math.abs(total - 100) < 1e-9 and math.abs(o.Mythic - m * base.Mythic) < 1e-9 and o.Common <= base.Common
+		table.insert(lines, string.format("%dx S+ %.1f%%", m, o.Mythic * 100))
+	end
+	local sixteen = Spins.odds("Char", Spins.luckWeights(16))
+	-- packs for every tier, and your luck is your strongest boost running
+	local prof = { boosts = {} }
+	Economy.apply(prof, Economy.packGrant(Economy.pack("LuckBoost4", 1)), 1000)
+	Economy.apply(prof, Economy.packGrant(Economy.pack("LuckBoost", 4)), 1000)
+	Economy.apply(prof, Economy.packGrant(Economy.pack("LuckBoost16", 1)), 1000)
+	local m1 = Economy.luckBoost(prof, 1000 + 60)
+	local m2 = Economy.luckBoost(prof, 1000 + 20 * 60)
+	local m3 = Economy.luckBoost(prof, 1000 + 2 * 3600)
+	local m4 = Economy.luckBoost(prof, 1000 + 4 * 3600)
+	local packsOk = #Config.Boosts.LuckPacks4 == 4 and #Config.Boosts.LuckPacks6 == 4 and #Config.Boosts.LuckPacks8 == 4 and #Config.Boosts.LuckPacks16 == 4
+		and Economy.describe(Economy.packGrant(Economy.pack("LuckBoost8", 3))) == "8x Luck for 1 hour" and Economy.cleanGrant({ BoostLuck = 60, LuckMul = 5 }).LuckMul == 2
+	check(ok and sixteen.Common == 0 and sixteen.Rare == 0 and packsOk and m1 == 16 and m2 == 2 and m3 == 2 and m4 == 1 and prof.boosts.Luck4 == 1000 + 15 * 60,
+		"4x to 16x Luck: an S+ is 0.5% x N, the rarest first (16x leaves no Commons or Rares); your luck is your strongest boost running",
+		table.concat(lines, ", "))
+end
+
 print("== Zero Point (Taeho: the ball slightly in front, above his head: ???, nearly straight, through the block) ==")
 do
 	local th = Characters.derive(Characters.fromRoster(Roster.get("taeha"), "max"))

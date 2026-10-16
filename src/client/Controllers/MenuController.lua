@@ -76,7 +76,7 @@ Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns co
 Extra.shopTab = "Deals" -- the Shop's tab: "Deals" (bundles and game passes), "Currency" (VP and Gold), "Lucky" or "Boosts"
 Extra.Cards = require(Shared.Cards) -- player cards (the Locker's Cards tab)
 Extra.SoundCrop = require(Shared.SoundCrop) -- the part of a custom sound that plays (the cropper)
-local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, Bundle = {} } -- product prices in Robux, looked up once per pack
+local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, LuckBoost4 = {}, LuckBoost6 = {}, LuckBoost8 = {}, LuckBoost16 = {}, Bundle = {} } -- product prices in Robux, looked up once per pack
 
 local TIPS = {
 	"Hold toward the net as you let go of a jump-serve toss to throw it forward, then run into it.",
@@ -200,14 +200,23 @@ function Extra.recruitWeights(kind)
 	return nil
 end
 
--- How lucky your usual recruits are right now: the admin panel's 2x Luck and your own 2x Luck each
--- double it, and they stack (4x), and the Lucky game pass multiplies on top; and whether each is on.
+-- How lucky your usual recruits are right now: the admin panel's Luck event (2x to 16x) and your
+-- own strongest Luck boost (2x to 16x) multiply, and the Lucky game pass on top; whether each is
+-- on; and the event's and your own strength.
 function Extra.luckMult()
 	local prof = profile()
 	local event = Extra.eventLeft("Luck") > 0
 	local mine = (prof.boostLuck or 0) - (os.clock() - (Extra.profileAt or 0)) > 0
 	local pass = Economy.passMult(prof.passes, "Luck")
-	return (event and 2 or 1) * (mine and 2 or 1) * pass, event, mine, pass > 1
+	local eventMul = event and (ReplicatedStorage:GetAttribute("EventMul_Luck") or Config.Admin.Multiplier) or 1
+	local myMul = mine and math.max(prof.boostLuckMul or 2, 2) or 1
+	return eventMul * myMul * pass, event, mine, pass > 1, eventMul, myMul
+end
+
+-- The Shop's luck row's tier (Config.Boosts.LuckTiers) and the pack kind it sells.
+Extra.luckTierSel = 2
+function Extra.luckKind()
+	return Extra.luckTierSel == 2 and "LuckBoost" or ("LuckBoost" .. Extra.luckTierSel)
 end
 
 -- A text box in the Shop's style.
@@ -906,7 +915,7 @@ function Extra.refreshHome(prof)
 		local left = Extra.eventLeft(kind)
 		chip.plate.Visible = left > 0
 		if left > 0 then
-			chip.label.Text = string.format("%dx %s  %s", Config.Admin.Multiplier, kind, Extra.clockText(left))
+			chip.label.Text = string.format("%dx %s  %s", kind == "Luck" and (ReplicatedStorage:GetAttribute("EventMul_Luck") or Config.Admin.Multiplier) or Config.Admin.Multiplier, kind, Extra.clockText(left))
 		end
 	end
 	local boostLeft = (prof.boostVP or 0) - (os.clock() - Extra.profileAt)
@@ -917,9 +926,9 @@ function Extra.refreshHome(prof)
 	local luckLeft = (prof.boostLuck or 0) - (os.clock() - Extra.profileAt)
 	Extra.luckChip.plate.Visible = luckLeft > 0
 	if luckLeft > 0 then
-		-- with the event on too they stack: say 4x
-		local stacked = Extra.eventLeft("Luck") > 0
-		Extra.luckChip.label.Text = string.format("Your %dx Luck  %s", stacked and 4 or Config.Boosts.Multiplier, Extra.clockText(luckLeft))
+		-- with the event on too they stack: say the two together
+		local _, _, _, _, eventMul, myMul = Extra.luckMult()
+		Extra.luckChip.label.Text = string.format("Your %dx Luck  %s", math.max(myMul, 2) * eventMul, Extra.clockText(luckLeft))
 	end
 	local d = prof.daily
 	hm.dailyDot.Visible = d ~= nil and (d.ready == true or (d.opensIn or 0) - (os.clock() - Extra.profileAt) <= 0)
@@ -1419,14 +1428,14 @@ local function refreshRecruit(prof)
 	local o = Spins.odds(banner, Extra.recruitWeights(banner))
 	local parts = {}
 	-- 2x Luck in front, and when your own and the event's are both on, that they stack
-	local mult, event, mine, pass = Extra.luckMult()
+	local mult, event, mine, pass, eventMul, myMul = Extra.luckMult()
 	if banner == "Char" and mult > 1 then
 		local whys = {}
 		if mine then
-			table.insert(whys, event and "your 2x" or "your boost")
+			table.insert(whys, string.format("your %dx", myMul))
 		end
 		if event then
-			table.insert(whys, mine and "the event's 2x" or "the event")
+			table.insert(whys, string.format("the event's %dx", eventMul))
 		end
 		if pass then
 			table.insert(whys, "Lucky pass")
@@ -4548,7 +4557,7 @@ local SHOP_ROWS = {
 	{ key = "Boost", tab = "Boosts", title = "2x V Points", note = "Every match pays double VP while it runs", icon = Gui.icon.vp, amount = function(pack)
 		return Extra.boostLength(pack.BoostVP)
 	end },
-	{ key = "LuckBoost", tab = "Boosts", title = "2x Luck", note = "A- and up twice as likely; with a 2x Luck event, 4x", icon = function(parent, size)
+	{ key = "LuckBoost", tab = "Boosts", title = "Luck", tiered = true, note = "A- and up N times as likely (an S+ 0.5% x N)", icon = function(parent, size)
 		return Gui.sparkle(parent, size, Color3.fromRGB(190, 110, 255))
 	end, amount = function(pack)
 		return Extra.boostLength(pack.BoostLuck)
@@ -4565,8 +4574,31 @@ function Extra.boostLength(seconds)
 end
 
 local function shopPacks(key)
-	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs, LuckBoost = Config.Boosts.LuckPacks, Bundle = Config.Bundles.Packs }
+	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs, LuckBoost = Config.Boosts.LuckPacks, LuckBoost4 = Config.Boosts.LuckPacks4, LuckBoost6 = Config.Boosts.LuckPacks6, LuckBoost8 = Config.Boosts.LuckPacks8, LuckBoost16 = Config.Boosts.LuckPacks16, Bundle = Config.Bundles.Packs }
 	return lists[key] or {}
+end
+
+-- Each pack's Robux price in a kind, looked up once (the luck tiers' as you first show them).
+function Extra.fetchPrices(kind)
+	Extra.pricesAsked = Extra.pricesAsked or {}
+	if Extra.pricesAsked[kind] then
+		return
+	end
+	Extra.pricesAsked[kind] = true
+	for i, pack in ipairs(shopPacks(kind)) do
+		if pack.Id ~= 0 then
+			task.spawn(function()
+				local ok, info = pcall(function()
+					return MarketplaceService:GetProductInfo(pack.Id, Enum.InfoType.Product)
+				end)
+				if ok and info and info.PriceInRobux then
+					packPrices[kind] = packPrices[kind] or {}
+					packPrices[kind][i] = info.PriceInRobux
+					MenuController.refresh()
+				end
+			end)
+		end
+	end
 end
 
 -- The Shop's Deals tab: the bundles (Config.Bundles) in a row of two wide cards, then the game
@@ -4757,27 +4789,51 @@ local function buildShop()
 		Gui.label(holder, { Text = row.title, display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextStrokeTransparency = 0.6, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 36), Position = UDim2.fromOffset(0, y) })
 		notes[row.key] = Gui.label(holder, { Text = row.note, TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextStrokeTransparency = 0.6, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(420, 20), Position = UDim2.new(1, 0, 0, y + 12) })
 		Gui.plate(holder, { Size = UDim2.fromOffset(60, 6), Position = UDim2.fromOffset(2, y + 40) }, Gui.SIGNAL)
+		if row.tiered then
+			-- the luck tiers (the owner, 2026-10-16: "Add 4x 6x 8x and 16x luck ... to the shop"): pick
+			-- one, the four lengths below are its packs; the note moves under the cards' row
+			notes[row.key].Visible = false
+			local items = {}
+			for _, m in ipairs(Config.Boosts.LuckTiers) do
+				table.insert(items, { key = m, text = m .. "x" })
+			end
+			local _, setTier = segmented(holder, items, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, y), Size = UDim2.fromOffset(470, 38) }, function(key)
+				Extra.luckTierSel = key
+				MenuController.refresh()
+			end)
+			setTier(Extra.luckTierSel)
+			Extra.luckCards = {}
+		end
 		for i, pack in ipairs(shopPacks(row.key)) do
 			local card = Gui.card(holder, { Size = UDim2.fromOffset(200, 224), Position = UDim2.fromOffset((i - 1) * 214, y + 56), ClipsDescendants = true })
 			Gui.halftone(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.94 })
 			local icon = row.icon(card, 58)
 			icon.AnchorPoint = Vector2.new(0.5, 0)
 			icon.Position = UDim2.new(0.5, 0, 0, 16)
-			Gui.label(card, { Text = row.amount and row.amount(pack) or Gui.num(pack[row.key]), display = true, weight = Enum.FontWeight.Heavy, TextSize = 42, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center })
-			Gui.label(card, { Text = pack.Name, TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 128), TextXAlignment = Enum.TextXAlignment.Center })
+			local amountL = Gui.label(card, { Text = row.amount and row.amount(pack) or Gui.num(pack[row.key]), display = true, weight = Enum.FontWeight.Heavy, TextSize = 42, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center })
+			local nameL = Gui.label(card, { Text = pack.Name, TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 128), TextXAlignment = Enum.TextXAlignment.Center })
 			local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(172, 44) }, "", 20)
+			-- the luck row sells its picked tier's pack in this slot (Extra.luckKind)
+			local function current()
+				local kind = row.tiered and Extra.luckKind() or row.key
+				return kind, shopPacks(kind)[i] or pack
+			end
+			if row.tiered then
+				Extra.luckCards[i] = { amount = amountL, name = nameL }
+			end
 			-- buy it for someone else (the owner: "add a gifting system")
 			local gift = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 8), Size = UDim2.fromOffset(56, 28) }, "Gift", 15)
 			onClick(gift, function()
-				MenuController.openGift(row.key, i)
+				MenuController.openGift((current()), i)
 			end)
 			onClick(buy, function()
-				if pack.Id ~= 0 then
+				local kind, pk = current()
+				if pk.Id ~= 0 then
 					pcall(function()
-						MarketplaceService:PromptProductPurchase(player, pack.Id)
+						MarketplaceService:PromptProductPurchase(player, pk.Id)
 					end)
 				elseif profile().studio then
-					Net.get("Profile"):FireServer("buy", i, row.key)
+					Net.get("Profile"):FireServer("buy", i, kind)
 				end
 			end)
 			prices[row.key][i] = price
@@ -4984,11 +5040,24 @@ local function refreshShop(prof)
 	ui.shop.notes.Boost.Text = boostLeft > 0 and string.format("Yours: %s left (more adds on top)", Extra.clockText(boostLeft)) or SHOP_ROWS[4].note
 	local luckLeft = (prof.boostLuck or 0) - (os.clock() - Extra.profileAt)
 	ui.shop.notes.LuckBoost.Text = luckLeft > 0 and string.format("Yours: %s left (more adds on top)", Extra.clockText(luckLeft)) or SHOP_ROWS[5].note
+	-- the luck row shows its picked tier's packs
+	local luckKind = Extra.luckKind()
+	Extra.fetchPrices(luckKind)
+	for i, c in ipairs(Extra.luckCards or {}) do
+		local pk = shopPacks(luckKind)[i]
+		if pk then
+			c.amount.Text = Extra.boostLength(pk.BoostLuck)
+			c.name.Text = pk.Name
+		end
+	end
 	for key, labels in pairs(ui.shop.prices) do
-		for i, pack in ipairs(shopPacks(key)) do
+		local kind = key == "LuckBoost" and luckKind or key
+		for i, pack in ipairs(shopPacks(kind)) do
 			local label = labels[i]
-			if pack.Id ~= 0 then
-				label.Text = packPrices[key][i] and ("R$ " .. packPrices[key][i]) or "..."
+			if not label then
+				-- (no card in this slot)
+			elseif pack.Id ~= 0 then
+				label.Text = (packPrices[kind] and packPrices[kind][i]) and ("R$ " .. packPrices[kind][i]) or "..."
 			elseif prof.studio then
 				label.Text = "Free in Studio"
 			else
@@ -7259,15 +7328,28 @@ function Extra.buildAdmin()
 		MenuController.refresh()
 	end)
 	local evRows = {}
+	Extra.adminLuckMul = Extra.adminLuckMul or Config.Admin.Multiplier
 	for i, kind in ipairs(Config.Admin.Events) do
 		local r = make("Frame", { Position = UDim2.fromOffset(0, 106 + (i - 1) * 64), Size = UDim2.new(1, 0, 0, 56), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 22 }, left)
 		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
-		Gui.label(r, { Text = Config.Admin.Multiplier .. "x " .. kind, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(100, 56), ZIndex = 23 })
+		local title = Gui.label(r, { Text = Config.Admin.Multiplier .. "x " .. kind, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(100, 56), ZIndex = 23 })
+		if kind == "Luck" then
+			-- its strength (the owner, 2026-10-16: "Add 4x 6x 8x and 16x luck to admin panel"): a press
+			-- steps 2x, 4x, 6x, 8x, 16x
+			title.Visible = false
+			local mulB, mulL = hairButton(r, { Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(104, 40), ZIndex = 23 }, Extra.adminLuckMul .. "x Luck", 18)
+			onClick(mulB, function()
+				local list = Config.Admin.LuckMuls
+				local at = table.find(list, Extra.adminLuckMul) or 1
+				Extra.adminLuckMul = list[at % #list + 1]
+				mulL.Text = Extra.adminLuckMul .. "x Luck"
+			end)
+		end
 		local status = Gui.label(r, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(112, 0), Size = UDim2.fromOffset(160, 56), ZIndex = 23 })
 		local start, startL = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -96, 0.5, 0), Size = UDim2.fromOffset(108, 40), ZIndex = 23 }, "Start", 18)
 		local stop = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(80, 40), ZIndex = 23 }, "Stop", 18)
 		onClick(start, function()
-			Net.get("Admin"):FireServer("event", kind, Extra.adminMinutes)
+			Net.get("Admin"):FireServer("event", kind, Extra.adminMinutes, kind == "Luck" and Extra.adminLuckMul or nil)
 		end)
 		onClick(stop, function()
 			Net.get("Admin"):FireServer("stop", kind)

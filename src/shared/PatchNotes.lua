@@ -38,6 +38,7 @@ PatchNotes.List = {
 				Items = {
 					{ Text = "Odds now go by tier: a recruit lands on a tier first (<b>S+ 0.5%</b>, S 3%, S- 1% and so on, all adding up to 100%), then on one of its players. Boost and Lower move your odds inside the tier. The probability table shows every tier with its chance, and each player's share of it." },
 					{ Text = "S+ players have a line when you recruit them, starting with YeJun's." },
+					{ Text = "Luck goes up to <b>16x</b>: N times the luck makes an S+ N times as likely (16x: 8%). The Shop sells 4x, 6x, 8x and 16x Luck (pick the strength, then the length), and Luck events can be any of them." },
 					{ Text = "Pumpkin, Blood Moon and Ectoplasm have colours of their own now, so they no longer look like Tangerine, Crimson and Lime. The Locker's swatches show each colour's bands." },
 				},
 			},

@@ -985,7 +985,12 @@ function ProfileService.snapshot(plr)
 		favorited = profile.favorited == true or RunService:IsStudio(), -- codes and daily rewards need it
 		liked = profile.liked == true or RunService:IsStudio(), -- and the like (their word)
 		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP
-		boostLuck = math.max(0, (profile.boosts.Luck or 0) - os.time()), -- and on their 2x Luck
+		-- and on their strongest Luck boost, and its strength (2x to 16x)
+		boostLuck = (function()
+			local m, untilT = Economy.luckBoost(profile, os.time())
+			return untilT and math.max(0, untilT - os.time()) or 0
+		end)(),
+		boostLuckMul = (Economy.luckBoost(profile, os.time())),
 		passes = passesOf(plr, profile), -- the game passes they own (Config.Passes)
 		bundles = table.clone(profile.bundles), -- the once-only bundles they bought
 		group = groupId(),
@@ -1667,15 +1672,13 @@ local function spinOnce(plr, profile, banner, count, lucky)
 	local rng = Random.new()
 	local items, refund = {}, 0
 	local frags = nil -- fragments from duplicate characters this spin ({ S = 1, ... })
-	-- 2x Luck: the admin panel's event and your own boost each double the luck of usual recruits on
-	-- the Characters banner, and they stack (both: 4x)
+	-- Luck: the admin panel's event (its own strength, 2x to 16x) and your own strongest boost each
+	-- multiply the luck of usual recruits on the Characters banner, and they stack
 	local mult = 1
-	if reg.AdminService and reg.AdminService.multiplier("Luck") > 1 then
-		mult = mult * 2
+	if reg.AdminService then
+		mult = mult * reg.AdminService.multiplier("Luck")
 	end
-	if Economy.boost(profile, "Luck", os.time()) > 1 then
-		mult = mult * 2
-	end
+	mult = mult * Economy.luckBoost(profile, os.time())
 	mult = mult * Economy.passMult(passesOf(plr, profile), "Luck") -- the Lucky game pass
 	local luckWeights = (not lucky and banner == "Char") and Spins.luckWeights(mult) or nil
 	for i = 1, count do
@@ -1973,14 +1976,17 @@ end
 -- A pack's grant added to a profile (VP, Gold, lucky spins, a boost's time). Returns what it was
 -- before, for `unapplyPack`.
 local function applyPack(profile, g)
-	local before = { vp = profile.vp, gold = profile.gold, lucky = profile.lucky, boostVP = profile.boosts.VP, boostLuck = profile.boosts.Luck }
+	local before = { vp = profile.vp, gold = profile.gold, lucky = profile.lucky, boostVP = profile.boosts.VP, boosts = table.clone(profile.boosts) }
 	Economy.apply(profile, g, os.time())
 	return before
 end
 
 local function unapplyPack(profile, before)
 	profile.vp, profile.gold, profile.lucky, profile.boosts.VP = before.vp, before.gold, before.lucky, before.boostVP
-	profile.boosts.Luck = before.boostLuck
+	for _, m in ipairs(Config.Boosts.LuckTiers) do
+		local key = Economy.luckKey(m)
+		profile.boosts[key] = before.boosts[key] -- (every luck tier's clock as it was)
+	end
 end
 
 -- What a player spent in Robux, for the leaderboards (gift: it was a gift).

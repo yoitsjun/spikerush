@@ -507,12 +507,13 @@ Config.Spins = {
 	-- recruits also count toward an S+ (Top, the owner: "add a normal spin S+ pity but it has to be
 	-- 350 pulls"): an S+ is a 0.5% pull, so most players see one long before it (the average wait
 	-- is 200), and about one in six reach it. When Top and Normal land on the same recruit, Top wins.
-	-- 2x Luck (Config.Admin's event, or your own boost: Config.Boosts.LuckPacks): these rarities'
-	-- weights double on the Characters banner (A- and up: Epic, Legendary, Mythic), and the weight
-	-- they add is taken from From (D and C: Common), so Rare stays as it is. The event and your
-	-- boost stack (the owner: "make it so if there is an admin 2x it stacks and make that clear"):
-	-- both on is 4x (Spins.luckWeights). Lucky spins aren't changed.
-	LuckEvent = { Double = { "Epic", "Legendary", "Mythic" }, From = "Common" },
+	-- Luck (Config.Admin's event, your own boost: Config.Boosts, the Lucky pass): N times the luck
+	-- makes these rarities N times as likely on the Characters banner (A- and up: Epic, Legendary,
+	-- Mythic), the rarest first, and the rest of the 100 goes down the order (Rare, then Common):
+	-- 2x takes its extra from the Commons alone, 16x leaves none (an S+ 8%, an S- or S 64%). The
+	-- event, your boost and the pass multiply (the owner: "make it so if there is an admin 2x it
+	-- stacks and make that clear"; Spins.luckWeights). Lucky spins aren't changed.
+	LuckEvent = { Double = { "Epic", "Legendary", "Mythic" } },
 	Pity = {
 		Normal = { Every = 200, Tiers = { "S-", "S" }, ResetTiers = { "S-", "S", "S+" } },
 		Top = { Every = 350, Tiers = { "S+" }, ResetTiers = { "S+" } },
@@ -892,6 +893,37 @@ Config.Boosts = {
 		{ Id = 3716309109, BoostLuck = 60 * 60, Name = "2x Luck, 1 hour" }, -- 199
 		{ Id = 3716309176, BoostLuck = 3 * 3600, Name = "2x Luck, 3 hours" }, -- 449
 	},
+	-- stronger luck for yourself (the owner, 2026-10-16: "Add 4x 6x 8x and 16x luck to admin panel
+	-- and to the shop and accomadte prices accordingly"): each tier its own Developer Products in the
+	-- same four lengths, priced up with what they give (an S+ 0.5% x N, Spins.luckWeights). Your luck
+	-- is your strongest boost running (they don't multiply each other; each keeps its own clock),
+	-- times the admin panel's event and the Lucky pass. Id 0 until a product exists ("Soon"; free in
+	-- Studio); suggested prices on each line.
+	LuckTiers = { 2, 4, 6, 8, 16 },
+	LuckPacks4 = {
+		{ Id = 0, BoostLuck = 15 * 60, LuckMul = 4, Name = "4x Luck, 15 minutes" }, -- 149 Robux
+		{ Id = 0, BoostLuck = 30 * 60, LuckMul = 4, Name = "4x Luck, 30 minutes" }, -- 249 Robux
+		{ Id = 0, BoostLuck = 60 * 60, LuckMul = 4, Name = "4x Luck, 1 hour" }, -- 379 Robux
+		{ Id = 0, BoostLuck = 3 * 3600, LuckMul = 4, Name = "4x Luck, 3 hours" }, -- 849 Robux
+	},
+	LuckPacks6 = {
+		{ Id = 0, BoostLuck = 15 * 60, LuckMul = 6, Name = "6x Luck, 15 minutes" }, -- 219 Robux
+		{ Id = 0, BoostLuck = 30 * 60, LuckMul = 6, Name = "6x Luck, 30 minutes" }, -- 349 Robux
+		{ Id = 0, BoostLuck = 60 * 60, LuckMul = 6, Name = "6x Luck, 1 hour" }, -- 549 Robux
+		{ Id = 0, BoostLuck = 3 * 3600, LuckMul = 6, Name = "6x Luck, 3 hours" }, -- 1249 Robux
+	},
+	LuckPacks8 = {
+		{ Id = 0, BoostLuck = 15 * 60, LuckMul = 8, Name = "8x Luck, 15 minutes" }, -- 279 Robux
+		{ Id = 0, BoostLuck = 30 * 60, LuckMul = 8, Name = "8x Luck, 30 minutes" }, -- 449 Robux
+		{ Id = 0, BoostLuck = 60 * 60, LuckMul = 8, Name = "8x Luck, 1 hour" }, -- 699 Robux
+		{ Id = 0, BoostLuck = 3 * 3600, LuckMul = 8, Name = "8x Luck, 3 hours" }, -- 1599 Robux
+	},
+	LuckPacks16 = {
+		{ Id = 0, BoostLuck = 15 * 60, LuckMul = 16, Name = "16x Luck, 15 minutes" }, -- 499 Robux
+		{ Id = 0, BoostLuck = 30 * 60, LuckMul = 16, Name = "16x Luck, 30 minutes" }, -- 799 Robux
+		{ Id = 0, BoostLuck = 60 * 60, LuckMul = 16, Name = "16x Luck, 1 hour" }, -- 1249 Robux
+		{ Id = 0, BoostLuck = 3 * 3600, LuckMul = 16, Name = "16x Luck, 3 hours" }, -- 2799 Robux
+	},
 }
 
 -- Bundles (the owner: "make gamepasses and developer products that people actually will buy...
@@ -987,8 +1019,11 @@ Config.Admin = {
 	-- odds of getting better characters. from A- to above") changes recruits on the Characters
 	-- banner: Config.Spins.LuckEvent
 	Events = { "VP", "Gold", "Luck" },
+	-- the Luck event's strength, picked as it starts (the owner, 2026-10-16: "Add 4x 6x 8x and 16x
+	-- luck to admin panel"); VP and Gold stay at Multiplier
+	LuckMuls = { 2, 4, 6, 8, 16 },
 	EventNames = { VP = "V Points", Gold = "Gold", Luck = "Luck" },
-	EventLines = { VP = "Every match pays double.", Gold = "Every match pays double.", Luck = "Recruits are twice as likely to be A- or better, and it stacks with your own 2x Luck for 4x." },
+	EventLines = { VP = "Every match pays double.", Gold = "Every match pays double.", Luck = "Recruits are that many times as likely to be A- or better, and it multiplies with your own Luck." },
 	Multiplier = 2,
 	AnnounceMax = 200, -- characters
 	AnnounceSeconds = 10, -- how long an announcement shows

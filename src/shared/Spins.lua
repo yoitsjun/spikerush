@@ -194,16 +194,24 @@ function Spins.luckWeights(mult)
 		return nil
 	end
 	if not luckWeights[mult] then
-		local out, added = {}, 0
-		for r, w in pairs(RAR.Weights) do
-			out[r] = w
-		end
+		-- the boosted rarities x mult, the rarest first, each as much as the room left allows; the
+		-- rest of the room goes down the order at the usual weights (Rare, then Common)
+		local boosted = {}
 		for _, r in ipairs(SP.LuckEvent.Double) do
-			added = added + (out[r] or 0) * (mult - 1)
-			out[r] = (out[r] or 0) * mult
+			boosted[r] = true
 		end
-		local from = SP.LuckEvent.From
-		out[from] = math.max(0, (out[from] or 0) - added)
+		local room = 0
+		for _, w in pairs(RAR.Weights) do
+			room = room + w
+		end
+		local out = {}
+		for i = #RAR.Order, 1, -1 do
+			local r = RAR.Order[i]
+			local w = (RAR.Weights[r] or 0) * (boosted[r] and mult or 1)
+			w = math.min(w, room)
+			out[r] = w
+			room = room - w
+		end
 		luckWeights[mult] = out
 	end
 	return luckWeights[mult]
