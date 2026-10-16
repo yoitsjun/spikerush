@@ -127,6 +127,7 @@ Assets.Sounds = {
 	SkyPeak = "", -- Seora's jump climbs: borrows Ines's parry, quicker (the owner: "nice and quick sword shink maaybe reuse ines"; the Magic Swirling Tone, 9116408879, was "bad")
 	FeralFull = "", -- Feral Leap: the charge is full (let go now)
 	FeralLeap = "", -- Feral Leap: the leap off the floor (louder the fuller the charge)
+	Bloodlust = "9116292530", -- Dante's Bloodlust (Q): "Lion Roar Beast Snarl 5" (Pro Sound Effects)
 	RallyCry = "",
 	-- the new characters' moves (2026-10-12, the owner: "add some cool sfx too"; Pro Sound Effects
 	-- unless noted, starts and gains measured in a playtest)

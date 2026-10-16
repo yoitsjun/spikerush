@@ -166,6 +166,7 @@ local function buildCtx(info, action, t)
 		coronaStacks = has.Corona and (player:GetAttribute("CoronaStacks") or 0) or nil,
 		squallOn = has.Squall and AC.abilityActive("Squall") or nil,
 		stormOn = has.Thunder and AC.abilityActive("Thunder") or nil,
+		bloodlust = has.Feral and AC.abilityActive("Feral") or nil, -- (Bloodlust: the gauge may go past full)
 		static = has.Thunder and (player:GetAttribute("Static") or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 		hex = Halloween.effects(player:GetAttribute("Hex")), -- the Halloween Match's cards that hit me
@@ -826,12 +827,13 @@ local function isFeral()
 	return State.hasAbility("Feral")
 end
 
--- Feral Leap: the charge held on the ground, 0..1 (nil when not charging).
+-- Feral Leap: the charge held on the ground, 0..1, on to OverMax in Bloodlust (nil when not
+-- charging).
 function ActionController.prowlCharge()
 	if not prowl then
 		return nil
 	end
-	return math.clamp((os.clock() - prowl.t0) / FERAL.ChargeTime, 0, 1)
+	return HitLogic.feralGauge(os.clock() - prowl.t0, FERAL.ChargeTime, ActionController.abilityActive("Feral"))
 end
 
 -- The gauge the current jump took off with (0 unless it's a Feral Leap), and whether it went at
@@ -883,7 +885,7 @@ local function serveLeapAim(info, gauge)
 	local side = State.mySide
 	local dz = p.Z + side * (Z.SpikeForward + Z.SpikeCenterDz) - info.root.Z
 	local airTime = math.max(t - now - P.ApproachGather, 0.3)
-	return { dir = dz >= 0 and 1 or -1, carry = math.min(math.abs(dz) / airTime, FERAL.CarryMax * gauge) }
+	return { dir = dz >= 0 and 1 or -1, carry = math.min(math.abs(dz) / airTime, FERAL.CarryMax * math.min(gauge, 1)) }
 end
 
 -- Let go: a tap is the usual jump (or the double approach's first tap); a hold leaps
@@ -908,7 +910,7 @@ local function releaseProwl(info)
 		MC.approach(jumpKind)
 		return
 	end
-	local gauge = math.clamp(held / FERAL.ChargeTime, 0, 1)
+	local gauge = HitLogic.feralGauge(held, FERAL.ChargeTime, ActionController.abilityActive("Feral")) -- (past full in Bloodlust: the spike's, the carry stays a full one's)
 	local dir = MC.leap(gauge, jumpKind, p.serve and serveLeapAim(info, gauge) or nil)
 	if not dir then
 		mods.AnimationController.clearStance(State.myId)

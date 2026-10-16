@@ -259,6 +259,7 @@ function HitService.process(entity, input, opts)
 		coronaStacks = TS.has(entity, "Corona") and (entity.coronaStacks or 0) or nil,
 		squallOn = armed("Squall"),
 		stormOn = armed("Thunder"),
+		bloodlust = armed("Feral"), -- (Feral Leap's Bloodlust: the gauge may go past full)
 		static = TS.has(entity, "Thunder") and (entity.static or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
 		hex = Halloween.effects(entity.hex), -- the Halloween Match's cards that hit this character
@@ -424,7 +425,7 @@ function HitService.onRequest(plr, req)
 	local gauge, toward = 0, false
 	local cap = leapCap[entity.id]
 	if TS.has(entity, "Feral") and (req.action == "Spike" or req.action == "Serve") and cap and os.clock() - cap.at <= LEAP_LIFE then
-		gauge = math.min(num(req.gauge, 0, 1, 0), cap.gauge)
+		gauge = math.min(num(req.gauge, 0, FERAL.OverMax, 0), cap.gauge) -- (past 1 only in Bloodlust: the cap)
 		toward = req.toward == true
 		leapCap[entity.id] = nil
 	end
@@ -752,8 +753,10 @@ function HitService.init(r)
 				prowlAt[e.id] = os.clock()
 				leapCap[e.id] = nil
 			elseif kind == "Leap" then
+				-- (Bloodlust on: the charge could go past full, to OverMax)
 				local held = prowlAt[e.id] and os.clock() - prowlAt[e.id] or 0
-				leapCap[e.id] = { gauge = math.clamp(held / FERAL.ChargeTime + LEAP_SLACK, 0, 1), at = os.clock() }
+				local over = reg.TeamService.windowOf(e, "Feral") >= Util.now() - 0.1
+				leapCap[e.id] = { gauge = math.min(HitLogic.feralGauge(held, FERAL.ChargeTime, over) + LEAP_SLACK, over and FERAL.OverMax or 1), at = os.clock() }
 				prowlAt[e.id] = nil
 			end
 		end

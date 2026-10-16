@@ -1083,7 +1083,9 @@ Config.Abilities = {
 	Feral = {
 		Name = "Feral Leap",
 		Tier = "S+",
-		Blurb = "Hold Jump on the ground to charge, let go to leap: the longer the charge, the further you fly and the harder you hit. A full charge at the net breaks blocks with less Attack; your first of the match hits harder still.",
+		Active = true, -- Bloodlust (Q)
+		ActiveName = "Bloodlust",
+		Blurb = "Hold Jump on the ground to charge, let go to leap: the longer the charge, the further you fly and the harder you hit. A full charge at the net breaks blocks with less Attack; your first of the match hits harder still. Press Q for Bloodlust: for 10 s the charge fills past full, to 165%, and your spikes fly red.",
 		Kind = "Hold Jump on the ground",
 		AiNote = "Your AI charges it in the air on its own, at 85% Attack",
 		Color = Color3.fromRGB(165, 80, 255),
@@ -1098,8 +1100,20 @@ Config.Abilities = {
 		BreakKeep = 0.85, -- a spike that smashes through a block keeps this much of its speed
 		ReachMul = 1.15, -- a wider spike reach
 		LeapReachMul = 1.4, -- and wider still on the swing off a charged leap (the owner: "extend dante's swinging hitbox after he leaps")
+		-- Bloodlust (the owner, 2026-10-15: "lets add a buff to dante. he now has an active ability he
+		-- can pop to overcharge to maybe around 160 170% bar ... and it turns his ball red"): for
+		-- Duration the charge keeps filling past full, OverTime more to OverMax (HitLogic.feralGauge),
+		-- and past full the boost grows with the bar itself (x (1 + MaxBoost x gauge): a full 165%
+		-- about 268 km/h maxed, against 220 for a full leap). Every spike and jump serve he hits while
+		-- it's on flies red.
+		Duration = 10,
+		Cooldown = 22,
+		OverMax = 1.65,
+		OverTime = 0.45,
+		BloodColor = Color3.fromRGB(255, 36, 48),
 		Passives = {
 			{ Name = "Long Reach", Blurb = "Off a charged leap, your swing reaches much further than anyone's." },
+			{ Name = "Bloodlust", Blurb = "Press Q: for 10 s your charge fills past full, up to 165%, and an overcharged leap hits far harder. Every spike you hit while it's on turns the ball red." },
 		},
 		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front
 		-- played by the AI (a bot, or a stand-in for an idle player): the gauge fills in the air on
@@ -2095,6 +2109,7 @@ Config.Bots = {
 	CoronaChance = 0.3, -- and a Corona bot (Laith) his
 	SquallChance = 0.4, -- and a Squall bot (Haneul) hers
 	ThunderChance = 0.4, -- and a Thunder bot (YeJun) Storm Call
+	FeralChance = 0.4, -- and a Feral bot (Dante) Bloodlust
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
 	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it

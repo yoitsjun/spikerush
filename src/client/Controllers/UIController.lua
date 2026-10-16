@@ -1029,6 +1029,20 @@ local function badgeState(ability, id, model, team, mine)
 				sub = sub == "" and tag or (sub .. "  " .. tag)
 			end
 		end
+		if ability == "Feral" then
+			-- Feral Leap's charge (or the leap's gauge) shows over Bloodlust's window and cooldown
+			-- while there is one; past full, its percent
+			local v = 0
+			if mine then
+				v = AC.prowlCharge() or AC.leapGauge()
+			elseif model then
+				v = mods.VFXController.chargeOf(model, "feral") or 0
+			end
+			if v > 0 then
+				p, hot, count, dim = math.min(v, 1), v >= FERAL.FullAt, "", false
+				sub = v > 1.005 and string.format("%d%%", math.floor(v * 100 + 0.5)) or (on and "BLOODLUST" or "")
+			end
+		end
 		if ability == "Corona" and not on then
 			-- his penalty while the flare is off: 1.5% for every use (a timeout clears it)
 			local stacks = (mine and player:GetAttribute("CoronaStacks")) or (model and model:GetAttribute("CoronaStacks")) or 0
@@ -1036,17 +1050,6 @@ local function badgeState(ability, id, model, team, mine)
 				local pen = string.format("-%g%%", stacks * def.PenaltyPer * 100)
 				sub = sub == "" and pen or (sub .. "  " .. pen)
 			end
-		end
-	elseif ability == "Feral" then
-		local v = 0
-		if mine then
-			v = AC.prowlCharge() or AC.leapGauge()
-		else
-			v = model and mods.VFXController.chargeOf(model, "feral") or 0
-		end
-		p, hot = v, v >= FERAL.FullAt
-		if mine and not player:GetAttribute("FirstStrikeUsed") then
-			sub = "FIRST STRIKE"
 		end
 	elseif ability == "Azure" then
 		if mine then

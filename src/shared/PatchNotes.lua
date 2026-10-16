@@ -27,8 +27,15 @@ PatchNotes.List = {
 					{ Text = "59 cards: stat buffs and trade-offs, team cards, curses on the other team, rule changes, and an <b>ability card</b> for every ability. Ability cards stack on your own ability, up to <b>two</b> of them." },
 					{ Text = "The <b>Halloween banner</b> (VP or Candy): the Pumpkin and Witch Hat balls, the Pumpkin Burst and Ghost Swarm score effects, Halloween jumps, trails and colours, the <b>Haunted Forest</b>, and the Mythic <b>Reaper</b>. Every recruit is a scout point: spend them to pick an item outright." },
 					{ Icon = "AbilityZeroPoint", Text = "<b>The Reaper</b> is Taeho's skin: he spikes with a void scythe, souls stream behind the ball and his Zero Point gets its own impact frame. Swap it on and off any time on his page." },
-					{ Text = "<b>The Haunted Forest</b>: Home out in a moonlit forest, the clubhouse a haunted cabin among dead trees, with a graveyard, a bubbling cauldron, jack-o'-lanterns and a huge orange moon. Put it on with Home's new <b>Decorate</b> button." },
+					{ Text = "<b>The Haunted Forest</b>: Home out in a moonlit forest, the clubhouse a haunted cabin among dead trees, with a graveyard, a bubbling cauldron, jack-o'-lanterns and a huge orange moon. Home's new <b>Decorate</b> shows a room behind you the moment you pick it; Apply keeps it." },
 					{ Text = "The <b>Candy shop</b>: lucky spins, Gold, VP and Halloween cosmetics." },
+				},
+			},
+			{
+				Heading = "Recruits",
+				Items = {
+					{ Text = "Odds now go by tier: a recruit lands on a tier first (<b>S+ 0.5%</b>, S 3%, S- 1% and so on, all adding up to 100%), then on one of its players. Boost and Lower move your odds inside the tier. The probability table shows every tier with its chance, and each player's share of it." },
+					{ Text = "Pumpkin, Blood Moon and Ectoplasm have colours of their own now, so they no longer look like Tangerine, Crimson and Lime. The Locker's swatches show each colour's bands." },
 				},
 			},
 			{
@@ -42,6 +49,7 @@ PatchNotes.List = {
 			{
 				Heading = "Player changes",
 				Items = {
+					{ Icon = "AbilityFeral", Text = "<b>Dante</b>: new <b>Bloodlust</b> (Q). For 10 seconds his charge keeps filling past full, up to <b>165%</b>, and an overcharged leap hits around 265 km/h. Every spike he hits while it's on turns the ball blood red." },
 					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> buffed: while he has shields he's an <b>Iron Wall</b> at the net. Every attack that crosses in front of him is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
 				},
 			},

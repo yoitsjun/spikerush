@@ -899,7 +899,7 @@ local function serveLogic(b, now, grounded, side)
 		local ok, _, _, dy = HitLogic.spikeZone(root, ball, side, e.charStats, 1.1)
 		if ok and dy <= Z.SpikeCenterDy + 0.3 then
 			if b.leapFrom then
-				extra.gauge = math.clamp((now - b.leapFrom) / FERAL.AutoChargeTime, 0, 1)
+				extra.gauge = HitLogic.feralGauge(now - b.leapFrom, FERAL.AutoChargeTime, on(e, "Feral", now)) -- (past full in Bloodlust)
 				extra.toward = true
 			end
 			if act(b, "Serve", ball, extra) and b.leapFrom then
@@ -920,7 +920,7 @@ end
 -- the rally; Corona's penalty after makes it pop his less often). Each one it plays (its own, then
 -- its cards in hand order) rolls its own chance once a serve, on its own cooldown, so two can be
 -- on at once.
-local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance", Thunder = "ThunderChance" }
+local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance", Thunder = "ThunderChance", Feral = "FeralChance" }
 local function rallyCry(b, now)
 	local e = b.entity
 	if playerLed(e.team) then
@@ -1188,7 +1188,7 @@ local function updateBot(b, now)
 				end
 				local extra = { t = t, energy = energy }
 				if b.leapFrom then
-					extra.gauge = math.clamp((t - b.leapFrom) / FERAL.AutoChargeTime, 0, 1)
+					extra.gauge = HitLogic.feralGauge(t - b.leapFrom, FERAL.AutoChargeTime, on(e, "Feral", t)) -- (past full in Bloodlust)
 					extra.toward = true
 				end
 				if b.rng:NextNumber() < tierPair(b, B.SpikeMishitChance) then

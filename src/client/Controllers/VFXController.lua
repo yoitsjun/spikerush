@@ -1184,7 +1184,7 @@ HW.Breakthrough = require(Shared.Breakthrough)
 HW.sets = {} -- an "Abilities" string -> its set (read every frame)
 HW.abilityRow = {} -- entityId -> its last ability popup, { t, n } (VFXController.ability)
 HW.statusHl = {} -- model -> its one status Highlight (the status auras')
-HW.HL_ORDER = { "Storm", "Corona", "Squall", "Molten", "Rally", "Adrenaline" } -- which one it shows
+HW.HL_ORDER = { "Storm", "Blood", "Corona", "Squall", "Molten", "Rally", "Adrenaline" } -- which one it shows
 function HW.has(inst, name)
 	if not inst then
 		return false
@@ -1774,6 +1774,7 @@ local STATUS = {
 	Corona = { fire = { Color3.fromRGB(255, 250, 215), Config.Abilities.Corona.Color }, rate = 26, fill = Color3.fromRGB(255, 200, 80), edge = Color3.fromRGB(255, 236, 160) },
 	Squall = { fire = { Color3.fromRGB(235, 255, 250), Config.Abilities.Squall.Color }, rate = 24, fill = Color3.fromRGB(60, 200, 175), edge = Color3.fromRGB(190, 255, 240) },
 	Storm = { fire = { Color3.fromRGB(255, 255, 230), Config.Abilities.Thunder.Color }, rate = 30, fill = Color3.fromRGB(255, 210, 40), edge = Color3.fromRGB(255, 245, 170) },
+	Blood = { fire = { Color3.fromRGB(255, 210, 200), Config.Abilities.Feral.BloodColor }, rate = 30, fill = Color3.fromRGB(200, 0, 24), edge = Color3.fromRGB(255, 110, 110) },
 	Molten = { fire = { Color3.fromRGB(255, 220, 140), Config.Abilities.Ironclad.Color }, rate = 30, fill = Color3.fromRGB(255, 90, 30), edge = Color3.fromRGB(255, 180, 90) },
 }
 
@@ -1856,6 +1857,19 @@ function VFXController.ability(entityId, ability, index)
 		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Storm Call!", def.Color, 1.3)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("ScoreThunder", { volume = 0.8, pos = pos })
+		end
+	elseif ability == "Feral" then
+		-- Bloodlust: a blood-red shock off him, red fire at his feet and a low boom
+		local pos = hrp.Position
+		local red = def.BloodColor
+		floorRing(pos, red, 11, 0.6)
+		ringFx(pos + Vector3.new(0, 2, 0), red, 2, 13, 0.4, 8)
+		starburst(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 205, 195), 12)
+		Fx.play("Fire", pos + Vector3.new(0, 1, 0), { color = red, scale = 1.4 })
+		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Bloodlust!", red, 1.3)
+		if mods and mods.AudioController.hearsMatch() then
+			mods.AudioController.play("Bloodlust", { volume = 0.9, pos = pos })
+			mods.AudioController.play("Boom", { volume = 0.45, speed = 0.7 })
 		end
 	elseif ability == "Squall" then
 		-- the squall: a wind spiral round her, a ring of it on the floor
@@ -2833,6 +2847,9 @@ local function updateAbilityFx(dt)
 				if HW.has(model, "Thunder") and HW.untilOf(model, "Thunder") >= clock then
 					w.Storm = 1 -- Storm Call
 				end
+				if HW.has(model, "Feral") and HW.untilOf(model, "Feral") >= clock then
+					w.Blood = 1 -- Bloodlust
+				end
 				if HW.has(model, "Ironclad") and HitLogic.ironLives(model:GetAttribute("IronLives")) == 0 then
 					w.Molten = 1 -- Ironclad awakened
 				end
@@ -3004,6 +3021,16 @@ function newArc(model, hrp, kind)
 	fill.Parent = main.stroke
 	local outer = arcBand(gui, ARC_OUTER, st.light)
 	fadeEnds(outer.stroke)
+	-- Bloodlust: past full a blood-red band climbs over the violet one, to OverMax at the top
+	local blood = st.flames and arcBand(gui, ARC_MAIN, Config.Abilities.Feral.BloodColor) or nil
+	local bloodFill = nil
+	if blood then
+		blood.stroke.Transparency = 0
+		bloodFill = Instance.new("UIGradient")
+		bloodFill.Rotation = -90
+		bloodFill.Transparency = NumberSequence.new(1)
+		bloodFill.Parent = blood.stroke
+	end
 	return {
 		kind = kind,
 		style = st,
@@ -3014,6 +3041,8 @@ function newArc(model, hrp, kind)
 		main = main,
 		fill = fill,
 		outer = outer,
+		blood = blood,
+		bloodFill = bloodFill,
 		aura = st.flames and Fx.attach("StatusAura", att) or NO_AURA,
 		dir = 0,
 		value = 0,
@@ -3037,7 +3066,7 @@ function dropArc(model, kind)
 	a.aura.set(false)
 	-- the flames already out finish their life, then everything goes
 	TweenService:Create(a.gui, TweenInfo.new(0.18), { Size = UDim2.new(ARC_STUDS * 1.25, 0, ARC_STUDS * 1.25, 0) }):Play()
-	for _, b in ipairs({ a.track, a.main, a.outer }) do
+	for _, b in ipairs({ a.track, a.main, a.outer, a.blood }) do
 		TweenService:Create(b.stroke, TweenInfo.new(0.18), { Transparency = 1 }):Play()
 	end
 	TweenService:Create(a.glow, TweenInfo.new(0.18), { ImageTransparency = 1 }):Play()
@@ -3068,7 +3097,7 @@ local function remoteArc(model, how, value, time)
 		a.t0, a.rate, a.fixed = os.clock(), 1 / math.max(time or 1, 0.05), nil
 		a.untilT = os.clock() + 6
 	else
-		a.fixed = math.clamp(value or a.value, 0, 1)
+		a.fixed = math.clamp(value or a.value, 0, Config.Abilities.Feral.OverMax) -- (past full: Bloodlust's)
 		a.untilT = os.clock() + 3
 	end
 end
@@ -3081,10 +3110,11 @@ local function leapBurst(model, gauge)
 	end
 	local p = hrp.Position
 	local foot = Vector3.new(p.X, 0.25, p.Z)
-	floorRing(foot, FERAL, 4 + 6 * gauge)
-	Fx.play("Fire", foot + Vector3.new(0, 1, 0), { color = FERAL, scale = 0.7 + 0.7 * gauge })
+	local col = gauge > 1.005 and Config.Abilities.Feral.BloodColor or FERAL -- (an overcharged leap's, Bloodlust's red)
+	floorRing(foot, col, 4 + 6 * gauge)
+	Fx.play("Fire", foot + Vector3.new(0, 1, 0), { color = col, scale = 0.7 + 0.7 * gauge })
 	if gauge >= Config.Abilities.Feral.FullAt then
-		Fx.play("Ring", p + Vector3.new(0, 1, 0), { color = FERAL_HOT, scale = 1.1 })
+		Fx.play("Ring", p + Vector3.new(0, 1, 0), { color = gauge > 1.005 and col or FERAL_HOT, scale = 1.1 * math.max(gauge, 1) })
 	end
 	if mods and mods.AudioController then
 		mods.AudioController.play("FeralLeap", { pos = p, volume = 0.6 + 0.4 * gauge })
@@ -3127,7 +3157,8 @@ local function updateArcs(dt)
 				dropArc(model, kind)
 			else
 				if a.remote then
-					a.value = a.fixed or math.min(1, (now - a.t0) * a.rate)
+					-- (past full while that player's Bloodlust is on)
+					a.value = a.fixed or HitLogic.feralGauge(now - a.t0, 1 / a.rate, a.kind == "feral" and HW.has(model, "Feral") and HW.untilOf(model, "Feral") >= Util.now())
 				end
 				local v = a.value
 				local st = a.style
@@ -3138,7 +3169,7 @@ local function updateArcs(dt)
 				end
 				if dir ~= a.dir then
 					a.dir = dir
-					for _, b in ipairs({ a.track, a.main, a.outer }) do
+					for _, b in ipairs({ a.track, a.main, a.outer, a.blood }) do
 						layoutBand(b, dir)
 					end
 					a.glow.Position = UDim2.fromScale(0.5 + dir * 0.36, 0.5)
@@ -3147,6 +3178,36 @@ local function updateArcs(dt)
 				local px = a.gui.AbsoluteSize.X
 				a.track.stroke.Thickness = px * 0.07
 				a.main.stroke.Thickness = px * 0.07
+				if a.blood then
+					-- Bloodlust's overcharge: the red band's share of the way from full to OverMax
+					local FL = Config.Abilities.Feral
+					local o = math.clamp((v - 1) / (FL.OverMax - 1), 0, 1)
+					a.blood.stroke.Thickness = px * 0.085
+					if math.abs(o - (a.bloodShown or -1)) > 0.004 then
+						a.bloodShown = o
+						if o <= 0.005 then
+							a.bloodFill.Transparency = NumberSequence.new(1)
+						elseif o >= 0.995 then
+							a.bloodFill.Transparency = NumberSequence.new(0)
+						else
+							a.bloodFill.Transparency = NumberSequence.new({
+								NumberSequenceKeypoint.new(0, 0),
+								NumberSequenceKeypoint.new(o, 0),
+								NumberSequenceKeypoint.new(math.min(o + 0.02, 0.999), 1),
+								NumberSequenceKeypoint.new(1, 1),
+							})
+						end
+					end
+					if o >= 0.995 and not a.bloodFull then
+						a.bloodFull = true -- topped out: a red ring off him
+						Fx.play("Ring", hrp.Position + Vector3.new(0, 1, 0), { color = FL.BloodColor, scale = 1.1 })
+						if model == mine and mods and mods.AudioController then
+							mods.AudioController.play("FeralFull", { volume = 1, speed = 0.8 })
+						end
+					elseif o < 0.995 then
+						a.bloodFull = false
+					end
+				end
 				a.outer.stroke.Thickness = math.max(1, px * 0.016)
 				local full = v >= (a.kind == "azure" and 0.995 or Config.Abilities.Feral.FullAt)
 				if math.abs(v - a.shown) > 0.004 then

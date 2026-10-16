@@ -919,6 +919,19 @@ do
 	local _, firstHalf = leapSpike(0.5, true, { firstStrike = true })
 	check(first.meta.firstStrike and math.abs(first.meta.kmh / full.meta.kmh - (1 + FERAL.FirstBoost)) < 0.005 and not full.meta.firstStrike and not firstHalf.meta.firstStrike,
 		"the match's first full charge hits harder still (a partial one doesn't spend it)", string.format("%.0f km/h", first.meta.kmh))
+	-- Bloodlust (the owner, 2026-10-15: "he now has an active ability he can pop to overcharge to
+	-- maybe around 160 170% bar ... and it turns his ball red"): with it on the charge fills past
+	-- full to OverMax and the spike grows with the bar; without it the gauge stops at full
+	local _, over = leapSpike(FERAL.OverMax, true, { bloodlust = true })
+	local _, capped = leapSpike(FERAL.OverMax, true)
+	local _, redFull = leapSpike(1, true, { bloodlust = true })
+	local CT = FERAL.ChargeTime
+	local g0, g1, g2, g3 = HitLogic.feralGauge(CT * 0.5, CT, true), HitLogic.feralGauge(CT + FERAL.OverTime, CT, true), HitLogic.feralGauge(CT + FERAL.OverTime, CT, false), HitLogic.feralGauge(9, CT, true)
+	check(FERAL.Active and FERAL.OverMax >= 1.6 and FERAL.OverMax <= 1.7 and math.abs(g0 - 0.5) < 1e-9 and math.abs(g1 - FERAL.OverMax) < 1e-9 and g2 == 1 and g3 == FERAL.OverMax
+		and over.meta.gauge == FERAL.OverMax and over.meta.bloodlust and capped.meta.gauge == 1 and not capped.meta.bloodlust and math.abs(capped.meta.kmh - full.meta.kmh) < 0.01
+		and redFull.meta.bloodlust and math.abs(redFull.meta.kmh - full.meta.kmh) < 0.01 and over.meta.kmh > full.meta.kmh * 1.15 and over.meta.kmh < 290,
+		"Bloodlust (Q): the charge fills past full to 165% and hits far harder; without it the gauge stops at full; every spike in it flies red",
+		string.format("165%%: %.0f km/h against %.0f for a full leap", over.meta.kmh, full.meta.kmh))
 
 	-- the block break: through a blocker with less Attack, not one with more, never Iron Wall;
 	-- blocked where the full leap spike reaches the net

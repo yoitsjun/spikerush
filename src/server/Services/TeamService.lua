@@ -395,6 +395,7 @@ function TeamService.boostCtx(e, t)
 		coronaOn = TeamService.has(e, "Corona") and TeamService.windowOf(e, "Corona") >= now or nil,
 		coronaStacks = TeamService.has(e, "Corona") and (e.coronaStacks or 0) or nil,
 		squallOn = TeamService.has(e, "Squall") and TeamService.windowOf(e, "Squall") >= now or nil,
+		bloodlust = TeamService.has(e, "Feral") and TeamService.windowOf(e, "Feral") >= now or nil,
 		breakLevel = e.breakLevel, -- (its own ability's)
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 		hex = Halloween.effects(e.hex), -- the Halloween Match's cards that hit it

@@ -407,10 +407,11 @@ local function ring(name, color, strong)
 	entry.ring.Transparency = strong and 0 or 0.3
 end
 
--- Feral Leap's charge (0..1) on the Jump button: violet, magenta once full.
+-- Feral Leap's charge (0..1) on the Jump button: violet, magenta once full, blood red past full
+-- (Bloodlust).
 local function prowlRing(charge)
 	local F = Config.Abilities.Feral
-	ring("C", charge >= F.FullAt and Color3.fromRGB(255, 80, 210) or F.Color, true)
+	ring("C", (charge > 1.005 and F.BloodColor) or (charge >= F.FullAt and Color3.fromRGB(255, 80, 210)) or F.Color, true)
 end
 
 ------------------------------------------------------------------------------------------

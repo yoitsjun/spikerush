@@ -249,6 +249,18 @@ function HitLogic.spikeReach(ability, gauge)
 	return 1
 end
 
+-- Feral Leap's gauge after holding the charge `held` seconds (chargeTime fills it: the player's
+-- ChargeTime, the AI's AutoChargeTime). With Bloodlust on (`over`) it keeps filling past full,
+-- OverTime more to OverMax; without, it stops at 1.
+function HitLogic.feralGauge(held, chargeTime, over)
+	local g = math.max(tonumber(held) or 0, 0) / math.max(chargeTime or FERAL.ChargeTime, 0.01)
+	if g <= 1 or not over then
+		return math.min(g, 1)
+	end
+	local extra = (held - (chargeTime or FERAL.ChargeTime)) / math.max(FERAL.OverTime, 0.01)
+	return math.min(1 + extra * (FERAL.OverMax - 1), FERAL.OverMax)
+end
+
 -- Updraft (Squall): whether the ball's last touch is a set she slows (a teammate's, not her own).
 function HitLogic.updraftCanSlow(meta, team, id)
 	return type(meta) == "table" and meta.hitType == "Set" and meta.team ~= nil and meta.team == team and meta.id ~= id
@@ -1139,16 +1151,22 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.counterRelease = c
 	end
 	-- Feral Leap: the gauge his leap took off with powers the spike or the jump serve (input.gauge,
-	-- 0..1). A full spike leaping at the net (input.toward) smashes through a block with less
-	-- Attack than his (meta.breakAtk, read by the blocker's touch; serves are never blocked), and
-	-- his first full one of the match (ctx.firstStrike: not used yet) hits harder still
+	-- 0..1, to OverMax with Bloodlust on: ctx.bloodlust). A full spike leaping at the net
+	-- (input.toward) smashes through a block with less Attack than his (meta.breakAtk, read by the
+	-- blocker's touch; serves are never blocked), and his first full one of the match
+	-- (ctx.firstStrike: not used yet) hits harder still. Every spike and jump serve he hits in
+	-- Bloodlust flies red (meta.bloodlust)
 	local fullLeap = false
 	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Feral") then
-		local g = clamp(input.gauge or 0, 0, 1)
+		local g = clamp(input.gauge or 0, 0, ctx.bloodlust and FERAL.OverMax or 1)
 		local bonus = ctx.auto and FERAL.AutoBoostMul or 1 -- the AI gets less out of it
 		if g > 0 then
-			kmh = kmh * (1 + ab("Feral", "MaxBoost", levelOf(ctx, "Feral")) * bonus * g ^ 1.2)
+			-- (past full the boost grows with the bar itself: 165% gives x (1 + MaxBoost x 1.65))
+			kmh = kmh * (1 + ab("Feral", "MaxBoost", levelOf(ctx, "Feral")) * bonus * (g <= 1 and g ^ 1.2 or g))
 			meta.gauge = math.floor(g * 100 + 0.5) / 100
+		end
+		if ctx.bloodlust then
+			meta.bloodlust = true
 		end
 		if g >= FERAL.FullAt then
 			fullLeap = true
@@ -1326,7 +1344,8 @@ end
 --        enemyPoints (Rising Sun), teamBoost (Rally Cry), counter (Counter Edge meter 0..100),
 --        turnabout (Turnabout armed), firstStrike (Feral Leap's first full charge not used yet),
 --        auto (played by the AI), chain (Chain Reaction: the team's explosions this rally),
---        coronaOn and coronaStacks (Corona: on, and how many times it's been used)
+--        coronaOn and coronaStacks (Corona: on, and how many times it's been used), bloodlust
+--        (Feral Leap's Bloodlust on: the gauge may go past full)
 ------------------------------------------------------------------------------------------
 
 function HitLogic.compute(input, ctx)
