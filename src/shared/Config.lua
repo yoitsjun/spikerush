@@ -175,6 +175,15 @@ Config.Hits = {
 	FeintApexOverNet = 0.8 * M,
 	FeintMaxDepth = 2.8 * M,
 	FeintError = 0.8 * M,
+	-- (the owner, 2026-10-16: "Buff faints. Right now they cannot go over any blocks. Especially
+	-- tetsuo. In tsc, faints are heavily effective tools that break stamina when they are low and
+	-- usually never get blocked. Sure it still can, but a very light soft touch block"): a block
+	-- reaches a feint FeintTouchChance of the time (x the block's quality; Iron Wall and Bulwark the
+	-- same, no perfect stop) and then only softens it; dug with the team's guard at FeintBreakAt or
+	-- less it breaks the guard, above that it costs FeintDrain
+	FeintTouchChance = 0.22,
+	FeintBreakAt = 0.3,
+	FeintDrain = 6,
 
 	-- Receives: high and slow so the setter has time
 	PassApexMin = 5.6 * M,

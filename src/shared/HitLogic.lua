@@ -1469,6 +1469,13 @@ function HitLogic.compute(input, ctx)
 		if ctx.forceQuality then
 			q = ctx.forceQuality
 		end
+		-- a feint floats over most blocks, Iron Wall's and Bulwark's too: now and then the hands
+		-- reach it (FeintTouchChance x the block's quality), and then they only soften it (the same
+		-- seeded roll on the client and the server)
+		local feint = last.hitType == "Feint" and not last.reaction
+		if feint and rng:NextNumber() >= H.FeintTouchChance * clamp(q, 0, 1) then
+			return false, "feint"
+		end
 		local inc = ctx.ballVel or Vector3.new(0, 0, side * 9.4 * SPM)
 		local attackKmh = last.kmh or HitLogic.kmh(inc.Magnitude)
 		local power, over = 0, 0
@@ -1492,7 +1499,7 @@ function HitLogic.compute(input, ctx)
 		-- Ironclad's Bulwark (ctx.ironclad: he has shields) is Iron Wall for his 3 lives (the owner,
 		-- 2026-10-15): the same whole wall and perfect shut-down, tips and the hardest spikes
 		-- included; each stop cracks a shield instead (HitLogic.ironAfterBlock)
-		local perfect = ctx.ironWall or ctx.ironclad == true
+		local perfect = (ctx.ironWall or ctx.ironclad == true) and not feint
 		if perfect then
 			-- Iron Wall: a perfect block, whatever reaches the hands (pierce, thunder and a Feral
 			-- smash included), wherever it meets them
@@ -1506,7 +1513,16 @@ function HitLogic.compute(input, ctx)
 		meta.ironWall = perfect or nil
 		meta.bulwark = (ctx.ironclad and not ctx.ironWall) or nil -- (Bulwark's block: its stops crack a shield)
 		local p, v, a, hold = nil, nil, nil, 0
-		if smash then
+		if feint then
+			-- a light touch: the feint slowed, dropping on the blockers' side for them to play (never a
+			-- stuff, and no Bulwark shield cracks on it: meta.ironWall stays off)
+			meta.outcome = "Soft"
+			meta.noDrain = true
+			meta.feintTouch = true
+			p = Vector3.new(0, ball.Y, side * (R + 0.1))
+			v = Vector3.new(0, SPM * (2.2 + 1.2 * rng:NextNumber()), side * SPM * (1.2 + rng:NextNumber()))
+			a = Vector3.new(0, -G, 0)
+		elseif smash then
 			-- through the hands and on down into the blockers' court, barely slowed: still a spike
 			-- to dig (isHeavy), and the attacker's point if it lands (MatchService.judge)
 			meta.outcome = "Break"
@@ -1658,6 +1674,15 @@ function HitLogic.compute(input, ctx)
 		end
 		local perfect = heavy and not sliding and q >= H.PerfectAt
 		local drain = 0
+		-- a feint dug (not an exploding one: that's heavy): FeintDrain, and with the guard at
+		-- FeintBreakAt or lower it breaks it (the owner: "faints ... break stamina when they are low")
+		local feint = last ~= nil and last.team ~= ctx.team and last.hitType == "Feint" and not heavy
+		if feint and stam.max > 0 then
+			drain = pct <= H.FeintBreakAt and (stam.value + 1) or H.FeintDrain
+			if ctx.hex then
+				drain = drain * ctx.hex.drainTake
+			end
+		end
 		if heavy then
 			drain = HitLogic.drainFor(incomingKmh, stats) * (last.tierDrain or 1)
 			if sliding then
@@ -1714,7 +1739,7 @@ function HitLogic.compute(input, ctx)
 			local k = ST.LowQualityFloor + (1 - ST.LowQualityFloor) * (pct / ST.RedAt)
 			q = q * k
 		end
-		if heavy and stam.value > 0 and stam.value - drain <= 0 then
+		if (heavy or feint) and stam.value > 0 and stam.value - drain <= 0 then
 			-- this ball breaks the guard: it blasts off the arms and flies out behind the receiver
 			meta.breaks = true
 			meta.quality = 0

@@ -502,7 +502,16 @@ do
 			and walled(block(130, { seq = seq, pierce = true })) and walled(block(240, { seq = seq, breakAtk = 999 }))
 	end
 	local okW, held = block(140)
-	local tipOk = walled(block(60, { hitType = "Feint" }))
+	-- (a feint floats over even Bulwark, the owner, 2026-10-16: no wall stops it, a touch is soft)
+	local tipOk, tipTouches = true, 0
+	for seq = 1, 60 do
+		local okF, rF = block(60, { hitType = "Feint", seq = seq })
+		if okF then
+			tipTouches = tipTouches + 1
+			tipOk = tipOk and rF.meta.outcome == "Soft" and not rF.meta.ironWall and not rF.meta.perfectBlock
+		end
+	end
+	tipOk = tipOk and tipTouches < 25
 	local highOk = walled(block(120, { ball = under(-6) }))
 	local standOk = walled(block(200, { root = vec(0, GROUND, side * 1.2), ball = vec(0, C.NetTop + 6, side * 0.6) }))
 	local reachOk = walled(block(120, { ball = tips })) and walled(block(120, { ball = chest })) and walled(block(120, { ball = legs }))
@@ -522,7 +531,7 @@ do
 	check(allHeld and okW and tipOk and highOk and standOk and reachOk and not okBare
 		and l1 == 3 and c1 == 1 and l2 == 2 and c2 == 0 and stops == 6 and l4 == 3 and c4 == 1 and l5 == 0 and IR.CracksToBreak == 2
 		and HitLogic.wallReach(false, true, "Feint") == true and IW.ReachUp > 10,
-		"Bulwark is Iron Wall for 3 lives: every attack shut down (260 km/h, clean, piercing, smashing, tips, standing, any height); a stop cracks a shield, the next shatters it: 6 stops",
+		"Bulwark is Iron Wall for 3 lives: every attack shut down (260 km/h, clean, piercing, smashing, standing, any height) but feints (they float over; a touch is soft); a stop cracks a shield, the next shatters it: 6 stops",
 		string.format("stops: 3 -> %d (%d crack) -> %d (%d); 3 shields last %d stops", l1, c1, l2, c2, stops))
 	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 20 and IR.MeterBonus > 0,
 		"Bulwark: 3 shields to start; awakened, every touch fills Intimidation 20% (a kill or a stuff more)")
@@ -2771,6 +2780,36 @@ do
 	local g0 = Economy.code("UPDATE2")
 	check(g1 and g1.VP == 350 and g1.Gold == 6000 and g1.Lucky == 3 and g0 and g0.VP == 500 and g0.Gold == 5000 and g0.Lucky == 1 and Economy.code("update 1") ~= nil and Economy.code("RELEASE") == nil,
 		"the codes UPDATE1 and UPDATE2 (RELEASE's rewards) work in any case, spaces ignored; RELEASE is retired")
+end
+
+print("== feints get past blocks and break a low guard ==")
+do
+	-- the owner (2026-10-16): "Buff faints. Right now they cannot go over any blocks. Especially
+	-- tetsuo. In tsc, faints ... break stamina when they are low and usually never get blocked. Sure
+	-- it still can, but a very light soft touch block"
+	local tet = Characters.derive(Characters.fromRoster(Roster.get("tetsuo"), "max"))
+	local broot = vec(0, GROUND + Characters.jumpHeight(tet, GROUND) * 0.9, side * 1.2)
+	local hands = vec(0, broot.Y + Z.BlockReachUp - 1.2, side * 0.6)
+	local touched, soft, stuffed = 0, true, false
+	for seq = 1, 200 do
+		local wall = seq % 2 == 0 -- (half with Iron Wall up)
+		local okB, rB = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = hands, vy = 0, grounded = false },
+			ctx({ ability = "IronWall", stats = tet, ironWall = wall or nil, lastHit = { hitType = "Feint", team = "Home", kmh = 32 }, ballVel = vec(0, -6, side * 12), seq = seq }))
+		if okB then
+			touched = touched + 1
+			soft = soft and rB.meta.outcome == "Soft" and not rB.meta.perfectBlock
+			stuffed = stuffed or rB.meta.outcome == "Stuff"
+		end
+	end
+	-- dug: a little guard at a healthy bar, the guard broken at a low one
+	local root = vec(0, GROUND, side * 18 * K)
+	local ball = vec(0, root.Y + Z.ReceiveIdealY, root.Z - side * Z.ReceiveForward)
+	local feintHit = { team = "Home", hitType = "Feint", kmh = 32, noDrain = true }
+	local _, high = receive(root, ball, { value = 100, max = 100 }, { stanceAge = 0.6 }, { lastHit = feintHit, ballVel = vec(0, -8, side * 10) })
+	local _, low = receive(root, ball, { value = 25, max = 100 }, { stanceAge = 0.6 }, { lastHit = feintHit, ballVel = vec(0, -8, side * 10) })
+	check(touched > 0 and touched < 80 and soft and not stuffed and (high.meta.drain or 0) == Config.Hits.FeintDrain and not high.meta.breaks and low.meta.breaks and (low.meta.drain or 0) > 25,
+		"feints float over most blocks (Tetsuo, Iron Wall up or not: touched now and then, never stuffed, only softened); dug, they chip the guard and break a low one",
+		string.format("%d of 200 blocks touched; dug at 100%%: -%d, at 25%%: guard broken", touched, high.meta.drain or 0))
 end
 
 print("== 2x luck ==")
