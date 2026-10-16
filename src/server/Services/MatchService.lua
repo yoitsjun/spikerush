@@ -594,8 +594,8 @@ local function results(winner, forfeitTeam)
 					end
 					-- the admin panel's events (2x VP, 2x Gold)
 					-- and the player's own 2x VP boost (Config.Boosts) and game passes (Config.Passes):
-					-- they multiply
-					boostVP = reg.AdminService.multiplier("VP") * reg.ProfileService.boost(e.player, "VP") * reg.ProfileService.passMult(e.player, "VP")
+					-- they multiply (ProfileService.vpMult: tournament prizes and daily rewards pay it too)
+					boostVP = reg.ProfileService.vpMult(e.player)
 					boostGold = reg.AdminService.multiplier("Gold") * reg.ProfileService.passMult(e.player, "Gold")
 					reward, gold = math.floor(reward * boostVP + 0.5), math.floor(gold * boostGold + 0.5)
 					reg.ProfileService.award(e.player, reward, gold)
@@ -633,7 +633,7 @@ local function results(winner, forfeitTeam)
 	end
 	-- the MVP's bonus V Points
 	if mvp and mvp.player and mvp.team ~= forfeitTeam and not cup then
-		local bonus = P.MvpVP * reg.AdminService.multiplier("VP") * reg.ProfileService.boost(mvp.player, "VP") * reg.ProfileService.passMult(mvp.player, "VP")
+		local bonus = math.floor(P.MvpVP * reg.ProfileService.vpMult(mvp.player) + 0.5)
 		reg.ProfileService.award(mvp.player, bonus, 0)
 		if counts then
 			reg.ProfileService.addMvp(mvp.player) -- the MVP player card counts these

@@ -882,8 +882,9 @@ Config.Lucky = {
 	Trade = { 1, 5, 10 },
 }
 
--- Boosts (the owner: "developer products for 2x vpoints on timers"): a pack doubles the VP your
--- matches pay (the MVP bonus too) for its time, counted in real time from when you get it. Another
+-- Boosts (the owner: "developer products for 2x vpoints on timers"): a pack doubles the VP you
+-- earn (matches and their MVP bonus, tournament prizes, daily rewards: ProfileService.vpMult; never
+-- codes, gifts or packs) for its time, counted in real time from when you get it. Another
 -- adds its time on top, up to MaxHold. It multiplies with the admin panel's 2x VP event. Sold as
 -- Developer Products (a pack with Id 0 shows "Soon", and Studio grants it free), and can be gifted.
 Config.Boosts = {
@@ -951,14 +952,15 @@ Config.Bundles = {
 }
 
 -- Game passes, owned for good (Creator Hub > your experience > Monetization > Passes; 0 while
--- there isn't one). VP and Gold multiply what matches pay (the MVP bonus too), and multiply with
+-- there isn't one). VP multiplies the VP you earn (ProfileService.vpMult: matches and their MVP
+-- bonus, tournament prizes, daily rewards) and Gold what matches pay, and they multiply with
 -- each other, the boosts and the admin panel's events; Luck multiplies the Characters banner's
 -- luck like 2x Luck does (Spins.luckWeights), stacking with both. Card: the player card the pass
 -- gives (a Grant card); Tag: the chat tag its owners get. Developers own every pass.
 Config.Passes = {
 	Order = { "VIP", "DoubleVP", "Lucky" },
-	VIP = { PassId = 2021828280, Name = "VIP", Blurb = "1.5x V Points and Gold from every match, a gold VIP chat tag and the VIP player card.", VP = 1.5, Gold = 1.5, Card = "VIP", Tag = "VIP" }, -- 349 Robux
-	DoubleVP = { PassId = 2021552278, Name = "2x V Points", Blurb = "Every match pays double V Points, for good. Stacks with VIP, boosts and events.", VP = 2 }, -- 499
+	VIP = { PassId = 2021828280, Name = "VIP", Blurb = "1.5x the V Points you earn and the Gold matches pay, a gold VIP chat tag and the VIP player card.", VP = 1.5, Gold = 1.5, Card = "VIP", Tag = "VIP" }, -- 349 Robux
+	DoubleVP = { PassId = 2021552278, Name = "2x V Points", Blurb = "Matches, tournaments and daily rewards pay double V Points, for good. Stacks with VIP, boosts and events.", VP = 2 }, -- 499
 	Lucky = { PassId = 2022146273, Name = "Lucky", Blurb = "Your Characters recruits are 1.5x luckier, for good. Stacks with 2x Luck.", Luck = 1.5 }, -- 399
 }
 
@@ -1021,12 +1023,13 @@ Config.Daily = {
 }
 
 -- The admin panel (Home's Admin button, for developers: Config.Developers). Events double the VP
--- or Gold a match pays (Multiplier) for one of Durations (minutes), in every server; an
+-- you earn (matches, tournaments, daily rewards: ProfileService.vpMult) or the Gold a match pays
+-- (Multiplier) for one of Durations (minutes), in every server; an
 -- announcement shows to every player in every server; and Give sends VP, Gold, lucky spins and
 -- characters to anyone by username (online in any server at once, otherwise on their next join).
 Config.Admin = {
 	Durations = { 5, 10, 15, 20, 30 },
-	-- 2x VP and 2x Gold double what matches pay; 2x Luck (the owner: "add 2x luck, similar to the
+	-- 2x VP doubles earned VP and 2x Gold what matches pay; 2x Luck (the owner: "add 2x luck, similar to the
 	-- 2x gold and vp... this should lower the odds of getting the d's and the c's and double the
 	-- odds of getting better characters. from A- to above") changes recruits on the Characters
 	-- banner: Config.Spins.LuckEvent
@@ -1035,7 +1038,7 @@ Config.Admin = {
 	-- luck to admin panel"); VP and Gold stay at Multiplier
 	LuckMuls = { 2, 4, 6, 8, 16 },
 	EventNames = { VP = "V Points", Gold = "Gold", Luck = "Luck" },
-	EventLines = { VP = "Every match pays double.", Gold = "Every match pays double.", Luck = "Recruits are that many times as likely to be A- or better, and it multiplies with your own Luck." },
+	EventLines = { VP = "Matches, tournaments and daily rewards pay double.", Gold = "Every match pays double.", Luck = "Recruits are that many times as likely to be A- or better, and it multiplies with your own Luck." },
 	Multiplier = 2,
 	AnnounceMax = 200, -- characters
 	AnnounceSeconds = 10, -- how long an announcement shows
@@ -1730,7 +1733,8 @@ Config.Lobby = {
 -- per tier, each with its mode and modifiers, picked anew every Rotate seconds (the shared
 -- Cups module, the same everywhere). Pay Entry VP, then play Rounds matches against bot teams
 -- of Bots[round], one set to Points each; lose and you're out. All three won pays Prize (VP and
--- Gold); losing the last round pays Consolation. Tournament matches pay nothing else.
+-- Gold); losing the last round pays Consolation. Tournament matches pay nothing else; the 2x VP
+-- event, boosts and passes multiply the prize's VP (ProfileService.awardEarned).
 Config.Tournament = {
 	Rotate = 6 * 3600,
 	Rounds = 3,

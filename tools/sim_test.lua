@@ -2436,6 +2436,21 @@ do
 	check(stacked == t0 + 1800 and afterStack == t0 + 3600 and capped == t0 + B.MaxHold and expired == t0 + 900
 		and Economy.boost(fresh, "VP", t0 + 3599) == B.Multiplier and Economy.boost(fresh, "VP", t0 + 3600) == 1,
 		"2x VP boosts: start when received, stack on a running one, never hold more than a day, and end on time")
+	-- the 2x VP event, boosts and passes multiply all earned VP (matches, the MVP bonus, tournament
+	-- prizes, daily rewards; the owner, 2026-10-16: "only like earnable stuff, like tournaments and
+	-- matches and daily rewords. not codes") and nothing else in a grant
+	local CupsE = require("Cups")
+	local goldCup = CupsE.cup("Gold")
+	local prizeVP = CupsE.payout(goldCup, Config.Tournament.Rounds, true)
+	local day1 = Economy.daily(nil, 1000000).grant
+	local day7 = Economy.daily({ last = 1000000, streak = #D.Rewards - 1 }, 1000000 + D.Cooldown + 60).grant
+	local stackedVP = Economy.multiplier({ VP = 5000 }, "VP", 4999) * Economy.boost(fresh, "VP", t0 + 60) * Economy.passMult({ VIP = true, DoubleVP = true }, "VP")
+	local d1, d7 = Economy.earnedGrant(day1, 2), Economy.earnedGrant(day7, stackedVP)
+	check(Economy.earnedVP(prizeVP, 2) == 2 * goldCup.PrizeVP and Economy.earnedVP(Config.Progression.MvpVP, 1.5) == math.floor(Config.Progression.MvpVP * 1.5 + 0.5)
+		and day1.VP == D.Rewards[1].VP and d1.VP == 2 * day1.VP and d7.VP == math.floor(D.Rewards[7].VP * stackedVP + 0.5) and d7.Lucky == day7.Lucky and d7.Gold == day7.Gold
+		and day7.VP == D.Rewards[7].VP and Economy.earnedVP(100, 1) == 100 and Economy.earnedVP(100, 0.5) == 100,
+		"2x VP (the event, a boost, passes: they stack) multiplies earned VP: a tournament's prize, the MVP bonus, a daily reward's VP but not its spins",
+		string.format("Gold Cup %d -> %d VP; day 7 %d VP x%g -> %d", prizeVP, Economy.earnedVP(prizeVP, 2), day7.VP, stackedVP, d7.VP))
 end
 
 print("== breakthroughs ==")

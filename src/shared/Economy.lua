@@ -144,6 +144,26 @@ function Economy.boost(profile, kind, now)
 	return 1
 end
 
+-- Earned VP (a match, the MVP bonus, a tournament's prize, a daily reward) times `mult`, the
+-- server's ProfileService.vpMult: the 2x VP event, the player's own 2x VP boost and their passes
+-- (the owner, 2026-10-16: "make 2x vp apply to everything, such as tournaments. only thing it
+-- shouldn't apply to are robux purchases and gifts", then "the 2x should not effect codes and all
+-- that. only like earnable stuff, like tournaments and matches and daily rewords"). Whole VP.
+function Economy.earnedVP(vp, mult)
+	return math.floor(math.max(0, tonumber(vp) or 0) * math.max(1, tonumber(mult) or 1) + 0.5)
+end
+
+-- A clean grant that was earned (a daily reward): a copy, its VP times `mult` (Economy.earnedVP),
+-- the rest as it was.
+function Economy.earnedGrant(g, mult)
+	local out = {}
+	for k, v in pairs(g) do
+		out[k] = v
+	end
+	out.VP = Economy.earnedVP(g.VP, mult)
+	return out
+end
+
 -- Adds a clean grant to a profile table (vp, gold, lucky, boosts, owned.Char) at `now` (a boost
 -- starts when it's received); a character already owned is skipped. Returns the characters it
 -- added.

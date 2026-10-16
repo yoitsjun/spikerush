@@ -213,6 +213,15 @@ function Extra.luckMult()
 	return eventMul * myMul * pass, event, mine, pass > 1, eventMul, myMul
 end
 
+-- What earned VP is multiplied by right now (the server's ProfileService.vpMult): the 2x VP event,
+-- the player's own 2x VP boost and their passes.
+function Extra.vpMult()
+	local prof = profile()
+	local event = Extra.eventLeft("VP") > 0 and Config.Admin.Multiplier or 1
+	local mine = (prof.boostVP or 0) - (os.clock() - (Extra.profileAt or 0)) > 0 and Config.Boosts.Multiplier or 1
+	return event * mine * Economy.passMult(prof.passes, "VP")
+end
+
 -- The Shop's luck row's tier (Config.Boosts.LuckTiers) and the pack kind it sells.
 Extra.luckTierSel = 2
 function Extra.luckKind()
@@ -4639,7 +4648,7 @@ local SHOP_ROWS = {
 	end, amount = function(pack)
 		return "x" .. pack.Lucky
 	end },
-	{ key = "Boost", tab = "Boosts", title = "2x V Points", note = "Every match pays double VP while it runs", icon = Gui.icon.vp, amount = function(pack)
+	{ key = "Boost", tab = "Boosts", title = "2x V Points", note = "Double VP from matches, tournaments and dailies", icon = Gui.icon.vp, amount = function(pack)
 		return Extra.boostLength(pack.BoostVP)
 	end },
 	{ key = "LuckBoost", tab = "Boosts", title = "Luck", tiered = true, note = "A- and up N times as likely (an S+ 0.5% x N)", icon = function(parent, size)
@@ -6878,11 +6887,13 @@ function Extra.refreshCodes(prof)
 	end
 end
 
--- A daily reward's lines for its card: "+150 VP" over "1 lucky spin".
-function Extra.rewardLines(g)
+-- A daily reward's lines for its card: "+150 VP" over "1 lucky spin"; with `mult` (Extra.vpMult)
+-- over 1 the VP it pays now: "+300 VP (2x)".
+function Extra.rewardLines(g, mult)
 	local lines = {}
 	if g.VP > 0 then
-		table.insert(lines, "+" .. Gui.num(g.VP) .. " VP")
+		local boosted = (mult or 1) > 1
+		table.insert(lines, "+" .. Gui.num(boosted and Economy.earnedVP(g.VP, mult) or g.VP) .. " VP" .. (boosted and string.format(" (%gx)", mult) or ""))
 	end
 	if g.Gold > 0 then
 		table.insert(lines, "+" .. Gui.num(g.Gold) .. " Gold")
@@ -6908,9 +6919,9 @@ function Extra.buildDaily()
 		make("UICorner", { CornerRadius = UDim.new(0, 8) }, c)
 		local st = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, c)
 		Gui.label(c, { Text = "Day " .. i, display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 10), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
-		Gui.label(c, { Text = Extra.rewardLines(Economy.cleanGrant(r)), TextSize = 16, weight = Enum.FontWeight.Medium, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -12, 0, 64), Position = UDim2.fromOffset(6, 48), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
+		local reward = Gui.label(c, { Text = Extra.rewardLines(Economy.cleanGrant(r)), TextSize = 16, weight = Enum.FontWeight.Medium, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -12, 0, 64), Position = UDim2.fromOffset(6, 48), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
 		local state = Gui.label(c, { Text = "", display = true, TextSize = 17, TextColor3 = Gui.DIM, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -8), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
-		cards[i] = { frame = c, stroke = st, state = state }
+		cards[i] = { frame = c, stroke = st, state = state, reward = reward, grant = Economy.cleanGrant(r) }
 	end
 	local when = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL_HOT, Position = UDim2.fromOffset(28, 454), Size = UDim2.new(1, -56, 0, 22), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 21 })
 	local claim, claimPlate = Gui.plateButton(m.panel, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -28), Size = UDim2.fromOffset(340, 64), ZIndex = 22 }, Gui.SIGNAL, Gui.SIGNAL_HOT)
@@ -6930,7 +6941,9 @@ function Extra.refreshDaily(prof)
 	local left = math.max(0, (d.opensIn or 0) - (os.clock() - Extra.profileAt))
 	-- a countdown that ran out since the last profile opens it (the server has the last word)
 	local ready = d.ready == true or left <= 0
+	local mult = Extra.vpMult() -- (the 2x VP event, boost and passes double a day's VP)
 	for i, c in ipairs(Dy.cards) do
+		c.reward.Text = Extra.rewardLines(c.grant, mult)
 		local claimed = i < day and not d.lapsed
 		local today = i == day
 		c.state.Text = claimed and "Claimed" or (today and (ready and "Today" or "Next") or "")

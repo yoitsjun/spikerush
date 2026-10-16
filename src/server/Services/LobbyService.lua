@@ -1034,13 +1034,17 @@ local function cupFinished(l)
 	if res and c then
 		local vp, gold = Cups.payout(c, l.cup.round, res.won)
 		for _, plr in ipairs(list) do
+			-- the prize's VP times the 2x VP event, boost and passes, like a match's (the owner,
+			-- 2026-10-16: "make 2x vp apply to everything, such as tournaments")
+			local paid, mult = vp, 1
 			if vp > 0 or gold > 0 then
-				reg.ProfileService.award(plr, vp, gold)
+				paid, mult = reg.ProfileService.awardEarned(plr, vp, gold)
 			end
+			local boosted = (paid > 0 and mult > 1) and string.format(" (%gx VP)", mult) or ""
 			if res.won then
-				notify(plr, string.format("You won the %s! +%d VP and +%d Gold.", c.Name, vp, gold))
+				notify(plr, string.format("You won the %s! +%d VP%s and +%d Gold.", c.Name, paid, boosted, gold))
 			elseif l.cup.round >= T.Rounds then
-				notify(plr, string.format("Out in the final of the %s: +%d VP for getting there.", c.Name, vp))
+				notify(plr, string.format("Out in the final of the %s: +%d VP%s for getting there.", c.Name, paid, boosted))
 			else
 				notify(plr, string.format("Out of the %s in round %d. Better luck next run!", c.Name, l.cup.round))
 			end

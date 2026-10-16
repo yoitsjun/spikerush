@@ -1409,10 +1409,13 @@ local function claimDaily(plr, profile)
 		return
 	end
 	profile.daily = { last = now, streak = d.streak }
-	local added = Economy.apply(profile, d.grant, os.time())
+	-- (earned, so the 2x VP event, boost and passes multiply its VP: vpMult)
+	local mult = ProfileService.vpMult(plr)
+	local g = Economy.earnedGrant(d.grant, mult)
+	local added = Economy.apply(profile, g, os.time())
 	dirty[plr] = true
 	save(plr, true)
-	push(plr, string.format("Day %d reward: %s!", d.day, Economy.describe(d.grant, added)))
+	push(plr, string.format("Day %d reward: %s%s!", d.day, Economy.describe(g, added), (g.VP > 0 and mult > 1) and string.format(" (%gx VP)", mult) or ""))
 end
 
 -- A player's user id from what was typed: a username, or a user id. Returns the id, or nil and
@@ -1478,6 +1481,17 @@ function ProfileService.boost(plr, kind)
 	return profile and Economy.boost(profile, kind, os.time()) or 1
 end
 
+-- What this player's earned VP is multiplied by right now (Economy.earnedVP): the admin panel's
+-- 2x VP event, their own 2x VP boost (Config.Boosts) and their passes (Config.Passes), all
+-- multiplied. Matches, the MVP bonus, tournament prizes and daily rewards pay it; codes, gifts,
+-- Robux packs, refunds, sales and one-off rewards (the tutorial, Discord, patch notes, the Candy
+-- shop) don't (the owner, 2026-10-16: "only like earnable stuff, like tournaments and matches and
+-- daily rewords. not codes").
+function ProfileService.vpMult(plr)
+	local event = reg.AdminService and reg.AdminService.multiplier("VP") or 1
+	return event * ProfileService.boost(plr, "VP") * ProfileService.passMult(plr, "VP")
+end
+
 function ProfileService.award(plr, vp, gold)
 	local profile = profiles[plr]
 	if not profile then
@@ -1487,6 +1501,15 @@ function ProfileService.award(plr, vp, gold)
 	profile.gold = profile.gold + math.max(0, math.floor(gold or 0))
 	dirty[plr] = true
 	push(plr)
+end
+
+-- Pays a tournament's prize (LobbyService): its VP times vpMult. Returns the VP paid and the
+-- multiplier.
+function ProfileService.awardEarned(plr, vp, gold)
+	local mult = ProfileService.vpMult(plr)
+	local paid = Economy.earnedVP(vp, mult)
+	ProfileService.award(plr, paid, gold)
+	return paid, mult
 end
 
 -- A Halloween Match run is over after `stage` (won: that stage was won): its Candy (the first
