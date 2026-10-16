@@ -16,17 +16,12 @@ function Spins.tierRarity(tier)
 	return SP.TierRarity[tier] or SP.TierRarity[string.sub(tier or "D", 1, 1)] or "Common"
 end
 
-local function subTierWeight(tier)
-	local suffix = string.sub(tier, 2)
-	return SP.TierWeights[suffix] or 1
-end
-
 -- items[kind] = list of { Key, Name, Rarity, Weight }; starters[kind] = { key = true }
 local items, index, starters = {}, {}, {}
 
 items.Char = {}
 for _, c in ipairs(Roster) do
-	table.insert(items.Char, { Key = c.Id, Name = c.Name, Rarity = Spins.tierRarity(c.Tier), Weight = subTierWeight(c.Tier), Char = c })
+	table.insert(items.Char, { Key = c.Id, Name = c.Name, Rarity = Spins.tierRarity(c.Tier), Char = c })
 end
 starters.Char = {}
 for _, id in ipairs(Roster.Starters) do
@@ -157,6 +152,34 @@ for kind, list in pairs(items) do
 	pools[kind] = byRarity
 end
 
+-- A tier's place in Config.Tiers (D- lowest, S+ highest).
+local tierRanks = {}
+for i, t in ipairs(Config.Tiers) do
+	tierRanks[t] = i
+end
+
+-- The Characters banner's tiers inside each rarity (Config.Spins.TierOdds), best first: { tier,
+-- share of the rarity, items }; a tier nobody is in gives its share to the rest of its rarity.
+for _, p in pairs(pools.Char) do
+	local byTier, list, total = {}, {}, 0
+	for _, item in ipairs(p.items) do
+		local t = item.Char.Tier
+		if not byTier[t] then
+			byTier[t] = { tier = t, items = {}, share = SP.TierOdds[t] or 0 }
+			table.insert(list, byTier[t])
+			total = total + byTier[t].share
+		end
+		table.insert(byTier[t].items, item)
+	end
+	for _, g in ipairs(list) do
+		g.share = total > 0 and g.share / total or 1 / #list
+	end
+	table.sort(list, function(a, b)
+		return (tierRanks[a.tier] or 0) > (tierRanks[b.tier] or 0)
+	end)
+	p.tiers = list
+end
+
 -- The rarity weights of a lucky spin (Config.Lucky), for odds, table and rollItem.
 Spins.LuckyWeights = Config.Lucky.Weights
 
@@ -220,65 +243,78 @@ function Spins.favorFactor(favor, key)
 	return 1
 end
 
--- An item's weight in its pool, and the pool's total, with favor.
+-- An item's weight in its group, and a group's total, with favor.
 local function favoredWeight(item, favor)
 	return (item.Weight or 1) * Spins.favorFactor(favor, item.Key)
 end
-local function poolWeight(pool, favor)
-	if not favor then
-		return pool.weight
-	end
+local function groupWeight(list, favor)
 	local total = 0
-	for _, item in ipairs(pool.items) do
+	for _, item in ipairs(list) do
 		total = total + favoredWeight(item, favor)
 	end
 	return total
 end
 
--- Everything a banner can give, best first: { item, chance } (what you're rolling for). favor:
--- the Characters banner's boosted and lowered characters (or nil).
-function Spins.table(kind, weights, favor)
+-- What a pull lands on first, best first, with its chance: on the Characters banner a tier
+-- ({ rarity, tier, chance, items }: its rarity's chance x the tier's share of it), elsewhere a
+-- rarity (tier nil). `weights`: the rarity weights (nil for the usual ones).
+function Spins.groups(kind, weights)
 	local odds = Spins.odds(kind, weights)
 	local out = {}
 	for i = #RAR.Order, 1, -1 do
 		local r = RAR.Order[i]
 		local p = (pools[kind] or {})[r]
 		if p and odds[r] > 0 then
-			local total = poolWeight(p, favor)
-			for _, item in ipairs(p.items) do
-				table.insert(out, { item = item, chance = odds[r] * favoredWeight(item, favor) / total })
+			if p.tiers then
+				for _, g in ipairs(p.tiers) do
+					table.insert(out, { rarity = r, tier = g.tier, chance = odds[r] * g.share, items = g.items })
+				end
+			else
+				table.insert(out, { rarity = r, chance = odds[r], items = p.items })
 			end
 		end
 	end
 	return out
 end
 
--- One spin: a rarity by weight, then an item of that rarity by its weight. `weights`: a lucky
--- spin's (Spins.LuckyWeights), or nil for the usual ones. favor: boosted and lowered items.
-function Spins.rollItem(kind, rng, weights, favor)
-	rng = rng or Random.new()
-	local p = pools[kind]
-	local odds = Spins.odds(kind, weights)
-	local x = rng:NextNumber()
-	local pick = nil
-	for _, r in ipairs(RAR.Order) do
-		if p[r] and odds[r] > 0 then
-			pick = r
-			if x < odds[r] then
-				break
-			end
-			x = x - odds[r]
+-- Everything a banner can give, best first: { item, chance, share, group } (chance: of the whole
+-- pull; share: within its tier or rarity, group: that tier or rarity, as Spins.groups). favor: the
+-- Characters banner's boosted and lowered characters (or nil).
+function Spins.table(kind, weights, favor)
+	local out = {}
+	for _, g in ipairs(Spins.groups(kind, weights)) do
+		local total = groupWeight(g.items, favor)
+		for _, item in ipairs(g.items) do
+			local share = favoredWeight(item, favor) / total
+			table.insert(out, { item = item, chance = g.chance * share, share = share, group = g })
 		end
 	end
-	local pool = p[pick]
-	local y = rng:NextNumber() * poolWeight(pool, favor)
-	for _, item in ipairs(pool.items) do
+	return out
+end
+
+-- One spin: a group by its chance (a tier on the Characters banner, else a rarity), then one of
+-- its items by weight. `weights`: a lucky spin's (Spins.LuckyWeights), 2x Luck's, or nil for the
+-- usual ones. favor: boosted and lowered items.
+function Spins.rollItem(kind, rng, weights, favor)
+	rng = rng or Random.new()
+	local groups = Spins.groups(kind, weights)
+	local pick = groups[#groups]
+	local x = rng:NextNumber()
+	for _, g in ipairs(groups) do
+		if x < g.chance then
+			pick = g
+			break
+		end
+		x = x - g.chance
+	end
+	local y = rng:NextNumber() * groupWeight(pick.items, favor)
+	for _, item in ipairs(pick.items) do
 		y = y - favoredWeight(item, favor)
 		if y < 0 then
 			return item.Key
 		end
 	end
-	return pool.items[#pool.items].Key
+	return pick.items[#pick.items].Key
 end
 
 -- Saved Boost and Lower choices made safe: only characters that can drop, at most MaxBoost
@@ -485,6 +521,27 @@ function Spins.tint(item, t)
 		return Color3.fromHSV(((t or os.clock()) * 0.6) % 1, 0.65, 1)
 	end
 	return item.Color
+end
+
+-- A colour's swatch (the Locker): its bands as hard stripes (Candy Corn's white, yellow and
+-- orange; Jet Black's two), Prism's rainbow, or nil for a plain colour (the dot is item.Color).
+function Spins.swatchSequence(item)
+	if not item or not item.Color then
+		return nil
+	end
+	if type(item.Trail) == "table" and #item.Trail >= 2 then
+		local n, keys = #item.Trail, {}
+		for i, c in ipairs(item.Trail) do
+			local a, b = (i - 1) / n, i / n
+			table.insert(keys, ColorSequenceKeypoint.new(i == 1 and 0 or a + 0.001, c))
+			table.insert(keys, ColorSequenceKeypoint.new(i == n and 1 or b, c))
+		end
+		return ColorSequence.new(keys)
+	end
+	if item.Key == "Prism" then
+		return Spins.tintSequence(item)
+	end
+	return nil
 end
 
 function Spins.tintSequence(item)

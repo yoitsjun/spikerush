@@ -2642,6 +2642,47 @@ do
 		"with no pick chosen the pick stays owed; saved pity is made safe (only an S+ can be the pick)")
 end
 
+print("== recruits land on a tier first ==")
+do
+	-- the owner (2026-10-15): "make it 0.5% to hit the s+ tier, then one of the ones in there, that
+	-- are boosted. make it like that for s tier as well. make it all up to equal 100"
+	local TO = Config.Spins.TierOdds
+	local sums, all = {}, 0
+	for t, w in pairs(TO) do
+		local r = Spins.tierRarity(t)
+		sums[r] = (sums[r] or 0) + w
+		all = all + w
+	end
+	local adds = math.abs(all - 100) < 1e-9
+	for r, w in pairs(Config.Rarity.Weights) do
+		adds = adds and math.abs((sums[r] or 0) - w) < 1e-9
+	end
+	local function tierTotals(weights, favor)
+		local out, shares = {}, {}
+		for _, row in ipairs(Spins.table("Char", weights, favor)) do
+			local t = row.group.tier
+			out[t] = (out[t] or 0) + row.chance
+			shares[t] = (shares[t] or 0) + row.share
+		end
+		return out, shares
+	end
+	local base = tierTotals()
+	local boosted, shares = tierTotals(nil, { daon = "up", ines = "down" })
+	local lucky = tierTotals(Spins.LuckyWeights)
+	local total = 0
+	for _, g in ipairs(Spins.groups("Char")) do
+		total = total + g.chance
+	end
+	local sharesOk = true
+	for _, v in pairs(shares) do
+		sharesOk = sharesOk and math.abs(v - 1) < 1e-9
+	end
+	check(adds and math.abs(total - 1) < 1e-9 and math.abs(base["S+"] - 0.005) < 1e-9 and math.abs(base.S - 0.03) < 1e-9 and math.abs(base["S-"] - 0.01) < 1e-9
+		and math.abs(boosted.S - base.S) < 1e-12 and math.abs(boosted["S-"] - base["S-"]) < 1e-12 and sharesOk and math.abs(lucky["S+"] - 0.03) < 1e-9,
+		"a recruit lands on a tier first (S+ 0.5%, S 3%, S- 1%: every tier adds up to 100%), then on one of its players; Boost and Lower move odds inside the tier only",
+		string.format("S+ %.2f%%, S %.2f%%, S- %.2f%% (lucky spin: S+ %.1f%%, S %.2f%%)", base["S+"] * 100, base.S * 100, base["S-"] * 100, lucky["S+"] * 100, lucky.S * 100))
+end
+
 print("== boost and lower ==")
 do
 	local F = Config.Spins.Favor

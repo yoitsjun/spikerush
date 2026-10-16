@@ -487,7 +487,13 @@ Config.Spins = {
 	},
 	-- a character's rarity comes from its tier; sub-tiers share it (minus most common)
 	TierRarity = { D = "Common", C = "Common", B = "Rare", A = "Epic", S = "Legendary", ["S+"] = "Mythic" },
-	TierWeights = { ["-"] = 3, [""] = 2, ["+"] = 1 },
+	-- the Characters banner by tier (the owner, 2026-10-15: "instead of flat rates like these, make
+	-- it 0.5% to hit the s+ tier, then one of the ones in there, that are boosted. make it like that
+	-- for s tier as well. make it all up to equal 100"): a recruit lands on a tier first, by these
+	-- chances (%), then on one of its characters (Boost and Lower move odds inside the tier only).
+	-- A rarity's tiers add up to its Rarity.Weights; 2x Luck and lucky spins scale the rarity and its
+	-- tiers keep their shares; a tier with nobody in it gives its share to the rest of its rarity.
+	TierOdds = { ["S+"] = 0.5, S = 3, ["S-"] = 1, ["A+"] = 2.5, A = 4, ["A-"] = 6, ["B+"] = 5, B = 9, ["B-"] = 14, ["C+"] = 7, C = 11, ["C-"] = 14, ["D+"] = 8, D = 9, ["D-"] = 6 },
 	SellValue = { Common = 5, Rare = 12, Epic = 30, Legendary = 80, Mythic = 250 },
 	AutoSellable = { "Common", "Rare", "Epic" },
 	AutoRollMax = 100, -- an auto-roll stops after this many spins
@@ -547,7 +553,10 @@ Config.Cosmetics = {
 	},
 	Color = {
 		{ Key = "Default", Name = "Classic", Rarity = "Common" },
-		{ Key = "Crimson", Name = "Crimson", Rarity = "Common", Color = Color3.fromRGB(255, 60, 80) },
+		-- (the owner, 2026-10-15: "pumpkin, tangerine, candy corn, and blood moon and crimson are
+		-- nearly identical": the plain ones stay one bright colour; Pumpkin, Candy Corn, Blood Moon and
+		-- Ectoplasm wear bands of their own, which the Locker's swatch shows too)
+		{ Key = "Crimson", Name = "Crimson", Rarity = "Common", Color = Color3.fromRGB(255, 36, 64) },
 		{ Key = "Tangerine", Name = "Tangerine", Rarity = "Common", Color = Color3.fromRGB(255, 150, 50) },
 		{ Key = "Lime", Name = "Lime", Rarity = "Rare", Color = Color3.fromRGB(150, 255, 80) },
 		{ Key = "Violet", Name = "Violet", Rarity = "Rare", Color = Color3.fromRGB(175, 95, 255) },
@@ -561,9 +570,11 @@ Config.Cosmetics = {
 		{ Key = "Black", Name = "Jet Black", Rarity = "Epic", Color = Color3.fromRGB(78, 76, 92), Trail = { Color3.fromRGB(6, 6, 10), Color3.fromRGB(44, 42, 56) }, Emission = 0 },
 		{ Key = "Prism", Name = "Prism", Rarity = "Legendary", Color = Color3.fromRGB(255, 120, 220) },
 		-- Halloween (Limited: only from Config.Halloween's banner and shop)
-		{ Key = "Pumpkin", Name = "Pumpkin", Rarity = "Rare", Color = Color3.fromRGB(255, 120, 20), Limited = "Halloween" },
-		{ Key = "Ectoplasm", Name = "Ectoplasm", Rarity = "Rare", Color = Color3.fromRGB(120, 255, 90), Limited = "Halloween" },
-		{ Key = "Bloodmoon", Name = "Blood Moon", Rarity = "Epic", Color = Color3.fromRGB(200, 20, 40), Limited = "Halloween" },
+		-- Pumpkin: deep burnt orange with its green stem; Ectoplasm: a pale ghost glow into mint and
+		-- deep teal (Lime is the plain green); Blood Moon: blood red into black, dimly lit
+		{ Key = "Pumpkin", Name = "Pumpkin", Rarity = "Rare", Color = Color3.fromRGB(226, 88, 8), Trail = { Color3.fromRGB(255, 140, 30), Color3.fromRGB(214, 74, 6), Color3.fromRGB(64, 140, 34) }, Limited = "Halloween" },
+		{ Key = "Ectoplasm", Name = "Ectoplasm", Rarity = "Rare", Color = Color3.fromRGB(90, 255, 180), Trail = { Color3.fromRGB(225, 255, 240), Color3.fromRGB(90, 255, 180), Color3.fromRGB(16, 120, 96) }, Limited = "Halloween" },
+		{ Key = "Bloodmoon", Name = "Blood Moon", Rarity = "Epic", Color = Color3.fromRGB(150, 0, 22), Trail = { Color3.fromRGB(205, 14, 34), Color3.fromRGB(96, 0, 14), Color3.fromRGB(14, 0, 4) }, Emission = 0.3, Limited = "Halloween" },
 		-- a colour, not a trail (the owner, 2026-10-15: "you are mixing up trails and colors again.
 		-- the candy corn is a color"): orange impacts, and the ribbon in candy corn's three bands
 		{ Key = "CandyCorn", Name = "Candy Corn", Rarity = "Rare", Color = Color3.fromRGB(255, 150, 30), Trail = { Color3.fromRGB(255, 246, 220), Color3.fromRGB(255, 196, 40), Color3.fromRGB(255, 104, 16) }, Limited = "Halloween" },

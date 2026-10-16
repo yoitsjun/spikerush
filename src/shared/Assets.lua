@@ -369,6 +369,9 @@ Assets.Images = {
 	MatchNationals = "109844305626417", -- Nationals
 	MatchColosseum = "108168199371323", -- Colosseum
 	MatchPractice = "127970476168767", -- the club room's ball cart
+	-- Decorate's tiles: each Home room rendered in Studio (assets/rooms), Room<Config.Rooms key>
+	RoomClubhouse = "80868767010219",
+	RoomHaunted = "128293664977042",
 }
 
 -- Effect textures (image ids) for the particle kits in Fx.lua: hand-drawn anime sprites and

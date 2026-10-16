@@ -1731,9 +1731,9 @@ local function buildTable()
 	}, m.panel)
 	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local rows = {}
-	local maxRows = 0
+	local maxRows = 0 -- (a row an item, and one a tier or rarity over its items)
 	for _, kind in ipairs(Spins.Kinds) do
-		maxRows = math.max(maxRows, #Spins.table(kind))
+		maxRows = math.max(maxRows, #Spins.table(kind) + #Spins.groups(kind))
 	end
 	for i = 1, maxRows do
 		local row = make("Frame", { Size = UDim2.new(1, -10, 0, 46), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0, LayoutOrder = i, Visible = false, ZIndex = 21 }, list)
@@ -1777,18 +1777,46 @@ function MenuController.openTable(kind, lucky)
 		return parts
 	end)(), ", "))
 	O.kind, O.lucky = kind, lucky
-	-- the Characters banner: Boost and Lower move a character's share of its rarity
+	-- the Characters banner by tier (the owner, 2026-10-15: "make it 0.5% to hit the s+ tier, then
+	-- one of the ones in there, that are boosted"): a header a tier with its chance, then its players
+	-- with their share of it (Boost and Lower move those); the other banners the same by rarity
 	local isChar = kind == "Char"
 	local favor = isChar and (prof.favor or {}) or nil
 	if isChar then
 		local F = Config.Spins.Favor
 		local ups, downs = Spins.favorCounts(favor)
-		O.sub.Text = string.format("Boost a character (x%.1f) or Lower one (x%.1f) to change your odds of it within its rarity: %d/%d boosted, %d/%d lowered. Duplicates turn into V Points.", F.Boost, F.Lower, ups, F.MaxBoost, downs, F.MaxLower)
+		O.sub.Text = string.format("A recruit lands on a tier first, then on one of its players. Boost one (x%.1f) or Lower one (x%.1f) to move your odds inside its tier: %d/%d boosted, %d/%d lowered.", F.Boost, F.Lower, ups, F.MaxBoost, downs, F.MaxLower)
+	else
+		O.sub.Text = "A pull lands on a rarity first, then on one of its items. " .. O.sub.Text
 	end
-	local data = Spins.table(kind, lucky and Spins.LuckyWeights or Extra.recruitWeights(kind), favor)
+	local lines, last = {}, nil
+	for _, d in ipairs(Spins.table(kind, lucky and Spins.LuckyWeights or Extra.recruitWeights(kind), favor)) do
+		if d.group ~= last then
+			table.insert(lines, { head = d.group })
+			last = d.group
+		end
+		table.insert(lines, d)
+	end
 	for i, row in ipairs(O.rows) do
-		local d = data[i]
+		local d = lines[i]
 		row.frame.Visible = d ~= nil
+		local g = d and d.head
+		row.frame.BackgroundTransparency = g and 0.9 or 0.96
+		row.name.Position = UDim2.fromOffset(g and 18 or 36, 0)
+		if g then
+			-- the tier (or rarity) and its chance of the whole pull
+			local color = g.tier and tierColor(g.tier) or Spins.rarityColor(g.rarity)
+			row.key = nil
+			row.boost.Visible, row.lower.Visible = false, false
+			row.bar.BackgroundColor3 = color
+			row.name.Text = g.tier and (g.tier .. " tier") or g.rarity
+			row.name.TextColor3 = color
+			row.desc.Text = string.format("then one of %d%s", #g.items, (isChar and #g.items > 1) and " players" or (#g.items > 1 and " items" or ""))
+			row.chance.Text = string.format(g.chance < 0.01 and "%.2f%%" or "%.1f%%", g.chance * 100)
+			row.chance.TextColor3 = color
+			row.own.Text = ""
+			d = nil
+		end
 		local canFavor = isChar and d ~= nil and not Spins.starters("Char")[d.item.Key]
 		row.key = canFavor and d.item.Key or nil
 		row.boost.Visible, row.lower.Visible = canFavor, canFavor
@@ -1811,7 +1839,8 @@ function MenuController.openTable(kind, lucky)
 			else
 				row.desc.Text = d.item.Rarity
 			end
-			row.chance.Text = d.chance >= 0.01 and string.format("%.1f%%", d.chance * 100) or string.format("%.2f%%", d.chance * 100)
+			row.chance.Text = string.format("%.1f%%", d.share * 100) -- (its share of the tier or rarity above)
+			row.chance.TextColor3 = Gui.CHALK
 			row.own.Text = owns(prof, kind, d.item.Key) and "Owned" or ""
 		end
 	end
@@ -3449,107 +3478,139 @@ local function buildPlayer()
 	}
 end
 
--- Decorate: Home's rooms side by side (Config.Rooms), each a small poster of itself, Apply, or
--- where to get it. The room changes behind the window as you apply one.
+-- Decorate (The Spike's: swap Home's background; the owner, 2026-10-15, then "this looks way too
+-- ai lets fix that"): Home steps aside and a slim bar runs along the bottom, over the room itself.
+-- Each room is a tile with its own render (Assets.Images.Room<key>); picking one shows it behind
+-- you at once (Extra.decorPreview), Apply puts it on, and Done goes back to the one that's on.
 function Extra.buildDecorate()
-	local m = modal("Decorate", "Decorate Home", 940, 560, true)
-	local list = Extra.Rooms.list()
-	local W, GAP = 420, 24
-	local x0 = (940 - (#list * W + (#list - 1) * GAP)) / 2
-	Extra.decorCards = {}
-	for i, r in ipairs(list) do
-		local haunted = r.key == "Haunted"
-		local card = make("Frame", { Position = UDim2.fromOffset(x0 + (i - 1) * (W + GAP), 96), Size = UDim2.fromOffset(W, 420), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, ZIndex = 21 }, m.panel)
-		make("UICorner", { CornerRadius = UDim.new(0, 10) }, card)
-		local edge = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 2, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, card)
-		-- the poster: a window on the room's light (day, or Halloween night: the orange moon, bats,
-		-- a jack-o'-lantern's glow)
-		local poster = make("Frame", { Position = UDim2.fromOffset(12, 12), Size = UDim2.new(1, -24, 0, 236), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 22 }, card)
-		make("UICorner", { CornerRadius = UDim.new(0, 8) }, poster)
-		if haunted then
-			make("UIGradient", { Rotation = 90, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(14, 10, 40)), ColorSequenceKeypoint.new(0.65, Color3.fromRGB(64, 24, 92)), ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 56, 40)) }) }, poster)
-			local moon = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.68, 0.36), Size = UDim2.fromOffset(110, 110), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 23 }, poster)
-			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, moon)
-			make("UIGradient", { Rotation = 45, Color = ColorSequence.new(Color3.fromRGB(255, 226, 150), Color3.fromRGB(255, 130, 40)) }, moon)
-			for b = 1, 5 do
-				make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.15 + b * 0.14, 0.18 + (b % 3) * 0.13), Size = UDim2.fromOffset(26 + (b % 2) * 14, 26 + (b % 2) * 14), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Bat) or "", ImageColor3 = Color3.fromRGB(10, 6, 16), ZIndex = 24 }, poster)
-			end
-			make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.2, 0.86), Size = UDim2.fromOffset(170, 120), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Glow) or "", ImageColor3 = Color3.fromRGB(255, 130, 30), ImageTransparency = 0.2, ZIndex = 23 }, poster)
-			local pumpkin = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.2, 0, 1, -10), Size = UDim2.fromOffset(64, 50), BackgroundColor3 = Color3.fromRGB(255, 120, 20), BorderSizePixel = 0, ZIndex = 24 }, poster)
-			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, pumpkin)
-			for _, ex in ipairs({ { 0.32, 0.38 }, { 0.68, 0.38 } }) do
-				make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(ex[1], ex[2]), Size = UDim2.fromOffset(11, 9), Rotation = 45, BackgroundColor3 = Color3.fromRGB(255, 230, 120), BorderSizePixel = 0, ZIndex = 25 }, pumpkin)
-			end
-			local mouth = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.7), Size = UDim2.fromOffset(30, 7), BackgroundColor3 = Color3.fromRGB(255, 230, 120), BorderSizePixel = 0, ZIndex = 25 }, pumpkin)
-			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, mouth)
-		else
-			make("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(236, 248, 255), Color3.fromRGB(196, 226, 170)) }, poster)
-			for t = 1, 6 do
-				local tree = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(t / 6 - 0.05, 0.72 + (t % 2) * 0.08), Size = UDim2.fromOffset(70 + (t % 3) * 22, 70 + (t % 3) * 22), BackgroundColor3 = Color3.fromRGB(130 + t * 6, 184, 100), BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = 23 }, poster)
-				make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, tree)
-			end
-			-- the window's frame across it
-			for _, fx in ipairs({ 0.33, 0.66 }) do
-				make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(fx, 0), Size = UDim2.new(0, 8, 1, 0), BackgroundColor3 = Color3.fromRGB(244, 242, 236), BorderSizePixel = 0, ZIndex = 24 }, poster)
-			end
-			make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.new(1, 0, 0, 8), BackgroundColor3 = Color3.fromRGB(244, 242, 236), BorderSizePixel = 0, ZIndex = 24 }, poster)
-		end
-		Gui.label(card, { Text = r.def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Position = UDim2.fromOffset(18, 258), Size = UDim2.new(1, -36, 0, 34), ZIndex = 22 })
-		local tag = Gui.label(card, { Text = r.def.Rarity and (r.def.Rarity .. (r.def.Limited and ("  ·  " .. r.def.Limited) or "")) or "Everyone's", display = true, TextSize = 16, TextColor3 = r.def.Rarity and Spins.rarityColor(r.def.Rarity) or Gui.DIM, Position = UDim2.fromOffset(18, 292), Size = UDim2.new(1, -36, 0, 20), ZIndex = 22 })
-		Gui.label(card, { Text = r.def.Blurb, TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(18, 316), Size = UDim2.new(1, -36, 0, 40), ZIndex = 22 })
-		local apply, applyL = actionPlate(card, { Name = "Apply" .. r.key, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.new(1, -24, 0, 46) }, "Apply", 20)
-		local entry = { key = r.key, edge = edge, apply = apply, applyL = applyL, tag = tag }
-		onClick(apply, function()
-			if not apply.Active then
-				return
-			end
-			if entry.action == "get" then
-				m.root.Visible = false
-				local hwMenu = mods.HalloweenMenu
-				if hwMenu and hwMenu.open then
-					hwMenu.open("Banner")
-				end
-				return
-			end
-			click("UISelect")
-			sendProfile("room", r.key)
+	local root = make("Frame", { Name = "Decorate", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 20 }, canvas)
+	local d = { root = root, tiles = {}, pick = nil }
+	-- the screen's header top left, as every screen's, and Done top right
+	Gui.label(root, { Text = "Decorate", display = true, weight = Enum.FontWeight.Heavy, TextSize = 46, TextStrokeTransparency = 0.6, Position = UDim2.fromOffset(M, 22), Size = UDim2.fromOffset(600, 52) })
+	Gui.plate(root, { Size = UDim2.fromOffset(64, 6), Position = UDim2.fromOffset(M + 2, 78) }, Gui.SIGNAL)
+	local done = hairButton(root, { Name = "Done", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 28), Size = UDim2.fromOffset(112, 40) }, "Done")
+	-- the bar: the room picked, where it comes from and Apply on the left; a tile a room on the right
+	local H = 200
+	local bar = Gui.card(root, { Name = "Bar", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -22), Size = UDim2.new(1, -2 * M, 0, H), BackgroundTransparency = 0.08 })
+	d.name = Gui.label(bar, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(24, 18), Size = UDim2.fromOffset(372, 40) })
+	d.tag = Gui.label(bar, { Text = "", display = true, TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(24, 60), Size = UDim2.fromOffset(372, 20) })
+	d.apply, d.applyL = actionPlate(bar, { Name = "Apply", Position = UDim2.fromOffset(24, H - 24 - 52), Size = UDim2.fromOffset(330, 52) }, "Apply", 22)
+	make("Frame", { Position = UDim2.fromOffset(420, 20), Size = UDim2.new(0, 1, 1, -40), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.55, BorderSizePixel = 0 }, bar)
+	local row = make("ScrollingFrame", { Name = "Rooms", Position = UDim2.fromOffset(436, 0), Size = UDim2.new(1, -448, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Gui.HAIRLINE, ScrollingDirection = Enum.ScrollingDirection.X, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.X }, bar)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 16), SortOrder = Enum.SortOrder.LayoutOrder }, row)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) }, row) -- (room for the picked tile's edge)
+	for i, r in ipairs(Extra.Rooms.list()) do
+		local tile = make("TextButton", { Name = r.key, LayoutOrder = i, Size = UDim2.fromOffset(256, 170), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.15, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, row)
+		local edge = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, tile)
+		local thumb = make("ImageLabel", { Size = UDim2.fromOffset(256, 144), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, Image = Assets.id(Assets.Images["Room" .. r.key]) or "", ScaleType = Enum.ScaleType.Crop }, tile)
+		local shade = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0 }, thumb)
+		local lock = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1, Image = Assets.id(Assets.Images.IconLock) or "", ImageColor3 = Gui.CHALK, Visible = false }, thumb)
+		local on = Gui.plate(thumb, { Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(46, 20), Visible = false }, Gui.SIGNAL)
+		Gui.label(on, { Text = "ON", display = true, weight = Enum.FontWeight.Heavy, TextSize = 13, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+		Gui.label(tile, { Text = r.def.Name, display = true, TextSize = 17, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(10, 145), Size = UDim2.new(1, -20, 0, 24) })
+		onClick(tile, function()
+			Extra.previewRoom(r.key)
 		end)
-		table.insert(Extra.decorCards, entry)
+		table.insert(d.tiles, { key = r.key, edge = edge, shade = shade, lock = lock, on = on })
 	end
-	Extra.decor = m
+	onClick(d.apply, function()
+		if not d.apply.Active or not d.pick then
+			return
+		end
+		if d.action == "get" then
+			Extra.closeDecorate()
+			local hwMenu = mods.HalloweenMenu
+			if hwMenu and hwMenu.open then
+				hwMenu.open("Banner")
+			end
+			return
+		end
+		sendProfile("room", d.pick)
+	end)
+	onClick(done, function()
+		Extra.closeDecorate()
+	end)
+	done:SetAttribute("NavSkipFirst", true)
+	mods.PadNav.root(root, { prio = 28, back = function()
+		Extra.closeDecorate()
+	end })
+	Extra.decor = d
 end
 
 function Extra.openDecorate()
-	Extra.decor.root.Visible = true
+	local d = Extra.decor
+	local prof = profile()
+	d.pick = (prof.rooms and prof.rooms.on) or Config.Rooms.Default
+	Extra.decorPreview = d.pick
+	d.root.Visible = true
+	if ui.pages.home then
+		ui.pages.home.Visible = false -- (the room is the screen; Done brings Home back)
+	end
+	if mods.AudioController then
+		mods.AudioController.play("UIOpen", { minGap = 0.1 })
+	end
 	MenuController.refresh()
 end
 
+-- Done (or leaving Home): back to the room that's on. quiet: the caller refreshes.
+function Extra.closeDecorate(quiet)
+	local d = Extra.decor
+	if not d or not d.root.Visible then
+		return
+	end
+	d.root.Visible = false
+	Extra.decorPreview = nil
+	if screen == "home" and ui.pages.home and not seqActive then
+		ui.pages.home.Visible = true
+	end
+	if not quiet then
+		MenuController.refresh()
+	end
+end
+
+-- A tile picked: that room behind you at once (on or not, yours or not).
+function Extra.previewRoom(key)
+	local d = Extra.decor
+	d.pick = key
+	Extra.decorPreview = key
+	mods.SceneController.setRoom(key)
+	Extra.refreshDecorate(profile())
+end
+
 function Extra.refreshDecorate(prof)
-	if not Extra.decor or not Extra.decor.root.Visible then
+	local d = Extra.decor
+	if not d or not d.root.Visible then
 		return
 	end
 	local rooms = prof.rooms or {}
 	local on = rooms.on or Config.Rooms.Default
-	local active = Extra.HW.active(Util.now())
-	for _, e in ipairs(Extra.decorCards) do
+	local pick = d.pick or on
+	for _, e in ipairs(d.tiles) do
 		local owned = Extra.Rooms.owns(rooms, e.key, prof.dev)
-		local applied = on == e.key
-		e.edge.Color = applied and Gui.SIGNAL or Gui.HAIRLINE
-		e.edge.Transparency = applied and 0.05 or 0.5
-		e.action = nil
-		if applied then
-			e.applyL.Text = "Applied"
-			Gui.enable(e.apply, e.applyL, false)
-		elseif owned then
-			e.applyL.Text = "Apply"
-			Gui.enable(e.apply, e.applyL, true)
-		else
-			local def = Extra.Rooms.get(e.key)
-			local limited = def and def.Limited == "Halloween"
-			e.applyL.Text = (limited and active) and "Get it on the Halloween banner" or "Locked"
-			e.action = (limited and active) and "get" or nil
-			Gui.enable(e.apply, e.applyL, e.action ~= nil)
-		end
+		local picked = e.key == pick
+		e.edge.Color = picked and Gui.SIGNAL or Gui.HAIRLINE
+		e.edge.Thickness = picked and 3 or 1
+		e.edge.Transparency = picked and 0 or 0.5
+		e.on.Visible = e.key == on
+		e.lock.Visible = not owned
+		e.shade.BackgroundTransparency = owned and 1 or 0.45
+	end
+	local def = Extra.Rooms.get(pick) or {}
+	d.name.Text = def.Name or ""
+	d.tag.Text = def.Rarity and string.upper(def.Rarity .. (def.Limited and ("  ·  " .. def.Limited) or "")) or "EVERYONE'S"
+	d.tag.TextColor3 = def.Rarity and Spins.rarityColor(def.Rarity) or Gui.DIM
+	d.action = nil
+	if pick == on then
+		d.applyL.Text = "Applied"
+		Gui.enable(d.apply, d.applyL, false)
+	elseif Extra.Rooms.owns(rooms, pick, prof.dev) then
+		d.applyL.Text = "Apply"
+		Gui.enable(d.apply, d.applyL, true)
+	else
+		local get = def.Limited == "Halloween" and Extra.HW.active(Util.now())
+		d.applyL.Text = get and "Get it on the banner" or "Locked"
+		d.action = get and "get" or nil
+		Gui.enable(d.apply, d.applyL, get)
 	end
 end
 
@@ -3942,6 +4003,11 @@ local function lockerCard(parent, kind, item)
 	if item.Color then
 		local sw = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 16), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = item.Color, BorderSizePixel = 0 }, b)
 		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, sw)
+		local bands = Spins.swatchSequence(item) -- (a colour with bands shows them, top to bottom)
+		if bands then
+			sw.BackgroundColor3 = Color3.new(1, 1, 1)
+			make("UIGradient", { Rotation = 90, Color = bands }, sw)
+		end
 		make("UIStroke", { Color = Color3.new(1, 1, 1), Transparency = 0.3, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, sw)
 	end
 	Gui.label(b, {
@@ -7516,6 +7582,7 @@ function MenuController.go(name)
 	if seqActive or not ui.pages[name] then
 		return
 	end
+	Extra.closeDecorate(true) -- (leaving Home's Decorate: the room that's on comes back)
 	if name ~= "locker" then
 		lockerPick = {}
 	end
@@ -7575,7 +7642,7 @@ local function doRefresh()
 	refreshMatch()
 	Extra.refreshHomeProp(prof)
 	Extra.refreshDecorate(prof)
-	mods.SceneController.setRoom(prof.rooms and prof.rooms.on or Config.Rooms.Default)
+	mods.SceneController.setRoom(Extra.decorPreview or (prof.rooms and prof.rooms.on) or Config.Rooms.Default) -- (Decorate's pick while it's open)
 	if ui.fragments and ui.fragments.modal.root.Visible then
 		Extra.refreshFragments(prof)
 	end
