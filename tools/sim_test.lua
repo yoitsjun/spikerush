@@ -3496,6 +3496,21 @@ do
 		and Halloween.skinCharNames("Reaper") == "Taeho",
 		"the Reaper is Taeho's alone: an old copy on YeJun comes back free, it applies to Taeho only, swaps off and on, and a second copy is a duplicate")
 
+	-- Candy Corn is a colour, not a trail (the owner, 2026-10-15: "you are mixing up trails and colors
+	-- again. the candy corn is a color"): a spike colour in three bands, sold and pulled as one; Bat
+	-- Swarm is the trail (its bats: Fx.batRing)
+	local ccShop = nil
+	for _, row in ipairs(Config.Halloween.Shop) do
+		if row.Key == "CandyCorn" then
+			ccShop = row
+		end
+	end
+	local cc = Spins.item("Color", "CandyCorn")
+	check(cc ~= nil and cc.Color ~= nil and type(cc.Trail) == "table" and #cc.Trail == 3 and Spins.item("Trail", "CandyCorn") == nil
+		and Halloween.bannerItem("Color", "CandyCorn") ~= nil and Halloween.bannerItem("Trail", "CandyCorn") == nil and ccShop and ccShop.Item.Kind == "Color"
+		and Spins.item("Trail", "Bats") ~= nil and Spins.item("Color", "Bats") == nil,
+		"Candy Corn is a spike colour in three bands (banner and shop too); Bat Swarm is the trail")
+
 	-- Home's rooms (the owner, 2026-10-15: "add a halloween style background you can also spin for
 	-- kind of like how you can swap this"): the Clubhouse is everyone's; the Haunted Clubhouse is won
 	-- on the Halloween banner and swapped in from Decorate; a saved room you don't own falls back

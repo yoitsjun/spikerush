@@ -350,12 +350,8 @@ local KITS = {
 		layer(GLOW, { rate = 70, life = { 0.12, 0.22 }, size = { { 0, 4.5 }, { 1, 1 } }, alpha = { { 0, 0.3 }, { 1, 1 } }, tint = 0.6, z = -0.5, color = WHITE }),
 		layer(GLINTS, { rate = 20, life = { 0.25, 0.4 }, size = { { 0, 0 }, { 0.3, 2 }, { 1, 0 } }, speed = { 0.5, 2 }, drag = 0, tint = 0.5 }),
 	},
-	-- Halloween's trails (solid ribbons in their own colours with these riding the ball): candy
-	-- corn tumbling off, and bats beating away through a violet-black haze
-	TrailCandyCorn = {
-		{ t = "CandyCorn", rate = 22, life = { 0.5, 0.9 }, size = { { 0, 0 }, { 0.15, 1.3 }, { 1, 0.9 } }, alpha = { { 0, 0 }, { 0.75, 0.1 }, { 1, 1 } }, speed = { 2, 6 }, spread = 180, drag = 1, accel = Vector3.new(0, -14, 0), rot = { 0, 360 }, spin = { -300, 300 }, glow = 0.1, z = 1 },
-		layer(SPARKLE, { rate = 18, color = C(255, 210, 120) }),
-	},
+	-- Bat Swarm (Halloween; a solid violet-black ribbon with this riding the ball, and Fx.batRing's
+	-- bats circling it): bats beating away through a violet-black haze
 	TrailBats = {
 		{ t = "BatFlap", grid = "Grid2x2", flap = 14, rate = 14, life = { 0.6, 1 }, size = { { 0, 0.4 }, { 0.2, 1.8 }, { 1, 1.2 } }, alpha = { { 0, 0 }, { 0.7, 0.1 }, { 1, 1 } }, speed = { 4, 9 }, spread = 180, drag = 1.5, accel = Vector3.new(0, 5, 0), rot = { -20, 20 }, mode = "up", glow = 0, z = 1, color = C(22, 12, 34) },
 		{ t = "Smoke", grid = "Grid4x4", rate = 16, life = { 0.4, 0.7 }, size = { { 0, 1.4 }, { 1, 3 } }, alpha = { { 0, 0.45 }, { 1, 1 } }, speed = { 0.5, 2 }, spread = 180, rot = { 0, 360 }, glow = 0, color = C(40, 18, 64) },
@@ -754,6 +750,75 @@ function Fx.play(name, where, opts)
 end
 
 -- A held kit on parent: a Toolbox template's emitters (at their own rates) or the kit's.
+-- Bats flying round a ball (the Bat Swarm trail; the owner, 2026-10-15: "batswarm should have a bat
+-- flying around effect"): `n` black bats beating their wings (BatFlap's 2x2 wingbeat, 512 px frames)
+-- on billboards round `adornee` (the moving ball), circling through the side camera's plane at their
+-- own speeds and streaming a little behind the flight, each with a faint violet halo so it reads on
+-- a dark court. handle.set(on); handle.step(t, vel) every frame while on; handle.destroy().
+function Fx.batRing(adornee, n)
+	n = n or 7
+	local bats = {}
+	local image = Assets.id(Assets.Fx.BatFlap) or ""
+	local halo = Assets.id(Assets.Fx.Glow) or ""
+	for i = 1, n do
+		local bb = Instance.new("BillboardGui")
+		bb.Name = "Bat" .. i
+		bb.Size = UDim2.fromScale(1.5 + (i % 3) * 0.25, 1.5 + (i % 3) * 0.25)
+		bb.LightInfluence = 0
+		bb.Adornee = adornee
+		bb.Enabled = false
+		bb.Parent = adornee
+		local glow = Instance.new("ImageLabel")
+		glow.AnchorPoint = Vector2.new(0.5, 0.5)
+		glow.Position = UDim2.fromScale(0.5, 0.5)
+		glow.Size = UDim2.fromScale(1.6, 1.6)
+		glow.BackgroundTransparency = 1
+		glow.Image = halo
+		glow.ImageColor3 = C(160, 90, 255)
+		glow.ImageTransparency = 0.6
+		glow.Parent = bb
+		local img = Instance.new("ImageLabel")
+		img.Size = UDim2.fromScale(1, 1)
+		img.BackgroundTransparency = 1
+		img.Image = image
+		img.ImageRectSize = Vector2.new(512, 512)
+		img.ImageColor3 = C(24, 12, 36)
+		img.ZIndex = 2
+		img.Parent = bb
+		bats[i] = { bb = bb, img = img, phase = (i - 1) / n * math.pi * 2, speed = 2.3 + (i % 3) * 0.4, r = 1.7 + (i % 2) * 0.7, lag = 0.3 + (i % 4) * 0.35, beat = 12 + (i % 3) * 2 }
+	end
+	local h = { on = false }
+	function h.set(on)
+		on = on == true
+		if h.on == on then
+			return
+		end
+		h.on = on
+		for _, b in ipairs(bats) do
+			b.bb.Enabled = on
+		end
+	end
+	function h.step(t, vel)
+		if not h.on then
+			return
+		end
+		local back = (vel and vel.Magnitude > 1) and -vel.Unit or Vector3.zero
+		for i, b in ipairs(bats) do
+			local a = t * b.speed + b.phase
+			local r = b.r * (0.85 + 0.15 * math.sin(t * 1.9 + i))
+			b.bb.StudsOffsetWorldSpace = Vector3.new(math.sin(a * 0.6 + i) * 0.9, math.cos(a) * r, math.sin(a) * r) + back * b.lag
+			local f = math.floor(t * b.beat + i * 1.7) % 4
+			b.img.ImageRectOffset = Vector2.new((f % 2) * 512, math.floor(f / 2) * 512)
+		end
+	end
+	function h.destroy()
+		for _, b in ipairs(bats) do
+			b.bb:Destroy()
+		end
+	end
+	return h
+end
+
 function Fx.attach(name, parent)
 	local template = Fx.override(name)
 	local layers = {}

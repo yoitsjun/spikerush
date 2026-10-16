@@ -561,6 +561,9 @@ Config.Cosmetics = {
 		{ Key = "Pumpkin", Name = "Pumpkin", Rarity = "Rare", Color = Color3.fromRGB(255, 120, 20), Limited = "Halloween" },
 		{ Key = "Ectoplasm", Name = "Ectoplasm", Rarity = "Rare", Color = Color3.fromRGB(120, 255, 90), Limited = "Halloween" },
 		{ Key = "Bloodmoon", Name = "Blood Moon", Rarity = "Epic", Color = Color3.fromRGB(200, 20, 40), Limited = "Halloween" },
+		-- a colour, not a trail (the owner, 2026-10-15: "you are mixing up trails and colors again.
+		-- the candy corn is a color"): orange impacts, and the ribbon in candy corn's three bands
+		{ Key = "CandyCorn", Name = "Candy Corn", Rarity = "Rare", Color = Color3.fromRGB(255, 150, 30), Trail = { Color3.fromRGB(255, 246, 220), Color3.fromRGB(255, 196, 40), Color3.fromRGB(255, 104, 16) }, Limited = "Halloween" },
 	},
 	Trail = {
 		{ Key = "Ribbon", Name = "Ribbon", Rarity = "Common" },
@@ -571,10 +574,11 @@ Config.Cosmetics = {
 		{ Key = "Stardust", Name = "Stardust", Rarity = "Legendary" },
 		-- a solid ribbon in its own colours, whatever the spike colour (the owner: "colored trails")
 		{ Key = "Rainbow", Name = "Rainbow", Rarity = "Legendary", Solid = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }, Emission = 0.7 },
-		-- Halloween (Limited; solid ribbons with their own Fx kits riding the ball: TrailCandyCorn,
-		-- TrailBats). Souls is the Reaper skin's (Config.Halloween.Skins): never on a banner, worn
-		-- only with the skin (BallRenderer draws it; Base: its look anywhere else)
-		{ Key = "CandyCorn", Name = "Candy Corn", Rarity = "Rare", Solid = { Color3.fromRGB(255, 240, 200), Color3.fromRGB(255, 170, 30), Color3.fromRGB(255, 110, 20) }, Emission = 0.7, Limited = "Halloween" },
+		-- Halloween (Limited). Bat Swarm: a violet-black ribbon with bats circling the ball the whole
+		-- flight (Fx.batRing; the owner: "batswarm should have a bat flying around effect. it only is
+		-- a color right now") and more beating off it (TrailBats). Souls is the Reaper skin's
+		-- (Config.Halloween.Skins): never on a banner, worn only with the skin (BallRenderer draws it;
+		-- Base: its look anywhere else)
 		{ Key = "Bats", Name = "Bat Swarm", Rarity = "Epic", Solid = { Color3.fromRGB(40, 20, 60), Color3.fromRGB(130, 60, 200) }, Emission = 0.4, Limited = "Halloween" },
 		{ Key = "Souls", Name = "Souls", Rarity = "Mythic", Base = "Stardust", Solid = { Color3.fromRGB(230, 250, 255), Color3.fromRGB(110, 200, 255), Color3.fromRGB(40, 80, 160) }, Emission = 0.9, Limited = "Reaper", Hidden = true },
 	},
@@ -1832,7 +1836,7 @@ Config.Halloween = {
 			{ Kind = "Jump", Key = "BatSwarm", Scout = 60 },
 			{ Kind = "Jump", Key = "GraveMist", Scout = 30 },
 			{ Kind = "Trail", Key = "Bats", Scout = 60 },
-			{ Kind = "Trail", Key = "CandyCorn", Scout = 30 },
+			{ Kind = "Color", Key = "CandyCorn", Scout = 30 },
 			{ Kind = "Color", Key = "Bloodmoon", Scout = 60 },
 			{ Kind = "Color", Key = "Pumpkin", Scout = 30 },
 			{ Kind = "Color", Key = "Ectoplasm", Scout = 30 },
@@ -1843,7 +1847,7 @@ Config.Halloween = {
 		{ Key = "Lucky1", Name = "1 lucky spin", Price = 120, Limit = 5, Grant = { Lucky = 1 } },
 		{ Key = "Gold", Name = "2,500 Gold", Price = 40, Limit = 20, Grant = { Gold = 2500 } },
 		{ Key = "VP", Name = "150 VP", Price = 75, Limit = 10, Grant = { VP = 150 } },
-		{ Key = "CandyCorn", Name = "Candy Corn trail", Price = 160, Item = { Kind = "Trail", Key = "CandyCorn" } },
+		{ Key = "CandyCorn", Name = "Candy Corn spike colour", Price = 160, Item = { Kind = "Color", Key = "CandyCorn" } },
 		{ Key = "GraveMist", Name = "Grave Mist jump", Price = 160, Item = { Kind = "Jump", Key = "GraveMist" } },
 		{ Key = "PumpkinColor", Name = "Pumpkin spike colour", Price = 120, Item = { Kind = "Color", Key = "Pumpkin" } },
 	},

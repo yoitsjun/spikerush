@@ -1305,14 +1305,21 @@ local function styleBall(b, colorKey, trailKey)
 		b.kit.set(false)
 	end
 	b.kit = nil
-	-- a solid trail (White, Black, Rainbow) is the ribbon in its own colours
-	local solid, emission = Spins.solidTrail(Spins.resolve("Trail", trailKey))
+	-- a solid trail (Rainbow, Bat Swarm) is the ribbon in its own colours; one with a kit of its own
+	-- (Bat Swarm's bats) rides it as in a match (BallRenderer); it was dropped here, so the Locker
+	-- showed Bat Swarm as a colour (the owner: "it only is a color right now")
+	local trailItem = Spins.resolve("Trail", trailKey)
+	local solid, emission = Spins.solidTrail(trailItem)
+	b.bats = trailItem ~= nil and trailItem.Key == "Bats"
+	if b.bats and not b.batRing then
+		b.batRing = Fx.batRing(b.core)
+	end
 	if solid then
 		b.trail.Color = solid
 		b.trail.LightEmission = emission
 		b.trail.Lifetime = 0.75
 		b.prism = false
-		trailKey = "Ribbon"
+		trailKey = Fx.has("Trail" .. trailItem.Key) and trailItem.Key or "Ribbon"
 	end
 	if trailKey and trailKey ~= "Ribbon" then
 		-- the unlock's hand-drawn kit rides the ball, as in a match (BallRenderer)
@@ -1343,6 +1350,9 @@ local function launchFx(b, on)
 	b.glow.Brightness = on and 3 or 0
 	if b.kit then
 		b.kit.set(on, b.kitColor)
+	end
+	if b.batRing then
+		b.batRing.set(on and b.bats)
 	end
 end
 
@@ -1465,6 +1475,9 @@ local function updatePractice(now)
 		local pos = p.from:Lerp(LAND, a) + Vector3.new(0, math.sin(a * math.pi) * 0.8, 0)
 		if not p.landed then
 			b.model:PivotTo(CFrame.new(pos))
+			if b.batRing then
+				b.batRing.step(now, pos - p.last)
+			end
 			if b.prism then
 				b.trail.Color = ColorSequence.new(Spins.tint(Spins.resolve("Color", "Prism"), now))
 			end

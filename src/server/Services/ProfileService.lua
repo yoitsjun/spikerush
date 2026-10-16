@@ -257,6 +257,11 @@ local function sanitizeProfile(data)
 			end
 		end
 	end
+	-- Candy Corn was a trail for a day, and is a colour now (the owner: "the candy corn is a color")
+	local oldTrail = type(data.owned) == "table" and data.owned.Trail
+	if type(oldTrail) == "table" and oldTrail.CandyCorn and Spins.item("Color", "CandyCorn") then
+		out.owned.Color.CandyCorn = true
+	end
 	-- what's equipped is kept if it exists; whether it's owned is checked once the player is known
 	-- (keepOwned: a developer owns everything without it being in `owned`)
 	for _, kind in ipairs(COS.Kinds) do
@@ -264,6 +269,9 @@ local function sanitizeProfile(data)
 		if type(eq) == "string" and Spins.item(kind, eq) then
 			out.equip[kind] = eq
 		end
+	end
+	if type(data.equip) == "table" and data.equip.Trail == "CandyCorn" and not out.equip.Color then
+		out.equip.Color = "CandyCorn"
 	end
 	if type(data.char) == "string" and Spins.item("Char", data.char) then
 		out.char = data.char

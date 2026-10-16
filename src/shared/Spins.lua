@@ -491,7 +491,14 @@ function Spins.tintSequence(item)
 	if not item or not item.Color then
 		return nil
 	end
-	if type(item.Trail) == "table" and #item.Trail >= 2 then
+	if type(item.Trail) == "table" and #item.Trail >= 3 then
+		-- bands (Candy Corn's white, yellow and orange)
+		local keys = {}
+		for i, c in ipairs(item.Trail) do
+			table.insert(keys, ColorSequenceKeypoint.new((i - 1) / (#item.Trail - 1), c))
+		end
+		return ColorSequence.new(keys)
+	elseif type(item.Trail) == "table" and #item.Trail >= 2 then
 		return ColorSequence.new(item.Trail[1], item.Trail[2]) -- (Black: its own unlit trail)
 	end
 	if item.Key == "Prism" then

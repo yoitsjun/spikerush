@@ -54,6 +54,7 @@ local sparkles, sparkleOn = nil, false
 -- the attacker's equipped trail (V Points unlock): a hand-drawn Fx kit riding the ball
 local trailKits = {} -- trail key -> Fx.attach handle on the trail anchor
 local trailKit, trailColor, trailLit = nil, nil, false
+local batRing = { on = false, ring = nil } -- the Bat Swarm trail's circling bats (Fx.batRing)
 local chargedHl = nil -- red glow on a Chain Reaction (charged) ball
 local chargedOn = false
 local pulseRate = 14 -- how fast a glowing ball pulses (a Vector set breathes slower)
@@ -400,6 +401,7 @@ local function applyStyle(meta)
 	if attack and skin and skin.Trail then
 		trailKey = skin.Trail
 	end
+	batRing.on = false
 	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.6) })
 	core.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
 	core.Color = ColorSequence.new(Color3.new(1, 1, 1)) -- (the Souls trail paints it; everything else is white)
@@ -580,6 +582,10 @@ local function applyStyle(meta)
 	-- keeps the ability's look
 	local trailItem = Spins.resolve("Trail", trailKey)
 	local solid, emission = Spins.solidTrail(trailItem)
+	if trailItem and trailItem.Key == "Bats" then
+		batRing.on = true
+		batRing.ring = batRing.ring or Fx.batRing(trailPart)
+	end
 	if solid then
 		if not (meta.thunder or meta.energy or gauge or meta.reaction) then
 			trail.Color = solid
@@ -952,6 +958,10 @@ local function update(dt)
 	if trailKit and trail.Enabled ~= trailLit then
 		trailLit = trail.Enabled
 		trailKit.set(trailLit, trailColor)
+	end
+	if batRing.ring then
+		batRing.ring.set(batRing.on and trail.Enabled)
+		batRing.ring.step(os.clock(), vel)
 	end
 	if chargedOn and live then
 		-- the charged (or Vector) ball pulses
