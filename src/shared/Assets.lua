@@ -214,6 +214,9 @@ Assets.SoundFiles = {
 	["9125362418"] = { gain = 2.5 }, -- ForgeStrike "Anvil Hits Ringing Metal Clinks 31": peak 159
 	["9125669267"] = { gain = 1.7 }, -- ForgeFull: peak 237
 	["9116767882"] = { start = 0.1 }, -- ForgeRing: 0.11 s in, peak 410
+	-- (2026-10-16) Dante's Bloodlust and the Mythic skin pull: start just before the sound, peak to about 400
+	["9116292530"] = { start = 0.38, gain = 2.1 }, -- Bloodlust "Lion Roar Beast Snarl 5": 0.4 s in, peak 187
+	["9067394653"] = { start = 0.02, gain = 2.8 }, -- SinisterLaugh "deep demonic laugh 1": peak 132
 	["9120730294"] = { start = 0.26, gain = 1.6 }, -- ForgeHit: 0.28 s in, peak 253
 	["117922524763696"] = { gain = 0.5 }, -- Thunder: peak 798
 	["86816529419846"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491
