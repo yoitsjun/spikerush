@@ -54,6 +54,7 @@
 local DataStoreService = game:GetService("DataStoreService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
+local TextService = game:GetService("TextService")
 local UserService = game:GetService("UserService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -206,7 +207,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil) }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil) }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -299,6 +300,8 @@ local function sanitizeProfile(data)
 	end)
 	-- Home's rooms (Config.Rooms): the ones won, and the one on
 	out.rooms = Rooms.clean(data.rooms)
+	-- the Rest in Peace gravestone (Config.Grave): the epitaph (already filtered) and the picture
+	out.grave = Halloween.cleanGrave(data.grave)
 	-- breakthroughs: the fragments in hand, and each character's level (Config.Breakthrough)
 	out.fragments = Breakthrough.cleanFragments(data.fragments)
 	if type(data.breaks) == "table" then
@@ -572,6 +575,7 @@ local function save(plr, force)
 		halloween = profile.halloween,
 		skins = profile.skins,
 		rooms = profile.rooms,
+		grave = profile.grave,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -646,7 +650,14 @@ local function applyCosmetics(plr, profile)
 			char:SetAttribute(attr, value)
 		end
 	end
+	-- the Rest in Peace gravestone's epitaph ("": their name) and picture (0: none), for every client
+	local grave = profile.grave or Halloween.cleanGrave(nil)
+	for _, inst in ipairs({ plr, char or plr }) do
+		inst:SetAttribute("GraveText", grave.text)
+		inst:SetAttribute("GraveImage", grave.image)
+	end
 end
+
 
 -- Perks: owned when bought with VP, when the player owns the game pass, or for a developer.
 local passes = {} -- plr -> { [perk] = true } for the game passes they own
@@ -993,6 +1004,7 @@ function ProfileService.snapshot(plr)
 		boostLuckMul = (Economy.luckBoost(profile, os.time())),
 		passes = passesOf(plr, profile), -- the game passes they own (Config.Passes)
 		bundles = table.clone(profile.bundles), -- the once-only bundles they bought
+		grave = profile.grave, -- the Rest in Peace gravestone (Config.Grave)
 		group = groupId(),
 		member = groupMember[plr], -- nil until it's known
 		daily = (function()
@@ -1962,6 +1974,44 @@ local function skinRequest(plr, profile, op, charId, key)
 	push(plr, string.format("%s %s for %s.", name, (op == "apply" or op == "on") and "on" or "off", c.Name))
 end
 
+-- The Rest in Peace gravestone (Config.Grave): the epitaph through Roblox's text filter (empty: your
+-- name) and a picture (a Roblox image or decal's id, or a link to it; empty: none).
+local graveAt = {}
+local function graveRequest(plr, profile, text, image)
+	local now = os.clock()
+	if graveAt[plr] and now - graveAt[plr] < 2 then
+		push(plr, "One moment, then save again.")
+		return
+	end
+	graveAt[plr] = now
+	local clean = Halloween.graveText(text)
+	local img = Halloween.graveImage(image)
+	if type(image) == "string" and string.match(image, "%S") and not img then
+		push(plr, "The picture needs a Roblox image or decal: its id, or a link to it.")
+		return
+	end
+	task.spawn(function()
+		local filtered = ""
+		if clean ~= "" then
+			local ok, res = pcall(function()
+				return TextService:FilterStringAsync(clean, plr.UserId, Enum.TextFilterContext.PublicChat):GetNonChatStringForBroadcastAsync()
+			end)
+			if not ok or type(res) ~= "string" then
+				push(plr, "Roblox's text filter couldn't check it. Try again in a moment.")
+				return
+			end
+			filtered = res
+		end
+		if profiles[plr] ~= profile then
+			return
+		end
+		profile.grave = { text = filtered, image = img or 0 }
+		dirty[plr] = true
+		applyCosmetics(plr, profile)
+		push(plr, filtered ~= clean and "Saved, with some words filtered." or "Your gravestone is saved.")
+	end)
+end
+
 -- Home's room (Config.Rooms): put on one you own (the Decorate window).
 local function roomRequest(plr, profile, key)
 	local ok, why = Rooms.equip(profile.rooms, key, profile.dev)
@@ -2406,6 +2456,8 @@ local function onRequest(plr, kind, a, b, c)
 		skinRequest(plr, profile, a, b, c)
 	elseif kind == "room" then
 		roomRequest(plr, profile, a)
+	elseif kind == "grave" then
+		graveRequest(plr, profile, a, b)
 	elseif kind == "luckyTrade" then
 		-- lucky spins for VP (Config.Lucky.VPCost each), in one of the Shop's amounts
 		local n = tonumber(a)

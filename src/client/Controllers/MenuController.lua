@@ -3753,6 +3753,84 @@ function Extra.buildDecorate()
 	Extra.decor = d
 end
 
+-- Rest in Peace's gravestone (the owner, 2026-10-15: "Players can customize text and add image URL to
+-- the tombstone. Default is just player name"): the stone turning in a viewport with what you've
+-- typed, your epitaph (empty: your name) and a picture (a Roblox image or decal: its id or a link),
+-- and Save (the server filters the words).
+function Extra.buildGraveEditor()
+	local m = modal("Grave", "Your gravestone", 900, 560, true)
+	local view = make("ViewportFrame", { Position = UDim2.fromOffset(28, 92), Size = UDim2.fromOffset(360, 420), BackgroundColor3 = Color3.fromRGB(16, 14, 24), BorderSizePixel = 0, Ambient = Color3.fromRGB(120, 118, 140), LightColor = Color3.fromRGB(235, 232, 255), LightDirection = Vector3.new(-0.4, -0.8, -0.6), ZIndex = 21 }, m.panel)
+	make("UICorner", { CornerRadius = UDim.new(0, 8) }, view)
+	local world = make("WorldModel", {}, view)
+	local cam = make("Camera", { FieldOfView = 34 }, view)
+	view.CurrentCamera = cam
+	local x = 420
+	Gui.label(m.panel, { Text = "Words", display = true, TextSize = 20, Position = UDim2.fromOffset(x, 96), Size = UDim2.fromOffset(440, 24), ZIndex = 21 })
+	local words = Extra.inputBox(m.panel, { Position = UDim2.fromOffset(x, 124), Size = UDim2.fromOffset(440, 46), ClearTextOnFocus = false, ZIndex = 21 }, "Empty: your name")
+	local count = Gui.label(m.panel, { Text = "", TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(x, 174), Size = UDim2.fromOffset(440, 18), ZIndex = 21 })
+	Gui.label(m.panel, { Text = "Picture", display = true, TextSize = 20, Position = UDim2.fromOffset(x, 206), Size = UDim2.fromOffset(440, 24), ZIndex = 21 })
+	local pic = Extra.inputBox(m.panel, { Position = UDim2.fromOffset(x, 234), Size = UDim2.fromOffset(440, 46), ClearTextOnFocus = false, ZIndex = 21 }, "A Roblox image or decal: its id or link")
+	local note = Gui.label(m.panel, { Text = "Words go through Roblox's filter. Anyone who sees your score sees the stone.", TextSize = 14, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(x, 286), Size = UDim2.fromOffset(440, 40), ZIndex = 21 })
+	local save = actionPlate(m.panel, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -28, 1, -26), Size = UDim2.fromOffset(220, 54) }, "Save", 22)
+	local clear = hairButton(m.panel, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -262, 1, -32), Size = UDim2.fromOffset(170, 44), ZIndex = 21 }, "No picture", 17)
+	local G = { modal = m, view = view, world = world, cam = cam, words = words, pic = pic, count = count, note = note }
+	-- the stone as typed, rebuilt a moment after the typing stops
+	function G.redraw()
+		G.stamp = (G.stamp or 0) + 1
+		local stamp = G.stamp
+		task.delay(0.25, function()
+			if stamp ~= G.stamp or not m.root.Visible then
+				return
+			end
+			world:ClearAllChildren()
+			local text = Extra.HW.graveText(words.Text)
+			local ok, stone = pcall(function()
+				return mods.VFXController.newTombstone(6, text ~= "" and text or player.DisplayName, Extra.HW.graveImage(pic.Text))
+			end)
+			if ok and stone then
+				stone:PivotTo(CFrame.new())
+				stone.Parent = world
+				cam.CFrame = CFrame.lookAt(Vector3.new(4.5, 3.4, -14), Vector3.new(0, 3, 0))
+			end
+		end)
+	end
+	words:GetPropertyChangedSignal("Text"):Connect(function()
+		local cut = Extra.HW.graveText(words.Text)
+		if #words.Text > #cut + 4 then
+			words.Text = cut
+		end
+		count.Text = string.format("%d / %d", utf8.len(cut) or #cut, Config.Grave.TextMax)
+		G.redraw()
+	end)
+	pic:GetPropertyChangedSignal("Text"):Connect(function()
+		local typed = string.match(pic.Text, "%S") ~= nil
+		local id = Extra.HW.graveImage(pic.Text)
+		note.Text = (typed and not id) and "That needs a Roblox image or decal: its id, or a link to it." or "Words go through Roblox's filter. Anyone who sees your score sees the stone."
+		note.TextColor3 = (typed and not id) and Gui.SIGNAL_HOT or Gui.DIM
+		G.redraw()
+	end)
+	onClick(clear, function()
+		pic.Text = ""
+	end)
+	onClick(save, function()
+		sendProfile("grave", words.Text, pic.Text)
+		m.hide()
+	end)
+	Extra.grave = G
+end
+
+function Extra.openGraveEditor()
+	local G = Extra.grave
+	if not G then
+		return
+	end
+	local g = profile().grave or {}
+	G.words.Text = g.text or ""
+	G.pic.Text = (g.image or 0) > 0 and tostring(g.image) or ""
+	G.modal.root.Visible = true
+	G.redraw()
+end
+
 function Extra.openDecorate()
 	local d = Extra.decor
 	local prof = profile()
@@ -4375,7 +4453,12 @@ local function buildLocker()
 		end
 	end)
 	local caption = Gui.label(p, { Text = "", TextSize = 18, weight = Enum.FontWeight.Medium, RichText = true, TextStrokeTransparency = 0.5, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, M, 1, -M), Size = UDim2.new(0.5, -M, 0, 24) })
-	ui.locker = { setKind = setKind, chips = chips, pickName = pickName, pickSub = pickSub, equipL = equipL, caption = caption, grid = grid, cardList = cardList, cardRows = cardRows, cardPreview = cardPreview }
+	-- Rest in Peace: your gravestone's words and picture (Config.Grave)
+	local custom = hairButton(panel, { Name = "Customize", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -240, 1, -30), Size = UDim2.fromOffset(150, 44), Visible = false }, "Customize", 18)
+	onClick(custom, function()
+		Extra.openGraveEditor()
+	end)
+	ui.locker = { setKind = setKind, chips = chips, pickName = pickName, pickSub = pickSub, equipL = equipL, caption = caption, grid = grid, cardList = cardList, cardRows = cardRows, cardPreview = cardPreview, custom = custom }
 end
 
 -- The Locker's Cards tab: every player card with your own numbers on it (locked ones dimmed, with
@@ -4469,6 +4552,7 @@ local function refreshLocker(prof)
 	local L = ui.locker
 	L.setKind(lockerKind)
 	local isCard = lockerKind == "Card"
+	L.custom.Visible = false -- (Rest in Peace's own Customize: below, when it's picked)
 	L.grid.Visible = not isCard
 	L.cardList.Visible = isCard
 	L.cardPreview.root.Visible = isCard
@@ -4508,6 +4592,7 @@ local function refreshLocker(prof)
 	local key = lockerPick[lockerKind] or (prof.equip and prof.equip[lockerKind]) or Spins.default(lockerKind)
 	lockerPick[lockerKind] = key
 	local item = Spins.item(lockerKind, key)
+	L.custom.Visible = lockerKind == "Effect" and key == "Grave" and owns(prof, "Effect", "Grave")
 	L.pickName.Text = item and item.Name or key
 	L.pickSub.Text = item and string.format('<font color="#%s">%s</font>  %s', Spins.rarityColor(item.Rarity):ToHex(), item.Rarity, SP.Banners[lockerKind].Name) or ""
 	-- the character you play wears a skin with its own jump (the Fallen Angel): say it takes over
@@ -8331,6 +8416,7 @@ function MenuController.init(m)
 	Extra.buildCrop()
 	Extra.buildAdmin()
 	Extra.buildDecorate()
+	Extra.buildGraveEditor()
 	Extra.buildCups()
 	Extra.buildTour()
 

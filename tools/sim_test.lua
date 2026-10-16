@@ -3574,6 +3574,15 @@ do
 		and jump ~= nil and jump.Hidden and jump.Limited ~= nil and FA.Thunder ~= nil and FA.Rarity == "Mythic"
 		and table.concat(Halloween.skinsFor("yejun"), ",") == "FallenAngel" and Halloween.cleanSkins({ FallenAngel = { copies = 1, on = { yejun = true, taeha = true } } }).FallenAngel.on.taeha == nil,
 		"the Fallen Angel is YeJun's skin alone, with its own hidden jump (Underworld) and violet thunder")
+	-- Rest in Peace's gravestone (the owner: "Players can customize text and add image URL to the
+	-- tombstone. Default is just player name"): a picture from an id or a link, words trimmed and capped
+	local GI, GT = Halloween.graveImage, Halloween.graveText
+	local long = string.rep("x", Config.Grave.TextMax + 25)
+	local g = Halloween.cleanGrave({ text = "  Here   lies\nthe other team  ", image = "https://create.roblox.com/store/asset/12345678/Cool" })
+	check(GI("rbxassetid://987654321") == 987654321 and GI("https://www.roblox.com/library/55555555/x") == 55555555 and GI(1234567) == 1234567 and GI("abc") == nil and GI("12") == nil and GI("") == nil
+		and #GT(long) == Config.Grave.TextMax and GT(nil) == "" and g.text == "Here lies the other team" and g.image == 12345678 and Halloween.cleanGrave(nil).image == 0
+		and Spins.item("Effect", "Grave") ~= nil and Spins.item("Effect", "Grave").Limited == "Halloween",
+		"Rest in Peace: the gravestone takes a picture from any Roblox id or link, and words trimmed to one line of up to 40")
 	-- the S+ quotes on their recruits (the owner: "a little quote for each s+ recruitment"): S+ ids only
 	local quotesOk = Config.Quotes.yejun == "From above the net there is no mercy... only descent."
 	for id, q in pairs(Config.Quotes) do

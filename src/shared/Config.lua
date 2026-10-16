@@ -662,6 +662,9 @@ Config.Cosmetics = {
 		-- the owner's two Halloween score effects (Limited; Base: drawn as it until their own are made)
 		{ Key = "PumpkinBurst", Name = "Pumpkin Burst", Rarity = "Legendary", Limited = "Halloween" }, -- (VFXController pumpkinBurst)
 		{ Key = "GhostSwarm", Name = "Ghost Swarm", Rarity = "Legendary", Limited = "Halloween" }, -- (VFXController ghostSwarm)
+		-- a giant gravestone dropping on the spot with your epitaph (VFXController HW.graveDrop;
+		-- Config.Grave)
+		{ Key = "Grave", Name = "Rest in Peace", Rarity = "Legendary", Limited = "Halloween" },
 	},
 	-- how you pose in the matchup intro and, when your team wins, the showcase after the match
 	-- (AnimationController's Intro_<Key> poses)
@@ -1784,6 +1787,12 @@ Config.Tournament = {
 --               character); it can be switched off and on for that character at any time
 --               (profile.skins). The Reaper: a scythe for the hitting hand and the Souls trail,
 --               only with the skin.
+-- The Rest in Peace score effect's gravestone (the owner, 2026-10-15: "A grave score explosion similar
+-- to giant stomp. Players can customize text and add image URL to the tombstone. Default is just
+-- player name"): your epitaph, up to TextMax characters through Roblox's text filter (none: your
+-- name), and a picture: any Roblox image or decal, by its id or a link to it (Halloween.graveImage).
+Config.Grave = { TextMax = 40 }
+
 -- The S+ characters' lines, shown on their recruit (the owner, 2026-10-15: "a little quote for each
 -- s+ recruitment. ill tell you ones i want", after The Spike's): by roster id; one without a line
 -- just isn't quoted.
@@ -1905,6 +1914,7 @@ Config.Halloween = {
 			{ Kind = "Room", Key = "Haunted", Scout = 90 }, -- (Home's background: Config.Rooms)
 			{ Kind = "Effect", Key = "PumpkinBurst", Scout = 90 },
 			{ Kind = "Effect", Key = "GhostSwarm", Scout = 90 },
+			{ Kind = "Effect", Key = "Grave", Scout = 120 },
 			{ Kind = "Ball", Key = "Pumpkin", Scout = 90 },
 			{ Kind = "Ball", Key = "WitchHat", Scout = 60 },
 			{ Kind = "Jump", Key = "JackOLantern", Scout = 90 },

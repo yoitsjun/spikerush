@@ -561,6 +561,49 @@ function Halloween.isSkin(key)
 	return type(key) == "string" and HW.Skins[key] ~= nil
 end
 
+-- The Rest in Peace gravestone (Config.Grave). A picture from what a player typed: a Roblox asset's
+-- id, or a link with one in it (rbxassetid://..., create.roblox.com/store/asset/...,
+-- roblox.com/library/...); nil when there's none.
+function Halloween.graveImage(s)
+	if type(s) == "number" then
+		s = tostring(math.floor(s))
+	end
+	if type(s) ~= "string" then
+		return nil
+	end
+	local id = tonumber(string.match(s, "(%d%d%d%d%d+)") or "")
+	if id and id > 0 and id < 1e15 then
+		return id
+	end
+	return nil
+end
+
+-- An epitaph made safe before the filter: one line, trimmed, at most Config.Grave.TextMax characters.
+function Halloween.graveText(s)
+	if type(s) ~= "string" then
+		return ""
+	end
+	s = string.gsub(s, "%c", " ")
+	s = string.match((string.gsub(s, "%s+", " ")), "^%s*(.-)%s*$") or ""
+	local ok, cut = pcall(utf8.offset, s, Config.Grave.TextMax + 1)
+	if ok and cut then
+		s = string.sub(s, 1, cut - 1)
+	elseif not ok then
+		s = string.sub(s, 1, Config.Grave.TextMax)
+	end
+	return s
+end
+
+-- A saved gravestone made safe: { text, image } (image 0: none).
+function Halloween.cleanGrave(data)
+	local out = { text = "", image = 0 }
+	if type(data) == "table" then
+		out.text = Halloween.graveText(data.text)
+		out.image = Halloween.graveImage(data.image) or 0
+	end
+	return out
+end
+
 -- Whether a skin fits a character: its Chars, or anyone when it has none (the Reaper is Taeho's
 -- alone since 2026-10-15).
 function Halloween.skinFits(key, charId)

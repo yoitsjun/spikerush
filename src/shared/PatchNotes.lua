@@ -30,6 +30,7 @@ PatchNotes.List = {
 					{ Text = "<b>The Haunted Forest</b>: Home out in a moonlit forest, the clubhouse a haunted cabin among dead trees, with a graveyard, a bubbling cauldron, jack-o'-lanterns and a huge orange moon. Home's new <b>Decorate</b> shows a room behind you the moment you pick it; Apply keeps it." },
 					{ Icon = "AbilityThunder", Text = "<b>The Fallen Angel</b> is YeJun's skin: one broken black wing, lightning in violet and black, and arms from the underworld that drag him back down on every jump (his own jump while it's on). It shares the banner's Mythic slot with the Reaper." },
 					{ Text = "Pull a Mythic skin and the scythe cuts the screen open onto black. Click to go on." },
+					{ Text = "New score effect on the banner, <b>Rest in Peace</b>: a giant gravestone drops on the spot and flings the other team. Carve your own words and a picture on it in the Locker (Customize); otherwise it bears your name." },
 					{ Text = "The <b>Candy shop</b>: lucky spins, Gold, VP and Halloween cosmetics." },
 				},
 			},

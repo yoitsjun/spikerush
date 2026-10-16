@@ -5627,6 +5627,268 @@ local function giantStomp(model, pos, dirZ, tint, k, victims)
 end
 
 ------------------------------------------------------------------------------------------
+-- Rest in Peace (Halloween; the owner, 2026-10-15: "A grave score explosion similar to giant stomp.
+-- Players can customize text and add image URL to the tombstone. Default is just player name"): a
+-- giant gravestone drops out of the sky onto the spot like Giant Stomp's giant, the floor cracking
+-- and the other team flung (local ragdolls, as Giant Stomp's), and stands there facing the camera
+-- with the scorer's epitaph (their name unless they wrote one) and picture under a cold mist, then
+-- sinks back into the ground. The stone is ToolboxAssets.ScoreFx.Tombstone (assets/skins/
+-- FallenAngel.fbx: Grave_Stone, Grave_Base, markers Grave_Bottom and the inscription's
+-- Grave_FaceCenter, Grave_FaceTop, Grave_FaceRight and Grave_FaceOut), else a stand-in of parts.
+------------------------------------------------------------------------------------------
+
+HW.GRAVE_LIFE = 3.6
+function HW.tombstoneStandIn()
+	local m = Instance.new("Model")
+	local function part(name, class, size, cf, color)
+		local p = Instance.new(class)
+		p.Name = name
+		p.Size = size
+		p.CFrame = cf
+		p.Color = color
+		p.Material = Enum.Material.Slate
+		p.Parent = m
+		return p
+	end
+	-- an arch: a slab, a disc on top, on a plinth (the face looks along -z)
+	local stone = part("Grave_Stone", "Part", Vector3.new(1, 0.95, 0.24), CFrame.new(0, 0.475, 0), Color3.fromRGB(112, 114, 122))
+	local top = part("Grave_Stone", "Part", Vector3.new(0.24, 1, 1), CFrame.new(0, 0.95, 0) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(112, 114, 122))
+	top.Shape = Enum.PartType.Cylinder
+	part("Grave_Base", "Part", Vector3.new(1.3, 0.2, 0.5), CFrame.new(0, -0.1, 0), Color3.fromRGB(72, 72, 80))
+	part("Grave_Bottom", "Part", Vector3.new(0.02, 0.02, 0.02), CFrame.new(0, -0.2, 0), Color3.new())
+	part("Grave_FaceCenter", "Part", Vector3.new(0.02, 0.02, 0.02), CFrame.new(0, 0.72, -0.125), Color3.new())
+	part("Grave_FaceTop", "Part", Vector3.new(0.02, 0.02, 0.02), CFrame.new(0, 1.22, -0.125), Color3.new())
+	part("Grave_FaceRight", "Part", Vector3.new(0.02, 0.02, 0.02), CFrame.new(0.36, 0.72, -0.125), Color3.new())
+	part("Grave_FaceOut", "Part", Vector3.new(0.02, 0.02, 0.02), CFrame.new(0, 0.72, -1.125), Color3.new())
+	m.PrimaryPart = stone
+	return m
+end
+-- A gravestone `height` studs tall, its pivot at the foot of the plinth looking the way its face
+-- does, the epitaph `text` and picture `image` (an asset id, or nil) cut into the face.
+function HW.tombstone(height, text, image)
+	local src = Assets.toolbox("ScoreFx.Tombstone")
+	local c = src and Assets.sanitize(src:Clone()) or HW.tombstoneStandIn()
+	local MARK = { Grave_Bottom = true, Grave_FaceCenter = true, Grave_FaceTop = true, Grave_FaceRight = true, Grave_FaceOut = true }
+	for _, d in ipairs(c:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+			if d.Name == "Grave_Stone" then
+				d.Color, d.Material = Color3.fromRGB(112, 114, 122), Enum.Material.Slate
+			elseif d.Name == "Grave_Base" then
+				d.Color, d.Material = Color3.fromRGB(72, 72, 80), Enum.Material.Slate
+			end
+			if d:IsA("MeshPart") and (d.Name == "Grave_Stone" or d.Name == "Grave_Base") then
+				d.TextureID = ""
+			end
+			if MARK[d.Name] then
+				d.Transparency = 1
+				d.CastShadow = false
+			end
+		end
+	end
+	c.PrimaryPart = c:FindFirstChild("Grave_Stone", true) or c:FindFirstChildWhichIsA("BasePart", true)
+	local bottom, center = c:FindFirstChild("Grave_Bottom", true), c:FindFirstChild("Grave_FaceCenter", true)
+	local top, right, out = c:FindFirstChild("Grave_FaceTop", true), c:FindFirstChild("Grave_FaceRight", true), c:FindFirstChild("Grave_FaceOut", true)
+	if not (bottom and center and top and right and out and c.PrimaryPart) then
+		return c
+	end
+	local up = (top.Position - center.Position).Unit
+	local look = out.Position - center.Position
+	look = (look - up * look:Dot(up)).Unit
+	c.PrimaryPart.PivotOffset = c.PrimaryPart.CFrame:ToObjectSpace(CFrame.lookAt(bottom.Position, bottom.Position + look, up))
+	local tall = (top.Position - bottom.Position).Magnitude * 1.25
+	c:ScaleTo(c:GetScale() * height / math.max(tall, 0.01))
+	-- the inscription: a plate on the face (its front along the face's look), a picture over the words
+	local w = (right.Position - center.Position).Magnitude * 2
+	local h = (top.Position - center.Position).Magnitude * 2
+	local plate = Instance.new("Part")
+	plate.Name = "Inscription"
+	plate.Size = Vector3.new(w, h, 0.05)
+	plate.CFrame = CFrame.lookAt(center.Position, center.Position + look, up)
+	plate.Transparency = 1
+	plate.Anchored = true
+	plate.CanCollide = false
+	plate.CanQuery = false
+	plate.CanTouch = false
+	plate.CastShadow = false
+	plate.Parent = c
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.LightInfluence = 0.5
+	gui.Parent = plate
+	local hasImage = type(image) == "number" and image > 0
+	if hasImage then
+		local frame = Instance.new("Frame")
+		frame.AnchorPoint = Vector2.new(0.5, 0)
+		frame.Position = UDim2.fromScale(0.5, 0.05)
+		frame.Size = UDim2.fromScale(0.62, 0.5)
+		frame.BackgroundColor3 = Color3.fromRGB(40, 40, 46)
+		frame.BorderSizePixel = 0
+		frame.Parent = gui
+		local ar = Instance.new("UIAspectRatioConstraint")
+		ar.AspectRatio = 1
+		ar.Parent = frame
+		local img = Instance.new("ImageLabel")
+		img.AnchorPoint = Vector2.new(0.5, 0.5)
+		img.Position = UDim2.fromScale(0.5, 0.5)
+		img.Size = UDim2.fromScale(0.92, 0.92)
+		img.BackgroundTransparency = 1
+		img.ScaleType = Enum.ScaleType.Fit
+		img.Image = "rbxthumb://type=Asset&id=" .. tostring(image) .. "&w=420&h=420"
+		img.Parent = frame
+	end
+	local words = Instance.new("TextLabel")
+	words.AnchorPoint = Vector2.new(0.5, 1)
+	words.Position = UDim2.fromScale(0.5, 0.95)
+	words.Size = UDim2.fromScale(0.9, hasImage and 0.36 or 0.7)
+	words.BackgroundTransparency = 1
+	words.Text = text or ""
+	words.TextScaled = true
+	words.TextWrapped = true
+	words.FontFace = Font.new("rbxasset://fonts/families/Creepster.json")
+	words.TextColor3 = Color3.fromRGB(34, 34, 40) -- (cut into the stone)
+	words.TextStrokeColor3 = Color3.fromRGB(190, 192, 200)
+	words.TextStrokeTransparency = 0.55
+	words.Parent = gui
+	return c
+end
+
+-- The epitaph and picture a scorer's gravestone wears: their own (written by the server, filtered),
+-- else their name; the Locker's preview (a copy of you) takes yours.
+function HW.graveWords(model)
+	local src = (model and model:GetAttribute("GraveText") ~= nil) and model or player
+	local text = src:GetAttribute("GraveText") or ""
+	local image = tonumber(src:GetAttribute("GraveImage")) or 0
+	if text == "" then
+		local plr = model and Players:GetPlayerFromCharacter(model)
+		text = (plr and plr.DisplayName) or (src == player and player.DisplayName) or (model and model:GetAttribute("CharName")) or "Here lies the other team"
+	end
+	return text, image > 0 and image or nil
+end
+
+function HW.graveDrop(pos, tint, k, model, victims)
+	local text, image = HW.graveWords(model)
+	local H = 15 + 7 * (k or 1)
+	local stone = HW.tombstone(H, text, image)
+	local color = tint or Color3.fromRGB(150, 140, 190)
+	-- facing the camera, leaning a touch
+	local cam = workspace.CurrentCamera
+	local toCam = cam and Vector3.new(cam.CFrame.Position.X - pos.X, 0, cam.CFrame.Position.Z - pos.Z) or Vector3.new(-1, 0, 0)
+	if toCam.Magnitude < 0.1 then
+		toCam = Vector3.new(-1, 0, 0)
+	end
+	local face = CFrame.lookAt(Vector3.zero, toCam.Unit) * CFrame.Angles(math.rad(math.random(-4, 4)), 0, math.rad(math.random(-7, 7)))
+	local stand = CFrame.new(pos.X, -0.6, pos.Z) * face
+	stone:PivotTo(stand + Vector3.new(0, 80, 0))
+	stone.Parent = fxFolder
+	-- the other team: hidden, and their copies (stand-ins in the Locker) waiting to be flung
+	local dolls, undo = {}, {}
+	if victims then
+		for _, v in ipairs(victims) do
+			local d = puppet(v)
+			if d then
+				d:PivotTo(v:GetPivot())
+				d.Parent = fxFolder
+				ragdoll(d)
+				table.insert(dolls, d)
+				table.insert(undo, hideLocally(v))
+			end
+		end
+	elseif model then
+		for i = 1, 3 do
+			local d = puppet(model)
+			if d then
+				local a = math.rad(i * 120)
+				d:PivotTo(CFrame.new(pos + Vector3.new(math.cos(a) * 5, 3, math.sin(a) * 5)) * CFrame.Angles(0, a, 0))
+				d.Parent = fxFolder
+				ragdoll(d)
+				table.insert(dolls, d)
+			end
+		end
+	end
+	local size = H / 5
+	local born, landed, sunk = os.clock(), false, false
+	local conn
+	conn = RunService.Stepped:Connect(function()
+		local t = os.clock() - born
+		if t > HW.GRAVE_LIFE or not stone.Parent then
+			conn:Disconnect()
+			stone:Destroy()
+			return
+		end
+		-- dropping out of the sky (0 to 0.36 s), a settle, standing; sinking away at the end
+		local drop = math.clamp(t / 0.36, 0, 1)
+		local y = 80 * (1 - drop * drop)
+		if drop >= 1 then
+			local st = t - 0.36
+			y = -0.35 * math.exp(-st * 9) * math.sin(st * 30) -- (the jolt of landing)
+		end
+		local sink = math.clamp((t - (HW.GRAVE_LIFE - 0.75)) / 0.7, 0, 1)
+		y = y - H * 1.1 * sink * sink
+		stone:PivotTo(stand + Vector3.new(0, y, 0))
+		if drop >= 1 and not landed then
+			landed = true
+			local floor = Vector3.new(pos.X, 0.2, pos.Z)
+			groundMark("FX_Crack", floor, Color3.fromRGB(26, 24, 22), 2.4 * size / 4, 2.4, 0.8)
+			slabRing(floor, 12, 7 * size / 4, size / 3)
+			rubble(floor, 16, size / 3, nil, 0.45)
+			smokePuffs(floor, 12, size / 3, Color3.fromRGB(200, 196, 210))
+			shockDisc(floor, color, 26 * size / 4, 0.6)
+			floorRing(floor, color, 40 * size / 4)
+			Fx.play("ScoreShockwave", floor, { color = tint, scale = size / 4 })
+			Fx.play("SoulsBurst", floor + Vector3.new(0, 1, 0), { scale = 1.6 })
+			for _, d in ipairs(dolls) do
+				local r = d:FindFirstChild("HumanoidRootPart")
+				if r and (r.Position - floor).Magnitude < 60 * size / 4 then
+					launch(d, floor, 55)
+				end
+			end
+			sfx("ScoreImpact", floor)
+			sfx("ScoreShockwave", floor)
+			sfx("ScoreRumble", floor)
+			if near(floor) then
+				mods.CameraController.shake(1.3)
+				mods.CameraController.kick(-10)
+				VFXController.flash(0.3, 0.2)
+			end
+			-- a cold mist creeping round its foot while it stands
+			for i = 1, 3 do
+				task.delay(0.3 + i * 0.45, smokePuffs, floor, 6, size / 3, Color3.fromRGB(150, 160, 190))
+			end
+		end
+		if sink > 0.05 and not sunk then
+			sunk = true
+			smokePuffs(Vector3.new(pos.X, 0.2, pos.Z), 10, size / 3, Color3.fromRGB(120, 110, 100))
+			rubble(Vector3.new(pos.X, 0.2, pos.Z), 8, size / 3, nil, 0.3)
+		end
+	end)
+	-- the ragdolls lie a moment, fade, and the real players come back
+	task.delay(3.1, function()
+		for _, d in ipairs(dolls) do
+			fadeModel(d, 0.35)
+		end
+		task.delay(0.4, function()
+			for _, d in ipairs(dolls) do
+				d:Destroy()
+			end
+			for _, f in ipairs(undo) do
+				f()
+			end
+		end)
+	end)
+end
+
+-- A gravestone with your epitaph and picture, for a picture of it (the Locker's gravestone editor).
+function VFXController.newTombstone(height, text, image)
+	return HW.tombstone(height or 6, text, image)
+end
+
+------------------------------------------------------------------------------------------
 -- big score effects that take over the screen (the owner: "a cross map freeze with camera
 -- effects", "domain expansions... that take the camera", "a world cutting slash... that sweeps
 -- across the court and slices the enemies in half") and four after Rocket League's goal
@@ -6708,6 +6970,8 @@ local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
 		HW.pumpkinBurst(pos, tint, k or 1)
 	elseif effect == "GhostSwarm" then
 		HW.ghostSwarm(pos, tint, k or 1)
+	elseif effect == "Grave" then
+		HW.graveDrop(pos, tint, k or 1, model, victims)
 	elseif effect == "Freeze" then
 		deepFreeze(pos, tint, k or 1, model, always)
 	elseif effect == "Void" then
