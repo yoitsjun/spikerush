@@ -110,9 +110,15 @@ local function spikeJump()
 end
 
 local function onCharacter(c)
+	-- (with a timeout: a character removed before its parts arrive, a respawn or teleport mid-load,
+	-- left an infinite yield in the live logs)
+	local h, r = c:WaitForChild("Humanoid", 10), c:WaitForChild("HumanoidRootPart", 10)
+	if not h or not r or c ~= player.Character then
+		return
+	end
 	char = c
-	hum = c:WaitForChild("Humanoid")
-	hrp = c:WaitForChild("HumanoidRootPart")
+	hum = h
+	hrp = r
 	slide, gather, run, charging, queued, takeoff = nil, nil, nil, false, nil, nil
 	prowlT0, leaping = nil, nil
 	rushing, rushRise, hovering, homing = nil, false, false, nil

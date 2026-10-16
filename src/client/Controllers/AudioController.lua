@@ -420,8 +420,19 @@ local function preload()
 			table.insert(list, s)
 		end
 	end
-	pcall(function()
-		ContentProvider:PreloadAsync(list)
+	-- a few at a time, the match's own sounds first (all at once, Roblox answered HTTP 429 Too Many
+	-- Requests and 408 time-outs in the live logs)
+	task.spawn(function()
+		for i = 1, #list, 6 do
+			local batch = {}
+			for j = i, math.min(i + 5, #list) do
+				table.insert(batch, list[j])
+			end
+			pcall(function()
+				ContentProvider:PreloadAsync(batch)
+			end)
+			task.wait(0.4)
+		end
 	end)
 end
 

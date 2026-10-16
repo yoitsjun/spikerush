@@ -1239,6 +1239,13 @@ function BotService.spawn(e)
 		return d
 	end
 	desc = desc or plain()
+	-- (no animation pack: a bot's Animate script is removed anyway, and a friend's pack that isn't
+	-- an R15Anim folder filled the server log: "should reference a Folder Instance named R15Anim")
+	for _, field in ipairs({ "IdleAnimation", "WalkAnimation", "RunAnimation", "JumpAnimation", "FallAnimation", "ClimbAnimation", "SwimAnimation", "MoodAnimation" }) do
+		pcall(function()
+			desc[field] = 0
+		end)
+	end
 	local ok, model = pcall(function()
 		return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
 	end)

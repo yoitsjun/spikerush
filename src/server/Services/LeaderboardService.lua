@@ -22,6 +22,7 @@ local LB = Config.Leaderboards
 
 local stores = {} -- board key -> OrderedDataStore (or nil when unavailable)
 local pending = {} -- userId -> values to write
+local written = {} -- userId -> { board key -> the value this server last wrote } (unchanged ones aren't written again)
 local names = {} -- userId -> display name
 local stored = {} -- board key -> rows read from the store
 local global = false -- whether the last read reached the stores
@@ -90,13 +91,17 @@ end
 local function flush()
 	for userId, values in pairs(pending) do
 		pending[userId] = nil
+		written[userId] = written[userId] or {}
+		local last = written[userId]
 		for key, value in pairs(values) do
 			local store = stores[key]
-			if store and value > 0 then
+			if store and value > 0 and last[key] ~= value then
 				local ok, err = pcall(function()
 					store:SetAsync("u_" .. tostring(userId), value)
 				end)
-				if not ok then
+				if ok then
+					last[key] = value
+				else
 					warn("[SpikeRush] leaderboard write: " .. tostring(err))
 				end
 			end

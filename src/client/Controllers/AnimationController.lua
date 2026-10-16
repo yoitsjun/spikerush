@@ -31,7 +31,7 @@ local AnimationController = {}
 local player = Players.LocalPlayer
 local rad = math.rad
 local chars = {}
-local tracks = {}
+local tracks = setmetatable({}, { __mode = "k" })
 
 -- degrees; R15 joint frames: +X on shoulders/hips swings the limb forward and up,
 -- -X on knees bends them, -X on the waist leans forward, +Z raises the right arm sideways.
@@ -1546,17 +1546,15 @@ local function animatorOf(model, create)
 	return animator
 end
 
--- Cached per Animator and key; a failed load is remembered so it isn't retried every frame.
+-- Cached per Animator and key for as long as the Animator lives (`tracks` has weak keys); a
+-- failed load is remembered so it isn't retried every frame. (The live game hit Roblox's limit of
+-- 64 tracks on one Animator: the cache used to empty when a rig left the world, and its tracks
+-- were loaded again when it came back.)
 local function loadTrack(animator, key, id, priority)
 	local set = tracks[animator]
 	if not set then
 		set = {}
 		tracks[animator] = set
-		animator.AncestryChanged:Connect(function(_, parent)
-			if not parent then
-				tracks[animator] = nil
-			end
-		end)
 	end
 	local track = set[key]
 	if track == nil then
