@@ -1188,6 +1188,11 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		if ctx.bloodlust then
 			meta.bloodlust = true
 		end
+		-- (Bloodlust is one hit: the spike or jump serve his leap's charge powers ends it; one
+		-- without a charge doesn't waste it. The owner, 2026-10-16: "after one hit, the ability is over")
+		if ctx.bloodlust and g > 0 then
+			meta.bloodlustSpent = true
+		end
 		if g >= FERAL.FullAt then
 			fullLeap = true
 			meta.fullLeap = true

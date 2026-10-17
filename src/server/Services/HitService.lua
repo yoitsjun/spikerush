@@ -292,6 +292,9 @@ function HitService.process(entity, input, opts)
 	if meta.turnabout then
 		HitService.setAbilityWindow(entity, "Turnabout", -1) -- spent: the next set is a set again (its window only)
 	end
+	if meta.bloodlustSpent then
+		HitService.setAbilityWindow(entity, "Feral", -1) -- Bloodlust: its one charged hit is done (the cooldown runs on)
+	end
 	if meta.reaction then
 		TS.setChain(team, (TS.chain[team] or 0) + 1) -- the next explosion this rally is bigger
 	end

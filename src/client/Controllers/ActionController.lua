@@ -506,6 +506,9 @@ local function execute(action, info, opts, t, ballPos)
 	if meta.turnabout then
 		localUntil.Turnabout = -1 -- spent (the server clears its window too, Turnabout's alone)
 	end
+	if meta.bloodlustSpent then
+		localUntil.Feral = -1 -- Bloodlust's one charged hit (the server ends its window too)
+	end
 	if input.gauge then
 		leap.gauge = 0 -- the leap's one spike (the server spends it too)
 		Net.get("ActionFX"):FireServer("ProwlEnd")

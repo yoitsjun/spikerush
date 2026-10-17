@@ -3591,6 +3591,7 @@ local function buildPlayer()
 	local abName = Gui.label(ab, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, Position = UDim2.fromOffset(84, 50), Size = UDim2.new(1, -250, 0, 42) })
 	local abKind = Gui.plate(ab, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 54), Size = UDim2.fromOffset(170, 34) }, Gui.SIGNAL)
 	local abKindL = Gui.label(abKind, { Text = "", display = true, TextSize = 18, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
+	make("UITextSizeConstraint", { MaxTextSize = 18, MinTextSize = 11 }, abKindL) -- (when Extra.fitTag has to shrink it)
 	local abText = Gui.label(ab, { Text = "", TextSize = 18, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(18, 104), Size = UDim2.new(1, -36, 0, 84) })
 	local roleBox = make("Frame", { Position = UDim2.fromOffset(16, 220), Size = UDim2.new(1, -32, 0, 110), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0 }, info)
 	make("UICorner", { CornerRadius = UDim.new(0, 6) }, roleBox)
@@ -4210,6 +4211,7 @@ local function refreshPlayer(prof)
 		d.abKind.Visible = true
 		local cdS = def.Active and math.floor((Extra.BT.cooldown(c.Ability, mine and prof.breaks and prof.breaks[c.Id]) or def.Cooldown or 0) + 0.5) or 0
 		d.abKindL.Text = def.Active and (def.Kind and string.format("%s; Q: %s, %d s cooldown", def.Kind, def.ActiveName or "active", cdS) or string.format("Active: Q, %d s cooldown", cdS)) or def.Kind or "Passive"
+		Extra.fitTag(d.abKind, d.abKindL, d.abName, 170)
 		d.abText.Text = def.Blurb or ""
 		d.abText.TextColor3 = Gui.CHALK
 		local pv = def.Passives and def.Passives[1]
@@ -6885,6 +6887,23 @@ function Extra.refreshCodes(prof)
 		C.codeBox.Text = d.code ~= "" and d.code or "..."
 		C.steps.Text = "1. Open the Spike Rush game page and join from the Community link\n2. There, type /discordverify " .. code .. "\n3. Come back here and click Verify"
 	end
+end
+
+-- A Gui.plate tag sized to its words, growing out from the side it's anchored on (the ability card's
+-- "Hold Jump on the ground; Q: Bloodlust, 13 s cooldown" ran out of a fixed 170 and over the name;
+-- the owner: "overlap"): at least `min` wide, never into `name`'s words (a label to its left in the
+-- same card); past that the words shrink to fit.
+function Extra.fitTag(plate, label, name, min)
+	local h = plate.Size.Y.Offset
+	local scale = (h > 0 and label.AbsoluteSize.Y > 0) and label.AbsoluteSize.Y / h or 1
+	label.TextScaled = false
+	local slant = math.floor(h * Gui.SLANT + 0.5)
+	local need = math.ceil(label.TextBounds.X / scale) + 2 * slant + 16
+	local card = plate.Parent.AbsoluteSize.X / scale
+	local room = card - 18 - (name.Position.X.Offset + name.TextBounds.X / scale) - 14
+	local w = math.max(min or 0, math.min(need, room))
+	plate.Size = UDim2.fromOffset(w, h)
+	label.TextScaled = need > w
 end
 
 -- A daily reward's lines for its card: "+150 VP" over "1 lucky spin"; with `mult` (Extra.vpMult)

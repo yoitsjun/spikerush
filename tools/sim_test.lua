@@ -941,6 +941,14 @@ do
 		and redFull.meta.bloodlust and math.abs(redFull.meta.kmh - full.meta.kmh) < 0.01 and over.meta.kmh > full.meta.kmh * 1.15 and over.meta.kmh < 290,
 		"Bloodlust (Q): the charge fills past full to 165% and hits far harder; without it the gauge stops at full; every spike in it flies red",
 		string.format("165%%: %.0f km/h against %.0f for a full leap", over.meta.kmh, full.meta.kmh))
+	-- one hit (the owner, 2026-10-16: "after one hit, the ability is over"): the charged spike spends
+	-- it, a spike without a charge doesn't; and the second bar fills fast ("make his 2nd bar fill
+	-- significantly quicker")
+	local _, plainIn = leapSpike(0, true, { bloodlust = true })
+	check(over.meta.bloodlustSpent and redFull.meta.bloodlustSpent and not plainIn.meta.bloodlustSpent and not capped.meta.bloodlustSpent and FERAL.OverTime <= 0.25
+		and HitLogic.feralGauge(CT + FERAL.OverTime * 0.5, CT, true) > 1.3,
+		"Bloodlust ends with the hit its charge powers (an uncharged spike doesn't spend it), and its second bar fills in a fifth of a second",
+		string.format("%.2f s from full to %d%%", FERAL.OverTime, math.floor(FERAL.OverMax * 100)))
 
 	-- the block break: through a blocker with less Attack, not one with more, never Iron Wall;
 	-- blocked where the full leap spike reaches the net
