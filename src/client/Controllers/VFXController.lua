@@ -1119,20 +1119,26 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 	local frames = D.Length
 	local born = os.clock()
 	local name = "FirstImpact_" .. tostring(entityId)
+	local poseConn = nil
 	local function finish()
 		pcall(function()
 			RunService:UnbindFromRenderStep(name)
 		end)
+		if poseConn then
+			poseConn:Disconnect()
+		end
 		cam.FieldOfView = fovWas
 		orbModel:Destroy()
 		cc:Destroy()
 		hl:Destroy()
 		gui:Destroy()
 	end
-	RunService:BindToRenderStep(name, Enum.RenderPriority.Last.Value + 6, function()
+	-- his body's keys and the hitting arm aimed at the ball: written just before each physics step,
+	-- after AnimationController's (new avatars' AnimationConstraints only take a Transform there:
+	-- written at render time it was replaced, the owner: "hes still not touching it")
+	local function pose()
 		local t = os.clock() - born
 		if t >= duration or not hrp.Parent then
-			finish()
 			return
 		end
 		local f = t / duration * frames
@@ -1142,6 +1148,41 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 				j.motor.Transform = k * j.inv
 			end
 		end
+		local j = arm.shoulder
+		if j and torso and j.Parent then
+			local w0, c1
+			if j:IsA("AnimationConstraint") then
+				w0, c1 = j.Attachment0.WorldCFrame, j.Attachment1.CFrame
+			else
+				w0, c1 = j.Part0.CFrame * j.C0, j.C1
+			end
+			local dir = ball - w0.Position
+			if dir.Magnitude > 0.01 then
+				local up = -dir.Unit -- (an arm hangs along its part's -Y)
+				local r = torso.CFrame.RightVector
+				r = r - up * r:Dot(up)
+				if r.Magnitude < 0.01 then
+					r = hrp.CFrame.LookVector:Cross(up)
+				end
+				local want = CFrame.fromMatrix(Vector3.zero, r.Unit, up)
+				j.Transform = (w0 - w0.Position):Inverse() * want * (c1 - c1.Position)
+				if arm.elbow then
+					arm.elbow.Transform = CFrame.new()
+				end
+				if arm.wrist then
+					arm.wrist.Transform = CFrame.new()
+				end
+			end
+		end
+	end
+	poseConn = RunService.PreSimulation:Connect(pose)
+	RunService:BindToRenderStep(name, Enum.RenderPriority.Last.Value + 6, function()
+		local t = os.clock() - born
+		if t >= duration or not hrp.Parent then
+			finish()
+			return
+		end
+		local f = t / duration * frames
 		-- the hit as the picture (the owner, 2026-10-16: "make it more clearly show him hitting the
 		-- ball. i want that to be the main focus", after The Spike's card art): low in front of him,
 		-- looking up past him at the ball burning on his hand, pushing in
@@ -1158,36 +1199,10 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 		cam.CFrame = CFrame.lookAt(eye, focus)
 		cam.FieldOfView = 48 - 6 * w
 		orb.Size = Vector3.new(1, 1, 1) * (2.6 + 0.5 * math.sin(t * 30))
-		local held = ball
-		local j = arm.shoulder
-		if j and torso then
-			local w0, c1
-			if j:IsA("AnimationConstraint") then
-				w0, c1 = j.Attachment0.WorldCFrame, j.Attachment1.CFrame
-			else
-				w0, c1 = j.Part0.CFrame * j.C0, j.C1
-			end
-			local sp = w0.Position
-			local dir = ball - sp
-			if dir.Magnitude > 0.01 then
-				dir = dir.Unit
-				local up = -dir -- (an arm hangs along its part's -Y)
-				local r = torso.CFrame.RightVector
-				r = r - up * r:Dot(up)
-				if r.Magnitude < 0.01 then
-					r = front:Cross(up)
-				end
-				local want = CFrame.fromMatrix(Vector3.zero, r.Unit, up)
-				j.Transform = (w0 - w0.Position):Inverse() * want * (c1 - c1.Position)
-				if arm.elbow then
-					arm.elbow.Transform = CFrame.new()
-				end
-				if arm.wrist then
-					arm.wrist.Transform = CFrame.new()
-				end
-				held = sp + dir * (armLen + 0.6)
-			end
-		end
+		pose() -- (Motor6Ds show it at once; AnimationConstraints take it at the next physics step)
+		-- the ball just past his fingers, wherever his hand is: they always touch
+		local hand = model:FindFirstChild("RightHand")
+		local held = hand and (hand.CFrame * Vector3.new(0, -(hand.Size.Y / 2 + 0.9), 0)) or ball
 		orb.CFrame = CFrame.new(held)
 		core.CFrame = CFrame.new(held)
 		cc.Brightness = at(bright, f, nLerp) or 0 -- (pitch black round his glow, then the white flash as it fires: the owner's video)
