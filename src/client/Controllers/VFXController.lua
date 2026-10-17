@@ -1023,6 +1023,26 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 			byPart[part1.Name] = m
 		end
 	end
+	-- his hitting arm, aimed straight at the ball every frame (the owner: "make the arm actually connect
+	-- with the ball"), the ball then at his fingertips
+	local arm = {}
+	for _, m in ipairs(model:GetDescendants()) do
+		local part1 = nil
+		if m:IsA("AnimationConstraint") and m.Attachment1 then
+			part1 = m.Attachment1.Parent
+		elseif m:IsA("Motor6D") then
+			part1 = m.Part1
+		end
+		local key = part1 and ({ RightUpperArm = "shoulder", RightLowerArm = "elbow", RightHand = "wrist" })[part1.Name]
+		if key and (not arm[key] or m:IsA("AnimationConstraint")) then
+			arm[key] = m
+		end
+	end
+	local armLen = 0
+	for _, n in ipairs({ "RightUpperArm", "RightLowerArm", "RightHand" }) do
+		local p = model:FindFirstChild(n)
+		armLen = armLen + (p and p.Size.Y or 1)
+	end
 	local joints = {}
 	for name, m in pairs(byPart) do
 		local J = D.Joints[name]
@@ -1138,8 +1158,38 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 		cam.CFrame = CFrame.lookAt(eye, focus)
 		cam.FieldOfView = 48 - 6 * w
 		orb.Size = Vector3.new(1, 1, 1) * (2.6 + 0.5 * math.sin(t * 30))
-		orb.CFrame = CFrame.new(ball)
-		core.CFrame = CFrame.new(ball)
+		local held = ball
+		local j = arm.shoulder
+		if j and torso then
+			local w0, c1
+			if j:IsA("AnimationConstraint") then
+				w0, c1 = j.Attachment0.WorldCFrame, j.Attachment1.CFrame
+			else
+				w0, c1 = j.Part0.CFrame * j.C0, j.C1
+			end
+			local sp = w0.Position
+			local dir = ball - sp
+			if dir.Magnitude > 0.01 then
+				dir = dir.Unit
+				local up = -dir -- (an arm hangs along its part's -Y)
+				local r = torso.CFrame.RightVector
+				r = r - up * r:Dot(up)
+				if r.Magnitude < 0.01 then
+					r = front:Cross(up)
+				end
+				local want = CFrame.fromMatrix(Vector3.zero, r.Unit, up)
+				j.Transform = (w0 - w0.Position):Inverse() * want * (c1 - c1.Position)
+				if arm.elbow then
+					arm.elbow.Transform = CFrame.new()
+				end
+				if arm.wrist then
+					arm.wrist.Transform = CFrame.new()
+				end
+				held = sp + dir * (armLen + 0.6)
+			end
+		end
+		orb.CFrame = CFrame.new(held)
+		core.CFrame = CFrame.new(held)
 		cc.Brightness = at(bright, f, nLerp) or 0 -- (pitch black round his glow, then the white flash as it fires: the owner's video)
 		cc.Saturation = at(sat, f, nLerp) or 0
 		cc.Contrast = at(con, f, nLerp) or 0
