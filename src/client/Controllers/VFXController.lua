@@ -1373,6 +1373,10 @@ function HW.underworld(foot, k, model)
 			conn:Disconnect()
 			for _, a in ipairs(arms) do
 				a.m:Destroy()
+				if a.web then
+					a.web:Destroy()
+					a.vein:Destroy()
+				end
 			end
 			pool:Destroy()
 			return
@@ -1394,7 +1398,8 @@ function HW.underworld(foot, k, model)
 			rise = 1 - (1 - rise) ^ 3
 			local sink = landAt and math.clamp((t - landAt) / 0.45, 0, 1) or 0
 			sink = sink * sink
-			local grab = fallAt and math.clamp((t - fallAt) / 0.14, 0, 1) or 0
+			local grab = fallAt and math.clamp((t - fallAt - a.delay * 0.5) / 0.1, 0, 1) or 0
+			grab = 1 - (1 - grab) ^ 3 -- (snapping out, like a claw)
 			-- rising: they strain up past their full length, lunge his way and claw at the air
 			local strain = 1 + 0.3 * rise * (1 - grab) * (0.8 + 0.2 * math.sin(t * 17 + a.phase))
 			local out = rise * strain
@@ -1420,6 +1425,40 @@ function HW.underworld(foot, k, model)
 			end
 			-- down: they sink back into the pool
 			root = root - Vector3.new(0, (a.len + 1) * sink, 0)
+			-- a reach longer than the arm: a tendril shot out of the pool to it, so it never floats (the
+			-- owner, 2026-10-16: "they float out of the ground... like spiderwebs kind of shooting out
+			-- around and grabbing him, like a claw machine")
+			local from = Vector3.new(a.base.X, 0.1 - (a.len + 1) * sink, a.base.Z)
+			local gap = root - from
+			if gap.Magnitude > 0.6 and root.Y > from.Y + 0.3 then
+				if not a.web then
+					a.web = Instance.new("Part")
+					a.web.Name = "UnderworldTendril"
+					a.web.Anchored = true
+					a.web.CanCollide = false
+					a.web.CanQuery = false
+					a.web.CanTouch = false
+					a.web.CastShadow = false
+					a.web.Material = Enum.Material.SmoothPlastic
+					a.web.Color = Color3.fromRGB(10, 6, 16)
+					a.web.Parent = fxFolder
+					a.vein = a.web:Clone()
+					a.vein.Material = Enum.Material.Neon
+					a.vein.Color = VIOLET
+					a.vein.Parent = fxFolder
+				end
+				local thick = 0.55 * k * (0.7 + 0.3 * math.sin(t * 20 + a.phase))
+				local cf = CFrame.lookAt(from + gap / 2, root)
+				a.web.Size = Vector3.new(thick, thick, gap.Magnitude + 0.3)
+				a.web.CFrame = cf
+				a.web.Transparency = 0
+				a.vein.Size = Vector3.new(thick * 0.3, thick * 0.3, gap.Magnitude)
+				a.vein.CFrame = cf * CFrame.new(thick * 0.32, thick * 0.2, 0)
+				a.vein.Transparency = 0.1
+			elseif a.web then
+				a.web.Transparency = 1
+				a.vein.Transparency = 1
+			end
 			local inward = Vector3.new(toward.X, 0, toward.Z)
 			if inward.Magnitude < 0.01 then
 				inward = Vector3.new(foot.X - a.base.X, 0, foot.Z - a.base.Z)
