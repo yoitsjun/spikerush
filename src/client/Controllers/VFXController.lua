@@ -1334,148 +1334,104 @@ function HW.underworld(foot, k, model)
 	ringFx(foot + Vector3.new(0, 0.4, 0), VIOLET, 1, 11 * k)
 	Fx.play("VoidRupture", foot + Vector3.new(0, 0.5, 0), { scale = 0.6 * k })
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
-	-- (the owner, 2026-10-16: "keep it kind of centralized but not in a restricted circle. kind of as
-	-- if the hands are trying to get out"): scattered unevenly about his feet, most near the middle,
-	-- each leaning its own way out and scrabbling at the air
+	-- one big claw (the owner, 2026-10-16: "i just want the arms to extend out long and grab him like a
+	-- claw machine, with each arm being like a prong of the big claw almagamation"): the arms rise
+	-- from one spot in the pool, splay open as they stretch up after him, and on his way down close
+	-- round him and ride him to the floor, then shrink back into the pool. Only a look: his fall is
+	-- his own.
 	local arms = {}
 	local n = k >= 1 and 6 or 4
+	local spin0 = math.random() * math.pi * 2
 	for i = 1, n do
-		local len = HW.ARM_LEN * k * (0.75 + math.random() * 0.45)
+		local ang = spin0 + (i / n) * math.pi * 2
+		local out = Vector3.new(math.cos(ang), 0, math.sin(ang))
+		local len = HW.ARM_LEN * k * (0.9 + math.random() * 0.2)
 		local m = HW.newArm(len)
-		local ang = math.random() * math.pi * 2
-		local r = (0.8 + 3.6 * math.random() ^ 1.3) * k -- (spread out a bit more: the owner, 2026-10-16)
-		local base = Vector3.new(foot.X + math.cos(ang) * r, 0.05, foot.Z + math.sin(ang) * r)
-		m:PivotTo(CFrame.new(base - Vector3.new(0, len + 0.5, 0)))
 		m.Parent = fxFolder
-		table.insert(arms, {
-			m = m,
-			base = base,
-			len = len,
-			delay = math.random() * 0.14,
-			spin = (math.random() - 0.5) * 1.4,
-			out = Vector3.new(math.cos(ang + (math.random() - 0.5) * 1.2), 0, math.sin(ang + (math.random() - 0.5) * 1.2)),
-			tilt = math.rad(10 + math.random() * 28),
-			phase = math.random() * 6.28,
-		})
+		table.insert(arms, { m = m, out = out, len = len, base = foot + out * 2.6 * k + Vector3.new(0, 0.05, 0), phase = math.random() * 6.28, delay = (i - 1) * 0.02 })
 	end
-	-- (on his way down they catch him, the owner, 2026-10-16: "on his descent, the arms grab him and
-	-- pull him back down"): from the top of the jump they lunge onto his legs and ride him down to
-	-- the floor, then sink with the pool. Only a look: his fall is his own, so the timing stays fair.
 	local born, fallAt, landAt = os.clock(), nil, nil
-	for _, a in ipairs(arms) do
-		a.grip = Vector3.new((math.random() - 0.5) * 1.4, -1.2 - math.random() * 1.6, (math.random() - 0.5) * 1.4)
-	end
 	local conn
 	conn = RunService.Heartbeat:Connect(function()
 		local t = os.clock() - born
-		local done = landAt and t - landAt > 0.55
-		if done or t > 3.5 then
+		if (landAt and t - landAt > 0.5) or t > 3.5 then
 			conn:Disconnect()
 			for _, a in ipairs(arms) do
 				a.m:Destroy()
-				if a.web then
-					a.web:Destroy()
-					a.vein:Destroy()
-				end
 			end
 			pool:Destroy()
 			return
 		end
 		local live = hrp ~= nil and hrp.Parent ~= nil
-		local target = live and hrp.Position or (foot + Vector3.new(0, 6 * k, 0))
+		local body = live and hrp.Position or (foot + Vector3.new(0, 6 * k, 0))
 		local vy = live and hrp.AssemblyLinearVelocity.Y or (t > 0.45 and -1 or 1)
 		if not fallAt and t > 0.2 and vy < -1 then
-			fallAt = t -- he's coming down: they grab him
+			fallAt = t
 		end
-		if fallAt and not landAt and (t - fallAt > 0.08 and vy > -0.5 or t - fallAt > 2) then
-			landAt = t -- down: they let go and sink
-		end
-		if not live and fallAt and not landAt and t > 1.6 then
+		if fallAt and not landAt and ((t - fallAt > 0.08 and vy > -0.5) or t - fallAt > 2 or (not live and t > 1.6)) then
 			landAt = t
 		end
+		local rise = math.clamp(t / 0.2, 0, 1)
+		rise = 1 - (1 - rise) ^ 3
+		local close = fallAt and math.clamp((t - fallAt) / 0.12, 0, 1) or 0
+		close = 1 - (1 - close) ^ 3
+		local shrink = landAt and math.clamp((t - landAt) / 0.4, 0, 1) or 0
 		for _, a in ipairs(arms) do
-			local rise = math.clamp((t - a.delay) / 0.22, 0, 1)
-			rise = 1 - (1 - rise) ^ 3
-			local sink = landAt and math.clamp((t - landAt) / 0.45, 0, 1) or 0
-			sink = sink * sink
-			local grab = fallAt and math.clamp((t - fallAt - a.delay * 0.5) / 0.1, 0, 1) or 0
-			grab = 1 - (1 - grab) ^ 3 -- (snapping out, like a claw)
-			-- rising: they strain up past their full length, lunge his way and claw at the air
-			local strain = 1 + 0.3 * rise * (1 - grab) * (0.8 + 0.2 * math.sin(t * 17 + a.phase))
-			local out = rise * strain
-			local toward = target - a.base
-			if toward.Magnitude < 0.01 then
-				toward = Vector3.yAxis
+			local tip
+			if close <= 0 then
+				-- open: splayed out round him and stretched up under him, the prongs flexing
+				local open = (3.4 + 0.5 * math.sin(t * 14 + a.phase)) * k
+				local up = math.max(body.Y - 1.5 * k, 2) * rise
+				tip = Vector3.new(body.X, 0, body.Z) + a.out * open + Vector3.new(0, up, 0)
+			else
+				-- closing on him: each prong's palm on him, round his middle
+				local opened = Vector3.new(body.X, 0, body.Z) + a.out * 3.4 * k + Vector3.new(0, math.max(body.Y - 1.5 * k, 2), 0)
+				local held = body + a.out * 0.75 * k + Vector3.new(0, -0.6 * k, 0)
+				tip = opened:Lerp(held, close)
 			end
-			local tilt = a.tilt + math.sin(t * 16 + a.phase) * 0.18
-			local own = (Vector3.yAxis * math.cos(tilt) + a.out * math.sin(tilt)).Unit
-			local lean = math.clamp(0.4 + 0.35 * rise, 0, 0.95)
-			local dir = (own * (1 - lean) + toward.Unit * lean).Unit
-			local root = a.base - dir * (a.len * (1 - out) + 0.4)
-			-- falling: the palm on his legs (its own grip), the arm straight from the pool to him
-			if grab > 0 then
-				local hold = target + a.grip
-				local reach = hold - a.base
-				if reach.Magnitude > 0.01 then
-					local gdir = reach.Unit
-					local groot = hold - gdir * a.len
-					dir = (dir * (1 - grab) + gdir * grab).Unit
-					root = root:Lerp(groot, grab)
-				end
-			end
-			-- down: they sink back into the pool
-			root = root - Vector3.new(0, (a.len + 1) * sink, 0)
-			-- a reach longer than the arm: a tendril shot out of the pool to it, so it never floats (the
-			-- owner, 2026-10-16: "they float out of the ground... like spiderwebs kind of shooting out
-			-- around and grabbing him, like a claw machine")
-			local from = Vector3.new(a.base.X, 0.1 - (a.len + 1) * sink, a.base.Z)
-			local gap = root - from
-			if gap.Magnitude > 0.6 and root.Y > from.Y + 0.3 then
-				if not a.web then
-					a.web = Instance.new("Part")
-					a.web.Name = "UnderworldTendril"
-					a.web.Anchored = true
-					a.web.CanCollide = false
-					a.web.CanQuery = false
-					a.web.CanTouch = false
-					a.web.CastShadow = false
-					a.web.Material = Enum.Material.SmoothPlastic
-					a.web.Color = Color3.fromRGB(10, 6, 16)
-					a.web.Parent = fxFolder
-					a.vein = a.web:Clone()
-					a.vein.Material = Enum.Material.Neon
-					a.vein.Color = VIOLET
-					a.vein.Parent = fxFolder
-				end
-				local thick = 0.55 * k * (0.7 + 0.3 * math.sin(t * 20 + a.phase))
-				local cf = CFrame.lookAt(from + gap / 2, root)
-				a.web.Size = Vector3.new(thick, thick, gap.Magnitude + 0.3)
-				a.web.CFrame = cf
-				a.web.Transparency = 0
-				a.vein.Size = Vector3.new(thick * 0.3, thick * 0.3, gap.Magnitude)
-				a.vein.CFrame = cf * CFrame.new(thick * 0.32, thick * 0.2, 0)
-				a.vein.Transparency = 0.1
-			elseif a.web then
-				a.web.Transparency = 1
-				a.vein.Transparency = 1
-			end
-			local inward = Vector3.new(toward.X, 0, toward.Z)
+			local from = a.base
+			local reach = tip - from
+			local d = math.max(reach.Magnitude, 0.5)
+			local dir = reach.Unit
+			-- into the pool when it's over
+			local scale = math.clamp(d / a.len, 0.25, 6) * (1 - 0.85 * shrink)
+			local root = from - Vector3.new(0, (a.len * scale + 1) * shrink, 0)
+			-- the palm faces in toward him
+			local inward = -a.out - dir * (-a.out):Dot(dir)
 			if inward.Magnitude < 0.01 then
-				inward = Vector3.new(foot.X - a.base.X, 0, foot.Z - a.base.Z)
+				inward = Vector3.zAxis
 			end
-			if inward.Magnitude < 0.01 then
-				inward = Vector3.xAxis
-			end
-			local palm = inward.Unit - dir * inward.Unit:Dot(dir)
-			if palm.Magnitude < 0.01 then
-				palm = Vector3.zAxis
-			end
-			a.m:PivotTo(CFrame.lookAt(root, root + palm.Unit, dir) * CFrame.Angles(0, a.spin * (1 - grab), 0))
+			HW.stretchArm(a.m, CFrame.lookAt(root, root + inward.Unit, dir), scale)
 		end
 		if landAt then
-			pool.Transparency = math.clamp((t - landAt - 0.2) / 0.3, 0, 1) -- (the pool closes after them)
+			pool.Transparency = math.clamp((t - landAt - 0.2) / 0.3, 0, 1)
 		end
 	end)
+end
+
+-- Places an arm (HW.newArm) with its pivot at `cf` and stretched `s` times its length along the
+-- arm (each part's height and offset up the arm; its thickness stays), so a prong reaches far
+-- without growing fat.
+function HW.stretchArm(m, cf, s)
+	if not m:GetAttribute("Laid") then
+		local pivot = m:GetPivot()
+		for _, d in ipairs(m:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d:SetAttribute("Rel", pivot:ToObjectSpace(d.CFrame))
+				d:SetAttribute("Size0", d.Size)
+			end
+		end
+		m:SetAttribute("Laid", true)
+	end
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") then
+			local rel, size = d:GetAttribute("Rel"), d:GetAttribute("Size0")
+			if rel and size then
+				d.Size = Vector3.new(size.X, size.Y * s, size.Z)
+				d.CFrame = cf * CFrame.new(rel.X, rel.Y * s, rel.Z) * rel.Rotation
+			end
+		end
+	end
 end
 
 -- A jump effect (Config.Cosmetics.Jump) at `foot`: `key` the item, `tint` the spike colour (some
