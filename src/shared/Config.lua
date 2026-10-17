@@ -1005,8 +1005,9 @@ Config.Codes = {
 	-- the owner: "make a new code. HolyS+" (for the S+ Update; the "+" is dropped when a code is
 	-- read, so "HolyS+" and "holys" both work)
 	holys = { VP = 600, Gold = 7500, Lucky = 3 },
-	-- the owner: "new code 1000members make it 1k vpoints 5 lucky spins 10,000 gold"
-	["1000members"] = { VP = 1000, Gold = 10000, Lucky = 5 },
+	-- the owner: "new code 1000members make it 1k vpoints 5 lucky spins 10,000 gold"; then (2026-10-17)
+	-- it's the 1k-in-the-Discord code of the Halloween three: "make the 1k discord code 1000members"
+	["1000members"] = { VP = 1000, Gold = 15000, Lucky = 4, BoostLuck = 15 * 60 },
 	-- (the owner retired "release" and moved its rewards to "Update2")
 	update2 = { VP = 500, Gold = 5000, Lucky = 1 },
 	-- the owner: "new code Update1", then "go with 6000 gold, 3 lucky spins, and 350 vpoints"
@@ -1014,7 +1015,6 @@ Config.Codes = {
 	-- the owner, 2026-10-17: three codes for about 3k V Points, 50k Gold, 12 lucky spins and an hour
 	-- of 2x Luck between them: the Halloween update, 1k members in the Discord, the release to all ages
 	halloween = { VP = 1000, Gold = 20000, Lucky = 5, BoostLuck = 30 * 60 },
-	["1kdiscord"] = { VP = 1000, Gold = 15000, Lucky = 4, BoostLuck = 15 * 60 },
 	allages = { VP = 1000, Gold = 15000, Lucky = 3, BoostLuck = 15 * 60 },
 }
 
