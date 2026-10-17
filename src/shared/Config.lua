@@ -527,7 +527,8 @@ Config.Spins = {
 	-- Mythic), the rarest first, and the rest of the 100 goes down the order (Rare, then Common):
 	-- 2x takes its extra from the Commons alone (an S+ 0.01% x N since 2026-10-17). The
 	-- event, your boost and the pass multiply (the owner: "make it so if there is an admin 2x it
-	-- stacks and make that clear"; Spins.luckWeights). Lucky spins aren't changed.
+	-- stacks and make that clear"; Spins.luckWeights). Lucky spins too since 2026-10-17 (Spins.luckyAt:
+	-- the same rule on Config.Lucky's weights, the extra out of the Rares).
 	LuckEvent = { Double = { "Epic", "Legendary", "Mythic" } },
 	Pity = {
 		Normal = { Every = 200, Tiers = { "S-", "S" }, ResetTiers = { "S-", "S", "S+" } },

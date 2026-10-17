@@ -2939,6 +2939,38 @@ do
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
 end
 
+print("== luck on lucky spins ==")
+do
+	-- the owner (2026-10-17): the luck boosts on lucky spins too, "like the luck boosts": a lucky
+	-- spin at N times the luck has Epic and up N times as likely, the rarest first, out of the Rares
+	local L = Spins.LuckyWeights
+	local two = Spins.luckyAt(2)
+	local three = Spins.luckyAt(3)
+	local function sum(w)
+		local t = 0
+		for _, r in ipairs(Config.Rarity.Order) do
+			t = t + (w[r] or 0)
+		end
+		return t
+	end
+	-- a lucky pity-free roll at 3x: S+ about 1.5%
+	local rng = Random.new(11)
+	local n, top = 20000, 0
+	for _ = 1, n do
+		local item = Spins.item("Char", Spins.rollItem("Char", rng, three))
+		if item.Rarity == "Mythic" then
+			top = top + 1
+		end
+	end
+	local pity = { normal = 0, lucky = 0, top = 0 }
+	local k = Spins.pityRoll(pity, Random.new(3), true, nil, three)
+	check(Spins.luckyAt(1) == L and math.abs(two.Mythic - 2 * L.Mythic) < 1e-9 and math.abs(two.Legendary - 2 * L.Legendary) < 1e-9 and (two.Common or 0) == 0
+		and math.abs(sum(two) - 100) < 1e-9 and math.abs(sum(three) - 100) < 1e-9 and two.Rare < L.Rare and Spins.luckWeights(2) ~= two
+		and math.abs(top / n - three.Mythic / 100) < 0.004 and k ~= nil and (pity.lucky == 1 or Spins.item("Char", k).Rarity == "Mythic"),
+		"luck boosts lucky spins too: Epic and up N times as likely, out of the Rares (the usual recruits' 2x untouched)",
+		string.format("2x: Rare %.2f, Epic %.2f, Legendary %.2f, S+ %.2f; 3x S+ %.2f%% (%d in %d)", two.Rare, two.Epic, two.Legendary, two.Mythic, three.Mythic, top, n))
+end
+
 print("== 4x, 6x, 8x and 16x luck ==")
 do
 	-- the owner (2026-10-16): "Add 4x 6x 8x and 16x luck to admin panel and to the shop": N times the

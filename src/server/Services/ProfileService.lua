@@ -1735,14 +1735,18 @@ local function spinOnce(plr, profile, banner, count, lucky)
 	local items, refund = {}, 0
 	local frags = nil -- fragments from duplicate characters this spin ({ S = 1, ... })
 	-- Luck: the admin panel's event (its own strength, 2x to 16x) and your own strongest boost each
-	-- multiply the luck of usual recruits on the Characters banner, and they stack
+	-- multiply the luck of recruits on the Characters banner, usual and lucky (Spins.luckyAt), and
+	-- they stack
 	local mult = 1
 	if reg.AdminService then
 		mult = mult * reg.AdminService.multiplier("Luck")
 	end
 	mult = mult * Economy.luckBoost(profile, os.time())
 	mult = mult * Economy.passMult(passesOf(plr, profile), "Luck") -- the Lucky game pass
-	local luckWeights = (not lucky and banner == "Char") and Spins.luckWeights(mult) or nil
+	local luckWeights = nil
+	if banner == "Char" then
+		luckWeights = lucky and Spins.luckyAt(mult) or Spins.luckWeights(mult)
+	end
 	for i = 1, count do
 		local k, how = nil, nil
 		if banner == "Char" then

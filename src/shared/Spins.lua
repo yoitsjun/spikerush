@@ -187,13 +187,17 @@ Spins.LuckyWeights = Config.Lucky.Weights
 -- 2x Luck or your own boost, 4 for both (they stack), and the Lucky game pass's 1.5 on top (3, 6):
 -- A- and up times mult, what that adds taken from the Commons (never below none). nil at 1 (the
 -- usual weights).
-local luckWeights = {}
-function Spins.luckWeights(mult)
+-- `base`: the weights luck starts from (Rarity.Weights when nil; Spins.luckyAt passes a lucky
+-- spin's).
+local luckWeights = { [false] = {}, [true] = {} }
+function Spins.luckWeights(mult, base)
 	mult = math.floor((tonumber(mult) or 1) * 100 + 0.5) / 100
 	if mult <= 1 then
 		return nil
 	end
-	if not luckWeights[mult] then
+	local cache = luckWeights[base ~= nil]
+	base = base or RAR.Weights
+	if not cache[mult] then
 		-- the boosted rarities x mult, the rarest first, each as much as the room left allows; the
 		-- rest of the room goes down the order at the usual weights (Rare, then Common)
 		local boosted = {}
@@ -201,20 +205,27 @@ function Spins.luckWeights(mult)
 			boosted[r] = true
 		end
 		local room = 0
-		for _, w in pairs(RAR.Weights) do
+		for _, w in pairs(base) do
 			room = room + w
 		end
 		local out = {}
 		for i = #RAR.Order, 1, -1 do
 			local r = RAR.Order[i]
-			local w = (RAR.Weights[r] or 0) * (boosted[r] and mult or 1)
+			local w = (base[r] or 0) * (boosted[r] and mult or 1)
 			w = math.min(w, room)
 			out[r] = w
 			room = room - w
 		end
-		luckWeights[mult] = out
+		cache[mult] = out
 	end
-	return luckWeights[mult]
+	return cache[mult]
+end
+
+-- A lucky spin's weights at `mult` times the luck (the owner, 2026-10-17: luck boosts on lucky
+-- spins too, "like the luck boosts"): the same rule on Config.Lucky's weights, the extra taken from
+-- the Rares; Spins.LuckyWeights at 1.
+function Spins.luckyAt(mult)
+	return Spins.luckWeights(mult, Spins.LuckyWeights) or Spins.LuckyWeights
 end
 
 -- 2x Luck's weights (the event, or your boost, alone).
@@ -474,8 +485,8 @@ function Spins.pityRoll(pity, rng, lucky, favor, weights)
 		key, how = pityPoolPick(pityPools.Normal, rng, favor), "pity"
 	end
 	if not key then
-		-- a lucky spin's weights, or `weights` (2x Luck's) for a usual one
-		key = Spins.rollItem("Char", rng, lucky and Spins.LuckyWeights or weights, favor)
+		-- `weights` (luck's, on a lucky spin's or the usual ones), else a lucky spin's or the usual
+		key = Spins.rollItem("Char", rng, weights or (lucky and Spins.LuckyWeights or nil), favor)
 	end
 	local tier = Spins.item("Char", key).Char.Tier
 	local function counted(kind, count)

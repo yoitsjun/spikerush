@@ -209,6 +209,14 @@ function Extra.recruitWeights(kind)
 	return nil
 end
 
+-- A lucky spin's on `kind` right now (luck counts on Characters for these too).
+function Extra.luckyWeights(kind)
+	if kind == "Char" then
+		return Spins.luckyAt(Extra.luckMult())
+	end
+	return Spins.LuckyWeights
+end
+
 -- How lucky your usual recruits are right now: the admin panel's Luck event (2x to 16x) and your
 -- own strongest Luck boost (2x to 16x) multiply, and the Lucky game pass on top; whether each is
 -- on; and the event's and your own strength.
@@ -1490,7 +1498,7 @@ local function refreshRecruit(prof)
 	-- lucky spins: how many, their odds on this banner, and each button's use or price
 	local have = prof.lucky or 0
 	R.luckyHave.Text = free and "Free for developers" or string.format("You have %d", have)
-	local lo = Spins.odds(banner, Spins.LuckyWeights)
+	local lo = Spins.odds(banner, Extra.luckyWeights(banner))
 	local lparts = {}
 	for _, r in ipairs(Config.Rarity.Order) do
 		if lo[r] > 0 then
@@ -1839,7 +1847,7 @@ function MenuController.openTable(kind, lucky)
 		O.sub.Text = "A pull lands on a rarity first, then on one of its items. " .. O.sub.Text
 	end
 	local lines, last = {}, nil
-	for _, d in ipairs(Spins.table(kind, lucky and Spins.LuckyWeights or Extra.recruitWeights(kind), favor)) do
+	for _, d in ipairs(Spins.table(kind, lucky and Extra.luckyWeights(kind) or Extra.recruitWeights(kind), favor)) do
 		if d.group ~= last then
 			table.insert(lines, { head = d.group })
 			last = d.group
