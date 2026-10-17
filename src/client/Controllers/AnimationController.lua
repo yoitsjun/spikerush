@@ -27,6 +27,8 @@ local Net = require(Shared.Net)
 local State = require(script.Parent.State)
 
 local AnimationController = {}
+-- name -> fn(dt): joint writes run after this module's every PreSimulation (a cinematic's pose)
+AnimationController.after = {}
 
 local player = Players.LocalPlayer
 local rad = math.rad
@@ -2178,6 +2180,14 @@ function AnimationController.init(m)
 		local ok, err = pcall(step, dt)
 		if not ok then
 			warn("[SpikeRush] animation: " .. tostring(err))
+		end
+		-- poses that must win this frame (VFXController's First Impact cinematic), after ours
+		for key, fn in pairs(AnimationController.after) do
+			local okA, errA = pcall(fn, dt)
+			if not okA then
+				AnimationController.after[key] = nil
+				warn("[SpikeRush] animation override: " .. tostring(errA))
+			end
 		end
 	end)
 end

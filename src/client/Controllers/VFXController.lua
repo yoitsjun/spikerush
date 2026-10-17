@@ -1135,6 +1135,9 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 		if poseConn then
 			poseConn:Disconnect()
 		end
+		if mods and mods.AnimationController and mods.AnimationController.after then
+			mods.AnimationController.after[name] = nil
+		end
 		cam.FieldOfView = fovWas
 		for _, g in ipairs(hidden) do
 			if g.Parent then
@@ -1188,7 +1191,13 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 			end
 		end
 	end
-	poseConn = RunService.PreSimulation:Connect(pose)
+	-- (after AnimationController's own writes, in its PreSimulation: in a match they won over a
+	-- connection of our own, the owner's screenshot: his hand down by his side)
+	if mods and mods.AnimationController and mods.AnimationController.after then
+		mods.AnimationController.after[name] = pose
+	else
+		poseConn = RunService.PreSimulation:Connect(pose)
+	end
 	RunService:BindToRenderStep(name, Enum.RenderPriority.Last.Value + 6, function()
 		local t = os.clock() - born
 		if t >= duration or not hrp.Parent then
