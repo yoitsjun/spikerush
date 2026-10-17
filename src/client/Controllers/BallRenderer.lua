@@ -401,6 +401,12 @@ local function applyStyle(meta)
 	if attack and skin and skin.Trail then
 		trailKey = skin.Trail
 	end
+	-- the Fallen Angel's spikes in his violet whatever colour he has on (the owner, 2026-10-16:
+	-- "make yejuns spike trail purple")
+	if attack and skin and skin.Thunder then
+		tint = skin.Thunder
+		tintSeq = ColorSequence.new(skin.Thunder:Lerp(Color3.new(1, 1, 1), 0.25), skin.Thunder:Lerp(Color3.new(0, 0, 0), 0.45))
+	end
 	batRing.on = false
 	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.6) })
 	core.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })

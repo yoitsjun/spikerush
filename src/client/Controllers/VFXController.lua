@@ -1322,7 +1322,7 @@ function HW.underworld(foot, k, model)
 	pool.Size = Vector3.new(0.1, 1, 1)
 	pool.CFrame = CFrame.new(foot.X, 0.06, foot.Z) * CFrame.Angles(0, 0, math.rad(90))
 	pool.Parent = fxFolder
-	TweenService:Create(pool, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.1, 10 * k, 10 * k) }):Play()
+	TweenService:Create(pool, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.1, 12.5 * k, 12.5 * k) }):Play()
 	if mods and mods.AudioController then
 		-- the wing flung open (one slow whoosh: the pigeon's run of flaps sounded like a horse
 		-- galloping, the owner), the arms' growl and the ground giving way
@@ -1343,7 +1343,7 @@ function HW.underworld(foot, k, model)
 		local len = HW.ARM_LEN * k * (0.75 + math.random() * 0.45)
 		local m = HW.newArm(len)
 		local ang = math.random() * math.pi * 2
-		local r = (0.3 + 2.3 * math.random() ^ 1.6) * k
+		local r = (0.8 + 3.6 * math.random() ^ 1.3) * k -- (spread out a bit more: the owner, 2026-10-16)
 		local base = Vector3.new(foot.X + math.cos(ang) * r, 0.05, foot.Z + math.sin(ang) * r)
 		m:PivotTo(CFrame.new(base - Vector3.new(0, len + 0.5, 0)))
 		m.Parent = fxFolder
