@@ -7928,7 +7928,7 @@ function Extra.buildAdmin()
 	local tabDrop = make("Frame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.fromOffset(240, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, Visible = false, ZIndex = 40 }, right)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, tabDrop)
 	make("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, tabDrop)
-	local tabOptions = { { "Char", "Characters" }, { "Frag", "Breakthrough fragments" } }
+	local tabOptions = { { "Char", "Characters" }, { "Frag", "Breakthrough fragments" }, { "Skin", "Halloween skins" } }
 	for _, k in ipairs(Config.Cosmetics.Kinds) do
 		table.insert(tabOptions, { k, "Cosmetics: " .. k })
 	end
@@ -8089,10 +8089,12 @@ function Extra.buildAdmin()
 		for id in pairs(Extra.adminChars) do
 			table.insert(chars, id)
 		end
-		local items = {}
+		local items, skins = {}, {}
 		for k in pairs(Extra.adminItems) do
 			local kind, key = string.match(k, "^(%a+):(.+)$")
-			if kind then
+			if kind == "Skin" then
+				table.insert(skins, key) -- (a Halloween skin, not a cosmetic)
+			elseif kind then
 				table.insert(items, { Kind = kind, Key = key })
 			end
 		end
@@ -8101,6 +8103,7 @@ function Extra.buildAdmin()
 			frags[g] = tonumber(box.Text) or 0
 		end
 		Net.get("Admin"):FireServer("give", user.Text, {
+			Skins = skins,
 			VP = tonumber(amounts.VP.Text) or 0,
 			Gold = tonumber(amounts.Gold.Text) or 0,
 			Lucky = tonumber(amounts.Lucky.Text) or 0,
@@ -8126,7 +8129,15 @@ function Extra.buildAdmin()
 			for g, box in pairs(fragBoxes) do
 				frags[g] = tonumber(box.Text) or 0
 			end
+			local skins = {}
+			for k in pairs(Extra.adminItems) do
+				local key = string.match(k, "^Skin:(.+)$")
+				if key then
+					table.insert(skins, key)
+				end
+			end
 			Net.get("Admin"):FireServer("giveAll", {
+				Skins = skins,
 				VP = tonumber(amounts.VP.Text) or 0,
 				Gold = tonumber(amounts.Gold.Text) or 0,
 				Lucky = tonumber(amounts.Lucky.Text) or 0,
@@ -8238,7 +8249,7 @@ function Extra.refreshAdmin()
 	A.grid.Visible = tab == "Char"
 	A.fragGrid.Visible = tab == "Frag"
 	A.cosGrid.Visible = tab ~= "Char" and tab ~= "Frag"
-	A.tabL.Text = (tab == "Char" and "Characters" or (tab == "Frag" and "Breakthrough fragments" or ("Cosmetics: " .. tab))) .. "   v"
+	A.tabL.Text = (tab == "Char" and "Characters" or (tab == "Frag" and "Breakthrough fragments" or (tab == "Skin" and "Halloween skins" or ("Cosmetics: " .. tab)))) .. "   v"
 	if A.cosGrid.Visible and Extra.adminCosKind ~= tab then
 		Extra.adminCosKind = tab
 		for _, c in ipairs(A.cosGrid:GetChildren()) do
@@ -8247,7 +8258,15 @@ function Extra.refreshAdmin()
 			end
 		end
 		A.cosButtons = {}
-		for i, item in ipairs(Spins.items(tab)) do
+		local list = Spins.items(tab)
+		if tab == "Skin" then
+			list = {}
+			for _, key in ipairs(Config.Halloween.SkinOrder) do
+				local s = Config.Halloween.Skins[key]
+				table.insert(list, { Key = key, Name = s.Name .. " (" .. Extra.HW.skinCharNames(key) .. ")", Rarity = s.Rarity or "Mythic" })
+			end
+		end
+		for i, item in ipairs(list) do
 			local color = Spins.rarityColor(item.Rarity)
 			local b = make("TextButton", { Text = item.Name, FontFace = Gui.display(), TextSize = 16, TextColor3 = color, TextTruncate = Enum.TextTruncate.AtEnd, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.2, AutoButtonColor = false, LayoutOrder = i, ZIndex = 23 }, A.cosGrid)
 			make("UICorner", { CornerRadius = UDim.new(0, 6) }, b)
@@ -8261,9 +8280,13 @@ function Extra.refreshAdmin()
 			A.cosButtons[k] = { button = b, color = color }
 		end
 	end
-	local nItems = 0
+	local nItems, nSkins = 0, 0
 	for k in pairs(Extra.adminItems) do
-		nItems = nItems + 1
+		if string.sub(k, 1, 5) == "Skin:" then
+			nSkins = nSkins + 1
+		else
+			nItems = nItems + 1
+		end
 	end
 	for k, b in pairs(A.cosButtons) do
 		local on = Extra.adminItems[k] == true
@@ -8277,6 +8300,9 @@ function Extra.refreshAdmin()
 	end
 	if nItems > 0 then
 		table.insert(bits, string.format("%d cosmetic%s", nItems, nItems == 1 and "" or "s"))
+	end
+	if nSkins > 0 then
+		table.insert(bits, string.format("%d skin%s", nSkins, nSkins == 1 and "" or "s"))
 	end
 	local nFrags = 0
 	for _, box in pairs(A.fragBoxes) do

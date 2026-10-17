@@ -7,6 +7,7 @@ local Config = require(script.Parent.Config)
 local Roster = require(script.Parent.Roster)
 local Spins = require(script.Parent.Spins)
 local Breakthrough = require(script.Parent.Breakthrough)
+local Halloween = require(script.Parent.Halloween)
 
 local Economy = {}
 
@@ -45,7 +46,18 @@ function Economy.cleanGrant(g)
 	local function amount(v, max)
 		return math.max(0, math.min(whole(v), max))
 	end
-	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {}, Items = {}, Fragments = {} }
+	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {}, Items = {}, Fragments = {}, Skins = {} }
+	-- Halloween skins (the owner, 2026-10-17: "add giving skins in the admin panel"): keys of
+	-- Config.Halloween.Skins, a copy each, with their characters
+	if type(g.Skins) == "table" then
+		local seen = {}
+		for _, key in ipairs(g.Skins) do
+			if type(key) == "string" and Config.Halloween.Skins[key] and not seen[key] then
+				seen[key] = true
+				table.insert(out.Skins, key)
+			end
+		end
+	end
 	-- a luck boost's strength (Config.Boosts.LuckTiers; 2 when it says none)
 	out.LuckMul = Economy.luckTier(g.LuckMul)
 	-- breakthrough fragments by letter ({ ["S+"] = 5 }; the owner: "add breakthrough fragments to the
@@ -95,7 +107,7 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0
 end
 
 -- A luck boost's strength: one of Config.Boosts.LuckTiers, else 2.
@@ -204,6 +216,18 @@ function Economy.apply(profile, g, now)
 			profile.fragments[grp] = math.min((profile.fragments[grp] or 0) + n, 100000)
 		end
 	end
+	-- a skin: a copy unless every character it fits already has one, and its characters join
+	if g.Skins and #g.Skins > 0 then
+		profile.skins = type(profile.skins) == "table" and profile.skins or {}
+		for _, key in ipairs(g.Skins) do
+			if not Halloween.skinDuplicate(profile.skins, key) then
+				Halloween.addCopy(profile.skins, key)
+			end
+		end
+		for _, id in ipairs(Halloween.skinChars(profile.skins, profile.owned.Char)) do
+			table.insert(added, id)
+		end
+	end
 	return added
 end
 
@@ -240,6 +264,10 @@ function Economy.describe(g, chars)
 	for _, it in ipairs(g.Items or {}) do
 		local item = Spins.item(it.Kind, it.Key)
 		table.insert(parts, (item and item.Name or it.Key) .. " (" .. it.Kind .. ")")
+	end
+	for _, key in ipairs(g.Skins or {}) do
+		local s = Config.Halloween.Skins[key]
+		table.insert(parts, "the " .. (s and s.Name or key) .. " skin")
 	end
 	for _, grp in ipairs(Config.Breakthrough.Groups) do
 		local n = g.Fragments and g.Fragments[grp] or 0

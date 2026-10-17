@@ -2939,6 +2939,25 @@ do
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
 end
 
+print("== the admin panel gives skins ==")
+do
+	-- the owner (2026-10-17): "add giving skins in the admin panel": a gift's Skins (Halloween skin
+	-- keys, junk and repeats dropped) give a copy each and bring the skin's character
+	local Economy = require("Economy")
+	local g = Economy.cleanGrant({ Skins = { "Reaper", "Nope", "Reaper", 5, "FallenAngel" } })
+	local prof = { owned = { Char = {} } }
+	local added = Economy.apply(prof, g, 1000)
+	local joined = {}
+	for _, id in ipairs(added) do
+		joined[id] = true
+	end
+	local text = Economy.describe(g)
+	check(#g.Skins == 2 and not Economy.isEmpty(Economy.cleanGrant({ Skins = { "Reaper" } })) and Economy.isEmpty(Economy.cleanGrant({ Skins = { "Nope" } }))
+		and prof.skins.Reaper.copies == 1 and prof.skins.FallenAngel.copies == 1 and prof.owned.Char.taeha and prof.owned.Char.yejun and joined.taeha and joined.yejun
+		and string.find(text, "the Reaper skin", 1, true) ~= nil,
+		"the admin panel gives Halloween skins: a copy each, with their characters", text)
+end
+
 print("== luck on lucky spins ==")
 do
 	-- the owner (2026-10-17): the luck boosts on lucky spins too, "like the luck boosts": a lucky
