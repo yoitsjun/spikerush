@@ -1084,6 +1084,14 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 		bars[i] = b
 	end
 	local fovWas = cam.FieldOfView
+	-- the HUD out of the picture while it plays (the owner's reference has none)
+	local hidden = {}
+	for _, g in ipairs(player:WaitForChild("PlayerGui"):GetChildren()) do
+		if g:IsA("ScreenGui") and g.Enabled and g ~= gui then
+			g.Enabled = false
+			table.insert(hidden, g)
+		end
+	end
 	-- the ball burning on his hand, lit in the dark (with the glow, it's the picture)
 	local torso = model:FindFirstChild("UpperTorso")
 	local ball = ballPos or (hrp.Position + Vector3.new(0, 4, 0))
@@ -1128,6 +1136,11 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 			poseConn:Disconnect()
 		end
 		cam.FieldOfView = fovWas
+		for _, g in ipairs(hidden) do
+			if g.Parent then
+				g.Enabled = true
+			end
+		end
 		orbModel:Destroy()
 		cc:Destroy()
 		hl:Destroy()
@@ -1194,10 +1207,18 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 		end
 		front = front.Unit
 		local right = front:Cross(Vector3.yAxis)
-		local focus = ball:Lerp(chest, 0.4)
-		local eye = chest + front * (7.5 - 2 * w) + right * 1.6 + Vector3.new(0, -3.2 + 0.6 * w, 0)
+		-- (framed on his raised hand and his head together, tried on a live character: the ball at his
+		-- fingers and his face both in the shot, from a little low, in front and off to the side)
+		local handP = model:FindFirstChild("RightHand")
+		local tipP = handP and (handP.CFrame * Vector3.new(0, -(handP.Size.Y / 2 + 0.9), 0)) or ball
+		local headP = model:FindFirstChild("Head")
+		local headPos = headP and headP.Position or chest
+		local focus = tipP:Lerp(headPos, 0.45)
+		local fov = 50 - 4 * w
+		local d = ((tipP - headPos).Magnitude + 3.5) / (2 * math.tan(math.rad(fov / 2))) * (1.25 - 0.15 * w)
+		local eye = focus + front * d + right * d * 0.25 + Vector3.new(0, -d * 0.35, 0)
 		cam.CFrame = CFrame.lookAt(eye, focus)
-		cam.FieldOfView = 48 - 6 * w
+		cam.FieldOfView = fov
 		orb.Size = Vector3.new(1, 1, 1) * (2.6 + 0.5 * math.sin(t * 30))
 		pose() -- (Motor6Ds show it at once; AnimationConstraints take it at the next physics step)
 		-- the ball just past his fingers, wherever his hand is: they always touch
