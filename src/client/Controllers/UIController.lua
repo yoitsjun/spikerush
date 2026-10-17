@@ -1676,7 +1676,30 @@ local function buildCoach()
 		click()
 		Net.get("Forfeit"):FireServer()
 	end)
-	ui.coach = { frame = f, head = head, title = title, body = body, dots = dots, streak = streak, leave = leave }
+	-- skip the tutorial from inside it (the owner, 2026-10-17: "allow tutorial skipping"): press
+	-- twice; it's marked done (no reward) and you're back on the menu
+	local skip = button(f, "Skip tutorial", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 8), Size = UDim2.fromOffset(110, 24), BackgroundColor3 = UI.InkSoft, TextColor3 = UI.Fog, TextSize = 12, Visible = false })
+	Gui.pressSound(skip)
+	local armedAt = nil
+	skip.MouseButton1Click:Connect(function()
+		click()
+		if armedAt and os.clock() - armedAt < 4 then
+			armedAt = nil
+			skip.Text = "Skip tutorial"
+			Net.get("Profile"):FireServer("skipTutorial")
+			Net.get("Forfeit"):FireServer()
+		else
+			armedAt = os.clock()
+			skip.Text = "Sure? No reward"
+			task.delay(4, function()
+				if armedAt and os.clock() - armedAt >= 4 then
+					armedAt = nil
+					skip.Text = "Skip tutorial"
+				end
+			end)
+		end
+	end)
+	ui.coach = { frame = f, head = head, title = title, body = body, dots = dots, streak = streak, leave = leave, skip = skip }
 end
 
 local function updateCoach()
@@ -1728,10 +1751,18 @@ local function updateCoach()
 	end
 	c.body.Text = d.blurb .. " " .. how
 	for i, dot in ipairs(c.dots) do
-		dot.Visible = i <= (pr.goal or d.goal)
+		dot.Visible = not pr.endless and i <= (pr.goal or d.goal)
 		dot.BackgroundColor3 = i <= (pr.count or 0) and UI.Mint or UI.InkSoft
 	end
-	c.streak.Text = d.inARow and "in a row" or ""
+	if pr.endless then
+		-- endless practice: the streak, the best one, the misses
+		c.streak.Size = UDim2.fromOffset(260, 20)
+		c.streak.Text = string.format("%d in a row  ·  best %d  ·  %d missed", pr.count or 0, pr.best or 0, pr.misses or 0)
+	else
+		c.streak.Size = UDim2.fromOffset(120, 20)
+		c.streak.Text = d.inARow and "in a row" or ""
+	end
+	c.skip.Visible = pr.tutorial == true
 end
 
 ------------------------------------------------------------------------------------------
@@ -2298,11 +2329,11 @@ local function onAnnounce(a)
 		elseif a.finished then
 			UIController.callout("Done!", UI.Spark, a.tutorial and "Tutorial complete" or "Drill complete", 2)
 		elseif a.start and d then
-			UIController.callout(d.title, UI.Spark, d.inARow and string.format("%d in a row", d.goal) or string.format("%d to finish", d.goal), 1.4)
+			UIController.callout(d.title, UI.Spark, a.endless and "As many as you like" or (d.inARow and string.format("%d in a row", d.goal) or string.format("%d to finish", d.goal)), 1.4)
 		elseif a.success == true then
-			UIController.callout("Nice!", UI.Mint, string.format("%d / %d", a.count or 0, a.goal or 3), 0.9)
+			UIController.callout("Nice!", UI.Mint, a.endless and string.format("%d in a row", a.count or 0) or string.format("%d / %d", a.count or 0, a.goal or 3), 0.9)
 		elseif a.success == false then
-			UIController.callout("Miss", UI.Fog, (d and d.inARow) and "Back to 0" or "Go again", 0.9)
+			UIController.callout("Miss", UI.Fog, (a.endless or (d and d.inARow)) and "Back to 0" or "Go again", 0.9)
 		end
 	elseif a.kind == "SetStart" then
 		if (a.setNumber or 1) > 1 then

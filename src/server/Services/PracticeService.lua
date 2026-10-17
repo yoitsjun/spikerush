@@ -251,16 +251,21 @@ local function setUp(drill, me, setter, attacker, theirSetter)
 	end
 end
 
--- One drill to its goal. Returns true when it's done, false when practice stopped.
-local function runDrill(drill, plr, status, stillOn)
+-- One drill to its goal (endless: on and on, counting, until you leave; the owner, 2026-10-17:
+-- "make the practice mode endless, until you click back to lobby"). Returns true when it's done,
+-- false when practice stopped.
+local function runDrill(drill, plr, status, stillOn, endless)
 	local TS, BS, MS = reg.TeamService, reg.BallService, reg.MatchService
 	status.drill = drill.id
 	status.count = 0
 	status.goal = drill.goal
 	status.inARow = drill.inARow
 	status.finished = nil
+	status.endless = endless or nil
+	status.best = 0
+	status.misses = 0
 	publish(status)
-	MS.announce({ kind = "Drill", drill = drill.id, start = true, count = 0, goal = drill.goal })
+	MS.announce({ kind = "Drill", drill = drill.id, start = true, count = 0, goal = drill.goal, endless = endless or nil })
 	local count = 0
 	while stillOn() do
 		local me = TS.entityForPlayer(plr)
@@ -311,10 +316,22 @@ local function runDrill(drill, plr, status, stillOn)
 		-- a serve you never made isn't a miss: the ball is offered again
 		if outcome ~= nil or drill.id ~= "serve" then
 			local done
-			count, done = Tutorial.tally(drill, count, outcome == true)
+			if endless then
+				-- every hit counts on; a miss ends the streak (the best one is kept)
+				if outcome == true then
+					count = count + 1
+				else
+					count = 0
+					status.misses = status.misses + 1
+				end
+				status.best = math.max(status.best, count)
+				done = false
+			else
+				count, done = Tutorial.tally(drill, count, outcome == true)
+			end
 			status.count = count
 			publish(status)
-			MS.announce({ kind = "Drill", drill = drill.id, success = outcome == true, count = count, goal = drill.goal })
+			MS.announce({ kind = "Drill", drill = drill.id, success = outcome == true, count = count, goal = drill.goal, endless = endless or nil, best = status.best })
 			task.wait(PR.PauseAfter)
 			if done then
 				rep = nil
@@ -357,7 +374,7 @@ function PracticeService.run(lobby)
 	end
 	for i, drill in ipairs(drills) do
 		status.index = i
-		if not runDrill(drill, plr, status, stillOn) then
+		if not runDrill(drill, plr, status, stillOn, not lobby.tutorial) then
 			break
 		end
 		if lobby.tutorial then

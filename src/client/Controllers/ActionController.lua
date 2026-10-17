@@ -1197,7 +1197,7 @@ local function pressSpike(info)
 			-- Spike on a held ball: a standard jump-serve toss (Feral Leap: kept held, it charges,
 			-- so his goes up high enough to charge in full and still meet it at the top)
 			local now = Util.now()
-			local height = isFeral() and H.TossHighMax or (H.TossHighMin + H.TossHighMax) / 2
+			local height = isFeral() and H.FeralTossHigh or (H.TossHighMin + H.TossHighMax) / 2
 			local tossed = execute("Toss", info, { tossHeight = height, tossForward = tossForward() }, now, info.root)
 			autoOverhand = false
 			if tossed and isFeral() then

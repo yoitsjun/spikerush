@@ -1035,7 +1035,7 @@ do
 	-- charge (then the leap's gather) still meets it at his hitting point, fresh or maxed
 	local function serveGap(st)
 		local r0 = vec(0, GROUND, side * (C.SideDepth + 1))
-		local tp, tv = HitLogic.tossLaunch(r0, side, H.TossHighMax, 0, HitLogic.tossReach("Feral"))
+		local tp, tv = HitLogic.tossLaunch(r0, side, H.FeralTossHigh, 0, HitLogic.tossReach("Feral"))
 		local tossPath = BallPhysics.buildPath(BallPhysics.newLaunch(tp, tv, vec(0, -Config.Ball.Gravity, 0), 0))
 		local takeoff = FERAL.ChargeTime + P.ApproachGather
 		local jv, jy, tt, gap, rise, peak = math.sqrt(2 * g * Characters.jumpHeight(st, GROUND)), 0, 0, math.huge, 0, 0

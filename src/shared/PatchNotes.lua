@@ -60,6 +60,10 @@ PatchNotes.List = {
 				Items = {
 					{ Text = "<b>Feints</b> float over blocks: a block only reaches one now and then, Iron Wall's too, and then just softens it. Dug, a feint costs a little guard, and breaks a guard at 30% or lower." },
 					{ Text = "<b>2x VP</b> (the event, your boosts and the 2x V Points pass) now doubles all the VP you earn: tournament prizes and daily rewards as well as matches. Codes, gifts and purchases stay as they are." },
+					{ Text = "Practice drills are endless: go as long as you like, with your streak, best and misses counted, until you head back to the menu. The tutorial can be skipped (no reward), from How to play or from inside it." },
+					{ Text = "The serve toss goes higher." },
+					{ Icon = "AbilityFeral", Text = "<b>Dante</b>'s First Strike plays a cinematic: the world goes black, he glows purple and cocks his fist, then the white flash as it fires." },
+					{ Text = "Timeouts: your favourite players come first in the character switch." },
 				},
 			},
 			{

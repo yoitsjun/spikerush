@@ -227,9 +227,11 @@ Config.Hits = {
 	SetterDepth = 1.06 * M,
 
 	-- Serves
-	TossLow = 11, -- studs above the release: the overhand toss comes back to the hand
-	TossHighMin = 3.4 * M,
-	TossHighMax = 5.6 * M,
+	-- (higher, the owner, 2026-10-17: "increase the height of the serve toss"; were 11, 3.4 and 5.6)
+	TossLow = 13, -- studs above the release: the overhand toss comes back to the hand
+	TossHighMin = 4.2 * M,
+	TossHighMax = 7.0 * M,
+	FeralTossHigh = 5.6 * M, -- Dante's charging toss stays at the old top: his full charge still meets it at the top of his jump
 	TossChargeTime = 0.8,
 	TossForward = 1.2,
 	TossForwardMax = 2.4 * M, -- a full forward toss comes back down this far in front of the hand
