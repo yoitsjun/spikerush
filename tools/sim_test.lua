@@ -3478,6 +3478,7 @@ do
 	check(ok and #cards >= 50 and #missing == 0, "at least 50 cards, each with a name, a kind, a rarity and a line; one card per ability",
 		string.format("%d cards; bad: %s; abilities missing: %s", #cards, table.concat(bad, ", "), table.concat(missing, ", ")))
 	check(Halloween.blurb("aThunder") == "Thunder Spiker for this run, +10 Jump." and Halloween.blurb("aRallyCry") == "Rally Cry for this run, +50 to every stat."
+		and Halloween.passiveLine("aThunder") == "With Double Swing, Storm Call, Static Charge, High Strike" and Halloween.passiveLine("Coven") == nil
 		and Halloween.blurb("Coven") == "Your team: +10 Attack." and Halloween.blurb("Withering") == "The other team: Stamina pool -25%.",
 		"the owner's examples: Thunder Spiker with +10 Jump, Rally Cry with +50 to every stat", Halloween.blurb("aThunder") .. " / " .. Halloween.blurb("aRallyCry"))
 
@@ -3698,9 +3699,9 @@ do
 			reapers = reapers + 1
 		end
 	end
-	check(math.abs(total - 1) < 1e-9 and math.abs(reaper - 0.003) < 1e-9 and math.abs(fallen - 0.003) < 1e-9 and known and #Halloween.bannerItems() == #HW.Banner.Items and not inBall and reapers > 20 and reapers < 90
+	check(math.abs(total - 1) < 1e-9 and math.abs(reaper - 0.001) < 1e-9 and math.abs(fallen - 0.001) < 1e-9 and known and #Halloween.bannerItems() == #HW.Banner.Items and not inBall and reapers > 4 and reapers < 35
 		and Halloween.cost("Candy", 10) == 250 and Halloween.cost("VP", 1) == 80 and Halloween.cost("VP", 10) == 800 and Halloween.cost("VP", 3) == nil,
-		"the Halloween banner: odds add up, the two Mythic skins share 0.6%, limited items stay off the usual banners", string.format("%d Mythic skins in %d pulls", reapers, pulls))
+		"the Halloween banner: odds add up, the two Mythic skins 0.1% each, limited items stay off the usual banners", string.format("%d Mythic skins in %d pulls", reapers, pulls))
 	-- the Fallen Angel: YeJun's alone, his jump the skin's own (hidden: never on a banner or in the
 	-- Locker), his thunder in its colour
 	local FA = HW.Skins.FallenAngel

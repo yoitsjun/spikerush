@@ -144,6 +144,24 @@ function Halloween.blurb(card)
 	return who .. string.upper(string.sub(text, 1, 1)) .. string.sub(text, 2) .. "."
 end
 
+-- An ability card's passives, in a line for its face (the owner, 2026-10-17: "make some halloween
+-- card give the player's passive as well"). A card plays its whole ability, passives included: they
+-- belong to the ability (HitLogic.has, State.hasAbility), not the character. Nil when it has none.
+function Halloween.passiveLine(card)
+	if type(card) == "string" then
+		card = CARD[card]
+	end
+	local def = card and card.Kind == "Ability" and Config.Abilities[card.Ability]
+	if not def or not def.Passives or #def.Passives == 0 then
+		return nil
+	end
+	local names = {}
+	for _, p in ipairs(def.Passives) do
+		table.insert(names, p.Name)
+	end
+	return "With " .. table.concat(names, ", ")
+end
+
 function Halloween.rarityWeight(card)
 	return HW.Weights[card.Rarity] or HW.Weights.Common
 end

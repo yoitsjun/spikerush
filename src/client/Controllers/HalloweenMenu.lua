@@ -230,6 +230,10 @@ local function setFace(face, key, dim)
 	face.name.Text = card.Name
 	face.name.TextColor3 = card.Kind == "Ability" and art.ring:Lerp(Color3.new(1, 1, 1), 0.35) or Gui.CHALK
 	face.blurb.Text = Halloween.blurb(card)
+	local passives = Halloween.passiveLine(card)
+	if passives then
+		face.blurb.Text = face.blurb.Text .. "\n" .. passives
+	end
 	if card.Kind == "Ability" and holdsAbility(card.Ability) then
 		face.blurb.Text = face.blurb.Text .. "\nYou have it already: its stats only"
 	end
