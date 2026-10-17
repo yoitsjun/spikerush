@@ -254,7 +254,19 @@ local function buildTopBar()
 	stroke(kmh, 2, UI.Ink)
 	local height = label(readoutIn, { Text = "", Font = Enum.Font.GothamBlack, TextSize = 32, RichText = true, TextColor3 = UI.Fog, Size = UDim2.new(0.38, 0, 1, 0), Position = UDim2.fromScale(0.62, 0) })
 	stroke(height, 2, UI.Ink)
-	ui.top = { bar = bar, mid = mid, Home = home, Away = away, sHome = sHome, sAway = sAway, setLine = setLine, serveDot = serveDot, readout = readout, readoutFit = readoutFit, kmh = kmh, height = height, shownAt = -10, target = target, diamond = vs, tag = tag }
+	-- the touch indicator (the owner, 2026-10-17: "add a touch indicator"): under the readout, three
+	-- pips that fill in the team's colour as it uses its touches, with the count
+	local touchRow = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 2), Size = UDim2.fromOffset(150, 22), BackgroundTransparency = 1, Visible = false }, readoutIn)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, touchRow)
+	local touchWord = label(touchRow, { Text = "TOUCH", Font = Enum.Font.GothamBlack, TextSize = 13, TextColor3 = UI.Fog, Size = UDim2.fromOffset(48, 18), LayoutOrder = 0 })
+	local pips = {}
+	for i = 1, 3 do
+		local pip = make("Frame", { Size = UDim2.fromOffset(16, 16), BackgroundColor3 = UI.InkSoft, BorderSizePixel = 0, LayoutOrder = i }, touchRow)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, pip)
+		make("UIStroke", { Color = Color3.new(1, 1, 1), Transparency = 0.6, Thickness = 1.5 }, pip)
+		pips[i] = pip
+	end
+	ui.top = { bar = bar, mid = mid, Home = home, Away = away, sHome = sHome, sAway = sAway, setLine = setLine, serveDot = serveDot, readout = readout, readoutFit = readoutFit, kmh = kmh, height = height, shownAt = -10, target = target, diamond = vs, tag = tag, touchRow = touchRow, touchWord = touchWord, pips = pips }
 end
 
 local function refreshTopBar()
@@ -2514,7 +2526,29 @@ local function updateRotation()
 	R.frame.Size = UDim2.fromOffset(460, 64 + #roster * 46 + 48)
 end
 
+-- The touch indicator: the team that has the ball and how many touches it's used (BallRenderer's
+-- touch state), only while a rally's ball is live.
+local function updateTouches()
+	local t = ui.top
+	if not t or not t.touchRow then
+		return
+	end
+	local BR = mods and mods.BallRenderer
+	local touch = BR and BR.getTouch()
+	local live = BR and BR.isLive() and State.phase() == "Rally"
+	local n = touch and tonumber(touch.count) or 0
+	t.touchRow.Visible = live == true and touch ~= nil and touch.team ~= nil and n > 0
+	if t.touchRow.Visible then
+		local col = teamColor(touch.team)
+		for i, pip in ipairs(t.pips) do
+			pip.BackgroundColor3 = i <= n and col or UI.InkSoft
+		end
+		t.touchWord.TextColor3 = col
+	end
+end
+
 local function updateSlow()
+	updateTouches()
 	updateStamina()
 	updateAbility()
 	updateTimeout()
