@@ -1145,7 +1145,7 @@ function Gui.playerCard(parent, props)
 		local bigOn = type(look.Big) == "string" and look.Big ~= ""
 		local fx = look.Fx or {}
 		-- (Net) the big word steps left, out from under the net
-		local bigShift = (fx.Net == true or fx.Pumpkin == true) and 46 or 0
+		local bigShift = fx.Pumpkin == true and 96 or (fx.Net == true and 46 or 0) -- (clear of the jack-o'-lantern too)
 		big.Visible = bigOn
 		big.Text = bigOn and look.Big or ""
 		big.Position = UDim2.new(1, -16 - bigShift, 0.5, 2)
