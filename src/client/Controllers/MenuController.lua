@@ -71,6 +71,15 @@ local Extra = {}
 -- (Breakthroughs' shared rules, kept on Extra: this chunk is near Luau's 200-local limit)
 Extra.BT = require(Shared.Breakthrough)
 Extra.HW = require(Shared.Halloween)
+-- A chance (0 to 1) as a percent with the digits it needs: 62.495%, 0.185%, 0.0014% (an S+ at
+-- 0.01% split seven ways read "0.00%" with two decimals), trailing zeros dropped.
+function Extra.pct(x)
+	local p = x * 100
+	local s = string.format(p >= 0.1 and "%.3f" or "%.4f", p)
+	s = string.gsub(s, "0+$", "")
+	s = string.gsub(s, "%.$", "")
+	return s .. "%"
+end
 Extra.Rooms = require(Shared.Rooms)
 Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns count from then)
 Extra.shopTab = "Deals" -- the Shop's tab: "Deals" (bundles and game passes), "Currency" (VP and Gold), "Lucky" or "Boosts"
@@ -1048,7 +1057,7 @@ local function refreshHome(prof)
 				odds = row.chance
 			end
 		end
-		hm.evOdds.Text = string.format("%.2f%% per recruit%s", odds * 100, owns(prof, "Char", f.Id) and "\nRecruited" or "")
+		hm.evOdds.Text = string.format("%s per recruit%s", Extra.pct(odds), owns(prof, "Char", f.Id) and "\nRecruited" or "")
 	end
 	if (prof.freeSpins or 0) > 0 then
 		hm.rSub.Text = string.format("%d free recruit%s", prof.freeSpins, prof.freeSpins == 1 and "" or "s")
@@ -1453,7 +1462,7 @@ local function refreshRecruit(prof)
 	end
 	for _, r in ipairs(Config.Rarity.Order) do
 		if o[r] > 0 then
-			table.insert(parts, string.format('<font color="#%s">%s %.1f%%</font>', Spins.rarityColor(r):ToHex(), r, o[r] * 100))
+			table.insert(parts, string.format('<font color="#%s">%s %s</font>', Spins.rarityColor(r):ToHex(), r, Extra.pct(o[r])))
 		end
 	end
 	R.odds.Text = table.concat(parts, (banner == "Char" and mult > 1) and "   " or "     ")
@@ -1852,7 +1861,7 @@ function MenuController.openTable(kind, lucky)
 			row.name.Text = g.tier and (g.tier .. " tier") or g.rarity
 			row.name.TextColor3 = color
 			row.desc.Text = string.format("then one of %d%s", #g.items, (isChar and #g.items > 1) and " players" or (#g.items > 1 and " items" or ""))
-			row.chance.Text = string.format(g.chance < 0.01 and "%.2f%%" or "%.1f%%", g.chance * 100)
+			row.chance.Text = Extra.pct(g.chance)
 			row.chance.TextColor3 = color
 			row.own.Text = ""
 			d = nil
@@ -4519,7 +4528,7 @@ local function refreshPlayer(prof)
 	d.facts.Height.Text = string.format("%d cm", c.Height)
 	d.facts.Rank.Text = c.Tier
 	d.facts.Rank.TextColor3 = color
-	d.facts["Per recruit"].Text = table.find(Roster.Starters, c.Id) and "Starter" or string.format("%.2f%%", odds * 100)
+	d.facts["Per recruit"].Text = table.find(Roster.Starters, c.Id) and "Starter" or Extra.pct(odds)
 	d.facts.Status.Text = mine and "Recruited" or "Not yet"
 	d.facts.Status.TextColor3 = mine and Gui.CHALK or Gui.DIM
 
