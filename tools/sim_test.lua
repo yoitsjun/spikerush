@@ -3699,7 +3699,7 @@ do
 		end
 	end
 	check(math.abs(total - 1) < 1e-9 and math.abs(reaper - 0.003) < 1e-9 and math.abs(fallen - 0.003) < 1e-9 and known and #Halloween.bannerItems() == #HW.Banner.Items and not inBall and reapers > 20 and reapers < 90
-		and Halloween.cost("Candy", 10) == 250 and Halloween.cost("VP", 1) == 60 and Halloween.cost("VP", 3) == nil,
+		and Halloween.cost("Candy", 10) == 250 and Halloween.cost("VP", 1) == 80 and Halloween.cost("VP", 10) == 800 and Halloween.cost("VP", 3) == nil,
 		"the Halloween banner: odds add up, the two Mythic skins share 0.6%, limited items stay off the usual banners", string.format("%d Mythic skins in %d pulls", reapers, pulls))
 	-- the Fallen Angel: YeJun's alone, his jump the skin's own (hidden: never on a banner or in the
 	-- Locker), his thunder in its colour
