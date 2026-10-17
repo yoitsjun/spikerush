@@ -2512,20 +2512,20 @@ end
 function Extra.flurryCut(root, tint, scars, n)
 	local ang = math.random(0, 179)
 	local len = math.random(500, 1500)
-	local cx, cy = math.random(220, 1380), math.random(140, 760)
+	local at = UDim2.fromScale(0.1 + 0.8 * math.random(), 0.12 + 0.76 * math.random())
 	local taper = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1) })
-	local line = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, cy), Size = UDim2.fromOffset(math.floor(len * 0.15), 8), Rotation = ang, BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 46 }, root)
+	local line = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = at, Size = UDim2.fromOffset(math.floor(len * 0.15), 8), Rotation = ang, BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 46 }, root)
 	make("UIGradient", { Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, tint), ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)), ColorSequenceKeypoint.new(1, tint) }), Transparency = taper }, line)
 	tween(line, 0.07, { Size = UDim2.fromOffset(len, 3) }, Enum.EasingStyle.Quint)
 	tween(line, 0.2, { BackgroundTransparency = 1 })
 	task.delay(0.22, function()
 		line:Destroy()
 	end)
-	local scar = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, cy), Size = UDim2.fromOffset(math.floor(len * 0.8), 2), Rotation = ang, BackgroundColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.25), BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 43 }, root)
+	local scar = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = at, Size = UDim2.fromOffset(math.floor(len * 0.8), 2), Rotation = ang, BackgroundColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.25), BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 43 }, root)
 	make("UIGradient", { Transparency = taper }, scar)
 	table.insert(scars, scar)
 	if n % 4 == 0 then
-		local cres = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, cy), Size = UDim2.fromOffset(520, 520), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Slash) or "", ImageColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.5), Rotation = math.random(0, 359), ZIndex = 45 }, root)
+		local cres = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = at, Size = UDim2.fromOffset(520, 520), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Slash) or "", ImageColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.5), Rotation = math.random(0, 359), ZIndex = 45 }, root)
 		tween(cres, 0.16, { Rotation = cres.Rotation + 70, ImageTransparency = 1 }, Enum.EasingStyle.Quint)
 		task.delay(0.2, function()
 			cres:Destroy()
@@ -2550,6 +2550,9 @@ function Extra.crackPull(seq, it)
 	-- the glass: the night behind it and its cracks shake together
 	local glass = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.04, 1.04), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 41 }, root)
 	make("UIGradient", { Rotation = 90, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(5, 2, 10)), ColorSequenceKeypoint.new(0.65, Color3.fromRGB(18, 6, 30)), ColorSequenceKeypoint.new(1, tint:Lerp(Color3.new(0, 0, 0), 0.65)) }) }, glass)
+	-- the cracks are drawn on a 1600 x 900 canvas centred on the screen (the menu's root is the whole
+	-- screen under a UIScale, so bare offsets would bunch up top left)
+	local web = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(1600, 900), BackgroundTransparency = 1, ZIndex = 42 }, glass)
 	-- one ray of a crack from (x, y): a few kinked segments, thinning, now and then forking; each
 	-- segment a line of light with a violet bleed, drawn out in turn from the blow
 	local function crackRay(x, y, ang, seg, th, depth, delay)
@@ -2560,8 +2563,8 @@ function Extra.crackPull(seq, it)
 			local nx, ny = px + math.cos(a) * len, py + math.sin(a) * len
 			local w = math.max(1, th - (i - 1) * 0.7)
 			local mid = UDim2.fromOffset(math.floor((px + nx) / 2), math.floor((py + ny) / 2))
-			local bleed = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = mid, Size = UDim2.fromOffset(0, math.floor(w + 7)), Rotation = math.deg(a), BackgroundColor3 = tint, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = 42 }, glass)
-			local core = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = mid, Size = UDim2.fromOffset(0, math.floor(w)), Rotation = math.deg(a), BackgroundColor3 = light, BorderSizePixel = 0, ZIndex = 43 }, glass)
+			local bleed = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = mid, Size = UDim2.fromOffset(0, math.floor(w + 7)), Rotation = math.deg(a), BackgroundColor3 = tint, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = 42 }, web)
+			local core = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = mid, Size = UDim2.fromOffset(0, math.floor(w)), Rotation = math.deg(a), BackgroundColor3 = light, BorderSizePixel = 0, ZIndex = 43 }, web)
 			local d = delay + i * 0.022
 			task.delay(d, function()
 				if core.Parent then
@@ -2577,9 +2580,9 @@ function Extra.crackPull(seq, it)
 	end
 	-- a blow: the crushed spot, a ring of web around it, its rays, the light through it
 	local function blow(x, y, size)
-		local bloom = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(40, 40), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Glow) or "", ImageColor3 = tint, ImageTransparency = 0.25, ZIndex = 42 }, glass)
+		local bloom = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(40, 40), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Glow) or "", ImageColor3 = tint, ImageTransparency = 0.25, ZIndex = 42 }, web)
 		tween(bloom, 0.35, { Size = UDim2.fromOffset(math.floor(560 * size), math.floor(560 * size)), ImageTransparency = 0.5 }, Enum.EasingStyle.Quint)
-		local hole = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(math.floor(26 * size), math.floor(22 * size)), Rotation = math.random(0, 90), BackgroundColor3 = light, BorderSizePixel = 0, ZIndex = 43 }, glass)
+		local hole = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(math.floor(26 * size), math.floor(22 * size)), Rotation = math.random(0, 90), BackgroundColor3 = light, BorderSizePixel = 0, ZIndex = 43 }, web)
 		make("UICorner", { CornerRadius = UDim.new(0.3, 0) }, hole)
 		local n = math.random(7, 10)
 		local angs = {}
@@ -2596,7 +2599,7 @@ function Extra.crackPull(seq, it)
 					local x1, y1 = x + math.cos(a1) * rr, y + math.sin(a1) * rr
 					local x2, y2 = x + math.cos(a2) * rr, y + math.sin(a2) * rr
 					local len = math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
-					local chord = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(math.floor((x1 + x2) / 2), math.floor((y1 + y2) / 2)), Size = UDim2.fromOffset(math.floor(len), 2), Rotation = math.deg(math.atan2(y2 - y1, x2 - x1)), BackgroundColor3 = light, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 43 }, glass)
+					local chord = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(math.floor((x1 + x2) / 2), math.floor((y1 + y2) / 2)), Size = UDim2.fromOffset(math.floor(len), 2), Rotation = math.deg(math.atan2(y2 - y1, x2 - x1)), BackgroundColor3 = light, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 43 }, web)
 					task.delay(0.08 + r / 900, function()
 						if chord.Parent then
 							chord.BackgroundTransparency = 0.15
@@ -2617,12 +2620,13 @@ function Extra.crackPull(seq, it)
 	-- the arms (the jump's underworld arms, VFXController.newArm) in a viewport over the glass: each
 	-- held on the camera's ray through its crack so it stays rooted there as it comes at you,
 	-- leaning out from the crack, its palm toward you
-	local vp = make("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Ambient = Color3.fromRGB(80, 60, 120), LightColor = light, LightDirection = Vector3.new(-0.3, -0.6, -1), ZIndex = 45 }, root)
+	local VW = 2400
+	local vp = make("ViewportFrame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(VW, 900), BackgroundTransparency = 1, Ambient = Color3.fromRGB(80, 60, 120), LightColor = light, LightDirection = Vector3.new(-0.3, -0.6, -1), ZIndex = 45 }, root)
 	local cam = make("Camera", { FieldOfView = 50, CFrame = CFrame.new() }, vp)
 	vp.CurrentCamera = cam
 	local tanH = math.tan(math.rad(25))
 	local function rayAt(px, py)
-		return Vector3.new((px / 800 - 1) * tanH * (16 / 9), -(py / 450 - 1) * tanH, -1).Unit
+		return Vector3.new(((px + (VW - 1600) / 2) / (VW / 2) - 1) * tanH * (VW / 900), -(py / 450 - 1) * tanH, -1).Unit
 	end
 	local BLOWS = { { 0.65, 800, 430, 1 }, { 1.15, 540, 290, 0.8 }, { 1.6, 1070, 600, 0.9 } }
 	local ARMS = { { 1, 200, 0 }, { 1, -20, 0.1 }, { 2, 150, 0.2 }, { 2, 250, 0.28 }, { 3, -40, 0.34 }, { 3, 40, 0.44 } }
