@@ -831,6 +831,10 @@ Config.Cards = {
 		-- see Discord named)
 		{ Key = "Discord", Name = "Community Squad", Stat = "grant", Grant = true, Goal = "Verify your account in the Spike Rush community server",
 			Look = { Base = Color3.fromRGB(14, 16, 44), Sweep = Color3.fromRGB(88, 101, 242), Accent = Color3.fromRGB(235, 238, 255), Edge = Color3.fromRGB(130, 142, 255), Pattern = "halftone", Big = "COMMUNITY\nSQUAD" } },
+		-- the owner, 2026-10-17: "add a halloween 2026 card also pullable": on the Halloween banner (and
+		-- by scout points), never earned
+		{ Key = "Halloween2026", Name = "Halloween 2026", Stat = "grant", Grant = true, Goal = "From the Halloween 2026 banner",
+			Look = { Base = Color3.fromRGB(22, 8, 30), Sweep = Color3.fromRGB(255, 120, 20), Accent = Color3.fromRGB(255, 190, 70), Edge = Color3.fromRGB(150, 70, 255), Pattern = "stars", Big = "HALLOWEEN\n2026", Fx = { Glow = true, Sparkles = true } } },
 		{ Key = "VIP", Name = "VIP", Stat = "grant", Grant = true, Goal = "Comes with the VIP game pass",
 			Look = { Base = Color3.fromRGB(20, 14, 2), Sweep = Color3.fromRGB(255, 196, 40), Accent = Color3.fromRGB(255, 245, 200), Edge = Color3.fromRGB(255, 220, 100), Pattern = "stars", Big = "VIP" } },
 		-- the owner: "a bug catcher card... put in the admin panel that i can give and take at any
@@ -1944,6 +1948,7 @@ Config.Halloween = {
 			{ Kind = "Skin", Key = "Reaper", Scout = 150 },
 			{ Kind = "Skin", Key = "FallenAngel", Scout = 150 }, -- (the two share the Mythic weight)
 			{ Kind = "Room", Key = "Haunted", Scout = 90 }, -- (Home's background: Config.Rooms)
+			{ Kind = "Card", Key = "Halloween2026", Scout = 90, Rarity = "Epic" }, -- (a player card: Config.Cards)
 			{ Kind = "Effect", Key = "PumpkinBurst", Scout = 90 },
 			{ Kind = "Effect", Key = "GhostSwarm", Scout = 90 },
 			{ Kind = "Effect", Key = "Grave", Scout = 120 },

@@ -482,6 +482,12 @@ for _, row in ipairs(B.Items) do
 	elseif row.Kind == "Room" then
 		local r = Config.Rooms.List[row.Key]
 		item = r and { Key = row.Key, Name = r.Name, Rarity = r.Rarity or "Legendary" } or nil
+	elseif row.Kind == "Card" then
+		for _, c in ipairs(Config.Cards.List) do
+			if c.Key == row.Key then
+				item = { Key = row.Key, Name = c.Name .. " card", Rarity = row.Rarity or "Epic" }
+			end
+		end
 	else
 		item = Spins.item(row.Kind, row.Key)
 	end

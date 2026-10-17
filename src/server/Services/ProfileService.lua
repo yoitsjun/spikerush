@@ -1848,11 +1848,15 @@ local function grantEventItem(profile, item)
 		Halloween.addCopy(profile.skins, item.key)
 		return false, 0, Halloween.skinChars(profile.skins, profile.owned.Char)
 	end
+	if item.kind == "Card" and not profile.cards[item.key] then
+		profile.cards[item.key] = true -- (a player card for the Locker's Cards tab)
+		return false, 0
+	end
 	if item.kind == "Room" and not profile.rooms.owned[item.key] then
 		profile.rooms.owned[item.key] = true
 		return false, 0
 	end
-	if item.kind == "Skin" or item.kind == "Room" or owns(profile, item.kind, item.key) then
+	if item.kind == "Skin" or item.kind == "Room" or item.kind == "Card" or owns(profile, item.kind, item.key) then
 		local candy = Halloween.dupCandy(item.rarity)
 		profile.halloween.candy = profile.halloween.candy + candy
 		return true, candy
@@ -1925,7 +1929,7 @@ local function eventScout(plr, profile, kind, key)
 	if not item then
 		return
 	end
-	local have = (item.kind == "Skin" and Halloween.skinDuplicate(profile.skins, item.key)) or (item.kind == "Room" and profile.rooms.owned[item.key] == true) or (item.kind ~= "Skin" and item.kind ~= "Room" and owns(profile, item.kind, item.key))
+	local have = (item.kind == "Skin" and Halloween.skinDuplicate(profile.skins, item.key)) or (item.kind == "Room" and profile.rooms.owned[item.key] == true) or (item.kind == "Card" and profile.cards[item.key] == true) or (item.kind ~= "Skin" and item.kind ~= "Room" and item.kind ~= "Card" and owns(profile, item.kind, item.key))
 	if have then
 		push(plr, "You have " .. item.name .. " already.")
 		return

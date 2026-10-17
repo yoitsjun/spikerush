@@ -3668,6 +3668,15 @@ do
 	-- the banner: chances add up to 1, the two Mythic skins (the Reaper and the Fallen Angel) share
 	-- its rarest weight, every item exists, the limited items stay off the usual banners
 	local total, reaper, fallen, known = 0, 0, 0, true
+	-- the Halloween 2026 player card pulls too (the owner, 2026-10-17: "add a halloween 2026 card also pullable")
+	local hwCard = Halloween.bannerItem("Card", "Halloween2026")
+	local hwCardChance = 0
+	for _, row in ipairs(Halloween.bannerTable()) do
+		if row.item.kind == "Card" then
+			hwCardChance = row.chance
+		end
+	end
+	check(hwCard ~= nil and hwCard.rarity == "Epic" and hwCard.scout > 0 and hwCardChance > 0, "the Halloween 2026 player card is on the Halloween banner (and scoutable)", string.format("%.2f%% a recruit", hwCardChance * 100))
 	for _, row in ipairs(Halloween.bannerTable()) do
 		total = total + row.chance
 		if row.item.key == "Reaper" then

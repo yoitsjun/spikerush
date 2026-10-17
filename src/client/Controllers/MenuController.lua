@@ -2164,7 +2164,7 @@ local function fillTray(i, kind, it)
 		-- (the kind under the name: the Pumpkin ball and the Pumpkin colour read the same)
 		local bk = SP.Banners[it.kind]
 		card.big.Text = ""
-		card.name.Text = (item and item.Name or "?") .. "\n" .. (it.kind == "Skin" and "Skin" or (it.kind == "Room" and "Home room" or (bk and bk.Name or it.kind)))
+		card.name.Text = (item and item.Name or "?") .. "\n" .. (it.kind == "Skin" and "Skin" or (it.kind == "Room" and "Home room" or (it.kind == "Card" and "Player card" or (bk and bk.Name or it.kind))))
 	else
 		card.big.Text = ""
 		card.name.Text = item and item.Name or "?"
@@ -2617,9 +2617,9 @@ local function showCard(kind, it)
 		local bk = SP.Banners[it.kind]
 		K.name.Text = item and item.Name or "?"
 		K.tier.Text = ""
-		K.line.Text = skin and "Skin" or (it.kind == "Room" and "Home room" or (bk and bk.Name or it.kind))
+		K.line.Text = skin and "Skin" or (it.kind == "Room" and "Home room" or (it.kind == "Card" and "Player card" or (bk and bk.Name or it.kind)))
 		local roomDef = it.kind == "Room" and Extra.Rooms.get(it.key)
-		K.ability.Text = skin and (Extra.HW.skinCharNames(it.key) .. "'s skin: swap it on his page") or (roomDef and "Home's background: put it on with Decorate" or "Equip it in the Locker")
+		K.ability.Text = skin and (Extra.HW.skinCharNames(it.key) .. "'s skin: swap it on his page") or (roomDef and "Home's background: put it on with Decorate" or (it.kind == "Card" and "Show it off: Locker > Cards" or "Equip it in the Locker"))
 		K.ability.TextColor3 = skin and (skin.Tint or skin.Color) or Gui.GOLD_LIGHT
 		K.blurb.Text = skin and skin.Blurb or (roomDef and roomDef.Blurb or (bk and bk.Blurb or ""))
 		for _, b in pairs(K.bars) do
@@ -7402,10 +7402,24 @@ function Extra.buildCups()
 		local left = Gui.label(card, { Text = "", TextSize = 16, TextColor3 = Gui.SIGNAL_HOT, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 396), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
 		local enter, enterL = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.new(1, -32, 0, 64) }, "Enter", 22)
 		local entry = { head = head, stroke = stroke, name = name, mode = mode, prize = prize, consolation = consolation, mods = mods, bots = bots, left = left, enter = enter, enterL = enterL }
+		-- a second press to enter: the entry is non-refundable (the owner, 2026-10-17: "just make it say
+		-- non-refundable and a confirm entrance")
 		onClick(enter, function()
-			if entry.key then
+			if not entry.key then
+				return
+			end
+			if entry.armedAt and os.clock() - entry.armedAt < 4 then
+				entry.armedAt = nil
 				Net.get("Lobby"):FireServer("cup", entry.key)
 				ui.cups.modal.root.Visible = false
+			else
+				entry.armedAt = os.clock()
+				Extra.refreshCups()
+				task.delay(4.05, function()
+					if ui.cups.modal.root.Visible then
+						Extra.refreshCups()
+					end
+				end)
 			end
 		end)
 		cards[i] = entry
@@ -7425,7 +7439,7 @@ function Extra.refreshCups()
 		e.name.Text = string.upper(c.Name)
 		e.mode.Text = string.format("%dv%d  ·  %d rounds", run.mode, run.mode, T.Rounds)
 		e.prize.Text = string.format("%s VP\n%s Gold", Gui.num(c.PrizeVP), Gui.num(c.PrizeGold))
-		e.consolation.Text = string.format("Out in the final: %d VP", c.Consolation)
+		e.consolation.Text = string.format("Out in the final: %d VP  ·  entry non-refundable", c.Consolation)
 		local lines = {}
 		for _, k in ipairs(run.mods) do
 			local mod = Extra.Cups.modifier(k)
@@ -7434,7 +7448,9 @@ function Extra.refreshCups()
 		e.mods.Text = table.concat(lines, "\n\n")
 		e.bots.Text = "Bots: " .. table.concat(c.Bots, ", then ")
 		e.left.Text = "Time left: " .. Extra.clockText(run.endsAt - now)
-		e.enterL.Text = string.format("Enter  ·  %d VP", c.Entry)
+		local armed = e.armedAt and os.clock() - e.armedAt < 4
+		e.enterL.Text = armed and string.format("Confirm: %d VP, non-refundable", c.Entry) or string.format("Enter  ·  %d VP", c.Entry)
+		e.enterL.TextSize = armed and 17 or 22
 	end
 end
 

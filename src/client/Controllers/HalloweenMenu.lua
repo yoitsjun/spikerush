@@ -80,6 +80,8 @@ local function itemKindName(kind)
 		return "Skin"
 	elseif kind == "Room" then
 		return "Home room"
+	elseif kind == "Card" then
+		return "Player card"
 	end
 	local b = Config.Spins.Banners[kind]
 	return b and b.Name or kind
@@ -741,6 +743,10 @@ function HalloweenMenu.refresh()
 					r.pick.Visible = not have -- (a second copy would only be a duplicate: Taeho wears one)
 				elseif it.kind == "Room" then
 					local have = p.rooms and p.rooms.owned and p.rooms.owned[it.key] == true
+					r.have.Text = have and "Owned" or ""
+					r.pick.Visible = not have
+				elseif it.kind == "Card" then
+					local have = p.cards and p.cards.unlocked and p.cards.unlocked[it.key] == true
 					r.have.Text = have and "Owned" or ""
 					r.pick.Visible = not have
 				else
