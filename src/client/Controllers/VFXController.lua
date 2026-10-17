@@ -971,6 +971,19 @@ function VFXController.firstImpact(entityId, duration)
 	local function cfOf(t)
 		return CFrame.new(table.unpack(t))
 	end
+	-- mirrored left for right (x -> -x): the friend's game plays it mirrored to how the save keeps it,
+	-- raised fist on the left of the shot (the owner's video, matched in a match playtest)
+	local function mirrorOf(t)
+		return CFrame.new(-t[1], t[2], t[3], t[4], -t[5], -t[6], -t[7], t[8], t[9], -t[10], t[11], t[12])
+	end
+	local function sideSwap(n)
+		if string.sub(n, 1, 4) == "Left" then
+			return "Right" .. string.sub(n, 5)
+		elseif string.sub(n, 1, 5) == "Right" then
+			return "Left" .. string.sub(n, 6)
+		end
+		return n
+	end
 	local function track(keys, conv)
 		local out = {}
 		for _, k in ipairs(keys) do
@@ -1017,19 +1030,19 @@ function VFXController.firstImpact(entityId, duration)
 		elseif m:IsA("Motor6D") then
 			part1 = m.Part1
 		end
-		if part1 and D.Joints[part1.Name] and (not byPart[part1.Name] or m:IsA("AnimationConstraint")) then
+		if part1 and D.Joints[sideSwap(part1.Name)] and (not byPart[part1.Name] or m:IsA("AnimationConstraint")) then
 			byPart[part1.Name] = m
 		end
 	end
 	local joints = {}
 	for name, m in pairs(byPart) do
-		local J = D.Joints[name]
-		table.insert(joints, { motor = m, inv = cfOf(J.def):Inverse(), keys = track(J.keys, cfOf) })
+		local J = D.Joints[sideSwap(name)] -- (each limb plays its mirror's keys, mirrored)
+		table.insert(joints, { motor = m, inv = mirrorOf(J.def):Inverse(), keys = track(J.keys, mirrorOf) })
 	end
 	-- the camera: the save's rig round his root (Moon's camera part looks out of its back), dropped
 	-- 0.6 studs for our avatars' proportions (the save's was taller)
-	local camBase = CFrame.new(0, -0.6, 0) * cfOf(D.Camera.rel) * cfOf(D.Camera.c0)
-	local camKeys = track(D.Camera.keys, cfOf)
+	local camBase = CFrame.new(0, -0.6, 0) * mirrorOf(D.Camera.rel) * mirrorOf(D.Camera.c0)
+	local camKeys = track(D.Camera.keys, mirrorOf)
 	local fovKeys = track(D.Fov, same)
 	local G = D.Grade
 	local bright, sat, con = track(G.Brightness, same), track(G.Saturation, same), track(G.Contrast, same)
