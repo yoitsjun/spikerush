@@ -3119,6 +3119,16 @@ local function playSequence(reveal)
 end
 
 Extra.playSequence = playSequence
+-- (Studio only: setting workspace attribute TestPull to a Halloween skin key, e.g. "FallenAngel",
+-- plays that skin's recruit pull through the real sequence, to check it on screen)
+if RunService:IsStudio() then
+	workspace:GetAttributeChangedSignal("TestPull"):Connect(function()
+		local key = workspace:GetAttribute("TestPull")
+		if type(key) == "string" and Config.Halloween.Skins[key] then
+			task.spawn(playSequence, { banner = "Halloween", theme = "Halloween", items = { { hw = true, kind = "Skin", key = key, name = Config.Halloween.Skins[key].Name, rarity = "Mythic" } } })
+		end
+	end)
+end
 
 ------------------------------------------------------------------------------------------
 -- Players: the roster as cards (filter by role, favourites only, sort by tier or name), and a
