@@ -1089,7 +1089,9 @@ function VFXController.firstImpact(entityId, duration)
 		end
 		local ck = at(camKeys, f, cfLerp)
 		if ck then
-			cam.CFrame = hrp.CFrame * camBase * ck * CFrame.Angles(0, math.pi, 0) -- (Moon's camera part looks out of its back)
+			-- (the save's path, swung round to his front: it filmed his back, the owner: "why is the camera
+			-- showing the back of him?"; Moon's camera part looks out of its back)
+			cam.CFrame = hrp.CFrame * CFrame.Angles(0, math.pi, 0) * camBase * ck * CFrame.Angles(0, math.pi, 0)
 		end
 		cam.FieldOfView = at(fovKeys, f, nLerp) or fovWas
 		cc.Brightness = at(bright, f, nLerp) or 0 -- (pitch black round his glow, then the white flash as it fires: the owner's video)
