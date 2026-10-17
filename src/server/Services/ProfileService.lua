@@ -2363,6 +2363,14 @@ local function onRequest(plr, kind, a, b, c)
 			save(plr, true)
 			push(plr, "Thanks for reading the patch notes! " .. Economy.describe(g, added))
 		end
+	elseif kind == "skipTutorial" then
+		-- (the owner, 2026-10-16: "add a skip tutorial option"): done without its reward; it can
+		-- still be played from How to play
+		if not profile.tutorial.done then
+			profile.tutorial.done = true
+			dirty[plr] = true
+			push(plr, "Tutorial skipped. Play it any time from How to play.")
+		end
 	elseif kind == "pityPick" then
 		-- the S+ the lucky pity gives you when it's owed
 		if Spins.isPityPick(a) then

@@ -1656,6 +1656,26 @@ function Extra.buildHowTo()
 		m.hide()
 		sendLobby("tutorial")
 	end)
+	-- skip it (the owner, 2026-10-16: "add a skip tutorial option"): press twice; no reward then
+	local skip, skipL = hairButton(m.panel, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -30), Size = UDim2.fromOffset(190, 44) }, "Skip tutorial", 18)
+	onClick(skip, function()
+		if Extra.skipTutArmed and os.clock() - Extra.skipTutArmed < 4 then
+			Extra.skipTutArmed = nil
+			skipL.Text = "Skip tutorial"
+			Extra.howToLocked = false
+			m.hide()
+			Net.get("Profile"):FireServer("skipTutorial")
+		else
+			Extra.skipTutArmed = os.clock()
+			skipL.Text = "Sure? No reward"
+			task.delay(4, function()
+				if Extra.skipTutArmed and os.clock() - Extra.skipTutArmed >= 4 then
+					Extra.skipTutArmed = nil
+					skipL.Text = "Skip tutorial"
+				end
+			end)
+		end
+	end)
 	local edit = hairButton(m.panel, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -314, 1, -30), Size = UDim2.fromOffset(170, 44) }, "Change keys", 18)
 	onClick(edit, function()
 		if mods.UIController.openControls then
@@ -1672,7 +1692,7 @@ function Extra.buildHowTo()
 			end)
 		end
 	end)
-	ui.howTo = { modal = m, sub = sub, rows = rows, note = note, edit = edit }
+	ui.howTo = { modal = m, sub = sub, rows = rows, note = note, edit = edit, skip = skip }
 end
 
 function Extra.refreshHowTo()
@@ -1720,6 +1740,8 @@ function Extra.refreshHowTo()
 			r.help.Text = e[3]
 		end
 	end
+	local tut = profile().tutorial
+	HT.skip.Visible = tut ~= nil and tut.done ~= true -- (only while it's still to do)
 	HT.sub.Text = Extra.mustTutorial() and "Welcome to Spike Rush! Here are the controls; the tutorial teaches them one at a time (a couple of minutes, with a reward)." or "The controls; the tutorial teaches them one at a time."
 end
 
