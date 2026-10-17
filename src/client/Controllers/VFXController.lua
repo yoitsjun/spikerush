@@ -1123,7 +1123,8 @@ function VFXController.firstImpact(entityId, duration)
 		local f = frameNow()
 		local ck = at(camKeys, f, mix)
 		if ck then
-			cam.CFrame = hrp.CFrame * camBase * ck * CFrame.Angles(0, math.pi, 0)
+			-- (tipped 8 degrees down: he sits centred as in the owner's video, tried in a playtest)
+			cam.CFrame = hrp.CFrame * camBase * ck * CFrame.Angles(0, math.pi, 0) * CFrame.Angles(math.rad(-8), 0, 0)
 		end
 		cam.FieldOfView = at(fovKeys, f, nmix) or fovWas
 		cc.Brightness = at(bright, f, nmix) or 0
