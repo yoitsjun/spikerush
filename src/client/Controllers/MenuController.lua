@@ -2395,9 +2395,16 @@ function Extra.scythePull(seq, it)
 	if mods.AudioController then
 		mods.AudioController.play("RecruitCharge", { volume = 0.7, speed = 0.8 })
 	end
+	-- (the owner, 2026-10-17: "make the scythe on the s+ recruitment do like a million slashes"): at
+	-- cutAt the scythe goes berserk for FLURRY seconds, darting and spinning too fast to follow, cuts
+	-- flashing all over the screen quicker and quicker, each leaving a scar on the night, the screen
+	-- shaking; then the one big cut along the slant that splits it open
 	local t0, cutAt, swept = os.clock(), 1.25, false
+	local FLURRY = 1.15
+	local finalAt = cutAt + FLURRY
+	local nextCut, cuts, scars = cutAt, 0, {}
 	local alive2 = true
-	while os.clock() - t0 < cutAt + 0.3 do
+	while os.clock() - t0 < finalAt + 0.3 do
 		if not alive(seq) then
 			alive2 = false
 			break
@@ -2410,15 +2417,34 @@ function Extra.scythePull(seq, it)
 				local a = math.clamp(t / cutAt, 0, 1)
 				local e = 1 - (1 - a) ^ 2
 				scythe:PivotTo(CFrame.new(-7 + 3 * e, -9 + 7 * e, 0) * CFrame.Angles(0, math.rad(-30), math.rad(20 - 50 * e)))
+			elseif t < finalAt then
+				-- berserk: darting about the middle, spinning
+				local ft = t - cutAt
+				scythe:PivotTo(CFrame.new(math.sin(ft * 19) * 6, math.cos(ft * 27) * 3.2, 2 + math.sin(ft * 11)) * CFrame.Angles(math.rad(math.sin(ft * 31) * 40), math.rad(-30), -ft * 46))
 			else
 				-- the whip: across the screen along the cut, spinning
-				local a = math.clamp((t - cutAt) / 0.22, 0, 1)
+				local a = math.clamp((t - finalAt) / 0.22, 0, 1)
 				local e = a * a * (3 - 2 * a)
 				local x = -9 + 22 * e
 				scythe:PivotTo(CFrame.new(x, -x * math.tan(math.rad(-ANGLE)) * 0.55, 2) * CFrame.Angles(0, math.rad(-30), math.rad(-30 - 300 * e)))
 			end
 		end
-		if t >= cutAt and not swept then
+		-- the flurry's cuts, quicker and quicker (several a frame by the end)
+		while t >= cutAt and t < finalAt and nextCut <= t do
+			cuts = cuts + 1
+			Extra.flurryCut(root, tint, scars, cuts)
+			nextCut = nextCut + math.max(0.012, 0.05 - (t - cutAt) * 0.035)
+			if mods.AudioController and cuts % 3 == 1 then
+				mods.AudioController.play(cuts % 2 == 0 and "ReaperSlash" or "ScoreSlash", { volume = 0.55, speed = 0.9 + math.random() * 0.5, minGap = 0.04 })
+			end
+		end
+		-- the screen shaking under it
+		if t >= cutAt and t < finalAt + 0.15 then
+			split.Position = UDim2.new(0.5, math.random(-9, 9), 0.5, math.random(-7, 7))
+		else
+			split.Position = UDim2.fromScale(0.5, 0.5)
+		end
+		if t >= finalAt and not swept then
 			swept = true
 			if mods.AudioController then
 				mods.AudioController.play("ScoreSlash", { volume = 1 })
@@ -2445,6 +2471,9 @@ function Extra.scythePull(seq, it)
 		TweenService:Create(bottom, part, { Position = UDim2.fromScale(0, 0.56) }):Play()
 		TweenService:Create(cut, TweenInfo.new(0.35), { BackgroundTransparency = 1 }):Play()
 		TweenService:Create(glow, TweenInfo.new(0.5), { ImageTransparency = 1 }):Play()
+		for _, sc in ipairs(scars) do
+			TweenService:Create(sc, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
+		end
 		if mods.AudioController then
 			mods.AudioController.play("SinisterLaugh", { volume = 1 })
 		end
@@ -2455,17 +2484,232 @@ function Extra.scythePull(seq, it)
 				TweenService:Create(bottom, TweenInfo.new(0.5), { Position = UDim2.fromScale(0, 0.8) }):Play()
 			end
 		end)
-		local title = Gui.label(root, { Text = string.upper(def.Name or it.key), display = true, weight = Enum.FontWeight.Heavy, TextSize = 96, TextColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.35), TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromOffset(1400, 110), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 46 })
-		local sub = Gui.label(root, { Text = "MYTHIC SKIN  ·  " .. string.upper(Extra.HW.skinCharNames(it.key)), display = true, TextSize = 26, TextColor3 = MYTHIC, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.56), Size = UDim2.fromOffset(1000, 34), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 46 })
-		task.delay(0.55, function()
-			if root.Parent then
-				tween(title, 0.5, { TextTransparency = 0 })
-				tween(sub, 0.5, { TextTransparency = 0 })
-			end
+		Extra.mythicTitle(seq, root, it, def, tint, 0.55)
+	end
+	root:Destroy()
+	S.skip.Visible = skipWas
+	return alive(seq)
+end
+
+-- A Mythic skin's name on the black after its pull, fading in `after` seconds on; it goes on by
+-- itself once the name has been up a moment (the owner, 2026-10-16: "auto continue"; it used to
+-- wait for a click).
+function Extra.mythicTitle(seq, root, it, def, tint, after)
+	local title = Gui.label(root, { Text = string.upper(def.Name or it.key), display = true, weight = Enum.FontWeight.Heavy, TextSize = 96, TextColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.35), TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromOffset(1400, 110), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 47 })
+	local sub = Gui.label(root, { Text = "MYTHIC SKIN  ·  " .. string.upper(Extra.HW.skinCharNames(it.key)), display = true, TextSize = 26, TextColor3 = MYTHIC, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.56), Size = UDim2.fromOffset(1000, 34), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 47 })
+	task.delay(after, function()
+		if root.Parent then
+			tween(title, 0.5, { TextTransparency = 0 })
+			tween(sub, 0.5, { TextTransparency = 0 })
+		end
+	end)
+	hold(seq, after + 2.05)
+end
+
+-- One cut of the Reaper's flurry: a white-hot line flicked across the screen at any angle, gone in
+-- a blink, leaving a dim violet scar (into `scars`, to fade when the screen splits); every few, a
+-- crescent too.
+function Extra.flurryCut(root, tint, scars, n)
+	local ang = math.random(0, 179)
+	local len = math.random(500, 1500)
+	local cx, cy = math.random(220, 1380), math.random(140, 760)
+	local taper = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1) })
+	local line = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, cy), Size = UDim2.fromOffset(math.floor(len * 0.15), 8), Rotation = ang, BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 46 }, root)
+	make("UIGradient", { Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, tint), ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)), ColorSequenceKeypoint.new(1, tint) }), Transparency = taper }, line)
+	tween(line, 0.07, { Size = UDim2.fromOffset(len, 3) }, Enum.EasingStyle.Quint)
+	tween(line, 0.2, { BackgroundTransparency = 1 })
+	task.delay(0.22, function()
+		line:Destroy()
+	end)
+	local scar = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, cy), Size = UDim2.fromOffset(math.floor(len * 0.8), 2), Rotation = ang, BackgroundColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.25), BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 43 }, root)
+	make("UIGradient", { Transparency = taper }, scar)
+	table.insert(scars, scar)
+	if n % 4 == 0 then
+		local cres = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, cy), Size = UDim2.fromOffset(520, 520), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Slash) or "", ImageColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.5), Rotation = math.random(0, 359), ZIndex = 45 }, root)
+		tween(cres, 0.16, { Rotation = cres.Rotation + 70, ImageTransparency = 1 }, Enum.EasingStyle.Quint)
+		task.delay(0.2, function()
+			cres:Destroy()
 		end)
-		-- it goes on by itself once the name has been up a moment (the owner, 2026-10-16: "auto
-		-- continue"; it used to wait for a click)
-		hold(seq, 2.6)
+	end
+end
+
+-- The Fallen Angel's pull (the owner, 2026-10-17: "why does yejun have the same recruitment pull
+-- animation as taeho? maybe make it so the screen cracks and hands crawl out"): a violet-black hush,
+-- then something knocks on the screen from the other side, three blows, each cracking the glass
+-- wider with violet light bleeding through and the screen shaking; the underworld's arms crawl out
+-- of the cracks at you, clawing, and lunge; black, a laugh, and the skin's name. Returns false if
+-- the sequence was cancelled.
+function Extra.crackPull(seq, it)
+	local S = ui.seq
+	local def = Config.Halloween.Skins[it.key] or {}
+	local tint = def.Tint or Color3.fromRGB(120, 60, 220)
+	local light = tint:Lerp(Color3.new(1, 1, 1), 0.82)
+	local skipWas = S.skip.Visible
+	S.skip.Visible = false
+	local root = make("Frame", { Name = "CrackPull", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(2, 1, 5), BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 40 }, S.root)
+	-- the glass: the night behind it and its cracks shake together
+	local glass = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.04, 1.04), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 41 }, root)
+	make("UIGradient", { Rotation = 90, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(5, 2, 10)), ColorSequenceKeypoint.new(0.65, Color3.fromRGB(18, 6, 30)), ColorSequenceKeypoint.new(1, tint:Lerp(Color3.new(0, 0, 0), 0.65)) }) }, glass)
+	-- one ray of a crack from (x, y): a few kinked segments, thinning, now and then forking; each
+	-- segment a line of light with a violet bleed, drawn out in turn from the blow
+	local function crackRay(x, y, ang, seg, th, depth, delay)
+		local px, py = x, y
+		for i = 1, math.random(3, 6) do
+			local len = seg * (0.6 + math.random() * 0.7)
+			local a = ang + math.rad(math.random(-26, 26))
+			local nx, ny = px + math.cos(a) * len, py + math.sin(a) * len
+			local w = math.max(1, th - (i - 1) * 0.7)
+			local mid = UDim2.fromOffset(math.floor((px + nx) / 2), math.floor((py + ny) / 2))
+			local bleed = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = mid, Size = UDim2.fromOffset(0, math.floor(w + 7)), Rotation = math.deg(a), BackgroundColor3 = tint, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = 42 }, glass)
+			local core = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = mid, Size = UDim2.fromOffset(0, math.floor(w)), Rotation = math.deg(a), BackgroundColor3 = light, BorderSizePixel = 0, ZIndex = 43 }, glass)
+			local d = delay + i * 0.022
+			task.delay(d, function()
+				if core.Parent then
+					tween(bleed, 0.045, { Size = UDim2.fromOffset(math.floor(len + 2), math.floor(w + 7)) })
+					tween(core, 0.045, { Size = UDim2.fromOffset(math.floor(len + 2), math.floor(w)) })
+				end
+			end)
+			if depth < 2 and math.random() < 0.33 then
+				crackRay(nx, ny, a + math.rad(math.random(30, 62)) * (math.random() < 0.5 and -1 or 1), seg * 0.6, w, depth + 1, d)
+			end
+			px, py, ang = nx, ny, a
+		end
+	end
+	-- a blow: the crushed spot, a ring of web around it, its rays, the light through it
+	local function blow(x, y, size)
+		local bloom = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(40, 40), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Glow) or "", ImageColor3 = tint, ImageTransparency = 0.25, ZIndex = 42 }, glass)
+		tween(bloom, 0.35, { Size = UDim2.fromOffset(math.floor(560 * size), math.floor(560 * size)), ImageTransparency = 0.5 }, Enum.EasingStyle.Quint)
+		local hole = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(math.floor(26 * size), math.floor(22 * size)), Rotation = math.random(0, 90), BackgroundColor3 = light, BorderSizePixel = 0, ZIndex = 43 }, glass)
+		make("UICorner", { CornerRadius = UDim.new(0.3, 0) }, hole)
+		local n = math.random(7, 10)
+		local angs = {}
+		for i = 1, n do
+			angs[i] = (i - 1) * (math.pi * 2 / n) + (math.random() - 0.5) * 0.5
+			crackRay(x, y, angs[i], 70 * size, 4.5, 0, 0)
+		end
+		-- the web: chords between neighbouring rays, at two rings
+		for _, r in ipairs({ 40 * size, 95 * size }) do
+			for i = 1, n do
+				local a1, a2 = angs[i], angs[i % n + 1] + (i == n and math.pi * 2 or 0)
+				if math.random() < 0.8 then
+					local rr = r * (0.85 + math.random() * 0.3)
+					local x1, y1 = x + math.cos(a1) * rr, y + math.sin(a1) * rr
+					local x2, y2 = x + math.cos(a2) * rr, y + math.sin(a2) * rr
+					local len = math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+					local chord = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(math.floor((x1 + x2) / 2), math.floor((y1 + y2) / 2)), Size = UDim2.fromOffset(math.floor(len), 2), Rotation = math.deg(math.atan2(y2 - y1, x2 - x1)), BackgroundColor3 = light, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 43 }, glass)
+					task.delay(0.08 + r / 900, function()
+						if chord.Parent then
+							chord.BackgroundTransparency = 0.15
+						end
+					end)
+				end
+			end
+		end
+		S.flash.BackgroundColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.5)
+		S.flash.BackgroundTransparency = 0.55
+		tween(S.flash, 0.25, { BackgroundTransparency = 1 })
+		if mods.AudioController then
+			mods.AudioController.play("SquallGlass", { volume = 0.7 + 0.3 * size, minGap = 0 })
+			mods.AudioController.play("IronShieldBreak", { volume = 0.6, speed = 0.8, minGap = 0 })
+			mods.AudioController.play("ScoreRumble", { volume = 0.5 + 0.3 * size, minGap = 0 })
+		end
+	end
+	-- the arms (the jump's underworld arms, VFXController.newArm) in a viewport over the glass: each
+	-- held on the camera's ray through its crack so it stays rooted there as it comes at you,
+	-- leaning out from the crack, its palm toward you
+	local vp = make("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Ambient = Color3.fromRGB(80, 60, 120), LightColor = light, LightDirection = Vector3.new(-0.3, -0.6, -1), ZIndex = 45 }, root)
+	local cam = make("Camera", { FieldOfView = 50, CFrame = CFrame.new() }, vp)
+	vp.CurrentCamera = cam
+	local tanH = math.tan(math.rad(25))
+	local function rayAt(px, py)
+		return Vector3.new((px / 800 - 1) * tanH * (16 / 9), -(py / 450 - 1) * tanH, -1).Unit
+	end
+	local BLOWS = { { 0.65, 800, 430, 1 }, { 1.15, 540, 290, 0.8 }, { 1.6, 1070, 600, 0.9 } }
+	local ARMS = { { 1, 200, 0 }, { 1, -20, 0.1 }, { 2, 150, 0.2 }, { 2, 250, 0.28 }, { 3, -40, 0.34 }, { 3, 40, 0.44 } }
+	local CRAWL, ARMS_AT, LUNGE_AT = 1.25, 1.85, 3.45
+	local arms = {}
+	if mods.VFXController and mods.VFXController.newArm then
+		for i, spec in ipairs(ARMS) do
+			local b = BLOWS[spec[1]]
+			local okA, m = pcall(mods.VFXController.newArm, 10.5 + math.random() * 2)
+			if okA and m then
+				local dir = rayAt(b[2], b[3])
+				-- out: across the screen away from the crack (screen up is world +y)
+				local oa = math.rad(spec[2] + math.random(-15, 15))
+				local out = Vector3.new(math.cos(oa), math.sin(oa), 0)
+				local up = (-dir * 0.5 + out * 0.87).Unit
+				local palm = -dir - up * (-dir):Dot(up)
+				m:PivotTo(CFrame.new(0, 0, 500))
+				m.Parent = vp
+				table.insert(arms, { m = m, dir = dir, up = up, palm = palm.Magnitude > 1e-3 and palm.Unit or Vector3.zAxis, at = ARMS_AT + spec[3], near = 15 + math.random() * 5, phase = i * 1.7, crawled = false })
+			end
+		end
+	end
+	local function placeArm(a, s, t)
+		local base = a.dir * s
+		local claw = CFrame.Angles(math.sin(t * 9 + a.phase) * 0.22, 0, math.sin(t * 6.5 + a.phase) * 0.18)
+		a.m:PivotTo(CFrame.lookAt(base, base + a.palm, a.up) * claw)
+	end
+	if mods.AudioController then
+		mods.AudioController.play("ScoreRumble", { volume = 0.35, speed = 0.7 })
+	end
+	local t0, struck, lunged = os.clock(), 0, false
+	local alive2 = true
+	while os.clock() - t0 < LUNGE_AT + 0.3 do
+		if not alive(seq) then
+			alive2 = false
+			break
+		end
+		local t = os.clock() - t0
+		-- the blows, and the shaking after each (and on, lower, while the arms come)
+		while struck < #BLOWS and t >= BLOWS[struck + 1][1] do
+			struck = struck + 1
+			local b = BLOWS[struck]
+			blow(b[2], b[3], b[4])
+		end
+		local since = struck > 0 and (t - BLOWS[struck][1]) or 99
+		local shake = math.max(14 * math.max(0, 1 - since / 0.35), t >= ARMS_AT and 3 or 0)
+		glass.Position = UDim2.new(0.5, math.random(-1, 1) * shake, 0.5, math.random(-1, 1) * shake * 0.7)
+		for _, a in ipairs(arms) do
+			if t >= a.at then
+				if not a.crawled then
+					a.crawled = true
+					if mods.AudioController then
+						mods.AudioController.play("FallenArms", { volume = 0.7, speed = 0.85 + math.random() * 0.3, minGap = 0.1 })
+						mods.AudioController.play("FallenDirt", { volume = 0.5, minGap = 0.1 })
+					end
+				end
+				-- crawling out in jerks, then at the end lunging for you
+				local p = math.clamp((t - a.at) / CRAWL, 0, 1)
+				local e = 1 - (1 - p) ^ 3 + math.sin(p * 30) * 0.025 * (1 - p)
+				local s = 70 + (a.near - 70) * e
+				if t >= LUNGE_AT then
+					local l = math.clamp((t - LUNGE_AT) / 0.25, 0, 1)
+					s = s + (3 - s) * l * l
+				end
+				placeArm(a, s, t)
+			end
+		end
+		if t >= LUNGE_AT and not lunged then
+			lunged = true
+			if mods.AudioController then
+				mods.AudioController.play("FallenArms", { volume = 1, speed = 0.7, minGap = 0 })
+				mods.AudioController.play("Whoosh", { volume = 0.8, speed = 0.6, minGap = 0 })
+			end
+		end
+		RunService.RenderStepped:Wait()
+	end
+	if alive2 then
+		-- they have you: black, the glass gone, a laugh, the name
+		S.flash.BackgroundColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.6)
+		S.flash.BackgroundTransparency = 0.3
+		tween(S.flash, 0.45, { BackgroundTransparency = 1 })
+		vp:Destroy()
+		glass.Visible = false
+		if mods.AudioController then
+			mods.AudioController.play("SinisterLaugh", { volume = 1 })
+		end
+		Extra.mythicTitle(seq, root, it, def, tint, 0.35)
 	end
 	root:Destroy()
 	S.skip.Visible = skipWas
@@ -2801,7 +3045,12 @@ local function playSequence(reveal)
 			seq.skipping = false -- a skip lands here
 			local ok
 			if theme == "Halloween" and it.kind == "Skin" then
-				ok = Extra.scythePull(seq, it) -- (a Mythic skin: the scythe cuts the screen open)
+				local sd = Config.Halloween.Skins[it.key]
+				if sd and sd.Pull == "Crack" then
+					ok = Extra.crackPull(seq, it) -- (the Fallen Angel: the screen cracks, the arms crawl out)
+				else
+					ok = Extra.scythePull(seq, it) -- (a Mythic skin: the scythe cuts the screen open)
+				end
 			else
 				ok = cinematic(seq, rank >= 5, theme)
 			end

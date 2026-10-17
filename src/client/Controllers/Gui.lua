@@ -1061,35 +1061,13 @@ function Gui.playerCard(parent, props)
 	make("ImageLabel", { Image = Assets.image("CardBugNet") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.66, 0.05), Position = UDim2.fromOffset(NR, NR), Size = UDim2.fromOffset(math.floor(netH * 0.95), netH), ZIndex = z + 7 }, net)
 
 	-- (Pumpkin, the Halloween 2026 card; the owner, 2026-10-17: "put a jackolantern on the halloween
-	-- 2026 card its too bland right now") a jack-o'-lantern sat on the card's bottom right corner, built
-	-- of shapes (no image to wait on): three orange lobes, a stem, diamond eyes and nose and a toothy
-	-- grin lit from inside, flickering like a candle, rocking a little
+	-- 2026 card its too bland right now", then of the one built from shapes: "looks way too ai") a
+	-- carved jack-o'-lantern image (Assets.Images.CardPumpkin) sat on the card's bottom right corner,
+	-- glowing, its candle flickering, rocking a little
 	local PS = noWings and math.floor(H * 0.95) or math.floor(H * 1.3)
 	local pumpkin = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W - math.floor(PS * 0.2), H - math.floor(PS * 0.3)), Size = UDim2.fromOffset(PS, PS), BackgroundTransparency = 1, Visible = false, ZIndex = z + 7 }, root)
-	make("ImageLabel", { Image = Assets.id(Assets.Fx.Glow) or "", BackgroundTransparency = 1, ImageColor3 = Color3.fromRGB(255, 140, 30), ImageTransparency = 0.45, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.55), Size = UDim2.fromScale(1.9, 1.9), ZIndex = z + 6 }, pumpkin)
-	local function blob(x, y, w, h, color, zz, rot)
-		local f = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(w, h), BackgroundColor3 = color, BorderSizePixel = 0, Rotation = rot or 0, ZIndex = zz }, pumpkin)
-		return f
-	end
-	local stem = blob(0.52, 0.16, 0.12, 0.24, Color3.fromRGB(70, 120, 40), z + 7, 14)
-	make("UICorner", { CornerRadius = UDim.new(0.35, 0) }, stem)
-	for _, l in ipairs({ { 0.32, Color3.fromRGB(222, 96, 14), z + 7 }, { 0.68, Color3.fromRGB(222, 96, 14), z + 7 }, { 0.5, Color3.fromRGB(255, 132, 26), z + 8 } }) do
-		local lobe = blob(l[1], 0.58, l[1] == 0.5 and 0.5 or 0.56, 0.74, l[2], l[3])
-		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, lobe)
-		make("UIStroke", { Color = Color3.fromRGB(120, 42, 4), Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, lobe)
-	end
-	local lit = {}
-	local CANDLE = Color3.fromRGB(255, 222, 96)
-	table.insert(lit, blob(0.37, 0.5, 0.13, 0.13, CANDLE, z + 9, 45)) -- eyes
-	table.insert(lit, blob(0.63, 0.5, 0.13, 0.13, CANDLE, z + 9, 45))
-	table.insert(lit, blob(0.5, 0.61, 0.07, 0.07, CANDLE, z + 9, 45)) -- nose
-	local mouth = blob(0.5, 0.74, 0.46, 0.13, CANDLE, z + 9)
-	make("UICorner", { CornerRadius = UDim.new(0.45, 0) }, mouth)
-	table.insert(lit, mouth)
-	for _, tx in ipairs({ 0.4, 0.6 }) do
-		blob(tx, 0.69, 0.06, 0.06, Color3.fromRGB(255, 132, 26), z + 10) -- teeth from the top
-	end
-	blob(0.5, 0.79, 0.07, 0.06, Color3.fromRGB(255, 132, 26), z + 10) -- and one from below
+	local pumpkinGlow = make("ImageLabel", { Image = Assets.id(Assets.Fx.Glow) or "", BackgroundTransparency = 1, ImageColor3 = Color3.fromRGB(255, 140, 30), ImageTransparency = 0.45, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.55), Size = UDim2.fromScale(1.9, 1.9), ZIndex = z + 6 }, pumpkin)
+	local pumpkinImg = make("ImageLabel", { Image = Assets.image("CardPumpkin") or "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = z + 7 }, pumpkin)
 
 	local card = { root = root, viewport = viewport }
 	-- (Divine) one frame of its motion
@@ -1116,9 +1094,8 @@ function Gui.playerCard(parent, props)
 		-- (Pumpkin) a slow rock, and the candle inside flickering
 		pumpkin.Rotation = math.sin(t * 1.1) * 4
 		local flicker = 0.75 + 0.15 * math.sin(t * 13) + 0.1 * math.sin(t * 29 + 1.3)
-		for _, f in ipairs(lit) do
-			f.BackgroundColor3 = Color3.fromRGB(255, 120, 20):Lerp(CANDLE, flicker)
-		end
+		pumpkinImg.ImageColor3 = Color3.fromRGB(215, 175, 150):Lerp(Color3.new(1, 1, 1), flicker)
+		pumpkinGlow.ImageTransparency = 0.75 - 0.4 * flicker
 	end
 	root.Destroying:Connect(function()
 		if divineConn then

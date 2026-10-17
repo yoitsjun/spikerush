@@ -1519,6 +1519,7 @@ function HW.newArm(len)
 	end
 	return c
 end
+VFXController.newArm = HW.newArm -- (the Fallen Angel's recruit pull borrows them too)
 function HW.underworld(foot, k, model)
 	local VIOLET = Color3.fromRGB(150, 70, 255)
 	local pool = Instance.new("Part")

@@ -2000,6 +2000,7 @@ Config.Halloween = {
 			Color = Color3.fromRGB(190, 150, 255),
 			Chars = { "yejun" },
 			Tint = Color3.fromRGB(120, 60, 220),
+			Pull = "Crack", -- his recruit pull: the screen cracks and the arms crawl out (MenuController's Extra.crackPull; else the Reaper's scythe)
 		},
 	},
 	SkinOrder = { "Reaper", "FallenAngel" },

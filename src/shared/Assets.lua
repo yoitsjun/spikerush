@@ -350,6 +350,7 @@ Assets.Images = {
 	CardWingL = "99486627259504", -- gold wing out of the card's left (assets/card/almighty_wing_l.png)
 	CardWingR = "111732458070383", -- and its right (assets/card/almighty_wing_r.png)
 	CardCrest = "108825089093797", -- a crown with a red gem over the top (assets/card/almighty_crest.png)
+	CardPumpkin = "15297085802", -- the Halloween 2026 card's jack-o'-lantern (Creator Store decal 15297085809, "Laughing_Pumpkin_Icon")
 	CardBugNet = "72834624157291", -- the Bug Catcher card's net, mirrored from the owner's pick (assets/card/bug_net.png)
 	-- menu icons: one filled white glyph style (Toolbox decals)
 	IconHome = "13300916613", -- decal 13300916690 (Fluent "home")
