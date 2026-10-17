@@ -952,6 +952,150 @@ local function freezeScreen()
 	return freezeToken
 end
 
+-- Dante's First Strike as a cinematic (the owner, 2026-10-16: "someone made this first impact
+-- animation for raul. can you implement": a Moon Animator 2 save, shared/FirstImpact): for the
+-- freeze, his body plays its keys, the camera rides its rig round him behind letterbox bars, the
+-- screen's grade dips to dark and he glows purple. Every client on court sees it; false when it
+-- can't play (no rig), so the old freeze frame can.
+function VFXController.firstImpact(entityId, duration)
+	local cam = workspace.CurrentCamera
+	local model = Util.modelOf(entityId)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not cam or not hrp or not model:FindFirstChild("UpperTorso") or duration <= 0.05 or not onCourt() then
+		return false
+	end
+	local D = require(ReplicatedStorage.Shared.FirstImpact)
+	local function cfOf(t)
+		return CFrame.new(table.unpack(t))
+	end
+	local function track(keys, conv)
+		local out = {}
+		for _, k in ipairs(keys) do
+			table.insert(out, { f = k[1], v = conv(k[2]) })
+		end
+		return out
+	end
+	local function at(list, f, lerp)
+		if #list == 0 then
+			return nil
+		end
+		if f <= list[1].f then
+			return list[1].v
+		end
+		for i = 2, #list do
+			local b = list[i]
+			if f <= b.f then
+				local a = list[i - 1]
+				local w = (b.f > a.f) and (f - a.f) / (b.f - a.f) or 1
+				return lerp and lerp(a.v, b.v, w) or a.v
+			end
+		end
+		return list[#list].v
+	end
+	local cfLerp = function(a, b, w)
+		return a:Lerp(b, w)
+	end
+	local nLerp = function(a, b, w)
+		return a + (b - a) * w
+	end
+	local colLerp = function(a, b, w)
+		return a:Lerp(b, w)
+	end
+	local function col(t)
+		return Color3.new(t[1], t[2], t[3])
+	end
+	local function same(v)
+		return v
+	end
+	-- his joints (each motor whose moving part the save keys)
+	local joints = {}
+	for _, m in ipairs(model:GetDescendants()) do
+		if m:IsA("Motor6D") and m.Part1 and D.Joints[m.Part1.Name] then
+			local J = D.Joints[m.Part1.Name]
+			table.insert(joints, { motor = m, inv = cfOf(J.def):Inverse(), keys = track(J.keys, cfOf) })
+		end
+	end
+	local camBase = cfOf(D.Camera.rel) * cfOf(D.Camera.c0)
+	local camKeys = track(D.Camera.keys, cfOf)
+	local fovKeys = track(D.Fov, same)
+	local G = D.Grade
+	local bright, sat, con = track(G.Brightness, same), track(G.Saturation, same), track(G.Contrast, same)
+	local tintK = track(G.TintColor, col)
+	local glowC, glowT = track(D.Glow.FillColor, col), track(D.Glow.FillTransparency, same)
+	local cc = Instance.new("ColorCorrectionEffect")
+	cc.Name = "FirstImpactGrade"
+	cc.Parent = game:GetService("Lighting")
+	local hl = Instance.new("Highlight")
+	hl.Name = "FirstImpactGlow"
+	hl.OutlineTransparency = 0.2
+	hl.OutlineColor = Color3.fromRGB(230, 170, 255)
+	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hl.Adornee = model
+	hl.Parent = model
+	-- letterbox bars, sliding in
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "FirstImpactBars"
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 60
+	gui.Parent = player:WaitForChild("PlayerGui")
+	local bars = {}
+	for i, y in ipairs({ 0, 1 }) do
+		local b = Instance.new("Frame")
+		b.BackgroundColor3 = Color3.new(0, 0, 0)
+		b.BorderSizePixel = 0
+		b.AnchorPoint = Vector2.new(0, y)
+		b.Position = UDim2.fromScale(0, y)
+		b.Size = UDim2.new(1, 0, 0, 0)
+		b.Parent = gui
+		TweenService:Create(b, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0.13, 0) }):Play()
+		bars[i] = b
+	end
+	local fovWas = cam.FieldOfView
+	local frames = D.Length
+	local born = os.clock()
+	local name = "FirstImpact_" .. tostring(entityId)
+	local function finish()
+		pcall(function()
+			RunService:UnbindFromRenderStep(name)
+		end)
+		cam.FieldOfView = fovWas
+		cc:Destroy()
+		hl:Destroy()
+		gui:Destroy()
+	end
+	RunService:BindToRenderStep(name, Enum.RenderPriority.Last.Value + 6, function()
+		local t = os.clock() - born
+		if t >= duration or not hrp.Parent then
+			finish()
+			return
+		end
+		local f = t / duration * frames
+		for _, j in ipairs(joints) do
+			local k = at(j.keys, f, cfLerp)
+			if k and j.motor.Parent then
+				j.motor.Transform = k * j.inv
+			end
+		end
+		local ck = at(camKeys, f, cfLerp)
+		if ck then
+			cam.CFrame = hrp.CFrame * camBase * ck
+		end
+		cam.FieldOfView = at(fovKeys, f, nLerp) or fovWas
+		cc.Brightness = (at(bright, f, nLerp) or 0) * 0.35 -- (the save's -1 is pitch black on our courts: a strong dip)
+		cc.Saturation = at(sat, f, nLerp) or 0
+		cc.Contrast = at(con, f, nLerp) or 0
+		cc.TintColor = at(tintK, f, colLerp) or Color3.new(1, 1, 1)
+		hl.FillColor = at(glowC, f, colLerp) or Color3.new(0.8, 0.02, 1)
+		hl.FillTransparency = at(glowT, f, nLerp) or 0.5
+	end)
+	task.delay(duration + 0.5, function()
+		if gui.Parent then
+			finish()
+		end
+	end)
+	return true
+end
+
 function VFXController.freezeFrame(entityId, ballPos, duration, color)
 	local cam = workspace.CurrentCamera
 	local model = Util.modelOf(entityId)
@@ -4258,7 +4402,9 @@ local function onHit(snap)
 		if meta.firstStrike then
 			-- Dante's First Strike: a shorter freeze frame, in purple, then his usual burst (below) as it
 			-- fires
-			VFXController.freezeFrame(meta.id, pos, fires, FERAL)
+			if not VFXController.firstImpact(meta.id, fires) then
+				VFXController.freezeFrame(meta.id, pos, fires, FERAL)
+			end
 		end
 		if meta.metal then
 			-- Ironclad: Forge's charge, white-hot (off a jump before the set, or a share after it)
