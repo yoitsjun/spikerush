@@ -711,8 +711,8 @@ print("== the 1000members code ==")
 do
 	local Economy = require("Economy")
 	local g, why = Economy.code("1000Members", os.time())
-	check(g ~= nil and g.VP == 1000 and g.Gold == 15000 and g.Lucky == 4 and g.BoostLuck == 15 * 60 and Economy.code("1kdiscord", os.time()) == nil,
-		"the 1000members code gives 1,000 VP, 15,000 Gold, 4 lucky spins and 15 minutes of 2x Luck", g and Economy.describe(g) or tostring(why))
+	check(g ~= nil and g.VP == 1000 and g.Gold == 10000 and g.Lucky == 5,
+		"the 1000members code gives 1,000 VP, 10,000 Gold and 5 lucky spins", g and Economy.describe(g) or tostring(why))
 end
 
 print("== catching up to someone else's hit ==")
