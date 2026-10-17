@@ -7983,10 +7983,11 @@ local function buildSwap()
 		local def = c.Ability and Config.Abilities[c.Ability]
 		Gui.label(b, { Text = c.Role, display = true, TextSize = 16, Size = UDim2.new(1, -16, 0, 18), Position = UDim2.fromOffset(10, 36), ZIndex = 22 })
 		Gui.label(b, { Text = def and def.Name or "", TextSize = 13, TextColor3 = def and def.Color or Gui.DIM, Size = UDim2.new(1, -16, 0, 16), Position = UDim2.fromOffset(10, 58), ZIndex = 22 })
+		local star = Gui.label(b, { Text = "★", TextSize = 16, TextColor3 = Gui.SIGNAL, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -8, 1, -6), Size = UDim2.fromOffset(20, 18), TextXAlignment = Enum.TextXAlignment.Right, Visible = false, ZIndex = 22 })
 		onClick(b, function()
 			Net.get("Profile"):FireServer("select", c.Id)
 		end)
-		cards[c.Id] = { button = b, stroke = s }
+		cards[c.Id] = { button = b, stroke = s, index = i, star = star }
 	end
 	local kinds = {}
 	for _, kind in ipairs(COS.Kinds) do
@@ -8021,8 +8022,13 @@ end
 local function refreshSwap(prof)
 	local S = ui.swap
 	local current = prof.char or player:GetAttribute("CharId")
+	-- favourites first (the owner, 2026-10-16: "show favorited characters towards the top on timeouts
+	-- for character switching"), each group in roster order
+	local fav = favs(prof)
 	for id, card in pairs(S.cards) do
 		card.button.Visible = owns(prof, "Char", id)
+		card.button.LayoutOrder = (fav[id] and 0 or 10000) + card.index
+		card.star.Visible = fav[id] == true
 		local on = id == current
 		card.stroke.Thickness = on and 3 or 1.5
 		card.stroke.Color = on and Gui.SIGNAL or tierColor(Roster.get(id).Tier)
