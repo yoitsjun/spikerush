@@ -2435,23 +2435,15 @@ function Extra.scythePull(seq, it)
 		end)
 		local title = Gui.label(root, { Text = string.upper(def.Name or it.key), display = true, weight = Enum.FontWeight.Heavy, TextSize = 96, TextColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.35), TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromOffset(1400, 110), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 46 })
 		local sub = Gui.label(root, { Text = "MYTHIC SKIN  ·  " .. string.upper(Extra.HW.skinCharNames(it.key)), display = true, TextSize = 26, TextColor3 = MYTHIC, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.56), Size = UDim2.fromOffset(1000, 34), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 46 })
-		local prompt = Gui.label(root, { Text = mods.PadNav.usingPad() and "Press A to continue" or "Click to continue", display = true, TextSize = 24, TextColor3 = Gui.DIM, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -60), Size = UDim2.fromOffset(600, 32), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 46 })
 		task.delay(0.55, function()
 			if root.Parent then
 				tween(title, 0.5, { TextTransparency = 0 })
 				tween(sub, 0.5, { TextTransparency = 0 })
 			end
 		end)
-		task.delay(1.2, function()
-			if root.Parent then
-				tween(prompt, 0.4, { TextTransparency = 0 })
-			end
-		end)
-		-- (no auto-continue and no skip: a click after the name is up)
-		if hold(seq, 0.9) then
-			seq.skipping = false
-			waitClick(seq, false)
-		end
+		-- it goes on by itself once the name has been up a moment (the owner, 2026-10-16: "auto
+		-- continue"; it used to wait for a click)
+		hold(seq, 2.6)
 	end
 	root:Destroy()
 	S.skip.Visible = skipWas
@@ -7755,6 +7747,40 @@ function Extra.buildAdmin()
 			Cards = Extra.adminCard and { Extra.adminCard } or nil,
 			Fragments = frags,
 		})
+	end)
+	-- the same VP, Gold, lucky spins (and picks) to everyone online in every server (the owner,
+	-- 2026-10-16: "add global +lucky spins, vpoints, gold, and such only for those online"): press
+	-- twice within 4 s
+	local giveAllB, giveAllL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 566), Size = UDim2.fromOffset(250, 34) }, "Give everyone online", 15)
+	onClick(giveAllB, function()
+		if Extra.giveAllArmed and os.clock() - Extra.giveAllArmed < 4 then
+			Extra.giveAllArmed = nil
+			giveAllL.Text = "Give everyone online"
+			local chars = {}
+			for id in pairs(Extra.adminChars) do
+				table.insert(chars, id)
+			end
+			local frags = {}
+			for g, box in pairs(fragBoxes) do
+				frags[g] = tonumber(box.Text) or 0
+			end
+			Net.get("Admin"):FireServer("giveAll", {
+				VP = tonumber(amounts.VP.Text) or 0,
+				Gold = tonumber(amounts.Gold.Text) or 0,
+				Lucky = tonumber(amounts.Lucky.Text) or 0,
+				Chars = chars,
+				Fragments = frags,
+			})
+		else
+			Extra.giveAllArmed = os.clock()
+			giveAllL.Text = "Sure? Everyone online"
+			task.delay(4, function()
+				if Extra.giveAllArmed and os.clock() - Extra.giveAllArmed >= 4 then
+					Extra.giveAllArmed = nil
+					giveAllL.Text = "Give everyone online"
+				end
+			end)
+		end
 	end)
 	-- reset the username's match stats (a faked record): press twice within 4 s
 	local wipe, wipeL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 48), Size = UDim2.fromOffset(170, 46) }, "Reset stats", 18)

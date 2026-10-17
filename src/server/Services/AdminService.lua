@@ -9,6 +9,8 @@
 --                                 (ProfileService.giveUser: now, or through their mail)
 --   ("server")                 -> the admin alone into a new reserved server, to try lobbies across
 --                                 servers (Config.Lobby.Global) with someone who stays behind
+--   ("giveAll", grant)         -> VP, Gold, lucky spins (and the rest of a grant) to everyone online
+--                                 in every server, once each (nobody offline: no mail)
 --   ("admins")                 -> the whitelist: who the game's owner lets into the panel
 --   ("adminAdd", username)     -> let someone in (by username or user id)
 --   ("adminRemove", userId)    -> and out again
@@ -37,7 +39,7 @@ local AdminService = {}
 local reg
 local A = Config.Admin
 
-local TOPIC_LIVE, TOPIC_NOTICE, TOPIC_MAIL, TOPIC_ADMINS = "SpikeRushLive", "SpikeRushNotice", "SpikeRushMail", "SpikeRushAdmins"
+local TOPIC_LIVE, TOPIC_NOTICE, TOPIC_MAIL, TOPIC_ADMINS, TOPIC_GIFTALL = "SpikeRushLive", "SpikeRushNotice", "SpikeRushMail", "SpikeRushAdmins", "SpikeRushGiftAll"
 
 local events = {} -- kind -> the unix time it ends
 local liveStore = nil
@@ -251,6 +253,28 @@ local function writeAdmins(userId, name, add)
 	takeAdmins(result)
 	publish(TOPIC_ADMINS, os.time())
 	return true
+end
+
+-- A gift to everyone online (the owner, 2026-10-16: "add global +lucky spins, vpoints, gold, and such
+-- only for those online"): every player in this server gets it once (its id), with a notice.
+local giftsSeen = {}
+local function takeGiftAll(data)
+	if type(data) ~= "table" or type(data.id) ~= "string" or giftsSeen[data.id] then
+		return 0
+	end
+	giftsSeen[data.id] = true
+	local g = Economy.cleanGrant(data.g)
+	if Economy.isEmpty(g) then
+		return 0
+	end
+	local n = 0
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if reg.ProfileService.peek(plr) then
+			reg.ProfileService.grant(plr, g, "A gift for everyone online: " .. Economy.describe(g) .. "!")
+			n = n + 1
+		end
+	end
+	return n
 end
 
 -- Developers (Config.Developers), and whoever the owner's whitelist lets in.
@@ -496,6 +520,16 @@ local function onAdmin(plr, op, a, b, c)
 				reply(plr, why or "That didn't work.")
 			end
 		end)
+	elseif op == "giveAll" then
+		local g = Economy.cleanGrant(a)
+		if Economy.isEmpty(g) then
+			reply(plr, "Enter something to give everyone online.")
+			return
+		end
+		local data = { id = HttpService:GenerateGUID(false), g = g }
+		local here = takeGiftAll(data) -- this server at once; the rest hear it
+		publish(TOPIC_GIFTALL, data)
+		reply(plr, string.format("Gave everyone online %s (%d in this server, and every other server's players now).", Economy.describe(g), here))
 	elseif op == "takeCard" then
 		-- take a given card back (b: its key) from a username or user id
 		local name = type(a) == "string" and string.match(a, "^%s*([%w_]+)%s*$") or nil
@@ -619,6 +653,11 @@ function AdminService.init(r)
 				if plr then
 					reg.ProfileService.checkMail(plr)
 				end
+			end)
+		end)
+		pcall(function()
+			MessagingService:SubscribeAsync(TOPIC_GIFTALL, function(msg)
+				takeGiftAll(msg.Data) -- (this server's own comes back too: seen already)
 			end)
 		end)
 		pcall(function()

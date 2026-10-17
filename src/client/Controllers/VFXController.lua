@@ -1232,7 +1232,7 @@ end
 -- dragging at him. The arm is ToolboxAssets.Skins.UnderworldArm (assets/skins/FallenAngel.fbx:
 -- Arm_* parts, markers Arm_Base, Arm_Tip at the palm and Arm_Front the way it faces), else a
 -- stand-in of parts.
-HW.ARM_LEN = 6.5 -- studs from an arm's base to its palm, at a full-size jump
+HW.ARM_LEN = 9.5 -- studs from an arm's base to its palm, at a full-size jump (the owner, 2026-10-16: "make the arms bigger"; was 6.5)
 HW.ARM_LOOK = {
 	Arm_Flesh = { Color3.fromRGB(12, 8, 18), Enum.Material.SmoothPlastic },
 	Arm_Claws = { Color3.fromRGB(70, 62, 78), Enum.Material.SmoothPlastic },
@@ -1322,10 +1322,11 @@ function HW.underworld(foot, k, model)
 	pool.Size = Vector3.new(0.1, 1, 1)
 	pool.CFrame = CFrame.new(foot.X, 0.06, foot.Z) * CFrame.Angles(0, 0, math.rad(90))
 	pool.Parent = fxFolder
-	TweenService:Create(pool, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.1, 8.5 * k, 8.5 * k) }):Play()
+	TweenService:Create(pool, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.1, 10 * k, 10 * k) }):Play()
 	if mods and mods.AudioController then
-		-- the wing flung open (slowed: a big wing), the arms' growl and the ground giving way
-		mods.AudioController.play("FallenFlap", { pos = foot, speed = 0.72, minGap = 0.2 })
+		-- the wing flung open (one slow whoosh: the pigeon's run of flaps sounded like a horse
+		-- galloping, the owner), the arms' growl and the ground giving way
+		mods.AudioController.play("Whoosh", { pos = foot, speed = 0.55, volume = 0.9, minGap = 0.2 })
 		mods.AudioController.play("FallenArms", { pos = foot, volume = 0.5 + 0.4 * k, minGap = 0.2 })
 		mods.AudioController.play("FallenDirt", { pos = foot, volume = 0.6, minGap = 0.2 })
 	end
@@ -1333,17 +1334,29 @@ function HW.underworld(foot, k, model)
 	ringFx(foot + Vector3.new(0, 0.4, 0), VIOLET, 1, 11 * k)
 	Fx.play("VoidRupture", foot + Vector3.new(0, 0.5, 0), { scale = 0.6 * k })
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	-- (the owner, 2026-10-16: "keep it kind of centralized but not in a restricted circle. kind of as
+	-- if the hands are trying to get out"): scattered unevenly about his feet, most near the middle,
+	-- each leaning its own way out and scrabbling at the air
 	local arms = {}
-	local n = k >= 1 and 5 or 3
+	local n = k >= 1 and 6 or 4
 	for i = 1, n do
-		local len = HW.ARM_LEN * k * (0.85 + math.random() * 0.3)
+		local len = HW.ARM_LEN * k * (0.75 + math.random() * 0.45)
 		local m = HW.newArm(len)
-		local ang = (i / n) * math.pi * 2 + math.random() * 0.6
-		local r = (1.6 + math.random()) * k
+		local ang = math.random() * math.pi * 2
+		local r = (0.3 + 2.3 * math.random() ^ 1.6) * k
 		local base = Vector3.new(foot.X + math.cos(ang) * r, 0.05, foot.Z + math.sin(ang) * r)
 		m:PivotTo(CFrame.new(base - Vector3.new(0, len + 0.5, 0)))
 		m.Parent = fxFolder
-		table.insert(arms, { m = m, base = base, len = len, delay = (i - 1) * 0.035, spin = (math.random() - 0.5) * 0.7 })
+		table.insert(arms, {
+			m = m,
+			base = base,
+			len = len,
+			delay = math.random() * 0.14,
+			spin = (math.random() - 0.5) * 1.4,
+			out = Vector3.new(math.cos(ang + (math.random() - 0.5) * 1.2), 0, math.sin(ang + (math.random() - 0.5) * 1.2)),
+			tilt = math.rad(10 + math.random() * 28),
+			phase = math.random() * 6.28,
+		})
 	end
 	local born, life, fallAt = os.clock(), 1.6, nil
 	local conn
@@ -1373,8 +1386,11 @@ function HW.underworld(foot, k, model)
 			if toward.Magnitude < 0.01 then
 				toward = Vector3.yAxis
 			end
-			local lean = math.clamp(0.25 + 0.4 * rise + 0.3 * sink, 0, 0.85)
-			local dir = (Vector3.yAxis * (1 - lean) + toward.Unit * lean).Unit
+			-- its own way out, scrabbling (a wobble), and reaching after him as he comes down
+			local tilt = a.tilt + math.sin(t * 11 + a.phase) * 0.14
+			local own = (Vector3.yAxis * math.cos(tilt) + a.out * math.sin(tilt)).Unit
+			local lean = math.clamp(0.15 + 0.2 * rise + 0.45 * sink, 0, 0.8)
+			local dir = (own * (1 - lean) + toward.Unit * lean).Unit
 			local inward = Vector3.new(foot.X - a.base.X, 0, foot.Z - a.base.Z)
 			if inward.Magnitude < 0.01 then
 				inward = Vector3.xAxis
@@ -2038,15 +2054,18 @@ function VFXController.ability(entityId, ability, index)
 			mods.AudioController.play("Boom", { volume = 0.35, speed = 1.3 })
 		end
 	elseif ability == "Thunder" then
-		-- Storm Call: bolts crash down round him, a flash and a thunderclap
+		-- Storm Call: bolts crash down round him, a flash and a thunderclap (in his skin's thunder
+		-- colour: the Fallen Angel's violet; the owner, 2026-10-16: "make the storm cry purple")
 		local pos = hrp.Position
+		local sk = Config.Halloween.Skins[model:GetAttribute("Skin") or ""]
+		local col = (sk and sk.Thunder) or def.Color
 		for i = 1, 4 do
 			local x = (i - 2.5) * 2.2
-			bolt(pos + Vector3.new(0, 14, x), Vector3.new(0, -1, (math.random() - 0.5) * 0.3).Unit, 13, def.Color)
+			bolt(pos + Vector3.new(0, 14, x), Vector3.new(0, -1, (math.random() - 0.5) * 0.3).Unit, 13, col)
 		end
-		floorRing(pos, def.Color, 10, 0.6)
-		starburst(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 255, 230), 12)
-		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Storm Call!", def.Color, 1.3)
+		floorRing(pos, col, 10, 0.6)
+		starburst(pos + Vector3.new(0, 2, 0), (sk and sk.Thunder) and col:Lerp(Color3.new(1, 1, 1), 0.5) or Color3.fromRGB(255, 255, 230), 12)
+		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Storm Call!", col, 1.3)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("ScoreThunder", { volume = 0.8, pos = pos })
 		end
@@ -5915,6 +5934,138 @@ function HW.graveDrop(pos, tint, k, model, victims)
 	end)
 end
 
+-- The Fallen Angel's score (the owner, 2026-10-16: "if he scores, he has a custom effect where he
+-- drags the opponents under the map"): a black pool opens under each of the other team, arms claw
+-- up out of it and take hold, and drag them down through the floor; the pools close and the players
+-- are back a moment later. In the Locker (no victims) stand-ins of him take it.
+function HW.underworldScore(pos, tint, k, model, victims)
+	local VIOLET = Color3.fromRGB(150, 70, 255)
+	local dolls, undo = {}, {}
+	if victims then
+		for _, v in ipairs(victims) do
+			local d = puppet(v)
+			if d then
+				d:PivotTo(v:GetPivot())
+				d.Parent = fxFolder
+				table.insert(dolls, d)
+				table.insert(undo, hideLocally(v))
+			end
+		end
+	elseif model then
+		for i = 1, 3 do
+			local d = puppet(model)
+			if d then
+				local a = math.rad(i * 120)
+				d:PivotTo(CFrame.new(pos + Vector3.new(math.cos(a) * 7, 3, math.sin(a) * 7)) * CFrame.Angles(0, a, 0))
+				d.Parent = fxFolder
+				table.insert(dolls, d)
+			end
+		end
+	end
+	local holes = {}
+	for _, d in ipairs(dolls) do
+		for _, p in ipairs(d:GetDescendants()) do
+			if p:IsA("BasePart") then
+				p.Anchored = true
+				p.CanCollide = false
+			end
+		end
+		local start = d:GetPivot()
+		local foot = Vector3.new(start.X, 0.06, start.Z)
+		local pool = Instance.new("Part")
+		pool.Name = "UnderworldPool"
+		pool.Shape = Enum.PartType.Cylinder
+		pool.Anchored = true
+		pool.CanCollide = false
+		pool.CanQuery = false
+		pool.CanTouch = false
+		pool.CastShadow = false
+		pool.Material = Enum.Material.SmoothPlastic
+		pool.Color = Color3.fromRGB(5, 2, 10)
+		pool.Size = Vector3.new(0.1, 1, 1)
+		pool.CFrame = CFrame.new(foot) * CFrame.Angles(0, 0, math.rad(90))
+		pool.Parent = fxFolder
+		TweenService:Create(pool, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.1, 11, 11) }):Play()
+		floorRing(foot, VIOLET, 12)
+		Fx.play("VoidRupture", foot + Vector3.new(0, 0.5, 0), { scale = 0.8 })
+		local arms = {}
+		for i = 1, 4 do
+			local len = HW.ARM_LEN * (0.8 + math.random() * 0.35)
+			local m = HW.newArm(len)
+			local ang = (i / 4) * math.pi * 2 + math.random() * 0.9
+			local r = 1.2 + math.random() * 1.4
+			local base = Vector3.new(foot.X + math.cos(ang) * r, 0.05, foot.Z + math.sin(ang) * r)
+			m:PivotTo(CFrame.new(base - Vector3.new(0, len + 0.5, 0)))
+			m.Parent = fxFolder
+			table.insert(arms, { m = m, base = base, len = len, delay = math.random() * 0.12, phase = math.random() * 6.28 })
+		end
+		table.insert(holes, { doll = d, start = start, foot = foot, pool = pool, arms = arms })
+	end
+	if mods and mods.AudioController then
+		mods.AudioController.play("FallenArms", { pos = pos, volume = 1, minGap = 0.2 })
+		mods.AudioController.play("FallenDirt", { pos = pos, volume = 0.9, minGap = 0.2 })
+		mods.AudioController.play("ScoreRumble", { pos = pos })
+	end
+	if near(pos) then
+		mods.CameraController.shake(1.1)
+	end
+	local DOWN = 14 -- studs under the floor they're dragged
+	local born, life = os.clock(), 2.9
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - born
+		if t > life then
+			conn:Disconnect()
+			for _, h in ipairs(holes) do
+				for _, a in ipairs(h.arms) do
+					a.m:Destroy()
+				end
+				h.pool:Destroy()
+				h.doll:Destroy()
+			end
+			for _, f in ipairs(undo) do
+				f()
+			end
+			return
+		end
+		-- the arms come up (0 to 0.3 s), close on them; from 0.55 s down they all go
+		local drag = math.clamp((t - 0.55) / 0.9, 0, 1)
+		local dy = -DOWN * drag * drag
+		for _, h in ipairs(holes) do
+			local chest = h.start.Position + Vector3.new(0, dy + 0.5, 0)
+			-- a shudder as they're seized, then down, tipping back
+			local shake = (t > 0.3 and t < 0.6) and Vector3.new(math.sin(t * 60) * 0.15, 0, math.cos(t * 53) * 0.15) or Vector3.zero
+			h.doll:PivotTo((h.start + Vector3.new(0, dy, 0) + shake) * CFrame.Angles(math.rad(-25) * drag, 0, 0))
+			for _, a in ipairs(h.arms) do
+				local rise = math.clamp((t - a.delay) / 0.3, 0, 1)
+				rise = 1 - (1 - rise) ^ 3
+				local toward = chest - a.base
+				if toward.Magnitude < 0.01 then
+					toward = Vector3.yAxis
+				end
+				local lean = math.clamp(0.2 + 0.6 * rise + math.sin(t * 9 + a.phase) * 0.05, 0, 0.9)
+				local dir = (Vector3.yAxis * (1 - lean) + toward.Unit * lean).Unit
+				local palm = Vector3.new(h.foot.X - a.base.X, 0, h.foot.Z - a.base.Z)
+				if palm.Magnitude < 0.01 then
+					palm = Vector3.xAxis
+				end
+				palm = palm.Unit - dir * palm.Unit:Dot(dir)
+				if palm.Magnitude < 0.01 then
+					palm = Vector3.zAxis
+				end
+				local root = a.base - dir * (a.len * (1 - rise) + 0.4) + Vector3.new(0, dy, 0)
+				a.m:PivotTo(CFrame.lookAt(root, root + palm.Unit, dir))
+			end
+			-- the pool closes once they're gone
+			h.pool.Transparency = math.clamp((t - 1.9) / 0.5, 0, 1)
+			if t > 0.55 and not h.puffed then
+				h.puffed = true
+				smokePuffs(h.foot, 8, 0.9, Color3.fromRGB(60, 40, 90))
+			end
+		end
+	end)
+end
+
 -- A gravestone with your epitaph and picture, for a picture of it (the Locker's gravestone editor).
 function VFXController.newTombstone(height, text, image)
 	return HW.tombstone(height or 6, text, image)
@@ -6998,7 +7149,9 @@ end
 local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
 	effect = Spins.look("Effect", effect) -- (a limited one without its own look yet: its Base)
 	local always = reason == nil -- (the Locker's preview: the screen effects show there too)
-	if effect == "PumpkinBurst" then
+	if effect == "Underworld" then
+		HW.underworldScore(pos, tint, k or 1, model, victims) -- (the Fallen Angel's own)
+	elseif effect == "PumpkinBurst" then
 		HW.pumpkinBurst(pos, tint, k or 1)
 	elseif effect == "GhostSwarm" then
 		HW.ghostSwarm(pos, tint, k or 1)
@@ -7093,6 +7246,11 @@ local function celebrate(a)
 	emit("Dust", pos + Vector3.new(0, 0.5, 0), 70, nil)
 	if model then
 		local fx = Spins.equipped(model, "Effect")
+		-- a skin's own score effect in place of theirs (the Fallen Angel drags them under)
+		local skinDef = Config.Halloween.Skins[model:GetAttribute("Skin") or ""]
+		if skinDef and skinDef.Score then
+			fx = { Key = skinDef.Score, Rarity = "Mythic" }
+		end
 		-- the scored-on team's characters (Giant Stomp ragdolls them)
 		local victims = {}
 		for _, team in ipairs(Config.TeamOrder) do

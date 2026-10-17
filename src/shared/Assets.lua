@@ -134,7 +134,6 @@ Assets.Sounds = {
 	ReaperSlash = "112710059259649", -- its slice on a hard one: "rien scythe slash (1)" (the Red Mist split that was here was the swing's own file)
 	ReaperSouls = "9114170094", -- souls wailing where a Souls ball lands: "Dream Weirdness Constant 6" (Pro Sound Effects, Ghosts)
 	ReaperFrame = "108165623473748", -- the Reaper's impact frame: "black wipe jwoomph faster attack"
-	FallenFlap = "9113444620", -- the broken wing flung open on a jump (played slow, a big wing): "Bird Wing Flaps Pigeon Two 1" (Pro Sound Effects)
 	FallenArms = "9114628818", -- the underworld's arms clawing up: "Goliath Vocal Deep Growling Voice 22" (Pro Sound Effects)
 	FallenDirt = "9114658416", -- and the ground giving way under them: "Gravel Slide 1" (Pro Sound Effects)
 	FallenThunder = "6993372814", -- his violet-black thunder (played low) in place of YeJun's: "Lightning Strike"
@@ -231,7 +230,6 @@ Assets.SoundFiles = {
 	["112710059259649"] = { gain = 0.9 }, -- ReaperSlash "rien scythe slash (1)": peak 445
 	["9114170094"] = { start = 0.8, gain = 6.5 }, -- ReaperSouls "Dream Weirdness Constant 6": in by 0.9 s, peak 38, a wail under the landing
 	["108165623473748"] = { gain = 0.8 }, -- ReaperFrame "black wipe jwoomph faster attack": peak 479
-	["9113444620"] = { start = 0.5, gain = 6.5 }, -- FallenFlap "Bird Wing Flaps Pigeon Two 1": in by 0.66 s, peak 45 (played at 0.72)
 	["9114628818"] = { start = 0.06, gain = 2.5 }, -- FallenArms "Goliath Vocal Deep Growling Voice 22": peak 160
 	["9114658416"] = { start = 0.1, gain = 1.6 }, -- FallenDirt "Gravel Slide 1": peak 247
 	["6993372814"] = { gain = 2.6 }, -- FallenThunder "Lightning Strike": peak 155 (played at 0.82), level with Thunder
