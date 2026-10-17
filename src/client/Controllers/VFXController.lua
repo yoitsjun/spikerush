@@ -1121,7 +1121,9 @@ function VFXController.firstImpact(entityId, duration)
 			return
 		end
 		local f = frameNow()
-		local ck = at(camKeys, f, mix)
+		-- (the camera keeps to the save's close stretch, its first quarter: the owner's video stays tight
+		-- on his fist and head to the last frame, where the whole path pulls back to 13 studs)
+		local ck = at(camKeys, f * 0.25, mix)
 		if ck then
 			-- (the save's own shot, from behind his shoulder with his fist cocked by his head, zooming: the
 			-- owner, "that is literally the entire animation, its just that. and a sort of zoom"; tipped 8
@@ -1129,7 +1131,9 @@ function VFXController.firstImpact(entityId, duration)
 			cam.CFrame = hrp.CFrame * camBase * ck * CFrame.Angles(0, math.pi, 0) * CFrame.Angles(math.rad(-8), 0, 0)
 		end
 		cam.FieldOfView = at(fovKeys, f, nmix) or fovWas
-		cc.Brightness = at(bright, f, nmix) or 0
+		-- black to the last moment, then the white flash (as in the video; the save fades up from frame
+		-- 48, which showed the court for a fifth of a second)
+		cc.Brightness = at(bright, (f < 57) and math.min(f, 48) or 60, nmix) or 0
 		cc.Saturation = at(sat, f, nmix) or 0
 		cc.Contrast = at(con, f, nmix) or 0
 		cc.TintColor = at(tintK, f, mix) or Color3.new(1, 1, 1)
