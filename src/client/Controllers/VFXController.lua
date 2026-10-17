@@ -953,11 +953,14 @@ local function freezeScreen()
 end
 
 -- Dante's First Strike as a cinematic (the owner, 2026-10-16: "someone made this first impact
--- animation for raul. can you implement": a Moon Animator 2 save, shared/FirstImpact): for the
--- freeze, his body plays its keys, the camera rides its rig round him behind letterbox bars, the
--- screen's grade dips to dark and he glows purple. Every client on court sees it; false when it
--- can't play (no rig), so the old freeze frame can.
-function VFXController.firstImpact(entityId, duration, ballPos)
+-- animation for raul. can you implement", then "cant you just implement the animation file i sent
+-- you and play it how i sent you?"): the Moon Animator 2 save (shared/FirstImpact) played as made,
+-- matched frame by frame to the owner's video in a playtest: his whole body plays its keys, the
+-- camera rides its rig (from just behind his shoulder, his fist cocked up by his head, pulling
+-- back), the world drops to black round his purple glow and flashes white as it fires, behind
+-- letterbox bars, the HUD out of the way. Every client on court sees it; false when it can't play
+-- (no rig), so the old freeze frame can.
+function VFXController.firstImpact(entityId, duration)
 	local cam = workspace.CurrentCamera
 	local model = Util.modelOf(entityId)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
@@ -992,14 +995,11 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 		end
 		return list[#list].v
 	end
-	local cfLerp = function(a, b, w)
+	local function mix(a, b, w)
 		return a:Lerp(b, w)
 	end
-	local nLerp = function(a, b, w)
+	local function nmix(a, b, w)
 		return a + (b - a) * w
-	end
-	local colLerp = function(a, b, w)
-		return a:Lerp(b, w)
 	end
 	local function col(t)
 		return Color3.new(t[1], t[2], t[3])
@@ -1007,8 +1007,8 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 	local function same(v)
 		return v
 	end
-	-- his joints (each one whose moving part the save keys: AnimationConstraints, which new avatars
-	-- spawn with, over any leftover Motor6D, as AnimationController does)
+	-- every joint the save keys (AnimationConstraints, which new avatars spawn with, over any
+	-- leftover Motor6D, as AnimationController does)
 	local byPart = {}
 	for _, m in ipairs(model:GetDescendants()) do
 		local part1 = nil
@@ -1017,38 +1017,18 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 		elseif m:IsA("Motor6D") then
 			part1 = m.Part1
 		end
-		-- (his hitting arm keeps the game's spike pose, the hand on the ball: the hit is the picture)
-		local hitting = part1 and (part1.Name == "RightUpperArm" or part1.Name == "RightLowerArm" or part1.Name == "RightHand")
-		if part1 and not hitting and D.Joints[part1.Name] and (not byPart[part1.Name] or m:IsA("AnimationConstraint")) then
+		if part1 and D.Joints[part1.Name] and (not byPart[part1.Name] or m:IsA("AnimationConstraint")) then
 			byPart[part1.Name] = m
 		end
-	end
-	-- his hitting arm, aimed straight at the ball every frame (the owner: "make the arm actually connect
-	-- with the ball"), the ball then at his fingertips
-	local arm = {}
-	for _, m in ipairs(model:GetDescendants()) do
-		local part1 = nil
-		if m:IsA("AnimationConstraint") and m.Attachment1 then
-			part1 = m.Attachment1.Parent
-		elseif m:IsA("Motor6D") then
-			part1 = m.Part1
-		end
-		local key = part1 and ({ RightUpperArm = "shoulder", RightLowerArm = "elbow", RightHand = "wrist" })[part1.Name]
-		if key and (not arm[key] or m:IsA("AnimationConstraint")) then
-			arm[key] = m
-		end
-	end
-	local armLen = 0
-	for _, n in ipairs({ "RightUpperArm", "RightLowerArm", "RightHand" }) do
-		local p = model:FindFirstChild(n)
-		armLen = armLen + (p and p.Size.Y or 1)
 	end
 	local joints = {}
 	for name, m in pairs(byPart) do
 		local J = D.Joints[name]
 		table.insert(joints, { motor = m, inv = cfOf(J.def):Inverse(), keys = track(J.keys, cfOf) })
 	end
-	local camBase = cfOf(D.Camera.rel) * cfOf(D.Camera.c0)
+	-- the camera: the save's rig round his root (Moon's camera part looks out of its back), dropped
+	-- 0.6 studs for our avatars' proportions (the save's was taller)
+	local camBase = CFrame.new(0, -0.6, 0) * cfOf(D.Camera.rel) * cfOf(D.Camera.c0)
 	local camKeys = track(D.Camera.keys, cfOf)
 	local fovKeys = track(D.Fov, same)
 	local G = D.Grade
@@ -1060,73 +1040,55 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 	cc.Parent = game:GetService("Lighting")
 	local hl = Instance.new("Highlight")
 	hl.Name = "FirstImpactGlow"
-	hl.OutlineTransparency = 0.2
-	hl.OutlineColor = Color3.fromRGB(230, 170, 255)
+	hl.OutlineTransparency = 1
 	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	hl.Adornee = model
 	hl.Parent = model
-	-- letterbox bars, sliding in
+	-- letterbox bars (the save's camera rig has them)
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "FirstImpactBars"
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 60
 	gui.Parent = player:WaitForChild("PlayerGui")
-	local bars = {}
-	for i, y in ipairs({ 0, 1 }) do
-		local b = Instance.new("Frame")
-		b.BackgroundColor3 = Color3.new(0, 0, 0)
-		b.BorderSizePixel = 0
-		b.AnchorPoint = Vector2.new(0, y)
-		b.Position = UDim2.fromScale(0, y)
-		b.Size = UDim2.new(1, 0, 0, 0)
-		b.Parent = gui
-		TweenService:Create(b, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0.13, 0) }):Play()
-		bars[i] = b
+	for _, y in ipairs({ 0, 1 }) do
+		local bar = Instance.new("Frame")
+		bar.BackgroundColor3 = Color3.new(0, 0, 0)
+		bar.BorderSizePixel = 0
+		bar.AnchorPoint = Vector2.new(0, y)
+		bar.Position = UDim2.fromScale(0, y)
+		bar.Size = UDim2.new(1, 0, 0.11, 0)
+		bar.Parent = gui
 	end
-	local fovWas = cam.FieldOfView
-	-- the HUD out of the picture while it plays (the owner's reference has none)
+	-- the HUD out of the picture while it plays
 	local hidden = {}
-	for _, g in ipairs(player:WaitForChild("PlayerGui"):GetChildren()) do
+	for _, g in ipairs(player.PlayerGui:GetChildren()) do
 		if g:IsA("ScreenGui") and g.Enabled and g ~= gui then
 			g.Enabled = false
 			table.insert(hidden, g)
 		end
 	end
-	-- the ball burning on his hand, lit in the dark (with the glow, it's the picture)
-	local torso = model:FindFirstChild("UpperTorso")
-	local ball = ballPos or (hrp.Position + Vector3.new(0, 4, 0))
-	local orbModel = Instance.new("Model")
-	orbModel.Name = "FirstImpactBall"
-	local orb = Instance.new("Part")
-	orb.Shape = Enum.PartType.Ball
-	orb.Material = Enum.Material.Neon
-	orb.Color = Color3.fromRGB(190, 60, 255)
-	orb.Transparency = 0.35
-	orb.Anchored = true
-	orb.CanCollide = false
-	orb.CanQuery = false
-	orb.CanTouch = false
-	orb.CastShadow = false
-	orb.Size = Vector3.new(2.6, 2.6, 2.6)
-	orb.CFrame = CFrame.new(ball)
-	orb.Parent = orbModel
-	local core = orb:Clone()
-	core.Color = Color3.fromRGB(255, 235, 255)
-	core.Transparency = 0
-	core.Size = Vector3.new(1.4, 1.4, 1.4)
-	core.Parent = orbModel
-	orbModel.Parent = fxFolder
-	local orbGlow = Instance.new("Highlight")
-	orbGlow.FillColor = Color3.fromRGB(205, 90, 255)
-	orbGlow.FillTransparency = 0.1
-	orbGlow.OutlineColor = Color3.fromRGB(255, 220, 255)
-	orbGlow.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	orbGlow.Adornee = orbModel
-	orbGlow.Parent = orbModel
-	VFXController.speedLines(duration, Color3.fromRGB(190, 90, 255), 1)
+	local fovWas = cam.FieldOfView
 	local frames = D.Length
 	local born = os.clock()
 	local name = "FirstImpact_" .. tostring(entityId)
+	local AC = mods and mods.AnimationController
+	local function frameNow()
+		return math.clamp((os.clock() - born) / duration, 0, 1) * frames
+	end
+	-- his body: written after AnimationController's own joint writes, before the physics step
+	-- (AnimationConstraints only take a Transform there)
+	local function pose()
+		if not hrp.Parent then
+			return
+		end
+		local f = frameNow()
+		for _, j in ipairs(joints) do
+			local k = at(j.keys, f, mix)
+			if k and j.motor.Parent then
+				j.motor.Transform = k * j.inv
+			end
+		end
+	end
 	local poseConn = nil
 	local function finish()
 		pcall(function()
@@ -1135,8 +1097,8 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 		if poseConn then
 			poseConn:Disconnect()
 		end
-		if mods and mods.AnimationController and mods.AnimationController.after then
-			mods.AnimationController.after[name] = nil
+		if AC and AC.after then
+			AC.after[name] = nil
 		end
 		cam.FieldOfView = fovWas
 		for _, g in ipairs(hidden) do
@@ -1144,103 +1106,32 @@ function VFXController.firstImpact(entityId, duration, ballPos)
 				g.Enabled = true
 			end
 		end
-		orbModel:Destroy()
 		cc:Destroy()
 		hl:Destroy()
 		gui:Destroy()
 	end
-	-- his body's keys and the hitting arm aimed at the ball: written just before each physics step,
-	-- after AnimationController's (new avatars' AnimationConstraints only take a Transform there:
-	-- written at render time it was replaced, the owner: "hes still not touching it")
-	local function pose()
-		local t = os.clock() - born
-		if t >= duration or not hrp.Parent then
-			return
-		end
-		local f = t / duration * frames
-		for _, j in ipairs(joints) do
-			local k = at(j.keys, f, cfLerp)
-			if k and j.motor.Parent then
-				j.motor.Transform = k * j.inv
-			end
-		end
-		local j = arm.shoulder
-		if j and torso and j.Parent then
-			local w0, c1
-			if j:IsA("AnimationConstraint") then
-				w0, c1 = j.Attachment0.WorldCFrame, j.Attachment1.CFrame
-			else
-				w0, c1 = j.Part0.CFrame * j.C0, j.C1
-			end
-			local dir = ball - w0.Position
-			if dir.Magnitude > 0.01 then
-				local up = -dir.Unit -- (an arm hangs along its part's -Y)
-				local r = torso.CFrame.RightVector
-				r = r - up * r:Dot(up)
-				if r.Magnitude < 0.01 then
-					r = hrp.CFrame.LookVector:Cross(up)
-				end
-				local want = CFrame.fromMatrix(Vector3.zero, r.Unit, up)
-				j.Transform = (w0 - w0.Position):Inverse() * want * (c1 - c1.Position)
-				if arm.elbow then
-					arm.elbow.Transform = CFrame.new()
-				end
-				if arm.wrist then
-					arm.wrist.Transform = CFrame.new()
-				end
-			end
-		end
-	end
-	-- (after AnimationController's own writes, in its PreSimulation: in a match they won over a
-	-- connection of our own, the owner's screenshot: his hand down by his side)
-	if mods and mods.AnimationController and mods.AnimationController.after then
-		mods.AnimationController.after[name] = pose
+	if AC and AC.after then
+		AC.after[name] = pose
 	else
 		poseConn = RunService.PreSimulation:Connect(pose)
 	end
 	RunService:BindToRenderStep(name, Enum.RenderPriority.Last.Value + 6, function()
-		local t = os.clock() - born
-		if t >= duration or not hrp.Parent then
+		if os.clock() - born >= duration or not hrp.Parent then
 			finish()
 			return
 		end
-		local f = t / duration * frames
-		-- the hit as the picture (the owner, 2026-10-16: "make it more clearly show him hitting the
-		-- ball. i want that to be the main focus", after The Spike's card art): low in front of him,
-		-- looking up past him at the ball burning on his hand, pushing in
-		local w = t / duration
-		local chest = torso and torso.Position or hrp.Position
-		local front = Vector3.new(hrp.CFrame.LookVector.X, 0, hrp.CFrame.LookVector.Z)
-		if front.Magnitude < 0.01 then
-			front = Vector3.zAxis
+		local f = frameNow()
+		local ck = at(camKeys, f, mix)
+		if ck then
+			cam.CFrame = hrp.CFrame * camBase * ck * CFrame.Angles(0, math.pi, 0)
 		end
-		front = front.Unit
-		local right = front:Cross(Vector3.yAxis)
-		-- (framed on his raised hand and his head together, tried on a live character: the ball at his
-		-- fingers and his face both in the shot, from a little low, in front and off to the side)
-		local handP = model:FindFirstChild("RightHand")
-		local tipP = handP and (handP.CFrame * Vector3.new(0, -(handP.Size.Y / 2 + 0.9), 0)) or ball
-		local headP = model:FindFirstChild("Head")
-		local headPos = headP and headP.Position or chest
-		local focus = tipP:Lerp(headPos, 0.45)
-		local fov = 50 - 4 * w
-		local d = ((tipP - headPos).Magnitude + 3.5) / (2 * math.tan(math.rad(fov / 2))) * (1.25 - 0.15 * w)
-		local eye = focus + front * d + right * d * 0.25 + Vector3.new(0, -d * 0.35, 0)
-		cam.CFrame = CFrame.lookAt(eye, focus)
-		cam.FieldOfView = fov
-		orb.Size = Vector3.new(1, 1, 1) * (2.6 + 0.5 * math.sin(t * 30))
-		pose() -- (Motor6Ds show it at once; AnimationConstraints take it at the next physics step)
-		-- the ball just past his fingers, wherever his hand is: they always touch
-		local hand = model:FindFirstChild("RightHand")
-		local held = hand and (hand.CFrame * Vector3.new(0, -(hand.Size.Y / 2 + 0.9), 0)) or ball
-		orb.CFrame = CFrame.new(held)
-		core.CFrame = CFrame.new(held)
-		cc.Brightness = at(bright, f, nLerp) or 0 -- (pitch black round his glow, then the white flash as it fires: the owner's video)
-		cc.Saturation = at(sat, f, nLerp) or 0
-		cc.Contrast = at(con, f, nLerp) or 0
-		cc.TintColor = at(tintK, f, colLerp) or Color3.new(1, 1, 1)
-		hl.FillColor = at(glowC, f, colLerp) or Color3.new(0.8, 0.02, 1)
-		hl.FillTransparency = at(glowT, f, nLerp) or 0.5
+		cam.FieldOfView = at(fovKeys, f, nmix) or fovWas
+		cc.Brightness = at(bright, f, nmix) or 0
+		cc.Saturation = at(sat, f, nmix) or 0
+		cc.Contrast = at(con, f, nmix) or 0
+		cc.TintColor = at(tintK, f, mix) or Color3.new(1, 1, 1)
+		hl.FillColor = at(glowC, f, mix) or Color3.new(0.8, 0.02, 1)
+		hl.FillTransparency = at(glowT, f, nmix) or 0.5
 	end)
 	task.delay(duration + 0.5, function()
 		if gui.Parent then
@@ -4556,7 +4447,7 @@ local function onHit(snap)
 		if meta.firstStrike then
 			-- Dante's First Strike: a shorter freeze frame, in purple, then his usual burst (below) as it
 			-- fires
-			if not VFXController.firstImpact(meta.id, fires, pos) then
+			if not VFXController.firstImpact(meta.id, fires) then
 				VFXController.freezeFrame(meta.id, pos, fires, FERAL)
 			end
 		end
