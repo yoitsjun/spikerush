@@ -7611,6 +7611,16 @@ function VFXController.init(m)
 	fxFolder = Instance.new("Folder")
 	fxFolder.Name = "SpikeRushFX"
 	fxFolder.Parent = workspace
+	-- (Studio only: setting workspace attribute TestFirstImpact to a number plays Dante's First Impact
+	-- on your own character for that many seconds, through the real path, to check it on screen)
+	if RunService:IsStudio() then
+		workspace:GetAttributeChangedSignal("TestFirstImpact"):Connect(function()
+			local secs = tonumber(workspace:GetAttribute("TestFirstImpact"))
+			if secs and secs > 0 then
+				VFXController.firstImpact("P_" .. tostring(player.UserId), secs)
+			end
+		end)
+	end
 
 	task.spawn(Fx.preload)
 
