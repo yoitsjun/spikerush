@@ -957,7 +957,7 @@ end
 -- freeze, his body plays its keys, the camera rides its rig round him behind letterbox bars, the
 -- screen's grade dips to dark and he glows purple. Every client on court sees it; false when it
 -- can't play (no rig), so the old freeze frame can.
-function VFXController.firstImpact(entityId, duration)
+function VFXController.firstImpact(entityId, duration, ballPos)
 	local cam = workspace.CurrentCamera
 	local model = Util.modelOf(entityId)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
@@ -1017,7 +1017,9 @@ function VFXController.firstImpact(entityId, duration)
 		elseif m:IsA("Motor6D") then
 			part1 = m.Part1
 		end
-		if part1 and D.Joints[part1.Name] and (not byPart[part1.Name] or m:IsA("AnimationConstraint")) then
+		-- (his hitting arm keeps the game's spike pose, the hand on the ball: the hit is the picture)
+		local hitting = part1 and (part1.Name == "RightUpperArm" or part1.Name == "RightLowerArm" or part1.Name == "RightHand")
+		if part1 and not hitting and D.Joints[part1.Name] and (not byPart[part1.Name] or m:IsA("AnimationConstraint")) then
 			byPart[part1.Name] = m
 		end
 	end
@@ -1062,6 +1064,38 @@ function VFXController.firstImpact(entityId, duration)
 		bars[i] = b
 	end
 	local fovWas = cam.FieldOfView
+	-- the ball burning on his hand, lit in the dark (with the glow, it's the picture)
+	local torso = model:FindFirstChild("UpperTorso")
+	local ball = ballPos or (hrp.Position + Vector3.new(0, 4, 0))
+	local orbModel = Instance.new("Model")
+	orbModel.Name = "FirstImpactBall"
+	local orb = Instance.new("Part")
+	orb.Shape = Enum.PartType.Ball
+	orb.Material = Enum.Material.Neon
+	orb.Color = Color3.fromRGB(190, 60, 255)
+	orb.Transparency = 0.35
+	orb.Anchored = true
+	orb.CanCollide = false
+	orb.CanQuery = false
+	orb.CanTouch = false
+	orb.CastShadow = false
+	orb.Size = Vector3.new(2.6, 2.6, 2.6)
+	orb.CFrame = CFrame.new(ball)
+	orb.Parent = orbModel
+	local core = orb:Clone()
+	core.Color = Color3.fromRGB(255, 235, 255)
+	core.Transparency = 0
+	core.Size = Vector3.new(1.4, 1.4, 1.4)
+	core.Parent = orbModel
+	orbModel.Parent = fxFolder
+	local orbGlow = Instance.new("Highlight")
+	orbGlow.FillColor = Color3.fromRGB(205, 90, 255)
+	orbGlow.FillTransparency = 0.1
+	orbGlow.OutlineColor = Color3.fromRGB(255, 220, 255)
+	orbGlow.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	orbGlow.Adornee = orbModel
+	orbGlow.Parent = orbModel
+	VFXController.speedLines(duration, Color3.fromRGB(190, 90, 255), 1)
 	local frames = D.Length
 	local born = os.clock()
 	local name = "FirstImpact_" .. tostring(entityId)
@@ -1070,6 +1104,7 @@ function VFXController.firstImpact(entityId, duration)
 			RunService:UnbindFromRenderStep(name)
 		end)
 		cam.FieldOfView = fovWas
+		orbModel:Destroy()
 		cc:Destroy()
 		hl:Destroy()
 		gui:Destroy()
@@ -1087,13 +1122,24 @@ function VFXController.firstImpact(entityId, duration)
 				j.motor.Transform = k * j.inv
 			end
 		end
-		local ck = at(camKeys, f, cfLerp)
-		if ck then
-			-- (the save's path, swung round to his front: it filmed his back, the owner: "why is the camera
-			-- showing the back of him?"; Moon's camera part looks out of its back)
-			cam.CFrame = hrp.CFrame * CFrame.Angles(0, math.pi, 0) * camBase * ck * CFrame.Angles(0, math.pi, 0)
+		-- the hit as the picture (the owner, 2026-10-16: "make it more clearly show him hitting the
+		-- ball. i want that to be the main focus", after The Spike's card art): low in front of him,
+		-- looking up past him at the ball burning on his hand, pushing in
+		local w = t / duration
+		local chest = torso and torso.Position or hrp.Position
+		local front = Vector3.new(hrp.CFrame.LookVector.X, 0, hrp.CFrame.LookVector.Z)
+		if front.Magnitude < 0.01 then
+			front = Vector3.zAxis
 		end
-		cam.FieldOfView = at(fovKeys, f, nLerp) or fovWas
+		front = front.Unit
+		local right = front:Cross(Vector3.yAxis)
+		local focus = ball:Lerp(chest, 0.4)
+		local eye = chest + front * (7.5 - 2 * w) + right * 1.6 + Vector3.new(0, -3.2 + 0.6 * w, 0)
+		cam.CFrame = CFrame.lookAt(eye, focus)
+		cam.FieldOfView = 48 - 6 * w
+		orb.Size = Vector3.new(1, 1, 1) * (2.6 + 0.5 * math.sin(t * 30))
+		orb.CFrame = CFrame.new(ball)
+		core.CFrame = CFrame.new(ball)
 		cc.Brightness = at(bright, f, nLerp) or 0 -- (pitch black round his glow, then the white flash as it fires: the owner's video)
 		cc.Saturation = at(sat, f, nLerp) or 0
 		cc.Contrast = at(con, f, nLerp) or 0
@@ -4415,7 +4461,7 @@ local function onHit(snap)
 		if meta.firstStrike then
 			-- Dante's First Strike: a shorter freeze frame, in purple, then his usual burst (below) as it
 			-- fires
-			if not VFXController.firstImpact(meta.id, fires) then
+			if not VFXController.firstImpact(meta.id, fires, pos) then
 				VFXController.freezeFrame(meta.id, pos, fires, FERAL)
 			end
 		end
