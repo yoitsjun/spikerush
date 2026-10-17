@@ -1144,7 +1144,7 @@ function VFXController.firstImpact(entityId, duration)
 			-- (then back 1.2 studs and 4 degrees lower: matched to the owner's frame in a match playtest)
 			-- (from his front: the friend's avatar is faceless, so the owner's frame is his front, raised
 			-- fist up on the left, as checked in a match playtest)
-			cam.CFrame = hrp.CFrame * CFrame.Angles(0, math.pi, 0) * camBase * ck * CFrame.Angles(0, math.pi, 0) * CFrame.Angles(math.rad(-8), 0, 0) * CFrame.new(0, 0, 1.2) * CFrame.Angles(math.rad(-4), 0, 0)
+			cam.CFrame = hrp.CFrame * CFrame.Angles(0, math.pi, 0) * camBase * ck * CFrame.Angles(0, math.pi, 0) * CFrame.Angles(math.rad(-8), 0, 0) * CFrame.new(0, 0, 1.2)
 		end
 		cam.FieldOfView = at(fovKeys, f, nmix) or fovWas
 		-- black to the last moment, then the white flash (as in the video; the save fades up from frame
