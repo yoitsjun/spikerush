@@ -1939,7 +1939,7 @@ Config.Halloween = {
 	Banner = {
 		Name = "Halloween Night",
 		Blurb = "Limited Halloween cosmetics, and two Mythic skins: the Reaper and the Fallen Angel. Every recruit is 1 scout point: spend them to pick an item outright.",
-		Costs = { VP = { [1] = 60, [10] = 800 }, Candy = { [1] = 25, [10] = 250 } }, -- (the VP 10-pull at 800: the owner, 2026-10-17; was 600)
+		Costs = { VP = { [1] = 80, [10] = 800 }, Candy = { [1] = 25, [10] = 250 } }, -- (VP 80 a recruit, 800 for ten: the owner, 2026-10-17; was 60 and 600)
 		Weights = { Rare = 60, Epic = 28, Legendary = 11.4, Mythic = 0.6 },
 		ScoutPerPull = 1,
 		DupCandy = { Rare = 4, Epic = 8, Legendary = 20, Mythic = 40 },
