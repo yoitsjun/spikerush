@@ -1381,17 +1381,26 @@ function HW.underworld(foot, k, model)
 			rise = 1 - (1 - rise) ^ 3
 			local sink = fallAt and math.clamp((t - fallAt - 0.05) / 0.4, 0, 1) or 0
 			sink = sink * sink
-			local out = rise * (1 - sink)
+			-- (reaching after him hard, the owner, 2026-10-16: "make the hands reach after yejun more
+			-- intesely"): they strain up out of the pool past their full length while he's above them,
+			-- lunge his way, and grab at the air faster
+			local strain = 1 + 0.3 * rise * (1 - sink) * (0.8 + 0.2 * math.sin(t * 17 + a.phase))
+			local out = rise * (1 - sink) * strain
 			local toward = target - a.base
 			if toward.Magnitude < 0.01 then
 				toward = Vector3.yAxis
 			end
-			-- its own way out, scrabbling (a wobble), and reaching after him as he comes down
-			local tilt = a.tilt + math.sin(t * 11 + a.phase) * 0.14
+			-- its own way out, scrabbling (a wobble), and reaching after him all the way
+			local tilt = a.tilt + math.sin(t * 16 + a.phase) * 0.18
 			local own = (Vector3.yAxis * math.cos(tilt) + a.out * math.sin(tilt)).Unit
-			local lean = math.clamp(0.15 + 0.2 * rise + 0.45 * sink, 0, 0.8)
+			local lean = math.clamp(0.4 + 0.35 * rise + 0.2 * sink, 0, 0.95)
 			local dir = (own * (1 - lean) + toward.Unit * lean).Unit
-			local inward = Vector3.new(foot.X - a.base.X, 0, foot.Z - a.base.Z)
+			-- palms open toward him, clutching
+			local inward = toward
+			inward = Vector3.new(inward.X, 0, inward.Z)
+			if inward.Magnitude < 0.01 then
+				inward = Vector3.new(foot.X - a.base.X, 0, foot.Z - a.base.Z)
+			end
 			if inward.Magnitude < 0.01 then
 				inward = Vector3.xAxis
 			end
