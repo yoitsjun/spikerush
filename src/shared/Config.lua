@@ -465,7 +465,9 @@ Config.Progression = {
 -- Rarity tiers shared by every spin.
 Config.Rarity = {
 	Order = { "Common", "Rare", "Epic", "Legendary", "Mythic" },
-	Weights = { Common = 55, Rare = 30, Epic = 12.5, Legendary = 2, Mythic = 0.5 },
+	-- (the owner, 2026-10-17, after a reference's normal odds: Common 62.495, Rare 35, Legendary 2,
+	-- Godly 0.495, Secret 0.01; ours rarity for rarity)
+	Weights = { Common = 62.495, Rare = 35, Epic = 2, Legendary = 0.495, Mythic = 0.01 },
 	Colors = {
 		Common = Color3.fromRGB(170, 178, 200),
 		Rare = Color3.fromRGB(80, 170, 255),
@@ -506,7 +508,7 @@ Config.Spins = {
 	-- tiers keep their shares; a tier with nobody in it gives its share to the rest of its rarity.
 	-- (the owner, 2026-10-17: "why is s tier a higher chance than a tier and s-? make s tier 1% or
 	-- maybe even less": S 3 -> 0.75 and S- 1 -> 1.25, Legendary 4% -> 2%, the 2% to B)
-	TierOdds = { ["S+"] = 0.5, S = 0.75, ["S-"] = 1.25, ["A+"] = 2.5, A = 4, ["A-"] = 6, ["B+"] = 5, B = 11, ["B-"] = 14, ["C+"] = 7, C = 11, ["C-"] = 14, ["D+"] = 8, D = 9, ["D-"] = 6 },
+	TierOdds = { ["S+"] = 0.01, S = 0.185, ["S-"] = 0.31, ["A+"] = 0.4, A = 0.64, ["A-"] = 0.96, ["B+"] = 6, B = 13, ["B-"] = 16, ["C+"] = 8, C = 12.5, ["C-"] = 15.995, ["D+"] = 9, D = 10.2, ["D-"] = 6.8 },
 	SellValue = { Common = 5, Rare = 12, Epic = 30, Legendary = 80, Mythic = 250 },
 	AutoSellable = { "Common", "Rare", "Epic" },
 	AutoRollMax = 100, -- an auto-roll stops after this many spins
@@ -518,12 +520,12 @@ Config.Spins = {
 	-- reaches Every gives one of Tiers. Lucky spins count on their own: their first pity is a
 	-- random S+, and when that wasn't the one you picked, the next is the one you picked. Normal
 	-- recruits also count toward an S+ (Top, the owner: "add a normal spin S+ pity but it has to be
-	-- 350 pulls"): an S+ is a 0.5% pull, so most players see one long before it (the average wait
-	-- is 200), and about one in six reach it. When Top and Normal land on the same recruit, Top wins.
+	-- 350 pulls", then 250): an S+ is a 0.01% pull (since 2026-10-17), so nearly every S+ from normal
+	-- recruits comes from this pity. When Top and Normal land on the same recruit, Top wins.
 	-- Luck (Config.Admin's event, your own boost: Config.Boosts, the Lucky pass): N times the luck
 	-- makes these rarities N times as likely on the Characters banner (A- and up: Epic, Legendary,
 	-- Mythic), the rarest first, and the rest of the 100 goes down the order (Rare, then Common):
-	-- 2x takes its extra from the Commons alone, 16x leaves none (an S+ 8%, an S- or S 64%). The
+	-- 2x takes its extra from the Commons alone (an S+ 0.01% x N since 2026-10-17). The
 	-- event, your boost and the pass multiply (the owner: "make it so if there is an admin 2x it
 	-- stacks and make that clear"; Spins.luckWeights). Lucky spins aren't changed.
 	LuckEvent = { Double = { "Epic", "Legendary", "Mythic" } },

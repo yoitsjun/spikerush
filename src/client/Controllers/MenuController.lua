@@ -4932,7 +4932,7 @@ local SHOP_ROWS = {
 	end },
 	-- (2x only: the 4x-16x picker came off the Shop, the owner, 2026-10-16: "actually remove the 4x
 	-- and stuff from the shop"; the admin panel's Luck events keep them, and bought ones still work)
-	{ key = "LuckBoost", tab = "Boosts", title = "2x Luck", note = "A- and up twice as likely (an S+ 0.5% x 2)", icon = function(parent, size)
+	{ key = "LuckBoost", tab = "Boosts", title = "2x Luck", note = "A- and up twice as likely", icon = function(parent, size)
 		return Gui.sparkle(parent, size, Color3.fromRGB(190, 110, 255))
 	end, amount = function(pack)
 		return Extra.boostLength(pack.BoostLuck)

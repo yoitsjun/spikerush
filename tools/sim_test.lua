@@ -2733,9 +2733,9 @@ do
 	for _, v in pairs(shares) do
 		sharesOk = sharesOk and math.abs(v - 1) < 1e-9
 	end
-	check(adds and math.abs(total - 1) < 1e-9 and math.abs(base["S+"] - 0.005) < 1e-9 and math.abs(base.S - 0.0075) < 1e-9 and math.abs(base["S-"] - 0.0125) < 1e-9 and base.S < base["S-"]
+	check(adds and math.abs(total - 1) < 1e-9 and math.abs(base["S+"] - 0.0001) < 1e-9 and math.abs(base.S - 0.00185) < 1e-9 and math.abs(base["S-"] - 0.0031) < 1e-9 and base.S < base["S-"]
 		and math.abs(boosted.S - base.S) < 1e-12 and math.abs(boosted["S-"] - base["S-"]) < 1e-12 and sharesOk and math.abs(lucky["S+"] - 0.005) < 1e-9,
-		"a recruit lands on a tier first (S+ 0.5%, S 0.75%, S- 1.25%: every tier adds up to 100%), then on one of its players; Boost and Lower move odds inside the tier only",
+		"a recruit lands on a tier first (S+ 0.01%, S 0.185%, S- 0.31%: every tier adds up to 100%), then on one of its players; Boost and Lower move odds inside the tier only",
 		string.format("S+ %.2f%%, S %.2f%%, S- %.2f%% (lucky spin: S+ %.1f%%, S %.2f%%)", base["S+"] * 100, base.S * 100, base["S-"] * 100, lucky["S+"] * 100, lucky.S * 100))
 end
 
@@ -2968,8 +2968,8 @@ do
 	local m4 = Economy.luckBoost(prof, 1000 + 4 * 3600)
 	local packsOk = #Config.Boosts.LuckPacks4 == 4 and #Config.Boosts.LuckPacks6 == 4 and #Config.Boosts.LuckPacks8 == 4 and #Config.Boosts.LuckPacks16 == 4
 		and Economy.describe(Economy.packGrant(Economy.pack("LuckBoost8", 3))) == "8x Luck for 1 hour" and Economy.cleanGrant({ BoostLuck = 60, LuckMul = 5 }).LuckMul == 2
-	check(ok and sixteen.Common == 0 and sixteen.Rare == 0 and packsOk and m1 == 16 and m2 == 2 and m3 == 2 and m4 == 1 and prof.boosts.Luck4 == 1000 + 15 * 60,
-		"4x to 16x Luck: an S+ is 0.5% x N, the rarest first (16x leaves no Commons or Rares); your luck is your strongest boost running",
+	check(ok and sixteen.Common < base.Common and packsOk and m1 == 16 and m2 == 2 and m3 == 2 and m4 == 1 and prof.boosts.Luck4 == 1000 + 15 * 60,
+		"4x to 16x Luck: an S+ is its base chance x N, the rarest first, out of the Commons; your luck is your strongest boost running",
 		table.concat(lines, ", "))
 end
 
