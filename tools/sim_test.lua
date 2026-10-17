@@ -2403,8 +2403,8 @@ do
 		local item = Spins.item("Char", Spins.rollItem("Char", rng, Spins.LuckyWeights))
 		counts[item.Rarity] = (counts[item.Rarity] or 0) + 1
 	end
-	check(lucky.Common == 0 and (counts.Common or 0) == 0 and lucky.Mythic >= 4 * normal.Mythic and lucky.Legendary >= 3 * normal.Legendary and math.abs((counts.Mythic or 0) / n - lucky.Mythic) < 0.005,
-		"a lucky spin never drops a Common; Mythic and Legendary come several times as often",
+	check(lucky.Common == 0 and (counts.Common or 0) == 0 and lucky.Mythic >= normal.Mythic and lucky.Legendary >= 2 * normal.Legendary and lucky.Epic >= 3 * normal.Epic and math.abs((counts.Mythic or 0) / n - lucky.Mythic) < 0.005,
+		"a lucky spin never drops a Common; Epic and Legendary come several times as often, S+ at least as often",
 		string.format("Mythic %.1f%% (usually %.1f%%), Legendary %.1f%% (usually %.1f%%)", lucky.Mythic * 100, normal.Mythic * 100, lucky.Legendary * 100, normal.Legendary * 100))
 	local luckyTotal = 0
 	for _, row in ipairs(Spins.table("Char", Spins.LuckyWeights)) do
@@ -2733,9 +2733,9 @@ do
 	for _, v in pairs(shares) do
 		sharesOk = sharesOk and math.abs(v - 1) < 1e-9
 	end
-	check(adds and math.abs(total - 1) < 1e-9 and math.abs(base["S+"] - 0.005) < 1e-9 and math.abs(base.S - 0.03) < 1e-9 and math.abs(base["S-"] - 0.01) < 1e-9
-		and math.abs(boosted.S - base.S) < 1e-12 and math.abs(boosted["S-"] - base["S-"]) < 1e-12 and sharesOk and math.abs(lucky["S+"] - 0.03) < 1e-9,
-		"a recruit lands on a tier first (S+ 0.5%, S 3%, S- 1%: every tier adds up to 100%), then on one of its players; Boost and Lower move odds inside the tier only",
+	check(adds and math.abs(total - 1) < 1e-9 and math.abs(base["S+"] - 0.005) < 1e-9 and math.abs(base.S - 0.0075) < 1e-9 and math.abs(base["S-"] - 0.0125) < 1e-9 and base.S < base["S-"]
+		and math.abs(boosted.S - base.S) < 1e-12 and math.abs(boosted["S-"] - base["S-"]) < 1e-12 and sharesOk and math.abs(lucky["S+"] - 0.005) < 1e-9,
+		"a recruit lands on a tier first (S+ 0.5%, S 0.75%, S- 1.25%: every tier adds up to 100%), then on one of its players; Boost and Lower move odds inside the tier only",
 		string.format("S+ %.2f%%, S %.2f%%, S- %.2f%% (lucky spin: S+ %.1f%%, S %.2f%%)", base["S+"] * 100, base.S * 100, base["S-"] * 100, lucky["S+"] * 100, lucky.S * 100))
 end
 

@@ -465,7 +465,7 @@ Config.Progression = {
 -- Rarity tiers shared by every spin.
 Config.Rarity = {
 	Order = { "Common", "Rare", "Epic", "Legendary", "Mythic" },
-	Weights = { Common = 55, Rare = 28, Epic = 12.5, Legendary = 4, Mythic = 0.5 },
+	Weights = { Common = 55, Rare = 30, Epic = 12.5, Legendary = 2, Mythic = 0.5 },
 	Colors = {
 		Common = Color3.fromRGB(170, 178, 200),
 		Rare = Color3.fromRGB(80, 170, 255),
@@ -504,7 +504,9 @@ Config.Spins = {
 	-- chances (%), then on one of its characters (Boost and Lower move odds inside the tier only).
 	-- A rarity's tiers add up to its Rarity.Weights; 2x Luck and lucky spins scale the rarity and its
 	-- tiers keep their shares; a tier with nobody in it gives its share to the rest of its rarity.
-	TierOdds = { ["S+"] = 0.5, S = 3, ["S-"] = 1, ["A+"] = 2.5, A = 4, ["A-"] = 6, ["B+"] = 5, B = 9, ["B-"] = 14, ["C+"] = 7, C = 11, ["C-"] = 14, ["D+"] = 8, D = 9, ["D-"] = 6 },
+	-- (the owner, 2026-10-17: "why is s tier a higher chance than a tier and s-? make s tier 1% or
+	-- maybe even less": S 3 -> 0.75 and S- 1 -> 1.25, Legendary 4% -> 2%, the 2% to B)
+	TierOdds = { ["S+"] = 0.5, S = 0.75, ["S-"] = 1.25, ["A+"] = 2.5, A = 4, ["A-"] = 6, ["B+"] = 5, B = 11, ["B-"] = 14, ["C+"] = 7, C = 11, ["C-"] = 14, ["D+"] = 8, D = 9, ["D-"] = 6 },
 	SellValue = { Common = 5, Rare = 12, Epic = 30, Legendary = 80, Mythic = 250 },
 	AutoSellable = { "Common", "Rare", "Epic" },
 	AutoRollMax = 100, -- an auto-roll stops after this many spins
@@ -527,7 +529,7 @@ Config.Spins = {
 	LuckEvent = { Double = { "Epic", "Legendary", "Mythic" } },
 	Pity = {
 		Normal = { Every = 200, Tiers = { "S-", "S" }, ResetTiers = { "S-", "S", "S+" } },
-		Top = { Every = 350, Tiers = { "S+" }, ResetTiers = { "S+" } },
+		Top = { Every = 250, Tiers = { "S+" }, ResetTiers = { "S+" } }, -- (was 350: the owner, 2026-10-17, "buff the pity to only 250 on normal spins")
 		Lucky = { Every = 50, Tiers = { "S+" }, ResetTiers = { "S+" } },
 	},
 	-- Boost and Lower (the owner: "slightly boost and slightly lower the chances of getting a
@@ -867,7 +869,9 @@ Config.Shop = {
 -- Developer Products like the VP packs (a pack with Id 0 shows "Soon", and Studio grants it free),
 -- and they also come from codes, daily rewards, gifts and the admin panel.
 Config.Lucky = {
-	Weights = { Common = 0, Rare = 48, Epic = 34, Legendary = 15, Mythic = 3 },
+	-- (the owner, 2026-10-17, after another game's lucky odds: Rare 49.75, Legendary 45, Godly 4.75,
+	-- Secret 0.5; were Rare 48, Epic 34, Legendary 15, Mythic 3)
+	Weights = { Common = 0, Rare = 49.75, Epic = 45, Legendary = 4.75, Mythic = 0.5 },
 	-- the owner: "1 lucky spin 3 lucky spin 5 lucky 10 lucky spin" (Recruit's Lucky x1 and x10 buy
 	-- the pack with that many when you have fewer)
 	Packs = {
@@ -1003,6 +1007,11 @@ Config.Codes = {
 	update2 = { VP = 500, Gold = 5000, Lucky = 1 },
 	-- the owner: "new code Update1", then "go with 6000 gold, 3 lucky spins, and 350 vpoints"
 	update1 = { VP = 350, Gold = 6000, Lucky = 3 },
+	-- the owner, 2026-10-17: three codes for about 3k V Points, 50k Gold, 12 lucky spins and an hour
+	-- of 2x Luck between them: the Halloween update, 1k members in the Discord, the release to all ages
+	halloween = { VP = 1000, Gold = 20000, Lucky = 5, BoostLuck = 30 * 60 },
+	["1kdiscord"] = { VP = 1000, Gold = 15000, Lucky = 4, BoostLuck = 15 * 60 },
+	allages = { VP = 1000, Gold = 15000, Lucky = 3, BoostLuck = 15 * 60 },
 }
 
 -- Daily rewards (the owner: "daily rewards for group members only"): members of the group that
