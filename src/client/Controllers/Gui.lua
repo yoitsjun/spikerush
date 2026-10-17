@@ -1060,6 +1060,37 @@ function Gui.playerCard(parent, props)
 	local net = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W + (noWings and 4 or 20), -4), Size = UDim2.fromOffset(NR * 2, NR * 2), BackgroundTransparency = 1, Visible = false, ZIndex = z + 7 }, root)
 	make("ImageLabel", { Image = Assets.image("CardBugNet") or "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.66, 0.05), Position = UDim2.fromOffset(NR, NR), Size = UDim2.fromOffset(math.floor(netH * 0.95), netH), ZIndex = z + 7 }, net)
 
+	-- (Pumpkin, the Halloween 2026 card; the owner, 2026-10-17: "put a jackolantern on the halloween
+	-- 2026 card its too bland right now") a jack-o'-lantern sat on the card's bottom right corner, built
+	-- of shapes (no image to wait on): three orange lobes, a stem, diamond eyes and nose and a toothy
+	-- grin lit from inside, flickering like a candle, rocking a little
+	local PS = noWings and math.floor(H * 0.95) or math.floor(H * 1.3)
+	local pumpkin = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W - math.floor(PS * 0.2), H - math.floor(PS * 0.3)), Size = UDim2.fromOffset(PS, PS), BackgroundTransparency = 1, Visible = false, ZIndex = z + 7 }, root)
+	make("ImageLabel", { Image = Assets.id(Assets.Fx.Glow) or "", BackgroundTransparency = 1, ImageColor3 = Color3.fromRGB(255, 140, 30), ImageTransparency = 0.45, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.55), Size = UDim2.fromScale(1.9, 1.9), ZIndex = z + 6 }, pumpkin)
+	local function blob(x, y, w, h, color, zz, rot)
+		local f = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(w, h), BackgroundColor3 = color, BorderSizePixel = 0, Rotation = rot or 0, ZIndex = zz }, pumpkin)
+		return f
+	end
+	local stem = blob(0.52, 0.16, 0.12, 0.24, Color3.fromRGB(70, 120, 40), z + 7, 14)
+	make("UICorner", { CornerRadius = UDim.new(0.35, 0) }, stem)
+	for _, l in ipairs({ { 0.32, Color3.fromRGB(222, 96, 14), z + 7 }, { 0.68, Color3.fromRGB(222, 96, 14), z + 7 }, { 0.5, Color3.fromRGB(255, 132, 26), z + 8 } }) do
+		local lobe = blob(l[1], 0.58, l[1] == 0.5 and 0.5 or 0.56, 0.74, l[2], l[3])
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, lobe)
+		make("UIStroke", { Color = Color3.fromRGB(120, 42, 4), Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, lobe)
+	end
+	local lit = {}
+	local CANDLE = Color3.fromRGB(255, 222, 96)
+	table.insert(lit, blob(0.37, 0.5, 0.13, 0.13, CANDLE, z + 9, 45)) -- eyes
+	table.insert(lit, blob(0.63, 0.5, 0.13, 0.13, CANDLE, z + 9, 45))
+	table.insert(lit, blob(0.5, 0.61, 0.07, 0.07, CANDLE, z + 9, 45)) -- nose
+	local mouth = blob(0.5, 0.74, 0.46, 0.13, CANDLE, z + 9)
+	make("UICorner", { CornerRadius = UDim.new(0.45, 0) }, mouth)
+	table.insert(lit, mouth)
+	for _, tx in ipairs({ 0.4, 0.6 }) do
+		blob(tx, 0.69, 0.06, 0.06, Color3.fromRGB(255, 132, 26), z + 10) -- teeth from the top
+	end
+	blob(0.5, 0.79, 0.07, 0.06, Color3.fromRGB(255, 132, 26), z + 10) -- and one from below
+
 	local card = { root = root, viewport = viewport }
 	-- (Divine) one frame of its motion
 	local divineConn = nil
@@ -1082,6 +1113,12 @@ function Gui.playerCard(parent, props)
 		wingR.Rotation = -flap
 		-- (Net) a lazy swing on its peg, with a little extra wobble now and then
 		net.Rotation = math.sin(t * 1.3) * 3 + math.sin(t * 3.7) * 0.8
+		-- (Pumpkin) a slow rock, and the candle inside flickering
+		pumpkin.Rotation = math.sin(t * 1.1) * 4
+		local flicker = 0.75 + 0.15 * math.sin(t * 13) + 0.1 * math.sin(t * 29 + 1.3)
+		for _, f in ipairs(lit) do
+			f.BackgroundColor3 = Color3.fromRGB(255, 120, 20):Lerp(CANDLE, flicker)
+		end
 	end
 	root.Destroying:Connect(function()
 		if divineConn then
@@ -1108,7 +1145,7 @@ function Gui.playerCard(parent, props)
 		local bigOn = type(look.Big) == "string" and look.Big ~= ""
 		local fx = look.Fx or {}
 		-- (Net) the big word steps left, out from under the net
-		local bigShift = fx.Net == true and 46 or 0
+		local bigShift = (fx.Net == true or fx.Pumpkin == true) and 46 or 0
 		big.Visible = bigOn
 		big.Text = bigOn and look.Big or ""
 		big.Position = UDim2.new(1, -16 - bigShift, 0.5, 2)
@@ -1152,6 +1189,7 @@ function Gui.playerCard(parent, props)
 		end
 		bigShine.Enabled = fx.WordShine == true
 		net.Visible = fx.Net == true
+		pumpkin.Visible = fx.Pumpkin == true
 		local divine = next(fx) ~= nil
 		if divine and not divineConn then
 			divineConn = RunService.Heartbeat:Connect(divineStep)
