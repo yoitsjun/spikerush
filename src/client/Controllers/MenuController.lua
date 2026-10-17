@@ -6206,10 +6206,47 @@ local function buildPractice()
 		local how = Gui.label(card, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(22, 210), Size = UDim2.new(1, -44, 0, 110) })
 		local go = actionPlate(card, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -18), Size = UDim2.new(1, -32, 0, 52) }, "Start", 24)
 		onClick(go, function()
-			sendLobby("practice", d.id)
+			sendLobby("practice", d.id, Extra.practiceAs)
 		end)
 		cards[d.id] = { how = how }
 	end
+	-- practice as anyone (the owner, 2026-10-17: "make it so in practice mode, any character can be
+	-- chosen"): your own by default; the grid lists the whole roster, best first
+	local asBtn, asL = hairButton(p, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 132), Size = UDim2.fromOffset(380, 52) }, "", 20)
+	local grid = make("ScrollingFrame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 190), Size = UDim2.fromOffset(660, 440), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 40 }, p)
+	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, grid)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10) }, grid)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(150, 40), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	local order = {}
+	for _, c in ipairs(Roster) do
+		table.insert(order, c)
+	end
+	local rankOf = {}
+	for i, t in ipairs(Config.Tiers) do
+		rankOf[t] = i
+	end
+	table.sort(order, function(x, y)
+		if x.Tier ~= y.Tier then
+			return (rankOf[x.Tier] or 0) > (rankOf[y.Tier] or 0)
+		end
+		return x.Name < y.Name
+	end)
+	for i, c in ipairs(order) do
+		local color = tierColor(c.Tier)
+		local b = make("TextButton", { Text = c.Name .. "  " .. c.Tier, FontFace = Gui.display(), TextSize = 16, TextColor3 = color, BackgroundColor3 = Gui.NAVY, AutoButtonColor = false, LayoutOrder = i, ZIndex = 41 }, grid)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, b)
+		make("UIStroke", { Color = color, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+		b:SetAttribute("Sound", "UISelect")
+		onClick(b, function()
+			Extra.practiceAs = c.Id
+			grid.Visible = false
+			MenuController.refresh()
+		end)
+	end
+	onClick(asBtn, function()
+		grid.Visible = not grid.Visible
+	end)
+	Extra.practiceAsL = asL
 	-- the tutorial: the four drills in order, paid once
 	local tut = Gui.card(p, { Position = UDim2.fromOffset(M, 660), Size = UDim2.fromOffset(4 * w + 3 * gap, 150) })
 	Gui.label(tut, { Text = "Tutorial", display = true, weight = Enum.FontWeight.Heavy, TextSize = 38, Position = UDim2.fromOffset(22, 16), Size = UDim2.fromOffset(400, 46) })
@@ -6225,6 +6262,11 @@ local function refreshPractice(prof)
 	local pr = ui.practice
 	for _, d in ipairs(Tutorial.Drills) do
 		pr.cards[d.id].how.Text = drillHow(d)
+	end
+	local asId = Extra.practiceAs or prof.char
+	local asC = asId and Roster.get(asId)
+	if Extra.practiceAsL then
+		Extra.practiceAsL.Text = "Practice as: " .. (asC and (asC.Name .. "  " .. asC.Tier) or "you") .. "   v"
 	end
 	local tut = prof.tutorial or { steps = {} }
 	local vp, gold, spins = Tutorial.reward()

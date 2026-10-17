@@ -394,6 +394,9 @@ function PracticeService.run(lobby)
 	BS.hide()
 	MS.forfeitTeam = nil
 	publish(nil)
+	if plr and plr.Parent then
+		reg.ProfileService.setPracticeAs(plr, nil) -- (back to your own character)
+	end
 end
 
 function PracticeService.init(r)

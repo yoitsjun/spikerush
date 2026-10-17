@@ -743,10 +743,14 @@ end
 
 -- Practice: a hidden lobby of your own that runs a drill on the court instead of a match
 -- (PracticeService); the tutorial is all four drills in order. Started at once.
-function LobbyService.practice(plr, drillId, tutorial)
+function LobbyService.practice(plr, drillId, tutorial, charId)
 	local P = Config.Practice
 	if not tutorial and not Tutorial.drill(drillId) then
 		return
+	end
+	-- a drill as any character you pick (the tutorial is your own)
+	if not tutorial and type(charId) == "string" then
+		reg.ProfileService.setPracticeAs(plr, charId)
 	end
 	local l = LobbyService.create(plr, { mode = P.Mode, privacy = "Public", fill = true, botTier = P.BotTier }, false)
 	if not l then
@@ -1730,7 +1734,7 @@ local function onRequest(plr, op, a, b)
 	if op == "create" then
 		LobbyService.create(plr, a, false)
 	elseif op == "practice" then
-		LobbyService.practice(plr, a)
+		LobbyService.practice(plr, a, nil, b)
 	elseif op == "tutorial" then
 		LobbyService.tutorial(plr)
 	elseif op == "cup" then

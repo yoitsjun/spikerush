@@ -631,9 +631,25 @@ function ProfileService.get(plr)
 	return profile
 end
 
+-- Practice as any character (the owner, 2026-10-17: "make it so in practice mode, any character
+-- can be chosen"): player -> roster id, for that practice only (LobbyService sets it, PracticeService
+-- clears it); with no upgrades of yours on it unless you own it.
+local practiceAs = setmetatable({}, { __mode = "k" })
+function ProfileService.setPracticeAs(plr, id)
+	local c = type(id) == "string" and Roster.get(id) or nil
+	practiceAs[plr] = c and c.Id or nil
+	if profiles[plr] then
+		ProfileService.applyActive(plr)
+	end
+end
+
 -- The roster character this player plays.
 function ProfileService.character(plr)
 	local profile = ProfileService.get(plr)
+	local forced = practiceAs[plr] and Roster.get(practiceAs[plr])
+	if forced then
+		return forced
+	end
 	local c = Roster.get(profile.char)
 	if not c or not owns(profile, "Char", c.Id) then
 		c = Roster.get(Roster.Starters[1])
