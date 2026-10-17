@@ -1358,11 +1358,18 @@ function HW.underworld(foot, k, model)
 			phase = math.random() * 6.28,
 		})
 	end
-	local born, life, fallAt = os.clock(), 1.6, nil
+	-- (on his way down they catch him, the owner, 2026-10-16: "on his descent, the arms grab him and
+	-- pull him back down"): from the top of the jump they lunge onto his legs and ride him down to
+	-- the floor, then sink with the pool. Only a look: his fall is his own, so the timing stays fair.
+	local born, fallAt, landAt = os.clock(), nil, nil
+	for _, a in ipairs(arms) do
+		a.grip = Vector3.new((math.random() - 0.5) * 1.4, -1.2 - math.random() * 1.6, (math.random() - 0.5) * 1.4)
+	end
 	local conn
 	conn = RunService.Heartbeat:Connect(function()
 		local t = os.clock() - born
-		if t > life then
+		local done = landAt and t - landAt > 0.55
+		if done or t > 3.5 then
 			conn:Disconnect()
 			for _, a in ipairs(arms) do
 				a.m:Destroy()
@@ -1373,31 +1380,47 @@ function HW.underworld(foot, k, model)
 		local live = hrp ~= nil and hrp.Parent ~= nil
 		local target = live and hrp.Position or (foot + Vector3.new(0, 6 * k, 0))
 		local vy = live and hrp.AssemblyLinearVelocity.Y or (t > 0.45 and -1 or 1)
-		if not fallAt and t > 0.25 and vy < -1 then
-			fallAt = t -- he's coming down: they drag at him and sink with him
+		if not fallAt and t > 0.2 and vy < -1 then
+			fallAt = t -- he's coming down: they grab him
+		end
+		if fallAt and not landAt and (t - fallAt > 0.08 and vy > -0.5 or t - fallAt > 2) then
+			landAt = t -- down: they let go and sink
+		end
+		if not live and fallAt and not landAt and t > 1.6 then
+			landAt = t
 		end
 		for _, a in ipairs(arms) do
 			local rise = math.clamp((t - a.delay) / 0.22, 0, 1)
 			rise = 1 - (1 - rise) ^ 3
-			local sink = fallAt and math.clamp((t - fallAt - 0.05) / 0.4, 0, 1) or 0
+			local sink = landAt and math.clamp((t - landAt) / 0.45, 0, 1) or 0
 			sink = sink * sink
-			-- (reaching after him hard, the owner, 2026-10-16: "make the hands reach after yejun more
-			-- intesely"): they strain up out of the pool past their full length while he's above them,
-			-- lunge his way, and grab at the air faster
-			local strain = 1 + 0.3 * rise * (1 - sink) * (0.8 + 0.2 * math.sin(t * 17 + a.phase))
-			local out = rise * (1 - sink) * strain
+			local grab = fallAt and math.clamp((t - fallAt) / 0.14, 0, 1) or 0
+			-- rising: they strain up past their full length, lunge his way and claw at the air
+			local strain = 1 + 0.3 * rise * (1 - grab) * (0.8 + 0.2 * math.sin(t * 17 + a.phase))
+			local out = rise * strain
 			local toward = target - a.base
 			if toward.Magnitude < 0.01 then
 				toward = Vector3.yAxis
 			end
-			-- its own way out, scrabbling (a wobble), and reaching after him all the way
 			local tilt = a.tilt + math.sin(t * 16 + a.phase) * 0.18
 			local own = (Vector3.yAxis * math.cos(tilt) + a.out * math.sin(tilt)).Unit
-			local lean = math.clamp(0.4 + 0.35 * rise + 0.2 * sink, 0, 0.95)
+			local lean = math.clamp(0.4 + 0.35 * rise, 0, 0.95)
 			local dir = (own * (1 - lean) + toward.Unit * lean).Unit
-			-- palms open toward him, clutching
-			local inward = toward
-			inward = Vector3.new(inward.X, 0, inward.Z)
+			local root = a.base - dir * (a.len * (1 - out) + 0.4)
+			-- falling: the palm on his legs (its own grip), the arm straight from the pool to him
+			if grab > 0 then
+				local hold = target + a.grip
+				local reach = hold - a.base
+				if reach.Magnitude > 0.01 then
+					local gdir = reach.Unit
+					local groot = hold - gdir * a.len
+					dir = (dir * (1 - grab) + gdir * grab).Unit
+					root = root:Lerp(groot, grab)
+				end
+			end
+			-- down: they sink back into the pool
+			root = root - Vector3.new(0, (a.len + 1) * sink, 0)
+			local inward = Vector3.new(toward.X, 0, toward.Z)
 			if inward.Magnitude < 0.01 then
 				inward = Vector3.new(foot.X - a.base.X, 0, foot.Z - a.base.Z)
 			end
@@ -1408,11 +1431,10 @@ function HW.underworld(foot, k, model)
 			if palm.Magnitude < 0.01 then
 				palm = Vector3.zAxis
 			end
-			local root = a.base - dir * (a.len * (1 - out) + 0.4)
-			a.m:PivotTo(CFrame.lookAt(root, root + palm.Unit, dir) * CFrame.Angles(0, a.spin, 0))
+			a.m:PivotTo(CFrame.lookAt(root, root + palm.Unit, dir) * CFrame.Angles(0, a.spin * (1 - grab), 0))
 		end
-		if fallAt and t - fallAt > 0.35 then
-			pool.Transparency = math.clamp((t - fallAt - 0.35) / 0.3, 0, 1) -- (the pool closes after them)
+		if landAt then
+			pool.Transparency = math.clamp((t - landAt - 0.2) / 0.3, 0, 1) -- (the pool closes after them)
 		end
 	end)
 end
