@@ -1007,13 +1007,24 @@ function VFXController.firstImpact(entityId, duration)
 	local function same(v)
 		return v
 	end
-	-- his joints (each motor whose moving part the save keys)
-	local joints = {}
+	-- his joints (each one whose moving part the save keys: AnimationConstraints, which new avatars
+	-- spawn with, over any leftover Motor6D, as AnimationController does)
+	local byPart = {}
 	for _, m in ipairs(model:GetDescendants()) do
-		if m:IsA("Motor6D") and m.Part1 and D.Joints[m.Part1.Name] then
-			local J = D.Joints[m.Part1.Name]
-			table.insert(joints, { motor = m, inv = cfOf(J.def):Inverse(), keys = track(J.keys, cfOf) })
+		local part1 = nil
+		if m:IsA("AnimationConstraint") and m.Attachment1 then
+			part1 = m.Attachment1.Parent
+		elseif m:IsA("Motor6D") then
+			part1 = m.Part1
 		end
+		if part1 and D.Joints[part1.Name] and (not byPart[part1.Name] or m:IsA("AnimationConstraint")) then
+			byPart[part1.Name] = m
+		end
+	end
+	local joints = {}
+	for name, m in pairs(byPart) do
+		local J = D.Joints[name]
+		table.insert(joints, { motor = m, inv = cfOf(J.def):Inverse(), keys = track(J.keys, cfOf) })
 	end
 	local camBase = cfOf(D.Camera.rel) * cfOf(D.Camera.c0)
 	local camKeys = track(D.Camera.keys, cfOf)
@@ -1078,10 +1089,10 @@ function VFXController.firstImpact(entityId, duration)
 		end
 		local ck = at(camKeys, f, cfLerp)
 		if ck then
-			cam.CFrame = hrp.CFrame * camBase * ck
+			cam.CFrame = hrp.CFrame * camBase * ck * CFrame.Angles(0, math.pi, 0) -- (Moon's camera part looks out of its back)
 		end
 		cam.FieldOfView = at(fovKeys, f, nLerp) or fovWas
-		cc.Brightness = (at(bright, f, nLerp) or 0) * 0.35 -- (the save's -1 is pitch black on our courts: a strong dip)
+		cc.Brightness = at(bright, f, nLerp) or 0 -- (pitch black round his glow, then the white flash as it fires: the owner's video)
 		cc.Saturation = at(sat, f, nLerp) or 0
 		cc.Contrast = at(con, f, nLerp) or 0
 		cc.TintColor = at(tintK, f, colLerp) or Color3.new(1, 1, 1)
