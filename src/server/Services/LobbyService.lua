@@ -1869,6 +1869,10 @@ local function onRequest(plr, op, a, b)
 		local l = LobbyService.lobbyOf(plr)
 		if l and l.quick and not l.ranked and l.state == "Open" and l.host == plr.UserId then
 			LobbyService.launch(l) -- (a ranked queue waits for real players)
+		elseif l and l.ranked and l.state == "Open" and l.host == plr.UserId and RunService:IsStudio() then
+			-- (Studio only, to see the bans and the result: a ranked queue started with bots)
+			l.fill = true
+			LobbyService.launch(l)
 		end
 	elseif op == "team" then
 		if remote then
