@@ -7687,9 +7687,12 @@ function VFXController.init(m)
 				VFXController.firstImpact("P_" .. tostring(player.UserId), secs)
 			end
 		end)
-		-- (and TestSwingFrame = "yellow" or "fallen": YeJun's second-swing frame on your character)
+		-- (and TestSwingFrame = "yellow" or "fallen", with seconds after it to hold it longer, e.g.
+		-- "fallen 2": YeJun's second-swing frame on your character)
 		workspace:GetAttributeChangedSignal("TestSwingFrame"):Connect(function()
-			local kind = workspace:GetAttribute("TestSwingFrame")
+			local raw = tostring(workspace:GetAttribute("TestSwingFrame") or "")
+			local kind = string.match(raw, "^(%a+)")
+			local hold = tonumber(string.match(raw, "([%d%.]+)$")) or 0.3
 			local id = "P_" .. tostring(player.UserId)
 			local m = Util.modelOf(id)
 			local hrp = m and m:FindFirstChild("HumanoidRootPart")
@@ -7698,7 +7701,7 @@ function VFXController.init(m)
 				local fallen = kind == "fallen"
 				VFXController.darkFrame(id, pos, 0.12, fallen and Color3.fromRGB(150, 70, 255) or THUNDER)
 				task.delay(0.12, function()
-					VFXController.freezeFrame(id, pos, 0.3, fallen and Color3.fromRGB(110, 50, 200) or Color3.fromRGB(255, 214, 60), fallen)
+					VFXController.freezeFrame(id, pos, hold, fallen and Color3.fromRGB(110, 50, 200) or Color3.fromRGB(255, 214, 60), fallen)
 				end)
 			end
 		end)
