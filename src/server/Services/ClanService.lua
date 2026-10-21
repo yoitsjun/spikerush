@@ -758,10 +758,26 @@ function ops.rename(plr, form)
 	end
 	moved.tag = newTag
 	moved.name = name
+	-- the tags it has had (reserved for it: it can always take one back; the owner, 2026-10-21: "i
+	-- cant switch back to my own")
+	local old = {}
+	for _, t in ipairs(type(clan.oldTags) == "table" and clan.oldTags or {}) do
+		if t ~= newTag then
+			table.insert(old, t)
+		end
+	end
+	table.insert(old, tag)
+	moved.oldTags = old
+	local mine = {}
+	for _, t in ipairs(type(clan.oldTags) == "table" and clan.oldTags or {}) do
+		mine[t] = true
+	end
 	local taken = false
 	local ok = pcall(function()
-		store:UpdateAsync(newTag, function(old)
-			if old ~= nil then
+		store:UpdateAsync(newTag, function(prev)
+			-- free, or one of its own old tags (only a forwarding note there)
+			local note = type(prev) == "table" and type(prev.movedTo) == "string" and prev.tag == nil
+			if prev ~= nil and not (note and (mine[newTag] or prev.movedTo == tag)) then
 				taken = true
 				return nil
 			end
