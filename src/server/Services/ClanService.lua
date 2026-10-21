@@ -18,6 +18,9 @@
 --   ("promote" | "demote", userId)   the owner: member <-> officer
 --   ("transfer", userId)             the owner: the clan is theirs, you're an officer
 --   ("settings", { desc, public, minWins, emblem })   the owner (an emblem needs its upgrade)
+--   ("rename", { name, tag })        the owner, any time (a new tag moves the clan: the old key keeps
+--                                    { movedTo = new tag }, so members away find it, and nobody
+--                                    else can take the old tag)
 --   ("upgrade", key)                 owners and officers spend the clan's points
 --   ("color", key)                   your tag colour: bought with your own share once, then worn
 
@@ -67,20 +70,28 @@ local function notify(plr, text)
 	send(plr, { notice = text })
 end
 
--- Reads a clan (nil when it doesn't exist or the store fails).
+-- Reads a clan (nil when it doesn't exist or the store fails), following a renamed clan's old tag
+-- to its new one: compare the clan's tag with the one asked for.
 local function read(tag)
 	if not stores() or type(tag) ~= "string" or tag == "" then
 		return nil
 	end
-	local ok, data = pcall(function()
-		return store:GetAsync(tag)
-	end)
-	if ok and type(data) == "table" and data.tag == tag then
-		cache[tag] = { clan = data, t = os.clock() }
-		return data
-	end
-	if ok then
-		cache[tag] = nil
+	for _ = 1, 4 do
+		local ok, data = pcall(function()
+			return store:GetAsync(tag)
+		end)
+		if ok and type(data) == "table" and type(data.movedTo) == "string" then
+			cache[tag] = nil
+			tag = data.movedTo
+		elseif ok and type(data) == "table" and data.tag == tag then
+			cache[tag] = { clan = data, t = os.clock() }
+			return data
+		else
+			if ok then
+				cache[tag] = nil
+			end
+			return nil
+		end
 	end
 	return nil
 end
@@ -331,6 +342,11 @@ function ClanService.onLoaded(plr)
 	end)
 	tag = ok and type(tag) == "string" and tag or ""
 	local clan = tag ~= "" and read(tag) or nil
+	if clan and clan.tag ~= tag then
+		-- the clan was renamed while they were away: their index follows it
+		tag = clan.tag
+		setIndex(plr.UserId, tag)
+	end
 	if tag ~= "" and not (clan and clan.members[tostring(plr.UserId)]) then
 		-- removed while away (or the clan closed)
 		setIndex(plr.UserId, nil)
@@ -698,6 +714,83 @@ function ops.settings(plr, form)
 	end)
 end
 
+-- (the owner, 2026-10-21: "allow the clan name to be modified alongside the tag at any point")
+function ops.rename(plr, form)
+	local tag = mineOf[plr]
+	if type(form) ~= "table" or not tag or tag == "" then
+		return
+	end
+	local clan = read(tag)
+	if not clan or clan.owner ~= plr.UserId then
+		return notify(plr, "Only the owner can rename the clan.")
+	end
+	local name, whyName = Clans.cleanName(form.name ~= nil and form.name or clan.name)
+	if not name then
+		return notify(plr, whyName)
+	end
+	local newTag, whyTag = Clans.cleanTag(form.tag ~= nil and form.tag or clan.tag)
+	if not newTag then
+		return notify(plr, whyTag)
+	end
+	local fName, fTag = filtered(plr, name), filtered(plr, newTag)
+	if not fName or not fTag then
+		return notify(plr, "Couldn't check that right now. Try again in a moment.")
+	end
+	if fName ~= name or fTag ~= newTag then
+		return notify(plr, "That name or tag isn't allowed.")
+	end
+	if newTag == tag then
+		local result, why = update(tag, function(c)
+			c.name = name
+			return true
+		end)
+		if not result then
+			return notify(plr, why)
+		end
+		announce(tag)
+		return refresh(plr, "Renamed: " .. name .. ".")
+	end
+	-- a new tag: the clan moves to its key (only if nobody has it), the old key points there
+	local moved = nil
+	for k, v in pairs(clan) do
+		moved = moved or {}
+		moved[k] = v
+	end
+	moved.tag = newTag
+	moved.name = name
+	local taken = false
+	local ok = pcall(function()
+		store:UpdateAsync(newTag, function(old)
+			if old ~= nil then
+				taken = true
+				return nil
+			end
+			return moved
+		end)
+	end)
+	if not ok or taken then
+		return notify(plr, taken and string.format("The tag [%s] is taken.", newTag) or "Clans aren't available right now.")
+	end
+	pcall(function()
+		store:SetAsync(tag, { movedTo = newTag, t = os.time() })
+	end)
+	pcall(function()
+		board:RemoveAsync(tag)
+	end)
+	cache[tag] = nil
+	cache[newTag] = { clan = moved, t = os.clock() }
+	writeBoard(moved, true)
+	-- members here move with it; the rest when they hear (announce) or next join (onLoaded)
+	for _, p in ipairs(Players:GetPlayers()) do
+		if mineOf[p] == tag then
+			setIndex(p.UserId, newTag)
+			setMine(p, newTag)
+			refresh(p, p == plr and string.format("Your clan is [%s] %s now.", newTag, name) or nil)
+		end
+	end
+	announce(tag)
+end
+
 function ops.upgrade(plr, key)
 	local u = Clans.upgrade(key)
 	if not u then
@@ -796,6 +889,9 @@ function ClanService.init(r)
 				if mineOf[plr] == tag then
 					if not (clan and clan.members[tostring(plr.UserId)]) then
 						setMine(plr, "")
+					elseif clan.tag ~= tag then
+						setIndex(plr.UserId, clan.tag) -- (renamed: a new tag)
+						setMine(plr, clan.tag)
 					end
 					refresh(plr)
 				end

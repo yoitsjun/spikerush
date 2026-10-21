@@ -1,5 +1,5 @@
 -- The Clans window (Config.Clans, ClanService), drawn with the menus' kit (MenuController.kit) and
--- opened from Home's right edge.
+-- opened from the top nav's Clans.
 --   * not in a clan: Find (search a tag; join, or ask to join a private clan), Create (name, tag,
 --     description, public or private, minimum wins; paid with VP or the Clan Founder pass) and the
 --     Top clans;
@@ -405,12 +405,21 @@ local function buildSettings(body)
 	local minWins = kit.inputBox(f, { Position = UDim2.fromOffset(0, 222), Size = UDim2.fromOffset(200, 44) }, "0")
 	label(f, { Text = "Emblem (an image or decal id)", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Position = UDim2.fromOffset(0, 278), Size = UDim2.fromOffset(400, 24) })
 	local emblem = kit.inputBox(f, { Position = UDim2.fromOffset(0, 306), Size = UDim2.fromOffset(360, 44) }, "Unlock it with the Clan emblem upgrade")
+	-- the name and tag, any time (the owner, 2026-10-21)
+	label(f, { Text = "Name and tag", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Position = UDim2.fromOffset(420, 110), Size = UDim2.fromOffset(300, 24) })
+	local nameBox = kit.inputBox(f, { Position = UDim2.fromOffset(420, 138), Size = UDim2.fromOffset(340, 44) }, "Clan name")
+	local tagBox = kit.inputBox(f, { Position = UDim2.fromOffset(420, 192), Size = UDim2.fromOffset(160, 44) }, "Tag")
+	local rename = kit.hairButton(f, { Position = UDim2.fromOffset(592, 192), Size = UDim2.fromOffset(168, 44) }, "Rename", 17)
+	kit.onClick(rename, function()
+		send("rename", { name = nameBox.Text, tag = tagBox.Text })
+	end)
+	label(f, { Text = "Your old tag stays reserved for your clan, so nobody can pose as you.", TextSize = 14, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(420, 242), Size = UDim2.fromOffset(340, 36) })
 	local save = kit.actionPlate(f, { Position = UDim2.fromOffset(0, 372), Size = UDim2.fromOffset(240, 52) }, "Save", 21)
 	kit.onClick(save, function()
 		local m = data.mine
 		send("settings", { desc = desc.Text, public = ui.setPublic, minWins = tonumber(minWins.Text) or 0, emblem = (m and m.up and (m.up.Emblem or 0) > 0) and emblem.Text or nil })
 	end)
-	return { frame = f, desc = desc, minWins = minWins, emblem = emblem, setDoor = setDoor }
+	return { frame = f, desc = desc, minWins = minWins, emblem = emblem, setDoor = setDoor, nameBox = nameBox, tagBox = tagBox }
 end
 
 local function fillSettings()
@@ -421,6 +430,8 @@ local function fillSettings()
 		S.desc.Text = m.desc or ""
 		S.minWins.Text = tostring(m.minWins or 0)
 		S.emblem.Text = m.emblem or ""
+		S.nameBox.Text = m.name or ""
+		S.tagBox.Text = m.tag or ""
 		ui.setPublic = m.public
 		S.setDoor(m.public and "Public" or "Private")
 	end
@@ -559,11 +570,7 @@ function ClanMenu.init(m)
 	mods = m
 	kit = mods.MenuController.kit()
 	buildWindow()
-	if kit.extras then
-		local b = kit.navItem(kit.extras, kit.iconKey("IconClan", "IconPlayers"), "Clan", { LayoutOrder = 6 })
-		kit.extras.Size = UDim2.fromOffset(kit.extras.Size.X.Offset, kit.extras.Size.Y.Offset + 84)
-		kit.onClick(b, ClanMenu.open)
-	end
+	-- (opened from the top nav's Clans: MenuController's MAIN_TABS)
 	Net.get("Clan").OnClientEvent:Connect(function(p)
 		if type(p) ~= "table" then
 			return

@@ -1785,7 +1785,10 @@ local function onRequest(plr, op, a, b)
 		if type(a) == "string" then
 			LobbyService.enterEvent(plr, a)
 		end
-	elseif op == "pick" then
+	elseif op == "pick" and type(a) ~= "table" then
+		-- a Halloween card pick (an offer's number); a table is the host's bot pick, further down (it
+		-- was caught here from the Halloween update on: the owner, 2026-10-21, "the character picker
+		-- no longer works for 3v3s for the bots")
 		LobbyService.pickCard(plr, a)
 	elseif op == "quick" or op == "ranked" then
 		local mode = tonumber(a)

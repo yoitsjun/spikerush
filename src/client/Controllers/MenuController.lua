@@ -587,7 +587,8 @@ end
 -- The nav across the top of every main screen, Home's too: the screens with this one lit, and
 -- Help and Settings at the top right, in the nav's row so they stay clear of the panels below.
 -- `lit` lights another tab than the screen's own (the Match screen lights Home).
-local MAIN_TABS = { { "IconHome", "Home", "home" }, { "IconJump", "Practice", "practice" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" }, { "IconRanks", "Ranks", "ranks" } }
+-- (Clans opens its window, ClanMenu: the owner, 2026-10-21, "add clans to the top part here")
+local MAIN_TABS = { { "IconHome", "Home", "home" }, { "IconJump", "Practice", "practice" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" }, { "IconRanks", "Ranks", "ranks" }, { "IconDefense", "Clans", "clans" } }
 
 local function navBar(p, active, lit)
 	local nav = make("Frame", { Name = "Nav", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 18), Size = UDim2.fromOffset(#MAIN_TABS * 96 + (#MAIN_TABS - 1) * 14, 74), BackgroundTransparency = 1 }, p)
@@ -595,7 +596,11 @@ local function navBar(p, active, lit)
 	for i, e in ipairs(MAIN_TABS) do
 		local b = navItem(nav, e[1], e[2], { LayoutOrder = i }, e[3] == (lit or active))
 		onClick(b, function()
-			if e[3] ~= active then
+			if e[3] == "clans" then
+				if mods.ClanMenu then
+					mods.ClanMenu.open()
+				end
+			elseif e[3] ~= active then
 				MenuController.go(e[3])
 			end
 		end)
@@ -6419,7 +6424,16 @@ local function buildMatchScreen()
 		-- the icon and the name, centred
 		local head = make("Frame", { Name = "Head", Position = UDim2.fromOffset(0, 14), Size = UDim2.new(1, 0, 0, 54), BackgroundTransparency = 1 }, b)
 		make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, head)
-		Gui.iconImage(head, c.icon, 36, Gui.CHALK, { LayoutOrder = 1 })
+		if c.key == "Ranked" then
+			-- the ranked card's own icon (the owner, 2026-10-21: "a custom icon for the ranked queue
+			-- mode, made like a cycle between each rank from bronze to almighty"): the badge in the
+			-- head and a big one over the court, flipping through every rank
+			local small = make("ImageLabel", { Size = UDim2.fromOffset(46, 46), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, LayoutOrder = 1 }, head)
+			local big = make("ImageLabel", { Name = "Badge", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromOffset(200, 200), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, ZIndex = 2 }, b)
+			Extra.rankedIcons = { small = small, big = big, scale = make("UIScale", { Scale = 1 }, big) }
+		else
+			Gui.iconImage(head, c.icon, 36, Gui.CHALK, { LayoutOrder = 1 })
+		end
 		Gui.label(head, { Text = c.title, display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, TextStrokeTransparency = 0.5, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 54), LayoutOrder = 2 })
 		-- the strip under it
 		local strip = make("Frame", { Name = "Strip", Position = UDim2.fromOffset(0, 76), Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, BorderSizePixel = 0 }, b)
@@ -6465,6 +6479,31 @@ local function buildMatchScreen()
 		cards[c.key] = e
 	end
 	ui.matchScreen = { cards = cards, row = row, back = back }
+	-- the ranked badge's cycle: each rank for a moment, then a flip (squeezed flat, the next rank
+	-- in, out again) and a pulse
+	local R = Extra.rankedIcons
+	if R then
+		local keys = {}
+		for _, rank in ipairs(Config.Ranked.Ranks) do
+			table.insert(keys, Assets.image("Rank" .. rank.Key) or "")
+		end
+		local i = 1
+		R.small.Image, R.big.Image = keys[1], keys[1]
+		task.spawn(function()
+			while R.big.Parent do
+				task.wait(1.1)
+				if R.big:IsDescendantOf(game) then
+					tween(R.big, 0.12, { Size = UDim2.fromOffset(6, 200) })
+					task.wait(0.12)
+					i = i % #keys + 1
+					R.small.Image, R.big.Image = keys[i], keys[i]
+					tween(R.big, 0.16, { Size = UDim2.fromOffset(200, 200) }, Enum.EasingStyle.Back)
+					R.scale.Scale = 1.12
+					tween(R.scale, 0.35, { Scale = 1 })
+				end
+			end
+		end)
+	end
 end
 
 local function refreshMatchScreen(prof)
@@ -8326,7 +8365,7 @@ function Extra.buildAdmin()
 			end)
 		end
 	end)
-	-- reset the username's match stats (a faked record): press twice within 4 s
+	-- reset the username's match stats (a faked record): press four times (the count shows)
 	local wipe, wipeL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 48), Size = UDim2.fromOffset(170, 46) }, "Reset stats", 18)
 	user.Size = UDim2.new(1, -244, 0, 46) -- room for the players list and Reset stats beside it
 	-- the players in this server: a dropdown that fills in the username
@@ -8353,22 +8392,27 @@ function Extra.buildAdmin()
 			end)
 		end
 	end)
+	-- four presses, each within 4 s of the last, for the same username (the owner, 2026-10-21: "add a
+	-- 4x confirm to reset stats"; it was two)
 	onClick(wipe, function()
-		if Extra.wipeArmed and os.clock() - Extra.wipeArmed < 4 and Extra.wipeName == user.Text then
-			Extra.wipeArmed = nil
+		local fresh = Extra.wipeArmed and os.clock() - Extra.wipeArmed < 4 and Extra.wipeName == user.Text
+		Extra.wipePresses = fresh and (Extra.wipePresses or 0) + 1 or 1
+		Extra.wipeName = user.Text
+		if Extra.wipePresses >= 4 then
+			Extra.wipeArmed, Extra.wipePresses = nil, 0
 			wipeL.Text = "Reset stats"
 			Net.get("Admin"):FireServer("wipe", user.Text)
-		else
-			Extra.wipeArmed = os.clock()
-			Extra.wipeName = user.Text
-			wipeL.Text = "Sure? Press again"
-			task.delay(4, function()
-				if Extra.wipeArmed and os.clock() - Extra.wipeArmed >= 4 then
-					Extra.wipeArmed = nil
-					wipeL.Text = "Reset stats"
-				end
-			end)
+			return
 		end
+		Extra.wipeArmed = os.clock()
+		wipeL.Text = string.format("Sure? %d more", 4 - Extra.wipePresses)
+		local at = Extra.wipeArmed
+		task.delay(4, function()
+			if Extra.wipeArmed == at then
+				Extra.wipeArmed, Extra.wipePresses = nil, 0
+				wipeL.Text = "Reset stats"
+			end
+		end)
 	end)
 	local status = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -20), Size = UDim2.new(1, -56, 0, 44), ZIndex = 21 })
 	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status, creatorL = creatorL, grid = grid, cosGrid = cosGrid, fragGrid = fragGrid, fragBoxes = fragBoxes, tabL = tabL, cosButtons = {}, newServer = newServer, newServerL = newServerL, adminsBtn = adminsBtn, adminList = adminList }
