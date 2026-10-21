@@ -429,7 +429,11 @@ local function buildPick()
 	ui.strip = strip
 	ui.stripFaces = {}
 	for i = 1, STRIP_N do
-		local f = cardFace(strip, { Position = UDim2.fromOffset((i - 1) * STEP, 0), Active = false })
+		local f = cardFace(strip, { Position = UDim2.fromOffset((i - 1) * STEP, 0), Active = false, Selectable = false })
+		-- (only for show: a controller skips them for the three offers; it used to land in the
+		-- strip and couldn't pick, the owner, 2026-10-21: "Halloween cards are unselectable on
+		-- controller")
+		f.button:SetAttribute("NoNav", true)
 		ui.stripFaces[i] = f
 	end
 	-- the three you pick from (in the slots, over the strip once it stops)
@@ -442,6 +446,10 @@ local function buildPick()
 			end
 		end
 		face.button.ZIndex = 28
+		face.button.Selectable = true
+		if i == 1 then
+			face.button:SetAttribute("NavFirst", true) -- (a controller starts on the first offer)
+		end
 		kit.onClick(face.button, function()
 			if not spin and ui.pickReady then
 				Net.get("Lobby"):FireServer("pick", i)
@@ -574,8 +582,8 @@ local function refreshPick()
 	if d and d.offers then
 		ui.pick.title.Text = string.format("Stage %d of %d: card %d of %d", ev.stage, ev.stages, d.pick, d.picks)
 		local held = Halloween.abilityCount(ev.hand)
-		ui.pickLine.Text = held >= HW.MaxAbilityCards and string.format("Pick one. Your ability stays, with %d ability cards stacked on it: the most you can hold.", held)
-			or string.format("Pick one. Your ability stays; ability cards stack on it (%d of %d so far).", held, HW.MaxAbilityCards)
+		ui.pickLine.Text = (held >= HW.MaxAbilityCards and string.format("Pick one. Your ability stays, with %d ability cards stacked on it: the most you can hold.", held)
+			or string.format("Pick one. Your ability stays; ability cards stack on it (%d of %d so far).", held, HW.MaxAbilityCards)) .. " Out of time: one is picked at random."
 		ui.pickWait.Visible = false
 		local id = ev.stage .. ":" .. d.pick .. ":" .. table.concat(d.offers, ",")
 		if ui.pickId ~= id then

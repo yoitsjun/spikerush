@@ -1879,7 +1879,7 @@ Config.Halloween = {
 	-- ability cards a hand can hold beside the character's own ability (the owner, 2026-10-15: "you
 	-- can stack up to 2 abilities alongside your main one"); with two, no more are offered
 	MaxAbilityCards = 2,
-	PickTime = 30, -- seconds for a pick before the first offer is taken for you
+	PickTime = 15, -- seconds for a pick before one of the offers is taken for you at random (the owner, 2026-10-21: "an automatic random card picker after say 15 seconds"; was 30, the first)
 	SpinTime = 3.2, -- the roulette's scroll on the client before it stops on the offers (the owner: "a scrolling cards motion for rolls")
 	Timeouts = 1,
 	Court = "Haunted", -- (Config.Courts: the Haunted Forest)

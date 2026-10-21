@@ -930,7 +930,7 @@ function LobbyService.pickCard(plr, index)
 	end
 end
 
--- A pick left too long takes its first offer; a run nobody is left in closes.
+-- A pick left too long takes one of its offers at random; a run nobody is left in closes.
 local function eventTick(now)
 	local list = {}
 	for _, id in ipairs(order) do
@@ -945,7 +945,7 @@ local function eventTick(now)
 				for _, plr in ipairs(members(l)) do
 					local d = ev.draft and ev.draft[plr.UserId]
 					if d and d.offers and d.pick <= Config.Halloween.Picks and now >= d.endsAt then
-						takeCard(l, plr.UserId, d.offers[1])
+						takeCard(l, plr.UserId, d.offers[(ev.rng or Random.new()):NextInteger(1, #d.offers)])
 					end
 				end
 				if lobbies[l.id] == l and l.state == "Picking" and draftDone(l) then
