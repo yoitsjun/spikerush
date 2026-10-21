@@ -832,8 +832,16 @@ Config.Cards = {
 		-- (Key was "Almighty": renamed to take back every copy given by mistake, the owner: "wipe it
 		-- from everyone and only give it back to one guy". A profile drops a card key it doesn't
 		-- know when it loads, so the old copies are gone; never reuse "Almighty")
-		{ Key = "Almighty2", Name = "Almighty", Stat = "grant", Grant = true, Goal = "Given to the very best players",
+		-- (2026-10-21, the owner: "reuse the current one for the almighty rank"): earned by reaching
+		-- Almighty in ranked (Config.Ranked); the players who had it were moved to True Almighty
+		{ Key = "Almighty2", Name = "Almighty", Stat = "rankedBest", Need = 7, Goal = "Reach Almighty in ranked",
 			Look = { Base = Color3.fromRGB(58, 4, 12), Sweep = Color3.fromRGB(205, 26, 42), Accent = Color3.fromRGB(255, 222, 120), Edge = Color3.fromRGB(255, 210, 80), Pattern = "rays", Big = "ALMIGHTY", Avatar = true, Fx = { Wings = true, Crest = true, Glow = true, Halo = true, Shine = true, Sparkles = true, WordShine = true } } },
+		-- the very best players, given from the admin panel (the owner, 2026-10-21: "replace the
+		-- people who had almighty card with True Almighty and put some more special stuff on it"):
+		-- black and gold, everything the Almighty card has, and an aura turning round its edge and
+		-- embers rising through it
+		{ Key = "TrueAlmighty", Name = "True Almighty", Stat = "grant", Grant = true, Goal = "Given to the very best players",
+			Look = { Base = Color3.fromRGB(10, 6, 8), Sweep = Color3.fromRGB(255, 190, 40), Accent = Color3.fromRGB(255, 255, 255), Edge = Color3.fromRGB(255, 236, 170), Pattern = "rays", Big = "TRUE\nALMIGHTY", Avatar = true, Fx = { Wings = true, Crest = true, Glow = true, Halo = true, Shine = true, Sparkles = true, WordShine = true, Aura = true, Embers = true } } },
 		-- the VIP game pass's card (Config.Passes.VIP): given with the pass, never earned
 		-- the Discord's card (Config.Discord): only from verifying your account in the Discord
 		-- (named for the community, not Discord: everyone sees cards, and Roblox lets only some players
@@ -2142,6 +2150,42 @@ Config.Leaderboards = {
 -- spins, 1 hr is 10,000 gold, 5 lucky spins, 400 vp"): each tier pays its own grant once a day, the
 -- moment a player has been in the game that long today (ProfileService.tickPlayTime). The day turns
 -- at midnight in Chicago (UTC-5; close enough in winter, like the Halloween days).
+-- Ranked (the owner, 2026-10-21: "begin work on a ranked mode. the ranks climb from bronze silver gold
+-- platinum diamond mighty Almighty"; real players only, one rank across every mode, monthly
+-- seasons, three divisions a rank). Rank points (RP): each division is PerDivision of them (Bronze
+-- III from 0, Diamond I to 1,499); Mighty from MightyAt, Almighty from AlmightyAt, one tier each. A
+-- win pays Win and a loss costs Loss, both moved by how much stronger the other team is (Spread RP
+-- for each point, between Min and Max); never below 0. Seasons follow the calendar (Chicago time):
+-- Season 1 runs to the end of November 2026, then one a month; a new season keeps ResetFrac of your
+-- RP and records the last one (its card on the Career panel). Before every ranked match each team
+-- bans one character (BanTime seconds; the owner: "implement rank bans. one for each team"): nobody
+-- plays it that match.
+Config.Ranked = {
+	Ranks = {
+		{ Key = "Bronze", Name = "Bronze", Divisions = 3, Color = Color3.fromRGB(205, 120, 70) },
+		{ Key = "Silver", Name = "Silver", Divisions = 3, Color = Color3.fromRGB(200, 212, 228) },
+		{ Key = "Gold", Name = "Gold", Divisions = 3, Color = Color3.fromRGB(255, 200, 50) },
+		{ Key = "Platinum", Name = "Platinum", Divisions = 3, Color = Color3.fromRGB(80, 225, 200) },
+		{ Key = "Diamond", Name = "Diamond", Divisions = 3, Color = Color3.fromRGB(90, 180, 255) },
+		{ Key = "Mighty", Name = "Mighty", Divisions = 1, Color = Color3.fromRGB(190, 90, 255) },
+		{ Key = "Almighty", Name = "Almighty", Divisions = 1, Color = Color3.fromRGB(255, 70, 70) },
+	},
+	PerDivision = 100,
+	MightyAt = 1500,
+	AlmightyAt = 2000,
+	Win = 25,
+	Loss = 20,
+	Spread = 40,
+	Min = 10,
+	Max = 40,
+	ResetFrac = 0.5,
+	Season1Ends = { 2026, 12 }, -- (year, month): Season 1 ends as that month begins
+	DayOffset = -5 * 3600, -- Chicago, near enough (like the Halloween days)
+	BanTime = 20,
+	Modes = { 1, 2, 3 },
+	HistoryMax = 24, -- past seasons kept on a profile
+}
+
 -- Clans (the owner, 2026-10-21: "start working on clans", after another game's guilds): anyone
 -- makes one for CostVP or with the Clan Founder game pass (PassId), no other requirement; the tag
 -- is TagMin to TagMax letters or digits and unique (it's the clan's key in Store); the owner sets a

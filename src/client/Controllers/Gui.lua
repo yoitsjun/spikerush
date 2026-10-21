@@ -932,6 +932,22 @@ function Gui.playerCard(parent, props)
 	local wingH = math.floor(H * 1.3)
 	local wingW = math.floor(wingH * 1.6)
 	local glow = Gui.plate(root, { Position = UDim2.fromOffset(-12, -12), Size = UDim2.fromOffset(W + 24, H + 24), Visible = false, ZIndex = z }, Color3.fromRGB(255, 214, 100))
+	-- (Aura, the True Almighty card: the owner, 2026-10-21, "put some more special stuff on it") a
+	-- band of every colour turning round the card's edge
+	local aura = Gui.plate(root, { Position = UDim2.fromOffset(-9, -9), Size = UDim2.fromOffset(W + 18, H + 18), Visible = false, ZIndex = z }, Color3.new(1, 1, 1))
+	local auraGrads = {}
+	for _, d in ipairs(aura:GetDescendants()) do
+		if d:IsA("GuiObject") then
+			table.insert(auraGrads, make("UIGradient", { Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 60, 60)),
+				ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 200, 40)),
+				ColorSequenceKeypoint.new(0.4, Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(0.6, Color3.fromRGB(80, 200, 255)),
+				ColorSequenceKeypoint.new(0.8, Color3.fromRGB(190, 90, 255)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 60, 60)),
+			}) }, d))
+		end
+	end
 	-- (each wing's root, the gold boss, sits at 92% / 72% of its image: tucked in behind the card's
 	-- side, so the wings grow from behind it; the owner: "it would look better if the wings were more
 	-- inward")
@@ -1001,6 +1017,14 @@ function Gui.playerCard(parent, props)
 			end
 		end
 		sparks[i] = { frame = sp, scale = make("UIScale", { Scale = 1 }, sp) }
+	end
+	-- (Embers, the True Almighty card) sparks of gold and red rising up through the card
+	local emberClip = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ClipsDescendants = true, Visible = false, ZIndex = z + 6 }, root)
+	local embers = {}
+	for i = 1, 14 do
+		local e = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(4 + (i % 3) * 2, 4 + (i % 3) * 2), BackgroundColor3 = i % 2 == 0 and Color3.fromRGB(255, 210, 80) or Color3.fromRGB(255, 90, 50), BorderSizePixel = 0, ZIndex = z + 6 }, emberClip)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, e)
+		embers[i] = { frame = e, x = ((i * 0.618) % 1), speed = 0.18 + (i % 5) * 0.05, phase = (i * 0.37) % 1 }
 	end
 	local chevrons = {}
 	for i = 1, 3 do
@@ -1089,6 +1113,16 @@ function Gui.playerCard(parent, props)
 		local flap = math.sin(t * 1.7) * 3
 		wingL.Rotation = flap
 		wingR.Rotation = -flap
+		-- (Aura) the colours turn round the edge; (Embers) the sparks rise and fade
+		for _, g in ipairs(auraGrads) do
+			g.Rotation = (t * 90) % 360
+			g.Offset = Vector2.new(math.sin(t * 0.8) * 0.3, 0)
+		end
+		for _, e in ipairs(embers) do
+			local k = (t * e.speed + e.phase) % 1
+			e.frame.Position = UDim2.fromScale(e.x + math.sin(t * 2 + e.phase * 6) * 0.02, 1.05 - k * 1.15)
+			e.frame.BackgroundTransparency = 0.1 + 0.9 * k * k
+		end
 		-- (Net) a lazy swing on its peg, with a little extra wobble now and then
 		net.Rotation = math.sin(t * 1.3) * 3 + math.sin(t * 3.7) * 0.8
 		-- (Pumpkin) a slow rock, and the candle inside flickering
@@ -1167,6 +1201,8 @@ function Gui.playerCard(parent, props)
 		bigShine.Enabled = fx.WordShine == true
 		net.Visible = fx.Net == true
 		pumpkin.Visible = fx.Pumpkin == true
+		aura.Visible = fx.Aura == true
+		emberClip.Visible = fx.Embers == true
 		local divine = next(fx) ~= nil
 		if divine and not divineConn then
 			divineConn = RunService.Heartbeat:Connect(divineStep)

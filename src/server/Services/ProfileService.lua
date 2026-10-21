@@ -73,6 +73,7 @@ local Spins = require(Shared.Spins)
 local Settings = require(Shared.Settings)
 local SoundCrop = require(Shared.SoundCrop)
 local Economy = require(Shared.Economy)
+local Ranked = require(Shared.Ranked)
 local PatchNotes = require(Shared.PatchNotes)
 local Cards = require(Shared.Cards)
 local Leaderboards = require(Shared.Leaderboards)
@@ -207,7 +208,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {}, clanColors = {}, clanColor = "White" }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {}, clanColors = {}, clanColor = "White", ranked = Ranked.clean(nil, Ranked.season(os.time())), almightyMoved = true }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -453,6 +454,18 @@ local function sanitizeProfile(data)
 	if type(data.equip) == "table" and Cards.get(data.equip.Card) then
 		out.equip.Card = data.equip.Card
 	end
+	-- (2026-10-21, the owner: "replace the people who had almighty card with True Almighty"): once,
+	-- an Almighty card given before it became the Almighty rank's is a True Almighty card now
+	out.almightyMoved = true
+	if data.almightyMoved ~= true and out.cards.Almighty2 then
+		out.cards.Almighty2 = nil
+		out.cards.TrueAlmighty = true
+		if out.equip.Card == "Almighty2" then
+			out.equip.Card = "TrueAlmighty"
+		end
+	end
+	-- ranked: this season's record and the past ones (Ranked.clean rolls an old season over)
+	out.ranked = Ranked.clean(data.ranked, Ranked.season(os.time()))
 	-- the leaderboard place over your head in the matchup intro: a board, or your best (nil)
 	if type(data.equip) == "table" and Leaderboards.isBoard(data.equip.Entrance) then
 		out.equip.Entrance = data.equip.Entrance
@@ -604,6 +617,8 @@ local function save(plr, force)
 		cards = profile.cards,
 		bestRank = profile.bestRank,
 		clanColors = profile.clanColors,
+		almightyMoved = profile.almightyMoved,
+		ranked = profile.ranked,
 		clanColor = profile.clanColor,
 		bestClanRank = profile.bestClanRank,
 		pity = profile.pity,
@@ -1190,6 +1205,33 @@ function ProfileService.clanRank(plr, rank, tag)
 	profile.bestClanRank = { rank = rank, tag = tag }
 	dirty[plr] = true
 	ProfileService.checkCards(plr)
+end
+
+-- A ranked match's result (MatchService): the season rolled over if it's turned, the RP moved by
+-- the other team's average (`theirs`). Returns the change and the RP after it.
+function ProfileService.rankedResult(plr, won, theirs)
+	local profile = profiles[plr]
+	if not profile then
+		return nil
+	end
+	profile.ranked = Ranked.clean(profile.ranked, Ranked.season(os.time()))
+	local before = Ranked.name(profile.ranked.rp)
+	local d = Ranked.apply(profile.ranked, won, theirs)
+	dirty[plr] = true
+	local after = Ranked.name(profile.ranked.rp)
+	ProfileService.checkCards(plr)
+	push(plr, string.format("Ranked: %s%d RP  (%s%s)", d >= 0 and "+" or "", d, after, after ~= before and (d > 0 and ", up from " .. before or ", down from " .. before) or ""))
+	return d, profile.ranked.rp
+end
+
+-- A player's ranked RP right now (their season rolled over first).
+function ProfileService.rankedRp(plr)
+	local profile = profiles[plr]
+	if not profile then
+		return 0
+	end
+	profile.ranked = Ranked.clean(profile.ranked, Ranked.season(os.time()))
+	return profile.ranked.rp
 end
 
 -- A change made to a profile from outside (ClanService's tag colours): saved and sent.

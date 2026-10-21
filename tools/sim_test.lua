@@ -787,14 +787,21 @@ do
 	local Economy = require("Economy")
 	local card = nil
 	for _, c in ipairs(Config.Cards.List) do
-		if c.Key == "Almighty2" then card = c end
+		if c.Key == "TrueAlmighty" then card = c end
 	end
-	local g = Economy.cleanGrant({ Cards = { "Almighty2" } })
+	-- (2026-10-21: the Almighty card is the Almighty rank's now, earned in ranked; the given one is
+	-- True Almighty, with an aura and embers on top of everything Almighty has)
+	local g = Economy.cleanGrant({ Cards = { "TrueAlmighty" } })
 	local profile = { vp = 0, gold = 0, lucky = 0, owned = {}, cards = {} }
 	Economy.apply(profile, g, 0)
 	local Cards = require("Cards")
-	check(card ~= nil and card.Grant == true and Cards.look(card).Fx.Wings == true and g.Cards[1] == "Almighty2" and profile.cards.Almighty2 == true and Economy.cleanGrant({ Cards = { "Almighty" } }).Cards[1] == nil and string.find(Economy.describe(g), "Almighty", 1, true) ~= nil,
-		"the Almighty card can be given and is owned", Economy.describe(g))
+	local almighty = Cards.get("Almighty2")
+	local reached = Cards.stats({ record = {}, ranked = { best = 7 } }, 0)
+	local short = Cards.stats({ record = {}, ranked = { best = 6 } }, 0)
+	check(card ~= nil and card.Grant == true and Cards.look(card).Fx.Wings == true and Cards.look(card).Fx.Aura == true and g.Cards[1] == "TrueAlmighty" and profile.cards.TrueAlmighty == true
+		and Economy.cleanGrant({ Cards = { "Almighty2" } }).Cards[1] == nil and string.find(Economy.describe(g), "True Almighty", 1, true) ~= nil
+		and not Cards.isGrant(almighty) and Cards.met(almighty, reached) and not Cards.met(almighty, short),
+		"the True Almighty card can be given and is owned; the Almighty card comes from reaching Almighty in ranked", Economy.describe(g))
 end
 
 print("== a character change takes its role ==")
@@ -2938,6 +2945,36 @@ do
 	Economy.apply(prof, again, 1000)
 	check(entry and #Config.Boosts.LuckPacks == 4 and g.BoostLuck == 30 * 60 and prof.boosts.Luck == 1000 + 45 * 60 and Economy.boost(prof, "Luck", 1000 + 60) == 2 and Economy.boost(prof, "Luck", 1000 + 46 * 60) == 1 and not Economy.isEmpty(again) and Economy.describe(again) == "2x Luck for 15 minutes",
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
+end
+
+print("== ranked ==")
+do
+	-- the owner (2026-10-21): Bronze, Silver, Gold, Platinum, Diamond (three divisions each),
+	-- Mighty and Almighty; one rank overall; monthly seasons
+	local Ranked = require("Ranked")
+	local RC = Config.Ranked
+	local names = { Ranked.name(0), Ranked.name(99), Ranked.name(100), Ranked.name(299), Ranked.name(300), Ranked.name(1499), Ranked.name(1500), Ranked.name(1999), Ranked.name(2000), Ranked.name(9000) }
+	local expect = { "Bronze III", "Bronze III", "Bronze II", "Bronze I", "Silver III", "Diamond I", "Mighty", "Mighty", "Almighty", "Almighty" }
+	local namesOk = true
+	for i, n in ipairs(expect) do
+		namesOk = namesOk and names[i] == n
+	end
+	-- an even match +25 / -20; a much stronger team pays more and costs less
+	local even, evenL = Ranked.change(true, 500, 500), Ranked.change(false, 500, 500)
+	local upset, upsetL = Ranked.change(true, 500, 1500), Ranked.change(false, 500, 1500)
+	-- seasons: Season 1 to the end of November 2026 (Chicago), then one a month
+	local oct21 = 1792594800 -- 2026-10-21 about 09:00 Chicago
+	local s1, s2 = Ranked.season(oct21), Ranked.season(Ranked.seasonEnds(1) + 60)
+	local endsNov = Ranked.seasonEnds(1)
+	-- a record rolls over: the last season to history, half the RP kept
+	local rec = Ranked.clean({ season = 1, rp = 820, wins = 30, losses = 12, peak = 900 }, 2)
+	local fresh = Ranked.clean(nil, 1)
+	local d = Ranked.apply(fresh, true, 0)
+	check(namesOk and even == RC.Win and evenL == -RC.Loss and upset == RC.Max and upsetL == -RC.Min and s1 == 1 and s2 == 2 and Ranked.season(endsNov - 60) == 1
+		and rec.season == 2 and rec.rp == 410 and rec.wins == 0 and rec.history[1].season == 1 and rec.history[1].wins == 30 and rec.history[1].peak == 900
+		and fresh.rp == d and fresh.wins == 1 and Ranked.apply({ rp = 5, wins = 0, losses = 0, peak = 5 }, false, 0) == -RC.Loss,
+		"ranked: Bronze III to Almighty, +25 / -20 moved by the other team's strength, monthly seasons (Season 1 to December), half your RP into a new season",
+		table.concat(names, ", ") .. string.format("; upset +%d / %d; S1 ends %d", upset, upsetL, endsNov))
 end
 
 print("== clans ==")

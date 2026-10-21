@@ -77,6 +77,7 @@ function Cards.stats(profile, owned)
 		rank = (rank and rank >= 1) and math.floor(rank) or nil,
 		rankBoard = r and r.board or nil,
 		clanRank = (cr and tonumber(cr.rank) and cr.rank >= 1) and math.floor(cr.rank) or nil,
+		rankedBest = whole(type(profile.ranked) == "table" and profile.ranked.best or 0),
 		clanTag = cr and cr.tag or nil,
 	}
 end
