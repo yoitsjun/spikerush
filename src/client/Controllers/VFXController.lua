@@ -1164,7 +1164,8 @@ function VFXController.firstImpact(entityId, duration)
 	return true
 end
 
-function VFXController.freezeFrame(entityId, ballPos, duration, color)
+-- hands: the Fallen Angel's arms reaching up out of the frame at the silhouette (black on its colour).
+function VFXController.freezeFrame(entityId, ballPos, duration, color, hands)
 	local cam = workspace.CurrentCamera
 	local model = Util.modelOf(entityId)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
@@ -1205,6 +1206,35 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color)
 			ball.Material = Enum.Material.SmoothPlastic
 			ball.CFrame = CFrame.new(handBall(clone, ballPos))
 			ball.Parent = clone.Parent
+			if hands and VFXController.newArm then
+				-- from below the frame, spread across it, each leaning in at him, clawing up
+				for i = 1, 5 do
+					local okA, arm = pcall(VFXController.newArm, 7 + math.random() * 2.5)
+					if okA and arm then
+						local dz = (i - 3) * 2.6 + (math.random() - 0.5)
+						local base = mid + Vector3.new(0, -9 - math.random() * 1.5, dz)
+						local reach = (hrp.Position + Vector3.new(0, -0.5, 0) - base).Unit
+						arm:PivotTo(CFrame.lookAt(base, base + Vector3.new(-1, 0, 0), reach) * CFrame.Angles(0, 0, (math.random() - 0.5) * 0.3))
+						for _, d in ipairs(arm:GetDescendants()) do
+							if d:IsA("BasePart") and d.Transparency < 1 then
+								d.Color = Color3.new(0, 0, 0)
+								d.Material = Enum.Material.SmoothPlastic
+							end
+						end
+						arm.Parent = clone.Parent
+						-- (they grasp up toward him over the frame)
+						local from = arm:GetPivot()
+						local t0 = os.clock()
+						task.spawn(function()
+							while arm.Parent and os.clock() - t0 < duration do
+								local k = math.min((os.clock() - t0) / math.max(duration, 0.05), 1)
+								arm:PivotTo(from + reach * (2.2 * (1 - (1 - k) ^ 3)))
+								RunService.RenderStepped:Wait()
+							end
+						end)
+					end
+				end
+			end
 		end
 	end)
 	-- the letterbox
@@ -4318,6 +4348,22 @@ local function onHit(snap)
 	end
 	if meta.secondSwing then
 		VFXController.popup(pos + Vector3.new(0, 3.4, 0), "Double Swing!", Config.Abilities.Thunder.Color, 1.1)
+		-- his second swing gets Taeho's frame (the owner, 2026-10-21: "recycle taeho's impact frame
+		-- for yejun if he double swings but make his effect yellow, and on the halloween effect
+		-- purple ... with hands reaching out"): the court dark and him lit, then his silhouette on
+		-- yellow (the Fallen Angel's: on violet, the underworld's arms reaching up at him). Short:
+		-- the ball doesn't wait for it
+		if close and State.settings.dramatic then
+			local col, fallen = HW.thunderOf(meta)
+			local bgCol = fallen and Color3.fromRGB(110, 50, 200) or Color3.fromRGB(255, 214, 60)
+			if VFXController.darkFrame(meta.id, pos, 0.12, col) then
+				task.delay(0.12, function()
+					VFXController.freezeFrame(meta.id, pos, 0.3, bgCol, fallen)
+				end)
+			else
+				VFXController.freezeFrame(meta.id, pos, 0.3, bgCol, fallen)
+			end
+		end
 	end
 	if meta.adrenaline then
 		VFXController.popup(pos + Vector3.new(0, 3, 0), "Adrenaline!", Config.Abilities.Adrenaline.Color, 0.8)
@@ -4574,7 +4620,7 @@ local function onHit(snap)
 				end
 				thunderPath(snap.path, TH)
 				if close then
-					if not dark then
+					if not dark and not meta.secondSwing then -- (a second swing has its own frame)
 						VFXController.impactFrame(meta.id, TH, voidThunder)
 					end
 					VFXController.speedLines(0.5, voidThunder and Color3.fromRGB(205, 175, 255) or Color3.fromRGB(255, 244, 180), dirZ)
@@ -7639,6 +7685,21 @@ function VFXController.init(m)
 			local secs = tonumber(workspace:GetAttribute("TestFirstImpact"))
 			if secs and secs > 0 then
 				VFXController.firstImpact("P_" .. tostring(player.UserId), secs)
+			end
+		end)
+		-- (and TestSwingFrame = "yellow" or "fallen": YeJun's second-swing frame on your character)
+		workspace:GetAttributeChangedSignal("TestSwingFrame"):Connect(function()
+			local kind = workspace:GetAttribute("TestSwingFrame")
+			local id = "P_" .. tostring(player.UserId)
+			local m = Util.modelOf(id)
+			local hrp = m and m:FindFirstChild("HumanoidRootPart")
+			if hrp and (kind == "yellow" or kind == "fallen") then
+				local pos = hrp.Position + Vector3.new(0, 3, 0)
+				local fallen = kind == "fallen"
+				VFXController.darkFrame(id, pos, 0.12, fallen and Color3.fromRGB(150, 70, 255) or THUNDER)
+				task.delay(0.12, function()
+					VFXController.freezeFrame(id, pos, 0.3, fallen and Color3.fromRGB(110, 50, 200) or Color3.fromRGB(255, 214, 60), fallen)
+				end)
 			end
 		end)
 	end
