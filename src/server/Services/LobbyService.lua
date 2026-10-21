@@ -1764,7 +1764,7 @@ local function onRequest(plr, op, a, b)
 		return
 	end
 	-- a player in the match can't wander into other lobbies
-	if op ~= "rejoin" and op ~= "list" and reg.TeamService.entityForPlayer(plr) and reg.TeamService.inMatch then
+	if op ~= "rejoin" and op ~= "list" and op ~= "ban" and reg.TeamService.entityForPlayer(plr) and reg.TeamService.inMatch then
 		return
 	end
 	local remote = net.remoteOf[plr.UserId]
