@@ -24,6 +24,7 @@ local Config = require(Shared.Config)
 local Settings = require(Shared.Settings)
 local Assets = require(Shared.Assets)
 local Characters = require(Shared.Characters)
+local Clans = require(Shared.Clans)
 local Court = require(Shared.Court)
 local Util = require(Shared.Util)
 local Tutorial = require(Shared.Tutorial)
@@ -723,7 +724,10 @@ local function refreshTags()
 			local team = m:GetAttribute("Team")
 			t.badge.Text = tier or "?"
 			t.badge.BackgroundColor3 = Characters.color(tier)
-			t.name.Text = info.name
+			-- their clan's tag before the name, in their tag colour (Clans.tagText)
+			local clanTag = info.plr and info.plr:GetAttribute("ClanTag")
+			t.name.RichText = true
+			t.name.Text = (clanTag and (Clans.tagText(clanTag, info.plr:GetAttribute("ClanColor")) .. " ") or "") .. info.name
 			t.name.TextColor3 = team and teamColor(team) or UI.Chalk
 			local h = m:GetAttribute("Height")
 			local abilityName = abilitiesText(Characters.abilitiesOf(m)) -- (its own, "+N" for its cards')

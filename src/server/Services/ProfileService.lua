@@ -207,7 +207,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {} }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {}, clanColors = {}, clanColor = "White" }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -457,6 +457,20 @@ local function sanitizeProfile(data)
 	if type(data.equip) == "table" and Leaderboards.isBoard(data.equip.Entrance) then
 		out.equip.Entrance = data.equip.Entrance
 	end
+	-- clans (ClanService): the tag colours bought, the one worn, the best clan board place reached
+	out.clanColors = {}
+	for _, c in ipairs(Config.Clans.TagColors) do
+		if type(data.clanColors) == "table" and data.clanColors[c.Key] == true then
+			out.clanColors[c.Key] = true
+		end
+	end
+	out.clanColor = (type(data.clanColor) == "string" and (data.clanColor == "White" or out.clanColors[data.clanColor])) and data.clanColor or "White"
+	if type(data.bestClanRank) == "table" and type(data.bestClanRank.tag) == "string" then
+		local cr = math.floor(tonumber(data.bestClanRank.rank) or 0)
+		if cr >= 1 then
+			out.bestClanRank = { rank = cr, tag = string.sub(data.bestClanRank.tag, 1, Config.Clans.TagMax) }
+		end
+	end
 	if type(data.bestRank) == "table" and Leaderboards.isBoard(data.bestRank.board) then
 		local r = math.floor(tonumber(data.bestRank.rank) or 0)
 		if r >= 1 and r <= Config.Leaderboards.Top then
@@ -589,6 +603,9 @@ local function save(plr, force)
 		boosts = profile.boosts,
 		cards = profile.cards,
 		bestRank = profile.bestRank,
+		clanColors = profile.clanColors,
+		clanColor = profile.clanColor,
+		bestClanRank = profile.bestClanRank,
 		pity = profile.pity,
 		favor = profile.favor,
 		fragments = profile.fragments,
@@ -1138,6 +1155,9 @@ function ProfileService.addMvp(plr)
 	profile.record.mvps = (profile.record.mvps or 0) + 1
 	dirty[plr] = true
 	ProfileService.checkCards(plr)
+	if reg.ClanService then
+		reg.ClanService.onRecord(plr)
+	end
 end
 
 -- A place in a leaderboard's top 3 (LeaderboardService): kept if it's their best yet (the Top 3
@@ -1154,6 +1174,30 @@ function ProfileService.topRank(plr, rank, board)
 	profile.bestRank = { rank = rank, board = board }
 	dirty[plr] = true
 	ProfileService.checkCards(plr)
+end
+
+-- Their clan's place on the clans' board (ClanService, the top 3): kept if it's their best yet (the
+-- ClanTop3 and ClanNumber1 cards show it).
+function ProfileService.clanRank(plr, rank, tag)
+	local profile = profiles[plr]
+	if not profile or type(rank) ~= "number" or rank < 1 then
+		return
+	end
+	local best = profile.bestClanRank
+	if best and best.rank <= rank then
+		return
+	end
+	profile.bestClanRank = { rank = rank, tag = tag }
+	dirty[plr] = true
+	ProfileService.checkCards(plr)
+end
+
+-- A change made to a profile from outside (ClanService's tag colours): saved and sent.
+function ProfileService.touch(plr, notice)
+	if profiles[plr] then
+		dirty[plr] = true
+		push(plr, notice)
+	end
 end
 
 
@@ -1557,7 +1601,8 @@ end
 -- daily rewords. not codes").
 function ProfileService.vpMult(plr)
 	local event = reg.AdminService and reg.AdminService.multiplier("VP") or 1
-	return event * ProfileService.boost(plr, "VP") * ProfileService.passMult(plr, "VP")
+	local clan = reg.ClanService and reg.ClanService.bonus(plr, "VP") or 1 -- (their clan's V Point gain upgrade)
+	return event * ProfileService.boost(plr, "VP") * ProfileService.passMult(plr, "VP") * clan
 end
 
 function ProfileService.award(plr, vp, gold)
@@ -1649,6 +1694,9 @@ function ProfileService.recordResult(plr, won, st, beatDev)
 	dirty[plr] = true
 	reg.LeaderboardService.track(plr, profile)
 	ProfileService.checkCards(plr)
+	if reg.ClanService then
+		reg.ClanService.onRecord(plr) -- (their stats since joining their clan)
+	end
 	return profile.winStreak
 end
 
@@ -1784,6 +1832,7 @@ local function spinOnce(plr, profile, banner, count, lucky)
 	end
 	mult = mult * Economy.luckBoost(profile, os.time())
 	mult = mult * Economy.passMult(passesOf(plr, profile), "Luck") -- the Lucky game pass
+	mult = mult * (reg.ClanService and reg.ClanService.bonus(plr, "Luck") or 1) -- their clan's Extra luck
 	local luckWeights = nil
 	if banner == "Char" then
 		luckWeights = lucky and Spins.luckyAt(mult) or Spins.luckWeights(mult)
@@ -2849,6 +2898,9 @@ function ProfileService.init(r)
 				end
 			end)
 			task.spawn(ProfileService.checkMail, plr)
+			if reg.ClanService then
+				task.spawn(reg.ClanService.onLoaded, plr) -- (their clan, its tag in chat)
+			end
 			-- the perks' game passes they own
 			for _, key in ipairs(Config.Perks.Order) do
 				local id = Config.Perks[key].PassId
@@ -2948,6 +3000,9 @@ function ProfileService.init(r)
 		end
 		tickPlayTime(plr, true)
 		playClock[plr] = nil
+		if reg.ClanService then
+			reg.ClanService.onLeft(plr)
+		end
 		save(plr)
 		profiles[plr] = nil
 		dirty[plr] = nil

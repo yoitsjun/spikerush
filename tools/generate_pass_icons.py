@@ -217,6 +217,8 @@ ICONS = {
     "Lucky": dict(bg=((70, 220, 110), (6, 60, 30)), draw=lambda im: clover(im, 512, 380, 260), text="LUCKY", size=190, y=640),
     "ScoreSound": dict(bg=((240, 80, 190), (60, 8, 60)), draw=lambda im: speaker(im, 540, 400, 250), text="SOUNDS", size=170, y=650),
     "ScoreImage": dict(bg=((255, 150, 40), (110, 20, 10)), draw=lambda im: burst(im, 512, 400, 270), text="SCORE FX", size=150, y=650),
+    # the Clan Founder pass (Config.Clans.PassId): a crown over the word, in the clans' blue
+    "ClanFounder": dict(bg=((60, 200, 255), (6, 30, 80)), draw=lambda im: crown(im, 512, 410, 520), text="CLAN", size=220, y=610),
 }
 
 
@@ -237,7 +239,7 @@ def make(key):
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    sheet = Image.new("RGBA", (5 * 260 + 10, 270), (20, 22, 30, 255))
+    sheet = Image.new("RGBA", (len(ICONS) * 260 + 10, 270), (20, 22, 30, 255))
     for i, key in enumerate(ICONS):
         im = make(key)
         im.save(os.path.join(OUT, key + ".png"))

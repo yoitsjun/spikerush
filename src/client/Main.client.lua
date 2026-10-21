@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Net = require(Shared.Net)
+local Clans = require(Shared.Clans)
 
 local Controllers = script.Parent:WaitForChild("Controllers")
 local State = require(Controllers:WaitForChild("State"))
@@ -46,6 +47,7 @@ local order = {
 	"SceneController",
 	"MenuController",
 	"HalloweenMenu",
+	"ClanMenu",
 	"BreakReveal",
 	"LineupController",
 	"MobileControls",
@@ -91,9 +93,16 @@ pcall(function()
 		local source = message.TextSource
 		local who = source and Players:GetPlayerByUserId(source.UserId)
 		local tag = who and who:GetAttribute("ChatTag")
+		local prefix = message.PrefixText
 		if type(tag) == "string" and tag ~= "" then
-			props.PrefixText = string.format('<font color="#FFC828">[%s]</font> %s', tag, message.PrefixText)
+			prefix = string.format('<font color="#FFC828">[%s]</font> %s', tag, prefix)
 		end
+		-- their clan's tag in their colour (the owner, 2026-10-21: "clan tags in chat"; Clans.tagText)
+		local clan = who and who:GetAttribute("ClanTag")
+		if type(clan) == "string" and clan ~= "" then
+			prefix = Clans.tagText(clan, who:GetAttribute("ClanColor")) .. " " .. prefix
+		end
+		props.PrefixText = prefix
 		return props
 	end
 end)

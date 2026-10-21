@@ -346,20 +346,31 @@ end
 
 -- The plate along the bottom of a team's intro: the emblem, the name, the mode and court, and a
 -- chip per character on the right.
-local function teamPlate(parent, team, members, sub, mine)
+-- clan: { tag, name, emblem } when three or more of the team share a clan with its own intro.
+local function teamPlate(parent, team, members, sub, mine, clan)
 	local T = Config.Teams[team]
 	local W = canvasWidth()
 	local plate = Gui.plate(parent, { Name = "TeamPlate", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, -60, 1, -30), Size = UDim2.fromOffset(W + 120, 176), ZIndex = parent.ZIndex + 4 }, T.Color, { flatLeft = true, flatRight = true })
 	Gui.halftone(plate, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.55, 1), ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 0.82, ZIndex = plate.ZIndex })
-	emblem(plate, team, 136, { Position = UDim2.fromOffset(100, 20) })
+	local disc = emblem(plate, team, 136, { Position = UDim2.fromOffset(100, 20) })
+	if clan and clan.emblem then
+		-- the clan's own picture in the team's disc
+		for _, d in ipairs(disc:GetChildren()) do
+			if d:IsA("ImageLabel") then
+				d:Destroy()
+			end
+		end
+		local img = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.86, 0.86), BackgroundTransparency = 1, Image = "rbxthumb://type=Asset&id=" .. clan.emblem .. "&w=150&h=150", ScaleType = Enum.ScaleType.Fit, ZIndex = disc.ZIndex + 1 }, disc)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, img)
+	end
 	local n = #members
 	local chipW = math.clamp(math.floor((W - 720) / math.max(1, n)) - 12, 190, 262)
 	local chipsLeft = W - 36 - n * (chipW + 12)
 	local nameW = math.max(240, chipsLeft - 290)
-	local name = label(plate, { Text = string.upper(T.Name), display = true, weight = Enum.FontWeight.Heavy, TextScaled = true, TextColor3 = Gui.WHITE, Position = UDim2.fromOffset(262, 14), Size = UDim2.fromOffset(nameW, 96), ZIndex = plate.ZIndex + 1 })
+	local name = label(plate, { Text = clan and string.upper(clan.name) or string.upper(T.Name), display = true, weight = Enum.FontWeight.Heavy, TextScaled = true, TextColor3 = Gui.WHITE, Position = UDim2.fromOffset(262, 14), Size = UDim2.fromOffset(nameW, 96), ZIndex = plate.ZIndex + 1 })
 	make("UITextSizeConstraint", { MaxTextSize = 100 }, name)
 	make("UIStroke", { Color = T.Dark, Thickness = 3, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual }, name)
-	label(plate, { Text = sub, display = true, TextSize = 26, TextColor3 = T.Dark, Position = UDim2.fromOffset(266, 112), Size = UDim2.fromOffset(nameW, 30), ZIndex = plate.ZIndex + 1 })
+	label(plate, { Text = clan and ("[" .. clan.tag .. "]  " .. sub) or sub, display = true, TextSize = 26, TextColor3 = T.Dark, Position = UDim2.fromOffset(266, 112), Size = UDim2.fromOffset(nameW, 30), ZIndex = plate.ZIndex + 1 })
 	if mine then
 		local tag = Gui.plate(plate, { Position = UDim2.fromOffset(262, -26), Size = UDim2.fromOffset(150, 34), ZIndex = plate.ZIndex + 1 }, Gui.SIGNAL)
 		label(tag, { Text = "YOUR TEAM", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = tag.ZIndex + 1 })
@@ -461,9 +472,30 @@ local function teamStage(r, team)
 	for _, e in ipairs(members) do
 		table.insert(entries, { id = e.id, name = e.name, pose = e.pose, mine = e.id == State.myId })
 	end
+	-- a clan with its own intro (the owner, 2026-10-21: "custom match-up intro screens"; the Clan
+	-- intro upgrade): three or more of this team in it, its tag huge behind them and its name and
+	-- emblem on the plate
+	local clan = nil
+	local counts = {}
+	for _, e in ipairs(members) do
+		local uid = type(e.id) == "string" and tonumber(string.match(e.id, "^P_(%d+)$"))
+		local p = uid and Players:GetPlayerByUserId(uid)
+		local tag = p and p:GetAttribute("ClanTag")
+		if tag and p:GetAttribute("ClanIntro") then
+			counts[tag] = (counts[tag] or 0) + 1
+			if counts[tag] >= 3 then
+				clan = { tag = tag, name = p:GetAttribute("ClanName") or tag, emblem = p:GetAttribute("ClanEmblem") }
+			end
+		end
+	end
+	if clan then
+		local big = label(stage, { Text = "[" .. clan.tag .. "]", display = true, weight = Enum.FontWeight.Heavy, TextScaled = true, TextColor3 = Color3.new(1, 1, 1), TextTransparency = 0.86, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.36), Size = UDim2.fromScale(0.9, 0.5), Rotation = -6, ZIndex = stage.ZIndex + 1 })
+		big.TextTransparency = 1
+		tween(big, 0.6, { TextTransparency = 0.86 })
+	end
 	local scene = newScene(stage, entries, T.Color, { aimY = 2.4, dist = 24, tags = true })
 	r.scenes = { scene }
-	local plate = teamPlate(stage, team, members, modeLine(), team == State.myTeam)
+	local plate = teamPlate(stage, team, members, modeLine(), team == State.myTeam, clan)
 	plate.Position = UDim2.new(0, -canvasWidth() - 200, 1, -30)
 	tween(plate, 0.4, { Position = UDim2.new(0, -60, 1, -30) }, Enum.EasingStyle.Quint)
 	-- the characters drop in one by one; a model still streaming in gets its turn when it arrives

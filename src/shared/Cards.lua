@@ -58,6 +58,7 @@ end
 function Cards.stats(profile, owned)
 	local rec = type(profile.record) == "table" and profile.record or {}
 	local r = type(profile.bestRank) == "table" and profile.bestRank or nil
+	local cr = type(profile.bestClanRank) == "table" and profile.bestClanRank or nil
 	local rank = r and tonumber(r.rank) or nil
 	local wins, matches = whole(rec.wins), whole(rec.matches)
 	return {
@@ -75,6 +76,8 @@ function Cards.stats(profile, owned)
 		owned = whole(owned),
 		rank = (rank and rank >= 1) and math.floor(rank) or nil,
 		rankBoard = r and r.board or nil,
+		clanRank = (cr and tonumber(cr.rank) and cr.rank >= 1) and math.floor(cr.rank) or nil,
+		clanTag = cr and cr.tag or nil,
 	}
 end
 
@@ -85,6 +88,9 @@ function Cards.met(card, stats)
 	end
 	if card.Stat == "rank" then
 		return stats.rank ~= nil and stats.rank <= card.Need
+	end
+	if card.Stat == "clanRank" then
+		return stats.clanRank ~= nil and stats.clanRank <= card.Need
 	end
 	if card.Stat == "grant" then
 		return false -- given only
@@ -97,7 +103,7 @@ function Cards.progress(card, stats)
 	if not card.Stat then
 		return 1, 1
 	end
-	if card.Stat == "rank" or card.Stat == "grant" then
+	if card.Stat == "rank" or card.Stat == "clanRank" or card.Stat == "grant" then
 		return Cards.met(card, stats) and 1 or 0, 1
 	end
 	return math.min(stats[card.Stat] or 0, card.Need), card.Need
@@ -111,6 +117,12 @@ function Cards.display(card, stats)
 			return "", ""
 		end
 		return "#" .. stats.rank, string.upper(boardNames[stats.rankBoard or ""] or "LEADERBOARD")
+	end
+	if card.Show == "clanRank" then
+		if not stats.clanRank then
+			return "", ""
+		end
+		return "#" .. stats.clanRank, "[" .. tostring(stats.clanTag or "?") .. "] TOP CLAN"
 	end
 	if card.Show == "winRate" then
 		return string.format("%d%%", math.floor((stats.winPct or 0) + 0.5)), string.format("%s W  %s L", commas(stats.wins), commas(stats.losses))

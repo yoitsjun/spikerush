@@ -805,6 +805,12 @@ Config.Cards = {
 			Look = { Base = Color3.fromRGB(24, 24, 30), Sweep = "rank", Accent = Color3.fromRGB(255, 255, 255), Edge = "rank", Pattern = "rays", Fx = { Glow = true, Shine = true, Sparkles = true } } },
 		{ Key = "Number1", Name = "Number One", Stat = "rank", Need = 1, Show = "rank", Goal = "Reach #1 on any leaderboard",
 			Look = { Base = Color3.fromRGB(28, 20, 2), Sweep = Color3.fromRGB(255, 200, 40), Accent = Color3.fromRGB(255, 255, 255), Edge = Color3.fromRGB(255, 230, 120), Pattern = "stars", Fx = { Glow = true, Crest = true, Halo = true, Shine = true, Sparkles = true } } },
+		-- the clans' board (the owner, 2026-10-21: "Leaderboard top clan gets cards similar to rank"):
+		-- a member of a top 3 clan, and of the top clan
+		{ Key = "ClanTop3", Name = "Top 3 Clan", Stat = "clanRank", Need = 3, Show = "clanRank", Goal = "Be in a top 3 clan",
+			Look = { Base = Color3.fromRGB(14, 18, 34), Sweep = "rank", Accent = Color3.fromRGB(200, 230, 255), Edge = "rank", Pattern = "stripes", Fx = { Glow = true, Shine = true, Sparkles = true } } },
+		{ Key = "ClanNumber1", Name = "Top Clan", Stat = "clanRank", Need = 1, Show = "clanRank", Goal = "Be in the number one clan",
+			Look = { Base = Color3.fromRGB(10, 22, 40), Sweep = Color3.fromRGB(60, 170, 255), Accent = Color3.fromRGB(255, 255, 255), Edge = Color3.fromRGB(140, 210, 255), Pattern = "stars", Fx = { Glow = true, Crest = true, Halo = true, Shine = true, Sparkles = true } } },
 		-- the owner: "another card displaying win/loss ratio... show wins, losses, and percent of
 		-- wins": the share of matches won in big type, the wins and losses under it
 		{ Key = "WinLoss", Name = "Win/Loss", Stat = "matches", Need = 20, Show = "winRate", Goal = "Play 20 matches",
@@ -2136,6 +2142,61 @@ Config.Leaderboards = {
 -- spins, 1 hr is 10,000 gold, 5 lucky spins, 400 vp"): each tier pays its own grant once a day, the
 -- moment a player has been in the game that long today (ProfileService.tickPlayTime). The day turns
 -- at midnight in Chicago (UTC-5; close enough in winter, like the Halloween days).
+-- Clans (the owner, 2026-10-21: "start working on clans", after another game's guilds): anyone
+-- makes one for CostVP or with the Clan Founder game pass (PassId), no other requirement; the tag
+-- is TagMin to TagMax letters or digits and unique (it's the clan's key in Store); the owner sets a
+-- minimum of wins to join (no level). A member's stats count from the day they join (their career
+-- record minus where it stood then): wins, spike kills and the rest, worth Points each, all adding
+-- up to the clan's points; the owner (and officers) spend them on Upgrades. Each member can spend
+-- their own share on tag colours (TagColors) for their [TAG] in chat. The clans' leaderboard is
+-- BoardStore (points); the top clans' members get the ClanTop3 / ClanNumber1 cards (Config.Cards).
+-- No auctions (the owner: "ditch the auction part").
+Config.Clans = {
+	Store = "SpikeRushClans", -- tag (upper case) -> the clan
+	BoardStore = "SpikeRushClanPoints", -- OrderedDataStore: tag -> points
+	Topic = "SpikeRushClans", -- MessagingService: a clan changed (its tag), every server re-reads it
+	CostVP = 1000,
+	PassId = 2044226785, -- the Clan Founder game pass (made through Open Cloud, 249 Robux): founds a clan without VP
+	TagMin = 2,
+	TagMax = 5,
+	NameMax = 24,
+	DescMax = 140,
+	MinWinsMax = 5000,
+	BaseCap = 15, -- members, before the Member cap upgrade
+	BoardTop = 50,
+	RequestsMax = 30,
+	-- what each counted stat is worth in points
+	Points = { wins = 10, matches = 2, kills = 1, aces = 3, blocks = 2, mvps = 5 },
+	StatOrder = { "wins", "matches", "kills", "aces", "blocks", "mvps" },
+	StatNames = { wins = "Wins", matches = "Matches", kills = "Spike kills", aces = "Aces", blocks = "Blocks", mvps = "MVPs" },
+	-- the owner's upgrades (the owner: "vp gain, coin gain, extra luck, member cap, and more"): level
+	-- n costs Base x n x n points; Per is what each level adds (a share of VP or Gold earned, luck,
+	-- members); Max levels. Emblem and Intro unlock the clan's own picture and matchup intro.
+	Upgrades = {
+		{ Key = "VP", Name = "V Point gain", Blurb = "Every member earns more V Points from matches, tournaments and dailies.", Per = 0.02, Max = 10, Base = 250, Show = "pct" },
+		{ Key = "Gold", Name = "Gold gain", Blurb = "Every member earns more Gold from matches.", Per = 0.05, Max = 10, Base = 200, Show = "pct" },
+		{ Key = "Luck", Name = "Extra luck", Blurb = "Every member's Characters recruits are luckier.", Per = 0.05, Max = 5, Base = 600, Show = "pct" },
+		{ Key = "Cap", Name = "Member cap", Blurb = "Room for more members.", Per = 5, Max = 6, Base = 300, Show = "num" },
+		{ Key = "Emblem", Name = "Clan emblem", Blurb = "Your own picture for the clan (any Roblox image or decal id), on its page and its intro.", Per = 1, Max = 1, Base = 1000, Show = "unlock" },
+		{ Key = "Intro", Name = "Clan intro", Blurb = "When three or more of you play on one team, the matchup intro shows your clan.", Per = 1, Max = 1, Base = 2500, Show = "unlock" },
+	},
+	-- tag colours a member buys with their own share (Cost points); Colors: one, or a gradient
+	TagColors = {
+		{ Key = "White", Name = "White", Cost = 0, Colors = { Color3.fromRGB(235, 235, 240) } },
+		{ Key = "Orange", Name = "Orange", Cost = 200, Colors = { Color3.fromRGB(255, 140, 30) } },
+		{ Key = "Red", Name = "Red", Cost = 200, Colors = { Color3.fromRGB(240, 60, 60) } },
+		{ Key = "Green", Name = "Green", Cost = 200, Colors = { Color3.fromRGB(60, 210, 90) } },
+		{ Key = "Blue", Name = "Blue", Cost = 200, Colors = { Color3.fromRGB(70, 150, 255) } },
+		{ Key = "Pink", Name = "Pink", Cost = 300, Colors = { Color3.fromRGB(255, 110, 200) } },
+		{ Key = "Purple", Name = "Purple", Cost = 300, Colors = { Color3.fromRGB(165, 95, 255) } },
+		{ Key = "Gold", Name = "Gold", Cost = 750, Colors = { Color3.fromRGB(255, 205, 50) } },
+		{ Key = "Fire", Name = "Fire", Cost = 1500, Colors = { Color3.fromRGB(255, 220, 60), Color3.fromRGB(255, 120, 20), Color3.fromRGB(230, 30, 30) } },
+		{ Key = "Forest", Name = "Forest", Cost = 1500, Colors = { Color3.fromRGB(170, 240, 90), Color3.fromRGB(40, 170, 70), Color3.fromRGB(20, 110, 60) } },
+		{ Key = "Ocean", Name = "Ocean", Cost = 1500, Colors = { Color3.fromRGB(120, 230, 255), Color3.fromRGB(40, 140, 255), Color3.fromRGB(60, 60, 220) } },
+		{ Key = "Rainbow", Name = "Rainbow", Cost = 3000, Colors = { Color3.fromRGB(255, 70, 70), Color3.fromRGB(255, 170, 40), Color3.fromRGB(250, 230, 60), Color3.fromRGB(70, 210, 90), Color3.fromRGB(70, 150, 255), Color3.fromRGB(170, 90, 255) } },
+	},
+}
+
 Config.PlayRewards = {
 	DayOffset = -5 * 3600,
 	Tiers = {

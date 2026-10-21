@@ -29,6 +29,7 @@ Net.Names = {
 	"Notice", -- server -> client: announcements and events starting, shown to everyone
 	"PlayerProfile", -- server -> client: a player's public profile (asked with Profile "profileOf")
 	"QuickChat", -- client -> server: (kind, number); server -> everyone: (userId, kind, number)
+	"Clan", -- clans (ClanService): client -> server ops; server -> client the clan payload
 }
 
 local cache = {}

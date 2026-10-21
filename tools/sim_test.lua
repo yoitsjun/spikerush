@@ -29,7 +29,7 @@ V.__div = function(a, b) return vec(a[1] / b, a[2] / b, a[3] / b) end
 V.__tostring = function(a) return string.format("(%.2f, %.2f, %.2f)", a[1], a[2], a[3]) end
 function V.Dot(a, b) return a[1] * b[1] + a[2] * b[2] + a[3] * b[3] end
 Vector3 = { new = vec, zero = vec(0, 0, 0) }
-Color3 = { fromRGB = function(r, g, b) return { r, g, b } end, new = function(r, g, b) return { r, g, b } end }
+Color3 = { fromRGB = function(r, g, b) return { r, g, b, R = r / 255, G = g / 255, B = b / 255 } end, new = function(r, g, b) return { r, g, b, R = r, G = g, B = b } end }
 math.clamp = function(x, a, b) if x < a then return a elseif x > b then return b end return x end
 
 -- Deterministic Random shim (same interface as Roblox Random) -------------------------
@@ -2567,7 +2567,7 @@ do
 	local stats0 = Cards.stats({ record = {} }, 0)
 	for _, c in ipairs(Cards.list()) do
 		ok = ok and not seen[c.Key] and type(c.Goal) == "string" and patterns[c.Look.Pattern] ~= nil and c.Look.Base ~= nil
-		ok = ok and (c.Stat == nil or c.Stat == "rank" or c.Stat == "grant" or stats0[c.Stat] ~= nil) and (c.Show == nil or c.Show == "rank" or c.Show == "winRate" or stats0[c.Show] ~= nil)
+		ok = ok and (c.Stat == nil or c.Stat == "rank" or c.Stat == "clanRank" or c.Stat == "grant" or stats0[c.Stat] ~= nil) and (c.Show == nil or c.Show == "rank" or c.Show == "clanRank" or c.Show == "winRate" or stats0[c.Show] ~= nil)
 		ok = ok and (c.Stat ~= "grant" or c.Grant == true)
 		seen[c.Key] = true
 	end
@@ -2938,6 +2938,59 @@ do
 	Economy.apply(prof, again, 1000)
 	check(entry and #Config.Boosts.LuckPacks == 4 and g.BoostLuck == 30 * 60 and prof.boosts.Luck == 1000 + 45 * 60 and Economy.boost(prof, "Luck", 1000 + 60) == 2 and Economy.boost(prof, "Luck", 1000 + 46 * 60) == 1 and not Economy.isEmpty(again) and Economy.describe(again) == "2x Luck for 15 minutes",
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
+end
+
+print("== clans ==")
+do
+	-- the owner (2026-10-21): clans: 1,000 VP (or the pass) to make one, a unique 2-5 tag, a
+	-- minimum of wins to join, members' stats counted from when they join into points the owner
+	-- spends on upgrades (VP, Gold, luck, member cap...), tag colours bought with your own share
+	local Clans = require("Clans")
+	local CC = Config.Clans
+	local t1, w1 = Clans.cleanTag(" ab1 ")
+	local t2 = Clans.cleanTag("A")
+	local t3 = Clans.cleanTag("TOOLONG")
+	local t4 = Clans.cleanTag("a-b")
+	local rec0 = { wins = 10, matches = 20, kills = 100, aces = 5, blocks = 7, mvps = 1 }
+	local clan = Clans.new("AB1", "Spike Lords", "  we spike  ", true, 3, 111, "Owner1", rec0, 1000)
+	local ok1 = Clans.canJoin(clan, 5)
+	local ok2, why2 = Clans.canJoin(clan, 2)
+	Clans.addMember(clan, 222, "Two", "Member", { wins = 50, matches = 80 }, 1001)
+	-- the owner plays: 3 wins, 4 matches, 20 kills since joining
+	Clans.updateMember(clan, 111, { wins = 13, matches = 24, kills = 120, aces = 5, blocks = 7, mvps = 1 })
+	Clans.updateMember(clan, 222, { wins = 51, matches = 81 })
+	local ownPts = Clans.pointsOf({ wins = 3, matches = 4, kills = 20 })
+	local total, left = Clans.points(clan)
+	local cost1 = Clans.cost(clan, "VP")
+	clan.spent = cost1
+	clan.up.VP = 1
+	local _, left2 = Clans.points(clan)
+	local vpMul = Clans.bonus(clan, "VP")
+	local capBefore = Clans.cap(clan)
+	clan.up.Cap = 2
+	-- a member leaving keeps their points with the clan
+	local before = Clans.points(clan)
+	Clans.removeMember(clan, 222)
+	local after = Clans.points(clan)
+	local rich = Clans.tagText("AB1", "Fire")
+	local plain = Clans.tagText("AB1", "Nope")
+	local view = Clans.view(clan)
+	check(t1 == "AB1" and w1 == nil and t2 == nil and t3 == nil and t4 == nil and clan.desc == "we spike" and ok1 and not ok2 and why2 ~= nil
+		and ownPts == 3 * CC.Points.wins + 4 * CC.Points.matches + 20 * CC.Points.kills and total == ownPts + CC.Points.wins + CC.Points.matches and left == total
+		and cost1 == Clans.upgrade("VP").Base and left2 == math.max(0, total - cost1) and math.abs(vpMul - 1.02) < 1e-9 and capBefore == CC.BaseCap and Clans.cap(clan) == CC.BaseCap + 10
+		and before == after and Clans.count(clan) == 1 and select(2, string.gsub(rich, "<font", "")) == 5 and string.find(plain, "EBEBF0", 1, true) ~= nil
+		and view.points == after and view.members[1].name == "Owner1" and Clans.cost(clan, "Emblem") == 1000 and Clans.canManage(clan, 111) and not Clans.canManage(clan, 222),
+		"clans: a clean 2-5 tag, a wins minimum to join, members' stats since joining become points, upgrades spend them, a leaver's points stay, tag colours",
+		string.format("owner %d pts, clan %d, VP upgrade %d, cap %d -> %d", ownPts, total, cost1, capBefore, Clans.cap(clan)))
+	-- the clans' board cards: a top 3 clan's members, and the top clan's
+	local Cards = require("Cards")
+	local cs = Cards.stats({ record = {}, bestClanRank = { rank = 2, tag = "AB1" } }, 0)
+	local v, lab = Cards.display(Cards.get("ClanTop3"), cs)
+	check(Cards.met(Cards.get("ClanTop3"), cs) and not Cards.met(Cards.get("ClanNumber1"), cs) and v == "#2" and lab == "[AB1] TOP CLAN",
+		"a top 3 clan's members get the Top 3 Clan card (the top clan's, Top Clan)", v .. " " .. lab)
+	-- the clan's own: a tag can't be made twice (the store's key is the tag)
+	clan.up.VP = 99
+	check(Clans.level(clan, "VP") == Clans.upgrade("VP").Max and Clans.cost(clan, "VP") == nil, "an upgrade stops at its max")
 end
 
 print("== gifted game passes ==")

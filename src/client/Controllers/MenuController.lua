@@ -478,6 +478,7 @@ function MenuController.kit()
 		extras = ui.home and ui.home.extras,
 		clockText = Extra.clockText,
 		iconKey = Extra.iconKey,
+		inputBox = Extra.inputBox,
 		openMatch = function()
 			MenuController.openMatch()
 		end,
