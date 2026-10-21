@@ -1710,7 +1710,7 @@ function HitLogic.compute(input, ctx)
 			v = vin * FERAL.BreakKeep
 			a = Vector3.new(0, -G * H.SpikeGravityScale, 0)
 			hold = 0.06
-		elseif perfect and meta.bulwark and (attackKmh >= IRON.ShatterKmh or (tonumber(ctx.ironCracks) or 0) + 1 >= IRON.CracksToBreak) then
+		elseif perfect and meta.bulwark and (attackKmh >= ab("Ironclad", "ShatterKmh", levelOf(ctx, "Ironclad")) or (tonumber(ctx.ironCracks) or 0) + 1 >= IRON.CracksToBreak) then
 			-- Bulwark's stop that shatters a shield (its last crack, or a ShatterKmh spike at once): the
 			-- ball pops straight up on his side, an easy ball for his team
 			meta.outcome = "Soft"

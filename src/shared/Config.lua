@@ -378,7 +378,7 @@ Config.Breakthrough = {
 		ZeroPoint = { ZeroKmh = { Grow = 0.04, Label = "Zero Point", Show = "kmh", Field = 2 } },
 		Corona = { Boost = { Grow = 0.2, Label = "Flare: every stat", Show = "pct" }, SpikeBoost = { Grow = 0.3, Label = "Sunfire", Show = "pct" } },
 		Squall = { SpikeBoost = { Grow = 0.25, Label = "Shear", Show = "pct" }, HoverBoost = { Grow = 0.25, Label = "Full hover", Show = "pct" } },
-		Ironclad = { WallBoost = { Grow = 0.2, Label = "Forge with shields", Show = "pct" }, MaxBoost = { Grow = 0.15, Label = "Forge awakened", Show = "pct" } },
+		Ironclad = { WallBoost = { Grow = 0.2, Label = "Forge with shields", Show = "pct" }, MaxBoost = { Grow = 0.15, Label = "Forge awakened", Show = "pct" }, ShatterKmh = { Grow = 0.115, Label = "Shield shatters at once from", Show = "kmh" } },
 		Adrenaline = { AttackBonus = { Grow = 0.4, Label = "Adrenaline Attack", Show = "num" }, JumpBonus = { Grow = 0.4, Label = "Adrenaline Jump", Show = "num" } },
 		IronWall = { Duration = { Grow = 0.3, Label = "Iron Wall lasts", Show = "s" }, StuffKmh = { Grow = 0.4, Label = "Shut-down speed", Show = "kmh" } },
 		ChainReaction = { PowerMul = { Grow = 0.3, Kind = "excess", Label = "Biggest explosion", Show = "excess", Field = 3 } },
@@ -1423,7 +1423,7 @@ Config.Abilities = {
 		Name = "Ironclad",
 		Tier = "S+",
 		Role = "MB",
-		Blurb = "Bulwark: jump to block while you have shields (up to 3; a set starts with 1) and you're an Iron Wall at the net: every attack that crosses in front of you is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next (a 250+ km/h spike shatters it at once), and the block that shatters it pops straight up for your team. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Below 3 shields every touch fills Intimidation by 10%; full, all 3 shields are back.",
+		Blurb = "Bulwark: jump to block while you have shields (up to 3; a set starts with 1) and you're an Iron Wall at the net: every attack that crosses in front of you is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next (a 270+ km/h spike shatters it at once), and the block that shatters it pops straight up for your team. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Below 3 shields every touch fills Intimidation by 10%; full, all 3 shields are back.",
 		Kind = "Passive: shields, then awakened",
 		Color = Color3.fromRGB(255, 112, 52), -- awakened: molten
 		WallColor = Color3.fromRGB(170, 200, 235), -- the shields: steel
@@ -1443,7 +1443,9 @@ Config.Abilities = {
 		-- (the owner, 2026-10-21: "he still shuts down everything. however, when his shield is
 		-- shattered it pops up. also 250+ onehits"): the stop that shatters a shield pops the ball
 		-- straight up on his side, an easy ball for his team; a spike this fast shatters one at once
-		ShatterKmh = 250,
+		-- (then, 2026-10-21: S+ lobbies hit 250 all the time, Dohwan's sets, second swings and Bloodlust,
+		-- so every big spike broke a shield: 270, and breakthroughs raise it to about 300 at +5)
+		ShatterKmh = 270,
 		PopUp = { 5.2, 6.0 }, -- the pop's speed up (m/s, a range), and a little toward his own court
 		PopBack = 0.5,
 		-- awakened: each touch fills Intimidation this much (of 100; was 10), a spike of his that
@@ -1471,7 +1473,7 @@ Config.Abilities = {
 		AutoCharge = 0.5, -- the AI awakened: its spikes get this much of the full charge
 		Passives = {
 			{ Name = "Bulwark", Blurb = "Up to 3 shields (a set starts with 1): jump to block while you have one and you're an Iron Wall at the net. Every attack that crosses in front of you is shut down, at any height, tips and the hardest spikes too." },
-			{ Name = "Cracks", Blurb = "A shield cracks on the first spike it stops and shatters on the next (a 250+ km/h spike shatters it at once). The block that shatters it pops straight up for your team." },
+			{ Name = "Cracks", Blurb = "A shield cracks on the first spike it stops and shatters on the next (a 270+ km/h spike shatters it at once; more with breakthroughs). The block that shatters it pops straight up for your team." },
 			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: Forge charges far harder and widens your reach." },
 			{ Name = "Forge", Blurb = "Your fall is slow; jump before the set and hang: the longer you're up, the harder the spike (up to +39% with shields, +68% awakened). Jumping after the set gets 30% of it." },
 			{ Name = "Steel Reach", Blurb = "Your spike reaches 20% wider than usual, and awakened the charge widens it up to 50%." },

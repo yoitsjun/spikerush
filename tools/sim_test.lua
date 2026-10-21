@@ -473,6 +473,7 @@ end
 
 print("== Ironclad (Taesan) ==")
 do
+	local BTm0 = require("Breakthrough")
 	local IR = Config.Abilities.Ironclad
 	local taesan = Characters.derive(Characters.fromRoster(Roster.get("taesan"), "max"))
 	-- Bulwark (the owner, 2026-10-15: "buff taesan block to be iron wall for 3 lives. it cracks on
@@ -543,13 +544,15 @@ do
 	end
 	local popOk = true
 	for seq = 1, 20 do
-		popOk = popOk and popped(block(140, { seq = seq, cracks = 1 })) and popped(block(260, { seq = seq })) and walled(block(240, { seq = seq }))
+		popOk = popOk and popped(block(140, { seq = seq, cracks = 1 })) and popped(block(280, { seq = seq })) and walled(block(260, { seq = seq }))
 	end
-	local _, big = block(260)
+	local _, big = block(280)
+	-- (his breakthroughs raise the line: about 300 at +5, so a +5 Taesan holds a 290 on a whole shield)
+	local s0, s5 = BTm0.ab("Ironclad", "ShatterKmh", 0), BTm0.ab("Ironclad", "ShatterKmh", 5)
 	local l6, c6 = after(3, 0, big.meta)
-	check(popOk and l6 == 2 and c6 == 0 and IR.ShatterKmh == 250,
-		"Bulwark: the stop that shatters a shield (its second, or a 250+ km/h spike at once) pops straight up on his side; the rest are shut down",
-		string.format("260 km/h on a whole shield: %d shields, %d cracks", l6, c6))
+	check(popOk and l6 == 2 and c6 == 0 and s0 == 270 and s5 >= 298 and s5 <= 302,
+		"Bulwark: the stop that shatters a shield (its second, or a 270+ km/h spike at once, about 300 at +5) pops straight up on his side; the rest are shut down",
+		string.format("280 km/h on a whole shield: %d shields, %d cracks; one-hit line %d -> %.0f km/h at +5", l6, c6, s0, s5))
 	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 10 and IR.MeterBonus > 0 and IR.StartLives == 1,
 		"Bulwark: a set starts with 1 shield of 3; below 3, every touch fills Intimidation 10% (a kill or a stuff more)")
 	-- Forge (awakened): a jump before the set charges up to about 215 km/h maxed; after the set,
