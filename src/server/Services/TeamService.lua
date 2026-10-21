@@ -857,6 +857,9 @@ end
 -- the old check, `model.Parent`, passed it, and the community still saw 2v3s: "the issue with bots
 -- not appearing still exists"), dead, or somewhere off the map.
 local function bodyProblem(e)
+	if e.spawningSince and os.clock() - e.spawningSince < 15 then
+		return nil -- still building (BotService.spawn yields): a second build made a clone
+	end
 	local m = e.model
 	if not m or not m.Parent or not m:IsDescendantOf(workspace) then
 		return "no model"
@@ -889,6 +892,10 @@ function TeamService.ensureBodies()
 	end
 	fixingBodies = true
 	local ok, err = pcall(function()
+		local swept = reg.BotService.sweepOrphans(TeamService.entities)
+		if swept > 0 then
+			warn(string.format("[SpikeRush] removed %d stray bot bodies", swept))
+		end
 		for _, e in pairs(TeamService.entities) do
 			local why = e.isBot and not e.despawned and bodyProblem(e)
 			if why and TeamService.entities[e.id] == e then
@@ -1269,6 +1276,45 @@ function TeamService.init(r)
 			local ok, err = pcall(afkTick)
 			if not ok then
 				warn("[SpikeRush] afk watch: " .. tostring(err))
+			end
+		end
+	end)
+	-- Nobody stays on the wrong side of the net (the community, 2026-10-21: "my character can stuck
+	-- in net", "this guy was on the complete wrong team"): the net is a wall (ArenaBuilder's
+	-- NetBarrier), so a body that got past its middle (pushed through, or over it) was held on the
+	-- other team's side, pinned to the net. Past it for a moment, it's put back just on its own side
+	local wrongSince = {}
+	task.spawn(function()
+		while true do
+			task.wait(0.2)
+			local ok, err = pcall(function()
+				local phase = reg.MatchService and reg.MatchService.phase
+				if not TeamService.inMatch or (phase ~= "Rally" and phase ~= "PreServe" and phase ~= "Serving" and phase ~= "Point") then
+					table.clear(wrongSince)
+					return
+				end
+				local now = os.clock()
+				for id, e in pairs(TeamService.entities) do
+					local m = TeamService.getModel(e)
+					local root = m and m:FindFirstChild("HumanoidRootPart")
+					local side = e.team and Court.sideOf(e.team)
+					if root and side and root.Position.Z * side < -0.1 then
+						wrongSince[id] = wrongSince[id] or now
+						if now - wrongSince[id] > 0.4 then
+							wrongSince[id] = nil
+							local p = root.Position
+							m:PivotTo(Court.facing(Vector3.new(p.X, math.max(p.Y, TeamService.groundY(e) + 0.2), side * 1.6), side))
+							local v = root.AssemblyLinearVelocity
+							root.AssemblyLinearVelocity = Vector3.new(v.X, math.min(v.Y, 0), 0)
+							warn(string.format("[SpikeRush] %s was past the net: back on its side", tostring(e.name)))
+						end
+					else
+						wrongSince[id] = nil
+					end
+				end
+			end)
+			if not ok then
+				warn("[SpikeRush] net watch: " .. tostring(err))
 			end
 		end
 	end)

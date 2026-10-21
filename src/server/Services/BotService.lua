@@ -1216,6 +1216,21 @@ end
 
 function BotService.spawn(e)
 	local teamCfg = Config.Teams[e.team]
+	-- (the owner, 2026-10-21: "the og bug where there are clones have come back"): building a rig
+	-- yields, and the body watch could start a second build meanwhile; both were parented and the
+	-- older one was left on court untracked. Each build has a token: only the newest one is kept,
+	-- and the watch leaves a bot that's still building alone (TeamService's bodyProblem)
+	e.spawnToken = (e.spawnToken or 0) + 1
+	local token = e.spawnToken
+	e.spawningSince = os.clock()
+	local function current()
+		return e.spawnToken == token
+	end
+	local function done()
+		if current() then
+			e.spawningSince = nil
+		end
+	end
 	-- a stand-in wears its player's avatar; other bots a friend's when there is one
 	-- (FriendService), else a plain rig in team colours
 	local desc = e.description and e.description:Clone()
@@ -1255,13 +1270,16 @@ function BotService.spawn(e)
 		end)
 		if not ok or not model then
 			warn("[SpikeRush] Could not create a plain bot rig either: " .. tostring(model))
+			done()
 			return nil
 		end
 	end
 	-- building the rig yields: the bot may have been despawned meanwhile (the match ended, or
-	-- its player took the slot back), and a rig parented now would be left on court untracked
-	if e.despawned then
+	-- its player took the slot back), or a newer build started, and a rig parented now would be
+	-- left on court untracked
+	if e.despawned or not current() then
 		model:Destroy()
+		done()
 		return nil
 	end
 	for _, d in ipairs(model:GetDescendants()) do
@@ -1286,6 +1304,7 @@ function BotService.spawn(e)
 	local hrp = model:FindFirstChild("HumanoidRootPart")
 	if not hum or not hrp then
 		model:Destroy()
+		done()
 		return nil
 	end
 	model.PrimaryPart = hrp
@@ -1328,9 +1347,29 @@ function BotService.spawn(e)
 	}
 	resetTask(b)
 	bots[e.id] = b
+	if e.model and e.model ~= model then
+		e.model:Destroy() -- (never two bodies for one bot)
+	end
 	e.model = model
+	done()
 	planSeq = -1
 	return model
+end
+
+-- Bodies in the Bots folder that no bot owns any more (a clone left by any path) go.
+function BotService.sweepOrphans(entities)
+	if not folder then
+		return 0
+	end
+	local n = 0
+	for _, m in ipairs(folder:GetChildren()) do
+		local e = entities[m:GetAttribute("EntityId") or m.Name]
+		if not (e and e.isBot and not e.despawned and e.model == m) then
+			m:Destroy()
+			n = n + 1
+		end
+	end
+	return n
 end
 
 -- A heavy receive shoves the bot back (strength 0..1 from HitLogic's meta.knock).
