@@ -1209,11 +1209,12 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color, hands)
 			if hands and VFXController.newArm then
 				-- from below the frame, spread across it, each leaning in at him, clawing up
 				for i = 1, 5 do
-					local okA, arm = pcall(VFXController.newArm, 7 + math.random() * 2.5)
+					local okA, arm = pcall(VFXController.newArm, 6 + math.random() * 2)
 					if okA and arm then
-						local dz = (i - 3) * 2.6 + (math.random() - 0.5)
-						local base = mid + Vector3.new(0, -9 - math.random() * 1.5, dz)
-						local reach = (hrp.Position + Vector3.new(0, -0.5, 0) - base).Unit
+						-- (spread wide and aimed at his legs: clawing up at him, not covering him)
+						local dz = (i - 3) * 3.8 + (math.random() - 0.5) * 0.8
+						local base = mid + Vector3.new(0, -10.5 - math.random() * 1.2, dz)
+						local reach = (hrp.Position + Vector3.new(0, -3, dz * 0.25) - base).Unit
 						arm:PivotTo(CFrame.lookAt(base, base + Vector3.new(-1, 0, 0), reach) * CFrame.Angles(0, 0, (math.random() - 0.5) * 0.3))
 						for _, d in ipairs(arm:GetDescendants()) do
 							if d:IsA("BasePart") and d.Transparency < 1 then
@@ -1228,7 +1229,7 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color, hands)
 						task.spawn(function()
 							while arm.Parent and os.clock() - t0 < duration do
 								local k = math.min((os.clock() - t0) / math.max(duration, 0.05), 1)
-								arm:PivotTo(from + reach * (2.2 * (1 - (1 - k) ^ 3)))
+								arm:PivotTo(from + reach * (1.6 * (1 - (1 - k) ^ 3)))
 								RunService.RenderStepped:Wait()
 							end
 						end)
