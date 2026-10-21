@@ -261,6 +261,19 @@ function State.rallyOn(team, t)
 	return (ReplicatedStorage:GetAttribute("RallyUntil_" .. team) or -1) >= t
 end
 
+-- Whether `team`'s Tyrant has Emperor's Dictate on at shared-clock time t.
+function State.dictateOn(team, t)
+	if not team then
+		return false
+	end
+	return (ReplicatedStorage:GetAttribute("DictateUntil_" .. team) or -1) >= t
+end
+
+-- Sunshine: lit on this character (a model or the local player) at shared-clock time t.
+function State.sunOn(inst, t)
+	return inst ~= nil and (inst:GetAttribute("SunshineUntil") or -1) >= t
+end
+
 function State.timeouts(team)
 	return ReplicatedStorage:GetAttribute("Timeouts_" .. team) or Config.Timeout.PerSet
 end

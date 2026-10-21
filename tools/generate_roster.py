@@ -6,9 +6,10 @@ four stats and possibly an ability:
   * WS: the highest Attack and Jump (up to 210 / 190 at the very top).
   * MB: the tallest, with a big Jump (about 180) and less Attack (about 170).
   * SE: Speed and Defense (160 to 180 at the top), light on Attack and Jump.
-Abilities come with the character: S+ wing spikers have Thunder Spiker, Azure Dragon, Feral Leap, Zero Point or Corona;
+Abilities come with the character: S+ wing spikers have Thunder Spiker, Azure Dragon, Feral Leap, Zero Point or Corona
+(the S+ middle Ironclad, the S+ setter The Tyrant);
 S characters have one of their role's abilities (WS Adrenaline, Rising Sun, Counter Edge, Plunge Spin or Skyward;
-MB Iron Wall or Rally Cry; SE Chain Reaction, Vector Set or Turnabout); everyone else has none.
+MB Iron Wall, Rally Cry or Sunshine; SE Chain Reaction, Vector Set or Turnabout); everyone else has none.
 
 The top characters are hand-set (the owner named YeJun: Thunder, 190 Jump and 210 Attack; he
 is the only Thunder Spiker. Dante, Feral Leap, has the top Attack, 222); the rest are generated from role templates scaled by
@@ -91,6 +92,12 @@ FIXED = [
     # Jump here is the middle of her climb (Config.Abilities.Skyward moves her hitting point)
     # (buffed 2026-10-16: +8 Attack, +6 Defense, +8 Speed; her Jump stays, Skyward's climb is tuned on it)
     {"Name": "Seora", "Role": "WS", "Tier": "S", "Height": 178, "Attack": 204, "Defense": 124, "Speed": 158, "Jump": 196, "Ability": "Skyward"},
+    # The Tyrant (the owner, 2026-10-21: "The Tyrant (S+ Setter)"): the first S+ setter, quicker and
+    # steadier than any S setter, with a little more Attack and Jump for his own jump serve
+    {"Name": "Dohwan", "Role": "SE", "Tier": "S+", "Height": 180, "Attack": 140, "Defense": 182, "Speed": 188, "Jump": 150, "Ability": "Tyrant"},
+    # Sunshine (the owner, 2026-10-21: an S middle blocker, "170 Attack 150 Jump 190 Defense 180
+    # Speed"): a digging middle, shorter than the rest of them
+    {"Name": "Haesol", "Role": "MB", "Tier": "S", "Height": 191, "Attack": 170, "Defense": 190, "Speed": 180, "Jump": 150, "Ability": "Sunshine"},
 ]
 
 # free for everyone: a D-tier character in each role

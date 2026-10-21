@@ -153,10 +153,16 @@ local function buildCtx(info, action, t)
 		stamina = State.stamina(State.myTeam),
 		ironWall = action == "Block" and has.IronWall and AC.abilityActive("IronWall") or nil,
 		ironclad = AC.bulwark() or nil,
+		ironCracks = has.Ironclad and (player:GetAttribute("IronCracks") or 0) or nil, -- (the stop that shatters a shield pops up)
 		breakLevel = player:GetAttribute("Break"),
 		awakened = has.Ironclad and not AC.bulwark() or nil,
 		enemyPoints = State.enemyPoints(State.myTeam),
 		teamBoost = State.rallyOn(State.myTeam, t) or nil,
+		dictate = State.dictateOn(State.myTeam, t) or nil, -- (the Tyrant's Stat Hijack)
+		dictated = State.dictateOn(State.myTeam == "Home" and "Away" or "Home", t) or nil,
+		tyrantOn = has.Tyrant and AC.abilityActive("Tyrant") or nil, -- (Absolute Toss)
+		grounded = player:GetAttribute("Grounded") or nil, -- (Sovereign's Guard)
+		sunOn = has.Sunshine and State.sunOn(player, t) or nil,
 		counter = has.Counter and (player:GetAttribute("Counter") or 0) or nil,
 		lift = has.Skyward and player:GetAttribute("Lift") or nil,
 		turnabout = has.Turnabout and AC.abilityActive("Turnabout") or nil,
@@ -196,6 +202,14 @@ function ActionController.abilityActive(name)
 		end
 	end
 	return false
+end
+
+-- Sunshine (Haesol): her receive reach, wider still while it's lit (HitLogic.digReach).
+local function myDigReach()
+	if not State.hasAbility("Sunshine") then
+		return nil
+	end
+	return HitLogic.digReach({ ability = "Sunshine", sunOn = State.sunOn(player, Util.now()) })
 end
 
 -- Ironclad: he still has shields (Bulwark: he blocks at the net without pressing Block, with a
@@ -1665,7 +1679,7 @@ local function processStance(info, now)
 		local t = t0 + (now - t0) * i / 5
 		local p = BallPhysics.positionAt(path, t)
 		local v = BallPhysics.velocityAt(path, t)
-		local inRecv = HitLogic.receiveZone(info.root, p, side, stats, false)
+		local inRecv = HitLogic.receiveZone(info.root, p, side, stats, false, myDigReach())
 		local inSet = HitLogic.setZone(info.root, p, side, stats)
 		-- (the setter's assist waits for the bump zone: higher up, the ball is theirs to set)
 		local setterAssist = stance.assist and State.myRole == "SE"
@@ -1704,7 +1718,7 @@ local function processSlide(info, now)
 	for i = 1, 5 do
 		local t = t0 + (now - t0) * i / 5
 		local p = BallPhysics.positionAt(path, t)
-		if HitLogic.receiveZone(info.root, p, State.mySide, State.myStats(), true) and p.Y - info.root.Y < 1.6 then
+		if HitLogic.receiveZone(info.root, p, State.mySide, State.myStats(), true, myDigReach()) and p.Y - info.root.Y < 1.6 then
 			if execute("Bump", info, { diving = true }, t, p) then
 				slideCheck = nil
 			end
@@ -1754,7 +1768,13 @@ local function processBlock(info, now)
 		end
 		t0 = math.min(now, math.max(from, now - Config.Net.MaxRewind + 0.05))
 	end
-	local t, p = HitLogic.blockAlong(path, t0, now, info.root, State.mySide, State.myStats(), reach)
+	if meta.underBlock and not reach then
+		return -- Vert Spikes: under the hands
+	end
+	-- (Sunshine lit: a bigger box; the Tyrant's Iron Fortress against us: a lower one)
+	reach = HitLogic.sunBox(reach, State.hasAbility("Sunshine") and State.sunOn(player, now))
+	local cut = HitLogic.blockCut(State.dictateOn(State.myTeam == "Home" and "Away" or "Home", now))
+	local t, p = HitLogic.blockAlong(path, t0, now, info.root, State.mySide, State.myStats(), reach, cut)
 	if t then
 		block.active = false
 		execute("Block", info, {}, t, p)
@@ -1845,7 +1865,7 @@ local function autoAssist(info, now)
 	for i = 1, 10 do
 		local t = now + i * 0.03
 		local p = BR.getPosition(t)
-		if HitLogic.receiveZone(info.root, p, State.mySide, stats, false) then
+		if HitLogic.receiveZone(info.root, p, State.mySide, stats, false, myDigReach()) then
 			stance = { t0 = now, lastCheck = nil, assist = true }
 			-- tells the server you're playing it, so a covering bot holds off
 			Net.get("ActionFX"):FireServer("Stance")

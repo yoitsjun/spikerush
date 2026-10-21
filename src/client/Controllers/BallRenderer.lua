@@ -542,6 +542,16 @@ local function applyStyle(meta)
 			sparkleOn = true
 			sparkles.Rate = 60
 			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), VECTOR)
+		elseif meta.tyrantSet then
+			-- the Tyrant's Set: a flat gold streak (brighter still under Absolute Toss)
+			local gold = Config.Abilities.Tyrant.Color
+			aura.Color = ColorSequence.new(Color3.fromRGB(255, 245, 200), gold)
+			aura.Enabled = true
+			glow.Color = gold
+			glow.Brightness = meta.absolute and 6 or 3.5
+			sparkleOn = true
+			sparkles.Rate = meta.absolute and 110 or 60
+			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), gold)
 		end
 	else
 		trail.Color = ColorSequence.new(Config.UI.Chalk)
@@ -558,6 +568,17 @@ local function applyStyle(meta)
 	if not attack then
 		core.Enabled = false
 		return
+	end
+	if meta.tyrant or meta.crown then
+		-- off the Tyrant's set, or his Crown Jump Serve: a gold streak over a dark core
+		local gold = Config.Abilities.Tyrant.Color
+		trail.Color = ColorSequence.new(Color3.fromRGB(255, 240, 180), gold)
+		aura.Color = ColorSequence.new(Color3.fromRGB(255, 235, 170), Color3.fromRGB(120, 70, 10))
+		aura.Enabled = true
+		glow.Color = gold
+		glow.Brightness = math.max(glow.Brightness, 4)
+		sparkleOn = true
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 250, 220), gold)
 	end
 	if meta.reaction then
 		-- off a charged set: the ball burns red
@@ -870,7 +891,10 @@ local function atABlock(ball, vel)
 							local wall = holds(model, "IronWall") and (model:GetAttribute("AbilityUntil_IronWall") or -1) >= serverNow
 							local bulwark = holds(model, "Ironclad") and HitLogic.ironLives(model:GetAttribute("IronLives")) > 0
 							local reach = HitLogic.wallReach(wall, bulwark, meta.hitType)
-							if (wall or bulwark or (blockingUntil[e.id] or 0) > clock) and HitLogic.blockBox(hrp.Position, ball, side, nil, reach) then
+							local under = meta.underBlock and not reach -- (Vert Spikes: under the hands)
+							reach = HitLogic.sunBox(reach, holds(model, "Sunshine") and (model:GetAttribute("SunshineUntil") or -1) >= serverNow)
+							local cut = HitLogic.blockCut((ReplicatedStorage:GetAttribute("DictateUntil_" .. (team == "Home" and "Away" or "Home")) or -1) >= serverNow)
+							if not under and (wall or bulwark or (blockingUntil[e.id] or 0) > clock) and HitLogic.blockBox(hrp.Position, ball, side, nil, reach, cut) then
 								return true
 							end
 						end
@@ -1008,7 +1032,7 @@ local function update(dt)
 		d.born = clock
 		d.part.CFrame = CFrame.new(pos)
 		-- a Chain Reaction set is charged: red dots
-		d.part.Color = (cur.meta.charged and Config.Abilities.ChainReaction.Color) or (cur.meta.featherSet and Config.Abilities.Featherfall.Color) or (cur.meta.vectorSet and VECTOR) or Config.UI.Chalk
+		d.part.Color = (cur.meta.charged and Config.Abilities.ChainReaction.Color) or (cur.meta.featherSet and Config.Abilities.Featherfall.Color) or (cur.meta.vectorSet and VECTOR) or (cur.meta.tyrantSet and Config.Abilities.Tyrant.Color) or Config.UI.Chalk
 		dotsAliveUntil = clock + 1.4
 	end
 	if clock < dotsAliveUntil then

@@ -142,6 +142,7 @@ Assets.Sounds = {
 	-- unless noted, starts and gains measured in a playtest)
 	CoronaFlare = "9114442751", -- Laith's Corona: "Fire Whoosh 2", a punchy torch burst
 	SunBlast = "9120704078", -- Laith's big Sundive hit: "Whoosh Combo Of Impacts Bys 5", huge
+	TyrantSnap = "9114427575", -- Dohwan's Emperor's Dictate: "Finger Snaps 1" (Pro Sound Effects)
 	SquallOn = "133639929570919", -- Haneul's Squall: TornadoBurst's "Wind Burst Heavy Shockwave"
 	SquallDash = "74818885604525", -- Tailwind's dash: "Woosh - Fast - Gust - Wind - Swing - Dash" (lorenzosaudiostash)
 	SquallGlass = "9114592102", -- the dash's trail of shattered glass (the owner: "playing that shatter glass effect"): PSE "Glass Breaks 11"
@@ -345,6 +346,8 @@ Assets.Images = {
 	AbilitySquall = "136720600263240", -- our own white tornado (assets/icon/AbilitySquall.png)
 	AbilityFeatherfall = "127397238348566", -- our own white feather (assets/icon/AbilityFeatherfall.png)
 	AbilityIronclad = "114616937430963", -- our own clawed shield (assets/icon/AbilityIronclad.png)
+	AbilityTyrant = "93788300108328", -- our own crown (assets/icon/AbilityTyrant.png, tools/generate_ability_icons.py)
+	AbilitySunshine = "123000364781875", -- our own sun (assets/icon/AbilitySunshine.png)
 	IroncladShield = "139926246453254", -- one of his shields, floating by him (assets/icon/IroncladShield.png)
 	-- the Almighty card's ornaments (Look.Divine), our own art (tools/generate_card_ornaments.py)
 	CardWingL = "99486627259504", -- gold wing out of the card's left (assets/card/almighty_wing_l.png)

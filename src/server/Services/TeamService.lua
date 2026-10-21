@@ -34,6 +34,7 @@ TeamService.timeouts = { Home = Config.Timeout.PerSet, Away = Config.Timeout.Per
 TeamService.benched = {} -- userId -> id of the AI standing in for them
 TeamService.idle = {} -- userId -> seconds without input while the ball was live
 TeamService.rallyUntil = { Home = -1, Away = -1 } -- Rally Cry: the team's boost lasts until then
+TeamService.dictateUntil = { Home = -1, Away = -1 } -- the Tyrant's Emperor's Dictate (his team's), until then
 TeamService.chain = { Home = 0, Away = 0 } -- Chain Reaction: the team's explosions this rally
 TeamService.event = nil -- the Halloween Match's run while one plays (MatchService): { hands, ai, ... }
 
@@ -358,6 +359,8 @@ function TeamService.applyToModel(e)
 			inst:SetAttribute("Static", has(e, "Thunder") and (e.static or 0) or nil)
 			inst:SetAttribute("Intimidation", has(e, "Ironclad") and (e.intimidation or 0) or nil)
 			inst:SetAttribute("IronCracks", has(e, "Ironclad") and (e.ironCracks or 0) or nil)
+			inst:SetAttribute("Grounded", e.grounded or nil)
+			inst:SetAttribute("SunshineUntil", has(e, "Sunshine") and (e.sunUntil or -1) or nil)
 			inst:SetAttribute("Break", (e.breakLevel or 0) > 0 and e.breakLevel or nil) -- (its own ability's)
 			-- each active's own window and cooldown (nil for one it doesn't play: none left from an
 			-- earlier match's card); the old single pair follows its first active
@@ -392,6 +395,10 @@ function TeamService.boostCtx(e, t)
 		lift = e.lift,
 		auto = e.isBot or nil,
 		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= now,
+		dictate = (TeamService.dictateUntil[e.team] or -1) >= now or nil,
+		dictated = (TeamService.dictateUntil[Court.other(e.team)] or -1) >= now or nil,
+		grounded = e.grounded or nil,
+		sunOn = TeamService.has(e, "Sunshine") and (e.sunUntil or -1) >= now or nil,
 		coronaOn = TeamService.has(e, "Corona") and TeamService.windowOf(e, "Corona") >= now or nil,
 		coronaStacks = TeamService.has(e, "Corona") and (e.coronaStacks or 0) or nil,
 		squallOn = TeamService.has(e, "Squall") and TeamService.windowOf(e, "Squall") >= now or nil,
@@ -440,6 +447,53 @@ function TeamService.rally(team, untilT)
 	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
 		if TeamService.rallyUntil[team] == untilT then
 			refreshBoosts(team)
+		end
+	end)
+end
+
+-- The Tyrant's Emperor's Dictate: `team` (his) steals from the other until `untilT` (shared clock),
+-- for every client's prediction and HUD too. Both teams' stats follow it now and when it ends.
+function TeamService.dictate(team, untilT)
+	untilT = math.max(untilT, TeamService.dictateUntil[team] or -1)
+	TeamService.dictateUntil[team] = untilT
+	ReplicatedStorage:SetAttribute("DictateUntil_" .. team, untilT)
+	refreshBoosts(team)
+	refreshBoosts(Court.other(team))
+	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
+		if TeamService.dictateUntil[team] == untilT then
+			refreshBoosts(team)
+			refreshBoosts(Court.other(team))
+		end
+	end)
+end
+
+-- Sovereign's Guard: `e` is grounded (less Jump and Attack) until its next attack, or not.
+function TeamService.setGrounded(e, on)
+	on = on or nil
+	if e.grounded == on then
+		return
+	end
+	e.grounded = on
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("Grounded", on)
+		end
+	end
+	refreshBoosts(e.team)
+end
+
+-- Sunshine: lit until `untilT` (shared clock; -1 off), for every client's prediction and effects.
+function TeamService.setSunshine(e, untilT)
+	e.sunUntil = untilT
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("SunshineUntil", untilT)
+		end
+	end
+	refreshBoosts(e.team)
+	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
+		if e.sunUntil == untilT then
+			refreshBoosts(e.team)
 		end
 	end)
 end
@@ -585,6 +639,12 @@ function TeamService.resetSetAbilities()
 		end
 		if TeamService.has(e, "Ironclad") then
 			TeamService.setIron(e, Config.Abilities.Ironclad.StartLives, 0) -- a new set: StartLives shields, the meter empty
+		end
+		if e.grounded then
+			TeamService.setGrounded(e, false)
+		end
+		if TeamService.has(e, "Sunshine") and (e.sunUntil or -1) >= 0 then
+			TeamService.setSunshine(e, -1)
 		end
 	end
 end
@@ -837,6 +897,8 @@ function TeamService.assign(size, plan, picks)
 	for _, team in ipairs(Config.TeamOrder) do
 		TeamService.rallyUntil[team] = -1
 		ReplicatedStorage:SetAttribute("RallyUntil_" .. team, -1)
+		TeamService.dictateUntil[team] = -1
+		ReplicatedStorage:SetAttribute("DictateUntil_" .. team, -1)
 		TeamService.fillStamina(team)
 	end
 	TeamService.resetTimeouts()
@@ -1066,6 +1128,8 @@ local function carryAbilityState(to, from)
 	to.static = from.static
 	to.coronaStacks = from.coronaStacks
 	to.ironLives, to.ironCracks, to.intimidation = from.ironLives, from.ironCracks, from.intimidation
+	to.grounded = from.grounded
+	to.sunUntil = from.sunUntil
 end
 
 -- An AI that plays `e`'s character (same build, abilities, role, slot and stat line) in the

@@ -61,6 +61,14 @@ local function has(e, name)
 	return reg.TeamService.has(e, name)
 end
 
+-- Sunshine (Haesol): her receive reach, wider still while it's lit (HitLogic.digReach); nil for anyone else.
+local function digReach(e, now)
+	if not has(e, "Sunshine") then
+		return nil
+	end
+	return HitLogic.digReach({ ability = "Sunshine", sunOn = (e.sunUntil or -1) >= now })
+end
+
 local function on(e, name, now)
 	return reg.TeamService.windowOf(e, name) >= now
 end
@@ -335,10 +343,12 @@ local function planReceive(team, now, exclude)
 		end
 	end
 	-- receive timing: stronger bots press at the perfect moment more often
+	-- (Sunshine: her window is far wider, so her perfect timing lands anywhere in it)
+	local pMin, pMax = HitLogic.perfectStance({ ability = b.entity.ability, abilities = b.entity.abilitySet })
 	if b.rng:NextNumber() < tierPair(b, B.PerfectReceiveChance) then
-		b.stanceAge = H.PerfectStanceMin + b.rng:NextNumber() * (H.PerfectStanceMax - H.PerfectStanceMin)
+		b.stanceAge = pMin + b.rng:NextNumber() * (pMax - pMin)
 	else
-		b.stanceAge = H.PerfectStanceMax + 0.05 + b.rng:NextNumber() * tierPair(b, B.SloppyStance)
+		b.stanceAge = pMax + 0.05 + b.rng:NextNumber() * tierPair(b, B.SloppyStance)
 	end
 end
 
@@ -920,7 +930,7 @@ end
 -- the rally; Corona's penalty after makes it pop his less often). Each one it plays (its own, then
 -- its cards in hand order) rolls its own chance once a serve, on its own cooldown, so two can be
 -- on at once.
-local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance", Thunder = "ThunderChance", Feral = "FeralChance" }
+local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance", Thunder = "ThunderChance", Feral = "FeralChance", Tyrant = "TyrantChance" }
 local function rallyCry(b, now)
 	local e = b.entity
 	if playerLed(e.team) then
@@ -957,7 +967,13 @@ local function blockCheck(b, now, root, side)
 	local t, p = sweep(b, BS.path, now, function(pos, vel)
 		local e = b.entity
 		local reach = HitLogic.wallReach(ironWallOn(e, now), bulwarkUp(e) and b.task == "Block", last.hitType)
-		return vel.Z * side > 0 and (HitLogic.blockBox(root, pos, side, e.charStats, reach))
+		if last.underBlock and not reach then
+			return false -- Vert Spikes: under the hands
+		end
+		-- (Sunshine lit: a bigger box; the Tyrant's Iron Fortress against this team: lower)
+		reach = HitLogic.sunBox(reach, has(e, "Sunshine") and (e.sunUntil or -1) >= now)
+		local cut = HitLogic.blockCut((reg.TeamService.dictateUntil[Court.other(e.team)] or -1) >= now)
+		return vel.Z * side > 0 and (HitLogic.blockBox(root, pos, side, e.charStats, reach, cut))
 	end)
 	if t then
 		act(b, "Block", p, { t = t })
@@ -1138,8 +1154,9 @@ local function updateBot(b, now)
 
 	if task == "Receive" or task == "Free" then
 		local sliding = b.slideUntil ~= nil
+		local dig = digReach(e, now)
 		local t, p = sweep(b, path, now, function(pos, vel)
-			local ok = HitLogic.receiveZone(root, pos, side, e.charStats, sliding)
+			local ok = HitLogic.receiveZone(root, pos, side, e.charStats, sliding, dig)
 			return ok and vel.Y < 0 and pos.Y - root.Y <= Z.ReceiveIdealY + 0.6
 		end)
 		if t then

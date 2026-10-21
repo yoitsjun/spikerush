@@ -245,10 +245,16 @@ function HitService.process(entity, input, opts)
 		forceQuality = opts.forceQuality,
 		ironWall = action == "Block" and armed("IronWall") or nil,
 		ironclad = TS.has(entity, "Ironclad") and HitLogic.ironLives(entity.ironLives) > 0 or nil,
+		ironCracks = TS.has(entity, "Ironclad") and (entity.ironCracks or 0) or nil, -- (the stop that shatters it pops up)
 		breakLevel = entity.breakLevel,
 		awakened = TS.has(entity, "Ironclad") and HitLogic.ironLives(entity.ironLives) == 0 or nil,
 		enemyPoints = (MS.scores or {})[Court.other(team)] or 0,
 		teamBoost = (TS.rallyUntil[team] or -1) >= input.t - 0.05 or nil,
+		dictate = (TS.dictateUntil[team] or -1) >= input.t - 0.05 or nil, -- (the Tyrant's Stat Hijack, his team)
+		dictated = (TS.dictateUntil[Court.other(team)] or -1) >= input.t - 0.05 or nil, -- (and against this team)
+		tyrantOn = armed("Tyrant"), -- (Absolute Toss: his sets while it's on)
+		grounded = entity.grounded or nil, -- (Sovereign's Guard)
+		sunOn = TS.has(entity, "Sunshine") and (entity.sunUntil or -1) >= input.t - 0.05 or nil,
 		counter = TS.has(entity, "Counter") and (entity.counter or 0) or nil,
 		lift = TS.has(entity, "Skyward") and entity.lift or nil,
 		turnabout = armed("Turnabout"),
@@ -325,6 +331,25 @@ function HitService.process(entity, input, opts)
 				TS.setIron(entity, lives, m, entity.ironCracks)
 			end
 		end
+	end
+	if meta.sunshine then
+		-- Sunshine: a perfect dig of hers lights it (again from now)
+		local lvl = entity.ability == "Sunshine" and entity.breakLevel or 0
+		TS.setSunshine(entity, now + Breakthrough.ab("Sunshine", "SunDuration", lvl))
+	end
+	if meta.hitType == "Spike" or meta.hitType == "JumpServe" then
+		-- Sovereign's Guard: an attack faster than GuardKmh at a team with the Tyrant grounds its
+		-- hitter for their next attack; this attack spent any grounding it had
+		local guarded = false
+		if (meta.kmh or 0) > Config.Abilities.Tyrant.GuardKmh then
+			for _, other in ipairs(TS.members(Court.other(team))) do
+				if TS.has(other, "Tyrant") then
+					guarded = true
+					break
+				end
+			end
+		end
+		TS.setGrounded(entity, guarded)
 	end
 	if meta.counterGain then
 		TS.setCounter(entity, math.min(100, (entity.counter or 0) + meta.counterGain))
@@ -586,6 +611,8 @@ local function startAbility(entity, name, def, now)
 	HitService.setAbilityWindow(entity, name, untilT)
 	if name == "RallyCry" then
 		TS.rally(entity.team, untilT)
+	elseif name == "Tyrant" then
+		TS.dictate(entity.team, untilT) -- Emperor's Dictate: both teams' stats, and the HUDs
 	elseif name == "Corona" then
 		-- the flare, and one more use for the penalty once it's off
 		TS.setCorona(entity, untilT, math.min(def.MaxStacks, (entity.coronaStacks or 0) + 1))

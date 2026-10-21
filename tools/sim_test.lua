@@ -490,7 +490,7 @@ do
 	local function block(kmh, opts)
 		opts = opts or {}
 		local last = { hitType = opts.hitType or "Spike", team = "Home", kmh = kmh, quality = opts.quality, pierce = opts.pierce, breakAtk = opts.breakAtk }
-		local c = ctx({ ability = "Ironclad", stats = taesan, lastHit = last, ironclad = opts.lives ~= 0 or nil, ironLives = opts.lives or 3, ballVel = vec(0, -8, side * 30), seq = opts.seq or 42 })
+		local c = ctx({ ability = "Ironclad", stats = taesan, lastHit = last, ironclad = opts.lives ~= 0 or nil, ironLives = opts.lives or 3, ironCracks = opts.cracks, ballVel = vec(0, -8, side * 30), seq = opts.seq or 42 })
 		return HitLogic.compute({ action = "Block", t = 0, root = opts.root or broot, ball = opts.ball or palms, vy = 0, grounded = opts.root ~= nil }, c)
 	end
 	local function walled(ok, r)
@@ -498,7 +498,7 @@ do
 	end
 	local allHeld = true
 	for seq = 1, 40 do
-		allHeld = allHeld and walled(block(140, { seq = seq })) and walled(block(260, { seq = seq })) and walled(block(150, { seq = seq, quality = 0.95 }))
+		allHeld = allHeld and walled(block(140, { seq = seq })) and walled(block(245, { seq = seq })) and walled(block(150, { seq = seq, quality = 0.95 }))
 			and walled(block(130, { seq = seq, pierce = true })) and walled(block(240, { seq = seq, breakAtk = 999 }))
 	end
 	local okW, held = block(140)
@@ -532,8 +532,24 @@ do
 	check(allHeld and okW and tipOk and highOk and standOk and reachOk and not okBare
 		and l1 == 3 and c1 == 1 and l2 == 2 and c2 == 0 and stops == 6 and l4 == 3 and c4 == 1 and l5 == 0 and IR.CracksToBreak == 2
 		and HitLogic.wallReach(false, true, "Feint") == true and IW.ReachUp > 10,
-		"Bulwark is Iron Wall for 3 lives on a block jump (not standing): every attack shut down (260 km/h, clean, piercing, smashing, any height) but feints (they float over; a touch is soft); a stop cracks a shield, the next shatters it: 6 stops",
+		"Bulwark is Iron Wall for 3 lives on a block jump (not standing): every attack shut down (245 km/h, clean, piercing, smashing, any height) but feints (they float over; a touch is soft); a stop cracks a shield, the next shatters it: 6 stops",
 		string.format("stops: 3 -> %d (%d crack) -> %d (%d); 3 shields last %d stops", l1, c1, l2, c2, stops))
+	-- the stop that shatters a shield pops straight up on his side (the owner, 2026-10-21: "when his
+	-- shield is shattered it pops up. also 250+ onehits"): a cracked shield's next stop, or a 250+
+	-- spike on a whole one; the shield goes at once
+	local function popped(ok, r)
+		return ok and r.meta.outcome == "Soft" and r.meta.shatter and r.meta.bulwark and r.launch.v.Y > 0 and r.launch.v.Z * side >= 0
+			and r.launch.p.Z * side > 0
+	end
+	local popOk = true
+	for seq = 1, 20 do
+		popOk = popOk and popped(block(140, { seq = seq, cracks = 1 })) and popped(block(260, { seq = seq })) and walled(block(240, { seq = seq }))
+	end
+	local _, big = block(260)
+	local l6, c6 = after(3, 0, big.meta)
+	check(popOk and l6 == 2 and c6 == 0 and IR.ShatterKmh == 250,
+		"Bulwark: the stop that shatters a shield (its second, or a 250+ km/h spike at once) pops straight up on his side; the rest are shut down",
+		string.format("260 km/h on a whole shield: %d shields, %d cracks", l6, c6))
 	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 10 and IR.MeterBonus > 0 and IR.StartLives == 1,
 		"Bulwark: a set starts with 1 shield of 3; below 3, every touch fills Intimidation 10% (a kill or a stuff more)")
 	-- Forge (awakened): a jump before the set charges up to about 215 km/h maxed; after the set,
@@ -1108,7 +1124,7 @@ do
 	local tallestSE, shortestMB, notes = 0, 999, {}
 	local want = {
 		WS = { Adrenaline = true, RisingSun = true, Counter = true, Plunge = true, Skyward = true },
-		MB = { IronWall = true, RallyCry = true },
+		MB = { IronWall = true, RallyCry = true, Sunshine = true },
 		SE = { ChainReaction = true, Vector = true, Turnabout = true, Featherfall = true },
 	}
 	for _, c in ipairs(Roster) do
@@ -1119,7 +1135,7 @@ do
 		end
 		if c.Tier == "S+" then
 			okAbility = okAbility and ((c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint" or c.Ability == "Corona" or c.Ability == "Squall"))
-				or (c.Role == "MB" and c.Ability == "Ironclad"))
+				or (c.Role == "MB" and c.Ability == "Ironclad") or (c.Role == "SE" and c.Ability == "Tyrant"))
 		elseif c.Tier == "S" then
 			okAbility = okAbility and want[c.Role][c.Ability or ""] == true and Config.Abilities[c.Ability].Role == c.Role
 		else
@@ -1140,7 +1156,7 @@ do
 		end
 	end
 	check(okLimits and #Roster >= 30, "every roster character is valid and unique", #Roster .. " characters")
-	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap, Zero Point, Corona or Squall (the S+ middle Ironclad), S characters one of their role's abilities, the rest none")
+	check(okAbility, "abilities: S+ wing spikers have Thunder, Azure, Feral Leap, Zero Point, Corona or Squall (the S+ middle Ironclad, the S+ setter The Tyrant), S characters one of their role's abilities, the rest none")
 	local topId, topAtk, nextAtk = nil, 0, 0
 	for _, c in ipairs(Roster) do
 		if c.Attack > topAtk then
@@ -4016,6 +4032,200 @@ do
 		end
 	end
 	check(n > 20 and #missing == 0, "every profile field the loader reads is saved", n .. " fields; missing: " .. table.concat(missing, ", "))
+end
+
+print("== the Tyrant (Dohwan) ==")
+do
+	local TY = Config.Abilities.Tyrant
+	local dohwan = Characters.derive(Characters.fromRoster(Roster.get("dohwan"), "max"))
+	local sroot = vec(0, GROUND, side * H.SetterDepth)
+	local sball = vec(0, sroot.Y + Z.SetIdealY, sroot.Z)
+	local function set(ability, extraCtx, setType)
+		local c = { touchNumber = 2, stats = dohwan, ability = ability, lastHit = { team = "Away", hitType = "Bump" } }
+		for k, v in pairs(extraCtx or {}) do c[k] = v end
+		return HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = sball, grounded = true, setType = setType or "Open" }, ctx(c))
+	end
+	-- Tyrant's Set: flat and fast (a lower top, down through the hitting height sooner)
+	local function topAndArrive(path)
+		local top, arriveT = -1, nil
+		for i = 0, 400 do
+			local tt = i * 0.01
+			local p, v = BallPhysics.positionAt(path, tt), BallPhysics.velocityAt(path, tt)
+			top = math.max(top, p.Y)
+			if not arriveT and v.Y < 0 and p.Y <= H.SetArriveY then
+				arriveT = tt
+			end
+		end
+		return top, arriveT or 99
+	end
+	local okP, plain = set(nil)
+	local okT, ty = set("Tyrant")
+	local okQ, tq = set("Tyrant", nil, "Quick")
+	local pTop, pT = topAndArrive(BallPhysics.buildPath(plain.launch))
+	local tTop, tT = topAndArrive(BallPhysics.buildPath(ty.launch))
+	check(okP and okT and okQ and ty.meta.tyrantSet and tq.meta.tyrantSet and not ty.meta.absolute and tTop < pTop - 0.9 * SPM and tT < pT * 0.75,
+		"Tyrant's Set: flat and fast (a lower top, down through the hitting height far sooner); his quicks are his too",
+		string.format("top %.1f vs %.1f studs, down at %.2f vs %.2f s", tTop, pTop, tT, pT))
+	-- (a flat set: about a metre lower at the top)
+	-- the spike off it: SetMul faster, Armor Break; Absolute Toss (Dictate on): full power whatever the timing
+	local sr = apexRoot(SP, 3.5 * K)
+	local tset = { team = "Away", hitType = "Set", tyrantSet = true }
+	local aset = { team = "Away", hitType = "Set", tyrantSet = true, absolute = true }
+	local pset = { team = "Away", hitType = "Set" }
+	local _, base = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy), { lastHit = pset })
+	local _, boosted = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy), { lastHit = tset })
+	local low = sr - vec(0, 2.6, 0)
+	local _, sloppy = spike(low, ballAt(low, 1.6, 1.1), { lastHit = pset })
+	local _, absolute = spike(low, ballAt(low, 1.6, 1.1), { lastHit = aset })
+	local ratio = boosted.meta.kmh / base.meta.kmh
+	check(math.abs(ratio - TY.SetMul) < 0.01 and boosted.meta.armorBreak and boosted.meta.tyrant,
+		"the spike off his set: 1.3x as fast, with Armor Break", string.format("%.1f -> %.1f km/h (x%.3f)", base.meta.kmh, boosted.meta.kmh, ratio))
+	check(absolute.meta.absolute and absolute.meta.kmh > sloppy.meta.kmh * 1.25 and math.abs(absolute.meta.kmh - base.meta.kmh * TY.SetMul) / (base.meta.kmh * TY.SetMul) < 0.08,
+		"Absolute Toss: a mistimed spike off his set during Emperor's Dictate hits at full power",
+		string.format("mistimed %.1f km/h, with Absolute Toss %.1f (a clean one %.1f)", sloppy.meta.kmh, absolute.meta.kmh, boosted.meta.kmh))
+	-- Armor Break: an ordinary block never stuffs it (Iron Wall still does)
+	local broot = vec(0, GROUND + Characters.jumpHeight(SP, GROUND) * 0.8, side * 1.2)
+	local top = broot.Y + Z.BlockReachUp + Config.Ball.Radius
+	local palms = vec(0, top - 1.5, side * 0.6)
+	local function block(lastHit, extraCtx, ball)
+		local c = { ability = nil, stats = SP, lastHit = lastHit, ballVel = vec(0, -8, side * 30) }
+		for k, v in pairs(extraCtx or {}) do c[k] = v end
+		return HitLogic.compute({ action = "Block", t = 0, root = broot, ball = ball or palms, vy = 0, grounded = false }, ctx(c))
+	end
+	local stuffedPlain, stuffedArmor, wallArmor = 0, 0, true
+	for seq = 1, 40 do
+		local okA, rA = block({ team = "Home", hitType = "Spike", kmh = 120 }, { seq = seq, forceQuality = 1 })
+		local okB, rB = block({ team = "Home", hitType = "Spike", kmh = 120, armorBreak = true }, { seq = seq, forceQuality = 1 })
+		local okC, rC = block({ team = "Home", hitType = "Spike", kmh = 120, armorBreak = true }, { seq = seq, ironWall = true })
+		stuffedPlain = stuffedPlain + ((okA and rA.meta.outcome == "Stuff") and 1 or 0)
+		stuffedArmor = stuffedArmor + ((okB and rB.meta.outcome == "Stuff") and 1 or 0)
+		wallArmor = wallArmor and okC and rC.meta.outcome == "Stuff"
+	end
+	check(stuffedPlain > 30 and stuffedArmor == 0 and wallArmor, "Armor Break: a clean block stuffs a plain spike, never one off his set (Iron Wall still does)",
+		string.format("stuffed %d / 40 plain, %d / 40 armor break", stuffedPlain, stuffedArmor))
+	-- Iron Fortress: their block reaches half as high over the tape
+	local highBall = vec(0, top - 0.4, side * 0.6)
+	local okHigh = block({ team = "Home", hitType = "Spike", kmh = 120 }, { seq = 3 }, highBall)
+	local okCut = block({ team = "Home", hitType = "Spike", kmh = 120 }, { seq = 3, dictated = true }, highBall)
+	check(okHigh and not okCut and HitLogic.blockCut(true) == TY.BlockCut and HitLogic.blockCut(nil) == nil,
+		"Iron Fortress: a ball at the top of the hands is blocked, but not with his Emperor's Dictate on against them")
+	-- Stat Hijack: his team +12/+10/+10, theirs -15% Attack, Jump, Speed; Sovereign's Guard -10% Jump and Attack
+	local mine = HitLogic.effectiveStats(SP, nil, nil, { dictate = true })
+	local theirs = HitLogic.effectiveStats(SP, nil, nil, { dictated = true })
+	local grounded = HitLogic.effectiveStats(SP, nil, nil, { grounded = true })
+	local function near(a, b) return math.abs(a - b) <= 1 end
+	check(mine.Attack == SP.Attack + 12 and mine.Jump == SP.Jump + 10 and mine.Speed == SP.Speed + 10 and mine.Defense == SP.Defense
+		and near(theirs.Attack, SP.Attack * 0.85) and near(theirs.Jump, SP.Jump * 0.85) and near(theirs.Speed, SP.Speed * 0.85) and theirs.Defense == SP.Defense
+		and near(grounded.Attack, SP.Attack * 0.9) and near(grounded.Jump, SP.Jump * 0.9) and grounded.Speed == SP.Speed,
+		"Stat Hijack: his team +12 Attack, +10 Jump, +10 Speed; theirs 15% less Attack, Jump and Speed; Grounded: 10% less Jump and Attack",
+		string.format("ATK %d / %d / %d (from %d)", mine.Attack, theirs.Attack, grounded.Attack, SP.Attack))
+	-- Crown Jump Serve: steeper (more topspin), double drain, a low and wild pass and set
+	local sv = vec(0, GROUND + 6.5, side * (C.SideDepth + 1))
+	local svBall = ballAt(sv, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local function serve(ability)
+		return HitLogic.compute({ action = "Serve", t = 0, root = sv, ball = svBall, vy = 0, grounded = false },
+			ctx({ ability = ability, stats = dohwan, touchNumber = 1, lastHit = { team = "Away", hitType = "Toss", id = "x" } }))
+	end
+	local okS1, plainServe = serve(nil)
+	local okS2, crown = serve("Tyrant")
+	check(okS1 and okS2 and crown.meta.crown and crown.launch.a.Y < plainServe.launch.a.Y * 1.3,
+		"Crown Jump Serve: heavy topspin, it curls down steeply",
+		string.format("gravity %.0f vs %.0f", -crown.launch.a.Y, -plainServe.launch.a.Y))
+	local rroot = vec(0, GROUND, side * 18 * K)
+	local rball = vec(0, rroot.Y + Z.ReceiveIdealY, rroot.Z - side * Z.ReceiveForward)
+	local function recv(last)
+		return HitLogic.compute({ action = "Bump", t = 0, root = rroot, ball = rball, vy = 0, grounded = true, stanceAge = 0.5 },
+			ctx({ ballVel = vec(0, -20 * K, side * 90 * K), lastHit = last, touchNumber = 1, stamina = { value = 200, max = 200 }, stats = Characters.stats("S+", "SE") }))
+	end
+	local _, r1 = recv({ team = "Home", hitType = "JumpServe", kmh = 110 })
+	local _, r2 = recv({ team = "Home", hitType = "JumpServe", kmh = 110, crown = true })
+	check(r2.meta.crowned and math.abs(r2.meta.drain / r1.meta.drain - TY.CrownDrainMul) < 0.01 and r2.meta.quality < r1.meta.quality,
+		"Crown Jump Serve: double stamina on the receiver, a worse pass",
+		string.format("drain %.1f vs %.1f, pass %.2f vs %.2f", r2.meta.drain, r1.meta.drain, r2.meta.quality, r1.meta.quality))
+	local function setOff(pass, seq)
+		local c = { touchNumber = 2, stats = dohwan, lastHit = pass, seq = seq }
+		return HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = sball, grounded = true, setType = "Open" }, ctx(c))
+	end
+	local spreadP, spreadC, lower = 0, 0, true
+	for seq = 1, 30 do
+		local _, a = setOff({ team = "Away", hitType = "Bump" }, seq)
+		local _, b = setOff({ team = "Away", hitType = "Bump", crowned = true }, seq)
+		local pa, pb = BallPhysics.buildPath(a.launch), BallPhysics.buildPath(b.launch)
+		spreadP = spreadP + math.abs(pa.landing.pos.Z - side * Court.attackDepth("Open"))
+		spreadC = spreadC + math.abs(pb.landing.pos.Z - side * Court.attackDepth("Open"))
+		local ta = topAndArrive(pa)
+		local tb = topAndArrive(pb)
+		lower = lower and tb < ta and b.meta.crowned
+	end
+	check(spreadC > spreadP * 1.4 and lower, "the set off a Crown-wrecked pass comes down lower and strays further",
+		string.format("average miss %.1f vs %.1f studs", spreadC / 30, spreadP / 30))
+	check(require("Bios").dohwan ~= nil and Roster.get("dohwan").Tier == "S+" and Roster.get("dohwan").Role == "SE" and TY.Cooldown == 32 and TY.Duration == 8, "Dohwan: S+ setter, Emperor's Dictate 8 s on a 32 s cooldown")
+end
+
+print("== Sunshine (Haesol) ==")
+do
+	local SU = Config.Abilities.Sunshine
+	local haesol = Characters.derive(Characters.fromRoster(Roster.get("haesol"), "max"))
+	local rroot = vec(0, GROUND, side * 18 * K)
+	local function dig(ability, stanceAge, ball, extraCtx)
+		local c = { ballVel = vec(0, -30 * K, side * 110 * K), lastHit = { team = "Home", hitType = "Spike", kmh = 140 }, touchNumber = 1,
+			stamina = { value = 200, max = 200 }, stats = haesol, ability = ability }
+		for k, v in pairs(extraCtx or {}) do c[k] = v end
+		return HitLogic.compute({ action = "Bump", t = 0, root = rroot, ball = ball or vec(0, rroot.Y + Z.ReceiveIdealY, rroot.Z - side * Z.ReceiveForward), vy = 0, grounded = true, stanceAge = stanceAge }, ctx(c))
+	end
+	-- a far wider perfect window, and a perfect dig lights Sunshine
+	local _, early = dig(nil, 0.9)
+	local _, hers = dig("Sunshine", 0.9)
+	check(not early.meta.perfect and hers.meta.perfect and hers.meta.sunshine and hers.meta.dig, "Sunshine: a dig pressed 0.9 s early is perfect for her (not for anyone else) and lights Sunshine",
+		string.format("anyone %.2f, her %.2f", early.meta.quality, hers.meta.quality))
+	-- her digs reach 33% wider
+	local wide = vec(0, rroot.Y + Z.ReceiveIdealY, rroot.Z - side * (Z.ReceiveForward + Z.ReceiveReach * haesol.Reach * 1.2 + 0.3))
+	local okPlain = dig(nil, 0.2, wide)
+	local okHers = dig("Sunshine", 0.2, wide)
+	check(not okPlain and okHers, "her digs reach 33% wider than anyone's with her height")
+	-- her dig is played with +70 Defense and +18 Speed; lit, every stat +10
+	local digStats = HitLogic.effectiveStats(haesol, "Sunshine", nil, { digging = true })
+	local lit = HitLogic.effectiveStats(haesol, "Sunshine", nil, { sunOn = true })
+	check(digStats.Defense == math.min(Config.Stats.Max, haesol.Defense + 70) and digStats.Speed == haesol.Speed + 18
+		and lit.Attack == haesol.Attack + 10 and lit.Jump == haesol.Jump + 10 and lit.Defense == math.min(Config.Stats.Max, haesol.Defense + 10) and lit.Speed == haesol.Speed + 10,
+		"her dig: +70 Defense, +18 Speed; Sunshine lit: +10 to every stat")
+	-- lit, a bigger block box
+	local broot = vec(0, GROUND + 2.4, side * 0.9)
+	local over = vec(0, broot.Y + Z.BlockReachUp + 0.9, side * 0.2)
+	local function block(sunOn)
+		return HitLogic.compute({ action = "Block", t = 0, root = broot, ball = over, vy = 0, grounded = false },
+			ctx({ ability = "Sunshine", stats = haesol, sunOn = sunOn, lastHit = { team = "Home", hitType = "Spike", kmh = 120 }, ballVel = vec(0, -8, side * 30) }))
+	end
+	check(not block(nil) and block(true), "Sunshine lit: her block reaches higher")
+	-- Vert Spikes: shorter and steeper, harder the steeper, the steepest under the block
+	local sr = apexRoot(haesol, 1.6 * K)
+	local _, plainS = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = haesol })
+	local _, vert = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = haesol, ability = "Sunshine" })
+	local pP, pV = BallPhysics.buildPath(plainS.launch), BallPhysics.buildPath(vert.launch)
+	check(vert.meta.vert and vert.meta.vert > 0 and oppDepth(pV) < oppDepth(pP) and vert.meta.kmh > plainS.meta.kmh and Court.inBounds(pV.landing.pos) and not pV.flags.netTouch,
+		"Vert Spikes: her spike lands shorter and harder, and in", string.format("%.1f vs %.1f studs deep, %.1f vs %.1f km/h (+%.1f%%)", oppDepth(pV), oppDepth(pP), vert.meta.kmh, plainS.meta.kmh, vert.meta.vert * 100))
+	local unders, total = 0, 0
+	for i = 0, 8 do
+		local r = apexRoot(haesol, (0.5 + i * 0.5) * SPM)
+		local okV, rv = spike(r, ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = haesol, ability = "Sunshine", seq = 10 + i })
+		if okV then
+			total = total + 1
+			unders = unders + (rv.meta.underBlock and 1 or 0)
+		end
+	end
+	local broot2 = vec(0, GROUND + Characters.jumpHeight(SP, GROUND) * 0.8, side * 1.2)
+	local bpalms = vec(0, broot2.Y + Z.BlockReachUp + Config.Ball.Radius - 1.5, side * 0.6)
+	local function blockIt(last, extraCtx)
+		local c = { stats = SP, lastHit = last, ballVel = vec(0, -8, side * 30), seq = 5 }
+		for k, v in pairs(extraCtx or {}) do c[k] = v end
+		return HitLogic.compute({ action = "Block", t = 0, root = broot2, ball = bpalms, vy = 0, grounded = false }, ctx(c))
+	end
+	local okU, why = blockIt({ team = "Home", hitType = "Spike", kmh = 130, underBlock = true })
+	local okW, rW = blockIt({ team = "Home", hitType = "Spike", kmh = 130, underBlock = true }, { ironWall = true })
+	check(unders > 0 and unders < total and not okU and why == "under" and okW and rW.meta.outcome == "Stuff",
+		"Vert Spikes: her steepest spikes (close to the net) slip under the block; Iron Wall still stops them",
+		string.format("%d of %d spikes from 0.5 to 4.5 m off the net go under", unders, total))
+	check(require("Bios").haesol ~= nil and Roster.get("haesol").Tier == "S" and Roster.get("haesol").Role == "MB" and SU.PerfectStance[2] > H.PerfectStanceMax, "Haesol: S middle blocker")
 end
 
 print("== determinism ==")

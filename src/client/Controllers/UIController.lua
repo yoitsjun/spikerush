@@ -948,13 +948,16 @@ local function buildAbility()
 		b.minis = {} -- (the AI takes no ability cards, so these stay empty in a Halloween Match)
 		foes[i] = b
 	end
-	-- a Rally Cry on your team: a gold tag under your badges while it lasts
+	-- a Rally Cry on your team: a gold tag under your badges while it lasts (and the Tyrant's
+	-- Emperor's Dictate, either side's, and Sovereign's Guard grounding you: a line each)
 	local rally = label(left, {
 		Text = "",
 		Font = Enum.Font.GothamBlack,
 		TextSize = 13,
 		TextColor3 = Config.Abilities.RallyCry.Color,
-		Size = UDim2.fromOffset(360, 18),
+		RichText = true,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Size = UDim2.fromOffset(360, 54),
 		Position = UDim2.fromOffset(0, BADGE_BIG + 38),
 		Visible = false,
 	})
@@ -1114,6 +1117,17 @@ local function badgeState(ability, id, model, team, mine)
 			local m = (inst and inst:GetAttribute("Intimidation")) or 0
 			p, hot = math.clamp(m / 100, 0, 1), true
 			sub = string.format("AWAKENED %d%%", m)
+		end
+	elseif ability == "Sunshine" then
+		-- lit: the seconds left, the ring emptying
+		local inst = mine and player or model
+		local left = ((inst and inst:GetAttribute("SunshineUntil")) or -1) - Util.now()
+		if left > 0 then
+			p, hot = math.clamp(left / def.SunDuration, 0, 1), true
+			sub = string.format("LIT %d s", math.ceil(left))
+		else
+			p, dim = 1, true
+			sub = ""
 		end
 	elseif ability == "Counter" then
 		local c = (mine and player:GetAttribute("Counter")) or (model and model:GetAttribute("Counter")) or 0
@@ -1401,12 +1415,33 @@ local function updateAbility()
 		rallyY = math.max(rallyY, miniY + BADGE_MINI + 8)
 	end
 	B.rally.Position = UDim2.fromOffset(0, rallyY)
-	leftH = math.max(leftH, rallyY + 22)
+	leftH = math.max(leftH, rallyY + 58)
 	B.left.Size, B.right.Size = UDim2.fromOffset(leftW, leftH), UDim2.fromOffset(rightW, rightH)
-	local rallyLeft = (ReplicatedStorage:GetAttribute("RallyUntil_" .. tostring(State.myTeam)) or -1) - Util.now()
-	B.rally.Visible = rallyLeft > 0
+	local now = Util.now()
+	local lines = {}
+	local function line(color, text)
+		table.insert(lines, string.format('<font color="#%s">%s</font>', color:ToHex(), text))
+	end
+	local rallyLeft = (ReplicatedStorage:GetAttribute("RallyUntil_" .. tostring(State.myTeam)) or -1) - now
+	if rallyLeft > 0 then
+		line(Config.Abilities.RallyCry.Color, string.format("RALLY CRY  +%d%% all stats  %d s", Config.Abilities.RallyCry.Boost * 100, math.ceil(rallyLeft)))
+	end
+	local TY = Config.Abilities.Tyrant
+	local foe = State.myTeam == "Home" and "Away" or "Home"
+	local ours = (ReplicatedStorage:GetAttribute("DictateUntil_" .. tostring(State.myTeam)) or -1) - now
+	local theirs = (ReplicatedStorage:GetAttribute("DictateUntil_" .. foe) or -1) - now
+	if ours > 0 then
+		line(TY.Color, string.format("EMPEROR'S DICTATE  +%d ATK +%d JMP +%d SPD  %d s", TY.TeamAdd.Attack, TY.TeamAdd.Jump, TY.TeamAdd.Speed, math.ceil(ours)))
+	end
+	if theirs > 0 then
+		line(Color3.fromRGB(255, 120, 90), string.format("DICTATED  -%d%% ATK JMP SPD, block halved  %d s", TY.Steal * 100, math.ceil(theirs)))
+	end
+	if player:GetAttribute("Grounded") then
+		line(Color3.fromRGB(200, 170, 120), string.format("GROUNDED  -%d%% Jump and Attack next attack", TY.GroundedCut * 100))
+	end
+	B.rally.Visible = #lines > 0
 	if B.rally.Visible then
-		B.rally.Text = string.format("RALLY CRY  +%d%% all stats  %d s", Config.Abilities.RallyCry.Boost * 100, math.ceil(rallyLeft))
+		B.rally.Text = table.concat(lines, "\n")
 	end
 end
 

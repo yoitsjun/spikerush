@@ -55,6 +55,8 @@ local ZERO = Config.Abilities.ZeroPoint
 local SKY = Config.Abilities.Skyward
 local CORONA = Config.Abilities.Corona
 local SQUALL = Config.Abilities.Squall
+local TYRANT = Config.Abilities.Tyrant
+local SUNSHINE = Config.Abilities.Sunshine
 
 -- An ability's setting grown by breakthroughs (Config.Breakthrough): `level` is the character's
 -- (ctx.breakLevel, for its own ability only: levelOf), or for a setter's ability read on the spike,
@@ -327,8 +329,8 @@ function HitLogic.heightQuality(ballY, stats, groundY)
 	return clamp((ballY - standing) / (top - standing), 0, 1)
 end
 
-function HitLogic.receiveZone(root, ball, side, stats, sliding)
-	local reachMul = (stats and stats.Reach) or 1
+function HitLogic.receiveZone(root, ball, side, stats, sliding, mul)
+	local reachMul = ((stats and stats.Reach) or 1) * (mul or 1) -- (mul: Sunshine's wider digs)
 	local reach = Z.ReceiveReach * reachMul
 	local minY, maxY = Z.ReceiveMinY, Z.ReceiveMaxY
 	if sliding then
@@ -379,9 +381,55 @@ function HitLogic.wallReach(ironWallUp, bulwark, hitType)
 	return nil
 end
 
+-- Sunshine lit (Haesol): her block box grows by SunBox, on top of any other extras (Iron Wall's
+-- whole wall already covers it).
+function HitLogic.sunBox(iron, sunOn)
+	if not sunOn then
+		return iron
+	end
+	if iron == true then
+		return true
+	end
+	local out = {}
+	for k, v in pairs(SUNSHINE.SunBox) do
+		out[k] = v + (type(iron) == "table" and iron[k] or 0)
+	end
+	if type(iron) == "table" then
+		for k, v in pairs(iron) do
+			if out[k] == nil then
+				out[k] = v
+			end
+		end
+	end
+	return out
+end
+
+-- The Tyrant's Iron Fortress: the block's reach over the tape while his Emperor's Dictate is on
+-- against this team (ctx.dictated), else nil.
+function HitLogic.blockCut(dictated)
+	return dictated and TYRANT.BlockCut or nil
+end
+
+-- Haesol's receive reach: DigReach always, SunReach more while Sunshine is lit.
+function HitLogic.digReach(ctx)
+	if not has(ctx, "Sunshine") then
+		return 1
+	end
+	return SUNSHINE.DigReach * (ctx.sunOn and SUNSHINE.SunReach or 1)
+end
+
+-- Her perfect-timing window (everyone else's: PerfectStanceMin..Max).
+function HitLogic.perfectStance(ctx)
+	if has(ctx, "Sunshine") then
+		return SUNSHINE.PerfectStance[1], SUNSHINE.PerfectStance[2]
+	end
+	return H.PerfectStanceMin, H.PerfectStanceMax
+end
+
 -- Iron Wall is up, and the box is bigger (Config.Abilities.IronWall).
 -- `iron`: true for Iron Wall's whole wall, or a table of the same extras (Ironclad's Box).
-function HitLogic.blockBox(root, ball, side, stats, iron)
+-- `cut`: the share of its reach over the tape the box keeps (the Tyrant's Iron Fortress); nil: all.
+function HitLogic.blockBox(root, ball, side, stats, iron, cut)
 	local IW = iron == true and Config.Abilities.IronWall or (type(iron) == "table" and iron or nil)
 	if math.abs(root.Z) > Z.BlockNetDistance + (IW and IW.NetExtra or 0) then
 		return false, 0, false
@@ -391,6 +439,9 @@ function HitLogic.blockBox(root, ball, side, stats, iron)
 		return false, 0, false
 	end
 	local top = root.Y + Z.BlockReachUp + (IW and IW.ReachUp or 0)
+	if cut then
+		top = C.NetTop + math.max(0, top - C.NetTop) * cut
+	end
 	if ball.Y > top + R or ball.Y < C.NetTop - 0.6 then
 		return false, 0, false
 	end
@@ -408,12 +459,12 @@ end
 -- a phone's ping the drill's spike, hit 1.2 m off the net, was through the hands before the client
 -- knew of it, and only the last frame was ever checked).
 local BLOCK_STEP = 0.004
-function HitLogic.blockAlong(path, from, to, root, side, stats, iron)
+function HitLogic.blockAlong(path, from, to, root, side, stats, iron, cut)
 	local n = clamp(math.ceil((to - from) / BLOCK_STEP), 6, 240)
 	for i = 1, n do
 		local t = from + (to - from) * i / n
 		local p = BallPhysics.positionAt(path, t)
-		if BallPhysics.velocityAt(path, t).Z * side > 0 and HitLogic.blockBox(root, p, side, stats, iron) then
+		if BallPhysics.velocityAt(path, t).Z * side > 0 and HitLogic.blockBox(root, p, side, stats, iron, cut) then
 			return t, p
 		end
 	end
@@ -430,6 +481,9 @@ function HitLogic.ironAfterBlock(lives, cracks, meta)
 		return lives, cracks
 	end
 	-- (only Bulwark's own stops crack it, meta.bulwark: one made with Iron Wall up doesn't)
+	if meta.ironWall and meta.bulwark and meta.shatter then
+		return lives - 1, 0 -- the stop that shatters it (the last crack, or a ShatterKmh spike at once)
+	end
 	if meta.ironWall and meta.bulwark then
 		cracks = cracks + 1
 		if cracks >= IRON.CracksToBreak then
@@ -549,7 +603,8 @@ end
 -- A set from `ball` to the attack spot `depth` from the net (default: the set type's spot, no
 -- error), coming down through `arriveY` (default SetArriveY; a higher one lifts the whole arc):
 -- its launch velocity and gravity. The setter AI also uses it to see a quick coming.
-function HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY)
+-- flat: the Tyrant's Set (its top just over where it comes down, and quicker).
+function HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY, flat)
 	local apex = H.SetApexOpen
 	if setType == "Quick" then
 		apex = H.SetApexQuick
@@ -566,6 +621,10 @@ function HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY)
 	depth = math.max(depth or Court.attackDepth(setType), 0.47 * SPM)
 	apex = apex + H.SetDeepApex * math.max(0, depth - H.BackDepth) -- deep sets go higher
 	local g = G * H.SetGravityScale
+	if flat then
+		apex = math.max(arriveY + TYRANT.SetApexOver, ball.Y + 0.38 * SPM)
+		g = g * TYRANT.SetGravity
+	end
 	return ownSideArc(ball, Vector3.new(0, arriveY, side * depth), apex, g, side, 0.38 * SPM), g
 end
 
@@ -701,7 +760,9 @@ end
 -- Feral Leap played by the AI (extra.auto) loses Attack; Rally Cry (extra.teamBoost) multiplies
 -- every stat of the team; Corona multiplies his own, up while it's on and down by his uses while
 -- it's off (extra.coronaOn, extra.coronaStacks). extra: { enemyPoints, counter, auto, teamBoost,
--- coronaOn, coronaStacks, breakLevel, abilities } (a touch passes its ctx). `ability` is the
+-- coronaOn, coronaStacks, breakLevel, abilities, dictate, dictated, grounded, sunOn, digging } (a
+-- touch passes its ctx): the Tyrant's Stat Hijack (his team's points, the other team's share lost),
+-- Sovereign's Guard's grounded hitter, Sunshine lit and a dig of hers. `ability` is the
 -- character's own, the one its breakthroughs (extra.breakLevel) grow; extra.abilities is the set of
 -- every ability it plays (a Halloween card's at +0), and each one's boost applies. The server raises
 -- the humanoid's jump and run speed to match (TeamService), so the hitting point is real.
@@ -753,6 +814,41 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		local speed = math.floor(stats.Speed * SQUALL.SpeedBoost + 0.5)
 		add.Speed = (add.Speed or 0) + speed
 		add.Attack = (add.Attack or 0) + math.floor(SQUALL.AttackPerSpeed * (stats.Speed + speed) + 0.5)
+		any = true
+	end
+	if extra and extra.dictate then
+		-- the Tyrant's Stat Hijack, his team's side: the stolen points
+		for k, v in pairs(TYRANT.TeamAdd) do
+			add[k] = (add[k] or 0) + v
+		end
+		any = true
+	end
+	if extra and extra.dictated then
+		-- and the other team's: Steal of their Attack, Jump and Speed
+		for _, k in ipairs({ "Attack", "Jump", "Speed" }) do
+			add[k] = (add[k] or 0) - math.floor(stats[k] * TYRANT.Steal + 0.5)
+		end
+		any = true
+	end
+	if extra and extra.grounded then
+		-- Sovereign's Guard: a hitter grounded by a spike past GuardKmh, for their next attack
+		for _, k in ipairs({ "Attack", "Jump" }) do
+			add[k] = (add[k] or 0) - math.floor(stats[k] * TYRANT.GroundedCut + 0.5)
+		end
+		any = true
+	end
+	if on("Sunshine") and extra and extra.sunOn then
+		-- Sunshine lit: every stat
+		for _, k in ipairs({ "Attack", "Defense", "Speed", "Jump" }) do
+			add[k] = (add[k] or 0) + SUNSHINE.SunAdd
+		end
+		any = true
+	end
+	if on("Sunshine") and extra and extra.digging then
+		-- her digs are played with DigAdd on top
+		for k, v in pairs(SUNSHINE.DigAdd) do
+			add[k] = (add[k] or 0) + v
+		end
 		any = true
 	end
 	if on("Feral") and extra and extra.auto then
@@ -973,7 +1069,14 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		qContact = ctx.forceQuality
 	end
 	local qHeight = HitLogic.heightQuality(ball.Y, stats, ctx.groundY)
-	local qTop = qHeight -- (how near the top it really was: Skyward climbs off this, not a dive's floor)
+	local qTop = qHeight
+	-- the Tyrant's set (his team's): Absolute Toss meets it at full power, whatever the timing
+	local lastSet = ctx.lastHit
+	local tyrantSet = kind == "Spike" and lastSet ~= nil and lastSet.tyrantSet == true and lastSet.team == ctx.team and lastSet.hitType == "Set"
+	local absolute = tyrantSet and lastSet.absolute == true
+	if absolute then
+		qContact, qHeight = 1, 1
+	end -- (how near the top it really was: Skyward climbs off this, not a dive's floor)
 	-- Sundive (Corona): the further he dropped onto it (input.sundive, studs), the harder (the AI
 	-- gets a share without diving); a dive meets the ball under the top of his jump, which doesn't
 	-- cost him
@@ -1153,6 +1256,17 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		kmh = kmh * (1 + ab("Plunge", "PowerBoost", levelOf(ctx, "Plunge")))
 		meta.plunge = true
 	end
+	-- Vert Spikes (Sunshine): her spikes come down sharp, the steeper the line from the contact to
+	-- where it lands the harder; the steepest go under the block (meta.underBlock, after the solve)
+	local vert = kind == "Spike" and has(ctx, "Sunshine") and not overcharge and not hovered and not plunge and not zero
+	if vert then
+		depth = math.max(shortest, depth * SUNSHINE.VertDepthMul)
+		local dropAngle = math.deg(math.atan(math.max(ball.Y - R, 0) / math.max(math.abs(depth + side * ball.Z), 1)))
+		local k = clamp((dropAngle - SUNSHINE.VertAngle[1]) / (SUNSHINE.VertAngle[2] - SUNSHINE.VertAngle[1]), 0, 1)
+		local boost = ab("Sunshine", "VertBoost", levelOf(ctx, "Sunshine")) * k
+		kmh = kmh * (1 + boost)
+		meta.vert = math.floor(boost * 1000 + 0.5) / 1000
+	end
 	local target = Vector3.new(0, R, -side * depth)
 	-- Vector Set: off her set, the steeper the line from the contact to where it lands, the more
 	-- power (a sharp, short spike gets the most)
@@ -1205,6 +1319,16 @@ local function attack(kind, input, ctx, rng, stats, scale)
 			end
 		end
 	end
+	-- the Tyrant's Set: the spike off it goes SetMul faster, with Armor Break
+	if tyrantSet then
+		kmh = kmh * ab("Tyrant", "SetMul", setLevel(lastSet, "Tyrant"))
+		meta.tyrant = true
+		meta.armorBreak = true
+		meta.absolute = absolute or nil
+		if absolute then
+			meta.grade = "PERFECT"
+		end
+	end
 	-- the Halloween Match's cards: spike and jump serve power, and the drain the attack costs
 	local hex = ctx.hex
 	if hex then
@@ -1217,10 +1341,18 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	end
 	local speed = HitLogic.studs(kmh)
 	if kind == "JumpServe" then
+		if has(ctx, "Tyrant") then
+			-- the Crown Jump Serve: a little shorter, and it curls down steeply (heavy topspin)
+			target = Vector3.new(0, R, -side * math.max(shortest, depth * TYRANT.CrownDepthMul))
+			meta.crown = true
+		end
 		-- topspin: the serve dives. Pick the gravity that makes a flat hit land on target.
 		local dist = math.max(math.abs(target.Z - ball.Z), 1)
 		local flat = 2 * math.max(ball.Y - R, 1) * (speed / dist) ^ 2
 		g = math.max(G * H.ServeGravityScale, flat * H.ServeTopspin)
+		if meta.crown then
+			g = g * TYRANT.CrownGravity
+		end
 	end
 	-- the hit stop: a Zero Point's freeze frame first, then a first strike's, then a big hit's
 	local hold = 0
@@ -1267,7 +1399,12 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if zenith then
 		g = g * CORONA.ZenithSpin -- heavy topspin: it dips harder onto the same spot
 	end
-	local v = speedWithAssist(ball, target, speed, g, side, steps)
+	local v, _, landed = speedWithAssist(ball, target, speed, g, side, steps)
+	if vert then
+		-- the line it really takes (the net assist may have pushed it deeper)
+		local angle = math.deg(math.atan(math.max(ball.Y - R, 0) / math.max(math.abs(landed.Z - ball.Z), 1)))
+		meta.underBlock = angle >= SUNSHINE.UnderAngle or nil
+	end
 	return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t, hold)
 end
 
@@ -1376,6 +1513,8 @@ end
 function HitLogic.compute(input, ctx)
 	local action = input.action
 	local side = ctx.side
+	-- (Sunshine: a first-touch receive of hers is played with DigAdd)
+	ctx.digging = ((action == "Bump" or action == "Set") and (ctx.touchNumber or 1) == 1 and has(ctx, "Sunshine")) or nil
 	local stats, adrenaline = HitLogic.effectiveStats(ctx.stats or Characters.stats(Config.DefaultTier), ctx.ability, ctx.stamina, ctx)
 	ctx.adrenaline = adrenaline or nil
 	local rng = Random.new(math.floor((ctx.seq or 0) * 7919 + (ACTION_CODE[action] or 0) * 104729 + 17))
@@ -1484,7 +1623,9 @@ function HitLogic.compute(input, ctx)
 		-- Bulwark only in the air (the owner, 2026-10-21: "make taesan have to jump for his iron
 		-- wall"): standing, his shields don't block
 		local bulwark = ctx.ironclad == true and input.grounded ~= true
-		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, Halloween.blockReach(HitLogic.wallReach(ctx.ironWall, bulwark, last and last.hitType), ctx.hex))
+		-- (Sunshine lit: a bigger box; the Tyrant's Iron Fortress against this team: a lower one)
+		local box = HitLogic.sunBox(Halloween.blockReach(HitLogic.wallReach(ctx.ironWall, bulwark, last and last.hitType), ctx.hex), has(ctx, "Sunshine") and ctx.sunOn)
+		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, box, HitLogic.blockCut(ctx.dictated))
 		if not ok then
 			return false, "zone"
 		end
@@ -1514,8 +1655,8 @@ function HitLogic.compute(input, ctx)
 		-- (a spike past BlockOverKmh[1] keeps getting harder to stop, and isn't a soft touch: below)
 		local hard = last.hitType == "Spike" and attackKmh >= H.BlockOverKmh[1]
 		local stuffScore = q - 0.42 * power - H.BlockOverStuff * over + (ctx.hex and ctx.hex.stuff or 0)
-		if last.pierce then
-			stuffScore = math.min(stuffScore, 0.3)
+		if last.pierce or last.armorBreak then
+			stuffScore = math.min(stuffScore, 0.3) -- (the Tyrant's Set's Armor Break too)
 		end
 		-- Shear (Haneul's spike): harder to stuff (only the stuff check moves: a touch that would be
 		-- soft stays soft unless the wild roll below takes it), and wild off the hands
@@ -1528,6 +1669,9 @@ function HitLogic.compute(input, ctx)
 		-- 2026-10-15): the same whole wall and perfect shut-down, tips and the hardest spikes
 		-- included; each stop cracks a shield instead (HitLogic.ironAfterBlock)
 		local perfect = (ctx.ironWall or bulwark) and not feint
+		if last.underBlock and not perfect then
+			return false, "under" -- Vert Spikes: the steepest slip under the hands (a perfect block still stops it)
+		end
 		if perfect then
 			-- Iron Wall: a perfect block, whatever reaches the hands (pierce, thunder and a Feral
 			-- smash included), wherever it meets them
@@ -1564,6 +1708,16 @@ function HitLogic.compute(input, ctx)
 			v = vin * FERAL.BreakKeep
 			a = Vector3.new(0, -G * H.SpikeGravityScale, 0)
 			hold = 0.06
+		elseif perfect and meta.bulwark and (attackKmh >= IRON.ShatterKmh or (tonumber(ctx.ironCracks) or 0) + 1 >= IRON.CracksToBreak) then
+			-- Bulwark's stop that shatters a shield (its last crack, or a ShatterKmh spike at once): the
+			-- ball pops straight up on his side, an easy ball for his team
+			meta.outcome = "Soft"
+			meta.shatter = true
+			meta.noDrain = true
+			p = Vector3.new(0, math.max(ball.Y, C.NetTop + R), side * (R + 0.1))
+			v = Vector3.new(0, SPM * lerp(IRON.PopUp[1], IRON.PopUp[2], rng:NextNumber()), side * SPM * IRON.PopBack)
+			a = Vector3.new(0, -G, 0)
+			hold = H.HitStopPerfect
 		elseif perfect then
 			-- the perfect shut-down: straight down onto their court just past the net, always in
 			meta.outcome = "Stuff"
@@ -1639,6 +1793,7 @@ function HitLogic.compute(input, ctx)
 	if action == "Bump" or action == "Set" then
 		local sliding = input.diving == true
 		local isSet = action == "Set"
+		local touchN1 = (ctx.touchNumber or 1) == 1
 		local overhead = false
 		local ok, q = false, 0
 		if not sliding then
@@ -1646,14 +1801,14 @@ function HitLogic.compute(input, ctx)
 			overhead = ok
 			if ok and not isSet and ball.Y - root.Y < Z.SetMinY + 0.8 then
 				-- a receive pressed on a chest-high ball stays a forearm pass
-				local ok2, q2 = HitLogic.receiveZone(root, ball, side, stats, false)
+				local ok2, q2 = HitLogic.receiveZone(root, ball, side, stats, false, touchN1 and HitLogic.digReach(ctx) or nil)
 				if ok2 then
 					ok, q, overhead = ok2, q2, false
 				end
 			end
 		end
 		if not ok then
-			ok, q = HitLogic.receiveZone(root, ball, side, stats, sliding)
+			ok, q = HitLogic.receiveZone(root, ball, side, stats, sliding, touchN1 and HitLogic.digReach(ctx) or nil)
 			overhead = false
 		end
 		if not ok then
@@ -1672,10 +1827,11 @@ function HitLogic.compute(input, ctx)
 		local qTime = 1
 		if not sliding and not input.assist and not overhead then
 			local age = input.stanceAge or 0.25
-			if age < H.PerfectStanceMin then
-				qTime = 0.75 + (age / H.PerfectStanceMin) * 0.25
-			elseif age > H.PerfectStanceMax then
-				qTime = clamp(1 - (age - H.PerfectStanceMax) / 0.5, 0.45, 1)
+			local pMin, pMax = HitLogic.perfectStance(ctx) -- (Sunshine: far wider)
+			if age < pMin then
+				qTime = 0.75 + (age / pMin) * 0.25
+			elseif age > pMax then
+				qTime = clamp(1 - (age - pMax) / 0.5, 0.45, 1)
 			end
 		end
 		q = clamp(q * 0.62 + qTime * 0.38 + stats.ReceiveBonus, 0, 1)
@@ -1700,7 +1856,7 @@ function HitLogic.compute(input, ctx)
 		if stam.max > 0 then
 			pct = clamp(stam.value / stam.max, 0, 1)
 		end
-		local perfect = heavy and not sliding and q >= H.PerfectAt
+		local perfect = heavy and not sliding and q >= (has(ctx, "Sunshine") and SUNSHINE.PerfectAt or H.PerfectAt)
 		local drain = 0
 		-- a feint dug (not an exploding one: that's heavy): FeintDrain, and with the guard at
 		-- FeintBreakAt or lower it breaks it (the owner: "faints ... break stamina when they are low")
@@ -1718,6 +1874,9 @@ function HitLogic.compute(input, ctx)
 			end
 			if last.reaction then
 				drain = drain * (last.drainMul or 1)
+			end
+			if last.crown then
+				drain = drain * TYRANT.CrownDrainMul -- the Crown Jump Serve
 			end
 			if perfect then
 				drain = drain * HitLogic.perfectDrainMul(incomingKmh)
@@ -1748,6 +1907,8 @@ function HitLogic.compute(input, ctx)
 		end
 		meta.drain = drain > 0 and drain or nil
 		meta.perfect = perfect or nil
+		meta.sunshine = (perfect and has(ctx, "Sunshine")) or nil -- (a perfect dig of hers lights Sunshine)
+		meta.dig = (ctx.digging and not sliding) or nil -- (her sun aura)
 		-- a heavy ball knocks the receiver back (0..1), unless they slid
 		if heavy and not sliding then
 			local knock = clamp((incomingKmh - ST.KnockFromKmh) / 90, 0, 1)
@@ -1838,6 +1999,10 @@ function HitLogic.compute(input, ctx)
 			meta.setBreak = (tonumber(ctx.breakLevel) or 0) > 0 and Breakthrough.level(ctx.breakLevel) or nil -- (Chain Reaction, Vector, Featherfall grow with it)
 			meta.setBreakFor = meta.setBreak and ctx.ability or nil -- (her own ability's: setLevel)
 			meta.vectorSet = has(ctx, "Vector") or nil -- the pulsing ball
+			-- the Tyrant's Set: every set of his (the spike off it: SetMul and Armor Break); Absolute
+			-- Toss while his Emperor's Dictate is on (the spike off it at full power)
+			meta.tyrantSet = has(ctx, "Tyrant") or nil
+			meta.absolute = (has(ctx, "Tyrant") and ctx.tyrantOn) or nil
 			meta.underhand = underhand or nil
 			if type(input.targetId) == "string" then
 				meta.targetId = input.targetId
@@ -1853,7 +2018,12 @@ function HitLogic.compute(input, ctx)
 				base = clamp(input.aimDepth, H.SetAimMin, H.SetAimMax)
 				meta.aimed = true
 			end
+			-- off a pass the Crown Jump Serve wrecked: it strays more and comes down lower
+			local crowned = last ~= nil and last.crowned == true and last.team == ctx.team
 			local depth = base + jitter(rng, (1 - q) ^ 1.4 * H.SetError / accuracy)
+			if crowned then
+				depth = depth + jitter(rng, TYRANT.CrownSetError)
+			end
 			-- a jump set (taken above standing height) goes up higher too; quicks stay quick
 			local lift = 0
 			if setType ~= "Quick" then
@@ -1867,6 +2037,11 @@ function HitLogic.compute(input, ctx)
 			local arriveY = nil
 			if aimed and type(input.aimHeight) == "number" and input.aimHeight == input.aimHeight then
 				arriveY = clamp(input.aimHeight, H.SetAimLowY, H.SetAimHighY)
+			end
+			if crowned then
+				arriveY = (arriveY or H.SetArriveY) - TYRANT.CrownSetLow
+				lift = 0
+				meta.crowned = true
 			end
 			if has(ctx, "Featherfall") and setType ~= "Quick" then
 				-- Featherfall: up higher, then floating down from the top (lighter gravity) to the same
@@ -1886,11 +2061,20 @@ function HitLogic.compute(input, ctx)
 				res.launch.dive = { tau = rise, v = planar(Vector3.new(0, 0, vz)), a = planar(Vector3.new(0, -gf, 0)) }
 				return okF, res
 			end
-			local v, g = HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY)
+			local v, g = HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY, meta.tyrantSet and setType ~= "Quick")
 			return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t)
 		end
 
 		-- first touch: a high pass to the setter (or up in front of yourself when solo)
+		if heavy and last.crown then
+			-- the Crown Jump Serve: the pass goes low and wide, and the set off it too (meta.crowned)
+			q = q * TYRANT.CrownPassMul
+			meta.crowned = true
+			meta.quality, meta.score = q, math.floor(q * 100 + 0.5)
+			if not meta.perfect then
+				meta.grade = HitLogic.grade(q)
+			end
+		end
 		local depth = H.SetterDepth
 		if (ctx.teamSize or 3) <= 1 then
 			depth = clamp(math.abs(root.Z) - 1.6 * SPM, 1.25 * SPM, 3.75 * SPM)

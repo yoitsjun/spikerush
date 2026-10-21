@@ -1436,7 +1436,7 @@ HW.Breakthrough = require(Shared.Breakthrough)
 HW.sets = {} -- an "Abilities" string -> its set (read every frame)
 HW.abilityRow = {} -- entityId -> its last ability popup, { t, n } (VFXController.ability)
 HW.statusHl = {} -- model -> its one status Highlight (the status auras')
-HW.HL_ORDER = { "Storm", "Blood", "Corona", "Squall", "Molten", "Rally", "Adrenaline" } -- which one it shows
+HW.HL_ORDER = { "Storm", "Blood", "Corona", "Squall", "Molten", "Sunlit", "Dictate", "Rally", "Dictated", "Adrenaline" } -- which one it shows
 function HW.has(inst, name)
 	if not inst then
 		return false
@@ -2238,6 +2238,12 @@ local STATUS = {
 	Storm = { fire = { Color3.fromRGB(255, 255, 230), Config.Abilities.Thunder.Color }, rate = 30, fill = Color3.fromRGB(255, 210, 40), edge = Color3.fromRGB(255, 245, 170) },
 	Blood = { fire = { Color3.fromRGB(255, 210, 200), Config.Abilities.Feral.BloodColor }, rate = 30, fill = Color3.fromRGB(200, 0, 24), edge = Color3.fromRGB(255, 110, 110) },
 	Molten = { fire = { Color3.fromRGB(255, 220, 140), Config.Abilities.Ironclad.Color }, rate = 30, fill = Color3.fromRGB(255, 90, 30), edge = Color3.fromRGB(255, 180, 90) },
+	-- the Tyrant's Emperor's Dictate: gold on his team, a heavy dark gold pressing on theirs
+	Dictate = { fire = { Color3.fromRGB(255, 248, 210), Config.Abilities.Tyrant.Color }, rate = 22, fill = Color3.fromRGB(255, 190, 40), edge = Color3.fromRGB(255, 236, 150) },
+	Dictated = { fire = { Color3.fromRGB(150, 110, 40), Color3.fromRGB(70, 45, 10) }, rate = 16, fill = Color3.fromRGB(90, 60, 10), edge = Color3.fromRGB(200, 150, 50) },
+	Grounded = { fire = { Color3.fromRGB(200, 170, 110), Color3.fromRGB(90, 70, 40) }, rate = 12, size = 1.4 },
+	-- Haesol's Sunshine, lit
+	Sunlit = { fire = { Color3.fromRGB(255, 255, 235), Config.Abilities.Sunshine.Color }, rate = 26, fill = Color3.fromRGB(255, 220, 110), edge = Color3.fromRGB(255, 250, 210) },
 }
 
 -- Iron Wall: a glassy barrier above the middle's hands for the ability's duration.
@@ -2345,6 +2351,41 @@ function VFXController.ability(entityId, ability, index)
 		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Squall!", def.Color, 1.3)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("SquallOn", { volume = 0.8 })
+		end
+	elseif ability == "Tyrant" then
+		-- Emperor's Dictate: a snap, and a golden aura sweeps the whole court; a crown of light
+		-- over him, and the other team pressed down where they stand
+		local pos = hrp.Position
+		local gold = def.Color
+		starburst(pos + Vector3.new(0, 3, 0), Color3.fromRGB(255, 250, 220), 8)
+		floorRing(pos, gold, 30, 0.9)
+		task.delay(0.12, function()
+			floorRing(pos, Color3.fromRGB(255, 236, 160), 48, 1.1)
+		end)
+		ringFx(pos + Vector3.new(0, 3, 0), gold, 2, 24, 0.6, 10)
+		burst(pos + Vector3.new(0, 6, 0), gold, 6)
+		meshFx("FX_Column", CFrame.new(pos.X, 0.2, pos.Z), gold, 0.35, 1.2, 0.6, { base = true, alpha = 0.2 })
+		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Emperor's Dictate!", gold, 1.4)
+		local team = State.teamOf(entityId)
+		for _, e in ipairs(State.roster(team == "Home" and "Away" or "Home")) do
+			local r = Util.rootOf(e.id)
+			if r then
+				task.delay(0.15, function()
+					floorRing(r.Position, Color3.fromRGB(150, 100, 20), 6, 0.5)
+					starburst(r.Position + Vector3.new(0, 4, 0), Color3.fromRGB(255, 210, 120), 4)
+					emit("Dust", Vector3.new(r.Position.X, 0.4, r.Position.Z), 10)
+				end)
+			end
+		end
+		for _, e in ipairs(team and State.roster(team) or {}) do
+			local r = Util.rootOf(e.id)
+			if r and e.id ~= entityId then
+				burst(r.Position + Vector3.new(0, 1.5, 0), gold, 2.2, 0.3)
+			end
+		end
+		if mods and mods.AudioController.hearsMatch() then
+			mods.AudioController.play("TyrantSnap", { volume = 0.9 })
+			mods.AudioController.play("Boom", { volume = 0.4, speed = 0.8 })
 		end
 	elseif ability == "RallyCry" then
 		-- a golden shockwave from the middle, and a flare at every teammate's feet
@@ -3274,6 +3315,8 @@ local function updateAbilityFx(dt)
 	local want = {}
 	for _, team in ipairs(Config.TeamOrder) do
 		local rally = State.rallyOn(team, clock)
+		local dictate = State.dictateOn(team, clock)
+		local dictated = State.dictateOn(team == "Home" and "Away" or "Home", clock)
 		for _, e in ipairs(State.roster(team)) do
 			local model = Util.modelOf(e.id)
 			if model then
@@ -3298,6 +3341,17 @@ local function updateAbilityFx(dt)
 				sunSeen[model] = sun
 				if rally then
 					w.Rally = 1
+				end
+				if dictate then
+					w.Dictate = 1
+				elseif dictated then
+					w.Dictated = 1
+				end
+				if model:GetAttribute("Grounded") then
+					w.Grounded = 1 -- Sovereign's Guard
+				end
+				if HW.has(model, "Sunshine") and (model:GetAttribute("SunshineUntil") or -1) >= clock then
+					w.Sunlit = 1
 				end
 				-- each active on its own window (a character can hold several: their flames stack)
 				if HW.has(model, "Turnabout") and HW.untilOf(model, "Turnabout") >= clock then
@@ -4423,6 +4477,24 @@ local function onHit(snap)
 				mods.AudioController.play("FeatherHit", { volume = 0.6 + 0.4 * f, speed = 1.35, pos = pos, minGap = 0.05 })
 			end
 		end
+		if meta.tyrant then
+			-- off the Tyrant's Set: gold, and Absolute Toss's full power
+			local gold = Config.Abilities.Tyrant.Color
+			ringFx(pos, gold, 1.5, 12, 0.35, 6)
+			tag(meta.absolute and "Absolute Toss!" or "Tyrant's Set x1.3", gold, meta.absolute and 1.25 or 1)
+		end
+		if meta.crown then
+			-- the Crown Jump Serve
+			local gold = Config.Abilities.Tyrant.Color
+			sonicRing(pos, seg.v, Color3.fromRGB(255, 240, 190), 9, 0.4)
+			tag("Crown Serve", gold, 1.1)
+		end
+		if meta.vert then
+			-- Vert Spikes: the boost its angle earned, and under the block
+			local sun = Config.Abilities.Sunshine.Color
+			ringFx(pos, sun, 1.5, 7 + 20 * meta.vert, 0.35, 6)
+			tag(meta.underBlock and string.format("Under the block! +%.1f%%", meta.vert * 100) or string.format("Vert +%.1f%%", meta.vert * 100), sun, 0.9 + 2 * meta.vert)
+		end
 		if meta.vector then
 			-- Vector Set: the boost the spike's angle earned
 			local boost = meta.vectorBoost or 0
@@ -4751,7 +4823,13 @@ local function onHit(snap)
 		else
 			Fx.play("ReceiveImpact", pos, { color = tc })
 			emit("Sparks", pos, 8, tc)
-			if outcome == "Soft" then
+			if meta.shatter then
+				-- Taesan's shield gives way: steel shards, the ball popping straight up
+				local steel = Config.Abilities.Ironclad.WallColor
+				shards(pos, steel, 18, 55)
+				starburst(pos, Color3.fromRGB(235, 245, 255), 6)
+				VFXController.popup(pos, "Shield shattered!", steel, 1.2)
+			elseif outcome == "Soft" then
 				VFXController.popup(pos, "Soft block", UI.Chalk, 0.7)
 			end
 		end
@@ -4771,6 +4849,27 @@ local function onHit(snap)
 		end
 		if meta.perfect then
 			VFXController.shield(meta.id)
+		end
+		if meta.dig and hrp then
+			-- Haesol: a sun flares round her as she digs (the owner: "she has a sun aura when she
+			-- bumps"); a perfect one lights Sunshine with a pillar of light
+			local sun = Config.Abilities.Sunshine.Color
+			local at = hrp.Position + Vector3.new(0, 0.6, 0)
+			burst(at, Color3.fromRGB(255, 250, 225), meta.sunshine and 9 or 6)
+			burst(at, sun, meta.sunshine and 12 or 8)
+			starburst(at, Color3.fromRGB(255, 252, 230), meta.sunshine and 9 or 5)
+			ringFx(at, sun, 1.5, meta.sunshine and 14 or 8, 0.4, 6)
+			if meta.sunshine then
+				sunBeam(hrp.Position)
+				floorRing(hrp.Position, sun, 10, 0.6)
+				VFXController.popup(at + Vector3.new(0, 4, 0), "Sunshine!", sun, 1.3)
+				if mods.AudioController.hearsMatch() then
+					mods.AudioController.play("CoronaFlare", { volume = 0.7, speed = 1.25, pos = at, minGap = 0.1 })
+				end
+			end
+		end
+		if meta.crowned and ht == "Bump" then
+			VFXController.popup(pos + Vector3.new(0, 1.4, 0), "Crowned!", Config.Abilities.Tyrant.Color, 0.9)
 		end
 		-- what the ball cost the team's guard
 		if meta.drain and meta.drain >= 5 then

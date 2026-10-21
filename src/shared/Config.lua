@@ -386,6 +386,8 @@ Config.Breakthrough = {
 		Counter = { ReleaseBoost = { Grow = 0.2, Label = "Counter Edge release", Show = "pct" } },
 		Plunge = { PowerBoost = { Grow = 0.5, Label = "Plunge power", Show = "pct" } },
 		Skyward = { AttackAtMax = { Grow = 0.3, Label = "Attack at full lift", Show = "num" } },
+		Tyrant = { Duration = { Grow = 0.3, Label = "Emperor's Dictate lasts", Show = "s" }, SetMul = { Grow = 0.3, Kind = "excess", Label = "Tyrant's Set", Show = "excess" } },
+		Sunshine = { SunDuration = { Grow = 0.3, Label = "Sunshine lasts", Show = "s" }, VertBoost = { Grow = 0.3, Label = "Sharpest spike", Show = "pct" } },
 	},
 	SellLucky = { ["S+"] = 1 },
 }
@@ -1417,7 +1419,7 @@ Config.Abilities = {
 		Name = "Ironclad",
 		Tier = "S+",
 		Role = "MB",
-		Blurb = "Bulwark: jump to block while you have shields (up to 3; a set starts with 1) and you're an Iron Wall at the net: every attack that crosses in front of you is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Below 3 shields every touch fills Intimidation by 10%; full, all 3 shields are back.",
+		Blurb = "Bulwark: jump to block while you have shields (up to 3; a set starts with 1) and you're an Iron Wall at the net: every attack that crosses in front of you is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next (a 250+ km/h spike shatters it at once), and the block that shatters it pops straight up for your team. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Below 3 shields every touch fills Intimidation by 10%; full, all 3 shields are back.",
 		Kind = "Passive: shields, then awakened",
 		Color = Color3.fromRGB(255, 112, 52), -- awakened: molten
 		WallColor = Color3.fromRGB(170, 200, 235), -- the shields: steel
@@ -1434,6 +1436,12 @@ Config.Abilities = {
 		-- flash on him and on the shield over his head) and the CracksToBreak-th stop shatters it.
 		-- A new shield (Intimidation) starts whole
 		CracksToBreak = 2,
+		-- (the owner, 2026-10-21: "he still shuts down everything. however, when his shield is
+		-- shattered it pops up. also 250+ onehits"): the stop that shatters a shield pops the ball
+		-- straight up on his side, an easy ball for his team; a spike this fast shatters one at once
+		ShatterKmh = 250,
+		PopUp = { 5.2, 6.0 }, -- the pop's speed up (m/s, a range), and a little toward his own court
+		PopBack = 0.5,
 		-- awakened: each touch fills Intimidation this much (of 100; was 10), a spike of his that
 		-- scores (a kill) or a block that stuffs this much more
 		MeterPerTouch = 10,
@@ -1459,7 +1467,7 @@ Config.Abilities = {
 		AutoCharge = 0.5, -- the AI awakened: its spikes get this much of the full charge
 		Passives = {
 			{ Name = "Bulwark", Blurb = "Up to 3 shields (a set starts with 1): jump to block while you have one and you're an Iron Wall at the net. Every attack that crosses in front of you is shut down, at any height, tips and the hardest spikes too." },
-			{ Name = "Cracks", Blurb = "A shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
+			{ Name = "Cracks", Blurb = "A shield cracks on the first spike it stops and shatters on the next (a 250+ km/h spike shatters it at once). The block that shatters it pops straight up for your team." },
 			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: Forge charges far harder and widens your reach." },
 			{ Name = "Forge", Blurb = "Your fall is slow; jump before the set and hang: the longer you're up, the harder the spike (up to +39% with shields, +68% awakened). Jumping after the set gets 30% of it." },
 			{ Name = "Steel Reach", Blurb = "Your spike reaches 20% wider than usual, and awakened the charge widens it up to 50%." },
@@ -1547,6 +1555,50 @@ Config.Abilities = {
 		Cooldown = 18,
 		PowerMul = 1.12,
 	},
+	-- Dohwan (the owner, 2026-10-21: "The Tyrant (S+ Setter)": Emperor's Dictate, Sovereign's Guard,
+	-- Crown Jump Serve and Tyrant's Set, their numbers kept as the owner wrote them). Emperor's
+	-- Dictate (Q): a golden aura across the court; for Duration the other team loses Steal of its
+	-- Attack, Jump and Speed and his team gains TeamAdd (Stat Hijack), a spike off his set is met at
+	-- full power whatever the timing (Absolute Toss), and the other team's block reaches BlockCut of
+	-- its usual height over the tape (Iron Fortress). Sovereign's Guard: an attack of theirs faster
+	-- than GuardKmh grounds its hitter: GroundedCut less Jump and Attack on their next attack. His
+	-- jump serve is always the Crown Jump Serve (it dips steep, costs the receiver CrownDrainMul of
+	-- the guard, and their pass and set off it go low and wide); his sets are always Tyrant's Sets
+	-- (flat and fast, the spike off one SetMul faster and Armor Break: no ordinary block stuffs it).
+	Tyrant = {
+		Name = "The Tyrant",
+		Tier = "S+",
+		Role = "SE",
+		Active = true, -- Emperor's Dictate (Q)
+		ActiveName = "Emperor's Dictate",
+		Blurb = "Press Q for Emperor's Dictate: for 8 s you steal 15% of their Attack, Jump and Speed for your team, your sets are met at full power, and their blocks reach half as high. Your sets are flat and fast (spikes off them 1.3x, no block stuffs them); your jump serve dips hard and wrecks their pass.",
+		Color = Color3.fromRGB(255, 196, 60),
+		Duration = 8,
+		Cooldown = 32,
+		Steal = 0.15, -- the other team's Attack, Jump and Speed x (1 - this)
+		TeamAdd = { Attack = 12, Jump = 10, Speed = 10 }, -- his whole team's, stolen
+		BlockCut = 0.5, -- their block's reach over the tape x this
+		-- Sovereign's Guard
+		GuardKmh = 180,
+		GroundedCut = 0.1, -- the grounded hitter's Jump and Attack x (1 - this), one attack
+		-- Crown Jump Serve
+		CrownGravity = 1.55, -- topspin: x the usual jump serve's dip
+		CrownDepthMul = 0.85, -- a little shorter, for the steep path down
+		CrownDrainMul = 2, -- the receiver's guard drain
+		CrownPassMul = 0.72, -- the pass off it: quality x this
+		CrownSetError = 1.4 * M, -- and the set off that pass strays up to this much more
+		CrownSetLow = 1.2 * M, -- and comes down this much lower
+		-- Tyrant's Set (Open and Back; quicks stay quick)
+		SetApexOver = 1.1 * M, -- its top only this far over where it comes down: flat
+		SetGravity = 1.45, -- and quick: x the usual set's gravity
+		SetMul = 1.3, -- the spike off it
+		Passives = {
+			{ Name = "Emperor's Dictate", Blurb = "Press Q: for 8 s their Attack, Jump and Speed drop 15% and your team gets +12 Attack, +10 Jump and +10 Speed. Spikes off your sets hit at full power, and their blocks reach half as high." },
+			{ Name = "Sovereign's Guard", Blurb = "Spike faster than 180 km/h at your team and you're Grounded: 10% less Jump and Attack on your next attack." },
+			{ Name = "Crown Jump Serve", Blurb = "Your jump serve curls down steeply, costs the receiver double stamina, and leaves them a low, wild set." },
+			{ Name = "Tyrant's Set", Blurb = "Your sets fly flat and fast. The spike off one goes 1.3x as fast with Armor Break: an ordinary block can't stuff it." },
+		},
+	},
 	RisingSun = {
 		Name = "Rising Sun",
 		Tier = "S",
@@ -1567,6 +1619,41 @@ Config.Abilities = {
 		Duration = 10,
 		Cooldown = 30,
 		Boost = 0.12,
+	},
+	-- Haesol (the owner, 2026-10-21: an S middle blocker, "Ability, Sunshine gives increase perfect
+	-- bump window, once this perfect bump is hit, block hitbox, bump hitbox, and all stats increased
+	-- by ten. Passive Vert Spikes, all spikes are sharper, the shaper it is, the harder it is, can
+	-- be used to go under blocks", "During Bump, Defense Range increases by 33%, Defense by 70, and
+	-- Speed by 18", always on, "she has a sun aura when she bumps"). Her receive's perfect window is
+	-- wider (PerfectStance, PerfectAt); a perfect one lights Sunshine for SunDuration: every stat
+	-- +SunAdd and bigger block and receive boxes. Every receive of hers reaches DigReach wider with
+	-- DigAdd on top. Vert Spikes: her spikes land VertDepthMul as deep, the steeper the line down the
+	-- harder (VertBoost from VertAngle[1] to [2]), and from UnderAngle on they slip under the block.
+	Sunshine = {
+		Name = "Sunshine",
+		Tier = "S",
+		Role = "MB",
+		Kind = "Passive: perfect digs",
+		Blurb = "Your perfect-dig window is far wider, and a perfect dig lights Sunshine for 10 s: +10 to every stat, bigger block and dig reach. Your digs reach 33% wider (+70 Defense, +18 Speed). Vert Spikes: your spikes come down sharp, harder the steeper, and the steepest slip under blocks.",
+		Color = Color3.fromRGB(255, 200, 80),
+		PerfectStance = { 0.03, 0.62 }, -- her receive pressed this long before contact is perfect timing (everyone's 0.08..0.42)
+		PerfectAt = 0.78, -- and a perfect dig from this quality (everyone's 0.86)
+		SunDuration = 10,
+		SunAdd = 10, -- every stat while Sunshine is lit
+		SunBox = { ReachUp = 1.2, OwnDepth = 0.6, OverDepth = 0.6, NetExtra = 0.8 }, -- the block box's extra (studs)
+		SunReach = 1.2, -- her receive reach, x this on top of DigReach
+		DigReach = 1.33, -- every receive of hers reaches this much wider
+		DigAdd = { Defense = 70, Speed = 18 }, -- and is played with these on top
+		-- Vert Spikes
+		VertDepthMul = 0.72,
+		VertAngle = { 20, 44 }, -- degrees below level, contact to landing: no boost, the whole VertBoost
+		VertBoost = 0.2,
+		UnderAngle = 36, -- from here a spike of hers goes under the block (Iron Wall and Bulwark still stop it)
+		Passives = {
+			{ Name = "Sunshine", Blurb = "Your perfect-dig window is far wider. A perfect dig lights Sunshine for 10 s: +10 to every stat, and your block and dig reach grow." },
+			{ Name = "Sun Dig", Blurb = "Your digs reach 33% wider and are played with +70 Defense and +18 Speed." },
+			{ Name = "Vert Spikes", Blurb = "Your spikes come down sharp: the steeper, the harder (up to +20%), and the steepest slip under the block." },
+		},
 	},
 	Counter = {
 		Name = "Counter Edge",
@@ -1694,7 +1781,7 @@ Config.Retired = {
 	TicketTier = "S",
 }
 
-Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Corona", "Squall", "Ironclad", "Adrenaline", "IronWall", "ChainReaction", "Vector", "Featherfall", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
+Config.AbilityOrder = { "Thunder", "Azure", "Feral", "ZeroPoint", "Corona", "Squall", "Ironclad", "Tyrant", "Adrenaline", "IronWall", "Sunshine", "ChainReaction", "Vector", "Featherfall", "Turnabout", "RisingSun", "RallyCry", "Counter", "Plunge", "Skyward" }
 
 Config.Roles = {
 	WS = { Name = "Wing spiker", Short = "WS", Blurb = "Attacks from the wing: the highest jump and the hardest spike on the team." },
@@ -1932,6 +2019,8 @@ Config.Halloween = {
 		{ Key = "aCounter", Kind = "Ability", Ability = "Counter", Rarity = "Epic", Add = { Defense = 12 } },
 		{ Key = "aPlunge", Kind = "Ability", Ability = "Plunge", Rarity = "Epic", Add = { Attack = 10 } },
 		{ Key = "aSkyward", Kind = "Ability", Ability = "Skyward", Rarity = "Epic", Add = { Jump = 12 } },
+		{ Key = "aTyrant", Kind = "Ability", Ability = "Tyrant", Rarity = "Legendary", Add = { Speed = 12 } },
+		{ Key = "aSunshine", Kind = "Ability", Ability = "Sunshine", Rarity = "Epic", Add = { Defense = 12 } },
 		-- stat cards: plain buffs, trade-offs, height
 		{ Key = "PumpkinPower", Name = "Pumpkin Power", Kind = "Stat", Rarity = "Common", Add = { Attack = 20 } },
 		{ Key = "BatWings", Name = "Bat Wings", Kind = "Stat", Rarity = "Common", Add = { Jump = 20 } },
@@ -2378,6 +2467,7 @@ Config.Bots = {
 	CoronaChance = 0.3, -- and a Corona bot (Laith) his
 	SquallChance = 0.4, -- and a Squall bot (Haneul) hers
 	ThunderChance = 0.4, -- and a Thunder bot (YeJun) Storm Call
+	TyrantChance = 0.5, -- and a Tyrant bot (Dohwan) Emperor's Dictate
 	FeralChance = 0.4, -- and a Feral bot (Dante) Bloodlust
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
