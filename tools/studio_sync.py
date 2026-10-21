@@ -38,7 +38,7 @@ local function resolve(f, create)
   for i = 3, #parts do
     if not inst then return nil end
     local child = inst:FindFirstChild(strip(parts[i]))
-    if not child and create and i == #parts and string.match(parts[i], "^[%w]+%.lua$") then
+    if not child and create and i == #parts and string.match(parts[i], "^[%%w]+%%.lua$") then
       child = Instance.new("ModuleScript")
       child.Name = strip(parts[i])
       child.Parent = inst
