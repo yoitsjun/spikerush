@@ -1212,9 +1212,10 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color, hands)
 					local okA, arm = pcall(VFXController.newArm, 6 + math.random() * 2)
 					if okA and arm then
 						-- (spread wide and aimed at his legs: clawing up at him, not covering him)
-						local dz = (i - 3) * 3.8 + (math.random() - 0.5) * 0.8
-						local base = mid + Vector3.new(0, -10.5 - math.random() * 1.2, dz)
-						local reach = (hrp.Position + Vector3.new(0, -3, dz * 0.25) - base).Unit
+						local dz = (i - 3) * 3.4 + (math.random() - 0.5) * 0.8
+						local base = mid + Vector3.new(0, -8.5 - math.random() * 1.2, dz)
+						local toward = (hrp.Position + Vector3.new(0, -2, 0) - base).Unit
+						local reach = (Vector3.yAxis * 0.65 + toward * 0.35).Unit
 						arm:PivotTo(CFrame.lookAt(base, base + Vector3.new(-1, 0, 0), reach) * CFrame.Angles(0, 0, (math.random() - 0.5) * 0.3))
 						for _, d in ipairs(arm:GetDescendants()) do
 							if d:IsA("BasePart") and d.Transparency < 1 then
