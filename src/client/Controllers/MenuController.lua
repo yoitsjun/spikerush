@@ -4979,7 +4979,7 @@ function Extra.boostLength(seconds)
 end
 
 local function shopPacks(key)
-	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs, LuckBoost = Config.Boosts.LuckPacks, LuckBoost4 = Config.Boosts.LuckPacks4, LuckBoost6 = Config.Boosts.LuckPacks6, LuckBoost8 = Config.Boosts.LuckPacks8, LuckBoost16 = Config.Boosts.LuckPacks16, Bundle = Config.Bundles.Packs }
+	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs, LuckBoost = Config.Boosts.LuckPacks, LuckBoost4 = Config.Boosts.LuckPacks4, LuckBoost6 = Config.Boosts.LuckPacks6, LuckBoost8 = Config.Boosts.LuckPacks8, LuckBoost16 = Config.Boosts.LuckPacks16, Bundle = Config.Bundles.Packs, PassGift = Config.Passes.GiftPacks }
 	return lists[key] or {}
 end
 
@@ -5085,7 +5085,15 @@ function Extra.buildDeals(holder, prices)
 		Gui.label(card, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextColor3 = key == "VIP" and Gui.GOLD or Gui.CHALK, Position = UDim2.fromOffset(16, 14), Size = UDim2.new(1, -96, 0, 34) })
 		Gui.label(card, { Text = def.Blurb, TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 54), Size = UDim2.new(1, -96, 0, 80) })
 		local icon = Extra.passIcon(card, 64)
-		local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.new(1, -32, 0, 46) }, "", 22)
+		local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -16), Size = UDim2.new(1, -120, 0, 46) }, "", 22)
+		-- buy it for someone else (the owner, 2026-10-21: "Make all the gamepasses giftable")
+		local giftAt = Extra.passGiftIndex("Passes", key)
+		if giftAt then
+			local giftB = hairButton(card, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -16, 1, -16), Size = UDim2.fromOffset(88, 46) }, "Gift", 18)
+			onClick(giftB, function()
+				MenuController.openGift("PassGift", giftAt)
+			end)
+		end
 		onClick(buy, function()
 			if def.PassId ~= 0 and not (profile().passes and profile().passes[key]) then
 				pcall(function()
@@ -5108,6 +5116,16 @@ function Extra.buildDeals(holder, prices)
 		end
 	end
 	Extra.deals = d
+end
+
+-- The gift product (Config.Passes.GiftPacks) for a pass or perk key ("Passes" or "Perks"), by index.
+function Extra.passGiftIndex(field, key)
+	for i, p in ipairs(Config.Passes.GiftPacks) do
+		if p[field] and p[field][1] == key then
+			return i
+		end
+	end
+	return nil
 end
 
 -- A game pass's icon in a shop card's top right corner, round as Roblox shows it (hidden until
@@ -5202,13 +5220,13 @@ function Extra.buildGoldTrade(holder)
 	heading("2x V Points", "For Gold or V Points: adds to any you have", 284)
 	for i, pack in ipairs(Config.Boosts.CurrencyPacks) do
 		local card = cardAt(i, 284)
-		local icon = Gui.icon.vp(card, 50)
+		local icon = Gui.icon.vp(card, 40)
 		icon.AnchorPoint = Vector2.new(0.5, 0)
-		icon.Position = UDim2.new(0.5, 0, 0, 12)
-		Gui.label(card, { Text = Extra.boostLength(pack.BoostVP), display = true, weight = Enum.FontWeight.Heavy, TextSize = 38, Size = UDim2.new(1, 0, 0, 42), Position = UDim2.fromOffset(0, 66), TextXAlignment = Enum.TextXAlignment.Center })
-		Gui.label(card, { Text = "of 2x V Points", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 108), TextXAlignment = Enum.TextXAlignment.Center })
-		local byGold = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -64), Size = UDim2.fromOffset(172, 40) }, Gui.num(pack.Gold) .. " Gold", 18)
-		local byVP = hairButton(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -14), Size = UDim2.fromOffset(172, 40) }, Gui.num(pack.VP) .. " VP", 18)
+		icon.Position = UDim2.new(0.5, 0, 0, 10)
+		Gui.label(card, { Text = Extra.boostLength(pack.BoostVP), display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, Size = UDim2.new(1, 0, 0, 38), Position = UDim2.fromOffset(0, 52), TextXAlignment = Enum.TextXAlignment.Center })
+		Gui.label(card, { Text = "of 2x V Points", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 90), TextXAlignment = Enum.TextXAlignment.Center })
+		local byGold = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -58), Size = UDim2.fromOffset(172, 38) }, Gui.num(pack.Gold) .. " Gold", 18)
+		local byVP = hairButton(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.fromOffset(172, 38) }, Gui.num(pack.VP) .. " VP", 18)
 		onClick(byGold, function()
 			Net.get("Profile"):FireServer("boostBuy", i, "Gold")
 		end)
@@ -5340,6 +5358,14 @@ local function buildShop()
 		Gui.label(card, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -80, 0, 30) })
 		Gui.label(card, { Text = def.Blurb, TextSize = 14, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 42), Size = UDim2.new(1, -80, 0, 54) })
 		local perkIcon = Extra.passIcon(card, 52)
+		-- give it to someone (its gift product: Config.Passes.GiftPacks)
+		local perkGift = Extra.passGiftIndex("Perks", key)
+		if perkGift then
+			local giftB = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -72, 0, 12), Size = UDim2.fromOffset(60, 28) }, "Gift", 15)
+			onClick(giftB, function()
+				MenuController.openGift("PassGift", perkGift)
+			end)
+		end
 		-- not yours yet: buy it
 		local buyVP = actionPlate(card, { Position = UDim2.fromOffset(12, 104), Size = UDim2.new(0.5, -18, 0, 46) }, string.format("%s VP", Gui.num(def.VP)), 20)
 		local buyPass, buyPassLabel = hairButton(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 104), Size = UDim2.new(0.5, -18, 0, 46) }, "Robux", 18)

@@ -990,6 +990,16 @@ Config.Passes = {
 	VIP = { PassId = 2021828280, Name = "VIP", Blurb = "1.5x the V Points you earn and the Gold matches pay, a gold VIP chat tag and the VIP player card.", VP = 1.5, Gold = 1.5, Card = "VIP", Tag = "VIP" }, -- 349 Robux
 	DoubleVP = { PassId = 2021552278, Name = "2x V Points", Blurb = "Matches, tournaments and daily rewards pay double V Points, for good. Stacks with VIP, boosts and events.", VP = 2 }, -- 499
 	Lucky = { PassId = 2022146273, Name = "Lucky", Blurb = "Your Characters recruits are 1.5x luckier, for good. Stacks with 2x Luck.", Luck = 1.5 }, -- 399
+	-- every pass giftable (the owner, 2026-10-21: "Make all the gamepasses giftable"): Roblox can't
+	-- gift a game pass, so each has a gift Developer Product at the pass's price (made through Open
+	-- Cloud) that gives it inside the game (a profile's giftedPasses, or perks for the perk passes)
+	GiftPacks = {
+		{ Id = 3720713212, Passes = { "VIP" }, Name = "VIP" }, -- 349 Robux
+		{ Id = 3720713229, Passes = { "DoubleVP" }, Name = "2x V Points" }, -- 499
+		{ Id = 3720713242, Passes = { "Lucky" }, Name = "Lucky" }, -- 399
+		{ Id = 3720713255, Perks = { "ScoreSound" }, Name = "Custom sound effects" }, -- 199
+		{ Id = 3720713276, Perks = { "ScoreImage" }, Name = "Custom score effect" }, -- 199
+	},
 }
 
 -- Codes (the owner: "add a codes system... first code should be release, you decide the value

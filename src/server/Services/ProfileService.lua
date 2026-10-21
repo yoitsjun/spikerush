@@ -207,7 +207,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil) }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -372,6 +372,13 @@ local function sanitizeProfile(data)
 	end
 	out.autoSell = Spins.cleanAutoSell(data.autoSell)
 	out.settings = Settings.clean(data.settings)
+	-- passes given as gifts (Config.Passes.GiftPacks)
+	out.giftedPasses = {}
+	for _, key in ipairs(Config.Passes.Order) do
+		if type(data.giftedPasses) == "table" and data.giftedPasses[key] == true then
+			out.giftedPasses[key] = true
+		end
+	end
 	-- perks bought with VP, and the asset id chosen for each of their slots (digits only)
 	for _, key in ipairs(Config.Perks.Order) do
 		if type(data.perks) == "table" and data.perks[key] == true then
@@ -548,6 +555,7 @@ local function save(plr, force)
 		v = VERSION,
 		vp = profile.vp,
 		gold = profile.gold,
+		giftedPasses = profile.giftedPasses,
 		freeSpins = profile.freeSpins,
 		winStreak = profile.winStreak,
 		bestStreak = profile.bestStreak,
@@ -728,7 +736,7 @@ local ownedPasses = {} -- plr -> { [pass] = true }
 local function passesOf(plr, profile)
 	local out = {}
 	for _, key in ipairs(Config.Passes.Order) do
-		if profile.dev == true or (ownedPasses[plr] ~= nil and ownedPasses[plr][key] == true) then
+		if profile.dev == true or (ownedPasses[plr] ~= nil and ownedPasses[plr][key] == true) or (type(profile.giftedPasses) == "table" and profile.giftedPasses[key] == true) then
 			out[key] = true
 		end
 	end
@@ -1200,6 +1208,10 @@ local function deliver(plr, profile, id, g, from, note)
 		return false
 	end
 	local added = Economy.apply(profile, g, os.time())
+	if #(g.Passes or {}) > 0 or #(g.Perks or {}) > 0 then
+		applyPasses(plr, profile) -- (a gifted pass's tag and card, a perk's ids)
+		applyPerks(plr, profile)
+	end
 	table.insert(profile.mailSeen, 1, id)
 	while #profile.mailSeen > Config.Gifts.MailSeen do
 		table.remove(profile.mailSeen)
@@ -1499,6 +1511,17 @@ local function giftStart(plr, kind, index, username)
 	if userId == plr.UserId then
 		push(plr, "That's you: buy it without Gift.")
 		return
+	end
+	-- a pass they already own from Roblox (a gift of it would be wasted)
+	for _, key in ipairs(entry.pack.Passes or {}) do
+		local def = Config.Passes[key]
+		local okOwn, owns = pcall(function()
+			return def.PassId ~= 0 and MarketplaceService:UserOwnsGamePassAsync(userId, def.PassId)
+		end)
+		if okOwn and owns then
+			push(plr, string.format("They already have the %s pass.", def.Name))
+			return
+		end
 	end
 	local okName, real = pcall(function()
 		return Players:GetNameFromUserIdAsync(userId)
@@ -2124,6 +2147,17 @@ local function applyPack(profile, g)
 	return before
 end
 
+-- After a pack bought for yourself: a pass gift product bought without a recipient gives you the
+-- pass, its tag and card at once.
+local function refreshPassesOf(profile)
+	for plr, p in pairs(profiles) do
+		if p == profile then
+			applyPasses(plr, profile)
+			applyPerks(plr, profile)
+		end
+	end
+end
+
 local function unapplyPack(profile, before)
 	profile.vp, profile.gold, profile.lucky, profile.boosts.VP = before.vp, before.gold, before.lucky, before.boostVP
 	for _, m in ipairs(Config.Boosts.LuckTiers) do
@@ -2741,6 +2775,9 @@ local function processReceipt(info)
 		end
 	end
 	local before = not gift and applyPack(profile, g) or nil
+	if not gift and (#(g.Passes or {}) > 0 or #(g.Perks or {}) > 0) then
+		refreshPassesOf(profile)
+	end
 	-- a bundle sold once is marked bought (a second receipt for it still grants: it was paid)
 	local once = not gift and entry.pack.Once == true and not profile.bundles[entry.pack.Name]
 	if once then

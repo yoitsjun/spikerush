@@ -46,7 +46,19 @@ function Economy.cleanGrant(g)
 	local function amount(v, max)
 		return math.max(0, math.min(whole(v), max))
 	end
-	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {}, Items = {}, Fragments = {}, Skins = {} }
+	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {}, Items = {}, Fragments = {}, Skins = {}, Passes = {}, Perks = {} }
+	-- game passes and perks given (a gifted pass: Config.Passes.GiftPacks)
+	for _, field in ipairs({ { "Passes", Config.Passes.Order }, { "Perks", Config.Perks.Order } }) do
+		if type(g[field[1]]) == "table" then
+			for _, key in ipairs(field[2]) do
+				for _, k in ipairs(g[field[1]]) do
+					if k == key and out[field[1]][#out[field[1]]] ~= key then
+						table.insert(out[field[1]], key)
+					end
+				end
+			end
+		end
+	end
 	-- Halloween skins (the owner, 2026-10-17: "add giving skins in the admin panel"): keys of
 	-- Config.Halloween.Skins, a copy each, with their characters
 	if type(g.Skins) == "table" then
@@ -107,7 +119,7 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0 and #(g.Passes or {}) == 0 and #(g.Perks or {}) == 0
 end
 
 -- A luck boost's strength: one of Config.Boosts.LuckTiers, else 2.
@@ -238,6 +250,19 @@ function Economy.apply(profile, g, now)
 			profile.fragments[grp] = math.min((profile.fragments[grp] or 0) + n, 100000)
 		end
 	end
+	-- a gifted pass, kept on the profile (ProfileService's passesOf reads it), and perks
+	if g.Passes and #g.Passes > 0 then
+		profile.giftedPasses = type(profile.giftedPasses) == "table" and profile.giftedPasses or {}
+		for _, key in ipairs(g.Passes) do
+			profile.giftedPasses[key] = true
+		end
+	end
+	if g.Perks and #g.Perks > 0 then
+		profile.perks = type(profile.perks) == "table" and profile.perks or {}
+		for _, key in ipairs(g.Perks) do
+			profile.perks[key] = true
+		end
+	end
 	-- a skin: a copy unless every character it fits already has one, and its characters join
 	if g.Skins and #g.Skins > 0 then
 		profile.skins = type(profile.skins) == "table" and profile.skins or {}
@@ -286,6 +311,12 @@ function Economy.describe(g, chars)
 	for _, it in ipairs(g.Items or {}) do
 		local item = Spins.item(it.Kind, it.Key)
 		table.insert(parts, (item and item.Name or it.Key) .. " (" .. it.Kind .. ")")
+	end
+	for _, key in ipairs(g.Passes or {}) do
+		table.insert(parts, "the " .. Config.Passes[key].Name .. " pass")
+	end
+	for _, key in ipairs(g.Perks or {}) do
+		table.insert(parts, Config.Perks[key].Name)
 	end
 	for _, key in ipairs(g.Skins or {}) do
 		local s = Config.Halloween.Skins[key]
@@ -491,6 +522,7 @@ local PACK_LISTS = {
 	{ kind = "LuckBoost8", list = Config.Boosts.LuckPacks8 },
 	{ kind = "LuckBoost16", list = Config.Boosts.LuckPacks16 },
 	{ kind = "Bundle", list = Config.Bundles.Packs },
+	{ kind = "PassGift", list = Config.Passes.GiftPacks },
 }
 
 -- A pack by its kind ("VP", "Gold", "Lucky") and index: { kind, index, pack, id }.
@@ -519,7 +551,7 @@ end
 -- What a pack gives.
 function Economy.packGrant(entry)
 	local p = entry.pack
-	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky, BoostVP = p.BoostVP, BoostLuck = p.BoostLuck, LuckMul = p.LuckMul })
+	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky, BoostVP = p.BoostVP, BoostLuck = p.BoostLuck, LuckMul = p.LuckMul, Passes = p.Passes, Perks = p.Perks })
 end
 
 -- Whether a pack is a bundle sold once per player that `bought` (a profile's bundles: name ->

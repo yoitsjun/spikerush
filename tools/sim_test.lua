@@ -2940,6 +2940,38 @@ do
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
 end
 
+print("== gifted game passes ==")
+do
+	-- the owner (2026-10-21): "Make all the gamepasses giftable": a gift product gives the pass (or
+	-- the perk) inside the game
+	local Economy = require("Economy")
+	local vip = Economy.pack("PassGift", 1)
+	local perk = Economy.pack("PassGift", 4)
+	local g1, g2 = Economy.packGrant(vip), Economy.packGrant(perk)
+	local prof = { owned = { Char = {} }, perks = {} }
+	Economy.apply(prof, g1, 0)
+	Economy.apply(prof, g2, 0)
+	local junk = Economy.cleanGrant({ Passes = { "Nope", "VIP", "VIP" }, Perks = { "Nope" } })
+	local allGiftable = true
+	for _, key in ipairs(Config.Passes.Order) do
+		local found = false
+		for _, p in ipairs(Config.Passes.GiftPacks) do
+			found = found or (p.Passes and p.Passes[1] == key) or false
+		end
+		allGiftable = allGiftable and found
+	end
+	for _, key in ipairs(Config.Perks.Order) do
+		local found = false
+		for _, p in ipairs(Config.Passes.GiftPacks) do
+			found = found or (p.Perks and p.Perks[1] == key) or false
+		end
+		allGiftable = allGiftable and found
+	end
+	check(vip ~= nil and vip.id ~= 0 and prof.giftedPasses.VIP == true and prof.perks.ScoreSound == true and #junk.Passes == 1 and #junk.Perks == 0
+		and not Economy.isEmpty(g1) and Economy.describe(g1) == "the VIP pass" and allGiftable and Economy.packByProduct(vip.id).kind == "PassGift",
+		"every game pass and perk pass has a gift product; it gives the pass (or perk) in the game", Economy.describe(g1) .. " / " .. Economy.describe(g2))
+end
+
 print("== Gold trades ==")
 do
 	-- the owner (2026-10-21): "50 gold for 1 vp ... and make x2 vp purchasable with coins or vp"
