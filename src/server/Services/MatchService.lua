@@ -7,6 +7,7 @@
 -- left or went AFK) is called off.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -720,6 +721,7 @@ function MatchService.playMatch()
 	TS.resetStats()
 	MatchService.rankedDone = {}
 	MatchService.rankedAvg = nil
+	MatchService.matchKey = lobby.ranked and HttpService:GenerateGUID(false) or nil -- (a leaver's way back in)
 	if lobby.ranked then
 		MatchService.runBans()
 		MatchService.rankedAvg = teamRp()
@@ -877,7 +879,27 @@ function MatchService.onLeaving(plr)
 	if e and not MatchService.rankedDone[plr] then
 		MatchService.rankedDone[plr] = true
 		local avg = MatchService.rankedAvg or teamRp()
-		reg.ProfileService.rankedResult(plr, false, avg[Court.other(e.team)] or 0)
+		-- the loss and the leave penalty (Config.Ranked.Leave); the match's key and where it runs, so
+		-- coming back to it undoes them (onRejoin): a reserved server's code, else this server
+		local code = lobby.watchCode
+		local job = (not code and game.JobId ~= "") and game.JobId or nil
+		reg.ProfileService.rankedLeave(plr, avg[Court.other(e.team)] or 0, MatchService.matchKey or "", code, job)
+	end
+end
+
+-- A player arriving (their profile loaded): back in the ranked match they left while it's still on,
+-- their leave penalty is lifted and they take their spot back from their AI at the next serve.
+function MatchService.onRejoin(plr)
+	local lobby = MatchService.lobby
+	if not lobby or not lobby.ranked or not MatchService.matchKey or MatchService.phase == "Intermission" or MatchService.phase == "MatchEnd" then
+		return
+	end
+	local rec = reg.ProfileService.rankedRecord(plr)
+	if not rec or not rec.left or rec.left.key ~= MatchService.matchKey then
+		return
+	end
+	if reg.ProfileService.rankedUnleave(plr, MatchService.matchKey) then
+		reg.TeamService.requestJoin(plr)
 	end
 end
 

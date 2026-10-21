@@ -118,6 +118,29 @@ end
 function Ranked.clean(data, season)
 	data = type(data) == "table" and data or {}
 	local out = { season = whole(data.season), rp = whole(data.rp), wins = whole(data.wins), losses = whole(data.losses), peak = whole(data.peak), best = whole(data.best), history = {} }
+	-- leaving early (Config.Ranked.Leave): when you left (the last few), the queue lock, and the match
+	-- you left (to rejoin it: its key, where it is, what it cost)
+	out.leaves = {}
+	if type(data.leaves) == "table" then
+		for _, t in ipairs(data.leaves) do
+			if tonumber(t) and #out.leaves < #R.Leave.Bans then
+				table.insert(out.leaves, whole(t))
+			end
+		end
+	end
+	out.banUntil = whole(data.banUntil)
+	local left = data.left
+	if type(left) == "table" and type(left.key) == "string" then
+		out.left = {
+			key = string.sub(left.key, 1, 64),
+			code = type(left.code) == "string" and string.sub(left.code, 1, 200) or nil,
+			job = type(left.job) == "string" and string.sub(left.job, 1, 64) or nil,
+			d = math.min(0, math.floor(tonumber(left.d) or 0)),
+			ban = whole(left.ban),
+			at = whole(left.at),
+			season = whole(left.season),
+		}
+	end
 	if type(data.history) == "table" then
 		for _, h in ipairs(data.history) do
 			if type(h) == "table" and #out.history < R.HistoryMax then
@@ -141,6 +164,63 @@ function Ranked.clean(data, season)
 		out.peak = out.rp
 	end
 	return out
+end
+
+-- Leaving a ranked match early (`key`: the match; `code` / `job`: where it runs, to rejoin it) at
+-- unix time `now`: its loss, ExtraRp more, and the queue locked by how many times you've left in
+-- the last Window. Returns the RP it cost (negative) and the lock's seconds.
+function Ranked.leave(rec, theirs, now, key, code, job)
+	local L = R.Leave
+	local d = Ranked.apply(rec, false, theirs)
+	local extra = math.min(L.ExtraRp, rec.rp)
+	rec.rp = rec.rp - extra
+	local recent = {}
+	for _, t in ipairs(rec.leaves or {}) do
+		if now - t < L.Window then
+			table.insert(recent, t)
+		end
+	end
+	table.insert(recent, 1, now)
+	while #recent > #L.Bans do
+		table.remove(recent)
+	end
+	rec.leaves = recent
+	local secs = L.Bans[math.min(#recent, #L.Bans)]
+	local prevBan = rec.banUntil or 0
+	rec.banUntil = math.max(prevBan, now + secs)
+	rec.left = { key = key, code = code, job = job, d = d - extra, ban = prevBan, at = now, season = rec.season }
+	return d - extra, secs
+end
+
+-- Back in the match you left (`key`), while it's on: the RP, the loss, the leave and the queue
+-- lock all come back. Returns whether it did.
+function Ranked.unleave(rec, key)
+	local left = rec.left
+	if not left or left.key ~= key or left.season ~= rec.season then
+		return false
+	end
+	rec.rp = math.max(0, rec.rp - (left.d or 0))
+	rec.losses = math.max(0, rec.losses - 1)
+	if rec.leaves and rec.leaves[1] == left.at then
+		table.remove(rec.leaves, 1)
+	end
+	rec.banUntil = left.ban or 0
+	rec.left = nil
+	return true
+end
+
+-- Seconds the ranked queue stays locked at unix time `now` (0: open).
+function Ranked.banLeft(rec, now)
+	return math.max(0, (rec and rec.banUntil or 0) - now)
+end
+
+-- The match you left, while you can still rejoin it (else nil).
+function Ranked.rejoinable(rec, now)
+	local left = rec and rec.left
+	if left and now - (left.at or 0) <= R.Leave.RejoinSeconds then
+		return left
+	end
+	return nil
 end
 
 -- A match's result on a record (already rolled over): returns the change in RP.

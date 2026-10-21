@@ -34,6 +34,7 @@ local Lobbies = require(Shared.Lobbies)
 local Tutorial = require(Shared.Tutorial)
 local Cups = require(Shared.Cups)
 local Halloween = require(Shared.Halloween)
+local Ranked = require(Shared.Ranked)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 
@@ -1066,6 +1067,14 @@ function LobbyService.quick(plr, mode, localOnly, ranked)
 	if not plr.Parent then
 		return nil
 	end
+	if ranked then
+		-- left a ranked match early: the queue is locked a while (Config.Ranked.Leave)
+		local left = Ranked.banLeft(reg.ProfileService.rankedRecord(plr), os.time())
+		if left > 0 then
+			notify(plr, string.format("You left a ranked match: you can queue again in %d:%02d.", math.floor(left / 60), left % 60))
+			return nil
+		end
+	end
 	local party, why = { plr }, nil
 	if reg.PartyService then
 		party, why = reg.PartyService.membersFor(plr)
@@ -1795,6 +1804,39 @@ local function onRequest(plr, op, a, b)
 		if mode == 1 or mode == 2 or mode == 3 then
 			LobbyService.quick(plr, mode, false, op == "ranked")
 		end
+	elseif op == "rejoinRanked" then
+		-- back to the ranked match you left (its reserved server, or the server it runs in)
+		local rec = reg.ProfileService.rankedRecord(plr)
+		local left = Ranked.rejoinable(rec, os.time())
+		if not left then
+			notify(plr, "That match is over.")
+			return
+		end
+		if (left.job and left.job == game.JobId) or (left.code and LobbyService.reserved) then
+			reg.MatchService.onRejoin(plr)
+			return
+		end
+		if RunService:IsStudio() then
+			notify(plr, "Rejoining a match in another server works in the live game, not in Studio.")
+			return
+		end
+		reg.ProfileService.save(plr)
+		local options = Instance.new("TeleportOptions")
+		if left.code then
+			options.ReservedServerAccessCode = left.code
+		elseif left.job then
+			options.ServerInstanceId = left.job
+		end
+		options:SetTeleportData({ spikeRushRejoin = left.key })
+		notify(plr, "Taking you back to your match...")
+		local ok = pcall(function()
+			TeleportService:TeleportAsync(game.PlaceId, { plr }, options)
+		end)
+		if not ok then
+			notify(plr, "Couldn't take you back: the match may be over.")
+		end
+	elseif op == "forgetRanked" then
+		reg.ProfileService.rankedForgetLeave(plr)
 	elseif op == "ban" then
 		-- a ranked match's ban (MatchService)
 		reg.MatchService.ban(plr, a)

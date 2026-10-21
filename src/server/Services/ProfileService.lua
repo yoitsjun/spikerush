@@ -1240,6 +1240,53 @@ function ProfileService.rankedResult(plr, won, theirs)
 	return d, profile.ranked.rp
 end
 
+-- Leaving a ranked match early (MatchService.onLeaving): its loss, the leave penalty and the queue
+-- lock (Ranked.leave), saved with them; rejoining it undoes all of it (rankedUnleave).
+function ProfileService.rankedLeave(plr, theirs, key, code, job)
+	local profile = profiles[plr]
+	if not profile then
+		return nil
+	end
+	profile.ranked = Ranked.clean(profile.ranked, Ranked.season(os.time()))
+	local d, secs = Ranked.leave(profile.ranked, theirs, os.time(), key, code, job)
+	dirty[plr] = true
+	return d, secs
+end
+
+function ProfileService.rankedUnleave(plr, key)
+	local profile = profiles[plr]
+	if not profile then
+		return false
+	end
+	profile.ranked = Ranked.clean(profile.ranked, Ranked.season(os.time()))
+	if Ranked.unleave(profile.ranked, key) then
+		dirty[plr] = true
+		push(plr, "Welcome back: your leave penalty is lifted.")
+		return true
+	end
+	return false
+end
+
+-- The ranked record as it stands (rolled over), or nil.
+function ProfileService.rankedRecord(plr)
+	local profile = profiles[plr]
+	if not profile then
+		return nil
+	end
+	profile.ranked = Ranked.clean(profile.ranked, Ranked.season(os.time()))
+	return profile.ranked
+end
+
+-- Forget the match you left (you chose not to rejoin it; the penalty stays).
+function ProfileService.rankedForgetLeave(plr)
+	local rec = ProfileService.rankedRecord(plr)
+	if rec and rec.left then
+		rec.left = nil
+		dirty[plr] = true
+		push(plr)
+	end
+end
+
 -- A player's ranked RP right now (their season rolled over first).
 function ProfileService.rankedRp(plr)
 	local profile = profiles[plr]
@@ -2958,6 +3005,9 @@ function ProfileService.init(r)
 			task.spawn(ProfileService.checkMail, plr)
 			if reg.ClanService then
 				task.spawn(reg.ClanService.onLoaded, plr) -- (their clan, its tag in chat)
+			end
+			if reg.MatchService and reg.MatchService.onRejoin then
+				task.spawn(reg.MatchService.onRejoin, plr) -- (back in the ranked match they left: the penalty lifted)
 			end
 			-- the perks' game passes they own
 			for _, key in ipairs(Config.Perks.Order) do

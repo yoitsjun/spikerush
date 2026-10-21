@@ -124,6 +124,11 @@ local function buildWindow()
 	for i, mode in ipairs(RC.Modes) do
 		local b, l = kit.actionPlate(q, { Position = UDim2.fromOffset(22 + (i - 1) * 200, 132), Size = UDim2.fromOffset(186, 80) }, string.format("%dv%d", mode, mode), 30)
 		kit.onClick(b, function()
+			local lock = Ranked.banLeft(record(), Util.now())
+			if lock > 0 then
+				kit.toast(string.format("You left a ranked match: you can queue again in %d:%02d.", math.floor(lock / 60), math.floor(lock % 60)))
+				return
+			end
 			local mine = kit.lobbies() and kit.lobbies().mine
 			if mine and not (mine.ranked and mine.mode == mode) then
 				kit.toast("You're in a lobby: leave it first.")
@@ -156,7 +161,45 @@ local function buildWindow()
 	ui.seasonCards = {}
 end
 
+-- Left a ranked match early: a pop-up at the top offers the way back while it's still on
+-- (Config.Ranked.Leave.RejoinSeconds); rejoining lifts the penalty. Dismiss keeps the penalty.
+local function buildRejoin()
+	local gui = make("ScreenGui", { Name = "SpikeRushRankedRejoin", ResetOnSpawn = false, DisplayOrder = 46 }, Players.LocalPlayer:WaitForChild("PlayerGui"))
+	local f = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 70), Size = UDim2.fromOffset(500, 104), BackgroundColor3 = Color3.fromRGB(14, 16, 28), BorderSizePixel = 0, Visible = false }, gui)
+	Gui.corner(f, 10)
+	make("UIStroke", { Color = Color3.fromRGB(255, 107, 107), Thickness = 2 }, f)
+	local text = Gui.label(f, { Text = "", display = true, TextSize = 17, TextWrapped = true, Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 50) })
+	local yes = kit.actionPlate(f, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -130, 1, -10), Size = UDim2.fromOffset(150, 34) }, "Rejoin match", 17)
+	local no = kit.hairButton(f, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -10), Size = UDim2.fromOffset(106, 34) }, "Dismiss", 16)
+	kit.onClick(yes, function()
+		Net.get("Lobby"):FireServer("rejoinRanked")
+		f.Visible = false
+	end)
+	kit.onClick(no, function()
+		ui.rejoinDismissed = ui.rejoinKey
+		Net.get("Lobby"):FireServer("forgetRanked")
+		f.Visible = false
+	end)
+	ui.rejoin = { frame = f, text = text }
+end
+
+local function refreshRejoin()
+	if not ui.rejoin then
+		return
+	end
+	local rec = record()
+	local left = Ranked.rejoinable(rec, Util.now())
+	local show = left ~= nil and not State.isPlaying and ui.rejoinDismissed ~= left.key
+	ui.rejoinKey = left and left.key
+	ui.rejoin.frame.Visible = show
+	if show then
+		local lock = Ranked.banLeft(rec, Util.now())
+		ui.rejoin.text.Text = string.format("You left a ranked match: %d RP and the queue locked for %d:%02d. Rejoin it while it's on and you get them back.", left.d or 0, math.floor(lock / 60), math.floor(lock % 60))
+	end
+end
+
 function RankedMenu.refresh()
+	refreshRejoin()
 	if not ui.window or not ui.window.root.Visible then
 		return
 	end
@@ -179,8 +222,12 @@ function RankedMenu.refresh()
 	local inRanked = mine and mine.ranked
 	ui.queueLine.Text = inRanked and string.format("Ranked %dv%d: %d / %d players. Waiting for real players...", mine.mode, mine.mode, mine.count or 0, mine.capacity or 0) or ""
 	ui.leave.Visible = inRanked == true
+	local lock = Ranked.banLeft(rec, Util.now())
 	for mode, l in pairs(ui.queues) do
-		l.Text = (inRanked and mine.mode == mode) and "Queued" or string.format("%dv%d", mode, mode)
+		l.Text = (inRanked and mine.mode == mode) and "Queued" or (lock > 0 and string.format("%d:%02d", math.floor(lock / 60), math.floor(lock % 60))) or string.format("%dv%d", mode, mode)
+	end
+	if lock > 0 and not inRanked then
+		ui.queueLine.Text = "Locked: you left a ranked match early."
 	end
 	local party = mods.PartyMenu and mods.PartyMenu.current()
 	ui.partyLine.Text = party and string.format("Party of %d%s", #party.members, party.leader == Players.LocalPlayer.UserId and " (you lead)" or ": your leader queues") or "Solo. Make a party to queue with friends."
@@ -317,6 +364,7 @@ function RankedMenu.init(m)
 	kit = mods.MenuController.kit()
 	buildWindow()
 	buildBans()
+	buildRejoin()
 	State.signals.Announce:Connect(onAnnounce)
 	State.signals.Profile:Connect(function()
 		RankedMenu.refresh()
@@ -325,9 +373,15 @@ function RankedMenu.init(m)
 		task.defer(RankedMenu.refresh)
 	end)
 	-- the ban timer
+	local nextTick = 0
 	game:GetService("RunService").Heartbeat:Connect(function()
 		if ui.banEnds and ui.bans.root.Visible then
 			ui.bans.timer.Text = string.format("%d s", math.max(0, math.ceil(ui.banEnds - Util.now())))
+		end
+		-- (the queue lock and the rejoin offer count down)
+		if os.clock() >= nextTick then
+			nextTick = os.clock() + 1
+			RankedMenu.refresh()
 		end
 	end)
 end

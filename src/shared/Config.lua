@@ -2293,6 +2293,16 @@ Config.Ranked = {
 	},
 	Min = 4,
 	Max = 55,
+	-- leaving a ranked match early (the owner, 2026-10-21: "add a leaver penalty", "it is removed if
+	-- you rejoin though"): the loss, ExtraRp more, and the ranked queue locked for Bans[n] seconds,
+	-- n your leaves in the last Window (the last step for any more). Rejoin the match while it's
+	-- still on (offered for RejoinSeconds) and all of it comes back.
+	Leave = {
+		ExtraRp = 15,
+		Bans = { 120, 300, 900, 1800, 3600 },
+		Window = 86400,
+		RejoinSeconds = 900,
+	},
 	ResetFrac = 0.5,
 	Season1Ends = { 2026, 12 }, -- (year, month): Season 1 ends as that month begins
 	DayOffset = -5 * 3600, -- Chicago, near enough (like the Halloween days)

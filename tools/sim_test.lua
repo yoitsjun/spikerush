@@ -3016,6 +3016,37 @@ do
 		table.concat(names, ", ") .. string.format("; upset +%d / %d; S1 ends %d", upset, upsetL, endsNov))
 end
 
+print("== ranked leavers ==")
+do
+	local Ranked = require("Ranked")
+	local L = Config.Ranked.Leave
+	local now = 1792594800
+	-- (the owner, 2026-10-21: "add a leaver penalty", "it is removed if you rejoin though")
+	local rec = Ranked.clean({ season = 1, rp = 1000, wins = 5, losses = 2, peak = 1000 }, 1)
+	local plain = Ranked.change(false, 1000, 1000)
+	local d1, ban1 = Ranked.leave(rec, 1000, now, "match-a", "code-a", nil)
+	local afterOne = rec.rp
+	local lockOne = Ranked.banLeft(rec, now)
+	-- leaving again soon after: a longer lock; a day later the count starts over
+	local _, ban2 = Ranked.leave(rec, 1000, now + 600, "match-b", nil, "job-b")
+	local _, ban3 = Ranked.leave(rec, 1000, now + 1200, "match-c", nil, "job-c")
+	local fresh = Ranked.clean({ season = 1, rp = 500, leaves = { now - L.Window - 10 } }, 1)
+	local _, banLater = Ranked.leave(fresh, 500, now, "match-d", nil, "job-d")
+	-- rejoining the match you left gives it all back (only that match, in its season)
+	local r2 = Ranked.clean({ season = 1, rp = 1000, wins = 5, losses = 2, peak = 1000 }, 1)
+	Ranked.leave(r2, 1000, now, "match-e", "code-e", nil)
+	local wrong = Ranked.unleave(r2, "match-x")
+	local saved = Ranked.clean(r2, 1) -- (it survives a save and a load)
+	local right = Ranked.unleave(saved, "match-e")
+	local again = Ranked.unleave(saved, "match-e")
+	check(d1 == plain - L.ExtraRp and afterOne == 1000 + plain - L.ExtraRp and ban1 == L.Bans[1] and lockOne == L.Bans[1] and rec.losses == 5
+		and ban2 == L.Bans[2] and ban3 == L.Bans[3] and banLater == L.Bans[1]
+		and not wrong and right and not again and saved.rp == 1000 and saved.losses == 2 and Ranked.banLeft(saved, now) == 0 and saved.left == nil
+		and Ranked.rejoinable(saved, now) == nil and Ranked.rejoinable(rec, now + 1200).key == "match-c" and Ranked.rejoinable(rec, now + 1200 + L.RejoinSeconds + 1) == nil,
+		"leaving a ranked match: the loss, -15 RP more and a queue lock that grows with each leave in a day; rejoining that match gives it all back",
+		string.format("left at Platinum: %d RP (a plain loss %d), locked %d s, then %d s, %d s", d1, plain, ban1, ban2, ban3))
+end
+
 print("== clans ==")
 do
 	-- the owner (2026-10-21): clans: 1,000 VP (or the pass) to make one, a unique 2-5 tag, a

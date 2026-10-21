@@ -1299,7 +1299,11 @@ function TeamService.onPlayerRemoving(plr)
 		end
 	end
 	TeamService.bench(plr, "left")
-	TeamService.benched[plr.UserId] = nil
+	-- (a ranked match keeps their AI theirs: they may rejoin it, MatchService.onRejoin)
+	local lobby = reg.MatchService.lobby
+	if not (lobby and lobby.ranked and TeamService.inMatch) then
+		TeamService.benched[plr.UserId] = nil
+	end
 	TeamService.idle[plr.UserId] = nil
 end
 
