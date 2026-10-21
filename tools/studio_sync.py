@@ -1,5 +1,6 @@
 """Print a Luau snippet (for the Studio MCP's execute_luau, Edit datamodel) that pulls every src/*.lua
-each only if Studio's copy hashes to the base commit's version. Usage: syncgen.py BASE NEW"""
+file changed between two commits into Studio from GitHub raw, each only if Studio's copy hashes to the
+base commit's version (a script edited in Studio is skipped and reported). Usage: studio_sync.py BASE NEW"""
 import subprocess, sys
 
 base, new = sys.argv[1], sys.argv[2]
