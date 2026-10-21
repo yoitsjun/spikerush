@@ -513,7 +513,8 @@ do
 	end
 	tipOk = tipOk and tipTouches < 25
 	local highOk = walled(block(120, { ball = under(-6) }))
-	local standOk = walled(block(200, { root = vec(0, GROUND, side * 1.2), ball = vec(0, C.NetTop + 6, side * 0.6) }))
+	-- standing he isn't a wall (the owner, 2026-10-21: "make taesan have to jump for his iron wall")
+	local standOk = not walled(block(200, { root = vec(0, GROUND, side * 1.2), ball = vec(0, C.NetTop + 6, side * 0.6) }))
 	local reachOk = walled(block(120, { ball = tips })) and walled(block(120, { ball = chest })) and walled(block(120, { ball = legs }))
 	-- with no shields left (awakened) he blocks like anyone: the high ball is out of reach
 	local okBare = block(120, { lives = 0, ball = under(-6) })
@@ -531,10 +532,10 @@ do
 	check(allHeld and okW and tipOk and highOk and standOk and reachOk and not okBare
 		and l1 == 3 and c1 == 1 and l2 == 2 and c2 == 0 and stops == 6 and l4 == 3 and c4 == 1 and l5 == 0 and IR.CracksToBreak == 2
 		and HitLogic.wallReach(false, true, "Feint") == true and IW.ReachUp > 10,
-		"Bulwark is Iron Wall for 3 lives: every attack shut down (260 km/h, clean, piercing, smashing, standing, any height) but feints (they float over; a touch is soft); a stop cracks a shield, the next shatters it: 6 stops",
+		"Bulwark is Iron Wall for 3 lives on a block jump (not standing): every attack shut down (260 km/h, clean, piercing, smashing, any height) but feints (they float over; a touch is soft); a stop cracks a shield, the next shatters it: 6 stops",
 		string.format("stops: 3 -> %d (%d crack) -> %d (%d); 3 shields last %d stops", l1, c1, l2, c2, stops))
-	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 20 and IR.MeterBonus > 0,
-		"Bulwark: 3 shields to start; awakened, every touch fills Intimidation 20% (a kill or a stuff more)")
+	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 10 and IR.MeterBonus > 0 and IR.StartLives == 1,
+		"Bulwark: a set starts with 1 shield of 3; below 3, every touch fills Intimidation 10% (a kill or a stuff more)")
 	-- Forge (awakened): a jump before the set charges up to about 215 km/h maxed; after the set,
 	-- LateShare of it; not awakened, nothing; the charge widens his reach
 	local root = apexRoot(taesan, 3.5 * K)
@@ -2323,8 +2324,8 @@ print("== leaderboards ==")
 do
 	local Leaderboards = require("Leaderboards")
 	local v = Leaderboards.valuesOf({ bestStreak = 4, record = { wins = 12, kills = 140, aces = 9, blocks = -3 }, spent = { robux = 897, gifts = 399 } })
-	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and v.robux == 897 and v.gifts == 399 and #Leaderboards.Boards == 8 and v.winRate == 0,
-		"eight boards: wins, best win streak, spike kills, aces and blocks from the career counters, Robux spent and gifted, and the W/L ratio (none before 20 matches)")
+	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and v.robux == 897 and v.gifts == 399 and #Leaderboards.Boards == 9 and v.winRate == 0 and v.playTime == 0,
+		"nine boards: wins, best win streak, spike kills, aces and blocks from the career counters, Robux spent and gifted, the W/L ratio (none before 20 matches) and playtime")
 	-- the W/L ratio board: one number that sorts by the share won, then the wins, and keeps both
 	local wr = Leaderboards.valuesOf({ record = { wins = 120, matches = 194 } }).winRate
 	local pct, w, l = Leaderboards.unpackWinRate(wr)

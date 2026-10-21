@@ -553,7 +553,7 @@ local function goRecruit()
 	MenuController.go("recruit")
 end
 
--- The currencies in a row: icon, amount, and a "+" to the Shop for V Points (Gold is earned).
+-- The currencies in a row: icon, amount, and a "+" to the Shop for each (V Points and Gold).
 local function currencyStrip(parent, props)
 	local cur = make("Frame", { Size = UDim2.fromOffset(460, 40), BackgroundTransparency = 1 }, parent)
 	for k, v in pairs(props or {}) do
@@ -570,8 +570,11 @@ local function currencyStrip(parent, props)
 	local vp, vpPlus = currency(1, Gui.icon.vp)
 	make("Frame", { Size = UDim2.fromOffset(14, 1), BackgroundTransparency = 1, LayoutOrder = 4 }, cur)
 	local gold, goldPlus = currency(5, Gui.icon.gold)
-	goldPlus.Visible = false
+	goldPlus:SetAttribute("NavSkipFirst", true)
 	onClick(vpPlus, function()
+		MenuController.go("shop")
+	end)
+	onClick(goldPlus, function()
 		MenuController.go("shop")
 	end)
 	ui.currencies = ui.currencies or {}
@@ -706,8 +709,10 @@ local function buildHome()
 	local vp, vpPlus = currency(1, Gui.icon.vp)
 	make("Frame", { Size = UDim2.fromOffset(16, 1), BackgroundTransparency = 1, LayoutOrder = 4 }, cur)
 	local gold, goldPlus = currency(5, Gui.icon.gold)
-	goldPlus.Visible = false -- Gold is earned, not bought
 	onClick(vpPlus, function()
+		MenuController.go("shop")
+	end)
+	onClick(goldPlus, function()
 		MenuController.go("shop")
 	end)
 	ui.currencies = ui.currencies or {}
@@ -750,6 +755,14 @@ local function buildHome()
 	extras.Size = UDim2.fromOffset(extras.Size.X.Offset, extras.Size.Y.Offset + 84)
 	onClick(decorBtn, function()
 		Extra.openDecorate()
+	end)
+	-- Playtime rewards (Config.PlayRewards; the owner: "where can you see playtime rewards"): today's
+	-- time and the three tiers it pays, in a window
+	local playBtn = navItem(extras, Extra.iconKey("IconPlaytime", "IconSpeed"), "Playtime", { LayoutOrder = 5 })
+	extras.Size = UDim2.fromOffset(extras.Size.X.Offset, extras.Size.Y.Offset + 84)
+	onClick(playBtn, function()
+		ui.playtime.modal.root.Visible = true
+		MenuController.refresh()
 	end)
 
 	-- the admin panel's running events (2x VP, 2x Gold) with their time left, under the nav
@@ -6564,7 +6577,7 @@ local function buildRanks()
 	local p = page("ranks")
 	mainChrome(p, "ranks")
 	-- the boards down the left, as hairline cards (the one shown edged in gold with a bar)
-	local list = make("Frame", { Name = "Boards", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(310, 7 * 64 + 6 * 8), BackgroundTransparency = 1 }, p)
+	local list = make("Frame", { Name = "Boards", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(310, #Leaderboards.Boards * 64 + (#Leaderboards.Boards - 1) * 8), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local tabs = {}
 	-- (a controller: LB and RB step through the boards)
@@ -7318,6 +7331,75 @@ function Extra.refreshDaily(prof)
 		Dy.when.Text = ""
 	else
 		Dy.when.Text = "Your next reward opens in " .. Extra.waitText(left) .. "."
+	end
+end
+
+-- The playtime rewards window (Config.PlayRewards): the time played today, a bar across the tiers,
+-- and a card for each with what it pays and whether it's collected. They pay out on their own
+-- (ProfileService.tickPlayTime); this only shows them.
+function Extra.buildPlaytime()
+	local m = modal("Playtime", "Playtime rewards", 900, 520, true)
+	Gui.label(m.panel, { Text = "Just play: each reward pays out by itself the moment you reach it, once a day. Today's time starts over at midnight, Chicago time.", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 40), ZIndex = 21 })
+	local today = Gui.label(m.panel, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, Position = UDim2.fromOffset(28, 132), Size = UDim2.new(1, -56, 0, 52), ZIndex = 21 })
+	local track = make("Frame", { Position = UDim2.fromOffset(28, 196), Size = UDim2.new(1, -56, 0, 14), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, ZIndex = 21 }, m.panel)
+	make("UICorner", { CornerRadius = UDim.new(0, 7) }, track)
+	local fill = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, ZIndex = 22 }, track)
+	make("UICorner", { CornerRadius = UDim.new(0, 7) }, fill)
+	local row = make("Frame", { Position = UDim2.fromOffset(26, 232), Size = UDim2.new(1, -52, 0, 200), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, row)
+	local cards = {}
+	local tiers = Config.PlayRewards.Tiers
+	local n = #tiers
+	for i, t in ipairs(tiers) do
+		local c = make("Frame", { Size = UDim2.new(1 / n, -10 * (n - 1) / n, 1, 0), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.1, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 21 }, row)
+		make("UICorner", { CornerRadius = UDim.new(0, 8) }, c)
+		local st = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, c)
+		Gui.label(c, { Text = t.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 28, Size = UDim2.new(1, 0, 0, 34), Position = UDim2.fromOffset(0, 12), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
+		Gui.label(c, { Text = Extra.rewardLines(Economy.cleanGrant(t.Grant)), TextSize = 18, weight = Enum.FontWeight.Medium, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -12, 0, 90), Position = UDim2.fromOffset(6, 58), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
+		local state = Gui.label(c, { Text = "", display = true, TextSize = 19, TextColor3 = Gui.DIM, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -12), Size = UDim2.new(1, 0, 0, 24), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 22 })
+		cards[i] = { frame = c, stroke = st, state = state, tier = t }
+	end
+	local nextL = Gui.label(m.panel, { Text = "", TextSize = 18, TextColor3 = Gui.SIGNAL_HOT, Position = UDim2.fromOffset(28, 450), Size = UDim2.new(1, -56, 0, 24), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 21 })
+	ui.playtime = { modal = m, today = today, fill = fill, cards = cards, next = nextL }
+end
+
+function Extra.refreshPlaytime(prof)
+	local PT = ui.playtime
+	local pt = prof.playToday or {}
+	local day = math.floor((os.time() + Config.PlayRewards.DayOffset) / 86400)
+	local secs, claimed = 0, {}
+	if pt.day == day then
+		-- the server's count at the last profile, and the time since (it counts every 15 seconds)
+		secs = (pt.secs or 0) + math.max(0, os.clock() - Extra.profileAt)
+		claimed = pt.claimed or {}
+	end
+	secs = math.floor(secs)
+	local tiers = Config.PlayRewards.Tiers
+	local nextTier, paying = nil, false
+	for _, c in ipairs(PT.cards) do
+		local need = c.tier.Minutes * 60
+		local got = claimed[c.tier.Key] == true
+		local ready = not got and secs >= need
+		if ready then
+			paying = true
+		elseif not got and not nextTier then
+			nextTier = c.tier
+		end
+		c.state.Text = got and "Collected" or (ready and "Paying out..." or ("In " .. Extra.clockText(need - secs)))
+		c.state.TextColor3 = got and Gui.SIGNAL or Gui.DIM
+		c.stroke.Color = got and Gui.SIGNAL or Gui.HAIRLINE
+		c.stroke.Thickness = got and 2 or 1
+		c.stroke.Transparency = got and 0 or 0.5
+		c.frame.BackgroundTransparency = got and 0.5 or 0.1
+	end
+	PT.today.Text = "Played today: " .. Extra.clockText(secs)
+	PT.fill.Size = UDim2.fromScale(math.clamp(secs / (tiers[#tiers].Minutes * 60), 0, 1), 1)
+	if paying then
+		PT.next.Text = "Your reward is on its way..."
+	elseif nextTier then
+		PT.next.Text = string.format("Next: %s, in %s.", nextTier.Name, Extra.clockText(nextTier.Minutes * 60 - secs))
+	else
+		PT.next.Text = "You've collected all of today's rewards. Come back tomorrow!"
 	end
 end
 
@@ -8568,6 +8650,9 @@ local function doRefresh()
 	if ui.daily.modal.root.Visible then
 		Extra.refreshDaily(prof)
 	end
+	if ui.playtime and ui.playtime.modal.root.Visible then
+		Extra.refreshPlaytime(prof)
+	end
 	if ui.admin.modal.root.Visible then
 		Extra.refreshAdmin()
 	end
@@ -8630,6 +8715,9 @@ local function setShown(on)
 		ui.help.root.Visible = false
 		ui.codes.modal.root.Visible = false
 		ui.daily.modal.root.Visible = false
+		if ui.playtime then
+			ui.playtime.modal.root.Visible = false
+		end
 		ui.gift.modal.root.Visible = false
 		ui.admin.modal.root.Visible = false
 	end
@@ -8942,6 +9030,7 @@ function MenuController.init(m)
 	Extra.buildCodes()
 	Extra.buildPatch()
 	Extra.buildDaily()
+	Extra.buildPlaytime()
 	Extra.buildGift()
 	Extra.buildCrop()
 	Extra.buildAdmin()
@@ -9079,6 +9168,9 @@ function MenuController.init(m)
 			end
 			if ui.daily.modal.root.Visible then
 				Extra.refreshDaily(profile())
+			end
+			if ui.playtime and ui.playtime.modal.root.Visible then
+				Extra.refreshPlaytime(profile())
 			end
 			if ui.admin.modal.root.Visible then
 				Extra.refreshAdmin()

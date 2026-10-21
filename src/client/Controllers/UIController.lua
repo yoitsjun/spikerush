@@ -1102,8 +1102,10 @@ local function badgeState(ability, id, model, team, mine)
 		local inst = mine and player or model
 		local lives = HitLogic.ironLives(inst and inst:GetAttribute("IronLives"))
 		if lives > 0 then
+			-- (below full, the Intimidation meter that refills them too)
+			local m = (inst and inst:GetAttribute("Intimidation")) or 0
 			p, hot = lives / def.Lives, false
-			sub = string.format("SHIELDS %d/%d", lives, def.Lives)
+			sub = lives < def.Lives and string.format("SHIELDS %d/%d  %d%%", lives, def.Lives, m) or string.format("SHIELDS %d/%d", lives, def.Lives)
 		else
 			local m = (inst and inst:GetAttribute("Intimidation")) or 0
 			p, hot = math.clamp(m / 100, 0, 1), true

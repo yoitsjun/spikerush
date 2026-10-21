@@ -333,14 +333,16 @@ function MatchService.awardPoint(res)
 		local reason = res.reason
 		if reason == "Spike" or reason == "Feint" or reason == "Break" or reason == "Tooled" then
 			st.kills = st.kills + 1
-			if TS.has(scorer, "Ironclad") and HitLogic.ironLives(scorer.ironLives) == 0 then
-				-- Intimidation: an awakened Taesan's kill fills it more (his touch already added its share)
-				local IRON = Config.Abilities.Ironclad
+			local IRON = Config.Abilities.Ironclad
+			local ironNow = HitLogic.ironLives(scorer.ironLives)
+			if TS.has(scorer, "Ironclad") and ironNow < IRON.Lives then
+				-- Intimidation: a Taesan below full shields fills it more with a kill (his touch already
+				-- added its share)
 				local m = (scorer.intimidation or 0) + IRON.MeterBonus
 				if m >= 100 then
 					TS.setIron(scorer, IRON.Lives, 0)
 				else
-					TS.setIron(scorer, 0, m)
+					TS.setIron(scorer, ironNow, m, scorer.ironCracks)
 				end
 			end
 			local hits = MatchService.rallyHits

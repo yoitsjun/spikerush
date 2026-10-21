@@ -55,9 +55,18 @@ local function commas(n)
 	end
 end
 
--- A board's value as text: "1,234 wins", or the win rate's "62.4%  120 W  74 L".
+-- A board's value as text: "1,234 wins", the win rate's "62.4%  120 W  74 L", or the playtime's
+-- "12h 05m".
 function Leaderboards.format(key, value)
 	local b = BY_KEY[key or ""]
+	if b and b.Time then
+		local secs = math.max(0, math.floor(tonumber(value) or 0))
+		local h, m = math.floor(secs / 3600), math.floor(secs % 3600 / 60)
+		if h == 0 and m == 0 then
+			return "<1m"
+		end
+		return h > 0 and string.format("%sh %02dm", commas(h), m) or string.format("%dm", m)
+	end
 	if b and b.WinRate then
 		local pct, w, l = Leaderboards.unpackWinRate(value)
 		return string.format("%.1f%%  %s W  %s L", pct, commas(w), commas(l))
@@ -84,6 +93,7 @@ function Leaderboards.valuesOf(profile)
 		blocks = n(rec.blocks),
 		robux = n(profile and profile.spent and profile.spent.robux),
 		gifts = n(profile and profile.spent and profile.spent.gifts),
+		playTime = n(profile and profile.playTime),
 	}
 end
 

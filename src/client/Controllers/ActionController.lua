@@ -1716,7 +1716,10 @@ end
 local function processBlock(info, now)
 	-- Iron Wall up: you're a wall at the net, jumping or not (no block press or timing needed)
 	local wallUp = ActionController.abilityActive("IronWall") -- (beats Ironclad's Bulwark when both are up)
-	local iron = wallUp or ActionController.bulwark()
+	-- Ironclad's Bulwark only while he's up to block (the owner, 2026-10-21: "make taesan have to
+	-- jump for his iron wall")
+	local bulwarkUp = ActionController.bulwark() and block.active and not info.grounded
+	local iron = wallUp or bulwarkUp
 	if not block.active and not iron then
 		return
 	end
@@ -1737,7 +1740,7 @@ local function processBlock(info, now)
 		return
 	end
 	local path = BR.getPath()
-	local reach = HitLogic.wallReach(wallUp, ActionController.bulwark(), meta.hitType)
+	local reach = HitLogic.wallReach(wallUp, bulwarkUp, meta.hitType)
 	-- an attack we've only just heard of (a new path) is checked from where it left the hand (from
 	-- when our hands went up, if that was later; Iron Wall's are always up), as far back as the server
 	-- takes a hit (Config.Net.MaxRewind): on a phone's ping a spike near the net was already through the

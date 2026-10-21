@@ -1481,7 +1481,10 @@ function HitLogic.compute(input, ctx)
 	-- Block -----------------------------------------------------------------------------------
 	if action == "Block" then
 		local last = ctx.lastHit
-		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, Halloween.blockReach(HitLogic.wallReach(ctx.ironWall, ctx.ironclad, last and last.hitType), ctx.hex))
+		-- Bulwark only in the air (the owner, 2026-10-21: "make taesan have to jump for his iron
+		-- wall"): standing, his shields don't block
+		local bulwark = ctx.ironclad == true and input.grounded ~= true
+		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, Halloween.blockReach(HitLogic.wallReach(ctx.ironWall, bulwark, last and last.hitType), ctx.hex))
 		if not ok then
 			return false, "zone"
 		end
@@ -1524,7 +1527,7 @@ function HitLogic.compute(input, ctx)
 		-- Ironclad's Bulwark (ctx.ironclad: he has shields) is Iron Wall for his 3 lives (the owner,
 		-- 2026-10-15): the same whole wall and perfect shut-down, tips and the hardest spikes
 		-- included; each stop cracks a shield instead (HitLogic.ironAfterBlock)
-		local perfect = (ctx.ironWall or ctx.ironclad == true) and not feint
+		local perfect = (ctx.ironWall or bulwark) and not feint
 		if perfect then
 			-- Iron Wall: a perfect block, whatever reaches the hands (pierce, thunder and a Feral
 			-- smash included), wherever it meets them
@@ -1536,7 +1539,7 @@ function HitLogic.compute(input, ctx)
 		local meta = meta0("Block", clamp(q, 0, 1))
 		meta.attackKmh = attackKmh
 		meta.ironWall = perfect or nil
-		meta.bulwark = (ctx.ironclad and not ctx.ironWall) or nil -- (Bulwark's block: its stops crack a shield)
+		meta.bulwark = (bulwark and not ctx.ironWall) or nil -- (Bulwark's block: its stops crack a shield)
 		local p, v, a, hold = nil, nil, nil, 0
 		if feint then
 			-- a light touch: the feint slowed, dropping on the blockers' side for them to play (never a

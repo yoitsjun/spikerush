@@ -948,10 +948,6 @@ local function bulwarkUp(e)
 	return has(e, "Ironclad") and HitLogic.ironLives(e.ironLives) > 0
 end
 
-local function wallUp(e, now)
-	return ironWallOn(e, now) or bulwarkUp(e)
-end
-
 local function blockCheck(b, now, root, side)
 	local BS = reg.BallService
 	local last = BS.lastHit
@@ -960,7 +956,7 @@ local function blockCheck(b, now, root, side)
 	end
 	local t, p = sweep(b, BS.path, now, function(pos, vel)
 		local e = b.entity
-		local reach = HitLogic.wallReach(ironWallOn(e, now), bulwarkUp(e), last.hitType)
+		local reach = HitLogic.wallReach(ironWallOn(e, now), bulwarkUp(e) and b.task == "Block", last.hitType)
 		return vel.Z * side > 0 and (HitLogic.blockBox(root, pos, side, e.charStats, reach))
 	end)
 	if t then
@@ -1206,9 +1202,9 @@ local function updateBot(b, now)
 			blockCheck(b, now, root, side)
 		end
 	end
-	-- Iron Wall up (or Ironclad's Bulwark): a wall at the net whatever it's doing (blockCheck's box
-	-- covers any height then)
-	if wallUp(b.entity, now) and not (task == "Block" and not grounded) then
+	-- Iron Wall up: a wall at the net whatever it's doing (blockCheck's box covers any height then).
+	-- Ironclad's Bulwark only on a block jump (the Block task above; the owner, 2026-10-21)
+	if ironWallOn(b.entity, now) and not (task == "Block" and not grounded) then
 		blockCheck(b, now, root, side)
 	end
 	b.lastCheck = now

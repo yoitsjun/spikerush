@@ -584,7 +584,7 @@ function TeamService.resetSetAbilities()
 			TeamService.setPeak(e, nil)
 		end
 		if TeamService.has(e, "Ironclad") then
-			TeamService.setIron(e, Config.Abilities.Ironclad.Lives, 0) -- a new set: his shields whole
+			TeamService.setIron(e, Config.Abilities.Ironclad.StartLives, 0) -- a new set: StartLives shields, the meter empty
 		end
 	end
 end

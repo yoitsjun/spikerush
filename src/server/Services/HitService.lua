@@ -306,21 +306,23 @@ function HitService.process(entity, input, opts)
 		-- Bulwark: every attack a shield stops cracks it and the second shatters it (none left:
 		-- awakened); awakened, every touch fills Intimidation, and full brings the shields back
 		local lives = HitLogic.ironLives(entity.ironLives)
-		if lives > 0 then
-			-- (only Bulwark's own blocks: an Iron Wall up takes the spike whole and leaves his shield be)
-			if meta.bulwark then
-				local left, cracks = HitLogic.ironAfterBlock(lives, entity.ironCracks, meta)
-				if left ~= lives or cracks ~= (entity.ironCracks or 0) then
-					TS.setIron(entity, left, 0, cracks)
-				end
+		-- (only Bulwark's own blocks: an Iron Wall up takes the spike whole and leaves his shield be)
+		if lives > 0 and meta.bulwark then
+			local left, cracks = HitLogic.ironAfterBlock(lives, entity.ironCracks, meta)
+			if left ~= lives or cracks ~= (entity.ironCracks or 0) then
+				TS.setIron(entity, left, entity.intimidation or 0, cracks)
 			end
-		else
-			-- (a stuff block fills it more; his kills are added when the point's judged: MatchService)
+		end
+		-- below full shields (a set starts with StartLives), every touch fills Intimidation; full
+		-- brings all of them (a stuff block fills it more; his kills are added when the point's
+		-- judged: MatchService)
+		lives = HitLogic.ironLives(entity.ironLives)
+		if lives < IRON.Lives then
 			local m = (entity.intimidation or 0) + IRON.MeterPerTouch + (meta.hitType == "Block" and meta.outcome == "Stuff" and IRON.MeterBonus or 0)
 			if m >= 100 then
 				TS.setIron(entity, IRON.Lives, 0)
 			else
-				TS.setIron(entity, 0, m)
+				TS.setIron(entity, lives, m, entity.ironCracks)
 			end
 		end
 	end

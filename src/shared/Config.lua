@@ -1378,12 +1378,15 @@ Config.Abilities = {
 		Name = "Ironclad",
 		Tier = "S+",
 		Role = "MB",
-		Blurb = "Bulwark: while you have shields (3), you're an Iron Wall at the net: every attack that crosses in front of you is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Every touch then fills Intimidation by 20%; full, your shields are back.",
+		Blurb = "Bulwark: jump to block while you have shields (up to 3; a set starts with 1) and you're an Iron Wall at the net: every attack that crosses in front of you is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Below 3 shields every touch fills Intimidation by 10%; full, all 3 shields are back.",
 		Kind = "Passive: shields, then awakened",
 		Color = Color3.fromRGB(255, 112, 52), -- awakened: molten
 		WallColor = Color3.fromRGB(170, 200, 235), -- the shields: steel
 		ChargeColor = Color3.fromRGB(255, 50, 60), -- Forge's charge: red
 		Lives = 3,
+		-- (the owner, 2026-10-21: "he does not start off fully charged"): a set starts with this many
+		-- shields, and Intimidation (below) fills whenever he has fewer than Lives
+		StartLives = 1,
 		-- Bulwark: while he has shields he's Iron Wall (the owner, 2026-10-15: "buff taesan block to
 		-- be iron wall for 3 lives. it cracks on one hit and breaks on the next"): Iron Wall's whole
 		-- wall (HitLogic.wallReach) and its perfect shut-down on every attack, tips and the hardest
@@ -1394,7 +1397,7 @@ Config.Abilities = {
 		CracksToBreak = 2,
 		-- awakened: each touch fills Intimidation this much (of 100; was 10), a spike of his that
 		-- scores (a kill) or a block that stuffs this much more
-		MeterPerTouch = 20,
+		MeterPerTouch = 10,
 		MeterBonus = 15,
 		-- Forge: off the floor his fall is slow (part of gravity off on the way down) and the spike
 		-- charges with the time he's been up (WallBoost with shields, MaxBoost awakened); a jump before
@@ -1416,12 +1419,12 @@ Config.Abilities = {
 		ReachMul = 0.3, -- Steel Reach: + this x the charge
 		AutoCharge = 0.5, -- the AI awakened: its spikes get this much of the full charge
 		Passives = {
-			{ Name = "Bulwark", Blurb = "3 shields: while you have one you're an Iron Wall at the net. Every attack that crosses in front of you is shut down, at any height, tips and the hardest spikes too." },
+			{ Name = "Bulwark", Blurb = "Up to 3 shields (a set starts with 1): jump to block while you have one and you're an Iron Wall at the net. Every attack that crosses in front of you is shut down, at any height, tips and the hardest spikes too." },
 			{ Name = "Cracks", Blurb = "A shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
 			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: Forge charges far harder and widens your reach." },
 			{ Name = "Forge", Blurb = "Your fall is slow; jump before the set and hang: the longer you're up, the harder the spike (up to +39% with shields, +68% awakened). Jumping after the set gets 30% of it." },
 			{ Name = "Steel Reach", Blurb = "Your spike reaches 20% wider than usual, and awakened the charge widens it up to 50%." },
-			{ Name = "Intimidation", Blurb = "Awakened, every touch fills the meter 20%, a kill or a stuff block 35%. Full: your 3 shields are back." },
+			{ Name = "Intimidation", Blurb = "Below 3 shields, every touch fills the meter 10%, a kill or a stuff block 25%. Full: all 3 shields." },
 		},
 	},
 	IronWall = {
@@ -2094,11 +2097,27 @@ Config.Leaderboards = {
 		-- percent (to 0.1), the wins and the losses (Leaderboards.winRate); Live: it can go down,
 		-- so a player's fresh value replaces the stored one
 		{ Key = "winRate", Name = "W/L ratio", Unit = "", WinRate = true, Live = true, MinMatches = 20, Empty = "Play 20 matches to get on this board." },
+		-- the owner: "a playtime leaderboard": seconds spent in the game (ProfileService adds them up
+		-- while a player is here); Time: shown as hours and minutes (Leaderboards.format)
+		{ Key = "playTime", Name = "Playtime", Unit = "", Time = true, Empty = "Nobody has played yet." },
 	},
 	StorePrefix = "SpikeRushBoard_v1_",
 	Top = 50,
 	RefreshInterval = 120, -- seconds between reading the global boards
 	FlushInterval = 60, -- seconds between writing changed players' scores
+}
+
+-- Playtime rewards (the owner: "10 min is 80vp, 1,000 gold, 30 min is 200 vp, 5,000 gold 3 lucky
+-- spins, 1 hr is 10,000 gold, 5 lucky spins, 400 vp"): each tier pays its own grant once a day, the
+-- moment a player has been in the game that long today (ProfileService.tickPlayTime). The day turns
+-- at midnight in Chicago (UTC-5; close enough in winter, like the Halloween days).
+Config.PlayRewards = {
+	DayOffset = -5 * 3600,
+	Tiers = {
+		{ Key = "m10", Name = "10 minutes", Minutes = 10, Grant = { VP = 80, Gold = 1000 } },
+		{ Key = "m30", Name = "30 minutes", Minutes = 30, Grant = { VP = 200, Gold = 5000, Lucky = 3 } },
+		{ Key = "h1", Name = "1 hour", Minutes = 60, Grant = { VP = 400, Gold = 10000, Lucky = 5 } },
+	},
 }
 
 -- The tutorial (the Tutorial module has the steps): a 1v1 against a weak bot; finishing every

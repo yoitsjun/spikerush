@@ -207,7 +207,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil) }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil) }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -341,6 +341,20 @@ local function sanitizeProfile(data)
 	end
 	out.winStreak = math.max(0, math.floor(tonumber(data.winStreak) or 0))
 	out.bestStreak = math.max(out.winStreak, math.floor(tonumber(data.bestStreak) or 0))
+	out.playTime = math.max(0, math.floor(tonumber(data.playTime) or 0))
+	-- today's playtime and which of Config.PlayRewards it has paid already
+	out.playToday = { day = 0, secs = 0, claimed = {} }
+	if type(data.playToday) == "table" then
+		out.playToday.day = math.max(0, math.floor(tonumber(data.playToday.day) or 0))
+		out.playToday.secs = math.max(0, math.floor(tonumber(data.playToday.secs) or 0))
+		if type(data.playToday.claimed) == "table" then
+			for _, t in ipairs(Config.PlayRewards.Tiers) do
+				if data.playToday.claimed[t.Key] == true then
+					out.playToday.claimed[t.Key] = true
+				end
+			end
+		end
+	end
 	if type(data.record) == "table" then
 		for k in pairs(out.record) do
 			out.record[k] = math.max(0, math.floor(tonumber(data.record[k]) or 0))
@@ -537,6 +551,8 @@ local function save(plr, force)
 		freeSpins = profile.freeSpins,
 		winStreak = profile.winStreak,
 		bestStreak = profile.bestStreak,
+		playTime = profile.playTime,
+		playToday = profile.playToday,
 		record = profile.record,
 		tutorial = profile.tutorial,
 		levels = profile.levels,
@@ -969,6 +985,8 @@ function ProfileService.snapshot(plr)
 		freeSpins = profile.freeSpins or 0,
 		winStreak = profile.winStreak or 0,
 		bestStreak = profile.bestStreak or 0,
+		playTime = profile.playTime or 0,
+		playToday = profile.playToday and { day = profile.playToday.day, secs = profile.playToday.secs, claimed = table.clone(profile.playToday.claimed or {}) } or nil,
 		record = table.clone(profile.record),
 		tutorial = { steps = table.clone(profile.tutorial.steps), done = profile.tutorial.done },
 		levels = levels,
@@ -2800,11 +2818,65 @@ function ProfileService.init(r)
 	for _, plr in ipairs(Players:GetPlayers()) do
 		setup(plr)
 	end
+	-- Playtime (the owner: "a playtime leaderboard"): the seconds a player has spent in the game, kept
+	-- on the profile and added up every 15 seconds while they're here. The Playtime board is told every
+	-- fifth minute (and when they leave) so it isn't written to the DataStore every minute; players
+	-- in this server show their fresh time on the board regardless.
+	local playClock = {} -- player -> os.time() of the last count
+	local function tickPlayTime(plr, report)
+		local profile = profiles[plr]
+		if not profile then
+			return
+		end
+		local now = os.time()
+		local last = playClock[plr]
+		playClock[plr] = now
+		if last then
+			local gain = math.clamp(now - last, 0, 600)
+			profile.playTime = (profile.playTime or 0) + gain
+			dirty[plr] = true
+			-- today's playtime rewards (Config.PlayRewards): each tier pays once a day
+			local pt = profile.playToday
+			if type(pt) ~= "table" then
+				pt = { day = 0, secs = 0, claimed = {} }
+				profile.playToday = pt
+			end
+			local today = math.floor((now + Config.PlayRewards.DayOffset) / 86400)
+			if pt.day ~= today then
+				pt.day, pt.secs, pt.claimed = today, 0, {}
+				push(plr) -- (the Playtime window starts a new day)
+			end
+			pt.secs = pt.secs + gain
+			for _, t in ipairs(Config.PlayRewards.Tiers) do
+				if not pt.claimed[t.Key] and pt.secs >= t.Minutes * 60 then
+					pt.claimed[t.Key] = true
+					local g = Economy.cleanGrant(t.Grant)
+					Economy.apply(profile, g, now)
+					push(plr, string.format("Playtime reward, %s today: %s!", t.Name, Economy.describe(g)))
+				end
+			end
+		end
+		if report and reg.LeaderboardService then
+			reg.LeaderboardService.track(plr, profile)
+		end
+	end
+	task.spawn(function()
+		local n = 0
+		while true do
+			task.wait(15)
+			n = n + 1
+			for _, plr in ipairs(Players:GetPlayers()) do
+				tickPlayTime(plr, n % 20 == 0)
+			end
+		end
+	end)
 	Players.PlayerRemoving:Connect(function(plr)
 		local profile = profiles[plr]
 		if profile then
 			profile.autoRolling = nil
 		end
+		tickPlayTime(plr, true)
+		playClock[plr] = nil
 		save(plr)
 		profiles[plr] = nil
 		dirty[plr] = nil
@@ -2821,6 +2893,7 @@ function ProfileService.init(r)
 	end)
 	game:BindToClose(function()
 		for _, plr in ipairs(Players:GetPlayers()) do
+			tickPlayTime(plr, true)
 			save(plr)
 		end
 	end)
