@@ -1,4 +1,4 @@
--- Parties (PartyService): the Party window (Home's right edge, and the Ranked window's Party
+-- Parties (PartyService): the Party window (the top right's Party, and the Ranked window's Party
 -- button): your party (the leader crowned; the leader can remove someone or hand over the lead),
 -- Leave, and everyone else in this server with an Invite button. An invite to you pops up at the
 -- top of the screen with Accept and Decline until it runs out.
@@ -166,11 +166,7 @@ function PartyMenu.init(m)
 	kit = mods.MenuController.kit()
 	buildWindow()
 	buildPopup()
-	if kit.extras then
-		local b = kit.navItem(kit.extras, kit.iconKey("IconParty", "IconPlayers"), "Party", { LayoutOrder = 7 })
-		kit.extras.Size = UDim2.fromOffset(kit.extras.Size.X.Offset, kit.extras.Size.Y.Offset + 84)
-		kit.onClick(b, PartyMenu.open)
-	end
+	-- (opened from the top right's Party, MenuController's navBar, and the Ranked window)
 	Net.get("Party").OnClientEvent:Connect(function(p)
 		if type(p) ~= "table" then
 			return

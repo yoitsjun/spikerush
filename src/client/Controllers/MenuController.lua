@@ -605,12 +605,17 @@ local function navBar(p, active, lit)
 			end
 		end)
 	end
-	local side = make("Frame", { Name = "Side", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 18), Size = UDim2.fromOffset(2 * 96 + 6, 74), BackgroundTransparency = 1 }, p)
+	-- (Party here at the top right: the right edge's column ran into the Match plate)
+	local side = make("Frame", { Name = "Side", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 18), Size = UDim2.fromOffset(3 * 96 + 12, 74), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Right, SortOrder = Enum.SortOrder.LayoutOrder }, side)
-	for i, e in ipairs({ { "IconHelp", "Help", "help" }, { "IconSettings", "Settings", "settings" } }) do
+	for i, e in ipairs({ { "IconPlayers", "Party", "party" }, { "IconHelp", "Help", "help" }, { "IconSettings", "Settings", "settings" } }) do
 		local b = navItem(side, e[1], e[2], { LayoutOrder = i })
 		onClick(b, function()
-			if e[3] == "settings" then
+			if e[3] == "party" then
+				if mods.PartyMenu then
+					mods.PartyMenu.open()
+				end
+			elseif e[3] == "settings" then
 				mods.UIController.toggleSettings(b.AbsolutePosition.Y + b.AbsoluteSize.Y + 6)
 			else
 				ui.help.root.Visible = true
