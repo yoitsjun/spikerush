@@ -147,6 +147,28 @@ function Economy.extendBoost(untilT, seconds, now)
 	return math.min(from + seconds, now + Config.Boosts.MaxHold)
 end
 
+-- The Gold that `vp` V Points cost in the Shop's trade (Config.Exchange), or nil for an amount it
+-- doesn't sell.
+function Economy.exchangeCost(vp)
+	vp = tonumber(vp)
+	for _, n in ipairs(Config.Exchange.Amounts) do
+		if n == vp then
+			return vp * Config.Exchange.GoldPerVP
+		end
+	end
+	return nil
+end
+
+-- A 2x VP boost bought with Gold or VP (Config.Boosts.CurrencyPacks): its seconds and price, or
+-- nil for a pack or currency it doesn't have.
+function Economy.boostPrice(index, currency)
+	local pack = Config.Boosts.CurrencyPacks[tonumber(index) or 0]
+	if not pack or (currency ~= "Gold" and currency ~= "VP") then
+		return nil
+	end
+	return pack.BoostVP, pack[currency]
+end
+
 -- What a profile's boost timers multiply `kind` ("VP") by at `now`.
 function Economy.boost(profile, kind, now)
 	local b = type(profile) == "table" and type(profile.boosts) == "table" and tonumber(profile.boosts[kind]) or nil

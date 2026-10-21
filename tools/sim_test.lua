@@ -2940,6 +2940,18 @@ do
 		"a 2x Luck pack gives its time (more adds on top) and then runs out", Economy.describe(g))
 end
 
+print("== Gold trades ==")
+do
+	-- the owner (2026-10-21): "50 gold for 1 vp ... and make x2 vp purchasable with coins or vp"
+	local Economy = require("Economy")
+	local secs, gold = Economy.boostPrice(3, "Gold")
+	local _, vp = Economy.boostPrice(1, "VP")
+	check(Economy.exchangeCost(100) == 5000 and Economy.exchangeCost(2500) == 125000 and Economy.exchangeCost(7) == nil and Economy.exchangeCost("x") == nil
+		and secs == 3600 and gold == 20000 and vp == 80 and Economy.boostPrice(1, "Robux") == nil and Economy.boostPrice(9, "Gold") == nil,
+		"V Points for Gold at 50 each, in the Shop's amounts only; 2x VP for Gold or VP at its listed price",
+		string.format("100 VP = %d Gold; 1 hr of 2x VP = %d Gold", Economy.exchangeCost(100), gold))
+end
+
 print("== the admin panel gives skins ==")
 do
 	-- the owner (2026-10-17): "add giving skins in the admin panel": a gift's Skins (Halloween skin

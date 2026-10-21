@@ -895,6 +895,13 @@ Config.Lucky = {
 	Trade = { 1, 5, 10 },
 }
 
+-- Gold for V Points (the owner, 2026-10-21: "50 gold for 1 vp"), in the Shop's Trade tab: these
+-- amounts of VP, GoldPerVP Gold each
+Config.Exchange = {
+	GoldPerVP = 50,
+	Amounts = { 100, 500, 1000, 2500 },
+}
+
 -- Boosts (the owner: "developer products for 2x vpoints on timers"): a pack doubles the VP you
 -- earn (matches and their MVP bonus, tournament prizes, daily rewards: ProfileService.vpMult; never
 -- codes, gifts or packs) for its time, counted in real time from when you get it. Another
@@ -903,6 +910,14 @@ Config.Lucky = {
 Config.Boosts = {
 	Multiplier = 2,
 	MaxHold = 24 * 3600, -- the most time a boost can hold (seconds)
+	-- 2x VP for Gold or V Points (the owner, 2026-10-21: "make x2 vp purchasable with coins or vp so
+	-- coins have a use for late game"), in the Shop's Trade tab: each length its price in each
+	CurrencyPacks = {
+		{ BoostVP = 15 * 60, Gold = 6000, VP = 80 },
+		{ BoostVP = 30 * 60, Gold = 11000, VP = 150 },
+		{ BoostVP = 60 * 60, Gold = 20000, VP = 275 },
+		{ BoostVP = 3 * 3600, Gold = 55000, VP = 750 },
+	},
 	Packs = {
 		{ Id = 3715530751, BoostVP = 15 * 60, Name = "2x VP, 15 minutes" }, -- 49 Robux
 		{ Id = 3715530672, BoostVP = 30 * 60, Name = "2x VP, 30 minutes" }, -- 79

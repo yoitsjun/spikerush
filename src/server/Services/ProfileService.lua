@@ -2559,6 +2559,40 @@ local function onRequest(plr, kind, a, b, c)
 		roomRequest(plr, profile, a)
 	elseif kind == "grave" then
 		graveRequest(plr, profile, a, b)
+	elseif kind == "exchange" then
+		-- V Points for Gold (Config.Exchange), in one of the Shop's amounts
+		local cost = Economy.exchangeCost(a)
+		if not cost then
+			return
+		end
+		if (profile.gold or 0) < cost then
+			push(plr, string.format("You need %s Gold for that.", Economy.commas(cost)))
+			return
+		end
+		profile.gold = profile.gold - cost
+		profile.vp = profile.vp + tonumber(a)
+		dirty[plr] = true
+		push(plr, string.format("+%s VP for %s Gold", Economy.commas(tonumber(a)), Economy.commas(cost)))
+	elseif kind == "boostBuy" then
+		-- 2x VP for Gold or VP (Config.Boosts.CurrencyPacks)
+		local secs, price = Economy.boostPrice(a, b)
+		if not secs then
+			return
+		end
+		local have = b == "Gold" and (profile.gold or 0) or profile.vp
+		if have < price then
+			push(plr, string.format("You need %s %s for that.", Economy.commas(price), b))
+			return
+		end
+		if b == "Gold" then
+			profile.gold = profile.gold - price
+		else
+			profile.vp = profile.vp - price
+		end
+		profile.boosts = type(profile.boosts) == "table" and profile.boosts or {}
+		profile.boosts.VP = Economy.extendBoost(profile.boosts.VP, secs, os.time())
+		dirty[plr] = true
+		push(plr, string.format("2x VP for %s", Economy.duration(secs)))
 	elseif kind == "luckyTrade" then
 		-- lucky spins for VP (Config.Lucky.VPCost each), in one of the Shop's amounts
 		local n = tonumber(a)

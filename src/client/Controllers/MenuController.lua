@@ -82,7 +82,7 @@ function Extra.pct(x)
 end
 Extra.Rooms = require(Shared.Rooms)
 Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns count from then)
-Extra.shopTab = "Deals" -- the Shop's tab: "Deals" (bundles and game passes), "Currency" (VP and Gold), "Lucky" or "Boosts"
+Extra.shopTab = "Deals" -- the Shop's tab: "Deals" (bundles and game passes), "Currency" (VP and Gold), "Lucky", "Boosts" or "Trade"
 Extra.Cards = require(Shared.Cards) -- player cards (the Locker's Cards tab)
 Extra.SoundCrop = require(Shared.SoundCrop) -- the part of a custom sound that plays (the cropper)
 local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, LuckBoost4 = {}, LuckBoost6 = {}, LuckBoost8 = {}, LuckBoost16 = {}, Bundle = {} } -- product prices in Robux, looked up once per pack
@@ -5171,17 +5171,64 @@ function Extra.buildLuckyTrade(holder, y)
 	end
 end
 
+-- The Shop's Trade tab (the owner, 2026-10-21: "50 gold for 1 vp ... and make x2 vp purchasable
+-- with coins or vp so coins have a use for late game"): V Points for Gold (Config.Exchange), and 2x
+-- VP for Gold or VP (Config.Boosts.CurrencyPacks).
+function Extra.buildGoldTrade(holder)
+	local function heading(text, note, y)
+		Gui.label(holder, { Text = text, display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextStrokeTransparency = 0.6, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 36), Position = UDim2.fromOffset(0, y) })
+		local l = Gui.label(holder, { Text = note, TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextStrokeTransparency = 0.6, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(420, 20), Position = UDim2.new(1, 0, 0, y + 12) })
+		Gui.plate(holder, { Size = UDim2.fromOffset(60, 6), Position = UDim2.fromOffset(2, y + 40) }, Gui.SIGNAL)
+		return l
+	end
+	local function cardAt(i, y)
+		local card = Gui.card(holder, { Size = UDim2.fromOffset(200, 224), Position = UDim2.fromOffset((i - 1) * 214, y + 56), ClipsDescendants = true })
+		Gui.halftone(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.94 })
+		return card
+	end
+	heading("V Points for Gold", string.format("%d Gold for each V Point", Config.Exchange.GoldPerVP), 0)
+	for i, n in ipairs(Config.Exchange.Amounts) do
+		local card = cardAt(i, 0)
+		local icon = Gui.icon.vp(card, 58)
+		icon.AnchorPoint = Vector2.new(0.5, 0)
+		icon.Position = UDim2.new(0.5, 0, 0, 16)
+		Gui.label(card, { Text = Gui.num(n), display = true, weight = Enum.FontWeight.Heavy, TextSize = 42, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center })
+		Gui.label(card, { Text = "V Points", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 128), TextXAlignment = Enum.TextXAlignment.Center })
+		local buy = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(172, 44) }, Gui.num(Economy.exchangeCost(n)) .. " Gold", 20)
+		onClick(buy, function()
+			Net.get("Profile"):FireServer("exchange", n)
+		end)
+	end
+	heading("2x V Points", "For Gold or V Points: adds to any you have", 284)
+	for i, pack in ipairs(Config.Boosts.CurrencyPacks) do
+		local card = cardAt(i, 284)
+		local icon = Gui.icon.vp(card, 50)
+		icon.AnchorPoint = Vector2.new(0.5, 0)
+		icon.Position = UDim2.new(0.5, 0, 0, 12)
+		Gui.label(card, { Text = Extra.boostLength(pack.BoostVP), display = true, weight = Enum.FontWeight.Heavy, TextSize = 38, Size = UDim2.new(1, 0, 0, 42), Position = UDim2.fromOffset(0, 66), TextXAlignment = Enum.TextXAlignment.Center })
+		Gui.label(card, { Text = "of 2x V Points", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 108), TextXAlignment = Enum.TextXAlignment.Center })
+		local byGold = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -64), Size = UDim2.fromOffset(172, 40) }, Gui.num(pack.Gold) .. " Gold", 18)
+		local byVP = hairButton(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -14), Size = UDim2.fromOffset(172, 40) }, Gui.num(pack.VP) .. " VP", 18)
+		onClick(byGold, function()
+			Net.get("Profile"):FireServer("boostBuy", i, "Gold")
+		end)
+		onClick(byVP, function()
+			Net.get("Profile"):FireServer("boostBuy", i, "VP")
+		end)
+	end
+end
+
 local function buildShop()
 	local p = page("shop")
 	mainChrome(p, "shop")
 	-- two tabs (the owner added lucky spins and 2x VP boosts to sell), two rows each
-	local _, setTab = segmented(p, { { key = "Deals", text = "Deals" }, { key = "Currency", text = "V Points & Gold" }, { key = "Lucky", text = "Lucky spins" }, { key = "Boosts", text = "Boosts" } }, { Name = "ShopTabs", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(842, 46) }, function(key)
+	local _, setTab = segmented(p, { { key = "Deals", text = "Deals" }, { key = "Currency", text = "V Points & Gold" }, { key = "Lucky", text = "Lucky spins" }, { key = "Boosts", text = "Boosts" }, { key = "Trade", text = "Trade Gold" } }, { Name = "ShopTabs", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(842, 46) }, function(key)
 		Extra.shopTab = key
 		MenuController.refresh()
 	end)
 	local packs = make("Frame", { Name = "Packs", Position = UDim2.fromOffset(M, 210), Size = UDim2.fromOffset(4 * 200 + 3 * 14, 560), BackgroundTransparency = 1 }, p)
 	local tabs = {}
-	for _, key in ipairs({ "Deals", "Currency", "Lucky", "Boosts" }) do
+	for _, key in ipairs({ "Deals", "Currency", "Lucky", "Boosts", "Trade" }) do
 		tabs[key] = make("Frame", { Name = key, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, packs)
 	end
 	local prices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, Bundle = {} }
@@ -5257,6 +5304,7 @@ local function buildShop()
 	end
 	Extra.buildDeals(tabs.Deals, prices)
 	Extra.buildLuckyTrade(tabs.Lucky, 284)
+	Extra.buildGoldTrade(tabs.Trade)
 
 	-- Recruit: the big way in, bottom right like Home's Match plate
 	local recruit, recruitPlate = Gui.plateButton(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M), Size = UDim2.fromOffset(440, 128) }, Gui.SIGNAL, Gui.SIGNAL_HOT)
