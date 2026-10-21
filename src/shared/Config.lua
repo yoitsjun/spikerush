@@ -2150,6 +2150,13 @@ Config.Leaderboards = {
 -- spins, 1 hr is 10,000 gold, 5 lucky spins, 400 vp"): each tier pays its own grant once a day, the
 -- moment a player has been in the game that long today (ProfileService.tickPlayTime). The day turns
 -- at midnight in Chicago (UTC-5; close enough in winter, like the Halloween days).
+-- Parties (the owner, 2026-10-21: "add a proper party system so you can actually queue ranked, but
+-- also regular queues"): up to Max players here; an invite lasts InviteSeconds.
+Config.Party = {
+	Max = 3,
+	InviteSeconds = 60,
+}
+
 -- Ranked (the owner, 2026-10-21: "begin work on a ranked mode. the ranks climb from bronze silver gold
 -- platinum diamond mighty Almighty"; real players only, one rank across every mode, monthly
 -- seasons, three divisions a rank). Rank points (RP): each division is PerDivision of them (Bronze

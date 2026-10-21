@@ -1059,16 +1059,37 @@ end
 
 -- Quick Match: the fullest open public quick lobby of that mode in any server (this server's on
 -- a tie), or a new one here. localOnly: this server's only (a refused join elsewhere).
-function LobbyService.quick(plr, mode, localOnly)
+-- ranked: the ranked queue (Config.Ranked: real players only, so no bots fill it and nobody starts
+-- it early). A party (PartyService) queues together on one side: only its leader can queue it, and
+-- only in this server (a solo player may go to a fuller queue in another).
+function LobbyService.quick(plr, mode, localOnly, ranked)
 	if not plr.Parent then
 		return nil
+	end
+	local party, why = { plr }, nil
+	if reg.PartyService then
+		party, why = reg.PartyService.membersFor(plr)
+	end
+	if not party then
+		notify(plr, why)
+		return nil
+	end
+	if #party > mode then
+		notify(plr, string.format("Your party is %d: play %dv%d or bigger.", #party, #party, #party))
+		return nil
+	end
+	for _, p in ipairs(party) do
+		if reg.TeamService.inMatch and reg.TeamService.entityForPlayer(p) then
+			notify(plr, p.DisplayName .. " is in a match right now.")
+			return nil
+		end
 	end
 	local list = {}
 	for _, id in ipairs(order) do
 		table.insert(list, lobbies[id])
 	end
-	local l = Lobbies.pickQuick(list, mode)
-	if net.on and not localOnly then
+	local l, side = Lobbies.pickQuick(list, mode, ranked, #party)
+	if net.on and not localOnly and #party == 1 then
 		if os.clock() - net.dirAt > G.QuickFresh then
 			readDirectory()
 		end
@@ -1076,15 +1097,34 @@ function LobbyService.quick(plr, mode, localOnly)
 		for g, e in pairs(net.dir) do
 			table.insert(others, { gid = g, view = e.view })
 		end
-		local g = Lobbies.pickQuickRemote(l, others, mode, Util.now(), G.QuickLead)
+		local g = Lobbies.pickQuickRemote(l, others, mode, Util.now(), G.QuickLead, ranked)
 		if g and joinRemote(plr, g, nil, true) then
 			return nil
 		end
 	end
-	if l and LobbyService.join(plr, l.id) then
+	local function seatRest(target, at, from)
+		for i = from, #party do
+			local p = party[i]
+			LobbyService.leave(p)
+			if Lobbies.seat(target, p.UserId, at) then
+				memberOf[p.UserId] = target.id
+			end
+		end
+		markDirty()
+	end
+	if l then
+		seatRest(l, side, 1)
 		return l
 	end
-	return LobbyService.create(plr, { mode = mode, privacy = "Public", fill = true, botTier = Config.Match.DefaultBotTier }, true)
+	local made = LobbyService.create(plr, { mode = mode, privacy = "Public", fill = not ranked, botTier = Config.Match.DefaultBotTier }, true)
+	if made then
+		if ranked then
+			made.ranked = true
+			made.fill = false
+		end
+		seatRest(made, Lobbies.teamOf(made, plr.UserId), 2)
+	end
+	return made
 end
 
 ------------------------------------------------------------------------------------------
@@ -1747,11 +1787,14 @@ local function onRequest(plr, op, a, b)
 		end
 	elseif op == "pick" then
 		LobbyService.pickCard(plr, a)
-	elseif op == "quick" then
+	elseif op == "quick" or op == "ranked" then
 		local mode = tonumber(a)
 		if mode == 1 or mode == 2 or mode == 3 then
-			LobbyService.quick(plr, mode)
+			LobbyService.quick(plr, mode, false, op == "ranked")
 		end
+	elseif op == "ban" then
+		-- a ranked match's ban (MatchService)
+		reg.MatchService.ban(plr, a)
 	elseif op == "join" then
 		local job, gid = parseGid(a)
 		if job == net.job and gid then
@@ -1824,8 +1867,8 @@ local function onRequest(plr, op, a, b)
 		-- the first player in a Quick Match queue (its host: whoever opened it, then the next one
 		-- if they leave; always in this server) can start it now, bots in the empty spots
 		local l = LobbyService.lobbyOf(plr)
-		if l and l.quick and l.state == "Open" and l.host == plr.UserId then
-			LobbyService.launch(l)
+		if l and l.quick and not l.ranked and l.state == "Open" and l.host == plr.UserId then
+			LobbyService.launch(l) -- (a ranked queue waits for real players)
 		end
 	elseif op == "team" then
 		if remote then

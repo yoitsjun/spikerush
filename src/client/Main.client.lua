@@ -48,6 +48,8 @@ local order = {
 	"MenuController",
 	"HalloweenMenu",
 	"ClanMenu",
+	"PartyMenu",
+	"RankedMenu",
 	"BreakReveal",
 	"LineupController",
 	"MobileControls",

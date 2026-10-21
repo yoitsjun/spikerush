@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Court = require(Shared.Court)
+local Roster = require(Shared.Roster)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 local Rewards = require(Shared.Rewards)
@@ -533,8 +534,27 @@ function MatchService.playSet()
 	end
 end
 
+-- A ranked match (Config.Ranked): each team's average RP before it, and who's had their result
+-- (a player who leaves mid-match takes their loss at once: MatchService.onLeaving).
+local function teamRp()
+	local avg = {}
+	for _, team in ipairs(Config.TeamOrder) do
+		local sum, n = 0, 0
+		for _, e in ipairs(reg.TeamService.members(team)) do
+			if e.player then
+				sum = sum + reg.ProfileService.rankedRp(e.player)
+				n = n + 1
+			end
+		end
+		avg[team] = n > 0 and sum / n or 0
+	end
+	return avg
+end
+
 local function results(winner, forfeitTeam)
 	local list = {}
+	local ranked = MatchService.lobby and MatchService.lobby.ranked
+	local avgRp = ranked and (MatchService.rankedAvg or teamRp()) or nil
 	local mvp, mvpScore = nil, -math.huge
 	local P = Config.Progression
 	local tutorial = MatchService.lobby and MatchService.lobby.tutorial
@@ -569,9 +589,14 @@ local function results(winner, forfeitTeam)
 			end
 			local reward, gold, streak, streakVP, streakGold, extraVP = nil, nil, nil, nil, nil, nil
 			local boostVP, boostGold = 1, 1
+			local rpDelta = nil
 			if e.player then
 				local won = team == winner
 				local empty = hollow and team ~= forfeitTeam -- the other side of an early forfeit
+				if ranked and not empty and not MatchService.rankedDone[e.player] then
+					MatchService.rankedDone[e.player] = true
+					rpDelta = reg.ProfileService.rankedResult(e.player, won, avgRp[Court.other(team)] or 0)
+				end
 				if counts and not empty then
 					local beatDev = false
 					for t in pairs(devTeam) do
@@ -627,6 +652,7 @@ local function results(winner, forfeitTeam)
 				streakGold = (streakGold or 0) > 0 and streakGold or nil,
 				boostVP = boostVP > 1 and boostVP or nil,
 				boostGold = boostGold > 1 and boostGold or nil,
+				rp = rpDelta,
 			})
 			if score > mvpScore then
 				mvp, mvpScore = e, score
@@ -692,6 +718,12 @@ function MatchService.playMatch()
 	TS.event = lobby.event -- the Halloween Match's cards (TeamService.dealHex)
 	TS.assign(lobby.mode, reg.LobbyService.plan(lobby), Lobbies.botPicks(lobby))
 	TS.resetStats()
+	MatchService.rankedDone = {}
+	MatchService.rankedAvg = nil
+	if lobby.ranked then
+		MatchService.runBans()
+		MatchService.rankedAvg = teamRp()
+	end
 	MatchService.pendingTimeout = nil
 	MatchService.forfeitTeam = nil
 	MatchService.forfeitVotes = { Home = {}, Away = {} }
@@ -778,9 +810,89 @@ function MatchService.playMatch()
 	end
 end
 
+------------------------------------------------------------------------------------------
+-- ranked: the bans, and leaving early
+------------------------------------------------------------------------------------------
+
+MatchService.bans = nil -- { Home = character id, Away = character id } while a ranked match bans
+MatchService.rankedDone = {}
+local banSwapped = {} -- players moved off a banned character, put back after the match
+
+-- Each team bans one character (the owner, 2026-10-21: "implement rank bans. one for each team"):
+-- BanTime seconds, the first ban a team's player sends is the team's; then whoever plays a banned
+-- character goes to their best other one for this match.
+function MatchService.runBans()
+	local TS = reg.TeamService
+	MatchService.bans = {}
+	MatchService.setPhase("Bans", Config.Ranked.BanTime)
+	MatchService.announce({ kind = "Bans", endsAt = MatchService.phaseEnd, bans = MatchService.bans })
+	while Util.now() < MatchService.phaseEnd and not halted() do
+		if MatchService.bans.Home and MatchService.bans.Away then
+			break
+		end
+		task.wait(0.1)
+	end
+	local banned = {}
+	for _, id in pairs(MatchService.bans) do
+		banned[id] = true
+	end
+	for _, e in pairs(TS.entities) do
+		if e.player and e.charId and banned[e.charId] then
+			local id = reg.ProfileService.bestOwnedExcept(e.player, banned)
+			if id then
+				banSwapped[e.player] = true
+				reg.ProfileService.setPracticeAs(e.player, id)
+				local note = TS.swapCharacter(e.player)
+				reg.ProfileService.pushTo(e.player, string.format("%s is banned this match: you're %s.%s", Roster.get(e.charId) and Roster.get(e.charId).Name or "Your character", e.charName or id, note and (" " .. note) or ""))
+			end
+		end
+	end
+	MatchService.announce({ kind = "BansDone", bans = MatchService.bans })
+	MatchService.bans = nil
+end
+
+-- A player's ban (LobbyService's "ban" op).
+function MatchService.ban(plr, charId)
+	local bans = MatchService.bans
+	local e = reg.TeamService.entityForPlayer(plr)
+	if not bans or MatchService.phase ~= "Bans" or not e or bans[e.team] or type(charId) ~= "string" or not Roster.get(charId) then
+		return
+	end
+	if bans[Court.other(e.team)] == charId then
+		return -- (already banned)
+	end
+	bans[e.team] = charId
+	MatchService.announce({ kind = "BanUpdate", bans = bans, team = e.team, by = plr.DisplayName })
+end
+
+-- A player leaving (ProfileService, before their profile saves): leaving a ranked match early is
+-- its loss.
+function MatchService.onLeaving(plr)
+	local lobby = MatchService.lobby
+	if not lobby or not lobby.ranked or MatchService.phase == "Intermission" or MatchService.phase == "MatchEnd" then
+		return
+	end
+	local e = reg.TeamService.entityForPlayer(plr)
+	if e and not MatchService.rankedDone[plr] then
+		MatchService.rankedDone[plr] = true
+		local avg = MatchService.rankedAvg or teamRp()
+		reg.ProfileService.rankedResult(plr, false, avg[Court.other(e.team)] or 0)
+	end
+end
+
+local function unswap()
+	for plr in pairs(banSwapped) do
+		if plr.Parent then
+			reg.ProfileService.setPracticeAs(plr, nil)
+		end
+	end
+	table.clear(banSwapped)
+end
+
 -- The court waits here until a lobby is ready to play on it (LobbyService.nextForCourt).
 function MatchService.intermission()
 	local TS, BS = reg.TeamService, reg.BallService
+	unswap() -- (a banned character's stand-in goes back)
 	TS.endMatch()
 	TS.event = nil
 	BS.hide()

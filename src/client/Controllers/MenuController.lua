@@ -71,6 +71,7 @@ local Extra = {}
 -- (Breakthroughs' shared rules, kept on Extra: this chunk is near Luau's 200-local limit)
 Extra.BT = require(Shared.Breakthrough)
 Extra.HW = require(Shared.Halloween)
+Extra.Ranked = require(Shared.Ranked)
 -- A chance (0 to 1) as a percent with the digits it needs: 62.495%, 0.185%, 0.0014% (an S+ at
 -- 0.01% split seven ways read "0.00%" with two decimals), trailing zeros dropped.
 function Extra.pct(x)
@@ -6129,6 +6130,7 @@ local function refreshMatch()
 		local ev = mine.event
 		Mt.modal.title.Text = (ev and string.format("Halloween Match (%s): stage %d of %d", ev.diff, ev.stage, ev.stages or Config.Halloween.Stages))
 			or (mine.cup and string.format("%s: round %d of %d", mine.cup.name, mine.cup.round, Config.Tournament.Rounds))
+			or (mine.ranked and string.format("Ranked %dv%d", mine.mode, mine.mode))
 			or (mine.quick and string.format("Quick Match %dv%d", mine.mode, mine.mode) or (mine.hostName .. "'s Lobby"))
 	else
 		Mt.modal.title.Text = "Lobbies"
@@ -6142,7 +6144,7 @@ local function refreshMatch()
 		row.frame.Visible = l ~= nil
 		if l then
 			shownRows = shownRows + 1
-			row.host.Text = l.cup and (l.cup.name .. ": " .. l.hostName) or (l.quick and ("Quick Match " .. l.mode .. "v" .. l.mode) or (l.hostName .. "'s Lobby"))
+			row.host.Text = l.cup and (l.cup.name .. ": " .. l.hostName) or (l.ranked and ("Ranked " .. l.mode .. "v" .. l.mode)) or (l.quick and ("Quick Match " .. l.mode .. "v" .. l.mode) or (l.hostName .. "'s Lobby"))
 			row.detail.Text = string.format("%dv%d   %s   %s   Bots %s   %s%s%s", l.mode, l.mode, PRIVACY_TEXT[l.privacy] or l.privacy, l.fill and "Bots fill" or "No bots", l.botTier, l.quick and "Rotation" or courtName(l.court), l.quick and "" or ("   " .. rulesLine(l)), l.remote and "   Another server" or "")
 			row.count.Text = string.format("%d/%d", l.count, l.capacity)
 			row.stateLabel.Text = STATE_TEXT[l.state] or l.state
@@ -6268,7 +6270,7 @@ local function refreshMatch()
 		end
 		Mt.swap.Visible = open and not mine.quick and not mine.cup and not mine.event
 		Mt.settings.Visible = open and mine.isHost and not mine.quick and not mine.cup and not mine.event
-		Mt.start.Visible = open and mine.isHost == true
+		Mt.start.Visible = open and mine.isHost == true and not mine.ranked -- (ranked waits for real players)
 		Mt.startLabel.Text = mine.quick and "Start with bots" or "Start"
 		Mt.startLabel.TextSize = mine.quick and 24 or 28
 		Mt.leave.Visible = open or mine.state == "Queued" or mine.state == "Joining"
@@ -6288,6 +6290,8 @@ local MATCH_CARDS = {
 	{ key = "3", mode = 3, title = "3v3", icon = "IconPlayers", art = "MatchArena" },
 	{ key = "2", mode = 2, title = "2v2", icon = "IconPlayers", art = "MatchBeach" },
 	{ key = "1", mode = 1, title = "1v1", icon = "IconAttack", art = "MatchRooftop" },
+	-- ranked (the owner, 2026-10-21; RankedMenu): real players only, Bronze to Almighty
+	{ key = "Ranked", title = "Ranked", icon = "IconStar", art = "MatchNationals", strip = "Real players: climb the ranks" },
 	{ key = "Cups", title = "Tournaments", icon = "IconStar", art = "MatchColosseum", strip = "Pay in, win big" },
 	{ key = "Lobbies", title = "Lobbies", icon = "IconHome", art = "MatchNationals", strip = "Public, friends and private" },
 	{ key = "Custom", title = "Custom", icon = "IconSettings", art = "MatchColosseum", strip = "Host your own lobby" },
@@ -6321,6 +6325,10 @@ local function pickMatchCard(c)
 	end
 	if c.key == "Practice" then
 		MenuController.go("practice")
+	elseif c.key == "Ranked" then
+		if mods.RankedMenu then
+			mods.RankedMenu.open()
+		end
 	elseif c.key == "Cups" then
 		if mine and not mine.cup then
 			toast("You're already in a lobby: leave it first.")
@@ -6467,7 +6475,7 @@ local function refreshMatchScreen(prof)
 	end
 	local waiting, open = { 0, 0, 0 }, 0
 	for _, l in ipairs(lobbies.list or {}) do
-		if l.quick then
+		if l.quick and not l.ranked then
 			if l.state == "Open" and l.privacy == "Public" and waiting[l.mode] then
 				waiting[l.mode] = waiting[l.mode] + l.count
 			end
@@ -6480,7 +6488,7 @@ local function refreshMatchScreen(prof)
 		local e = ms.cards[c.key]
 		local text, hot = "", false
 		if c.mode then
-			if mine and mine.quick and mine.mode == c.mode then
+			if mine and mine.quick and not mine.ranked and mine.mode == c.mode then
 				text, hot = lobbyLine(mine), true
 			elseif waiting[c.mode] > 0 then
 				text = string.format("%d waiting", waiting[c.mode])
@@ -6492,6 +6500,12 @@ local function refreshMatchScreen(prof)
 				text, hot = lobbyLine(mine), true
 			else
 				text = open == 0 and "None open yet" or (open == 1 and "1 open" or string.format("%d open", open))
+			end
+		elseif c.key == "Ranked" then
+			if mine and mine.ranked then
+				text, hot = lobbyLine(mine), true
+			else
+				text = Extra.Ranked.name(prof.ranked and prof.ranked.rp or 0)
 			end
 		elseif c.key == "Cups" then
 			if mine and mine.cup then

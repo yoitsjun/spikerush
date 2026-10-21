@@ -384,18 +384,32 @@ function Lobbies.quickBotTier(tiers)
 	return Config.Tiers[math.clamp(best, lo, hi)]
 end
 
+-- The side with room for `need` players together (a party: Party), the emptier first; or nil.
+function Lobbies.roomFor(l, need)
+	need = need or 1
+	local order = #l.Away < #l.Home and { "Away", "Home" } or SIDES
+	for _, side in ipairs(order) do
+		if #l[side] + need <= l.mode then
+			return side
+		end
+	end
+	return nil
+end
+
 -- The Quick Match lobby to join for a mode: the fullest open public quick lobby with room
--- (oldest first on a tie), or nil.
-function Lobbies.pickQuick(list, mode)
-	local best = nil
+-- (oldest first on a tie), or nil. ranked: only ranked queues (or only unranked); need: a party's
+-- size, all on one side. Returns the lobby and that side.
+function Lobbies.pickQuick(list, mode, ranked, need)
+	local best, bestSide = nil, nil
 	for _, l in ipairs(list) do
-		if l.quick and l.state == "Open" and l.mode == mode and l.privacy == "Public" and Lobbies.count(l) < Lobbies.capacity(l) then
+		local side = l.quick and l.state == "Open" and l.mode == mode and l.privacy == "Public" and (l.ranked == true) == (ranked == true) and Lobbies.roomFor(l, need) or nil
+		if side then
 			if not best or Lobbies.count(l) > Lobbies.count(best) or (Lobbies.count(l) == Lobbies.count(best) and l.id < best.id) then
-				best = l
+				best, bestSide = l, side
 			end
 		end
 	end
-	return best
+	return best, bestSide
 end
 
 -- What a player sees of a lobby in the list.
@@ -421,6 +435,7 @@ function Lobbies.summary(l, viewerId)
 		picks = Lobbies.canPick(l) and l.picks or nil,
 		state = l.state,
 		quick = l.quick == true,
+		ranked = l.ranked == true,
 		mine = Lobbies.teamOf(l, viewerId) ~= nil,
 	}
 end
@@ -457,7 +472,7 @@ end
 
 -- The lobby as plain data for a teleport to its own server.
 function Lobbies.export(l)
-	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, host = l.host, hostName = l.hostName, quick = l.quick == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, event = Lobbies.exportEvent(l.event), picks = l.picks, Home = {}, Away = {} }
+	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, host = l.host, hostName = l.hostName, quick = l.quick == true, ranked = l.ranked == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, event = Lobbies.exportEvent(l.event), picks = l.picks, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(out[side], u)
@@ -480,6 +495,10 @@ function Lobbies.import(data, id)
 	end
 	local l = Lobbies.new(id, tonumber(data.host), type(data.hostName) == "string" and data.hostName:sub(1, 40) or "Host", s)
 	l.quick = data.quick == true
+	l.ranked = data.ranked == true or nil -- (no bots in a ranked match: its fill stays off)
+	if l.ranked then
+		l.fill = false
+	end
 	l.picks = Lobbies.cleanPicks(data.picks)
 	-- a practice lobby (a drill, or the tutorial's four) stays hidden on its own server too
 	if data.practice == true then
@@ -520,7 +539,7 @@ end
 -- settings, state, countdown and members with their names (nameOf(userId)). Never the password.
 -- The server adds `v`, its version (it counts up with every change).
 function Lobbies.view(l, nameOf)
-	local v = { mode = l.mode, privacy = l.privacy, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, quick = l.quick == true, state = l.state, host = l.host, hostName = l.hostName, startsAt = l.startsAt, Home = {}, Away = {} }
+	local v = { mode = l.mode, privacy = l.privacy, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, quick = l.quick == true, ranked = l.ranked == true, state = l.state, host = l.host, hostName = l.hostName, startsAt = l.startsAt, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(v[side], { id = u, name = nameOf(u) })
@@ -538,7 +557,7 @@ end
 -- isn't promised), so a server knows when it changed.
 function Lobbies.viewKey(view)
 	local parts = {}
-	for _, k in ipairs({ "mode", "privacy", "fill", "botTier", "court", "points", "winBy", "sets", "timeouts", "quick", "state", "host", "hostName", "startsAt" }) do
+	for _, k in ipairs({ "mode", "privacy", "fill", "botTier", "court", "points", "winBy", "sets", "timeouts", "quick", "ranked", "state", "host", "hostName", "startsAt" }) do
 		table.insert(parts, tostring(view[k]))
 	end
 	for _, side in ipairs(SIDES) do
@@ -588,6 +607,7 @@ function Lobbies.remoteSummary(view, gid, viewerId)
 		capacity = mode * 2,
 		state = view.state,
 		quick = view.quick == true,
+		ranked = view.ranked == true,
 		mine = Lobbies.viewSide(view, viewerId) ~= nil,
 		remote = true,
 	}
@@ -618,11 +638,11 @@ end
 -- `others` the other servers' lobbies ({ gid, view }). Returns the gid of a quick lobby elsewhere
 -- that has more players than `best` (the fullest; on a tie the one starting first) and at least
 -- `lead` seconds before it starts, or nil to stay in this server.
-function Lobbies.pickQuickRemote(best, others, mode, now, lead)
+function Lobbies.pickQuickRemote(best, others, mode, now, lead, ranked)
 	local pick, pickN, pickAt = nil, best and Lobbies.count(best) or 0, math.huge
 	for _, o in ipairs(others) do
 		local v = o.view
-		if type(v) == "table" and v.quick == true and v.state == "Open" and tonumber(v.mode) == mode and v.privacy == "Public" then
+		if type(v) == "table" and v.quick == true and (v.ranked == true) == (ranked == true) and v.state == "Open" and tonumber(v.mode) == mode and v.privacy == "Public" then
 			local n = Lobbies.viewCount(v)
 			local at = tonumber(v.startsAt) or math.huge -- (no countdown: it waits until it's full)
 			if n < mode * 2 and at - now >= lead and (n > pickN or (pick ~= nil and n == pickN and at < pickAt)) then

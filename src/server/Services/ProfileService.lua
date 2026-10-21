@@ -699,6 +699,22 @@ function ProfileService.setPracticeAs(plr, id)
 	end
 end
 
+-- The best character a player owns that isn't in `banned` (id -> true): the highest tier, then
+-- the name. (A ranked ban moves its players onto it: MatchService.runBans.)
+function ProfileService.bestOwnedExcept(plr, banned)
+	local profile = ProfileService.get(plr)
+	local best, bestRank = nil, -1
+	for _, c in ipairs(Roster) do
+		if not banned[c.Id] and owns(profile, "Char", c.Id) then
+			local r = Characters.tierIndex(c.Tier) or 0
+			if r > bestRank or (r == bestRank and best and c.Name < best.Name) then
+				best, bestRank = c, r
+			end
+		end
+	end
+	return best and best.Id or nil
+end
+
 -- The roster character this player plays.
 function ProfileService.character(plr)
 	local profile = ProfileService.get(plr)
@@ -3042,6 +3058,9 @@ function ProfileService.init(r)
 		end
 		tickPlayTime(plr, true)
 		playClock[plr] = nil
+		if reg.MatchService and reg.MatchService.onLeaving then
+			pcall(reg.MatchService.onLeaving, plr) -- (leaving a ranked match early: its loss, saved now)
+		end
 		if reg.ClanService then
 			reg.ClanService.onLeft(plr)
 		end

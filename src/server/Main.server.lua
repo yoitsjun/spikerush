@@ -21,6 +21,7 @@ local order = {
 	"ProfileService",
 	"LeaderboardService",
 	"ClanService",
+	"PartyService",
 	"AdminService",
 	"BotService",
 	"HitService",

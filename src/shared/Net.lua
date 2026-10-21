@@ -30,6 +30,7 @@ Net.Names = {
 	"PlayerProfile", -- server -> client: a player's public profile (asked with Profile "profileOf")
 	"QuickChat", -- client -> server: (kind, number); server -> everyone: (userId, kind, number)
 	"Clan", -- clans (ClanService): client -> server ops; server -> client the clan payload
+	"Party", -- parties (PartyService): client -> server ops; server -> client your party and invites
 }
 
 local cache = {}
