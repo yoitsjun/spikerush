@@ -680,6 +680,8 @@ The owner's evening list, one request after another. Pushed in 1b1addc, 2d01fc7,
 
 - **2026-10-21, Taesan in S+** (e00046f; synced): `Ironclad.ShatterKmh` 270 (was 250), grown by his breakthroughs (`Breakthrough.Ability.Ironclad.ShatterKmh`, about 301 at +5; HitLogic reads it with `levelOf(ctx, "Ironclad")`). The owner turned down refilling Intimidation when a shield shatters.
 
+- **2026-10-21, rank divisions** (47a8b46; synced; all 17 badges load in Studio): divisions climb I, II, III (Roblox RIVALS; `Ranked.rankOf`'s `div = step % 3 + 1`). Each division has its own badge, `Assets.Images.Rank<Key>1..3` (`Ranked.badgeKey`, `badgeKeys`; `Rank<Key>` stays as the fallback), rendered by `tools/render_rank_badges_blender.py` (headless: `blender -b --factory-startup -P tools/render_rank_badges_blender.py -- OUT [names]`): I the crest and one pip, II two pips, shoulder studs and longer wings, III three pips, tail fins, spikes, a bigger top gem; `finish_rank_badges.py` steps the glow and size per division. Shared with the universe through Open Cloud right after upload (sharing before Studio first tries an image avoids its cached failure).
+
 ## Next steps
 
 0. **Next up: see the new characters and badges in the live game.** The owner clicks "share access" in Studio's Output for the two ability icons and the seven rank badges if they still don't show. Then: Dohwan by hand (Q, the jump serve's dip and the wrecked pass, a Grounded hitter's HUD line), Haesol's sun on a dig and a perfect one lighting Sunshine, a Vert spike going under a block, Taesan's shatter pop. Not seen yet: Haesol digging a heavy ball and a Crown Jump Serve (the bots didn't serve or receive one in the playtest).
