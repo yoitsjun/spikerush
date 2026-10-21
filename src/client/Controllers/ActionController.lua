@@ -157,9 +157,9 @@ local function buildCtx(info, action, t)
 		breakLevel = player:GetAttribute("Break"),
 		awakened = has.Ironclad and not AC.bulwark() or nil,
 		enemyPoints = State.enemyPoints(State.myTeam),
-		teamBoost = State.rallyOn(State.myTeam, t) or nil,
+		teamBoost = State.rallyOn(State.myTeam, t) and State.rallyBoost(State.myTeam) or nil,
 		dictate = State.dictateOn(State.myTeam, t) or nil, -- (the Tyrant's Stat Hijack)
-		dictated = State.dictateOn(State.myTeam == "Home" and "Away" or "Home", t) or nil,
+		dictated = State.dictateOn(State.myTeam == "Home" and "Away" or "Home", t) and State.dictateSteal(State.myTeam == "Home" and "Away" or "Home") or nil,
 		tyrantOn = has.Tyrant and AC.abilityActive("Tyrant") or nil, -- (Absolute Toss)
 		grounded = player:GetAttribute("Grounded") or nil, -- (Sovereign's Guard)
 		sunOn = has.Sunshine and State.sunOn(player, t) or nil,

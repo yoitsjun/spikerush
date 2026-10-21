@@ -114,7 +114,8 @@ function Breakthrough.cooldown(ability, level)
 	if type(cd) ~= "number" then
 		return nil
 	end
-	return cd * (1 - BT.CooldownCut * Breakthrough.level(level) / BT.Max)
+	local cut = BT.CooldownCuts[ability] or BT.CooldownCut -- (none where its effect grows instead)
+	return cd * (1 - cut * Breakthrough.level(level) / BT.Max)
 end
 
 local function show(spec, v)

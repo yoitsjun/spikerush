@@ -2536,7 +2536,7 @@ do
 	local d = BTm.describe(yejun, 5)
 	check(groups and withAb >= 35 and withAb <= 45 and without > withAb and lifted and grows and s5.Attack > s0.Attack
 		and cost == 5 and BTm.cost(5) == nil and sPlus.Lucky == 1 and sOne.Lucky == 0 and sOne.VP == Config.Spins.SellValue.Legendary
-		and #d.stats > 0 and #d.ability == 3 and d.ability[3][1] == "Cooldown" and BTm.level(9) == 5 and BTm.level(-2) == 0 and BTm.cleanFragments({ S = 3, Q = 9, A = -1 }).S == 3,
+		and #d.stats > 0 and #d.ability == 4 and d.ability[4][1] == "Cooldown" and BTm.level(9) == 5 and BTm.level(-2) == 0 and BTm.cleanFragments({ S = 3, Q = 9, A = -1 }).S == 3,
 		"Breakthroughs: letter fragments (S+ its own), +5 for 5 of them adds ~40 stats past the ceiling (more without an ability) and grows the ability; S+ fragments sell with a lucky spin",
 		string.format("+5: %d stat points (%d without an ability); second swing %.0f%% -> %.0f%%; Adrenaline Attack +%d -> +%d", withAb, without, TH.SecondBoost * 100, second * 100, s0.Attack - shoyo.Attack, s5.Attack - shoyo.Attack))
 end
@@ -2577,8 +2577,22 @@ do
 		string.format("+5 adds D %d, C %d, B %d, A %d, S+ %d; best +5 D %d vs lowest maxed S (%s) %d; +5 Riku %d vs maxed Sora (A) %d", gain.D, gain.C, gain.B, gain.A, gain.SP, dTop, sLowName, sLow, dPlus5, aMax))
 	local cd0, cd5, cd3 = BTm.cooldown("Thunder", 0), BTm.cooldown("Thunder", 5), BTm.cooldown("Thunder", 3)
 	check(cd0 == Config.Abilities.Thunder.Cooldown and math.abs(cd5 - cd0 * (1 - BT.CooldownCut)) < 1e-9 and cd3 < cd0 and cd3 > cd5 and BTm.cooldown("Thunder", 99) == cd5
-		and BTm.cooldown("Adrenaline", 5) == nil and BTm.cooldown(nil, 5) == nil,
-		string.format("breakthroughs shorten an active ability's cooldown, %d%% at +5 (passives have none)", math.floor(BT.CooldownCut * 100 + 0.5)), string.format("Storm Call %.0f s -> %.1f s at +5", cd0, cd5))
+		and BTm.cooldown("Adrenaline", 5) == nil and BTm.cooldown(nil, 5) == nil and BT.CooldownCut <= 0.2,
+		string.format("breakthroughs shorten an active ability's cooldown a little, %d%% at +5 (passives have none)", math.floor(BT.CooldownCut * 100 + 0.5)), string.format("Storm Call %.0f s -> %.1f s at +5", cd0, cd5))
+	-- (the owner, 2026-10-21: "joon should have increased buff power not cooldown reduction"): Rally
+	-- Cry and the Dictate keep their cooldowns and grow their effect instead; Storm Call and Iron
+	-- Wall's shut-down grow too
+	local A = Config.Abilities
+	local rb0, rb5 = BTm.ab("RallyCry", "Boost", 0), BTm.ab("RallyCry", "Boost", 5)
+	local base = Characters.stats("S")
+	local r0 = HitLogic.effectiveStats(base, nil, nil, { teamBoost = rb0 })
+	local r5 = HitLogic.effectiveStats(base, nil, nil, { teamBoost = rb5 })
+	local st5 = BTm.ab("Tyrant", "Steal", 5)
+	local d5 = HitLogic.effectiveStats(base, nil, nil, { dictated = st5 })
+	check(BTm.cooldown("RallyCry", 5) == A.RallyCry.Cooldown and BTm.cooldown("Tyrant", 5) == A.Tyrant.Cooldown and rb5 > rb0 * 1.4 and r5.Attack > r0.Attack
+		and st5 > A.Tyrant.Steal and d5.Attack < base.Attack * (1 - A.Tyrant.Steal) and BTm.ab("Thunder", "StormBoost", 5) > A.Thunder.StormBoost and BTm.ab("IronWall", "StuffKmh", 5) > A.IronWall.StuffKmh,
+		"breakthroughs grow Rally Cry's boost and the Dictate's steal (their cooldowns stay), Storm Call's power and Iron Wall's shut-down",
+		string.format("Rally Cry +%.0f%% -> +%.0f%% (Attack %d -> %d); steal %.0f%% -> %.0f%%", rb0 * 100, rb5 * 100, r0.Attack, r5.Attack, A.Tyrant.Steal * 100, st5 * 100))
 end
 
 print("== player cards ==")

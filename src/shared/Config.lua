@@ -362,13 +362,17 @@ Config.Breakthrough = {
 	-- (D 3 put a +5 Riku at 604, over Daon; D 4 at 662)
 	TierMul = { D = 2.2, C = 1.9, B = 1.5, A = 1.25, S = 1.15, ["S+"] = 1 },
 	-- an active ability's cooldown is this much shorter at +Max, a fifth of it a step (the owner:
-	-- "allow breakthroughs to also effect cooldowns"; was 0.3)
-	CooldownCut = 0.4,
+	-- "allow breakthroughs to also effect cooldowns"; was 0.3, then 0.4). Then (2026-10-21: "dont
+	-- focus so much on cooldowns and instead focus on ability passives. like joon should have
+	-- increased buff power not cooldown reduction"): a smaller cut, none at all where the ability's
+	-- own effect grows instead (CooldownCuts), and each active's effect grows below
+	CooldownCut = 0.15,
+	CooldownCuts = { RallyCry = 0, Tyrant = 0, Turnabout = 0 },
 	-- per ability: the settings that grow, and how each shows in the Breakthrough table (Show: "pct"
 	-- a share as %, "excess" a multiplier's part over 1 as %, "num" points, "s" seconds, "kmh";
 	-- Field: the entry of a table setting to show)
 	Ability = {
-		Thunder = { SecondBoost = { Grow = 0.3, Label = "Second swing", Show = "pct" }, StaticPer = { Grow = 0.3, Label = "Static Charge a stack", Show = "pct" } },
+		Thunder = { SecondBoost = { Grow = 0.3, Label = "Second swing", Show = "pct" }, StaticPer = { Grow = 0.3, Label = "Static Charge a stack", Show = "pct" }, StormBoost = { Grow = 0.6, Label = "Storm Call power", Show = "pct" } },
 		Azure = { MaxBoost = { Grow = 0.15, Label = "Full charge", Show = "pct" } },
 		Feral = { MaxBoost = { Grow = 0.2, Label = "Full leap", Show = "pct" } },
 		ZeroPoint = { ZeroKmh = { Grow = 0.04, Label = "Zero Point", Show = "kmh", Field = 2 } },
@@ -376,17 +380,17 @@ Config.Breakthrough = {
 		Squall = { SpikeBoost = { Grow = 0.25, Label = "Shear", Show = "pct" }, HoverBoost = { Grow = 0.25, Label = "Full hover", Show = "pct" } },
 		Ironclad = { WallBoost = { Grow = 0.2, Label = "Forge with shields", Show = "pct" }, MaxBoost = { Grow = 0.15, Label = "Forge awakened", Show = "pct" } },
 		Adrenaline = { AttackBonus = { Grow = 0.4, Label = "Adrenaline Attack", Show = "num" }, JumpBonus = { Grow = 0.4, Label = "Adrenaline Jump", Show = "num" } },
-		IronWall = { Duration = { Grow = 0.3, Label = "Iron Wall lasts", Show = "s" } },
+		IronWall = { Duration = { Grow = 0.3, Label = "Iron Wall lasts", Show = "s" }, StuffKmh = { Grow = 0.4, Label = "Shut-down speed", Show = "kmh" } },
 		ChainReaction = { PowerMul = { Grow = 0.3, Kind = "excess", Label = "Biggest explosion", Show = "excess", Field = 3 } },
 		Vector = { MaxBoost = { Grow = 0.3, Label = "Steepest spike", Show = "pct" } },
 		Featherfall = { MaxBoost = { Grow = 0.3, Label = "Longest fall", Show = "pct" } },
 		Turnabout = { PowerMul = { Grow = 0.4, Kind = "excess", Label = "Turnabout power", Show = "excess" } },
 		RisingSun = { PerLevel = { Grow = 0.3, Label = "Attack a Sunrise level", Show = "num", Field = "Attack" } },
-		RallyCry = { Duration = { Grow = 0.3, Label = "Rally Cry lasts", Show = "s" } },
+		RallyCry = { Boost = { Grow = 0.5, Label = "Rally Cry boost", Show = "pct" }, Duration = { Grow = 0.2, Label = "Rally Cry lasts", Show = "s" } },
 		Counter = { ReleaseBoost = { Grow = 0.2, Label = "Counter Edge release", Show = "pct" } },
 		Plunge = { PowerBoost = { Grow = 0.5, Label = "Plunge power", Show = "pct" } },
 		Skyward = { AttackAtMax = { Grow = 0.3, Label = "Attack at full lift", Show = "num" } },
-		Tyrant = { Duration = { Grow = 0.3, Label = "Emperor's Dictate lasts", Show = "s" }, SetMul = { Grow = 0.3, Kind = "excess", Label = "Tyrant's Set", Show = "excess" } },
+		Tyrant = { Steal = { Grow = 0.4, Label = "Stat Hijack steals", Show = "pct" }, Duration = { Grow = 0.25, Label = "Emperor's Dictate lasts", Show = "s" }, SetMul = { Grow = 0.3, Kind = "excess", Label = "Tyrant's Set", Show = "excess" } },
 		Sunshine = { SunDuration = { Grow = 0.3, Label = "Sunshine lasts", Show = "s" }, VertBoost = { Grow = 0.3, Label = "Sharpest spike", Show = "pct" } },
 	},
 	SellLucky = { ["S+"] = 1 },

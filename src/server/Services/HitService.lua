@@ -249,9 +249,9 @@ function HitService.process(entity, input, opts)
 		breakLevel = entity.breakLevel,
 		awakened = TS.has(entity, "Ironclad") and HitLogic.ironLives(entity.ironLives) == 0 or nil,
 		enemyPoints = (MS.scores or {})[Court.other(team)] or 0,
-		teamBoost = (TS.rallyUntil[team] or -1) >= input.t - 0.05 or nil,
+		teamBoost = (TS.rallyUntil[team] or -1) >= input.t - 0.05 and TS.rallyBoost[team] or nil, -- (its caller's grown boost)
 		dictate = (TS.dictateUntil[team] or -1) >= input.t - 0.05 or nil, -- (the Tyrant's Stat Hijack, his team)
-		dictated = (TS.dictateUntil[Court.other(team)] or -1) >= input.t - 0.05 or nil, -- (and against this team)
+		dictated = (TS.dictateUntil[Court.other(team)] or -1) >= input.t - 0.05 and TS.dictateSteal[Court.other(team)] or nil, -- (against this team: his steal)
 		tyrantOn = armed("Tyrant"), -- (Absolute Toss: his sets while it's on)
 		grounded = entity.grounded or nil, -- (Sovereign's Guard)
 		sunOn = TS.has(entity, "Sunshine") and (entity.sunUntil or -1) >= input.t - 0.05 or nil,
@@ -610,9 +610,9 @@ local function startAbility(entity, name, def, now)
 	local untilT = now + Breakthrough.ab(name, "Duration", lvl) -- (Iron Wall and Rally Cry last longer with breakthroughs)
 	HitService.setAbilityWindow(entity, name, untilT)
 	if name == "RallyCry" then
-		TS.rally(entity.team, untilT)
+		TS.rally(entity.team, untilT, Breakthrough.ab("RallyCry", "Boost", lvl)) -- (a stronger boost with breakthroughs)
 	elseif name == "Tyrant" then
-		TS.dictate(entity.team, untilT) -- Emperor's Dictate: both teams' stats, and the HUDs
+		TS.dictate(entity.team, untilT, Breakthrough.ab("Tyrant", "Steal", lvl)) -- Emperor's Dictate: both teams' stats, and the HUDs
 	elseif name == "Corona" then
 		-- the flare, and one more use for the penalty once it's off
 		TS.setCorona(entity, untilT, math.min(def.MaxStacks, (entity.coronaStacks or 0) + 1))

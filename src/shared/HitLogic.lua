@@ -824,9 +824,10 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		any = true
 	end
 	if extra and extra.dictated then
-		-- and the other team's: Steal of their Attack, Jump and Speed
+		-- and the other team's: Steal of their Attack, Jump and Speed (a number: his grown Steal)
+		local steal = type(extra.dictated) == "number" and extra.dictated or TYRANT.Steal
 		for _, k in ipairs({ "Attack", "Jump", "Speed" }) do
-			add[k] = (add[k] or 0) - math.floor(stats[k] * TYRANT.Steal + 0.5)
+			add[k] = (add[k] or 0) - math.floor(stats[k] * steal + 0.5)
 		end
 		any = true
 	end
@@ -886,7 +887,8 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		mul = mul * hex.mul
 	end
 	if extra and extra.teamBoost then
-		mul = mul * (1 + RALLY.Boost) -- (on top of Monster Mash's, not in its place)
+		-- (a number: the caller's grown Boost; on top of Monster Mash's, not in its place)
+		mul = mul * (1 + (type(extra.teamBoost) == "number" and extra.teamBoost or RALLY.Boost))
 		any = true
 	end
 	if on("Corona") then
@@ -1103,7 +1105,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local zeroRange = zero and (kind == "JumpServe" and ZERO.ZeroServeKmh or ab("ZeroPoint", "ZeroKmh", levelOf(ctx, "ZeroPoint"))) or nil
 	local kmh, thunder, energy, overcharge, pierce = attackPower(kind, q, qContact, storm and (H.ThunderHeight + H.ThunderHeightSpan) or heightM, stats, ctx, input.energy, zeroRange)
 	if storm then
-		kmh = kmh * (1 + THUNDER.StormBoost)
+		kmh = kmh * (1 + ab("Thunder", "StormBoost", levelOf(ctx, "Thunder")))
 	end
 	local static = 0
 	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Thunder") then
@@ -1725,7 +1727,7 @@ function HitLogic.compute(input, ctx)
 			local IW = Config.Abilities.IronWall
 			p = Vector3.new(0, math.max(ball.Y, C.NetTop + R), atk * (R + 0.1))
 			local depth = SPM * lerp(IW.StuffDepth[1], IW.StuffDepth[2], rng:NextNumber())
-			v = HitLogic.solveSpeed(p, Vector3.new(0, R, atk * depth), HitLogic.studs(IW.StuffKmh), G * 1.3)
+			v = HitLogic.solveSpeed(p, Vector3.new(0, R, atk * depth), HitLogic.studs(ab("IronWall", "StuffKmh", levelOf(ctx, "IronWall"))), G * 1.3)
 			a = Vector3.new(0, -G * 1.3, 0)
 			hold = H.HitStopPerfect
 		elseif stuffScore - shearDrop >= 0.45 then

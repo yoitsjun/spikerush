@@ -1424,7 +1424,7 @@ local function updateAbility()
 	end
 	local rallyLeft = (ReplicatedStorage:GetAttribute("RallyUntil_" .. tostring(State.myTeam)) or -1) - now
 	if rallyLeft > 0 then
-		line(Config.Abilities.RallyCry.Color, string.format("RALLY CRY  +%d%% all stats  %d s", Config.Abilities.RallyCry.Boost * 100, math.ceil(rallyLeft)))
+		line(Config.Abilities.RallyCry.Color, string.format("RALLY CRY  +%d%% all stats  %d s", math.floor(State.rallyBoost(State.myTeam) * 100 + 0.5), math.ceil(rallyLeft)))
 	end
 	local TY = Config.Abilities.Tyrant
 	local foe = State.myTeam == "Home" and "Away" or "Home"
@@ -1434,7 +1434,7 @@ local function updateAbility()
 		line(TY.Color, string.format("EMPEROR'S DICTATE  +%d ATK +%d JMP +%d SPD  %d s", TY.TeamAdd.Attack, TY.TeamAdd.Jump, TY.TeamAdd.Speed, math.ceil(ours)))
 	end
 	if theirs > 0 then
-		line(Color3.fromRGB(255, 120, 90), string.format("DICTATED  -%d%% ATK JMP SPD, block halved  %d s", TY.Steal * 100, math.ceil(theirs)))
+		line(Color3.fromRGB(255, 120, 90), string.format("DICTATED  -%d%% ATK JMP SPD, block halved  %d s", math.floor(State.dictateSteal(foe) * 100 + 0.5), math.ceil(theirs)))
 	end
 	if player:GetAttribute("Grounded") then
 		line(Color3.fromRGB(200, 170, 120), string.format("GROUNDED  -%d%% Jump and Attack next attack", TY.GroundedCut * 100))

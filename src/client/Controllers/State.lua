@@ -261,6 +261,15 @@ function State.rallyOn(team, t)
 	return (ReplicatedStorage:GetAttribute("RallyUntil_" .. team) or -1) >= t
 end
 
+-- Rally Cry's boost on `team` (its caller's, grown by breakthroughs), and a Dictate's steal.
+function State.rallyBoost(team)
+	return ReplicatedStorage:GetAttribute("RallyBoost_" .. tostring(team)) or Config.Abilities.RallyCry.Boost
+end
+
+function State.dictateSteal(team)
+	return ReplicatedStorage:GetAttribute("DictateSteal_" .. tostring(team)) or Config.Abilities.Tyrant.Steal
+end
+
 -- Whether `team`'s Tyrant has Emperor's Dictate on at shared-clock time t.
 function State.dictateOn(team, t)
 	if not team then

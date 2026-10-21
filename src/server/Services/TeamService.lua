@@ -35,6 +35,8 @@ TeamService.benched = {} -- userId -> id of the AI standing in for them
 TeamService.idle = {} -- userId -> seconds without input while the ball was live
 TeamService.rallyUntil = { Home = -1, Away = -1 } -- Rally Cry: the team's boost lasts until then
 TeamService.dictateUntil = { Home = -1, Away = -1 } -- the Tyrant's Emperor's Dictate (his team's), until then
+TeamService.rallyBoost = { Home = 0, Away = 0 } -- Rally Cry's boost (its caller's, grown by breakthroughs)
+TeamService.dictateSteal = { Home = 0, Away = 0 } -- and the Dictate's steal
 TeamService.chain = { Home = 0, Away = 0 } -- Chain Reaction: the team's explosions this rally
 TeamService.event = nil -- the Halloween Match's run while one plays (MatchService): { hands, ai, ... }
 
@@ -394,9 +396,9 @@ function TeamService.boostCtx(e, t)
 		counter = e.counter or 0,
 		lift = e.lift,
 		auto = e.isBot or nil,
-		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= now,
+		teamBoost = (TeamService.rallyUntil[e.team] or -1) >= now and TeamService.rallyBoost[e.team] or nil,
 		dictate = (TeamService.dictateUntil[e.team] or -1) >= now or nil,
-		dictated = (TeamService.dictateUntil[Court.other(e.team)] or -1) >= now or nil,
+		dictated = (TeamService.dictateUntil[Court.other(e.team)] or -1) >= now and TeamService.dictateSteal[Court.other(e.team)] or nil,
 		grounded = e.grounded or nil,
 		sunOn = TeamService.has(e, "Sunshine") and (e.sunUntil or -1) >= now or nil,
 		coronaOn = TeamService.has(e, "Corona") and TeamService.windowOf(e, "Corona") >= now or nil,
@@ -439,9 +441,13 @@ local refreshBoosts = TeamService.refreshBoosts
 
 -- Rally Cry: the whole team is boosted until `untilT` (shared clock), for every client's HUD too.
 -- (Two on one team, a card's and a teammate's own: the longer boost stands.)
-function TeamService.rally(team, untilT)
+function TeamService.rally(team, untilT, boost)
+	local active = (TeamService.rallyUntil[team] or -1) >= Util.now()
 	untilT = math.max(untilT, TeamService.rallyUntil[team] or -1)
 	TeamService.rallyUntil[team] = untilT
+	-- (two at once: the bigger boost)
+	TeamService.rallyBoost[team] = math.max(boost or Config.Abilities.RallyCry.Boost, active and TeamService.rallyBoost[team] or 0)
+	ReplicatedStorage:SetAttribute("RallyBoost_" .. team, TeamService.rallyBoost[team])
 	ReplicatedStorage:SetAttribute("RallyUntil_" .. team, untilT)
 	refreshBoosts(team)
 	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
@@ -453,9 +459,11 @@ end
 
 -- The Tyrant's Emperor's Dictate: `team` (his) steals from the other until `untilT` (shared clock),
 -- for every client's prediction and HUD too. Both teams' stats follow it now and when it ends.
-function TeamService.dictate(team, untilT)
+function TeamService.dictate(team, untilT, steal)
 	untilT = math.max(untilT, TeamService.dictateUntil[team] or -1)
 	TeamService.dictateUntil[team] = untilT
+	TeamService.dictateSteal[team] = steal or Config.Abilities.Tyrant.Steal
+	ReplicatedStorage:SetAttribute("DictateSteal_" .. team, TeamService.dictateSteal[team])
 	ReplicatedStorage:SetAttribute("DictateUntil_" .. team, untilT)
 	refreshBoosts(team)
 	refreshBoosts(Court.other(team))
