@@ -141,8 +141,10 @@ local function buildCreate(body)
 	-- public or private, and the wins to join
 	label(f, { Text = "Who can join", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Position = UDim2.fromOffset(0, 282), Size = UDim2.fromOffset(300, 24) })
 	ui.createPublic = true
-	local _, setDoor = kit.segmented(f, { { key = "Public", text = "Public: anyone joins" }, { key = "Private", text = "Private: you let them in" } }, { Position = UDim2.fromOffset(0, 310), Size = UDim2.fromOffset(520, 44), ZIndex = 22 }, function(key)
+	local setDoor, _
+	_, setDoor = kit.segmented(f, { { key = "Public", text = "Public: anyone joins" }, { key = "Private", text = "Private: you let them in" } }, { Position = UDim2.fromOffset(0, 310), Size = UDim2.fromOffset(520, 44), ZIndex = 22 }, function(key)
 		ui.createPublic = key == "Public"
+		setDoor(key)
 	end)
 	setDoor("Public")
 	local minWins = field(366, "Minimum wins to join", "0 (no minimum)", 260)
@@ -394,8 +396,10 @@ local function buildSettings(body)
 	label(f, { Text = "Description", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Size = UDim2.fromOffset(300, 24) })
 	local desc = kit.inputBox(f, { Position = UDim2.fromOffset(0, 28), Size = UDim2.fromOffset(760, 70), TextWrapped = true, MultiLine = true, TextYAlignment = Enum.TextYAlignment.Top }, "What your clan is about")
 	label(f, { Text = "Who can join", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Position = UDim2.fromOffset(0, 110), Size = UDim2.fromOffset(300, 24) })
-	local _, setDoor = kit.segmented(f, { { key = "Public", text = "Public" }, { key = "Private", text = "Private" } }, { Position = UDim2.fromOffset(0, 138), Size = UDim2.fromOffset(360, 44), ZIndex = 22 }, function(key)
+	local setDoor, _
+	_, setDoor = kit.segmented(f, { { key = "Public", text = "Public" }, { key = "Private", text = "Private" } }, { Position = UDim2.fromOffset(0, 138), Size = UDim2.fromOffset(360, 44), ZIndex = 22 }, function(key)
 		ui.setPublic = key == "Public"
+		setDoor(key)
 	end)
 	label(f, { Text = "Minimum wins to join", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Position = UDim2.fromOffset(0, 194), Size = UDim2.fromOffset(300, 24) })
 	local minWins = kit.inputBox(f, { Position = UDim2.fromOffset(0, 222), Size = UDim2.fromOffset(200, 44) }, "0")
@@ -469,14 +473,8 @@ local function buildWindow()
 		end
 	end)
 	ui.leave = leave
-	local outSeg, outSet = kit.segmented(m.panel, OUT_TABS, { Position = UDim2.fromOffset(28, 86), Size = UDim2.fromOffset(480, 46), ZIndex = 22 }, function(key)
-		tab = key
-		ClanMenu.refresh()
-	end)
-	local inSeg, inSet = kit.segmented(m.panel, IN_TABS, { Position = UDim2.fromOffset(28, 86), Size = UDim2.fromOffset(900, 46), ZIndex = 22 }, function(key)
-		tab = key
-		ClanMenu.refresh()
-	end)
+	local outSeg, outSet = kit.segmented(m.panel, OUT_TABS, { Position = UDim2.fromOffset(28, 86), Size = UDim2.fromOffset(480, 46), ZIndex = 22 }, ClanMenu.setTab)
+	local inSeg, inSet = kit.segmented(m.panel, IN_TABS, { Position = UDim2.fromOffset(28, 86), Size = UDim2.fromOffset(900, 46), ZIndex = 22 }, ClanMenu.setTab)
 	ui.outSeg, ui.outSet, ui.inSeg, ui.inSet = outSeg, outSet, inSeg, inSet
 	local body = make("Frame", { Position = UDim2.fromOffset(28, 148), Size = UDim2.new(1, -56, 1, -170), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
 	ui.find = buildFind(body)
