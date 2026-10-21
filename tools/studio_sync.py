@@ -31,18 +31,27 @@ local H = game:GetService("HttpService")
 local CRLF, LF = string.char(13, 10), string.char(10)
 local function hash(s) s = s:gsub(CRLF, LF) local x = 5381 for i = 1, #s do x = (x * 33 + s:byte(i)) %% 4294967296 end return x end
 local function strip(s) s = s:gsub("%%.server%%.lua$", "") s = s:gsub("%%.client%%.lua$", "") s = s:gsub("%%.lua$", "") return s end
-local function resolve(f)
+local function resolve(f, create)
   local parts = string.split(f, "/")
   if parts[2] == "first" then return game.ReplicatedFirst:FindFirstChild("LoadingScreen") end
   local inst = (parts[2] == "shared" and game.ReplicatedStorage:FindFirstChild("Shared")) or (parts[2] == "server" and game:GetService("ServerScriptService"):FindFirstChild("Server")) or (parts[2] == "client" and game:GetService("StarterPlayer").StarterPlayerScripts:FindFirstChild("Client"))
-  for i = 3, #parts do if not inst then return nil end inst = inst:FindFirstChild(strip(parts[i])) end
+  for i = 3, #parts do
+    if not inst then return nil end
+    local child = inst:FindFirstChild(strip(parts[i]))
+    if not child and create and i == #parts and string.match(parts[i], "^[%w]+%.lua$") then
+      child = Instance.new("ModuleScript")
+      child.Name = strip(parts[i])
+      child.Parent = inst
+    end
+    inst = child
+  end
   return inst
 end
 local was = H.HttpEnabled H.HttpEnabled = true
 local out = {}
 for _, r in ipairs(ROWS) do
-  local inst = resolve(r[1])
-  if not inst then table.insert(out, r[1] .. " MISSING (new script? create it by hand)")
+  local inst = resolve(r[1], r[2] == nil)
+  if not inst then table.insert(out, r[1] .. " MISSING")
   else
     local cur = hash(inst.Source)
     if cur == r[3] then table.insert(out, r[1] .. " already")
