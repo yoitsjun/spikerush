@@ -59,7 +59,9 @@ function RankedMenu.badge(parent, size, props)
 	local ROMAN = { "I", "II", "III" }
 	local function set(rp)
 		local _, rank, div = Ranked.rankOf(rp)
-		local pic = Assets.image("Rank" .. rank.Key)
+		-- (each division has its own picture; the rank's own is the fallback)
+		local own = Assets.image(Ranked.badgeKey(rp))
+		local pic = own or Assets.image("Rank" .. rank.Key)
 		img.Image = pic or ""
 		img.Visible = pic ~= nil
 		gem.Visible = pic == nil
@@ -67,7 +69,7 @@ function RankedMenu.badge(parent, size, props)
 		stroke.Color = rank.Color:Lerp(Color3.new(1, 1, 1), 0.55)
 		glow.ImageColor3 = rank.Color
 		pips.Text = div and ROMAN[div] or (rank.Key == "Almighty" and "A" or "M")
-		pips.Visible = pic == nil or div ~= nil
+		pips.Visible = pic == nil or (div ~= nil and own == nil) -- (a division's own picture shows its pips)
 	end
 	return set, f
 end

@@ -361,6 +361,22 @@ Assets.Images = {
 	RankDiamond = "76761660462837",
 	RankMighty = "116667204972282",
 	RankAlmighty = "101067179255987",
+	-- each division's own badge (I, II, III climbing like Roblox RIVALS: Ranked.badgeKey), the one above it the fallback
+	RankBronze1 = "77313822748886",
+	RankBronze2 = "140408409732283",
+	RankBronze3 = "83048628750321",
+	RankSilver1 = "103412559071019",
+	RankSilver2 = "93318981968724",
+	RankSilver3 = "91698768379751",
+	RankGold1 = "115270374718856",
+	RankGold2 = "135070547821063",
+	RankGold3 = "118787813946914",
+	RankPlatinum1 = "74854491295486",
+	RankPlatinum2 = "92930852991592",
+	RankPlatinum3 = "103350995958423",
+	RankDiamond1 = "97409362125622",
+	RankDiamond2 = "140693202947445",
+	RankDiamond3 = "116040870088165",
 	CardPumpkin = "15297085802", -- the Halloween 2026 card's jack-o'-lantern (Creator Store decal 15297085809, "Laughing_Pumpkin_Icon")
 	CardBugNet = "72834624157291", -- the Bug Catcher card's net, mirrored from the owner's pick (assets/card/bug_net.png)
 	-- menu icons: one filled white glyph style (Toolbox decals)

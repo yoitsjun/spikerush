@@ -2987,7 +2987,8 @@ do
 	local Ranked = require("Ranked")
 	local RC = Config.Ranked
 	local names = { Ranked.name(0), Ranked.name(99), Ranked.name(100), Ranked.name(299), Ranked.name(300), Ranked.name(1499), Ranked.name(1500), Ranked.name(1999), Ranked.name(2000), Ranked.name(9000) }
-	local expect = { "Bronze III", "Bronze III", "Bronze II", "Bronze I", "Silver III", "Diamond I", "Mighty", "Mighty", "Almighty", "Almighty" }
+	-- (divisions climb I, II, III like Roblox RIVALS: the owner, 2026-10-21)
+	local expect = { "Bronze I", "Bronze I", "Bronze II", "Bronze III", "Silver I", "Diamond III", "Mighty", "Mighty", "Almighty", "Almighty" }
 	local namesOk = true
 	for i, n in ipairs(expect) do
 		namesOk = namesOk and names[i] == n
@@ -3012,10 +3013,14 @@ do
 	local rec = Ranked.clean({ season = 1, rp = 820, wins = 30, losses = 12, peak = 900 }, 2)
 	local fresh = Ranked.clean(nil, 1)
 	local d = Ranked.apply(fresh, true, 0)
+	local keys = Ranked.badgeKeys()
+	check(Ranked.badgeKey(0) == "RankBronze1" and Ranked.badgeKey(299) == "RankBronze3" and Ranked.badgeKey(300) == "RankSilver1" and Ranked.badgeKey(1600) == "RankMighty"
+		and Ranked.badgeKey(5000) == "RankAlmighty" and #keys == 17 and keys[1] == "RankBronze1" and keys[15] == "RankDiamond3" and keys[17] == "RankAlmighty",
+		"ranked badges: one per division, Bronze I to Diamond III, then Mighty and Almighty (17)")
 	check(namesOk and even == RC.Win and evenL == -RC.Loss and diffOk and climbOk and s1 == 1 and s2 == 2 and Ranked.season(endsNov - 60) == 1
 		and rec.season == 2 and rec.rp == 410 and rec.wins == 0 and rec.history[1].season == 1 and rec.history[1].wins == 30 and rec.history[1].peak == 900
 		and fresh.rp == d and fresh.wins == 1 and Ranked.apply({ rp = 5, wins = 0, losses = 0, peak = 5 }, false, 0) == -5 and Ranked.apply({ rp = plat, wins = 0, losses = 0, peak = plat }, false, plat) == -RC.Loss,
-		"ranked: Bronze III to Almighty, +25 / -20 moved by the other team's strength and by your rank (easy low, harsh high), monthly seasons (Season 1 to December), half your RP into a new season",
+		"ranked: Bronze I to Almighty, +25 / -20 moved by the other team's strength and by your rank (easy low, harsh high), monthly seasons (Season 1 to December), half your RP into a new season",
 		table.concat(names, ", ") .. string.format("; upset +%d / %d; S1 ends %d", upset, upsetL, endsNov))
 end
 

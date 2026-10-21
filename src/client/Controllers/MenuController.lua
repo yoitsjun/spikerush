@@ -6488,15 +6488,16 @@ local function buildMatchScreen()
 	-- in, out again) and a pulse
 	local R = Extra.rankedIcons
 	if R then
+		-- (every division's own badge, Bronze I to Almighty)
 		local keys = {}
-		for _, rank in ipairs(Config.Ranked.Ranks) do
-			table.insert(keys, Assets.image("Rank" .. rank.Key) or "")
+		for _, key in ipairs(Extra.Ranked.badgeKeys()) do
+			table.insert(keys, Assets.image(key) or Assets.image((string.gsub(key, "%d$", ""))) or "")
 		end
 		local i = 1
 		R.small.Image, R.big.Image = keys[1], keys[1]
 		task.spawn(function()
 			while R.big.Parent do
-				task.wait(1.1)
+				task.wait(0.8)
 				if R.big:IsDescendantOf(game) then
 					tween(R.big, 0.12, { Size = UDim2.fromOffset(6, 200) })
 					task.wait(0.12)

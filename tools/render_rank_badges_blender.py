@@ -4,6 +4,11 @@ tools/generate_rank_badges.py's flat drawings (the owner, 2026-10-21: "the rank 
 right now. let try and make it way way way cooler"; their references were glossy game crests with a
 glowing orb).
 
+Every division has its own badge (the owner, 2026-10-21: "make the ranks go bronze 1 2 3, and
+upgrade each emblem accordingly, similar to how [Roblox] rivals does it"): Rank<Key>1..3 for Bronze
+to Diamond, each division adding its pips (1 to 3 gems), a pair of feathers, and at III crown spikes
+and a bigger top gem; Mighty and Almighty are one badge each.
+
 Each rank is a bevelled shield crest in its metal with a swirling orb in a ring, and more around it
 the higher it goes: Bronze plain, Silver side flares, Gold a gem and wings, Platinum spikes, Diamond
 crystals and bigger wings, Mighty a gold crown and tail feathers, Almighty a gold halo, a crown and the
@@ -291,34 +296,57 @@ def spikes(m, n, y=0.78, spread=0.3, h=0.42):
         outline_obj("Spike" + str(i), [(x - 0.09, y), (x, y + tall), (x + 0.09, y), (x, y - 0.1)], 0.06, 0.025, m["light"], z=0.06)
 
 
-def build(rank):
+def pips(m, n, y=-0.58, spacing=0.22):
+    # the division's gems in a row across the shield's lower face (1, 2 or 3)
+    for i in range(n):
+        x = (i - (n - 1) / 2) * spacing
+        gem("Pip" + str(i), 0.1, 0.11, (x, -0.4, y), m["gem"], sides=4, scale=(1, 1, 1.25))
+
+
+def build(rank, div=None):
+    # div: 1, 2 or 3 (Bronze to Diamond; climbing like Roblox RIVALS, each one upgrading the
+    # rank's crest), nil for Mighty and Almighty. Up a division: its pips, one more pair of
+    # feathers, and at III crown spikes and a bigger top gem.
     for o in list(bpy.data.objects):
         if o.type in ("MESH", "CURVE"):
             bpy.data.objects.remove(o, do_unlink=True)
     m = mats(rank)
+    d = (div or 1) - 1
+    top = 1.0 + 0.22 * (d == 2)
     if rank == "Bronze":
         body("plain", m, 0.92)
-        gem("TopGem", 0.1, 0.12, (0, -0.4, 0.86), m["gem"], sides=4, scale=(1, 1, 1.3))
+        gem("TopGem", 0.1, 0.12, (0, -0.4, 0.86), m["gem"], sides=4, scale=(top, top, 1.3 * top))
+        if d >= 1:
+            wings([m["light"]], d + 1, 0.42 + 0.14 * d, (20, -8), ox=0.48, oy=0.25, width=0.22, curl=0.08)
+        if d == 2:
+            spikes(m, 3, y=0.7, spread=0.24, h=0.3)
     elif rank == "Silver":
         body("flared", m, 0.95)
-        gem("TopGem", 0.12, 0.14, (0, -0.4, 0.92), m["gem"], sides=4, scale=(1.1, 1.1, 1.5))
-        wings([m["light"]], 2, 0.55, (25, -10), ox=0.5, oy=0.25, width=0.26, curl=0.1)
+        gem("TopGem", 0.12, 0.14, (0, -0.4, 0.92), m["gem"], sides=4, scale=(1.1 * top, 1.1 * top, 1.5 * top))
+        wings([m["light"], m["main"]], 2 + d, 0.55 + 0.14 * d, (25 + 4 * d, -10 - 4 * d), ox=0.5, oy=0.25, width=0.26, curl=0.1)
+        if d == 2:
+            spikes(m, 3, y=0.76, spread=0.28, h=0.34)
     elif rank == "Gold":
         body("crest", m)
-        gem("TopGem", 0.17, 0.2, (0, -0.4, 0.95), m["gem"], sides=4, scale=(1.3, 1.3, 1.9))
-        wings([m["light"], m["main"]], 4, 0.9, (42, -22), oy=0.12, curl=0.16)
+        gem("TopGem", 0.17, 0.2, (0, -0.4, 0.95), m["gem"], sides=4, scale=(1.3 * top, 1.3 * top, 1.9 * top))
+        wings([m["light"], m["main"]], 3 + d, 0.8 + 0.14 * d, (40 + 3 * d, -18 - 4 * d), oy=0.12, curl=0.16)
+        if d == 2:
+            spikes(m, 3)
     elif rank == "Platinum":
         body("crest", m)
-        spikes(m, 3)
-        gem("TopGem", 0.17, 0.2, (0, -0.42, 0.98), m["gem"], sides=6, scale=(1.3, 1.3, 1.9))
-        wings([m["light"], m["main"]], 5, 1.0, (48, -28), oy=0.12, curl=0.2)
+        spikes(m, 3 + 2 * (d == 2), spread=0.3 + 0.08 * (d == 2))
+        gem("TopGem", 0.17, 0.2, (0, -0.42, 0.98), m["gem"], sides=6, scale=(1.3 * top, 1.3 * top, 1.9 * top))
+        wings([m["light"], m["main"]], 4 + d, 0.92 + 0.13 * d, (46 + 3 * d, -26 - 3 * d), oy=0.12, curl=0.2)
     elif rank == "Diamond":
         body("crest", m, 1.02)
-        gem("TopGem", 0.26, 0.3, (0, -0.42, 1.0), m["gem"], sides=4, scale=(1.0, 1.0, 1.8))
-        for s in (-1, 1):
-            g = gem("SideGem" + str(s), 0.12, 0.14, (s * 0.38, -0.36, 0.9), m["gem"], sides=4, scale=(0.8, 0.8, 1.6))
-            g.rotation_euler[1] = math.radians(-25 * s)
-        wings([m["light"], m["main"]], 6, 1.12, (55, -32), width=0.34, curl=0.22)
+        gem("TopGem", 0.26, 0.3, (0, -0.42, 1.0), m["gem"], sides=4, scale=(top, top, 1.8 * top))
+        if d >= 1:
+            for sgn in (-1, 1):
+                g = gem("SideGem" + str(sgn), 0.12, 0.14, (sgn * 0.38, -0.36, 0.9), m["gem"], sides=4, scale=(0.8, 0.8, 1.6))
+                g.rotation_euler[1] = math.radians(-25 * sgn)
+        if d == 2:
+            spikes(m, 5, spread=0.4)
+        wings([m["light"], m["main"]], 5 + d, 1.02 + 0.12 * d, (52 + 3 * d, -30 - 3 * d), width=0.34, curl=0.22)
     elif rank == "Mighty":
         body("crest", m, 1.02)
         crown(m, y=0.86, w=0.46, h=0.34)
@@ -330,6 +358,15 @@ def build(rank):
         crown(m, y=0.88, w=0.5, h=0.4)
         wings([m["main"], m["crown"]], 7, 1.3, (66, -36), width=0.38, curl=0.3)
         wings([m["dark"], m["main"]], 4, 0.95, (-30, -72), z=0.12, ox=0.45, oy=-0.3, width=0.28, curl=-0.12, prefix="Tail")
+    if div:
+        pips(m, div)
+    if div and div >= 2:
+        # II: gem studs on the shoulders
+        for sgn in (-1, 1):
+            sphere("Stud" + str(sgn), 0.075, (sgn * 0.6, -0.36, 0.6), m["gem"])
+    if div == 3:
+        # III: tail fins under the shield
+        wings([m["dark"], m["main"]], 2, 0.55, (-38, -62), z=0.12, ox=0.4, oy=-0.32, width=0.22, curl=-0.06, prefix="Tail")
 
 
 # ------------------------------------------------------------------------------- the stage
@@ -394,10 +431,15 @@ def main():
     out = argv[0] if argv else os.path.join(os.path.dirname(bpy.data.filepath) or ".", "rank_renders")
     os.makedirs(out, exist_ok=True)
     stage()
+    only = argv[1:]  # (optional names to render, e.g. RankGold2)
     for rank in PAL:
-        build(rank)
-        bpy.context.scene.render.filepath = os.path.join(out, "Rank" + rank + ".png")
-        bpy.ops.render.render(write_still=True)
+        for div in ((1, 2, 3) if rank not in ("Mighty", "Almighty") else (None,)):
+            name = "Rank" + rank + (str(div) if div else "")
+            if only and name not in only:
+                continue
+            build(rank, div)
+            bpy.context.scene.render.filepath = os.path.join(out, name + ".png")
+            bpy.ops.render.render(write_still=True)
     print("rendered into", out)
 
 

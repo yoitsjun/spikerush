@@ -16,8 +16,9 @@ local function whole(n)
 	return math.max(0, math.floor(n))
 end
 
--- The rank for an RP total: its index in Config.Ranked.Ranks, the rank, the division (3, 2 or 1;
--- nil for a one-tier rank), and the RP where this division starts and the next one does (nil at
+-- The rank for an RP total: its index in Config.Ranked.Ranks, the rank, the division (1, 2 or 3,
+-- climbing like Roblox RIVALS: Bronze I is the bottom, Bronze III the top of Bronze; nil for a
+-- one-tier rank), and the RP where this division starts and the next one does (nil at
 -- the top).
 function Ranked.rankOf(rp)
 	rp = whole(rp)
@@ -29,7 +30,7 @@ function Ranked.rankOf(rp)
 	end
 	local step = math.floor(rp / R.PerDivision) -- 0 .. 14
 	local idx = math.floor(step / 3) + 1
-	local div = 3 - step % 3
+	local div = step % 3 + 1 -- (the owner, 2026-10-21: "make the ranks go bronze 1 2 3")
 	local from = step * R.PerDivision
 	return idx, R.Ranks[idx], div, from, from + R.PerDivision
 end
@@ -40,6 +41,28 @@ local ROMAN = { "I", "II", "III" }
 function Ranked.name(rp)
 	local _, rank, div = Ranked.rankOf(rp)
 	return div and (rank.Name .. " " .. ROMAN[div]) or rank.Name
+end
+
+-- The badge picture's key for an RP total (Assets.Images): each division has its own,
+-- "RankBronze1" .. "RankDiamond3", and "RankMighty" / "RankAlmighty".
+function Ranked.badgeKey(rp)
+	local _, rank, div = Ranked.rankOf(rp)
+	return "Rank" .. rank.Key .. (div and tostring(div) or "")
+end
+
+-- Every badge key from the bottom to the top (the Ranked card's cycle).
+function Ranked.badgeKeys()
+	local out = {}
+	for _, rank in ipairs(R.Ranks) do
+		if rank.Divisions > 1 then
+			for d = 1, rank.Divisions do
+				table.insert(out, "Rank" .. rank.Key .. d)
+			end
+		else
+			table.insert(out, "Rank" .. rank.Key)
+		end
+	end
+	return out
 end
 
 -- How far through its division (0 to 1; 1 at the top).
