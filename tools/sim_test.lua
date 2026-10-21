@@ -2972,7 +2972,7 @@ do
 	local d = Ranked.apply(fresh, true, 0)
 	check(namesOk and even == RC.Win and evenL == -RC.Loss and upset == RC.Max and upsetL == -RC.Min and s1 == 1 and s2 == 2 and Ranked.season(endsNov - 60) == 1
 		and rec.season == 2 and rec.rp == 410 and rec.wins == 0 and rec.history[1].season == 1 and rec.history[1].wins == 30 and rec.history[1].peak == 900
-		and fresh.rp == d and fresh.wins == 1 and Ranked.apply({ rp = 5, wins = 0, losses = 0, peak = 5 }, false, 0) == -RC.Loss,
+		and fresh.rp == d and fresh.wins == 1 and Ranked.apply({ rp = 5, wins = 0, losses = 0, peak = 5 }, false, 0) == -5 and Ranked.apply({ rp = 500, wins = 0, losses = 0, peak = 500 }, false, 500) == -RC.Loss,
 		"ranked: Bronze III to Almighty, +25 / -20 moved by the other team's strength, monthly seasons (Season 1 to December), half your RP into a new season",
 		table.concat(names, ", ") .. string.format("; upset +%d / %d; S1 ends %d", upset, upsetL, endsNov))
 end

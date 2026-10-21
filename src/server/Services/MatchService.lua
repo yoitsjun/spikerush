@@ -840,10 +840,11 @@ function MatchService.runBans()
 		if e.player and e.charId and banned[e.charId] then
 			local id = reg.ProfileService.bestOwnedExcept(e.player, banned)
 			if id then
+				local was = e.charName or e.charId
 				banSwapped[e.player] = true
 				reg.ProfileService.setPracticeAs(e.player, id)
 				local note = TS.swapCharacter(e.player)
-				reg.ProfileService.pushTo(e.player, string.format("%s is banned this match: you're %s.%s", Roster.get(e.charId) and Roster.get(e.charId).Name or "Your character", e.charName or id, note and (" " .. note) or ""))
+				reg.ProfileService.pushTo(e.player, string.format("%s is banned this match: you're %s.%s", was, e.charName or id, note and (" " .. note) or ""))
 			end
 		end
 	end

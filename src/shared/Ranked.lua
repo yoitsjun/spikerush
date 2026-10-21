@@ -141,8 +141,9 @@ end
 
 -- A match's result on a record (already rolled over): returns the change in RP.
 function Ranked.apply(rec, won, theirs)
-	local d = Ranked.change(won, rec.rp, theirs)
-	rec.rp = math.max(0, rec.rp + d)
+	local before = rec.rp
+	rec.rp = math.max(0, rec.rp + Ranked.change(won, rec.rp, theirs))
+	local d = rec.rp - before -- (what really moved: never below 0)
 	if won then
 		rec.wins = rec.wins + 1
 	else

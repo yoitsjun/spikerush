@@ -643,6 +643,10 @@ local function rewardsText(rows)
 			if e.mvpBonus then
 				table.insert(parts, string.format("MVP bonus +%d VP", e.mvpBonus))
 			end
+			if e.rp then
+				-- a ranked match's rank points
+				table.insert(parts, string.format('<font color="%s"><b>%s%d RP</b></font>', e.rp >= 0 and "#5BE38A" or "#FF6B6B", e.rp >= 0 and "+" or "", e.rp))
+			end
 			if e.extraVP then
 				table.insert(parts, "extra sets included")
 			end
