@@ -51,14 +51,18 @@ function Ranked.progress(rp)
 	return math.clamp((whole(rp) - from) / (to - from), 0, 1)
 end
 
--- What a match is worth: +RP for a win, -RP for a loss, moved by how much stronger the other
--- team (`theirs`, its average RP) is than you (`mine`).
+-- What a match is worth: +RP for a win, -RP for a loss. The gap to the other team (`theirs`, its
+-- average RP, against yours, `mine`) moves it up to DiffWeight either way (beat a stronger team:
+-- more; lose to one: less), then your own rank's Climb (gain, loss) multipliers: the higher you
+-- are, the less a win pays and the more a loss costs.
 function Ranked.change(won, mine, theirs)
-	local diff = (whole(theirs) - whole(mine)) / R.Spread
+	local k = math.clamp((whole(theirs) - whole(mine)) / R.DiffSpan, -1, 1)
+	local _, rank = Ranked.rankOf(mine)
+	local climb = (rank and R.Climb[rank.Key]) or { 1, 1 }
 	if won then
-		return math.floor(math.clamp(R.Win + diff, R.Min, R.Max) + 0.5)
+		return math.floor(math.clamp(R.Win * (1 + R.DiffWeight * k) * climb[1], R.Min, R.Max) + 0.5)
 	end
-	return -math.floor(math.clamp(R.Loss - diff, R.Min, R.Max) + 0.5)
+	return -math.floor(math.clamp(R.Loss * (1 - R.DiffWeight * k) * climb[2], R.Min, R.Max) + 0.5)
 end
 
 -- Days from 1970-01-01 to a calendar date (Howard Hinnant's days_from_civil).

@@ -2273,11 +2273,26 @@ Config.Ranked = {
 	PerDivision = 100,
 	MightyAt = 1500,
 	AlmightyAt = 2000,
+	-- an even match's RP, then (the owner, 2026-10-21: "you lose less and lose more based on rank
+	-- differentials, and the higher you climb the less you gain and more you lose"): the other team's
+	-- average RP against yours moves it by up to DiffWeight either way at DiffSpan apart (a win over
+	-- a stronger team pays more, a loss to one costs less, and the other way round), then your own
+	-- rank's Climb multipliers (gain, loss): generous low, harsh at the top. Kept in Min..Max.
 	Win = 25,
 	Loss = 20,
-	Spread = 40,
-	Min = 10,
-	Max = 40,
+	DiffSpan = 400, -- four divisions apart: the whole DiffWeight
+	DiffWeight = 0.6,
+	Climb = {
+		Bronze = { 1.3, 0.6 },
+		Silver = { 1.2, 0.75 },
+		Gold = { 1.1, 0.9 },
+		Platinum = { 1.0, 1.0 },
+		Diamond = { 0.9, 1.15 },
+		Mighty = { 0.8, 1.3 },
+		Almighty = { 0.7, 1.45 },
+	},
+	Min = 4,
+	Max = 55,
 	ResetFrac = 0.5,
 	Season1Ends = { 2026, 12 }, -- (year, month): Season 1 ends as that month begins
 	DayOffset = -5 * 3600, -- Chicago, near enough (like the Halloween days)

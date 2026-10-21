@@ -2989,9 +2989,18 @@ do
 	for i, n in ipairs(expect) do
 		namesOk = namesOk and names[i] == n
 	end
-	-- an even match +25 / -20; a much stronger team pays more and costs less
-	local even, evenL = Ranked.change(true, 500, 500), Ranked.change(false, 500, 500)
-	local upset, upsetL = Ranked.change(true, 500, 1500), Ranked.change(false, 500, 1500)
+	-- (the owner, 2026-10-21): a stronger team pays more and costs less, a weaker one the other way;
+	-- the higher your rank, the less a win pays and the more a loss costs
+	local plat = 1000 -- Platinum II: the plain +25 / -20
+	local even, evenL = Ranked.change(true, plat, plat), Ranked.change(false, plat, plat)
+	local upset, upsetL = Ranked.change(true, plat, plat + 400), Ranked.change(false, plat, plat + 400)
+	local stomp, stompL = Ranked.change(true, plat, plat - 400), Ranked.change(false, plat, plat - 400)
+	local bronzeW, bronzeL = Ranked.change(true, 50, 50), Ranked.change(false, 50, 50)
+	local topW, topL = Ranked.change(true, 2100, 2100), Ranked.change(false, 2100, 2100)
+	local mightyW, mightyL = Ranked.change(true, 1600, 1600), Ranked.change(false, 1600, 1600)
+	local climbOk = bronzeW > even and even > mightyW and mightyW > topW and -bronzeL < -evenL and -evenL < -mightyL and -mightyL < -topL
+	local diffOk = upset > even and even > stomp and -upsetL < -evenL and -evenL < -stompL
+	print(string.format("   even +%d/%d; vs 4 divisions up +%d/%d; down +%d/%d; Bronze +%d/%d; Mighty +%d/%d; Almighty +%d/%d", even, evenL, upset, upsetL, stomp, stompL, bronzeW, bronzeL, mightyW, mightyL, topW, topL))
 	-- seasons: Season 1 to the end of November 2026 (Chicago), then one a month
 	local oct21 = 1792594800 -- 2026-10-21 about 09:00 Chicago
 	local s1, s2 = Ranked.season(oct21), Ranked.season(Ranked.seasonEnds(1) + 60)
@@ -3000,10 +3009,10 @@ do
 	local rec = Ranked.clean({ season = 1, rp = 820, wins = 30, losses = 12, peak = 900 }, 2)
 	local fresh = Ranked.clean(nil, 1)
 	local d = Ranked.apply(fresh, true, 0)
-	check(namesOk and even == RC.Win and evenL == -RC.Loss and upset == RC.Max and upsetL == -RC.Min and s1 == 1 and s2 == 2 and Ranked.season(endsNov - 60) == 1
+	check(namesOk and even == RC.Win and evenL == -RC.Loss and diffOk and climbOk and s1 == 1 and s2 == 2 and Ranked.season(endsNov - 60) == 1
 		and rec.season == 2 and rec.rp == 410 and rec.wins == 0 and rec.history[1].season == 1 and rec.history[1].wins == 30 and rec.history[1].peak == 900
-		and fresh.rp == d and fresh.wins == 1 and Ranked.apply({ rp = 5, wins = 0, losses = 0, peak = 5 }, false, 0) == -5 and Ranked.apply({ rp = 500, wins = 0, losses = 0, peak = 500 }, false, 500) == -RC.Loss,
-		"ranked: Bronze III to Almighty, +25 / -20 moved by the other team's strength, monthly seasons (Season 1 to December), half your RP into a new season",
+		and fresh.rp == d and fresh.wins == 1 and Ranked.apply({ rp = 5, wins = 0, losses = 0, peak = 5 }, false, 0) == -5 and Ranked.apply({ rp = plat, wins = 0, losses = 0, peak = plat }, false, plat) == -RC.Loss,
+		"ranked: Bronze III to Almighty, +25 / -20 moved by the other team's strength and by your rank (easy low, harsh high), monthly seasons (Season 1 to December), half your RP into a new season",
 		table.concat(names, ", ") .. string.format("; upset +%d / %d; S1 ends %d", upset, upsetL, endsNov))
 end
 
