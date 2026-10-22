@@ -2272,18 +2272,31 @@ function PR.press(model)
 		return function() end
 	end
 	local alive = true
+	-- (it also checks the Dictate itself: the status scan that stops it could be held up, and the
+	-- rain lingered on after the Dictate ended; the owner, 2026-10-22, "the effect linger")
+	local function pressed()
+		local team = model:GetAttribute("Team")
+		return alive and hrp.Parent ~= nil and team ~= nil and State.dictateOn(team == "Home" and "Away" or "Home", Util.now())
+	end
 	local stopRain = PR.rain(function()
-		return (alive and hrp.Parent) and hrp.Position or nil
+		return pressed() and hrp.Position or nil
 	end, { rate = 120, top = 11, fall = 17, spreadZ = 2.6, spreadX = 1.6, color = Color3.fromRGB(225, 212, 255), width = 0.1, len = 5 })
 	task.spawn(function()
 		local first = true
-		while alive and hrp.Parent do
+		while pressed() do
 			local at = hrp.Position
 			-- the weight: a dark disc pressing out at their feet, the floor's dust squeezed out
 			floorRing(Vector3.new(at.X, 0.2, at.Z), Color3.fromRGB(40, 20, 70), first and 9 or 5, 0.5)
 			emit("Dust", Vector3.new(at.X, 0.4, at.Z), first and 14 or 5)
 			first = false
 			task.wait(0.55)
+		end
+		-- over by itself (still alive: the scan didn't stop it): let the next Dictate start it again,
+		-- since the scan only starts one where none is on
+		if alive then
+			alive = false
+			stopRain()
+			PR.on[model] = nil
 		end
 	end)
 	return function()

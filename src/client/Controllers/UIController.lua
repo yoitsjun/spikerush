@@ -486,7 +486,9 @@ local function updateServeClock()
 	local m = State.match
 	local left = (m.phaseEnd or 0) - Util.now()
 	local BR = mods.BallRenderer
-	local show = m.inMatch and State.phase() == "Serving" and left > 0 and left <= Config.Match.ServeClock + 0.5 and BR and BR.getState() == "Held"
+	-- (only for players in or watching the match: the owner, 2026-10-22, "this shows for everyone even
+	-- if you're not playing")
+	local show = m.inMatch and State.watching() and State.phase() == "Serving" and left > 0 and left <= Config.Match.ServeClock + 0.5 and BR and BR.getState() == "Held"
 	S.frame.Visible = show == true
 	if not show then
 		S.lastSec = nil
