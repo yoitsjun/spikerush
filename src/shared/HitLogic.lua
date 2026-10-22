@@ -1300,6 +1300,10 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		kmh = kmh * (1 + ab("Plunge", "PowerBoost", levelOf(ctx, "Plunge")))
 		meta.plunge = true
 	end
+	-- Sharp Angle (Skyward): Seora's spikes land a little shorter, so a little steeper
+	if kind == "Spike" and has(ctx, "Skyward") and not overcharge and not hovered and not plunge and not zero then
+		depth = math.max(shortest, depth * SKY.AngleDepthMul)
+	end
 	-- Vert Spikes (Sunshine): her spikes come down sharp, the steeper the line from the contact to
 	-- where it lands the harder; the steepest go under the block (meta.underBlock, after the solve)
 	local vert = kind == "Spike" and has(ctx, "Sunshine") and not overcharge and not hovered and not plunge and not zero

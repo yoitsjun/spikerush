@@ -1806,8 +1806,12 @@ Config.Abilities = {
 		TalonAngle = { 86, 55 }, -- degrees below level: right at the net, and at TalonReach
 		TalonReach = 2.2 * M, -- the ball this far from the net (her side); further back, flatter still
 		TalonPower = 0.9, -- x her spike's speed
+		-- Sharp Angle (the owner, 2026-10-21: "a passive slightly increase spike angle on seora"): her
+		-- spikes land this much as deep, so they come down a little steeper
+		AngleDepthMul = 0.85,
 		Passives = {
 			{ Name = "Talon Drop", Blurb = "Feint is a spike driven down over the net: nearly straight down right on top of it, flatter the further back you are." },
+			{ Name = "Sharp Angle", Blurb = "Your spikes come down a little steeper than anyone's." },
 		},
 	},
 }

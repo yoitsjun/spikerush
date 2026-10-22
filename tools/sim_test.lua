@@ -3102,6 +3102,24 @@ do
 		string.format("3x: usual Mythic %.3f%%, lucky Mythic %.2f%%", basic3.Mythic, lucky3.Mythic))
 end
 
+print("== Seora's Sharp Angle ==")
+do
+	-- (the owner, 2026-10-21: "a passive slightly increase spike angle on seora")
+	local seora = Characters.derive(Characters.fromRoster(Roster.get("seora"), "max"))
+	local r = apexRoot(seora, 3.5 * K)
+	local b = ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local _, plain = spike(r, b, { stats = seora })
+	local _, hers = spike(r, b, { stats = seora, ability = "Skyward", lift = -0.45 })
+	local pP, pS = BallPhysics.buildPath(plain.launch), BallPhysics.buildPath(hers.launch)
+	local function landAngle(path)
+		local v = BallPhysics.velocityAt(path, path.landing.t - 0.001)
+		return math.deg(math.atan(-v.Y / math.max(math.abs(v.Z), 1e-3)))
+	end
+	check(oppDepth(pS) < oppDepth(pP) and oppDepth(pS) > oppDepth(pP) * 0.7 and landAngle(pS) > landAngle(pP) and Court.inBounds(pS.landing.pos) and not pS.flags.netTouch,
+		"Seora's Sharp Angle: her spike lands a little shorter, so a little steeper, and in",
+		string.format("%.1f vs %.1f studs deep, %.0f vs %.0f degrees", oppDepth(pS), oppDepth(pP), landAngle(pS), landAngle(pP)))
+end
+
 print("== ranked score effects ==")
 do
 	-- (the owner, 2026-10-21: one a rank from Gold; "if you lose the rank, you lose the explosion")
