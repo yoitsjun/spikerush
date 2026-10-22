@@ -849,6 +849,15 @@ local function buildForest()
 	return d
 end
 
+-- The Haunted Forest is only in the world while Home is on screen (the owner, 2026-10-21: "haunted
+-- forest shows in the background of beach": Home sits along the court camera's line, and the
+-- forest's back wall and lid are tall enough to rise over a court's horizon).
+local function placeForest()
+	if roomState.decor then
+		roomState.decor.Parent = (current == "home") and folder or nil
+	end
+end
+
 -- The room on show (Config.Rooms; Home's Decorate): the club room, or the Haunted Forest in its
 -- place (the club room goes while the forest is up, and comes back after).
 function SceneController.applyRoom()
@@ -866,6 +875,7 @@ function SceneController.applyRoom()
 	homeBits.room.Parent = (not forest) and folder or nil
 	if forest then
 		roomState.decor = buildForest()
+		placeForest()
 	end
 	SceneController.refreshGrade()
 end
@@ -1238,6 +1248,7 @@ function SceneController.show(name)
 	end
 	grade.Enabled = name ~= nil
 	dof.Enabled = name ~= nil
+	placeForest()
 	SceneController.refreshGrade()
 end
 

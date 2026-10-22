@@ -205,7 +205,7 @@ end
 -- runs; nil: the usual ones).
 function Extra.recruitWeights(kind)
 	if kind == "Char" then
-		return Spins.luckWeights(Extra.luckMult())
+		return Spins.luckWeights((Extra.luckMult())) -- (just the multiplier: luckMult returns more)
 	end
 	return nil
 end
@@ -213,7 +213,7 @@ end
 -- A lucky spin's on `kind` right now (luck counts on Characters for these too).
 function Extra.luckyWeights(kind)
 	if kind == "Char" then
-		return Spins.luckyAt(Extra.luckMult())
+		return Spins.luckyAt((Extra.luckMult()))
 	end
 	return Spins.LuckyWeights
 end

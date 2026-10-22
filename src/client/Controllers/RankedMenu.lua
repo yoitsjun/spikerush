@@ -121,7 +121,7 @@ local function buildWindow()
 	-- the queues (right)
 	local q = Gui.card(m.panel, { Position = UDim2.fromOffset(468, 86), Size = UDim2.new(1, -496, 0, 360), ZIndex = 22 })
 	label(q, { Text = "Play ranked", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Position = UDim2.fromOffset(22, 14), Size = UDim2.new(1, -44, 0, 36) })
-	label(q, { Text = "Real players only: it waits until both teams are full. Win to climb, lose and you drop. Before the match each team bans one character. Your party queues with you, on your side.", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(22, 54), Size = UDim2.new(1, -44, 0, 64) })
+	label(q, { Text = "Real players only: it waits until both teams are full. Win to climb, lose and you drop. Before the match each team bans two characters. Your party queues with you, on your side.", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(22, 54), Size = UDim2.new(1, -44, 0, 64) })
 	ui.queues = {}
 	for i, mode in ipairs(RC.Modes) do
 		local b, l = kit.actionPlate(q, { Position = UDim2.fromOffset(22 + (i - 1) * 200, 132), Size = UDim2.fromOffset(186, 80) }, string.format("%dv%d", mode, mode), 30)
@@ -320,16 +320,24 @@ local function showBans(bans)
 	local mine = State.myTeam
 	local other = mine == "Home" and "Away" or "Home"
 	bans = bans or {}
+	local ourList, theirList = bans[mine] or {}, bans[other] or {}
 	for id, c in pairs(B.cells) do
-		local ours, theirs = bans[mine] == id, bans[other] == id
+		local ours, theirs = table.find(ourList, id) ~= nil, table.find(theirList, id) ~= nil
 		c.tag.Text = ours and "YOUR BAN" or (theirs and "THEIR BAN" or "")
 		c.stroke.Transparency = (ours or theirs) and 0 or 0.5
 		c.stroke.Color = (ours or theirs) and Color3.fromRGB(255, 60, 60) or Characters.color(Roster.get(id) and Roster.get(id).Tier)
 		c.button.BackgroundTransparency = (ours or theirs) and 0.5 or 0
 	end
-	local ourBan = bans[mine] and Roster.get(bans[mine])
-	local theirBan = bans[other] and Roster.get(bans[other])
-	B.sub.Text = string.format("Your team bans one (the first pick counts), the other team bans one: nobody plays them this match.   Yours: %s   Theirs: %s", ourBan and ourBan.Name or "...", theirBan and theirBan.Name or "...")
+	local per = RC.BansPerTeam
+	local function names(list)
+		local out = {}
+		for i = 1, per do
+			local c = list[i] and Roster.get(list[i])
+			table.insert(out, c and c.Name or "...")
+		end
+		return table.concat(out, ", ")
+	end
+	B.sub.Text = string.format("Each team bans %d (your team's first %d picks count): nobody plays them this match.   Yours: %s   Theirs: %s", per, per, names(ourList), names(theirList))
 end
 
 local function onAnnounce(a)
@@ -343,19 +351,22 @@ local function onAnnounce(a)
 	elseif a.kind == "BanUpdate" then
 		showBans(a.bans)
 		if a.team ~= State.myTeam then
-			kit.toast(string.format("The other team banned %s.", Roster.get(a.bans[a.team]) and Roster.get(a.bans[a.team]).Name or "someone"))
+			local c = a.id and Roster.get(a.id)
+			kit.toast(string.format("The other team banned %s.", c and c.Name or "someone"))
 		end
 	elseif a.kind == "BansDone" or a.kind == "MatchStart" or a.kind == "MatchAbort" then
 		ui.bans.root.Visible = false
 		ui.banEnds = nil
 		if a.kind == "BansDone" and a.bans then
 			local names = {}
-			for _, id in pairs(a.bans) do
-				local c = Roster.get(id)
-				table.insert(names, c and c.Name or id)
+			for _, list in pairs(a.bans) do
+				for _, id in ipairs(list) do
+					local c = Roster.get(id)
+					table.insert(names, c and c.Name or id)
+				end
 			end
 			if #names > 0 then
-				kit.toast("Banned this match: " .. table.concat(names, " and "))
+				kit.toast("Banned this match: " .. table.concat(names, ", "))
 			end
 		end
 	end

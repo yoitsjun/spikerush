@@ -195,6 +195,11 @@ function Spins.luckWeights(mult, base)
 	if mult <= 1 then
 		return nil
 	end
+	-- (only a table is a base: the Recruit screen once passed luckMult's extra results through, a
+	-- boolean, and its probability table showed the lucky spin's odds for the usual ones)
+	if type(base) ~= "table" then
+		base = nil
+	end
 	local cache = luckWeights[base ~= nil]
 	base = base or RAR.Weights
 	if not cache[mult] then

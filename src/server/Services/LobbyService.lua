@@ -35,6 +35,7 @@ local Tutorial = require(Shared.Tutorial)
 local Cups = require(Shared.Cups)
 local Halloween = require(Shared.Halloween)
 local Ranked = require(Shared.Ranked)
+local Roster = require(Shared.Roster)
 local Util = require(Shared.Util)
 local Net = require(Shared.Net)
 
@@ -1091,6 +1092,23 @@ function LobbyService.quick(plr, mode, localOnly, ranked)
 		if reg.TeamService.inMatch and reg.TeamService.entityForPlayer(p) then
 			notify(plr, p.DisplayName .. " is in a match right now.")
 			return nil
+		end
+	end
+	if not ranked and #party == 1 then
+		-- a player's first match ever (the owner, 2026-10-21: "make your first match against bots on
+		-- your level so people dont leave and get matched up with s+"): straight in, on their own,
+		-- against bots of their own character's tier
+		local prof = reg.ProfileService.get(plr)
+		local played = prof and prof.record and tonumber(prof.record.matches) or 1
+		if played == 0 then
+			local c = Roster.get(prof.char or "")
+			local first = LobbyService.create(plr, { mode = mode, privacy = "Public", fill = true, botTier = c and c.Tier or Config.Match.FirstMatchTier }, false)
+			if first then
+				first.hidden = true -- (nobody else joins it)
+				notify(plr, "Your first match: against bots at your level.")
+				LobbyService.launch(first)
+				return first
+			end
 		end
 	end
 	local list = {}

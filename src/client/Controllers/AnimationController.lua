@@ -1167,10 +1167,13 @@ local function mirrorCF(cf)
 	local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = cf:GetComponents()
 	return CFrame.new(-x, y, z, r00, -r01, -r02, -r10, r11, r12, -r20, r21, r22)
 end
-local MIRRORED = { Windup = true, Swing = true, Cock = true, SpikeReach = true, SpikeSnap = true, SpikeFollow = true, Charge = true, ChargePulse = true, Rise_Circular = true, Spin_Whirl = true, Kick_Bicycle = true }
-local MIRROR_PREFIX = { Cock = true, Snap = true, Circ = true, Tuck = true, Bike = true }
+local MIRRORED = { Windup = true, Swing = true, Cock = true, SpikeReach = true, SpikeSnap = true, SpikeFollow = true, Charge = true, ChargePulse = true, Spin_Whirl = true, Kick_Bicycle = true }
+local MIRROR_PREFIX = { Cock = true, Snap = true, Tuck = true, Bike = true }
+-- (the Circular Swing's poses were written right-handed already, the right arm going round: the
+-- owner, 2026-10-21, "make circular right handed anim not left hand". Mirroring them made it the left)
+local WRITTEN_RIGHT = { Rise_Circular = true, Cock_Circular = true, Circ_Back = true, Circ_Up = true, Circ_Top = true, Circ_Snap = true, Circ_Through = true }
 for name, joints in pairs(POSES) do
-	if MIRRORED[name] or MIRROR_PREFIX[string.match(name, "^(%a+)_") or ""] then
+	if not WRITTEN_RIGHT[name] and (MIRRORED[name] or MIRROR_PREFIX[string.match(name, "^(%a+)_") or ""]) then
 		local out = {}
 		for joint, cf in pairs(joints) do
 			local other = joint

@@ -3024,6 +3024,18 @@ do
 		table.concat(names, ", ") .. string.format("; upset +%d / %d; S1 ends %d", upset, upsetL, endsNov))
 end
 
+print("== luck tables ==")
+do
+	-- (the owner, 2026-10-21: "why do the lucky and basic odds say the same"): the usual weights at
+	-- 3x luck stay the usual ones whatever was asked first, and a stray extra argument isn't a base
+	local lucky3 = Spins.luckyAt(3)
+	local basic3 = Spins.luckWeights(3, false)
+	local basic3b = Spins.luckWeights(3)
+	check(basic3 == basic3b and basic3 ~= lucky3 and math.abs(basic3.Mythic - Config.Rarity.Weights.Mythic * 3) < 1e-9 and math.abs(lucky3.Mythic - Config.Lucky.Weights.Mythic * 3) < 1e-9,
+		"luck: the usual and the lucky weights never share a cache (a stray boolean isn't a base)",
+		string.format("3x: usual Mythic %.3f%%, lucky Mythic %.2f%%", basic3.Mythic, lucky3.Mythic))
+end
+
 print("== ranked leavers ==")
 do
 	local Ranked = require("Ranked")

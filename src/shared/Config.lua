@@ -1838,6 +1838,7 @@ Config.Match = {
 	SetEndTime = 3.5,
 	MatchEndTime = 11, -- the showcase (your team, their stats); Continue closes it sooner
 	DefaultBotTier = "A",
+	FirstMatchTier = "D", -- a player's first Quick Match is against bots of their own tier (this when unknown)
 	-- Quick Match bots play at the strongest player's character tier, between these (the owner:
 	-- "right now queues only have A+ tiers i want it up to S+")
 	QuickBotFloor = "A",
@@ -2255,13 +2256,13 @@ Config.Party = {
 -- Ranked (the owner, 2026-10-21: "begin work on a ranked mode. the ranks climb from bronze silver gold
 -- platinum diamond mighty Almighty"; real players only, one rank across every mode, monthly
 -- seasons, three divisions a rank). Rank points (RP): each division is PerDivision of them (Bronze
--- III from 0, Diamond I to 1,499); Mighty from MightyAt, Almighty from AlmightyAt, one tier each. A
+-- I from 0, Diamond III to 1,499: divisions climb I, II, III); Mighty from MightyAt, Almighty from AlmightyAt, one tier each. A
 -- win pays Win and a loss costs Loss, both moved by how much stronger the other team is (Spread RP
 -- for each point, between Min and Max); never below 0. Seasons follow the calendar (Chicago time):
 -- Season 1 runs to the end of November 2026, then one a month; a new season keeps ResetFrac of your
 -- RP and records the last one (its card on the Career panel). Before every ranked match each team
--- bans one character (BanTime seconds; the owner: "implement rank bans. one for each team"): nobody
--- plays it that match.
+-- bans BansPerTeam characters (BanTime seconds; the owner: "implement rank bans. one for each team",
+-- then "allow 2 bans per side"): nobody plays them that match.
 Config.Ranked = {
 	Ranks = {
 		{ Key = "Bronze", Name = "Bronze", Divisions = 3, Color = Color3.fromRGB(205, 120, 70) },
@@ -2308,7 +2309,8 @@ Config.Ranked = {
 	ResetFrac = 0.5,
 	Season1Ends = { 2026, 12 }, -- (year, month): Season 1 ends as that month begins
 	DayOffset = -5 * 3600, -- Chicago, near enough (like the Halloween days)
-	BanTime = 20,
+	BanTime = 25, -- (20 with one ban a team)
+	BansPerTeam = 2, -- (the owner, 2026-10-21: "allow 2 bans per side in ranked"; was 1)
 	Modes = { 1, 2, 3 },
 	HistoryMax = 24, -- past seasons kept on a profile
 }
