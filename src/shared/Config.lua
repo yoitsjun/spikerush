@@ -1606,8 +1606,9 @@ Config.Abilities = {
 		CrownSetError = 1.4 * M, -- and the set off that pass strays up to this much more
 		CrownSetLow = 1.2 * M, -- and comes down this much lower
 		-- Tyrant's Set (Open and Back; quicks stay quick)
-		SetApexOver = 1.1 * M, -- its top only this far over where it comes down: flat
-		SetGravity = 1.45, -- and quick: x the usual set's gravity
+		-- (the owner, 2026-10-21: "i think the tyrant sets so low": 1.1 m and 1.45 before)
+		SetApexOver = 1.6 * M, -- its top only this far over where it comes down: flatter than a usual set
+		SetGravity = 1.3, -- and quicker: x the usual set's gravity
 		SetMul = 1.3, -- the spike off it
 		Passives = {
 			{ Name = "Emperor's Dictate", Blurb = "Press Q: for 8 s their Attack, Jump and Speed drop 15% and your team gets +12 Attack, +10 Jump and +10 Speed. Spikes off your sets hit at full power, and their blocks reach half as high." },
