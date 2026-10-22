@@ -25,7 +25,7 @@ PatchNotes.List = {
 				Items = {
 					{ Icon = "RankAlmighty", Text = "<b>Ranked</b> is here (Match screen): 1v1, 2v2 and 3v3 against real players only. Climb from <b>Bronze I</b> to <b>Diamond III</b>, then <b>Mighty</b> and <b>Almighty</b>. Every division has its own badge." },
 					{ Text = "Beat a stronger team and you gain more; lose to a weaker one and you drop more. The higher you climb, the less a win pays and the more a loss costs." },
-					{ Text = "Before every ranked match each team <b>bans one</b> character." },
+					{ Text = "Before every ranked match each team <b>bans one</b> character, then everyone <b>picks</b> who they play. Pick your character from the Ranked window before you queue, too." },
 					{ Text = "Seasons are monthly; <b>Season 1</b> ends December 1. A new season keeps half your RP." },
 					{ Icon = "RankGold3", Text = "<b>Ranked score effects</b>: Gold Crest, Platinum Spires, Diamond Storm, Mighty Wings and Almighty Ascension. Each is yours while you hold its rank; drop below it and it's gone." },
 					{ Icon = "RankAlmighty", Text = "<b>Almighty Ascension</b>: a giant gold statue of you in your intro pose rises out of the court, and a beam of light comes down on you from the heavens." },
@@ -47,6 +47,7 @@ PatchNotes.List = {
 				Items = {
 					{ Text = "<b>Clans</b> (top bar): make one for 1,000 VP or with the Clan Founder pass. Pick a name and a 2 to 5 letter tag, public or private, and a minimum of wins to join." },
 					{ Text = "Members earn points for the clan with wins, kills, aces, blocks and MVPs. Spend them on upgrades: more VP and Gold, extra luck, more members, an emblem, and a clan intro when 3 of you play together." },
+					{ Text = "<b>Weekly clan points</b>: the clan board shows this week's points too, starting over every Monday." },
 					{ Text = "Buy a tag colour for your [TAG] in chat and over your head. The top 3 clans get their own cards." },
 					{ Text = "<b>Parties</b> (top right): invite up to 3 players in your server. The leader's Quick Match or ranked queue takes everyone, on one side." },
 				},
