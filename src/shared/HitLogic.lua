@@ -452,7 +452,7 @@ function HitLogic.perfectStance(ctx)
 	return H.PerfectStanceMin, H.PerfectStanceMax
 end
 
--- Iron Wall is up, and the box is bigger (Config.Abilities.IronWall).
+-- Iron Wall is up, and the box is bigger (Config.Abilities.IronWall), down to the floor with Floor.
 -- `iron`: true for Iron Wall's whole wall, or a table of the same extras (Ironclad's Box).
 -- `cut`: the share of its reach over the tape the box keeps (the Tyrant's Iron Fortress); nil: all.
 function HitLogic.blockBox(root, ball, side, stats, iron, cut)
@@ -468,7 +468,8 @@ function HitLogic.blockBox(root, ball, side, stats, iron, cut)
 	if cut then
 		top = C.NetTop + math.max(0, top - C.NetTop) * cut
 	end
-	if ball.Y > top + R or ball.Y < C.NetTop - 0.6 then
+	local bottom = (IW and IW.Floor) and 0 or (C.NetTop - 0.6)
+	if ball.Y > top + R or ball.Y < bottom then
 		return false, 0, false
 	end
 	local qy = clamp((top + R - ball.Y) / 2.4, 0, 1)

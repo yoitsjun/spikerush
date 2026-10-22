@@ -1525,6 +1525,9 @@ Config.Abilities = {
 		OwnDepth = 1.6,
 		OverDepth = 1.6,
 		NetExtra = 2.5,
+		-- and down to the floor (the owner, 2026-10-22: "allow iron wall to extend below the feet, for
+		-- taesan aswell"): a steep spike that's crossed the tape can't dip under it on his side
+		Floor = true,
 		-- the shut-down: straight down onto their court, this far from the net (metres), this fast
 		StuffDepth = { 1.0, 2.2 },
 		StuffKmh = 95,

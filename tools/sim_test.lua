@@ -4304,6 +4304,11 @@ do
 	end
 	check(stuffedPlain > 30 and stuffedArmor == 0 and wallArmor, "Armor Break: a clean block stuffs a plain spike, never one off his set (Iron Wall still does)",
 		string.format("stuffed %d / 40 plain, %d / 40 armor break", stuffedPlain, stuffedArmor))
+	-- Iron Wall's box (Taesan's Bulwark uses it too) reaches down to the floor: a ball low on his side
+	-- under the tape is in it, not in an ordinary block's
+	local lowBall = vec(0, GROUND + 1.2, side * 0.8)
+	check(HitLogic.blockBox(broot, lowBall, side, SP, true) and not HitLogic.blockBox(broot, lowBall, side, SP, nil),
+		"Iron Wall reaches below the feet: a ball under the tape on his side is blocked (an ordinary block misses it)")
 	-- Iron Fortress: their block reaches half as high over the tape
 	local highBall = vec(0, top - 0.4, side * 0.6)
 	local okHigh = block({ team = "Home", hitType = "Spike", kmh = 120 }, { seq = 3 }, highBall)
