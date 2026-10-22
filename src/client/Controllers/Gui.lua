@@ -1178,8 +1178,8 @@ function Gui.playerCard(parent, props)
 		value.Text = hasValue and data.value or ""
 		valueLabel.Text = data.label or ""
 		valueLabel.TextColor3 = accent
-		name.Size = UDim2.new(1, -x - ((hasValue or bigOn) and (bigOn and bigW + 24 + bigShift or 200) or 120), 0, 38)
-		line.Size = UDim2.new(1, -x - ((hasValue or bigOn) and (bigOn and bigW + 24 + bigShift or 230) or 60), 0, 30)
+		name.Size = UDim2.new(1, -x - badgeShift - ((hasValue or bigOn) and (bigOn and bigW + 24 + bigShift or 200) or 120), 0, 38)
+		line.Size = UDim2.new(1, -x - badgeShift - ((hasValue or bigOn) and (bigOn and bigW + 24 + bigShift or 230) or 60), 0, 30)
 		shot.Image = (data.userId or 0) > 0 and string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", data.userId) or ""
 		shot.Visible = look.Avatar ~= true -- the avatar takes the headshot's place
 		shotEdge.Color = accent

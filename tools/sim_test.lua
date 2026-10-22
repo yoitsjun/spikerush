@@ -4203,10 +4203,10 @@ do
 	local okQ, tq = set("Tyrant", nil, "Quick")
 	local pTop, pT = topAndArrive(BallPhysics.buildPath(plain.launch))
 	local tTop, tT = topAndArrive(BallPhysics.buildPath(ty.launch))
-	check(okP and okT and okQ and ty.meta.tyrantSet and tq.meta.tyrantSet and not ty.meta.absolute and tTop < pTop - 0.4 * SPM and tT < pT * 0.9,
-		"Tyrant's Set: flat and fast (a lower top, down through the hitting height far sooner); his quicks are his too",
+	check(okP and okT and okQ and ty.meta.tyrantSet and tq.meta.tyrantSet and not ty.meta.absolute and math.abs(tTop - pTop) < 0.3 and tT < pT * 0.85,
+		"Tyrant's Set: the usual height, flown faster (down through the hitting height sooner); his quicks are his too",
 		string.format("top %.1f vs %.1f studs, down at %.2f vs %.2f s", tTop, pTop, tT, pT))
-	-- (a flatter set: about half a metre lower at the top; it was a metre, "the tyrant sets so low")
+	-- (the usual height, just faster: the owner, "the setter should have normal height but just faster overall")
 	-- the spike off it: SetMul faster, Armor Break; Absolute Toss (Dictate on): full power whatever the timing
 	local sr = apexRoot(SP, 3.5 * K)
 	local tset = { team = "Away", hitType = "Set", tyrantSet = true }

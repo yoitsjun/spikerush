@@ -629,8 +629,8 @@ end
 -- A set from `ball` to the attack spot `depth` from the net (default: the set type's spot, no
 -- error), coming down through `arriveY` (default SetArriveY; a higher one lifts the whole arc):
 -- its launch velocity and gravity. The setter AI also uses it to see a quick coming.
--- flat: the Tyrant's Set (its top just over where it comes down, and quicker).
-function HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY, flat)
+-- fast: the Tyrant's Set (the usual arc, flown SetSpeed times faster).
+function HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY, fast)
 	local apex = H.SetApexOpen
 	if setType == "Quick" then
 		apex = H.SetApexQuick
@@ -647,9 +647,8 @@ function HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY, f
 	depth = math.max(depth or Court.attackDepth(setType), 0.47 * SPM)
 	apex = apex + H.SetDeepApex * math.max(0, depth - H.BackDepth) -- deep sets go higher
 	local g = G * H.SetGravityScale
-	if flat then
-		apex = math.max(arriveY + TYRANT.SetApexOver, ball.Y + 0.38 * SPM)
-		g = g * TYRANT.SetGravity
+	if fast then
+		g = g * TYRANT.SetSpeed * TYRANT.SetSpeed
 	end
 	return ownSideArc(ball, Vector3.new(0, arriveY, side * depth), apex, g, side, 0.38 * SPM), g
 end

@@ -1587,14 +1587,14 @@ Config.Abilities = {
 	-- than GuardKmh grounds its hitter: GroundedCut less Jump and Attack on their next attack. His
 	-- jump serve is always the Crown Jump Serve (it dips steep, costs the receiver CrownDrainMul of
 	-- the guard, and their pass and set off it go low and wide); his sets are always Tyrant's Sets
-	-- (flat and fast, the spike off one SetMul faster and Armor Break: no ordinary block stuffs it).
+	-- (the usual arc flown faster, the spike off one SetMul faster and Armor Break: no ordinary block stuffs it).
 	Tyrant = {
 		Name = "The Tyrant",
 		Tier = "S+",
 		Role = "SE",
 		Active = true, -- Emperor's Dictate (Q)
 		ActiveName = "Emperor's Dictate",
-		Blurb = "Press Q for Emperor's Dictate: for 8 s you steal 15% of their Attack, Jump and Speed for your team, your sets are met at full power, and their blocks reach half as high. Your sets are flat and fast (spikes off them 1.3x, no block stuffs them); your jump serve dips hard and wrecks their pass.",
+		Blurb = "Press Q for Emperor's Dictate: for 8 s you steal 15% of their Attack, Jump and Speed for your team, your sets are met at full power, and their blocks reach half as high. Your sets fly fast (spikes off them 1.3x, no block stuffs them); your jump serve dips hard and wrecks their pass.",
 		Color = Color3.fromRGB(255, 196, 60),
 		Duration = 8,
 		Cooldown = 32,
@@ -1612,15 +1612,16 @@ Config.Abilities = {
 		CrownSetError = 1.4 * M, -- and the set off that pass strays up to this much more
 		CrownSetLow = 1.2 * M, -- and comes down this much lower
 		-- Tyrant's Set (Open and Back; quicks stay quick)
-		-- (the owner, 2026-10-21: "i think the tyrant sets so low": 1.1 m and 1.45 before)
-		SetApexOver = 1.6 * M, -- its top only this far over where it comes down: flatter than a usual set
-		SetGravity = 1.3, -- and quicker: x the usual set's gravity
+		-- (the owner, 2026-10-21: "i think the tyrant sets so low", then "the setter should have
+		-- normal height but just faster overall": a usual set's arc, flown faster; it was flat, its
+		-- top 1.1 m over where it came down)
+		SetSpeed = 1.25, -- the usual arc, this much faster (gravity x SetSpeed^2: the same path in 1/SetSpeed the time)
 		SetMul = 1.3, -- the spike off it
 		Passives = {
 			{ Name = "Emperor's Dictate", Blurb = "Press Q: for 8 s their Attack, Jump and Speed drop 15% and your team gets +12 Attack, +10 Jump and +10 Speed. Spikes off your sets hit at full power, and their blocks reach half as high." },
 			{ Name = "Sovereign's Guard", Blurb = "Spike faster than 180 km/h at your team and you're Grounded: 10% less Jump and Attack on your next attack." },
 			{ Name = "Crown Jump Serve", Blurb = "Your jump serve curls down steeply, costs the receiver double stamina, and leaves them a low, wild set." },
-			{ Name = "Tyrant's Set", Blurb = "Your sets fly flat and fast. The spike off one goes 1.3x as fast with Armor Break: an ordinary block can't stuff it." },
+			{ Name = "Tyrant's Set", Blurb = "Your sets fly fast, the usual arc in less time. The spike off one goes 1.3x as fast with Armor Break: an ordinary block can't stuff it." },
 		},
 	},
 	RisingSun = {
