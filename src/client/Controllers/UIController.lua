@@ -1084,9 +1084,11 @@ local function badgeState(ability, id, model, team, mine)
 	elseif ability == "Skyward" then
 		-- her climb this set, and the top of her jump it gives her now
 		local stats = mine and State.myStats() or (model and Characters.fromAttributes(model))
-		local lift = HitLogic.skyLift((mine and player:GetAttribute("Lift")) or (model and model:GetAttribute("Lift")))
-		p = (lift - def.StartLift) / (def.MaxLift - def.StartLift)
-		hot = lift >= def.MaxLift - 0.001
+		local brk = (mine and player:GetAttribute("Break")) or (model and model:GetAttribute("Break")) or 0
+		local top = HitLogic.skyMax(brk) -- (breakthroughs raise her highest lift)
+		local lift = HitLogic.skyLift((mine and player:GetAttribute("Lift")) or (model and model:GetAttribute("Lift")), brk)
+		p = (lift - def.StartLift) / (top - def.StartLift)
+		hot = lift >= top - 0.001
 		sub = stats and string.format("%.2f m", stats.ContactMaxM - (stats.Lift or 0) + lift) or ""
 	elseif ability == "Adrenaline" then
 		local s = State.stamina(team)

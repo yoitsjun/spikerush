@@ -131,6 +131,8 @@ local function show(spec, v)
 		return string.format("%.1f s", v)
 	elseif spec.Show == "kmh" then
 		return string.format("%d km/h", math.floor(v + 0.5))
+	elseif spec.Show == "m" then
+		return string.format("+%.2f m", v)
 	end
 	return string.format("+%d", math.floor(v + 0.5))
 end

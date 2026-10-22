@@ -727,9 +727,14 @@ function HitLogic.zeroSpot(dz, dy, stats)
 	return dz >= ZERO.ZeroDz[1] * k and dz <= ZERO.ZeroDz[2] * k and dy >= ZERO.ZeroDy[1] * k and dy <= ZERO.ZeroDy[2] * k
 end
 
+-- Skyward: the most her hitting point climbs (metres; breakthroughs raise it).
+function HitLogic.skyMax(level)
+	return ab("Skyward", "MaxLift", level)
+end
+
 -- Skyward: her lift (metres on the hitting point) kept in range; nil is the start of a set.
-function HitLogic.skyLift(lift)
-	return clamp(tonumber(lift) or SKY.StartLift, SKY.StartLift, SKY.MaxLift)
+function HitLogic.skyLift(lift, level)
+	return clamp(tonumber(lift) or SKY.StartLift, SKY.StartLift, HitLogic.skyMax(level))
 end
 
 -- Skyward: what a spike met at `qHeight` (0..1, the top of her jump at 1) adds to her lift.
@@ -831,9 +836,10 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 	if on("Skyward") then
 		-- Skyward: her hitting point climbs with her spikes this set (extra.lift, metres), and her
 		-- Attack with it
-		local lift = HitLogic.skyLift(extra and extra.lift)
+		local lift = HitLogic.skyLift(extra and extra.lift, lv("Skyward"))
 		add.Lift = lift
-		add.Attack = (add.Attack or 0) + math.floor(ab("Skyward", "AttackAtMax", lv("Skyward")) * (lift - SKY.StartLift) / (SKY.MaxLift - SKY.StartLift) + 0.5)
+		-- (her Attack tops out at the usual full lift; a breakthrough's extra lift is height alone)
+		add.Attack = (add.Attack or 0) + math.floor(SKY.AttackAtMax * math.min(1, (lift - SKY.StartLift) / (SKY.MaxLift - SKY.StartLift)) + 0.5)
 		any = true
 	end
 	if on("Squall") and extra and extra.squallOn then

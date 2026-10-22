@@ -373,8 +373,9 @@ function HitService.process(entity, input, opts)
 	end
 	if meta.liftGain and TS.has(entity, "Skyward") then
 		-- Skyward: the spike raised her hitting point (the HUD shows her new peak)
-		local before = HitLogic.skyLift(entity.lift)
-		local after = HitLogic.skyLift(before + meta.liftGain)
+		local lvl = entity.ability == "Skyward" and entity.breakLevel or 0
+		local before = HitLogic.skyLift(entity.lift, lvl)
+		local after = HitLogic.skyLift(before + meta.liftGain, lvl)
 		if after > before then
 			TS.setLift(entity, after)
 		end

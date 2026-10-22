@@ -348,7 +348,7 @@ function TeamService.applyToModel(e)
 	for _, inst in ipairs({ model, e.player or false }) do
 		if inst then
 			inst:SetAttribute("Counter", has(e, "Counter") and (e.counter or 0) or nil)
-			inst:SetAttribute("Lift", has(e, "Skyward") and HitLogic.skyLift(e.lift) or nil)
+			inst:SetAttribute("Lift", has(e, "Skyward") and HitLogic.skyLift(e.lift, e.ability == "Skyward" and e.breakLevel or 0) or nil)
 			if has(e, "Skyward") and e.peakM then
 				-- (a stand-in's new body shows the peak its player had)
 				inst:SetAttribute("PeakM", e.peakM)
@@ -614,7 +614,7 @@ end
 -- Skyward's lift (metres on her hitting point) on the character and the player (the HUD, her
 -- effects and prediction); her real jump follows it.
 function TeamService.setLift(e, value)
-	e.lift = HitLogic.skyLift(value)
+	e.lift = HitLogic.skyLift(value, e.ability == "Skyward" and e.breakLevel or 0)
 	local model = TeamService.getModel(e)
 	if model then
 		model:SetAttribute("Lift", e.lift)

@@ -3433,6 +3433,9 @@ do
 		"further back it's flatter, still over the net onto their side", string.format("%d deg, %s", okF and far.meta.talonAngle or 0, okF and describe(pF) or "-"))
 	check(low.Attack == se.Attack and top.Attack == se.Attack + SKYW.AttackAtMax,
 		"her Attack climbs with her jump", string.format("%d to %d", low.Attack, top.Attack))
+	-- her breakthroughs raise her highest lift (not her Attack)
+	check(HitLogic.skyMax(5) > SKYW.MaxLift + 0.2 and HitLogic.skyLift(99, 5) == HitLogic.skyMax(5) and HitLogic.skyLift(99, 0) == SKYW.MaxLift,
+		"Skyward: a +5 breakthrough lifts her highest hitting point (her Attack at the top stays)", string.format("%.2f m -> %.2f m", SKYW.MaxLift, HitLogic.skyMax(5)))
 end
 
 print("== Dante reaches further off a leap ==")
