@@ -938,12 +938,12 @@ Config.Lucky = {
 		-- prices raised 2026-10-04 (they outsold the VP packs: per Robux they were the cheaper way to
 		-- an S+); the owner sets them on Creator Hub
 		-- (2026-10-22: were 99 / 199 / 399 / 799, the 3-pack the cheapest a spin; set through Open Cloud to
-		-- a ladder where each bigger pack is the better deal: 99 / 269 / 399 / 719, about 99 / 90 / 80 /
-		-- 72 a spin. Base prices; regional pricing shows some players about 10% less)
+		-- a ladder where each bigger pack is the better deal: 99 / 249 / 399 / 699, about 99 / 83 / 80 /
+		-- 70 a spin. Base prices; regional pricing shows some players about 10% less)
 		{ Id = 3715530476, Lucky = 1, Name = "Lucky Spin" }, -- 99 Robux
-		{ Id = 3715530517, Lucky = 3, Name = "3 Lucky Spins" }, -- 269
+		{ Id = 3715530517, Lucky = 3, Name = "3 Lucky Spins" }, -- 249
 		{ Id = 3715530562, Lucky = 5, Name = "5 Lucky Spins" }, -- 399
-		{ Id = 3715530621, Lucky = 10, Name = "10 Lucky Spins" }, -- 719
+		{ Id = 3715530621, Lucky = 10, Name = "10 Lucky Spins" }, -- 699
 	},
 	-- traded for V Points in the Shop's Lucky tab (the owner, 2026-10-13: "exchange vp for lucky
 	-- spins rate of 250 vpoints for 1"): VPCost each, in these amounts. (2026-10-22, the owner: "2500
