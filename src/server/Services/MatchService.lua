@@ -951,12 +951,8 @@ function MatchService.ban(plr, charId)
 		return
 	end
 	local list = bans[e.team]
-	local at = table.find(list, charId)
-	if at then
-		-- their team's own ban again: taken back
-		table.remove(list, at)
-		MatchService.announce({ kind = "BanUpdate", bans = bans, team = e.team, id = charId, removed = true, by = plr.DisplayName })
-		return
+	if table.find(list, charId) then
+		return -- (their team's ban already: a second click locks it in, RankedMenu)
 	end
 	for team, other in pairs(bans) do
 		if team ~= e.team and table.find(other, charId) then
