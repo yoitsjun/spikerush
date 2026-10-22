@@ -1064,6 +1064,11 @@ Config.Codes = {
 	halloween = { VP = 1000, Gold = 20000, Lucky = 5, BoostLuck = 30 * 60 },
 	["1kdiscord"] = { VP = 1000, Gold = 15000, Lucky = 4, BoostLuck = 15 * 60 },
 	allages = { VP = 1000, Gold = 15000, Lucky = 3, BoostLuck = 15 * 60 },
+	-- the owner, 2026-10-21: "add some new codes for ranked, clans, and 1500 members in the discord"
+	-- then "not as big": about the size of update1 and HolyS+
+	ranked = { VP = 400, Gold = 5000, Lucky = 2 },
+	clans = { VP = 300, Gold = 5000, Lucky = 1 },
+	["1500discord"] = { VP = 500, Gold = 7500, Lucky = 2 },
 }
 
 -- Daily rewards (the owner: "daily rewards for group members only"): members of the group that
