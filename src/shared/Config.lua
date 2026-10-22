@@ -405,7 +405,7 @@ Config.Breakthrough = {
 		-- (the owner, 2026-10-22: "seora breakthrough should obviously increase jump not attack"): her
 		-- highest hitting point climbs (MaxLift, metres), her Attack at the top stays
 		Skyward = { MaxLift = { Grow = 0.6, Label = "Highest lift", Show = "m" } },
-		Tyrant = { Steal = { Grow = 0.4, Label = "Stat Hijack steals", Show = "pct" }, Duration = { Grow = 0.25, Label = "Emperor's Dictate lasts", Show = "s" }, SetMul = { Grow = 0.3, Kind = "excess", Label = "Tyrant's Set", Show = "excess" } },
+		Tyrant = { Steal = { Grow = 0.4, Label = "Lock takes", Show = "pct" }, Duration = { Grow = 0.25, Label = "Emperor's Dictate lasts", Show = "s" }, SetMul = { Grow = 0.3, Kind = "excess", Label = "Tyrant's Set", Show = "excess" } },
 		Sunshine = { SunDuration = { Grow = 0.3, Label = "Sunshine lasts", Show = "s" }, VertBoost = { Grow = 0.3, Label = "Sharpest spike", Show = "pct" } },
 	},
 	SellLucky = { ["S+"] = 1 },
@@ -1626,11 +1626,16 @@ Config.Abilities = {
 		Role = "SE",
 		Active = true, -- Emperor's Dictate (Q)
 		ActiveName = "Emperor's Dictate",
-		Blurb = "Press Q for Emperor's Dictate: for 8 s you steal 15% of their Attack, Jump and Speed for your team, your sets are met at full power, your own attacks hit at full power and 1.15x, and their blocks reach half as high. Your sets fly fast (spikes off them 1.3x, no block stuffs them); your jump serve dips hard and wrecks their pass.",
+		Blurb = "Press Q for Emperor's Dictate: for 5 s their team is Locked (35% less Jump and Speed, 15% less Attack, no slides) and yours gets the stolen stats, your sets are met at full power, your own attacks hit at full power and 1.15x, and their blocks reach half as high. Your sets fly fast (spikes off them 1.3x, no block stuffs them); your jump serve dips hard and wrecks their pass.",
 		Color = Color3.fromRGB(255, 196, 60),
-		Duration = 8,
+		-- (the owner, 2026-10-22: "make dohwans nerf more intense its basically doing nothing right now.
+		-- maybe like yamdera from the spike" (Lock: no slides, Speed and Jump down hard), "maybe not as
+		-- intense", "its just the ability pop", "and maybe nerf the duration on that too": the Dictate
+		-- Locks their team, shorter)
+		Duration = 5, -- (was 8)
 		Cooldown = 24, -- (was 32; the owner, 2026-10-22: "he's not doing enough to earn that s+ title")
-		Steal = 0.15, -- the other team's Attack, Jump and Speed x (1 - this)
+		Steal = 0.35, -- the Lock: the other team's Jump and Speed x (1 - this), and no slides (was 0.15 of all three)
+		StealAttack = 0.43, -- and their Attack x (1 - Steal x this): about 15%
 		TeamAdd = { Attack = 12, Jump = 10, Speed = 10 }, -- his whole team's, stolen
 		BlockCut = 0.5, -- their block's reach over the tape x this
 		-- Sovereign Strike (2026-10-22, so the Tyrant shows it in his own hands): while Emperor's
@@ -1655,7 +1660,7 @@ Config.Abilities = {
 		SetLower = 0.5 * M, -- and its top this much lower (then "dohwan sets a little too high now")
 		SetMul = 1.3, -- the spike off it
 		Passives = {
-			{ Name = "Emperor's Dictate", Blurb = "Press Q: for 8 s their Attack, Jump and Speed drop 15% and your team gets +12 Attack, +10 Jump and +10 Speed. Spikes off your sets hit at full power, and their blocks reach half as high." },
+			{ Name = "Emperor's Dictate", Blurb = "Press Q: for 5 s their team is Locked: 35% less Jump and Speed, 15% less Attack, and no slides. Your team gets +12 Attack, +10 Jump and +10 Speed, spikes off your sets hit at full power, and their blocks reach half as high." },
 			{ Name = "Sovereign Strike", Blurb = "While Emperor's Dictate is on, your own spikes and jump serves hit at full power, 1.15x as fast, and no ordinary block stuffs them." },
 			{ Name = "Sovereign's Guard", Blurb = "Spike faster than 180 km/h at your team and you're Grounded: 10% less Jump and Attack on your next attack." },
 			{ Name = "Crown Jump Serve", Blurb = "Your jump serve curls down steeply, costs the receiver double stamina, and leaves them a low, wild set." },

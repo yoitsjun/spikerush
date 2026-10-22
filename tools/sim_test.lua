@@ -1362,6 +1362,11 @@ do
 	check(ok7 and res7.meta.breaks, "a slide can still break a nearly empty guard", res7.meta.grade)
 	local ok8, res8 = receive(slideRoot, slideBall, { value = 0, max = 120 }, { diving = true })
 	check(ok8 and res8.meta.fail, "a slide can't save a broken guard against a strong spike", res8.meta.grade)
+	-- Locked by the Tyrant's Dictate: no slides (the same dive plays as a plain bump: the full drain,
+	-- not a slide's share)
+	local okLk, resLk = receive(slideRoot, slideBall, { value = 120, max = 120 }, { diving = true, stanceAge = 0.75 }, { dictated = Config.Abilities.Tyrant.Steal })
+	check(ok6 and (not okLk or (resLk.meta.drain or 0) > (res6.meta.drain or 0) * 1.5), "Locked by the Dictate, a slide is no slide: no slide's cheap drain (or no reach)",
+		okLk and string.format("drain %.1f vs a slide's %.1f", resLk.meta.drain or 0, res6.meta.drain or 0) or tostring(resLk))
 	-- the nerf: a 180 km/h spike costs real guard, perfect timing saves less on it, and it knocks
 	-- the receiver back
 	local A = Characters.stats("A")
@@ -2593,7 +2598,7 @@ do
 	local st5 = BTm.ab("Tyrant", "Steal", 5)
 	local d5 = HitLogic.effectiveStats(base, nil, nil, { dictated = st5 })
 	check(BTm.cooldown("RallyCry", 5) == A.RallyCry.Cooldown and BTm.cooldown("Tyrant", 5) == A.Tyrant.Cooldown and rb5 > rb0 * 1.4 and r5.Attack > r0.Attack
-		and st5 > A.Tyrant.Steal and d5.Attack < base.Attack * (1 - A.Tyrant.Steal) and BTm.ab("Thunder", "StormBoost", 5) > A.Thunder.StormBoost and BTm.ab("IronWall", "StuffKmh", 5) > A.IronWall.StuffKmh,
+		and st5 > A.Tyrant.Steal and d5.Jump < base.Jump * (1 - A.Tyrant.Steal) and BTm.ab("Thunder", "StormBoost", 5) > A.Thunder.StormBoost and BTm.ab("IronWall", "StuffKmh", 5) > A.IronWall.StuffKmh,
 		"breakthroughs grow Rally Cry's boost and the Dictate's steal (their cooldowns stay), Storm Call's power and Iron Wall's shut-down",
 		string.format("Rally Cry +%.0f%% -> +%.0f%% (Attack %d -> %d); steal %.0f%% -> %.0f%%", rb0 * 100, rb5 * 100, r0.Attack, r5.Attack, A.Tyrant.Steal * 100, st5 * 100))
 end
@@ -4325,9 +4330,9 @@ do
 	local grounded = HitLogic.effectiveStats(SP, nil, nil, { grounded = true })
 	local function near(a, b) return math.abs(a - b) <= 1 end
 	check(mine.Attack == SP.Attack + 12 and mine.Jump == SP.Jump + 10 and mine.Speed == SP.Speed + 10 and mine.Defense == SP.Defense
-		and near(theirs.Attack, SP.Attack * 0.85) and near(theirs.Jump, SP.Jump * 0.85) and near(theirs.Speed, SP.Speed * 0.85) and theirs.Defense == SP.Defense
+		and near(theirs.Attack, SP.Attack * (1 - TY.Steal * TY.StealAttack)) and near(theirs.Jump, SP.Jump * (1 - TY.Steal)) and near(theirs.Speed, SP.Speed * (1 - TY.Steal)) and theirs.Defense == SP.Defense
 		and near(grounded.Attack, SP.Attack * 0.9) and near(grounded.Jump, SP.Jump * 0.9) and grounded.Speed == SP.Speed,
-		"Stat Hijack: his team +12 Attack, +10 Jump, +10 Speed; theirs 15% less Attack, Jump and Speed; Grounded: 10% less Jump and Attack",
+		"Stat Hijack: his team +12 Attack, +10 Jump, +10 Speed; theirs Locked (35% less Jump and Speed, 15% less Attack); Grounded: 10% less Jump and Attack",
 		string.format("ATK %d / %d / %d (from %d)", mine.Attack, theirs.Attack, grounded.Attack, SP.Attack))
 	-- Crown Jump Serve: steeper (more topspin), double drain, a low and wild pass and set
 	local sv = vec(0, GROUND + 6.5, side * (C.SideDepth + 1))
@@ -4369,7 +4374,7 @@ do
 	end
 	check(spreadC > spreadP * 1.4 and lower, "the set off a Crown-wrecked pass comes down lower and strays further",
 		string.format("average miss %.1f vs %.1f studs", spreadC / 30, spreadP / 30))
-	check(require("Bios").dohwan ~= nil and Roster.get("dohwan").Tier == "S+" and Roster.get("dohwan").Role == "SE" and TY.Cooldown == 24 and TY.Duration == 8, "Dohwan: S+ setter, Emperor's Dictate 8 s on a 24 s cooldown")
+	check(require("Bios").dohwan ~= nil and Roster.get("dohwan").Tier == "S+" and Roster.get("dohwan").Role == "SE" and TY.Cooldown == 24 and TY.Duration == 5, "Dohwan: S+ setter, Emperor's Dictate 5 s on a 24 s cooldown")
 end
 
 print("== Sunshine (Haesol) ==")

@@ -864,11 +864,13 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		any = true
 	end
 	if extra and extra.dictated then
-		-- and the other team's: Steal of their Attack, Jump and Speed (a number: his grown Steal)
+		-- and the other team's, Locked: Steal of their Jump and Speed, a share of it off their Attack
+		-- (a number: his grown Steal)
 		local steal = type(extra.dictated) == "number" and extra.dictated or TYRANT.Steal
-		for _, k in ipairs({ "Attack", "Jump", "Speed" }) do
+		for _, k in ipairs({ "Jump", "Speed" }) do
 			add[k] = (add[k] or 0) - math.floor(stats[k] * steal + 0.5)
 		end
+		add.Attack = (add.Attack or 0) - math.floor(stats.Attack * steal * TYRANT.StealAttack + 0.5)
 		any = true
 	end
 	if extra and extra.grounded then
@@ -1880,7 +1882,7 @@ function HitLogic.compute(input, ctx)
 
 	-- Receive / set ---------------------------------------------------------------------------
 	if action == "Bump" or action == "Set" then
-		local sliding = input.diving == true
+		local sliding = input.diving == true and not ctx.dictated -- (Locked by the Tyrant's Dictate: no slides)
 		local isSet = action == "Set"
 		local touchN1 = (ctx.touchNumber or 1) == 1
 		local overhead = false

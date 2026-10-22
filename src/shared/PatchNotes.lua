@@ -55,7 +55,7 @@ PatchNotes.List = {
 			{
 				Heading = "New players",
 				Items = {
-					{ Icon = "AbilityTyrant", Text = "<b>Dohwan, The Tyrant</b> (S+ setter). <b>Emperor's Dictate</b> (Q): for 8 seconds he steals 15% of the other team's Attack, Jump and Speed for his own, every set of his and his own attacks hit at full power, and their blocks reach half as high. His sets are fast, and the spike off one is 1.3x faster and can't be stuffed. His jump serve dips hard and wrecks the pass." },
+					{ Icon = "AbilityTyrant", Text = "<b>Dohwan, The Tyrant</b> (S+ setter). <b>Emperor's Dictate</b> (Q): for 5 seconds the other team is <b>Locked</b>: 35% less Jump and Speed, 15% less Attack and no slides, and his team gets the stolen stats. Every set of his and his own attacks hit at full power, and their blocks reach half as high. His sets are fast, and the spike off one is 1.3x faster and can't be stuffed. His jump serve dips hard and wrecks the pass." },
 					{ Icon = "AbilityTyrant", Text = "Spike past 180 km/h at Dohwan's team and you're <b>Grounded</b>: less Jump and Attack on your next attack." },
 					{ Icon = "AbilitySunshine", Text = "<b>Haesol, Sunshine</b> (S middle blocker). A far wider perfect-dig window; a perfect dig lights her up for 10 seconds with +10 to every stat. Her digs reach further, and her <b>Vert Spikes</b> cross the net and drive almost straight down, the steepest slipping under the block." },
 				},

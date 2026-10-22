@@ -377,6 +377,10 @@ function MovementController.slide(dirZ)
 	if inAir() then
 		return false
 	end
+	-- Locked by the other team's Emperor's Dictate (the Tyrant): no slides
+	if State.myTeam and State.dictateOn(State.myTeam == "Home" and "Away" or "Home", workspace:GetServerTimeNow()) then
+		return false
+	end
 	run = nil -- a slide calls off a run-up
 	if math.abs(dirZ or 0) < 0.3 then
 		dirZ = facing

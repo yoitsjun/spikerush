@@ -1482,7 +1482,7 @@ local function updateAbility()
 		line(TY.Color, string.format("EMPEROR'S DICTATE  +%d ATK +%d JMP +%d SPD  %d s", TY.TeamAdd.Attack, TY.TeamAdd.Jump, TY.TeamAdd.Speed, math.ceil(ours)))
 	end
 	if theirs > 0 then
-		line(Color3.fromRGB(255, 120, 90), string.format("DICTATED  -%d%% ATK JMP SPD, block halved  %d s", math.floor(State.dictateSteal(foe) * 100 + 0.5), math.ceil(theirs)))
+		line(Color3.fromRGB(255, 120, 90), string.format("LOCKED  -%d%% JMP SPD, no slides, block halved  %d s", math.floor(State.dictateSteal(foe) * 100 + 0.5), math.ceil(theirs)))
 	end
 	if player:GetAttribute("Grounded") then
 		line(Color3.fromRGB(200, 170, 120), string.format("GROUNDED  -%d%% Jump and Attack next attack", TY.GroundedCut * 100))
