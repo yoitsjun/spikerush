@@ -4446,8 +4446,8 @@ do
 	local cur = Leaderboards.valuesOf({ ranked = { season = season, rp = 1234 } }).ranked
 	local old = Leaderboards.valuesOf({ ranked = { season = season - 1, rp = 1900 } }).ranked
 	local board = Leaderboards.board("ranked")
-	check(cur == 1234 and old == 0 and Leaderboards.format("ranked", 1234) == Ranked.name(1234) .. "  1,234 RP" and board.Live and Leaderboards.storeName(board, now) == Config.Leaderboards.StorePrefix .. "ranked_s" .. season and Leaderboards.storeName(Leaderboards.board("wins"), now) == Config.Leaderboards.StorePrefix .. "wins",
-		"the ranked board ranks this season's RP (an old season's counts as nothing), shows the rank, and keeps a store per season", Leaderboards.format("ranked", 1234))
+	check(cur == 1234 and old == 0 and Leaderboards.format("ranked", 133) == "Bronze 2  33 RP" and Leaderboards.format("ranked", Config.Ranked.MightyAt + 120) == "Mighty  120 RP" and board.Live and Leaderboards.storeName(board, now) == Config.Leaderboards.StorePrefix .. "ranked_s" .. season and Leaderboards.storeName(Leaderboards.board("wins"), now) == Config.Leaderboards.StorePrefix .. "wins",
+		"the ranked board ranks this season's RP (an old season's counts as nothing), shows the division and the RP into it, and keeps a store per season", Leaderboards.format("ranked", 133))
 end
 
 print("== AFK Lounge ==")

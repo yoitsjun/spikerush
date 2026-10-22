@@ -62,12 +62,14 @@ local function commas(n)
 end
 
 -- A board's value as text: "1,234 wins", the win rate's "62.4%  120 W  74 L", the playtime's
--- "12h 05m", or the ranked board's "Diamond II  1,234 RP".
+-- "12h 05m", or the ranked board's "Bronze 2  33 RP" (the owner, 2026-10-22: the division as a number
+-- and the RP into it, not the season's total; Mighty and Almighty count from where they start).
 function Leaderboards.format(key, value)
 	local b = BY_KEY[key or ""]
 	if b and b.Ranked then
 		local rp = math.max(0, math.floor(tonumber(value) or 0))
-		return Ranked.name(rp) .. "  " .. commas(rp) .. " RP"
+		local _, rank, div, from = Ranked.rankOf(rp)
+		return rank.Name .. (div and (" " .. div) or "") .. "  " .. commas(rp - from) .. " RP"
 	end
 	if b and b.Time then
 		local secs = math.max(0, math.floor(tonumber(value) or 0))
