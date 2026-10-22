@@ -614,8 +614,16 @@ local function navBar(p, active, lit)
 		local b = navItem(side, e[1], e[2], { LayoutOrder = i })
 		onClick(b, function()
 			if e[3] == "afk" then
-				if mods.LoungeMenu then
-					mods.LoungeMenu.open()
+				-- going AFK leaves this server (your own lounge server), so a second press within 3 s
+				-- confirms it (the owner, 2026-10-22: "double click afk to confirm u want to leave")
+				if Extra.afkArmedAt and os.clock() - Extra.afkArmedAt <= 3 then
+					Extra.afkArmedAt = nil
+					if mods.LoungeMenu then
+						mods.LoungeMenu.open()
+					end
+				else
+					Extra.afkArmedAt = os.clock()
+					toast("Press AFK again to go to the AFK Lounge (you'll leave this server).")
 				end
 			elseif e[3] == "party" then
 				if mods.PartyMenu then
