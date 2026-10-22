@@ -2359,6 +2359,8 @@ local STATUS = {
 	Dictate = { fire = { Color3.fromRGB(255, 248, 210), Config.Abilities.Tyrant.Color }, rate = 22, fill = Color3.fromRGB(255, 190, 40), edge = Color3.fromRGB(255, 236, 150) },
 	Dictated = { fire = { Color3.fromRGB(150, 120, 220), Color3.fromRGB(40, 15, 80) }, rate = 16, fill = Color3.fromRGB(70, 30, 140), edge = Color3.fromRGB(215, 200, 255) },
 	Grounded = { fire = { Color3.fromRGB(200, 170, 110), Color3.fromRGB(90, 70, 40) }, rate = 12, size = 1.4 },
+	-- Haesol: always a soft yellow glow on her (light: a warm PointLight with it), brighter lit
+	SunGlow = { fire = { Color3.fromRGB(255, 248, 210), Config.Abilities.Sunshine.Color }, rate = 8, size = 1.4, light = Color3.fromRGB(255, 214, 120) },
 	-- Haesol's Sunshine, lit
 	Sunlit = { fire = { Color3.fromRGB(255, 255, 235), Config.Abilities.Sunshine.Color }, rate = 26, fill = Color3.fromRGB(255, 220, 110), edge = Color3.fromRGB(255, 250, 210) },
 }
@@ -3470,8 +3472,11 @@ local function updateAbilityFx(dt)
 				if model:GetAttribute("Grounded") then
 					w.Grounded = 1 -- Sovereign's Guard
 				end
-				if HW.has(model, "Sunshine") and (model:GetAttribute("SunshineUntil") or -1) >= clock then
-					w.Sunlit = 1
+				if HW.has(model, "Sunshine") then
+					w.SunGlow = 1
+					if (model:GetAttribute("SunshineUntil") or -1) >= clock then
+						w.Sunlit = 1
+					end
 				end
 				-- each active on its own window (a character can hold several: their flames stack)
 				if HW.has(model, "Turnabout") and HW.untilOf(model, "Turnabout") >= clock then
@@ -3512,6 +3517,14 @@ local function updateAbilityFx(dt)
 				att.Name = "Status" .. kind
 				att.Parent = hrp
 				fx = { att = att, aura = Fx.attach("StatusAura", att) }
+				if st.light then
+					local l = Instance.new("PointLight")
+					l.Color = st.light
+					l.Brightness = 1.4
+					l.Range = 11
+					l.Shadows = false
+					l.Parent = att
+				end
 				list[kind] = fx
 			end
 			if fx then
@@ -5000,18 +5013,14 @@ local function onHit(snap)
 			VFXController.shield(meta.id)
 		end
 		if meta.dig and hrp then
-			-- Haesol: a sun flares round her as she digs (the owner: "she has a sun aura when she
-			-- bumps"); a perfect one lights Sunshine with a pillar of light
+			-- Haesol: a soft warm flare as she digs (the owner: "she has a sun aura when she bumps";
+			-- then "i dont want a sun beam to strike down on the player as her, i just want a passive
+			-- yellow glow on her": her glow is the SunGlow status; a dig only brightens it a moment)
 			local sun = Config.Abilities.Sunshine.Color
 			local at = hrp.Position + Vector3.new(0, 0.6, 0)
-			burst(at, Color3.fromRGB(255, 250, 225), meta.sunshine and 9 or 6)
-			burst(at, sun, meta.sunshine and 12 or 8)
-			starburst(at, Color3.fromRGB(255, 252, 230), meta.sunshine and 9 or 5)
-			ringFx(at, sun, 1.5, meta.sunshine and 14 or 8, 0.4, 6)
+			burst(at, sun, meta.sunshine and 7 or 5)
 			if meta.sunshine then
-				sunBeam(hrp.Position)
-				floorRing(hrp.Position, sun, 10, 0.6)
-				VFXController.popup(at + Vector3.new(0, 4, 0), "Sunshine!", sun, 1.3)
+				VFXController.popup(at + Vector3.new(0, 4, 0), "Sunshine!", sun, 1.1)
 				if mods.AudioController.hearsMatch() then
 					mods.AudioController.play("CoronaFlare", { volume = 0.7, speed = 1.25, pos = at, minGap = 0.1 })
 				end
