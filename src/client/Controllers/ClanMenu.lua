@@ -81,38 +81,7 @@ end
 -- not in a clan
 ------------------------------------------------------------------------------------------
 
--- A clan's card (a search result): its emblem, [TAG] name, description, members, its door.
-local function buildFound(parent)
-	local f = Gui.card(parent, { Position = UDim2.fromOffset(0, 64), Size = UDim2.fromOffset(700, 220), Visible = false, ZIndex = 22 })
-	local emblem = make("ImageLabel", { Position = UDim2.fromOffset(18, 18), Size = UDim2.fromOffset(120, 120), BackgroundColor3 = Gui.NAVY, ScaleType = Enum.ScaleType.Fit, ZIndex = 23 }, f)
-	Gui.corner(emblem, 10)
-	local title = label(f, { Text = "", RichText = true, display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, Position = UDim2.fromOffset(156, 16), Size = UDim2.new(1, -170, 0, 40) })
-	local desc = label(f, { Text = "", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(156, 60), Size = UDim2.new(1, -170, 0, 60) })
-	local facts = label(f, { Text = "", TextSize = 17, TextColor3 = Gui.CHALK, Position = UDim2.fromOffset(156, 124), Size = UDim2.new(1, -170, 0, 22) })
-	local join, joinL = kit.actionPlate(f, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -18, 1, -16), Size = UDim2.fromOffset(240, 50) }, "Join", 22)
-	kit.onClick(join, function()
-		if ui.foundTag then
-			send("join", ui.foundTag)
-		end
-	end)
-	return { frame = f, emblem = emblem, title = title, desc = desc, facts = facts, joinL = joinL }
-end
-
-local function showFound(card)
-	local F = ui.found
-	if not card then
-		F.frame.Visible = false
-		ui.foundTag = nil
-		return
-	end
-	ui.foundTag = card.tag
-	F.frame.Visible = true
-	F.emblem.Image = (card.emblem and card.emblem ~= "") and ("rbxthumb://type=Asset&id=" .. card.emblem .. "&w=150&h=150") or ""
-	F.title.Text = string.format("%s %s", Clans.tagText(card.tag, "White"), card.name or "")
-	F.desc.Text = card.desc ~= "" and card.desc or "No description."
-	F.facts.Text = string.format("%s points   ·   %d / %d members   ·   %s   ·   %d wins to join", Gui.num(card.points or 0), card.count or 0, card.cap or C.BaseCap, card.public and "Public" or "Private", card.minWins or 0)
-	F.joinL.Text = card.public and "Join" or "Ask to join"
-end
+-- (a search result opens the clan's page: buildViewer, below)
 
 local function buildFind(body)
 	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 21 }, body)
@@ -121,7 +90,6 @@ local function buildFind(body)
 	kit.onClick(go, function()
 		send("search", box.Text)
 	end)
-	ui.found = buildFound(f)
 	label(f, { Text = "Or pick one from Top clans.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 300), Size = UDim2.fromOffset(700, 22) })
 	return { frame = f, box = box }
 end
@@ -214,13 +182,11 @@ local function fillTop()
 		if e.count then
 			label(r, { Text = string.format("%d / %d", e.count, e.cap or C.BaseCap), TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.new(1, -170, 0, 0), Size = UDim2.fromOffset(70, 48) })
 		end
-		if not data.mine then
-			local look = kit.hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(90, 34), ZIndex = 23 }, "View", 16)
-			kit.onClick(look, function()
-				ClanMenu.setTab("Find")
-				send("search", e.tag)
-			end)
-		end
+		-- any clan's page, in a clan or not
+		local look = kit.hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(90, 34), ZIndex = 23 }, "View", 16)
+		kit.onClick(look, function()
+			send("search", e.tag)
+		end)
 	end
 end
 
@@ -229,6 +195,88 @@ end
 ------------------------------------------------------------------------------------------
 
 local STAT_COLS = { "wins", "kills", "aces", "blocks", "mvps" }
+
+------------------------------------------------------------------------------------------
+-- any clan's page (the owner, 2026-10-22: "allow people to view clans stats and such and members"):
+-- a search or Top clans' View opens it over the window, in a clan or not
+------------------------------------------------------------------------------------------
+
+local function buildViewer(parent)
+	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, Visible = false, ZIndex = 30 }, parent)
+	local Z = 31
+	local emblem = make("ImageLabel", { Position = UDim2.fromOffset(16, 12), Size = UDim2.fromOffset(96, 96), BackgroundColor3 = Gui.NAVY, ScaleType = Enum.ScaleType.Fit, ZIndex = Z }, f)
+	Gui.corner(emblem, 10)
+	local title = label(f, { Text = "", RichText = true, display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(128, 8), Size = UDim2.new(1, -380, 0, 38), ZIndex = Z })
+	local desc = label(f, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(128, 46), Size = UDim2.new(1, -380, 0, 38), ZIndex = Z })
+	local facts = label(f, { Text = "", TextSize = 16, Position = UDim2.fromOffset(128, 86), Size = UDim2.new(1, -150, 0, 22), ZIndex = Z })
+	local back = kit.hairButton(f, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 10), Size = UDim2.fromOffset(110, 40), ZIndex = Z }, "Back", 16)
+	kit.onClick(back, function()
+		f.Visible = false
+		ui.foundTag = nil
+	end)
+	local join, joinL = kit.actionPlate(f, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -132, 0, 10), Size = UDim2.fromOffset(200, 40), ZIndex = Z }, "Join", 18)
+	joinL.ZIndex = Z + 3
+	kit.onClick(join, function()
+		if ui.foundTag then
+			send("join", ui.foundTag)
+		end
+	end)
+	-- the clan's totals, then its members
+	local totals = label(f, { Text = "", RichText = true, display = true, TextSize = 18, Position = UDim2.fromOffset(16, 118), Size = UDim2.new(1, -32, 0, 24), ZIndex = Z })
+	local head = make("Frame", { Position = UDim2.fromOffset(0, 150), Size = UDim2.new(1, -10, 0, 24), BackgroundTransparency = 1, ZIndex = Z }, f)
+	label(head, { Text = "Player", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(200, 24), ZIndex = Z })
+	label(head, { Text = "Role", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(230, 0), Size = UDim2.fromOffset(90, 24), ZIndex = Z })
+	for i, k in ipairs(STAT_COLS) do
+		label(head, { Text = C.StatNames[k], TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(320 + (i - 1) * 92, 0), Size = UDim2.fromOffset(90, 24), ZIndex = Z })
+	end
+	label(head, { Text = "Points", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(780, 0), Size = UDim2.fromOffset(80, 24), ZIndex = Z })
+	local list = scroller(f, { Position = UDim2.fromOffset(0, 178), Size = UDim2.new(1, 0, 1, -178), ZIndex = Z })
+	return { frame = f, emblem = emblem, title = title, desc = desc, facts = facts, join = join, joinL = joinL, totals = totals, list = list }
+end
+
+local function showFound(card)
+	local F = ui.found
+	if not card then
+		F.frame.Visible = false
+		ui.foundTag = nil
+		return
+	end
+	ui.foundTag = card.tag
+	F.frame.Visible = true
+	F.emblem.Image = (card.emblem and card.emblem ~= "") and ("rbxthumb://type=Asset&id=" .. card.emblem .. "&w=150&h=150") or ""
+	F.title.Text = string.format("%s %s", Clans.tagText(card.tag, "White"), card.name or "")
+	F.desc.Text = (card.desc and card.desc ~= "") and card.desc or "No description."
+	F.facts.Text = string.format("%s points  ·  %s this week  ·  %d / %d members  ·  %s  ·  %d wins to join", Gui.num(card.points or 0), Gui.num(card.week or 0), card.count or 0, card.cap or C.BaseCap, card.public and "Public" or "Private", card.minWins or 0)
+	local t = card.totals or {}
+	local parts = {}
+	for _, k in ipairs(STAT_COLS) do
+		table.insert(parts, string.format('<font color="#B0B6C8">%s</font> %s', C.StatNames[k], Gui.num(t[k] or 0)))
+	end
+	F.totals.Text = "Clan totals:   " .. table.concat(parts, "     ")
+	-- Join only for players in no clan, and not their own
+	local inClan = data.mine ~= false and data.mine ~= nil
+	F.join.Visible = not inClan
+	F.joinL.Text = card.public and "Join" or "Ask to join"
+	local list = F.list
+	clearList(list)
+	for i, m in ipairs(card.members or {}) do
+		local r = row(list, i, 44)
+		r.ZIndex = 31
+		local function cell(text, x, w, props)
+			local l = label(r, { Text = text, TextSize = 17, Position = UDim2.fromOffset(x, 0), Size = UDim2.fromOffset(w, 44), ZIndex = 32 })
+			for k, v in pairs(props or {}) do
+				l[k] = v
+			end
+		end
+		cell(m.name or "?", 14, 210, { TextColor3 = m.id == player.UserId and Gui.SIGNAL or Gui.CHALK, TextTruncate = Enum.TextTruncate.AtEnd })
+		cell(m.role or "", 230, 90, { TextSize = 16, TextColor3 = m.role == "Owner" and Gui.GOLD or (m.role == "Officer" and BLUE or Gui.DIM) })
+		for j, k in ipairs(STAT_COLS) do
+			cell(Gui.num(m.stats and m.stats[k] or 0), 320 + (j - 1) * 92, 90)
+		end
+		cell(Gui.num(m.points or 0), 780, 80, { TextColor3 = BLUE })
+	end
+end
+
 
 local function buildMembers(body)
 	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 21 }, body)
@@ -522,6 +570,7 @@ local function buildWindow()
 	ui.requests = buildRequests(body)
 	ui.colors = buildColors(body)
 	ui.settings = buildSettings(body)
+	ui.found = buildViewer(body)
 	outSet("Find")
 end
 

@@ -3194,6 +3194,17 @@ do
 		check(wk == Clans.week(mon - 1) + 1 and Clans.week(mon + 6 * 86400) == wk and first == 3 * Config.Clans.Points.wins and again == first and nextWeek == 0,
 			"clans: this week's points count only new points, and start over on Monday", string.format("%d this week", first))
 	end
+	do
+		-- anyone viewing a clan sees its members (best first, a pending one left out) and its totals
+		local clan = { tag = "ABC", name = "Alpha", members = {
+			["1"] = { n = "Ann", r = "Owner", s = { wins = 2, kills = 5 } },
+			["2"] = { n = "Bo", r = "Member", s = { wins = 6, kills = 1 } },
+			["3"] = { n = "Cy", r = "Member", pending = true, s = { wins = 50 } },
+		} }
+		local card = Clans.card(clan)
+		check(#card.members == 2 and card.members[1].name == "Bo" and card.totals.wins == 8 and card.totals.kills == 6 and card.members[1].stats.wins == 6,
+			"clans: a clan's page lists its members, best first, with their stats, and the clan's totals", string.format("%d members, %d wins", #card.members, card.totals.wins))
+	end
 	local CC = Config.Clans
 	local t1, w1 = Clans.cleanTag(" ab1 ")
 	local t2 = Clans.cleanTag("A")

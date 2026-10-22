@@ -346,13 +346,33 @@ function Clans.view(clan)
 	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, shirt = clan.shirt, pants = clan.pants, public = clan.public, minWins = clan.minWins, owner = clan.owner, members = members, requests = req, up = up, points = total, left = left, cap = Clans.cap(clan), count = Clans.count(clan), week = Clans.weekPoints(clan, os.time()) }
 end
 
--- What anyone browsing sees (no members' stats).
+-- What anyone browsing sees (the owner, 2026-10-22: "allow people to view clans stats and such and
+-- members"): the card, every member's role, stats and points, best first, and the clan's totals.
 function Clans.card(clan)
 	if not clan then
 		return nil
 	end
 	local total = Clans.points(clan)
-	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, public = clan.public, minWins = clan.minWins, points = total, week = Clans.weekPoints(clan, os.time()), count = Clans.count(clan), cap = Clans.cap(clan) }
+	local members, totals = {}, {}
+	for _, k in ipairs(C.StatOrder) do
+		totals[k] = 0
+	end
+	for id, m in pairs(clan.members or {}) do
+		if not m.pending then
+			local p = Clans.memberPoints(m)
+			table.insert(members, { id = tonumber(id), name = m.n, role = m.r, stats = m.s, points = p })
+			for _, k in ipairs(C.StatOrder) do
+				totals[k] = totals[k] + whole(m.s and m.s[k] or 0)
+			end
+		end
+	end
+	table.sort(members, function(a, b)
+		if a.points ~= b.points then
+			return a.points > b.points
+		end
+		return tostring(a.name) < tostring(b.name)
+	end)
+	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, public = clan.public, minWins = clan.minWins, points = total, week = Clans.weekPoints(clan, os.time()), count = Clans.count(clan), cap = Clans.cap(clan), members = members, totals = totals }
 end
 
 return Clans
