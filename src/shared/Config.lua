@@ -1616,6 +1616,7 @@ Config.Abilities = {
 		-- normal height but just faster overall": a usual set's arc, flown faster; it was flat, its
 		-- top 1.1 m over where it came down)
 		SetSpeed = 1.25, -- the usual arc, this much faster (gravity x SetSpeed^2: the same path in 1/SetSpeed the time)
+		SetLower = 0.5 * M, -- and its top this much lower (then "dohwan sets a little too high now")
 		SetMul = 1.3, -- the spike off it
 		Passives = {
 			{ Name = "Emperor's Dictate", Blurb = "Press Q: for 8 s their Attack, Jump and Speed drop 15% and your team gets +12 Attack, +10 Jump and +10 Speed. Spikes off your sets hit at full power, and their blocks reach half as high." },

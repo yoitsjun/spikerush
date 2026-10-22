@@ -649,6 +649,7 @@ function HitLogic.setArc(ball, side, setType, depth, underhand, lift, arriveY, f
 	local g = G * H.SetGravityScale
 	if fast then
 		g = g * TYRANT.SetSpeed * TYRANT.SetSpeed
+		apex = math.max(apex - TYRANT.SetLower, arriveY + 0.8 * SPM, ball.Y + 0.38 * SPM)
 	end
 	return ownSideArc(ball, Vector3.new(0, arriveY, side * depth), apex, g, side, 0.38 * SPM), g
 end
