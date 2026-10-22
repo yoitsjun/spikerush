@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Court = require(Shared.Court)
+local Mutators = require(Shared.Mutators)
 local Characters = require(Shared.Characters)
 local HitLogic = require(Shared.HitLogic)
 local Cups = require(Shared.Cups)
@@ -100,6 +101,10 @@ local function newEntity(id, name, isBot, plr, team, tier, ability, build)
 	end
 	if not Characters.isAbility(ability) then
 		ability = nil
+	end
+	local mut = Mutators.live()
+	if mut and mut.noAbilities then
+		ability = nil -- (a custom match with abilities off: stats only)
 	end
 	build = Characters.sanitize(tier, build)
 	local e = {
@@ -407,6 +412,7 @@ function TeamService.boostCtx(e, t)
 		bloodlust = TeamService.has(e, "Feral") and TeamService.windowOf(e, "Feral") >= now or nil,
 		breakLevel = e.breakLevel, -- (its own ability's)
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
+		mut = Mutators.live(), -- a custom match's modifiers
 		hex = Halloween.effects(e.hex), -- the Halloween Match's cards that hit it
 	}
 end

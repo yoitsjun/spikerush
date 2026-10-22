@@ -18,6 +18,7 @@ local Net = require(Shared.Net)
 local Rewards = require(Shared.Rewards)
 local Lobbies = require(Shared.Lobbies)
 local HitLogic = require(Shared.HitLogic)
+local Mutators = require(Shared.Mutators)
 
 local MatchService = {}
 local reg
@@ -703,6 +704,18 @@ function MatchService.askContinue(winner)
 	return not halted() and yes > 0 and yes > no
 end
 
+-- A custom match's modifiers (Config.Mutators; the lobby's string, nil for none): the Mutators
+-- attribute every script and client reads, and gravity (the players' through the workspace, the
+-- ball's through HitLogic; clients follow the attribute the same way).
+function MatchService.setMutators(s)
+	s = (type(s) == "string" and s ~= "") and s or nil
+	ReplicatedStorage:SetAttribute("Mutators", s)
+	local e = Mutators.effects(s)
+	local g = e and e.gravity or 1
+	workspace.Gravity = Config.Player.Gravity * g
+	HitLogic.setGravity(g)
+end
+
 function MatchService.playMatch()
 	local TS, BS = reg.TeamService, reg.BallService
 	local lobby = MatchService.lobby
@@ -712,6 +725,7 @@ function MatchService.playMatch()
 	MatchService.target = MatchService.rules.points
 	-- a tournament's modifiers, for every server script and client (Cups)
 	ReplicatedStorage:SetAttribute("CupMods", lobby.cup and lobby.cup.mods or nil)
+	MatchService.setMutators(lobby.mutators)
 	lobby.cupResult = nil
 	lobby.eventResult = nil
 	reg.ArenaBuilder.setCourt(MatchService.court)
@@ -932,6 +946,7 @@ function MatchService.intermission()
 	MatchService.serverId = nil
 	MatchService.rules = Lobbies.rules(nil) -- a custom match's rules end with it
 	ReplicatedStorage:SetAttribute("CupMods", nil)
+	MatchService.setMutators(nil)
 	MatchService.target = MatchService.rules.points
 	MatchService.scores = { Home = 0, Away = 0 }
 	MatchService.lossStreak = { Home = 0, Away = 0 } -- points each team has lost in a row (stamina comes back faster)

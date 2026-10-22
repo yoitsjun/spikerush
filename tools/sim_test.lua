@@ -3024,6 +3024,46 @@ do
 		table.concat(names, ", ") .. string.format("; upset +%d / %d; S1 ends %d", upset, upsetL, endsNov))
 end
 
+print("== match modifiers ==")
+do
+	-- (the owner, 2026-10-21: "add custom match modifiers, like more power, low gravity, no ability cd
+	-- like rocket league. add more than just what i added")
+	local Mutators = require("Mutators")
+	local str = Mutators.clean({ Power = "Super", Gravity = "Bogus", Stamina = "Endless", Jump = "High", Blocks = "Off", Cooldowns = "None", Abilities = "Normal" })
+	local e = Mutators.effects(str)
+	local again = Mutators.clean(str)
+	local root = apexRoot(SP, 3.5 * K)
+	local ball = ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local _, plain = spike(root, ball)
+	local _, super = spike(root, ball, { mut = e })
+	-- Endless: a heavy receive drains nothing; Fragile: double
+	local rroot = vec(0, GROUND, side * 18 * K)
+	local rball = vec(0, rroot.Y + Z.ReceiveIdealY, rroot.Z - side * Z.ReceiveForward)
+	local function recv(mut)
+		return HitLogic.compute({ action = "Bump", t = 0, root = rroot, ball = rball, vy = 0, grounded = true, stanceAge = 0.6 },
+			ctx({ ballVel = vec(0, -30 * K, side * 110 * K), lastHit = { team = "Home", hitType = "Spike", kmh = 160 }, touchNumber = 1, stamina = { value = 200, max = 200 }, mut = mut }))
+	end
+	local _, r0 = recv(nil)
+	local _, rEnd = recv(e)
+	local _, rFrag = recv(Mutators.effects("Stamina=Fragile"))
+	-- no blocks
+	local broot = vec(0, GROUND + Characters.jumpHeight(SP, GROUND) * 0.8, side * 1.2)
+	local palms = vec(0, broot.Y + Z.BlockReachUp + Config.Ball.Radius - 1.5, side * 0.6)
+	local okB, why = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = palms, vy = 0, grounded = false },
+		ctx({ lastHit = { team = "Home", hitType = "Spike", kmh = 120 }, ballVel = vec(0, -8, side * 30), mut = e }))
+	-- gravity: a lighter ball, then back
+	HitLogic.setGravity(0.45)
+	local moonG = HitLogic.ballGravity()
+	HitLogic.setGravity(1)
+	local stats = HitLogic.effectiveStats(SP, nil, nil, { mut = e })
+	check(str == "Power=Super;Cooldowns=None;Stamina=Endless;Jump=High;Blocks=Off" and again == str and e.spike == 1.5 and e.cooldown == 0 and e.noBlocks
+		and math.abs(super.meta.kmh / plain.meta.kmh - 1.5) < 0.03 and (r0.meta.drain or 0) > 0 and rEnd.meta.drain == nil and math.abs(rFrag.meta.drain / r0.meta.drain - 2) < 0.01
+		and not okB and why == "off" and math.abs(moonG - Config.Ball.Gravity * 0.45) < 1e-6 and HitLogic.ballGravity() == Config.Ball.Gravity
+		and stats.Jump == SP.Jump + 25 and Mutators.effects("") == nil and Mutators.clean(nil) == "" and #Mutators.describe(str) == 5,
+		"match modifiers: Super power x1.5, Endless stamina drains nothing (Fragile double), no blocks, Moon gravity, +25 Jump; unknown picks dropped",
+		string.format("%s; %.0f -> %.0f km/h; drain %.1f / none / %.1f", str, plain.meta.kmh, super.meta.kmh, r0.meta.drain or 0, rFrag.meta.drain or 0))
+end
+
 print("== luck tables ==")
 do
 	-- (the owner, 2026-10-21: "why do the lucky and basic odds say the same"): the usual weights at

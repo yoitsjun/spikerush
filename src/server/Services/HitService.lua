@@ -17,6 +17,7 @@ local Net = require(Shared.Net)
 local BallPhysics = require(Shared.BallPhysics)
 local HitLogic = require(Shared.HitLogic)
 local Breakthrough = require(Shared.Breakthrough)
+local Mutators = require(Shared.Mutators)
 local Cups = require(Shared.Cups)
 local Halloween = require(Shared.Halloween)
 
@@ -268,6 +269,7 @@ function HitService.process(entity, input, opts)
 		bloodlust = armed("Feral"), -- (Feral Leap's Bloodlust: the gauge may go past full)
 		static = TS.has(entity, "Thunder") and (entity.static or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
+		mut = Mutators.live(), -- a custom match's modifiers (Config.Mutators)
 		hex = Halloween.effects(entity.hex), -- the Halloween Match's cards that hit this character
 	}
 	local computed, result = HitLogic.compute(input, ctx)
@@ -602,7 +604,8 @@ local function startAbility(entity, name, def, now)
 	local TS = reg.TeamService
 	local lvl = name == entity.ability and entity.breakLevel or 0
 	entity.readyAt = entity.readyAt or {}
-	entity.readyAt[name] = now + Breakthrough.cooldown(name, lvl) -- (shorter with breakthroughs)
+	local mut = Mutators.live()
+	entity.readyAt[name] = now + Breakthrough.cooldown(name, lvl) * (mut and mut.cooldown or 1) -- (shorter with breakthroughs; a custom match's Cooldowns)
 	writeAbility(entity, "AbilityReadyAt_" .. name, entity.readyAt[name])
 	if TS.firstActive(entity) == name then
 		writeAbility(entity, "AbilityReadyAt", entity.readyAt[name])

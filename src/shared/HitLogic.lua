@@ -37,6 +37,7 @@ local HitLogic = {}
 
 local C, Z, H, ST = Config.Court, Config.Zones, Config.Hits, Config.Stamina
 local R, G = Config.Ball.Radius, Config.Ball.Gravity
+local G0 = G
 local SPM = Config.Scale.StudsPerMeter
 local AZURE = Config.Abilities.Azure
 local FERAL = Config.Abilities.Feral
@@ -143,6 +144,17 @@ function HitLogic.leapMul(abilities, coronaOn)
 end
 
 local has, levelOf = HitLogic.has, HitLogic.levelOf
+
+-- A custom match's Gravity modifier (Config.Mutators): the ball's gravity x mul for every arc this
+-- module solves. The server and every client set it from the Mutators attribute together, so
+-- prediction still matches; 1 is the usual game.
+function HitLogic.setGravity(mul)
+	G = G0 * (tonumber(mul) or 1)
+end
+
+function HitLogic.ballGravity()
+	return G
+end
 
 -- A setter's breakthroughs read on the spike off her set (meta.setBreak): they grow her own ability
 -- only (meta.setBreakFor), so a set ability from a card plays at +0.
@@ -399,6 +411,20 @@ function HitLogic.sunBox(iron, sunOn)
 			if out[k] == nil then
 				out[k] = v
 			end
+		end
+	end
+	return out
+end
+
+-- A custom match's Walls (Config.Mutators BlockUp): everyone's block reaches higher.
+function HitLogic.wallsBox(iron, mut)
+	if not mut or (mut.blockUp or 0) <= 0 or iron == true then
+		return iron
+	end
+	local out = { ReachUp = mut.blockUp }
+	if type(iron) == "table" then
+		for k, v in pairs(iron) do
+			out[k] = v + (k == "ReachUp" and mut.blockUp or 0)
 		end
 	end
 	return out
@@ -814,6 +840,13 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		local speed = math.floor(stats.Speed * SQUALL.SpeedBoost + 0.5)
 		add.Speed = (add.Speed or 0) + speed
 		add.Attack = (add.Attack or 0) + math.floor(SQUALL.AttackPerSpeed * (stats.Speed + speed) + 0.5)
+		any = true
+	end
+	if extra and extra.mut and next(extra.mut.add) then
+		-- a custom match's modifiers (Config.Mutators): stat points for everyone
+		for k, v in pairs(extra.mut.add) do
+			add[k] = (add[k] or 0) + v
+		end
 		any = true
 	end
 	if extra and extra.dictate then
@@ -1331,6 +1364,10 @@ local function attack(kind, input, ctx, rng, stats, scale)
 			meta.grade = "PERFECT"
 		end
 	end
+	-- a custom match's modifiers: spike power, jump-serve power
+	if ctx.mut then
+		kmh = kmh * (kind == "JumpServe" and ctx.mut.serve or ctx.mut.spike)
+	end
 	-- the Halloween Match's cards: spike and jump serve power, and the drain the attack costs
 	local hex = ctx.hex
 	if hex then
@@ -1621,12 +1658,16 @@ function HitLogic.compute(input, ctx)
 
 	-- Block -----------------------------------------------------------------------------------
 	if action == "Block" then
+		if ctx.mut and ctx.mut.noBlocks then
+			return false, "off" -- (a custom match without blocking)
+		end
 		local last = ctx.lastHit
 		-- Bulwark only in the air (the owner, 2026-10-21: "make taesan have to jump for his iron
 		-- wall"): standing, his shields don't block
 		local bulwark = ctx.ironclad == true and input.grounded ~= true
 		-- (Sunshine lit: a bigger box; the Tyrant's Iron Fortress against this team: a lower one)
 		local box = HitLogic.sunBox(Halloween.blockReach(HitLogic.wallReach(ctx.ironWall, bulwark, last and last.hitType), ctx.hex), has(ctx, "Sunshine") and ctx.sunOn)
+		box = HitLogic.wallsBox(box, ctx.mut) -- (a custom match's Walls: higher hands)
 		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, box, HitLogic.blockCut(ctx.dictated))
 		if not ok then
 			return false, "zone"
@@ -1906,6 +1947,9 @@ function HitLogic.compute(input, ctx)
 			else
 				meta.counterGain = COUNTER.LightGain
 			end
+		end
+		if ctx.mut then
+			drain = drain * ctx.mut.drain -- (a custom match's Stamina, feints and explosions too: 0 never breaks)
 		end
 		meta.drain = drain > 0 and drain or nil
 		meta.perfect = perfect or nil

@@ -31,6 +31,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Characters = require(Shared.Characters)
+local Mutators = require(Shared.Mutators)
 local Spins = require(Shared.Spins)
 local Roster = require(Shared.Roster)
 local Court = require(Shared.Court)
@@ -5569,7 +5570,7 @@ end
 
 local LC = Config.Lobby
 local MC = Config.Match.Custom
-local form = { mode = 3, privacy = "Public", password = "", fill = true, botTier = Config.Match.DefaultBotTier, court = Config.Courts.Rotate, points = Config.Match.PointsPerSet, winBy = Config.Match.WinBy, sets = 1, timeouts = Config.Timeout.PerSet }
+local form = { mode = 3, privacy = "Public", password = "", fill = true, botTier = Config.Match.DefaultBotTier, court = Config.Courts.Rotate, points = Config.Match.PointsPerSet, winBy = Config.Match.WinBy, sets = 1, timeouts = Config.Timeout.PerSet, mutators = {} }
 local matchTab = "Browse"
 local editing = false -- the host is changing their lobby's settings
 local lobbyPick = nil -- the bot spot the host is picking a character for: { side, spot }
@@ -5880,10 +5881,44 @@ local function buildMatch()
 		MenuController.refresh()
 	end)
 	Gui.label(create, { Text = "Per team, every set.", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(250, 20), Position = UDim2.fromOffset(RX + 150, 286) })
+	-- match modifiers (Config.Mutators), in a window of their own
+	formRow(create, 322, "Modifiers", RX)
+	local mutButton = hairButton(create, { Size = UDim2.fromOffset(200, 42), Position = UDim2.fromOffset(RX + 150, 322) }, "Change", 18)
+	local mutNote = Gui.label(create, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.fromOffset(250, 60), Position = UDim2.fromOffset(RX + 150, 368) })
+	local mutModal = modal("Mutators", "Match modifiers", 820, 660, true)
+	Gui.label(mutModal.panel, { Text = "Twist the match like Rocket League's mutators. Everyone in the match plays with them.", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, -52, 0, 22), Position = UDim2.fromOffset(26, 84) })
+	local mutValues = {}
+	for i, key in ipairs(Config.Mutators.Order) do
+		local def = Config.Mutators.List[key]
+		local y = 116 + (i - 1) * 56
+		Gui.label(mutModal.panel, { Text = def.Name, display = true, TextSize = 21, Size = UDim2.fromOffset(300, 44), Position = UDim2.fromOffset(30, y) })
+		mutValues[key] = stepper(mutModal.panel, { Size = UDim2.fromOffset(420, 42), Position = UDim2.fromOffset(360, y) }, function(d)
+			local opts = def.Options
+			local at = 1
+			for k, o in ipairs(opts) do
+				if o.Key == form.mutators[key] then
+					at = k
+				end
+			end
+			at = (at - 1 + d) % #opts + 1
+			form.mutators[key] = at > 1 and opts[at].Key or nil
+			MenuController.refresh()
+		end)
+		mutValues[key].TextSize = 22
+	end
+	local mutReset = hairButton(mutModal.panel, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 26, 1, -18), Size = UDim2.fromOffset(200, 44) }, "All normal", 17)
+	onClick(mutReset, function()
+		form.mutators = {}
+		MenuController.refresh()
+	end)
+	onClick(mutButton, function()
+		mutModal.root.Visible = true
+		MenuController.refresh()
+	end)
 	local submit, submitLabel = actionPlate(create, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(250, 58) }, "Create Lobby", 24)
 	local cancelEdit = hairButton(create, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -266, 1, 0), Size = UDim2.fromOffset(180, 58), Visible = false }, "Back to lobby")
 	onClick(submit, function()
-		local s = { mode = form.mode, privacy = form.privacy, password = form.password, fill = form.fill, botTier = form.botTier, court = form.court, points = form.points, winBy = form.winBy, sets = form.sets, timeouts = form.timeouts }
+		local s = { mode = form.mode, privacy = form.privacy, password = form.password, fill = form.fill, botTier = form.botTier, court = form.court, points = form.points, winBy = form.winBy, sets = form.sets, timeouts = form.timeouts, mutators = form.mutators }
 		if editing then
 			Net.get("Lobby"):FireServer("settings", s)
 			editing = false
@@ -5951,6 +5986,7 @@ local function buildMatch()
 			form.mode, form.privacy, form.fill, form.botTier, form.court = mine.mode, mine.privacy, mine.fill, mine.botTier, mine.court or Config.Courts.Rotate
 			form.points, form.winBy = mine.points or Config.Match.PointsPerSet, mine.winBy or Config.Match.WinBy
 			form.sets, form.timeouts = mine.sets or 1, mine.timeouts or Config.Timeout.PerSet
+			form.mutators = Mutators.parse(mine.mutators)
 			form.password = mine.password or ""
 			cpw.Text = form.password
 			editing = true
@@ -6032,6 +6068,8 @@ local function buildMatch()
 	end
 
 	ui.match = {
+		mutNote = mutNote,
+		mutValues = mutValues,
 		modal = m,
 		tabs = tabs,
 		setTab = setTab,
@@ -6193,6 +6231,22 @@ local function refreshMatch()
 	Mt.setSets(form.sets)
 	Mt.timeoutsValue.Text = tostring(form.timeouts)
 	Mt.setsNote.Text = form.sets > 1 and string.format("First to %d sets wins.", math.floor(form.sets / 2) + 1) or "Then a vote to keep playing."
+	for key, value in pairs(Mt.mutValues) do
+		local picked = form.mutators[key]
+		local name = "Normal"
+		for _, o in ipairs(Config.Mutators.List[key].Options) do
+			if o.Key == picked then
+				name = o.Name or o.Key
+			end
+		end
+		if not picked then
+			name = Config.Mutators.List[key].Options[1].Key
+		end
+		value.Text = name
+		value.TextColor3 = picked and Gui.SIGNAL or Gui.CHALK
+	end
+	local mutLines = Mutators.describe(Mutators.clean(form.mutators))
+	Mt.mutNote.Text = #mutLines > 0 and table.concat(mutLines, ", ") or "None: the usual game."
 	Mt.submitLabel.Text = editing and "Save settings" or "Create Lobby"
 	Mt.cancelEdit.Visible = editing
 
@@ -6206,6 +6260,10 @@ local function refreshMatch()
 		table.insert(parts, mine.quick and "court rotation" or courtName(mine.court))
 		if not mine.quick then
 			table.insert(parts, rulesLine(mine))
+			local mutLines = Mutators.describe(mine.mutators)
+			if #mutLines > 0 then
+				table.insert(parts, "<font color=\"#FFD34D\">" .. table.concat(mutLines, ", ") .. "</font>")
+			end
 		end
 		if mine.reserved then
 			table.insert(parts, "your own server")

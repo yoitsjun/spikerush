@@ -23,6 +23,7 @@ local Characters = require(script.Parent.Characters)
 local Cups = require(script.Parent.Cups)
 local Halloween = require(script.Parent.Halloween)
 local Roster = require(script.Parent.Roster)
+local Mutators = require(script.Parent.Mutators)
 
 local Lobbies = {}
 local L = Config.Lobby
@@ -85,6 +86,7 @@ function Lobbies.settings(raw)
 	}
 	local rules = Lobbies.rules(raw)
 	s.points, s.winBy, s.sets, s.timeouts = rules.points, rules.winBy, rules.sets, rules.timeouts
+	s.mutators = Mutators.clean(raw.mutators) -- (match modifiers: "" for the usual game)
 	if s.privacy == "Private" then
 		local pw = Lobbies.cleanPassword(raw.password)
 		if #pw < L.PasswordMin then
@@ -319,6 +321,7 @@ end
 function Lobbies.configure(l, s)
 	l.mode, l.privacy, l.password, l.fill, l.botTier, l.court = s.mode, s.privacy, s.password, s.fill, s.botTier, s.court
 	l.points, l.winBy, l.sets, l.timeouts = s.points, s.winBy, s.sets, s.timeouts
+	l.mutators = s.mutators or ""
 	local out = {}
 	for _, side in ipairs(SIDES) do
 		local i = #l[side]
@@ -430,6 +433,7 @@ function Lobbies.summary(l, viewerId)
 		winBy = l.winBy,
 		sets = l.sets,
 		timeouts = l.timeouts,
+		mutators = l.mutators,
 		count = Lobbies.count(l),
 		capacity = Lobbies.capacity(l),
 		picks = Lobbies.canPick(l) and l.picks or nil,
@@ -472,7 +476,7 @@ end
 
 -- The lobby as plain data for a teleport to its own server.
 function Lobbies.export(l)
-	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, host = l.host, hostName = l.hostName, quick = l.quick == true, ranked = l.ranked == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, event = Lobbies.exportEvent(l.event), picks = l.picks, Home = {}, Away = {} }
+	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, mutators = l.mutators, host = l.host, hostName = l.hostName, quick = l.quick == true, ranked = l.ranked == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, event = Lobbies.exportEvent(l.event), picks = l.picks, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(out[side], u)
@@ -487,7 +491,7 @@ function Lobbies.import(data, id)
 	if type(data) ~= "table" then
 		return nil
 	end
-	local raw = { mode = data.mode, privacy = data.privacy, fill = data.fill, botTier = data.botTier, court = data.court, password = data.password, points = data.points, winBy = data.winBy, sets = data.sets, timeouts = data.timeouts }
+	local raw = { mode = data.mode, privacy = data.privacy, fill = data.fill, botTier = data.botTier, court = data.court, password = data.password, points = data.points, winBy = data.winBy, sets = data.sets, timeouts = data.timeouts, mutators = data.mutators }
 	local s = Lobbies.settings(raw)
 	if not s then
 		raw.privacy = "Public"
@@ -539,7 +543,7 @@ end
 -- settings, state, countdown and members with their names (nameOf(userId)). Never the password.
 -- The server adds `v`, its version (it counts up with every change).
 function Lobbies.view(l, nameOf)
-	local v = { mode = l.mode, privacy = l.privacy, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, quick = l.quick == true, ranked = l.ranked == true, state = l.state, host = l.host, hostName = l.hostName, startsAt = l.startsAt, Home = {}, Away = {} }
+	local v = { mode = l.mode, privacy = l.privacy, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, mutators = l.mutators, quick = l.quick == true, ranked = l.ranked == true, state = l.state, host = l.host, hostName = l.hostName, startsAt = l.startsAt, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(v[side], { id = u, name = nameOf(u) })
@@ -557,7 +561,7 @@ end
 -- isn't promised), so a server knows when it changed.
 function Lobbies.viewKey(view)
 	local parts = {}
-	for _, k in ipairs({ "mode", "privacy", "fill", "botTier", "court", "points", "winBy", "sets", "timeouts", "quick", "ranked", "state", "host", "hostName", "startsAt" }) do
+	for _, k in ipairs({ "mode", "privacy", "fill", "botTier", "court", "points", "winBy", "sets", "timeouts", "mutators", "quick", "ranked", "state", "host", "hostName", "startsAt" }) do
 		table.insert(parts, tostring(view[k]))
 	end
 	for _, side in ipairs(SIDES) do
@@ -603,6 +607,7 @@ function Lobbies.remoteSummary(view, gid, viewerId)
 		winBy = view.winBy,
 		sets = view.sets,
 		timeouts = view.timeouts,
+		mutators = type(view.mutators) == "string" and Mutators.clean(view.mutators) or "",
 		count = Lobbies.viewCount(view),
 		capacity = mode * 2,
 		state = view.state,

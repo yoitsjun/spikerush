@@ -42,6 +42,7 @@ local HitLogic = require(Shared.HitLogic)
 local Breakthrough = require(Shared.Breakthrough)
 local Characters = require(Shared.Characters)
 local Cups = require(Shared.Cups)
+local Mutators = require(Shared.Mutators)
 local Halloween = require(Shared.Halloween)
 local Lobbies = require(Shared.Lobbies)
 local State = require(script.Parent.State)
@@ -175,6 +176,7 @@ local function buildCtx(info, action, t)
 		bloodlust = has.Feral and AC.abilityActive("Feral") or nil, -- (Bloodlust: the gauge may go past full)
 		static = has.Thunder and (player:GetAttribute("Static") or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
+		mut = Mutators.live(), -- a custom match's modifiers
 		hex = Halloween.effects(player:GetAttribute("Hex")), -- the Halloween Match's cards that hit me
 	}, ok, why
 end
@@ -1465,7 +1467,7 @@ local function tossGuide(info)
 				local k = math.clamp((held - P.ServeTapTime) / H.TossChargeTime, 0, 1)
 				local height = H.TossHighMin + (H.TossHighMax - H.TossHighMin) * k
 				local p, v = HitLogic.tossLaunch(info.root, State.mySide, height, tossForward(), HitLogic.tossReach(State.abilitySet()))
-				path = BallPhysics.buildPath(BallPhysics.newLaunch(p, v, Vector3.new(0, -Config.Ball.Gravity, 0), 0))
+				path = BallPhysics.buildPath(BallPhysics.newLaunch(p, v, Vector3.new(0, -HitLogic.ballGravity(), 0), 0))
 			end
 		elseif myToss() then
 			path, from = BR.getPath(), Util.now()
@@ -1967,6 +1969,13 @@ local function evaluate(info, now)
 end
 
 function ActionController.init(m)
+	-- a custom match's Gravity modifier: the ball's arcs here follow it, as on the server
+	local function syncGravity()
+		local e = Mutators.live()
+		HitLogic.setGravity(e and e.gravity or 1)
+	end
+	syncGravity()
+	ReplicatedStorage:GetAttributeChangedSignal("Mutators"):Connect(syncGravity)
 	mods = m
 	State.signals.Ball:Connect(function(snap)
 		if snap and snap.retime then

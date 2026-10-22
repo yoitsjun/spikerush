@@ -1895,6 +1895,66 @@ Config.Lobby = {
 	},
 }
 
+-- Match modifiers for custom lobbies (the owner, 2026-10-21: "add custom match modifiers, like more
+-- power, low gravity, no ability cd like rocket league. add more than just what i added"): the host
+-- picks one option of each (the first is the usual game); src/shared/Mutators.lua reads them.
+-- Option fields: Spike / Serve (attack and jump-serve speed x), Gravity (ball and players x),
+-- Cooldown (abilities' cooldowns x, 0 none), Drain (guard drain x, 0 never breaks), Add (stat
+-- points for everyone), NoAbilities, NoBlocks, BlockUp (block reach higher, studs).
+Config.Mutators = {
+	Order = { "Power", "Gravity", "Cooldowns", "Abilities", "Stamina", "Jump", "Speed", "Blocks", "Serves" },
+	List = {
+		Power = { Name = "Spike power", Options = {
+			{ Key = "Normal" },
+			{ Key = "Strong", Name = "Strong (x1.25)", Spike = 1.25 },
+			{ Key = "Super", Name = "Super (x1.5)", Spike = 1.5 },
+			{ Key = "Weak", Name = "Weak (x0.8)", Spike = 0.8 },
+		} },
+		Gravity = { Name = "Gravity", Options = {
+			{ Key = "Normal" },
+			{ Key = "Low", Name = "Low", Gravity = 0.65 },
+			{ Key = "Moon", Name = "Moon", Gravity = 0.45 },
+			{ Key = "Heavy", Name = "Heavy", Gravity = 1.35 },
+		} },
+		Cooldowns = { Name = "Ability cooldowns", Options = {
+			{ Key = "Normal" },
+			{ Key = "Half", Name = "Half", Cooldown = 0.5 },
+			{ Key = "None", Name = "None", Cooldown = 0 },
+		} },
+		Abilities = { Name = "Abilities", Options = {
+			{ Key = "On" },
+			{ Key = "Off", Name = "Off (stats only)", NoAbilities = true },
+		} },
+		Stamina = { Name = "Stamina", Options = {
+			{ Key = "Normal" },
+			{ Key = "Endless", Name = "Endless (never breaks)", Drain = 0 },
+			{ Key = "Fragile", Name = "Fragile (x2 drain)", Drain = 2 },
+		} },
+		Jump = { Name = "Jump", Options = {
+			{ Key = "Normal" },
+			{ Key = "High", Name = "High (+25)", Add = { Jump = 25 } },
+			{ Key = "Super", Name = "Super (+50)", Add = { Jump = 50 } },
+			{ Key = "Low", Name = "Low (-25)", Add = { Jump = -25 } },
+		} },
+		Speed = { Name = "Run speed", Options = {
+			{ Key = "Normal" },
+			{ Key = "Fast", Name = "Fast (+30)", Add = { Speed = 30 } },
+			{ Key = "Turbo", Name = "Turbo (+60)", Add = { Speed = 60 } },
+			{ Key = "Slow", Name = "Slow (-30)", Add = { Speed = -30 } },
+		} },
+		Blocks = { Name = "Blocking", Options = {
+			{ Key = "Normal" },
+			{ Key = "Walls", Name = "Walls (higher hands)", BlockUp = 1.5 },
+			{ Key = "Off", Name = "Off", NoBlocks = true },
+		} },
+		Serves = { Name = "Jump serves", Options = {
+			{ Key = "Normal" },
+			{ Key = "Strong", Name = "Strong (x1.3)", Serve = 1.3 },
+			{ Key = "Soft", Name = "Soft (x0.75)", Serve = 0.75 },
+		} },
+	},
+}
+
 -- Tournaments (the owner, after Bloons TD 6's: "3 rounds with bot fill... you pay to enter"; a
 -- fixed prize, never a pot of other players' entries, so no wagering): four cups at a time, one
 -- per tier, each with its mode and modifiers, picked anew every Rotate seconds (the shared
