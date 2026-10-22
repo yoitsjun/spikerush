@@ -3274,9 +3274,10 @@ do
 	local Economy = require("Economy")
 	local secs, gold = Economy.boostPrice(3, "Gold")
 	local _, vp = Economy.boostPrice(1, "VP")
-	check(Economy.exchangeCost(100) == 5000 and Economy.exchangeCost(2500) == 125000 and Economy.exchangeCost(7) == nil and Economy.exchangeCost("x") == nil
-		and secs == 3600 and gold == 20000 and vp == 80 and Economy.boostPrice(1, "Robux") == nil and Economy.boostPrice(9, "Gold") == nil,
-		"V Points for Gold at 50 each, in the Shop's amounts only; 2x VP for Gold or VP at its listed price",
+	local per, cp = Config.Exchange.GoldPerVP, Config.Boosts.CurrencyPacks
+	check(Economy.exchangeCost(100) == 100 * per and Economy.exchangeCost(2500) == 2500 * per and Economy.exchangeCost(7) == nil and Economy.exchangeCost("x") == nil
+		and secs == cp[3].BoostVP and gold == cp[3].Gold and vp == cp[1].VP and Economy.boostPrice(1, "Robux") == nil and Economy.boostPrice(9, "Gold") == nil,
+		"V Points for Gold at Exchange.GoldPerVP each, in the Shop's amounts only; 2x VP for Gold or VP at its listed price",
 		string.format("100 VP = %d Gold; 1 hr of 2x VP = %d Gold", Economy.exchangeCost(100), gold))
 end
 

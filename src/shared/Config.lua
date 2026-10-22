@@ -950,7 +950,7 @@ Config.Lucky = {
 -- Gold for V Points (the owner, 2026-10-21: "50 gold for 1 vp"), in the Shop's Trade tab: these
 -- amounts of VP, GoldPerVP Gold each
 Config.Exchange = {
-	GoldPerVP = 50,
+	GoldPerVP = 150, -- (was 50; the owner, 2026-10-22: "buff all the conversion rates its all just too cheap")
 	Amounts = { 100, 500, 1000, 2500 },
 }
 
@@ -964,11 +964,13 @@ Config.Boosts = {
 	MaxHold = 24 * 3600, -- the most time a boost can hold (seconds)
 	-- 2x VP for Gold or V Points (the owner, 2026-10-21: "make x2 vp purchasable with coins or vp so
 	-- coins have a use for late game"), in the Shop's Trade tab: each length its price in each
+	-- (2026-10-22, the owner: "buff all the conversion rates its all just too cheap": about three times
+	-- what they were, the VP near the Robux packs' worth, the Gold at Config.Exchange's rate)
 	CurrencyPacks = {
-		{ BoostVP = 15 * 60, Gold = 6000, VP = 80 },
-		{ BoostVP = 30 * 60, Gold = 11000, VP = 150 },
-		{ BoostVP = 60 * 60, Gold = 20000, VP = 275 },
-		{ BoostVP = 3 * 3600, Gold = 55000, VP = 750 },
+		{ BoostVP = 15 * 60, Gold = 36000, VP = 240 },
+		{ BoostVP = 30 * 60, Gold = 66000, VP = 440 },
+		{ BoostVP = 60 * 60, Gold = 120000, VP = 800 },
+		{ BoostVP = 3 * 3600, Gold = 330000, VP = 2200 },
 	},
 	Packs = {
 		{ Id = 3715530751, BoostVP = 15 * 60, Name = "2x VP, 15 minutes" }, -- 49 Robux
