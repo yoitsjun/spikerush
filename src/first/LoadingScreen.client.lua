@@ -554,7 +554,12 @@ beam.BackgroundTransparency = 0
 promptOut:Cancel()
 prompt.Text = (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) and "Tap to continue" or "Click to continue"
 local catcher = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 25 }, gui)
+-- (back from the AFK Lounge's refresh, a teleport: straight in, nobody's there to click)
 local go = false
+pcall(function()
+	local data = game:GetService("TeleportService"):GetLocalPlayerTeleportData()
+	go = type(data) == "table" and data.lounge == true
+end)
 catcher.MouseButton1Click:Connect(function()
 	go = true
 end)

@@ -56,7 +56,7 @@ for _, name in ipairs(Config.AbilityOrder) do
 end
 
 local function newRecord()
-	return { kills = 0, aces = 0, blocks = 0, digs = 0, assists = 0, errors = 0, topKmh = 0 }
+	return { kills = 0, aces = 0, blocks = 0, digs = 0, assists = 0, errors = 0, topKmh = 0, blockTouches = 0 }
 end
 
 -- Stacked abilities (the owner, 2026-10-15: the Halloween Match's ability cards "stack" with the
@@ -1018,6 +1018,22 @@ function TeamService.resetPositions(servingTeam)
 	end
 end
 
+-- A player's live stats for this match, short keys to keep the broadcast small: spikes (kills),
+-- aces, blocks, digs, assists (s), errors and top spike speed (t). The Tab scoreboard reads them.
+function TeamService.matchStats(e)
+	local s = e.stats or {}
+	return {
+		k = s.kills or 0,
+		a = s.aces or 0,
+		b = s.blocks or 0, -- blocks that won the point
+		bt = s.blockTouches or 0, -- every touch a block got on the ball (the scoreboard's BLOCKS)
+		d = s.digs or 0,
+		s = s.assists or 0,
+		e = s.errors or 0,
+		t = math.floor((s.topKmh or 0) * 10 + 0.5) / 10,
+	}
+end
+
 function TeamService.roster()
 	local out = { Home = {}, Away = {} }
 	for _, team in ipairs(Config.TeamOrder) do
@@ -1032,8 +1048,10 @@ function TeamService.roster()
 					ability = e.ability, -- its own
 					abilities = e.abilities, -- every one it plays, its own first (the cards' after)
 					char = e.charName,
+					charId = e.charId, -- (the ranked pick shows who each teammate plays)
 					role = e.role,
 					height = e.build.Height,
+					st = TeamService.matchStats(e),
 					rot = i,
 					standInFor = e.standInFor,
 					pose = TeamService.poseOf(e),

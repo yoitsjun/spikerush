@@ -1791,7 +1791,7 @@ local function onRequest(plr, op, a, b)
 		return
 	end
 	-- a player in the match can't wander into other lobbies
-	if op ~= "rejoin" and op ~= "list" and op ~= "ban" and reg.TeamService.entityForPlayer(plr) and reg.TeamService.inMatch then
+	if op ~= "rejoin" and op ~= "list" and op ~= "ban" and op ~= "pickReady" and reg.TeamService.entityForPlayer(plr) and reg.TeamService.inMatch then
 		return
 	end
 	local remote = net.remoteOf[plr.UserId]
@@ -1858,6 +1858,9 @@ local function onRequest(plr, op, a, b)
 	elseif op == "ban" then
 		-- a ranked match's ban (MatchService)
 		reg.MatchService.ban(plr, a)
+	elseif op == "pickReady" then
+		-- ready in a ranked match's pick, after the bans (MatchService)
+		reg.MatchService.pickReady(plr)
 	elseif op == "join" then
 		local job, gid = parseGid(a)
 		if job == net.job and gid then

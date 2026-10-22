@@ -606,13 +606,18 @@ local function navBar(p, active, lit)
 			end
 		end)
 	end
-	-- (Party here at the top right: the right edge's column ran into the Match plate)
-	local side = make("Frame", { Name = "Side", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 18), Size = UDim2.fromOffset(3 * 96 + 12, 74), BackgroundTransparency = 1 }, p)
+	-- (Party here at the top right: the right edge's column ran into the Match plate; AFK, the AFK
+	-- Lounge, too: LoungeMenu)
+	local side = make("Frame", { Name = "Side", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 18), Size = UDim2.fromOffset(4 * 96 + 18, 74), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Right, SortOrder = Enum.SortOrder.LayoutOrder }, side)
-	for i, e in ipairs({ { "IconPlayers", "Party", "party" }, { "IconHelp", "Help", "help" }, { "IconSettings", "Settings", "settings" } }) do
+	for i, e in ipairs({ { Extra.iconKey("IconAfk", Extra.iconKey("IconPlaytime", "IconSpeed")), "AFK", "afk" }, { "IconPlayers", "Party", "party" }, { "IconHelp", "Help", "help" }, { "IconSettings", "Settings", "settings" } }) do
 		local b = navItem(side, e[1], e[2], { LayoutOrder = i })
 		onClick(b, function()
-			if e[3] == "party" then
+			if e[3] == "afk" then
+				if mods.LoungeMenu then
+					mods.LoungeMenu.open()
+				end
+			elseif e[3] == "party" then
 				if mods.PartyMenu then
 					mods.PartyMenu.open()
 				end

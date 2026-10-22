@@ -23,7 +23,8 @@ local C = Config.Clans
 local player = Players.LocalPlayer
 local mods, kit
 local ui = {}
-local data = { mine = false, top = {}, colors = {}, color = "White" } -- the last payload
+local data = { mine = false, top = {}, topWeek = {}, colors = {}, color = "White" } -- the last payload
+local topView = "All" -- the board shown: "All" (all time) or "Week" (this week's points)
 local tab = "Find"
 local BLUE = Color3.fromRGB(80, 170, 255)
 
@@ -177,9 +178,15 @@ end
 
 local function buildTop(body)
 	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 21 }, body)
-	label(f, { Text = "Points from every member's wins, spike kills, aces, blocks and MVPs since they joined. The top 3 clans' members get the Top 3 Clan card, the top clan's Top Clan.", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, 0, 0, 40) })
-	local list = scroller(f, { Position = UDim2.fromOffset(0, 46), Size = UDim2.new(1, 0, 1, -46) })
-	return { frame = f, list = list }
+	-- all time or this week (the owner: "a weekly point counter for clans")
+	local _, setView = kit.segmented(f, { { key = "All", text = "All time" }, { key = "Week", text = "This week" } }, { Size = UDim2.fromOffset(320, 40), ZIndex = 22 }, function(key)
+		topView = key
+		ClanMenu.refresh()
+	end)
+	setView(topView)
+	local note = label(f, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(336, 0), Size = UDim2.new(1, -336, 0, 40) })
+	local list = scroller(f, { Position = UDim2.fromOffset(0, 50), Size = UDim2.new(1, 0, 1, -50) })
+	return { frame = f, list = list, note = note }
 end
 
 local RANK_COL = { Color3.fromRGB(255, 200, 40), Color3.fromRGB(205, 214, 228), Color3.fromRGB(215, 140, 70) }
@@ -187,11 +194,19 @@ local RANK_COL = { Color3.fromRGB(255, 200, 40), Color3.fromRGB(205, 214, 228), 
 local function fillTop()
 	local list = ui.top.list
 	clearList(list) -- (its UIListLayout stays)
-	if #data.top == 0 then
-		label(list, { Text = "No clans yet: make the first one.", TextSize = 18, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 0 })
+	local week = topView == "Week"
+	local rows = week and (data.topWeek or {}) or data.top
+	if week then
+		local left = math.max(0, (data.weekEnds or 0) - os.time())
+		ui.top.note.Text = string.format("Points every clan's members earned since Monday. Starts over in %dd %dh.", math.floor(left / 86400), math.floor(left % 86400 / 3600))
+	else
+		ui.top.note.Text = "Points from every member's wins, spike kills, aces, blocks and MVPs since they joined. The top 3 get the Top 3 Clan card."
+	end
+	if #rows == 0 then
+		label(list, { Text = week and "No clan has earned points this week yet." or "No clans yet: make the first one.", TextSize = 18, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 0 })
 		return
 	end
-	for i, e in ipairs(data.top) do
+	for i, e in ipairs(rows) do
 		local r = row(list, i, 48)
 		label(r, { Text = "#" .. e.rank, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, TextColor3 = RANK_COL[e.rank] or Gui.CHALK, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(60, 48) })
 		label(r, { Text = string.format("%s %s", Clans.tagText(e.tag, "White"), e.name or ""), RichText = true, display = true, TextSize = 21, Position = UDim2.fromOffset(80, 0), Size = UDim2.fromOffset(520, 48) })
@@ -542,7 +557,7 @@ function ClanMenu.refresh()
 	local H = ui.head
 	H.emblem.Image = (mine.emblem and mine.emblem ~= "") and ("rbxthumb://type=Asset&id=" .. mine.emblem .. "&w=150&h=150") or ""
 	H.title.Text = string.format("%s %s", Clans.tagText(mine.tag, data.color), mine.name or "")
-	H.sub.Text = string.format("%s points  ·  %s to spend  ·  %d / %d members  ·  %s  ·  you're %s", Gui.num(mine.points or 0), Gui.num(mine.left or 0), mine.count or 0, mine.cap or C.BaseCap, mine.public and "Public" or "Private", string.lower(role or "a member"))
+	H.sub.Text = string.format("%s points (%s this week)  ·  %s to spend  ·  %d / %d members  ·  %s  ·  you're %s", Gui.num(mine.points or 0), Gui.num(mine.week or 0), Gui.num(mine.left or 0), mine.count or 0, mine.cap or C.BaseCap, mine.public and "Public" or "Private", string.lower(role or "a member"))
 	if tab == "Members" then
 		fillMembers()
 	elseif tab == "Upgrades" then
@@ -580,6 +595,12 @@ function ClanMenu.init(m)
 		end
 		if p.top then
 			data.top = p.top
+		end
+		if p.topWeek then
+			data.topWeek = p.topWeek
+		end
+		if p.weekEnds then
+			data.weekEnds = p.weekEnds
 		end
 		if p.colors then
 			data.colors = p.colors

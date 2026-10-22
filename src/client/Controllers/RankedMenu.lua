@@ -121,7 +121,7 @@ local function buildWindow()
 	-- the queues (right)
 	local q = Gui.card(m.panel, { Position = UDim2.fromOffset(468, 86), Size = UDim2.new(1, -496, 0, 360), ZIndex = 22 })
 	label(q, { Text = "Play ranked", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Position = UDim2.fromOffset(22, 14), Size = UDim2.new(1, -44, 0, 36) })
-	label(q, { Text = "Real players only: it waits until both teams are full. Win to climb, lose and you drop. Before the match each team bans two characters. Your party queues with you, on your side.", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(22, 54), Size = UDim2.new(1, -44, 0, 64) })
+	label(q, { Text = "Real players only: it waits until both teams are full. Win to climb, lose and you drop. Before the match each team bans one character, then everyone picks who they play. Your party queues with you, on your side.", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(22, 54), Size = UDim2.new(1, -44, 0, 64) })
 	ui.queues = {}
 	for i, mode in ipairs(RC.Modes) do
 		local b, l = kit.actionPlate(q, { Position = UDim2.fromOffset(22 + (i - 1) * 200, 132), Size = UDim2.fromOffset(186, 80) }, string.format("%dv%d", mode, mode), 30)
@@ -155,6 +155,12 @@ local function buildWindow()
 		end
 	end)
 	ui.partyLine = label(q, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(22, 314), Size = UDim2.new(1, -44, 0, 20) })
+	-- who you'll queue as (the pick, before you queue)
+	local pick, pickL = kit.hairButton(q, { Position = UDim2.fromOffset(450, 262), Size = UDim2.fromOffset(212, 44) }, "", 17)
+	kit.onClick(pick, function()
+		RankedMenu.openPick()
+	end)
+	ui.pickL = pickL
 	-- the seasons (bottom)
 	label(m.panel, { Text = "Seasons", display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Position = UDim2.fromOffset(28, 456), Size = UDim2.fromOffset(300, 28) })
 	local row = make("ScrollingFrame", { Position = UDim2.fromOffset(28, 488), Size = UDim2.new(1, -56, 0, 108), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollingDirection = Enum.ScrollingDirection.X, ScrollBarThickness = 5, AutomaticCanvasSize = Enum.AutomaticSize.X, CanvasSize = UDim2.new(), ZIndex = 22 }, m.panel)
@@ -231,6 +237,8 @@ function RankedMenu.refresh()
 	if lock > 0 and not inRanked then
 		ui.queueLine.Text = "Locked: you left a ranked match early."
 	end
+	local me = Roster.get(kit.profile().char or "")
+	ui.pickL.Text = "Character: " .. (me and me.Name or "?")
 	local party = mods.PartyMenu and mods.PartyMenu.current()
 	ui.partyLine.Text = party and string.format("Party of %d%s", #party.members, party.leader == Players.LocalPlayer.UserId and " (you lead)" or ": your leader queues") or "Solo. Make a party to queue with friends."
 	-- the season cards: this one first, then the past ones
@@ -258,6 +266,164 @@ function RankedMenu.open()
 end
 
 ------------------------------------------------------------------------------------------
+-- the pick (the owner, 2026-10-22: "allow a character picker before you queue ranked match", "after
+-- bans"): your characters in a grid, who you play edged in gold, the banned ones struck off, each
+-- teammate's pick named on its card. In a match (MatchService's "Pick", after the bans) a timer and
+-- Ready; from the Ranked window, before you queue, Done. A pick is the usual "select".
+------------------------------------------------------------------------------------------
+
+-- The two steps before a ranked match, top left on both screens (the owner: "make character
+-- picking obviously after bans"): 1 BAN, then 2 PICK, the one on now lit.
+local function stepBar(root, step)
+	local ban = step == 1 and '<font color="#FF4646">1  BAN</font>' or '<font color="#7A8099">1  BAN \u{2713}</font>'
+	local pick = step == 2 and '<font color="#FFD21F">2  PICK</font>' or '<font color="#7A8099">2  PICK</font>'
+	return label(root, { Text = ban .. '<font color="#7A8099">   \u{203A}   </font>' .. pick, RichText = true, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Position = UDim2.fromOffset(40, 36), Size = UDim2.fromOffset(380, 44), ZIndex = 61 })
+end
+
+local function bestFirst(list)
+	table.sort(list, function(a, b)
+		local ra, rb = Characters.tierIndex(a.Tier) or 0, Characters.tierIndex(b.Tier) or 0
+		if ra ~= rb then
+			return ra > rb
+		end
+		return a.Name < b.Name
+	end)
+	return list
+end
+
+local function buildPick()
+	local gui = make("ScreenGui", { Name = "SpikeRushPick", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 41, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, Players.LocalPlayer:WaitForChild("PlayerGui"))
+	local shade = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(6, 6, 14), BackgroundTransparency = 0.12, BorderSizePixel = 0, Visible = false, ZIndex = 59 }, gui)
+	local root = make("Frame", { Name = "RankedPick", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(1600, 900), BackgroundTransparency = 1, ZIndex = 60 }, shade)
+	local scale = make("UIScale", { Scale = 1 }, root)
+	local function fit()
+		local cam = workspace.CurrentCamera
+		local v = cam and cam.ViewportSize or Vector2.new(1600, 900)
+		scale.Scale = math.min(v.X / 1600, v.Y / 900)
+	end
+	fit()
+	if workspace.CurrentCamera then
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+	end
+	label(root, { Text = "PICK YOUR CHARACTER", display = true, weight = Enum.FontWeight.Heavy, TextSize = 52, TextColor3 = Gui.SIGNAL, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 30), Size = UDim2.fromOffset(900, 60), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 61 })
+	local sub = label(root, { Text = "", TextSize = 19, TextColor3 = Gui.DIM, RichText = true, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 92), Size = UDim2.fromOffset(1200, 24), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 61 })
+	local timer = label(root, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, TextColor3 = Gui.SIGNAL, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -40, 0, 34), Size = UDim2.fromOffset(160, 50), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 61 })
+	local steps = stepBar(root, 2)
+	-- what the bans took, in red over the grid
+	local strip = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 124), Size = UDim2.fromOffset(1240, 40), BackgroundColor3 = Color3.fromRGB(70, 10, 18), BackgroundTransparency = 0.15, BorderSizePixel = 0, ZIndex = 61 }, root)
+	Gui.corner(strip, 8)
+	make("UIStroke", { Color = Color3.fromRGB(255, 60, 60), Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, strip)
+	local stripL = label(strip, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, TextColor3 = Color3.fromRGB(255, 120, 120), Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 62 })
+	local grid = make("ScrollingFrame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 176), Size = UDim2.fromOffset(1240, 560), BackgroundColor3 = Color3.fromRGB(10, 12, 26), BackgroundTransparency = 0.2, BorderSizePixel = 0, ScrollBarThickness = 6, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 61 }, root)
+	Gui.corner(grid, 12)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingTop = UDim.new(0, 14), PaddingRight = UDim.new(0, 14), PaddingBottom = UDim.new(0, 14) }, grid)
+	make("UIGridLayout", { CellSize = UDim2.fromOffset(226, 110), CellPadding = UDim2.fromOffset(12, 12), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	local cells = {}
+	local order = {}
+	for _, c in ipairs(Roster) do
+		table.insert(order, c)
+	end
+	for i, c in ipairs(bestFirst(order)) do
+		local color = Characters.color(c.Tier)
+		local b = make("TextButton", { Name = c.Id, BackgroundColor3 = Color3.fromRGB(24, 28, 56), AutoButtonColor = false, Text = "", LayoutOrder = i, Visible = false, ZIndex = 62 }, grid)
+		Gui.corner(b, 10)
+		make("UIGradient", { Rotation = 90, Color = ColorSequence.new(color:Lerp(Color3.fromRGB(24, 28, 56), 0.6), Color3.fromRGB(14, 16, 36)) }, b)
+		local stroke = make("UIStroke", { Color = color, Thickness = 2, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+		label(b, { Text = c.Tier, display = true, weight = Enum.FontWeight.Heavy, TextSize = 18, TextColor3 = color, Position = UDim2.fromOffset(10, 6), Size = UDim2.fromOffset(60, 20), ZIndex = 63 })
+		label(b, { Text = Config.Roles[c.Role] and Config.Roles[c.Role].Name or c.Role, TextSize = 14, TextColor3 = Gui.DIM, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(140, 18), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 63 })
+		local name = label(b, { Text = c.Name, display = true, weight = Enum.FontWeight.Heavy, TextScaled = true, Position = UDim2.fromOffset(8, 30), Size = UDim2.new(1, -16, 0, 44), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 63 })
+		make("UITextSizeConstraint", { MaxTextSize = 34 }, name)
+		make("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 2 }, name)
+		local tag = label(b, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 18, Position = UDim2.fromOffset(0, 80), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 63 })
+		kit.onClick(b, function()
+			if ui.pickBanned and ui.pickBanned[c.Id] then
+				kit.toast(c.Name .. " is banned this match.")
+				return
+			end
+			Net.get("Profile"):FireServer("select", c.Id)
+		end)
+		cells[c.Id] = { button = b, stroke = stroke, tag = tag, color = color }
+	end
+	local go, goL = kit.actionPlate(root, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 760), Size = UDim2.fromOffset(300, 72), ZIndex = 61 }, "Ready", 28)
+	goL.ZIndex = 64 -- (over the plate drawn at the button's own ZIndex)
+	kit.onClick(go, function()
+		if ui.pickMode == "match" then
+			if not ui.pickReady then
+				ui.pickReady = true
+				Net.get("Lobby"):FireServer("pickReady")
+				RankedMenu.refreshPick()
+			end
+		else
+			shade.Visible = false
+		end
+	end)
+	ui.pick = { root = shade, sub = sub, timer = timer, cells = cells, goL = goL, steps = steps, strip = strip, stripL = stripL }
+end
+
+-- Who each teammate plays (character id -> their name), from the match's roster.
+local function teammatePicks()
+	local out = {}
+	if ui.pickMode ~= "match" or not State.myTeam then
+		return out
+	end
+	for _, e in ipairs(State.roster(State.myTeam)) do
+		if e.id ~= State.myId and e.charId then
+			out[e.charId] = e.name or "A teammate"
+		end
+	end
+	return out
+end
+
+function RankedMenu.refreshPick()
+	local P = ui.pick
+	if not P or not P.root.Visible then
+		return
+	end
+	local prof = kit.profile()
+	local owned = (prof.owned and prof.owned.Char) or {}
+	local mine = prof.char
+	local mates = teammatePicks()
+	local banned = ui.pickBanned or {}
+	for id, cell in pairs(P.cells) do
+		cell.button.Visible = owned[id] == true
+		local isBanned, isMine, mate = banned[id] == true, id == mine, mates[id]
+		cell.tag.Text = isBanned and "BANNED" or (isMine and "PLAYING" or (mate and string.upper(mate) or ""))
+		cell.tag.TextColor3 = isBanned and Color3.fromRGB(255, 80, 80) or (isMine and Gui.SIGNAL or Gui.DIM)
+		cell.stroke.Color = isBanned and Color3.fromRGB(255, 60, 60) or (isMine and Gui.SIGNAL or cell.color)
+		cell.stroke.Transparency = (isBanned or isMine) and 0 or 0.5
+		cell.stroke.Thickness = isMine and 4 or 2
+		cell.button.BackgroundTransparency = isBanned and 0.6 or 0
+	end
+	local c = mine and Roster.get(mine)
+	local inMatch = ui.pickMode == "match"
+	P.steps.Visible = inMatch
+	P.strip.Visible = inMatch
+	if inMatch then
+		local names = {}
+		for id in pairs(banned) do
+			local b = Roster.get(id)
+			table.insert(names, string.upper(b and b.Name or id))
+		end
+		P.stripL.Text = "BANNED THIS MATCH:   " .. (#names > 0 and table.concat(names, "   \u{00B7}   ") or "NOBODY")
+		P.sub.Text = string.format("The bans are in. Playing <b>%s</b>: keep them, or pick another before the timer runs out.", c and c.Name or "?")
+		P.goL.Text = ui.pickReady and "Ready \u{2713}" or "Ready"
+	else
+		P.sub.Text = string.format("Playing <b>%s</b>. Pick who you'll queue with (a ban can still move you off them).", c and c.Name or "?")
+		P.goL.Text = "Done"
+		P.timer.Text = ""
+	end
+end
+
+-- From the Ranked window, before you queue.
+function RankedMenu.openPick()
+	ui.pickMode = "queue"
+	ui.pickBanned = nil
+	ui.pickEnds = nil
+	ui.pick.root.Visible = true
+	RankedMenu.refreshPick()
+end
+
+------------------------------------------------------------------------------------------
 -- the bans
 ------------------------------------------------------------------------------------------
 
@@ -279,6 +445,8 @@ local function buildBans()
 	local title = label(root, { Text = "BAN A CHARACTER", display = true, weight = Enum.FontWeight.Heavy, TextSize = 52, TextColor3 = Color3.fromRGB(255, 70, 70), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 30), Size = UDim2.fromOffset(900, 60), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 61 })
 	local sub = label(root, { Text = "", TextSize = 19, TextColor3 = Gui.DIM, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 92), Size = UDim2.fromOffset(1100, 24), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 61 })
 	local timer = label(root, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, TextColor3 = Gui.SIGNAL, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -40, 0, 34), Size = UDim2.fromOffset(160, 50), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 61 })
+	stepBar(root, 1)
+	label(root, { Text = "Next: everyone picks who they play", TextSize = 18, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(42, 80), Size = UDim2.fromOffset(380, 22), ZIndex = 61 })
 	local grid = make("ScrollingFrame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 130), Size = UDim2.fromOffset(1240, 560), BackgroundColor3 = Color3.fromRGB(20, 8, 12), BackgroundTransparency = 0.2, BorderSizePixel = 0, ScrollBarThickness = 6, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 61 }, root)
 	Gui.corner(grid, 12)
 	make("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingTop = UDim.new(0, 14), PaddingRight = UDim.new(0, 14), PaddingBottom = UDim.new(0, 14) }, grid)
@@ -354,7 +522,22 @@ local function onAnnounce(a)
 			local c = a.id and Roster.get(a.id)
 			kit.toast(string.format("The other team banned %s.", c and c.Name or "someone"))
 		end
-	elseif a.kind == "BansDone" or a.kind == "MatchStart" or a.kind == "MatchAbort" then
+	elseif a.kind == "Pick" then
+		ui.pickMode = "match"
+		ui.pickReady = false
+		ui.pickEnds = a.endsAt
+		ui.pickBanned = {}
+		for _, id in ipairs(a.banned or {}) do
+			ui.pickBanned[id] = true
+		end
+		ui.pick.root.Visible = State.isPlaying == true
+		RankedMenu.refreshPick()
+	elseif a.kind == "PickDone" or ((a.kind == "MatchStart" or a.kind == "MatchAbort") and ui.pickMode == "match") then
+		ui.pick.root.Visible = false
+		ui.pickEnds = nil
+		ui.pickBanned = nil
+	end
+	if a.kind == "BansDone" or a.kind == "MatchStart" or a.kind == "MatchAbort" then
 		ui.bans.root.Visible = false
 		ui.banEnds = nil
 		if a.kind == "BansDone" and a.bans then
@@ -377,10 +560,15 @@ function RankedMenu.init(m)
 	kit = mods.MenuController.kit()
 	buildWindow()
 	buildBans()
+	buildPick()
 	buildRejoin()
 	State.signals.Announce:Connect(onAnnounce)
 	State.signals.Profile:Connect(function()
 		RankedMenu.refresh()
+		RankedMenu.refreshPick()
+	end)
+	State.signals.Match:Connect(function()
+		RankedMenu.refreshPick() -- (a teammate's pick)
 	end)
 	Net.get("Lobbies").OnClientEvent:Connect(function()
 		task.defer(RankedMenu.refresh)
@@ -390,6 +578,9 @@ function RankedMenu.init(m)
 	game:GetService("RunService").Heartbeat:Connect(function()
 		if ui.banEnds and ui.bans.root.Visible then
 			ui.bans.timer.Text = string.format("%d s", math.max(0, math.ceil(ui.banEnds - Util.now())))
+		end
+		if ui.pickEnds and ui.pick.root.Visible then
+			ui.pick.timer.Text = string.format("%d s", math.max(0, math.ceil(ui.pickEnds - Util.now())))
 		end
 		-- (the queue lock and the rejoin offer count down)
 		if os.clock() >= nextTick then

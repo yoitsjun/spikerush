@@ -1121,6 +1121,11 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if absolute then
 		qContact, qHeight = 1, 1
 	end -- (how near the top it really was: Skyward climbs off this, not a dive's floor)
+	-- Sovereign Strike: while his Emperor's Dictate is on, the Tyrant's own attacks are met at full power
+	local decree = (kind == "Spike" or kind == "JumpServe") and has(ctx, "Tyrant") and ctx.tyrantOn and true or false
+	if decree then
+		qContact, qHeight = 1, 1
+	end
 	-- Sundive (Corona): the further he dropped onto it (input.sundive, studs), the harder (the AI
 	-- gets a share without diving); a dive meets the ball under the top of his jump, which doesn't
 	-- cost him
@@ -1376,6 +1381,13 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		if absolute then
 			meta.grade = "PERFECT"
 		end
+	end
+	-- Sovereign Strike: SelfMul faster, with Armor Break
+	if decree then
+		kmh = kmh * TYRANT.SelfMul
+		meta.decree = true
+		meta.armorBreak = true
+		meta.grade = "PERFECT"
 	end
 	-- a custom match's modifiers: spike power, jump-serve power
 	if ctx.mut then

@@ -1602,13 +1602,17 @@ Config.Abilities = {
 		Role = "SE",
 		Active = true, -- Emperor's Dictate (Q)
 		ActiveName = "Emperor's Dictate",
-		Blurb = "Press Q for Emperor's Dictate: for 8 s you steal 15% of their Attack, Jump and Speed for your team, your sets are met at full power, and their blocks reach half as high. Your sets fly fast (spikes off them 1.3x, no block stuffs them); your jump serve dips hard and wrecks their pass.",
+		Blurb = "Press Q for Emperor's Dictate: for 8 s you steal 15% of their Attack, Jump and Speed for your team, your sets are met at full power, your own attacks hit at full power and 1.15x, and their blocks reach half as high. Your sets fly fast (spikes off them 1.3x, no block stuffs them); your jump serve dips hard and wrecks their pass.",
 		Color = Color3.fromRGB(255, 196, 60),
 		Duration = 8,
-		Cooldown = 32,
+		Cooldown = 24, -- (was 32; the owner, 2026-10-22: "he's not doing enough to earn that s+ title")
 		Steal = 0.15, -- the other team's Attack, Jump and Speed x (1 - this)
 		TeamAdd = { Attack = 12, Jump = 10, Speed = 10 }, -- his whole team's, stolen
 		BlockCut = 0.5, -- their block's reach over the tape x this
+		-- Sovereign Strike (2026-10-22, so the Tyrant shows it in his own hands): while Emperor's
+		-- Dictate is on, his own spikes and jump serves are met at full power, SelfMul faster, with
+		-- Armor Break
+		SelfMul = 1.15,
 		-- Sovereign's Guard
 		GuardKmh = 180,
 		GroundedCut = 0.1, -- the grounded hitter's Jump and Attack x (1 - this), one attack
@@ -1628,6 +1632,7 @@ Config.Abilities = {
 		SetMul = 1.3, -- the spike off it
 		Passives = {
 			{ Name = "Emperor's Dictate", Blurb = "Press Q: for 8 s their Attack, Jump and Speed drop 15% and your team gets +12 Attack, +10 Jump and +10 Speed. Spikes off your sets hit at full power, and their blocks reach half as high." },
+			{ Name = "Sovereign Strike", Blurb = "While Emperor's Dictate is on, your own spikes and jump serves hit at full power, 1.15x as fast, and no ordinary block stuffs them." },
 			{ Name = "Sovereign's Guard", Blurb = "Spike faster than 180 km/h at your team and you're Grounded: 10% less Jump and Attack on your next attack." },
 			{ Name = "Crown Jump Serve", Blurb = "Your jump serve curls down steeply, costs the receiver double stamina, and leaves them a low, wild set." },
 			{ Name = "Tyrant's Set", Blurb = "Your sets fly fast, the usual arc in less time. The spike off one goes 1.3x as fast with Armor Break: an ordinary block can't stuff it." },
@@ -2315,6 +2320,10 @@ Config.Courts = {
 -- written from each player's career counters; a server-only board when those can't be reached.
 Config.Leaderboards = {
 	Boards = {
+		-- the owner, 2026-10-22: "make a rank elo leaderboard": this season's rank points (Config.Ranked),
+		-- shown with the rank; Seasonal: a store of its own each season (the RP start over), Live: RP
+		-- go down too, so a player's fresh value replaces the stored one
+		{ Key = "ranked", Name = "Ranked", Unit = "RP", Ranked = true, Seasonal = true, Live = true, Empty = "Nobody has played ranked this season yet." },
 		{ Key = "wins", Name = "Wins", Unit = "wins" },
 		{ Key = "bestStreak", Name = "Best win streak", Unit = "in a row" },
 		{ Key = "kills", Name = "Spike kills", Unit = "kills" },
@@ -2359,7 +2368,7 @@ Config.Party = {
 -- Season 1 runs to the end of November 2026, then one a month; a new season keeps ResetFrac of your
 -- RP and records the last one (its card on the Career panel). Before every ranked match each team
 -- bans BansPerTeam characters (BanTime seconds; the owner: "implement rank bans. one for each team",
--- then "allow 2 bans per side"): nobody plays them that match.
+-- then "allow 2 bans per side", then back to one): nobody plays them that match.
 Config.Ranked = {
 	Ranks = {
 		{ Key = "Bronze", Name = "Bronze", Divisions = 3, Color = Color3.fromRGB(205, 120, 70) },
@@ -2406,8 +2415,11 @@ Config.Ranked = {
 	ResetFrac = 0.5,
 	Season1Ends = { 2026, 12 }, -- (year, month): Season 1 ends as that month begins
 	DayOffset = -5 * 3600, -- Chicago, near enough (like the Halloween days)
-	BanTime = 25, -- (20 with one ban a team)
-	BansPerTeam = 2, -- (the owner, 2026-10-21: "allow 2 bans per side in ranked"; was 1)
+	BanTime = 20, -- (25 with two bans a team)
+	-- then each player picks who they play (the owner, 2026-10-22: "allow a character picker before
+	-- you queue ranked match", "after bans"): PickTime seconds, over sooner once every player is ready
+	PickTime = 20,
+	BansPerTeam = 1, -- (the owner, 2026-10-22: "change the bans per rank team to 1"; was 2 from 2026-10-21)
 	Modes = { 1, 2, 3 },
 	HistoryMax = 24, -- past seasons kept on a profile
 }
@@ -2424,6 +2436,11 @@ Config.Ranked = {
 Config.Clans = {
 	Store = "SpikeRushClans", -- tag (upper case) -> the clan
 	BoardStore = "SpikeRushClanPoints", -- OrderedDataStore: tag -> points
+	-- this week's points (the owner, 2026-10-22: "add a weekly point counter for clans too so i can
+	-- determine who the highest one is"): an OrderedDataStore a week (WeekStore .. "_" .. week),
+	-- tag -> the points its members earned since Monday (WeekOffset: Chicago, like the ranked days)
+	WeekStore = "SpikeRushClanWeek",
+	WeekOffset = -5 * 3600,
 	Topic = "SpikeRushClans", -- MessagingService: a clan changed (its tag), every server re-reads it
 	CostVP = 1000,
 	PassId = 2044226785, -- the Clan Founder game pass (made through Open Cloud, 249 Robux): founds a clan without VP
@@ -2474,6 +2491,26 @@ Config.PlayRewards = {
 		{ Key = "m30", Name = "30 minutes", Minutes = 30, Grant = { VP = 200, Gold = 5000, Lucky = 3 } },
 		{ Key = "h1", Name = "1 hour", Minutes = 60, Grant = { VP = 400, Gold = 10000, Lucky = 5 } },
 	},
+}
+
+-- The AFK Lounge (the owner, 2026-10-22: "add an afk chamber", after another game's AFK Lounge):
+-- from Home's AFK button, a screen of its own where Gold keeps coming while you rest. Every
+-- Interval spent inside pays BaseGold, times VipMult with the VIP pass and PremiumMult with Roblox
+-- Premium; up to DailyPayouts a day (the day turns with Config.PlayRewards'); each payout has
+-- GemChance of GemVP V Points as well. Time towards the next payout is kept on the profile, so
+-- leaving and coming back carries on. Roblox drops a player after 20 minutes without input: past
+-- RefreshAfter idle seconds inside, the server moves them to a fresh server of this place (a
+-- teleport), where the lounge opens again and the loading screen skips its click.
+Config.Lounge = {
+	Interval = 600,
+	BaseGold = 300,
+	VipMult = 2,
+	PremiumMult = 1.5,
+	DailyPayouts = 24, -- (four hours of it a day)
+	GemChance = 0.01,
+	GemVP = 100,
+	RefreshAfter = 17 * 60,
+	SyncEvery = 20, -- seconds between the server's countdown corrections to the screen
 }
 
 -- The tutorial (the Tutorial module has the steps): a 1v1 against a weak bot; finishing every

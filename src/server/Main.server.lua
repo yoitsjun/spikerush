@@ -28,6 +28,7 @@ local order = {
 	"LobbyService",
 	"MatchService",
 	"PracticeService",
+	"LoungeService",
 	"QuickChatService",
 }
 

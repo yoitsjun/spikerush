@@ -2350,7 +2350,7 @@ print("== leaderboards ==")
 do
 	local Leaderboards = require("Leaderboards")
 	local v = Leaderboards.valuesOf({ bestStreak = 4, record = { wins = 12, kills = 140, aces = 9, blocks = -3 }, spent = { robux = 897, gifts = 399 } })
-	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and v.robux == 897 and v.gifts == 399 and #Leaderboards.Boards == 9 and v.winRate == 0 and v.playTime == 0,
+	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and v.robux == 897 and v.gifts == 399 and #Leaderboards.Boards == 10 and v.winRate == 0 and v.playTime == 0,
 		"nine boards: wins, best win streak, spike kills, aces and blocks from the career counters, Robux spent and gifted, the W/L ratio (none before 20 matches) and playtime")
 	-- the W/L ratio board: one number that sorts by the share won, then the wins, and keeps both
 	local wr = Leaderboards.valuesOf({ record = { wins = 120, matches = 194 } }).winRate
@@ -3176,6 +3176,19 @@ do
 	-- minimum of wins to join, members' stats counted from when they join into points the owner
 	-- spends on upgrades (VP, Gold, luck, member cap...), tag colours bought with your own share
 	local Clans = require("Clans")
+	do
+		-- this week's points: Monday to Monday, only what members earned since the last count
+		local mon = Clans.weekEnds(Clans.week(os.time())) -- (a Monday's start)
+		local wk = Clans.week(mon)
+		local clan = { members = { ["7"] = { r = "Member", b = { wins = 0 }, s = { wins = 2 } } } }
+		Clans.updateMember(clan, 7, { wins = 5, matches = 0 }, mon + 3600)
+		local first = Clans.weekPoints(clan, mon + 3600)
+		Clans.updateMember(clan, 7, { wins = 5, matches = 0 }, mon + 7200)
+		local again = Clans.weekPoints(clan, mon + 7200)
+		local nextWeek = Clans.weekPoints(clan, mon + 7 * 86400 + 60)
+		check(wk == Clans.week(mon - 1) + 1 and Clans.week(mon + 6 * 86400) == wk and first == 3 * Config.Clans.Points.wins and again == first and nextWeek == 0,
+			"clans: this week's points count only new points, and start over on Monday", string.format("%d this week", first))
+	end
 	local CC = Config.Clans
 	local t1, w1 = Clans.cleanTag(" ab1 ")
 	local t2 = Clans.cleanTag("A")
@@ -4261,6 +4274,16 @@ do
 	check(absolute.meta.absolute and absolute.meta.kmh > sloppy.meta.kmh * 1.25 and math.abs(absolute.meta.kmh - base.meta.kmh * TY.SetMul) / (base.meta.kmh * TY.SetMul) < 0.08,
 		"Absolute Toss: a mistimed spike off his set during Emperor's Dictate hits at full power",
 		string.format("mistimed %.1f km/h, with Absolute Toss %.1f (a clean one %.1f)", sloppy.meta.kmh, absolute.meta.kmh, boosted.meta.kmh))
+	-- Sovereign Strike: his own attack during the Dictate, at full power, SelfMul faster, Armor Break
+	local dr = apexRoot(dohwan, 3.5 * K)
+	local dlow = dr - vec(0, 2.6, 0)
+	local _, dClean = spike(dr, ballAt(dr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = dohwan, ability = "Tyrant", lastHit = pset })
+	local _, dSloppy = spike(dlow, ballAt(dlow, 1.6, 1.1), { stats = dohwan, ability = "Tyrant", lastHit = pset })
+	local _, dDecree = spike(dlow, ballAt(dlow, 1.6, 1.1), { stats = dohwan, ability = "Tyrant", lastHit = pset, tyrantOn = true })
+	check(dDecree.meta.decree and dDecree.meta.armorBreak and not dSloppy.meta.decree and dDecree.meta.kmh > dSloppy.meta.kmh * 1.25
+		and math.abs(dDecree.meta.kmh - dClean.meta.kmh * TY.SelfMul) / (dClean.meta.kmh * TY.SelfMul) < 0.08,
+		"Sovereign Strike: his own mistimed spike during Emperor's Dictate hits at full power, 1.15x, with Armor Break",
+		string.format("mistimed %.1f km/h, in the Dictate %.1f (a clean one %.1f)", dSloppy.meta.kmh, dDecree.meta.kmh, dClean.meta.kmh))
 	-- Armor Break: an ordinary block never stuffs it (Iron Wall still does)
 	local broot = vec(0, GROUND + Characters.jumpHeight(SP, GROUND) * 0.8, side * 1.2)
 	local top = broot.Y + Z.BlockReachUp + Config.Ball.Radius
@@ -4337,7 +4360,7 @@ do
 	end
 	check(spreadC > spreadP * 1.4 and lower, "the set off a Crown-wrecked pass comes down lower and strays further",
 		string.format("average miss %.1f vs %.1f studs", spreadC / 30, spreadP / 30))
-	check(require("Bios").dohwan ~= nil and Roster.get("dohwan").Tier == "S+" and Roster.get("dohwan").Role == "SE" and TY.Cooldown == 32 and TY.Duration == 8, "Dohwan: S+ setter, Emperor's Dictate 8 s on a 32 s cooldown")
+	check(require("Bios").dohwan ~= nil and Roster.get("dohwan").Tier == "S+" and Roster.get("dohwan").Role == "SE" and TY.Cooldown == 24 and TY.Duration == 8, "Dohwan: S+ setter, Emperor's Dictate 8 s on a 24 s cooldown")
 end
 
 print("== Sunshine (Haesol) ==")
@@ -4412,6 +4435,43 @@ do
 		"Vert Spikes: her steepest spikes (close to the net) slip under the block; Iron Wall still stops them",
 		string.format("%d of %d spikes from 0.5 to 4.5 m off the net go under", unders, total))
 	check(require("Bios").haesol ~= nil and Roster.get("haesol").Tier == "S" and Roster.get("haesol").Role == "MB" and SU.PerfectStance[2] > H.PerfectStanceMax, "Haesol: S middle blocker")
+end
+
+print("== ranked leaderboard ==")
+do
+	local Leaderboards = require("Leaderboards")
+	local Ranked = require("Ranked")
+	local now = os.time()
+	local season = Ranked.season(now)
+	local cur = Leaderboards.valuesOf({ ranked = { season = season, rp = 1234 } }).ranked
+	local old = Leaderboards.valuesOf({ ranked = { season = season - 1, rp = 1900 } }).ranked
+	local board = Leaderboards.board("ranked")
+	check(cur == 1234 and old == 0 and Leaderboards.format("ranked", 1234) == Ranked.name(1234) .. "  1,234 RP" and board.Live and Leaderboards.storeName(board, now) == Config.Leaderboards.StorePrefix .. "ranked_s" .. season and Leaderboards.storeName(Leaderboards.board("wins"), now) == Config.Leaderboards.StorePrefix .. "wins",
+		"the ranked board ranks this season's RP (an old season's counts as nothing), shows the rank, and keeps a store per season", Leaderboards.format("ranked", 1234))
+end
+
+print("== AFK Lounge ==")
+do
+	local Lounge = require("Lounge")
+	local LC = Config.Lounge
+	local never = function() return 1 end
+	local always = function() return 0 end
+	check(Lounge.rate(false, false) == LC.BaseGold and Lounge.rate(true, true) == math.floor(LC.BaseGold * LC.VipMult * LC.PremiumMult + 0.5), "lounge: VIP and Premium multiply the base payout")
+	local rec = Lounge.clean(nil, 100)
+	local g1, v1, n1 = Lounge.advance(rec, LC.Interval - 1, 300, never)
+	local g2, _, n2 = Lounge.advance(rec, 1, 300, never)
+	check(g1 == 0 and n1 == 0 and v1 == 0 and g2 == 300 and n2 == 1 and rec.carry == 0 and rec.payouts == 1, "lounge: one payout per full interval inside")
+	local g3, v3, n3 = Lounge.advance(rec, LC.Interval * 2.5, 300, always)
+	check(g3 == 600 and v3 == 2 * LC.GemVP and n3 == 2 and rec.gold == 900 and math.abs(rec.carry - LC.Interval * 0.5) < 1e-6, "lounge: a long step pays each interval it covers and keeps the remainder; the gem roll can add V Points")
+	local kept = Lounge.clean({ day = 100, payouts = 3, gold = 900, carry = 250 }, 100)
+	local turned = Lounge.clean({ day = 99, payouts = LC.DailyPayouts, gold = 7200, carry = 250 }, 100)
+	check(kept.payouts == 3 and kept.gold == 900 and kept.carry == 250 and turned.payouts == 0 and turned.gold == 0 and turned.carry == 250, "lounge: the time towards the next payout carries over; a new day starts the payouts again")
+	local full = Lounge.clean({ day = 100, payouts = LC.DailyPayouts - 1, carry = 0 }, 100)
+	local gF, _, nF = Lounge.advance(full, LC.Interval * 5, 300, never)
+	local gAfter = Lounge.advance(full, LC.Interval * 5, 300, never)
+	check(nF == 1 and gF == 300 and gAfter == 0 and full.carry == 0 and Lounge.nextIn(full) == nil, "lounge: nothing past the daily cap")
+	local bad = Lounge.clean({ day = 100, payouts = -5, carry = 1e9 }, 100)
+	check(bad.payouts == 0 and bad.carry == LC.Interval - 1, "lounge: a bad stored record is clamped")
 end
 
 print("== determinism ==")

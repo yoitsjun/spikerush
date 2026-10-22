@@ -14,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Leaderboards = require(Shared.Leaderboards)
 local Util = require(Shared.Util)
+local Ranked = require(Shared.Ranked)
 local Net = require(Shared.Net)
 
 local LeaderboardService = {}
@@ -30,10 +31,12 @@ local lastRead = -math.huge
 local reading = false
 local lastRequest = {}
 
+local storeSeason = nil -- the ranked season the seasonal boards' stores were opened for
 local function openStores()
+	storeSeason = Ranked.season(os.time())
 	for _, b in ipairs(LB.Boards) do
 		local ok, store = pcall(function()
-			return DataStoreService:GetOrderedDataStore(LB.StorePrefix .. b.Key)
+			return DataStoreService:GetOrderedDataStore(Leaderboards.storeName(b, os.time()))
 		end)
 		stores[b.Key] = ok and store or nil
 	end
@@ -141,6 +144,9 @@ local function read()
 	end
 	reading = true
 	lastRead = Util.now()
+	if storeSeason ~= Ranked.season(os.time()) then
+		openStores() -- (a new ranked season: its board starts empty)
+	end
 	local anyOk = false
 	local ids = {}
 	for _, b in ipairs(LB.Boards) do

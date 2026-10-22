@@ -31,6 +31,7 @@ Net.Names = {
 	"QuickChat", -- client -> server: (kind, number); server -> everyone: (userId, kind, number)
 	"Clan", -- clans (ClanService): client -> server ops; server -> client the clan payload
 	"Party", -- parties (PartyService): client -> server ops; server -> client your party and invites
+	"Lounge", -- the AFK Lounge (LoungeService): client -> server enter/leave/get; server -> client its state
 }
 
 local cache = {}

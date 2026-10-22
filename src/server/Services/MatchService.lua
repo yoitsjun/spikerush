@@ -299,6 +299,12 @@ function MatchService.onHit(entity, meta, previous)
 		return
 	end
 	table.insert(MatchService.rallyHits, { id = entity.id, team = entity.team, hitType = meta.hitType })
+	-- every touch a block gets on the ball counts on the Tab scoreboard (stats.blockTouches); only the
+	-- ones that win the point are credited to stats.blocks (awardPoint), which feeds the record and rewards
+	if meta.hitType == "Block" then
+		entity.stats.blockTouches = (entity.stats.blockTouches or 0) + 1
+		task.defer(MatchService.broadcast) -- so the board shows it now, not at the next point
+	end
 	-- a dig: the first touch that keeps an opponent attack alive
 	if previous and previous.team ~= entity.team and ATTACKS[previous.hitType or ""] then
 		if (meta.hitType == "Bump" or meta.hitType == "Set" or meta.hitType == "Free") and not meta.fail and (meta.quality or 0) >= 0.35 then
@@ -831,6 +837,8 @@ end
 ------------------------------------------------------------------------------------------
 
 MatchService.bans = nil -- { Home = { character ids }, Away = { ... } } while a ranked match bans
+MatchService.matchBans = {} -- character id -> true: banned for the rest of this ranked match
+MatchService.picked = nil -- player -> true: ready in the pick after the bans (nil outside it)
 MatchService.rankedDone = {}
 local banSwapped = {} -- players moved off a banned character, put back after the match
 
@@ -870,6 +878,58 @@ function MatchService.runBans()
 	end
 	MatchService.announce({ kind = "BansDone", bans = MatchService.bans })
 	MatchService.bans = nil
+	MatchService.matchBans = banned
+	MatchService.runPick(banned)
+end
+
+-- After the bans, every player picks who they play (any character of theirs that isn't banned:
+-- ProfileService's "select" in this phase): PickTime seconds, or until every player on court is ready.
+function MatchService.runPick(banned)
+	local TS = reg.TeamService
+	local list = {}
+	for id in pairs(banned or {}) do
+		table.insert(list, id)
+	end
+	MatchService.picked = {}
+	MatchService.setPhase("Pick", Config.Ranked.PickTime)
+	MatchService.announce({ kind = "Pick", endsAt = MatchService.phaseEnd, banned = list })
+	while Util.now() < MatchService.phaseEnd and not halted() do
+		local waiting = false
+		for _, e in pairs(TS.entities) do
+			if e.player and e.player.Parent and not MatchService.picked[e.player] then
+				waiting = true
+			end
+		end
+		if not waiting then
+			break
+		end
+		task.wait(0.1)
+	end
+	MatchService.picked = nil
+	MatchService.announce({ kind = "PickDone" })
+end
+
+-- A player's "ready" in the pick (LobbyService's "pickReady" op).
+function MatchService.pickReady(plr)
+	if MatchService.picked and MatchService.phase == "Pick" and reg.TeamService.entityForPlayer(plr) then
+		MatchService.picked[plr] = true
+		MatchService.announce({ kind = "PickReady", id = reg.TeamService.entityForPlayer(plr).id })
+	end
+end
+
+-- Whether a character is banned in the ranked match on now.
+function MatchService.isBanned(charId)
+	return MatchService.matchBans[charId] == true
+end
+
+-- A player moved off a banned character picks another of their own (the pick, a timeout): the
+-- stand-in goes, so their pick (profile.char) is who they play. It never took before: the
+-- stand-in stayed on top of every switch until the match ended.
+function MatchService.releaseBanSwap(plr)
+	if banSwapped[plr] then
+		banSwapped[plr] = nil
+		reg.ProfileService.setPracticeAs(plr, nil)
+	end
 end
 
 -- A player's ban (LobbyService's "ban" op).
@@ -939,6 +999,7 @@ end
 function MatchService.intermission()
 	local TS, BS = reg.TeamService, reg.BallService
 	unswap() -- (a banned character's stand-in goes back)
+	MatchService.matchBans = {}
 	TS.endMatch()
 	TS.event = nil
 	BS.hide()

@@ -25,12 +25,21 @@ PatchNotes.List = {
 				Items = {
 					{ Icon = "RankAlmighty", Text = "<b>Ranked</b> is here (Match screen): 1v1, 2v2 and 3v3 against real players only. Climb from <b>Bronze I</b> to <b>Diamond III</b>, then <b>Mighty</b> and <b>Almighty</b>. Every division has its own badge." },
 					{ Text = "Beat a stronger team and you gain more; lose to a weaker one and you drop more. The higher you climb, the less a win pays and the more a loss costs." },
-					{ Text = "Before every ranked match each team <b>bans two</b> characters." },
+					{ Text = "Before every ranked match each team <b>bans one</b> character." },
 					{ Text = "Seasons are monthly; <b>Season 1</b> ends December 1. A new season keeps half your RP." },
 					{ Icon = "RankGold3", Text = "<b>Ranked score effects</b>: Gold Crest, Platinum Spires, Diamond Storm, Mighty Wings and Almighty Ascension. Each is yours while you hold its rank; drop below it and it's gone." },
+					{ Icon = "RankAlmighty", Text = "<b>Almighty Ascension</b>: a giant gold statue of you in your intro pose rises out of the court, and a beam of light comes down on you from the heavens." },
+					{ Text = "The <b>Ranked leaderboard</b> (Ranks): this season's top players by rank points. It starts fresh every season." },
 					{ Text = "The <b>Ranked card</b>: your season, your wins and losses, and your rank's badge, in your rank's colours. It changes as you climb." },
 					{ Text = "Leaving a ranked match early costs extra RP and locks the ranked queue for a while. Rejoin the match while it's still on and you get it all back." },
 					{ Text = "Everyone who had the Almighty card now has <b>True Almighty</b>. The Almighty card comes from reaching Almighty." },
+				},
+			},
+			{
+				Heading = "AFK Lounge",
+				Items = {
+					{ Text = "<b>AFK</b> (top right): rest in the lounge and earn <b>300 Gold every 10 minutes</b>, x2 with VIP and x1.5 with Roblox Premium, up to 4 hours a day. Every payout has a 1% chance of +100 V Points." },
+					{ Text = "Stay as long as you want: the lounge refreshes your connection before Roblox's 20 minute AFK kick, and your timer carries on." },
 				},
 			},
 			{
@@ -45,7 +54,7 @@ PatchNotes.List = {
 			{
 				Heading = "New players",
 				Items = {
-					{ Icon = "AbilityTyrant", Text = "<b>Dohwan, The Tyrant</b> (S+ setter). <b>Emperor's Dictate</b> (Q): for 8 seconds he steals 15% of the other team's Attack, Jump and Speed for his own, every set of his hits at full power, and their blocks reach half as high. His sets are fast, and the spike off one is 1.3x faster and can't be stuffed. His jump serve dips hard and wrecks the pass." },
+					{ Icon = "AbilityTyrant", Text = "<b>Dohwan, The Tyrant</b> (S+ setter). <b>Emperor's Dictate</b> (Q): for 8 seconds he steals 15% of the other team's Attack, Jump and Speed for his own, every set of his and his own attacks hit at full power, and their blocks reach half as high. His sets are fast, and the spike off one is 1.3x faster and can't be stuffed. His jump serve dips hard and wrecks the pass." },
 					{ Icon = "AbilityTyrant", Text = "Spike past 180 km/h at Dohwan's team and you're <b>Grounded</b>: less Jump and Attack on your next attack." },
 					{ Icon = "AbilitySunshine", Text = "<b>Haesol, Sunshine</b> (S middle blocker). A far wider perfect-dig window; a perfect dig lights her up for 10 seconds with +10 to every stat. Her digs reach further, and her <b>Vert Spikes</b> cross the net and drive almost straight down, the steepest slipping under the block." },
 				},
@@ -63,6 +72,7 @@ PatchNotes.List = {
 				Items = {
 					{ Text = "The <b>Trade</b> tab: turn Gold into V Points, and buy 2x V Points with Gold or VP." },
 					{ Text = "Every game pass can be <b>gifted</b>: press Gift on its card." },
+					{ Text = "The <b>Locker</b> sorts every tab into Normal, Ranked and Event sections." },
 				},
 			},
 			{

@@ -79,6 +79,7 @@ local Cards = require(Shared.Cards)
 local Leaderboards = require(Shared.Leaderboards)
 local Halloween = require(Shared.Halloween)
 local Rooms = require(Shared.Rooms)
+local Lounge = require(Shared.Lounge)
 local Net = require(Shared.Net)
 
 local ProfileService = {}
@@ -208,7 +209,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {}, clanColors = {}, clanColor = "White", ranked = Ranked.clean(nil, Ranked.season(os.time())), almightyMoved = true }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {}, clanColors = {}, clanColor = "White", ranked = Ranked.clean(nil, Ranked.season(os.time())), almightyMoved = true, lounge = Lounge.clean(nil, Lounge.day(os.time())) }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -466,6 +467,8 @@ local function sanitizeProfile(data)
 	end
 	-- ranked: this season's record and the past ones (Ranked.clean rolls an old season over)
 	out.ranked = Ranked.clean(data.ranked, Ranked.season(os.time()))
+	-- the AFK Lounge: today's payouts and the time towards the next (Lounge.clean)
+	out.lounge = Lounge.clean(data.lounge, Lounge.day(os.time()))
 	-- the leaderboard place over your head in the matchup intro: a board, or your best (nil)
 	if type(data.equip) == "table" and Leaderboards.isBoard(data.equip.Entrance) then
 		out.equip.Entrance = data.equip.Entrance
@@ -655,6 +658,7 @@ local function save(plr, force)
 		skins = profile.skins,
 		rooms = profile.rooms,
 		grave = profile.grave,
+		lounge = profile.lounge,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -1120,6 +1124,10 @@ function ProfileService.snapshot(plr)
 		passes = passesOf(plr, profile), -- the game passes they own (Config.Passes)
 		bundles = table.clone(profile.bundles), -- the once-only bundles they bought
 		grave = profile.grave, -- the Rest in Peace gravestone (Config.Grave)
+		lounge = profile.lounge and Lounge.clean(profile.lounge, Lounge.day(os.time())) or nil, -- the AFK Lounge today (LoungeService)
+		-- this season's ranked record (the Ranked window, the Ranks screen; it was never sent, so every
+		-- client showed Bronze I at 0 RP)
+		ranked = Ranked.clean(profile.ranked, Ranked.season(os.time())),
 		group = groupId(),
 		member = groupMember[plr], -- nil until it's known
 		daily = (function()
@@ -1331,6 +1339,32 @@ function ProfileService.rankedRp(plr)
 end
 
 -- A change made to a profile from outside (ClanService's tag colours): saved and sent.
+-- The AFK Lounge's record (LoungeService), rolled over to today; changed in place, so call
+-- markDirty after. Nil while the profile loads.
+function ProfileService.lounge(plr)
+	local profile = profiles[plr]
+	if not profile then
+		return nil
+	end
+	local today = Lounge.day(os.time())
+	if type(profile.lounge) ~= "table" or profile.lounge.day ~= today then
+		profile.lounge = Lounge.clean(profile.lounge, today)
+	end
+	return profile.lounge
+end
+
+function ProfileService.markDirty(plr)
+	if profiles[plr] then
+		dirty[plr] = true
+	end
+end
+
+-- Whether a player has a pass (Config.Passes: bought, gifted, or a developer).
+function ProfileService.hasPass(plr, key)
+	local profile = profiles[plr]
+	return profile ~= nil and passesOf(plr, profile)[key] == true
+end
+
 function ProfileService.touch(plr, notice)
 	if profiles[plr] then
 		dirty[plr] = true
@@ -2708,9 +2742,17 @@ local function onRequest(plr, kind, a, b, c)
 			return
 		end
 		local playing = inMatch(plr)
-		if playing and reg.MatchService.phase ~= "Timeout" then
+		local phase = reg.MatchService.phase
+		if playing and phase ~= "Timeout" and phase ~= "Pick" then
 			push(plr, "You can change character during a timeout, or after the match.")
 			return
+		end
+		if playing and reg.MatchService.isBanned(c.Id) then
+			push(plr, c.Name .. " is banned this match.")
+			return
+		end
+		if playing then
+			reg.MatchService.releaseBanSwap(plr) -- (off a banned character's stand-in: this pick is who they play)
 		end
 		profile.char = c.Id
 		dirty[plr] = true

@@ -2,6 +2,7 @@
 -- merged. Shared so the server and the headless tests agree.
 
 local Config = require(script.Parent.Config)
+local Ranked = require(script.Parent.Ranked)
 
 local Leaderboards = {}
 local LB = Config.Leaderboards
@@ -11,6 +12,11 @@ Leaderboards.Boards = LB.Boards
 local BY_KEY = {}
 for _, b in ipairs(LB.Boards) do
 	BY_KEY[b.Key] = b
+end
+
+-- The ordered data store a board lives in: a seasonal board has one per season.
+function Leaderboards.storeName(b, now)
+	return LB.StorePrefix .. b.Key .. (b.Seasonal and ("_s" .. Ranked.season(now)) or "")
 end
 
 function Leaderboards.isBoard(key)
@@ -55,10 +61,14 @@ local function commas(n)
 	end
 end
 
--- A board's value as text: "1,234 wins", the win rate's "62.4%  120 W  74 L", or the playtime's
--- "12h 05m".
+-- A board's value as text: "1,234 wins", the win rate's "62.4%  120 W  74 L", the playtime's
+-- "12h 05m", or the ranked board's "Diamond II  1,234 RP".
 function Leaderboards.format(key, value)
 	local b = BY_KEY[key or ""]
+	if b and b.Ranked then
+		local rp = math.max(0, math.floor(tonumber(value) or 0))
+		return Ranked.name(rp) .. "  " .. commas(rp) .. " RP"
+	end
 	if b and b.Time then
 		local secs = math.max(0, math.floor(tonumber(value) or 0))
 		local h, m = math.floor(secs / 3600), math.floor(secs % 3600 / 60)
@@ -84,7 +94,11 @@ function Leaderboards.valuesOf(profile)
 	local wins, matches = n(rec.wins), n(rec.matches)
 	local losses = math.max(0, matches - wins)
 	local rateBoard = BY_KEY.winRate
+	-- this season's RP (a record from an older season counts as nothing)
+	local rk = profile and profile.ranked
+	local rp = (type(rk) == "table" and tonumber(rk.season) == Ranked.season(os.time())) and n(rk.rp) or 0
 	return {
+		ranked = rp,
 		winRate = (rateBoard and matches >= (rateBoard.MinMatches or 0)) and Leaderboards.winRate(wins, losses) or 0,
 		wins = n(rec.wins),
 		bestStreak = n(profile and profile.bestStreak),

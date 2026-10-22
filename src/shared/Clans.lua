@@ -221,12 +221,44 @@ function Clans.removeMember(clan, userId)
 end
 
 -- A member's latest stats (their record now): returns whether they changed.
-function Clans.updateMember(clan, userId, record)
+-- The week a time falls in (weeks start on Monday, Config.Clans.WeekOffset), and when it ends.
+function Clans.week(now)
+	local day = math.floor(((tonumber(now) or 0) + C.WeekOffset) / 86400)
+	return math.floor((day + 3) / 7) -- (day 0, 1 January 1970, was a Thursday)
+end
+
+function Clans.weekEnds(week)
+	return ((whole(week) + 1) * 7 - 3) * 86400 - C.WeekOffset
+end
+
+-- The clan's points this week (clan.wk = { w = week, p = points }).
+function Clans.weekPoints(clan, now)
+	local wk = clan and clan.wk
+	return (type(wk) == "table" and wk.w == Clans.week(now)) and whole(wk.p) or 0
+end
+
+-- Points a member just earned count towards this week too.
+function Clans.addWeek(clan, gain, now)
+	gain = whole(gain)
+	if gain <= 0 then
+		return
+	end
+	local w = Clans.week(now)
+	if type(clan.wk) ~= "table" or clan.wk.w ~= w then
+		clan.wk = { w = w, p = 0 }
+	end
+	clan.wk.p = whole(clan.wk.p) + gain
+end
+
+function Clans.updateMember(clan, userId, record, now)
 	local m = clan and clan.members[tostring(userId)]
 	if not m or m.pending then
 		return false -- (let in while away: counted from their next join, ClanService)
 	end
 	local s = Clans.since(record, m.b)
+	if now then
+		Clans.addWeek(clan, Clans.pointsOf(s) - Clans.pointsOf(m.s), now) -- (what they earned since the last count)
+	end
 	local changed = false
 	for _, k in ipairs(C.StatOrder) do
 		if (m.s and m.s[k] or 0) ~= s[k] then
@@ -311,7 +343,7 @@ function Clans.view(clan)
 	for _, u in ipairs(C.Upgrades) do
 		up[u.Key] = Clans.level(clan, u.Key)
 	end
-	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, public = clan.public, minWins = clan.minWins, owner = clan.owner, members = members, requests = req, up = up, points = total, left = left, cap = Clans.cap(clan), count = Clans.count(clan) }
+	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, public = clan.public, minWins = clan.minWins, owner = clan.owner, members = members, requests = req, up = up, points = total, left = left, cap = Clans.cap(clan), count = Clans.count(clan), week = Clans.weekPoints(clan, os.time()) }
 end
 
 -- What anyone browsing sees (no members' stats).
@@ -320,7 +352,7 @@ function Clans.card(clan)
 		return nil
 	end
 	local total = Clans.points(clan)
-	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, public = clan.public, minWins = clan.minWins, points = total, count = Clans.count(clan), cap = Clans.cap(clan) }
+	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, public = clan.public, minWins = clan.minWins, points = total, week = Clans.weekPoints(clan, os.time()), count = Clans.count(clan), cap = Clans.cap(clan) }
 end
 
 return Clans

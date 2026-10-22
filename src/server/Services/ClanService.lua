@@ -46,6 +46,8 @@ local store, indexStore, board = nil, nil, nil
 local cache = {} -- tag -> { clan, t }: the last read of each clan this server needs
 local mineOf = {} -- player -> tag of their clan ("" for none)
 local topList = {} -- { { rank, tag, points, name, count, cap } }, best first
+local weekList = {} -- the same for this week's points (Clans.weekPoints)
+local weekBoards = {} -- week -> its OrderedDataStore
 local topAt = -1e9
 local boardAt = {} -- tag -> when its points were last written to the board
 local busy = {} -- player -> true while one of their requests runs
@@ -155,6 +157,18 @@ local function announce(tag)
 	end)
 end
 
+-- This week's board (a store a week, so each starts empty).
+local function weekBoard(now)
+	local w = Clans.week(now)
+	if not weekBoards[w] then
+		local ok, b = pcall(function()
+			return DataStoreService:GetOrderedDataStore(C.WeekStore .. "_" .. w .. SUFFIX)
+		end)
+		weekBoards[w] = ok and b or nil
+	end
+	return weekBoards[w]
+end
+
 local function writeBoard(clan, force)
 	if not stores() or not clan then
 		return
@@ -168,6 +182,13 @@ local function writeBoard(clan, force)
 	pcall(function()
 		board:SetAsync(clan.tag, total)
 	end)
+	local week = Clans.weekPoints(clan, os.time())
+	local wb = week > 0 and weekBoard(os.time())
+	if wb then
+		pcall(function()
+			wb:SetAsync(clan.tag, week)
+		end)
+	end
 end
 
 -- A player's chat tag and its colour, as attributes every client reads (chat, name tags, intro).
@@ -191,6 +212,8 @@ local function payload(plr, extra)
 	local clan = tag and tag ~= "" and cached(tag, 30) or nil
 	p.mine = clan and Clans.view(clan) or false
 	p.top = topList
+	p.topWeek = weekList
+	p.weekEnds = Clans.weekEnds(Clans.week(os.time()))
 	local profile = reg.ProfileService.get(plr)
 	p.colors = profile and profile.clanColors or {}
 	p.color = profile and profile.clanColor or "White"
@@ -278,6 +301,30 @@ local function readTop()
 	end
 	topList = list
 	topAt = os.clock()
+	-- this week's board, its top ten named
+	local wb = weekBoard(os.time())
+	local okW, wpages = false, nil
+	if wb then
+		okW, wpages = pcall(function()
+			return wb:GetSortedAsync(false, C.BoardTop)
+		end)
+	end
+	local wlist = {}
+	if okW and wpages then
+		for i, row in ipairs(wpages:GetCurrentPage()) do
+			local entry = { rank = i, tag = row.key, points = row.value }
+			if i <= 10 then
+				local clan = cached(row.key, 300)
+				if clan then
+					entry.name = clan.name
+					entry.count = Clans.count(clan)
+					entry.cap = Clans.cap(clan)
+				end
+			end
+			table.insert(wlist, entry)
+		end
+	end
+	weekList = wlist
 	-- the members of the top clans online here get their rank (the ClanTop3 / ClanNumber1 cards)
 	for _, plr in ipairs(Players:GetPlayers()) do
 		local tag = mineOf[plr]
@@ -323,7 +370,7 @@ function ClanService.onRecord(plr)
 			if not c.members[tostring(plr.UserId)] then
 				return false, "not a member"
 			end
-			return Clans.updateMember(c, plr.UserId, record) or true
+			return Clans.updateMember(c, plr.UserId, record, os.time()) or true
 		end)
 		if clan then
 			writeBoard(clan, false)
@@ -371,7 +418,7 @@ function ClanService.onLoaded(plr)
 					m.b = Clans.snapshot(record)
 					m.pending = nil
 				end
-				Clans.updateMember(c, plr.UserId, record)
+				Clans.updateMember(c, plr.UserId, record, os.time())
 				return true
 			end)
 		end)
