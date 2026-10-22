@@ -343,7 +343,7 @@ function Clans.view(clan)
 	for _, u in ipairs(C.Upgrades) do
 		up[u.Key] = Clans.level(clan, u.Key)
 	end
-	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, public = clan.public, minWins = clan.minWins, owner = clan.owner, members = members, requests = req, up = up, points = total, left = left, cap = Clans.cap(clan), count = Clans.count(clan), week = Clans.weekPoints(clan, os.time()) }
+	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, shirt = clan.shirt, pants = clan.pants, public = clan.public, minWins = clan.minWins, owner = clan.owner, members = members, requests = req, up = up, points = total, left = left, cap = Clans.cap(clan), count = Clans.count(clan), week = Clans.weekPoints(clan, os.time()) }
 end
 
 -- What anyone browsing sees (no members' stats).

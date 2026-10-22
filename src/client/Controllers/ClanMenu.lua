@@ -429,12 +429,17 @@ local function buildSettings(body)
 		send("rename", { name = nameBox.Text, tag = tagBox.Text })
 	end)
 	label(f, { Text = "Your old tag stays reserved for your clan, so nobody can pose as you.", TextSize = 14, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(420, 242), Size = UDim2.fromOffset(340, 36) })
+	-- the team jersey (the Team jersey upgrade): a Roblox Shirt and Pants, by link or id
+	label(f, { Text = "Team jersey (Shirt and Pants links or ids)", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Position = UDim2.fromOffset(420, 278), Size = UDim2.fromOffset(400, 24) })
+	local shirt = kit.inputBox(f, { Position = UDim2.fromOffset(420, 306), Size = UDim2.fromOffset(165, 44) }, "Shirt")
+	local pants = kit.inputBox(f, { Position = UDim2.fromOffset(595, 306), Size = UDim2.fromOffset(165, 44) }, "Pants")
 	local save = kit.actionPlate(f, { Position = UDim2.fromOffset(0, 372), Size = UDim2.fromOffset(240, 52) }, "Save", 21)
 	kit.onClick(save, function()
 		local m = data.mine
-		send("settings", { desc = desc.Text, public = ui.setPublic, minWins = tonumber(minWins.Text) or 0, emblem = (m and m.up and (m.up.Emblem or 0) > 0) and emblem.Text or nil })
+		local jersey = m and m.up and (m.up.Jersey or 0) > 0
+		send("settings", { desc = desc.Text, public = ui.setPublic, minWins = tonumber(minWins.Text) or 0, emblem = (m and m.up and (m.up.Emblem or 0) > 0) and emblem.Text or nil, shirt = jersey and shirt.Text or nil, pants = jersey and pants.Text or nil })
 	end)
-	return { frame = f, desc = desc, minWins = minWins, emblem = emblem, setDoor = setDoor, nameBox = nameBox, tagBox = tagBox }
+	return { frame = f, desc = desc, minWins = minWins, emblem = emblem, shirt = shirt, pants = pants, setDoor = setDoor, nameBox = nameBox, tagBox = tagBox }
 end
 
 local function fillSettings()
@@ -445,12 +450,18 @@ local function fillSettings()
 		S.desc.Text = m.desc or ""
 		S.minWins.Text = tostring(m.minWins or 0)
 		S.emblem.Text = m.emblem or ""
+		S.shirt.Text = m.shirt or ""
+		S.pants.Text = m.pants or ""
 		S.nameBox.Text = m.name or ""
 		S.tagBox.Text = m.tag or ""
 		ui.setPublic = m.public
 		S.setDoor(m.public and "Public" or "Private")
 	end
 	S.emblem.TextEditable = (m.up and (m.up.Emblem or 0) > 0) == true
+	local jersey = (m.up and (m.up.Jersey or 0) > 0) == true
+	S.shirt.TextEditable, S.pants.TextEditable = jersey, jersey
+	S.shirt.PlaceholderText = jersey and "Shirt" or "Team jersey upgrade"
+	S.pants.PlaceholderText = jersey and "Pants" or "first"
 end
 
 ------------------------------------------------------------------------------------------

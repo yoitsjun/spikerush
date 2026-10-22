@@ -402,7 +402,9 @@ Config.Breakthrough = {
 		RallyCry = { Boost = { Grow = 0.5, Label = "Rally Cry boost", Show = "pct" }, Duration = { Grow = 0.2, Label = "Rally Cry lasts", Show = "s" } },
 		Counter = { ReleaseBoost = { Grow = 0.2, Label = "Counter Edge release", Show = "pct" } },
 		Plunge = { PowerBoost = { Grow = 0.5, Label = "Plunge power", Show = "pct" } },
-		Skyward = { AttackAtMax = { Grow = 0.3, Label = "Attack at full lift", Show = "num" } },
+		-- (the owner, 2026-10-22: "seora breakthrough should obviously increase jump not attack"): her
+		-- highest hitting point climbs (MaxLift, metres), her Attack at the top stays
+		Skyward = { MaxLift = { Grow = 0.6, Label = "Highest lift", Show = "m" } },
 		Tyrant = { Steal = { Grow = 0.4, Label = "Stat Hijack steals", Show = "pct" }, Duration = { Grow = 0.25, Label = "Emperor's Dictate lasts", Show = "s" }, SetMul = { Grow = 0.3, Kind = "excess", Label = "Tyrant's Set", Show = "excess" } },
 		Sunshine = { SunDuration = { Grow = 0.3, Label = "Sunshine lasts", Show = "s" }, VertBoost = { Grow = 0.3, Label = "Sharpest spike", Show = "pct" } },
 	},
@@ -2476,6 +2478,10 @@ Config.Clans = {
 		{ Key = "Cap", Name = "Member cap", Blurb = "Room for more members.", Per = 5, Max = 6, Base = 300, Show = "num" },
 		{ Key = "Emblem", Name = "Clan emblem", Blurb = "Your own picture for the clan (any Roblox image or decal id), on its page and its intro.", Per = 1, Max = 1, Base = 1000, Show = "unlock" },
 		{ Key = "Intro", Name = "Clan intro", Blurb = "When three or more of you play on one team, the matchup intro shows your clan.", Per = 1, Max = 1, Base = 2500, Show = "unlock" },
+		-- (the owner, 2026-10-22: "a team jersey feature, where clan owners can upload their own jersey"):
+		-- the owner sets a Roblox Shirt and Pants (catalog ids) in Settings; every member wears them in
+		-- their matches (ClanService dresses them)
+		{ Key = "Jersey", Name = "Team jersey", Blurb = "Your own shirt and pants (any Roblox Shirt or Pants from the catalog), worn by every member in their matches.", Per = 1, Max = 1, Base = 1500, Show = "unlock" },
 	},
 	-- tag colours a member buys with their own share (Cost points); Colors: one, or a gradient
 	TagColors = {

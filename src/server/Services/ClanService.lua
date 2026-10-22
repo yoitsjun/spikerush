@@ -17,7 +17,8 @@
 --   ("kick", userId)                 owners and officers (an officer only members)
 --   ("promote" | "demote", userId)   the owner: member <-> officer
 --   ("transfer", userId)             the owner: the clan is theirs, you're an officer
---   ("settings", { desc, public, minWins, emblem })   the owner (an emblem needs its upgrade)
+--   ("settings", { desc, public, minWins, emblem, shirt, pants })   the owner (an emblem and a
+--                                    jersey need their upgrades)
 --   ("rename", { name, tag })        the owner, any time (a new tag moves the clan: the old key keeps
 --                                    { movedTo = new tag }, so members away find it, and nobody
 --                                    else can take the old tag)
@@ -203,6 +204,10 @@ local function applyTag(plr)
 	plr:SetAttribute("ClanName", clan and clan.name or nil)
 	plr:SetAttribute("ClanEmblem", clan and clan.emblem ~= "" and clan.emblem or nil)
 	plr:SetAttribute("ClanIntro", clan and Clans.level(clan, "Intro") > 0 or nil)
+	-- the team jersey (the Jersey upgrade): what a member wears in their matches (dressTick)
+	local jersey = clan and Clans.level(clan, "Jersey") > 0
+	plr:SetAttribute("ClanShirt", jersey and tonumber(clan.shirt or "") or nil)
+	plr:SetAttribute("ClanPants", jersey and tonumber(clan.pants or "") or nil)
 end
 
 -- The payload for a player: their clan (and their place in it) and the board.
@@ -757,6 +762,13 @@ function ops.settings(plr, form)
 			end
 			c.emblem = Clans.cleanEmblem(form.emblem)
 		end
+		if form.shirt ~= nil or form.pants ~= nil then
+			if Clans.level(c, "Jersey") < 1 then
+				return false, "Unlock the Team jersey upgrade first."
+			end
+			c.shirt = Clans.cleanEmblem(form.shirt) -- (an id out of a catalog link, "" for none)
+			c.pants = Clans.cleanEmblem(form.pants)
+		end
 		return true
 	end)
 end
@@ -915,8 +927,77 @@ end
 
 ------------------------------------------------------------------------------------------
 
+------------------------------------------------------------------------------------------
+-- the team jersey: a member on court wears the clan's Shirt and Pants (ClanShirt / ClanPants),
+-- put on through their HumanoidDescription and taken off after the match (their own back)
+------------------------------------------------------------------------------------------
+
+local dressed = {} -- player -> { char, key, original (their own description) }
+local dressing = {} -- player -> true while a description is being applied
+
+local function dress(plr, hum, char, key, shirt, pants)
+	dressing[plr] = true
+	task.spawn(function()
+		local d = dressed[plr]
+		local ok, err = pcall(function()
+			if key then
+				local original = (d and d.original) or hum:GetAppliedDescription()
+				local desc = original:Clone()
+				if shirt then
+					desc.Shirt = shirt
+				end
+				if pants then
+					desc.Pants = pants
+				end
+				hum:ApplyDescription(desc)
+				dressed[plr] = { char = char, key = key, original = original }
+			elseif d then
+				hum:ApplyDescription(d.original)
+				dressed[plr] = nil
+			end
+		end)
+		if not ok then
+			warn("[SpikeRush] team jersey for " .. plr.Name .. ": " .. tostring(err))
+			dressed[plr] = key and { char = char, key = key, original = d and d.original, failed = true } or nil
+		end
+		dressing[plr] = nil
+	end)
+end
+
+local function dressTick()
+	local TS = reg.TeamService
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local char = plr.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local d = dressed[plr]
+		if d and d.char ~= char then
+			dressed[plr], d = nil, nil -- (a new character comes in their own clothes)
+		end
+		if hum and not dressing[plr] then
+			local shirt, pants = plr:GetAttribute("ClanShirt"), plr:GetAttribute("ClanPants")
+			local playing = TS.inMatch and TS.entityForPlayer(plr) ~= nil
+			local key = (playing and (shirt or pants)) and (tostring(shirt) .. "/" .. tostring(pants)) or nil
+			if key ~= (d and d.key) then
+				dress(plr, hum, char, key, shirt, pants)
+			end
+		end
+	end
+end
+
 function ClanService.init(r)
 	reg = r
+	Players.PlayerRemoving:Connect(function(plr)
+		dressed[plr], dressing[plr] = nil, nil
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(2)
+			local ok, err = pcall(dressTick)
+			if not ok then
+				warn("[SpikeRush] team jerseys: " .. tostring(err))
+			end
+		end
+	end)
 	Net.get("Clan").OnServerEvent:Connect(function(plr, op, a, b)
 		local fn = type(op) == "string" and ops[op]
 		if not fn or busy[plr] then
