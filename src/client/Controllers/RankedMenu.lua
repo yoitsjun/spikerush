@@ -480,7 +480,17 @@ local function buildBans()
 		end)
 		cells[c.Id] = { button = b, stroke = stroke, tag = tag, name = name }
 	end
-	ui.bans = { root = shade, title = title, sub = sub, timer = timer, cells = cells }
+	-- Lock in (the bans can be changed until everyone has, or the time's up)
+	local lock, lockL = kit.actionPlate(root, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 720), Size = UDim2.fromOffset(300, 72), ZIndex = 61 }, "Lock in", 28)
+	lockL.ZIndex = 64
+	kit.onClick(lock, function()
+		if not ui.banLocked then
+			ui.banLocked = true
+			lockL.Text = "Locked in \u{2713}"
+			Net.get("Lobby"):FireServer("banLock")
+		end
+	end)
+	ui.bans = { root = shade, title = title, sub = sub, timer = timer, cells = cells, lockL = lockL }
 end
 
 local function showBans(bans)
@@ -505,7 +515,7 @@ local function showBans(bans)
 		end
 		return table.concat(out, ", ")
 	end
-	B.sub.Text = string.format("Each team bans %d (your team's first %d picks count): nobody plays them this match.   Yours: %s   Theirs: %s", per, per, names(ourList), names(theirList))
+	B.sub.Text = string.format("Each team bans %d: click another to change it, yours again to take it back.   Yours: %s   Theirs: %s", per, names(ourList), names(theirList))
 end
 
 local function onAnnounce(a)
@@ -514,13 +524,15 @@ local function onAnnounce(a)
 	end
 	if a.kind == "Bans" then
 		ui.banEnds = a.endsAt
+		ui.banLocked = false
+		ui.bans.lockL.Text = "Lock in"
 		ui.bans.root.Visible = State.isPlaying == true
 		showBans(a.bans)
 	elseif a.kind == "BanUpdate" then
 		showBans(a.bans)
 		if a.team ~= State.myTeam then
 			local c = a.id and Roster.get(a.id)
-			kit.toast(string.format("The other team banned %s.", c and c.Name or "someone"))
+			kit.toast(string.format(a.removed and "The other team took back their ban on %s." or "The other team banned %s.", c and c.Name or "someone"))
 		end
 	elseif a.kind == "Pick" then
 		ui.pickMode = "match"

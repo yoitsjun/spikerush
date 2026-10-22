@@ -839,6 +839,7 @@ end
 MatchService.bans = nil -- { Home = { character ids }, Away = { ... } } while a ranked match bans
 MatchService.matchBans = {} -- character id -> true: banned for the rest of this ranked match
 MatchService.picked = nil -- player -> true: ready in the pick after the bans (nil outside it)
+MatchService.banLocked = nil -- player -> true: locked in on the bans (nil outside them)
 MatchService.rankedDone = {}
 local banSwapped = {} -- players moved off a banned character, put back after the match
 
@@ -852,12 +853,22 @@ function MatchService.runBans()
 	MatchService.bans = { Home = {}, Away = {} }
 	MatchService.setPhase("Bans", Config.Ranked.BanTime)
 	MatchService.announce({ kind = "Bans", endsAt = MatchService.phaseEnd, bans = MatchService.bans, per = per })
+	-- (a ban can be changed until the end: the owner, 2026-10-22, "allow bans to be changed instead of
+	-- it being locked in"), so they end when the time's up or every player on court has locked in
+	MatchService.banLocked = {}
 	while Util.now() < MatchService.phaseEnd and not halted() do
-		if #MatchService.bans.Home >= per and #MatchService.bans.Away >= per then
+		local waiting = false
+		for _, e in pairs(TS.entities) do
+			if e.player and e.player.Parent and not MatchService.banLocked[e.player] then
+				waiting = true
+			end
+		end
+		if not waiting then
 			break
 		end
 		task.wait(0.1)
 	end
+	MatchService.banLocked = nil
 	local banned = {}
 	for _, list in pairs(MatchService.bans) do
 		for _, id in ipairs(list) do
@@ -939,16 +950,33 @@ function MatchService.ban(plr, charId)
 	if not bans or MatchService.phase ~= "Bans" or not e or type(charId) ~= "string" or not Roster.get(charId) then
 		return
 	end
-	if #bans[e.team] >= Config.Ranked.BansPerTeam then
-		return -- (the team's bans are all in)
+	local list = bans[e.team]
+	local at = table.find(list, charId)
+	if at then
+		-- their team's own ban again: taken back
+		table.remove(list, at)
+		MatchService.announce({ kind = "BanUpdate", bans = bans, team = e.team, id = charId, removed = true, by = plr.DisplayName })
+		return
 	end
-	for _, list in pairs(bans) do
-		if table.find(list, charId) then
-			return -- (already banned)
+	for team, other in pairs(bans) do
+		if team ~= e.team and table.find(other, charId) then
+			return -- (the other team banned it already)
 		end
 	end
-	table.insert(bans[e.team], charId)
+	if #list >= Config.Ranked.BansPerTeam then
+		table.remove(list, 1) -- (a change: the team's oldest ban gives way)
+	end
+	table.insert(list, charId)
 	MatchService.announce({ kind = "BanUpdate", bans = bans, team = e.team, id = charId, by = plr.DisplayName })
+end
+
+-- A player's "lock in" in the bans (LobbyService's "banLock" op): once every player has, the
+-- bans end early.
+function MatchService.banLock(plr)
+	local e = reg.TeamService.entityForPlayer(plr)
+	if MatchService.banLocked and MatchService.phase == "Bans" and e then
+		MatchService.banLocked[plr] = true
+	end
 end
 
 -- A player leaving (ProfileService, before their profile saves): leaving a ranked match early is
