@@ -2241,7 +2241,7 @@ end
 
 -- The S cinematic: the silhouette leaps, draws back and hammers a black ball down as a beam of
 -- light sweeps the screen. Returns false if the sequence was cancelled.
-local function cinematic(seq, mythic, theme)
+local function cinematic(seq, mythic, theme, green)
 	local S = ui.seq
 	local C = S.cin
 	local AC = mods.AnimationController
@@ -2267,6 +2267,14 @@ local function cinematic(seq, mythic, theme)
 		C.beam.BackgroundColor3 = Color3.fromRGB(255, 240, 210)
 		S.flash.BackgroundColor3 = Color3.fromRGB(255, 220, 170)
 		C.setGlow(0, Color3.fromRGB(255, 248, 225))
+	elseif green then
+		-- an S-: green instead of the yellow screen (the owner, 2026-10-22: "on the s- pulls i want the
+		-- yellow screen flash to be green not yellow")
+		local G = Config.TierColors["S-"]
+		C.grad.Color = ColorSequence.new(G:Lerp(Color3.new(1, 1, 1), 0.35), G:Lerp(Color3.new(0, 0.3, 0.1), 0.35))
+		C.beam.BackgroundColor3 = G:Lerp(Color3.new(1, 1, 1), 0.75)
+		S.flash.BackgroundColor3 = G:Lerp(Color3.new(1, 1, 1), 0.5)
+		C.setGlow(0, G:Lerp(Color3.new(1, 1, 1), 0.7))
 	elseif mythic then
 		C.grad.Color = ColorSequence.new(Color3.fromRGB(255, 96, 84), Color3.fromRGB(150, 0, 16))
 		C.beam.BackgroundColor3 = Color3.fromRGB(255, 214, 206)
@@ -3104,7 +3112,7 @@ local function playSequence(reveal)
 					ok = Extra.scythePull(seq, it) -- (a Mythic skin: the scythe cuts the screen open)
 				end
 			else
-				ok = cinematic(seq, rank >= 5, theme)
+				ok = cinematic(seq, rank >= 5, theme, rank == 4 and color == Config.TierColors["S-"])
 			end
 			if not ok then
 				return
