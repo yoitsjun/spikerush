@@ -2264,11 +2264,11 @@ end
 print("== lucky spins for VP ==")
 do
 	local L = Config.Lucky
-	local ok = L.VPCost == 250 and #L.Trade > 0
+	local ok = L.VPCost == 750 and #L.Trade > 0
 	for _, n in ipairs(L.Trade) do
 		ok = ok and n == math.floor(n) and n >= 1
 	end
-	check(ok, "lucky spins trade at 250 VP each, in whole amounts", string.format("%d VP; %d amounts", L.VPCost or 0, #L.Trade))
+	check(ok, "lucky spins trade at 750 VP each, in whole amounts", string.format("%d VP; %d amounts", L.VPCost or 0, #L.Trade))
 end
 
 print("== ball skins ==")

@@ -939,8 +939,11 @@ Config.Lucky = {
 		{ Id = 3715530621, Lucky = 10, Name = "10 Lucky Spins" }, -- 549 (was 379)
 	},
 	-- traded for V Points in the Shop's Lucky tab (the owner, 2026-10-13: "exchange vp for lucky
-	-- spins rate of 250 vpoints for 1"): VPCost each, in these amounts
-	VPCost = 250,
+	-- spins rate of 250 vpoints for 1"): VPCost each, in these amounts. (2026-10-22, the owner: "2500
+	-- is only 300 robux while 10 lucky spins is 720": at 250 VP, Robux spent on V Points bought lucky
+	-- spins at well under half their own price. 750 puts it above the Robux packs (about 600 VP a
+	-- spin is even), so buying the spins is the better deal and V Points from play still reach them)
+	VPCost = 750,
 	Trade = { 1, 5, 10 },
 }
 
