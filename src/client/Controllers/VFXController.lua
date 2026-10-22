@@ -2223,6 +2223,123 @@ local function sunBeam(root)
 	Fx.play("JumpBoom", Vector3.new(root.X, floorY + 0.2, root.Z), { color = Color3.fromRGB(255, 150, 40), scale = 1.4 })
 	Fx.play("Fire", Vector3.new(root.X, floorY + 1, root.Z), { color = Color3.fromRGB(255, 120, 40), scale = 1.2 })
 end
+-- Pressure rain (the owner, 2026-10-21: "really dig into the pressure effect on the enemy side,
+-- maybe like gravity lines on top of them", with an anime frame of a player crushed under falling
+-- streaks in violet shade): thin pale streaks driven straight down through a spot, fast, as long as
+-- `alive()` says (or `dur`). center(): where (nil stops it). Returns a stop function.
+--   rate   lines a second        top / fall   how high they start over it, how far they drop
+--   spreadZ / spreadX  how wide (along the court, and toward the camera)   color, width, len
+local PR = { screen = nil, on = {} } -- the pressure effects (one local: the module is at Lua's 200)
+function PR.rain(center, opts)
+	local stopped = false
+	local t0 = os.clock()
+	task.spawn(function()
+		local acc = 0
+		while not stopped and (not opts.dur or os.clock() - t0 < opts.dur) do
+			local dt = task.wait()
+			local c = center()
+			if not c then
+				break
+			end
+			acc = acc + dt * (opts.rate or 60)
+			while acc >= 1 do
+				acc = acc - 1
+				local line = take(Enum.PartType.Block)
+				line.Material = Enum.Material.Neon
+				line.Color = opts.color or Color3.fromRGB(225, 210, 255)
+				local len = (opts.len or 4) * (0.6 + math.random() * 0.8)
+				local w = opts.width or 0.06
+				line.Size = Vector3.new(w, len, w)
+				local at = c + Vector3.new((math.random() - 0.5) * 2 * (opts.spreadX or 1.5), (opts.top or 10) + math.random() * 3, (math.random() - 0.5) * 2 * (opts.spreadZ or 2.5))
+				line.CFrame = CFrame.new(at)
+				line.Transparency = 0.15 + math.random() * 0.35
+				local life = 0.16 + math.random() * 0.1
+				TweenService:Create(line, TweenInfo.new(life, Enum.EasingStyle.Linear), { CFrame = CFrame.new(at - Vector3.new(0, opts.fall or 14, 0)), Transparency = 0.85 }):Play()
+				task.delay(life, release, line)
+			end
+		end
+	end)
+	return function()
+		stopped = true
+	end
+end
+
+-- The Emperor's Dictate on a character of the pressed team: the rain over them, a dark weight
+-- pressing at their feet and the dust it squeezes out, while it lasts.
+function PR.press(model)
+	local hrp = model:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return function() end
+	end
+	local alive = true
+	local stopRain = PR.rain(function()
+		return (alive and hrp.Parent) and hrp.Position or nil
+	end, { rate = 70, top = 9, fall = 15, spreadZ = 2.2, spreadX = 1.4, color = Color3.fromRGB(215, 200, 255), width = 0.07, len = 4.5 })
+	task.spawn(function()
+		local first = true
+		while alive and hrp.Parent do
+			local at = hrp.Position
+			-- the weight: a dark disc pressing out at their feet, the floor's dust squeezed out
+			floorRing(Vector3.new(at.X, 0.2, at.Z), Color3.fromRGB(40, 20, 70), first and 9 or 5, 0.5)
+			emit("Dust", Vector3.new(at.X, 0.4, at.Z), first and 14 or 5)
+			first = false
+			task.wait(0.55)
+		end
+	end)
+	return function()
+		alive = false
+		stopRain()
+	end
+end
+
+-- Your own team pressed by the Dictate: the rain falls across your screen too, under a violet
+-- shade (on while `on`).
+function PR.setScreen(on)
+	if on and not PR.screen then
+		local gui = Instance.new("ScreenGui")
+		gui.Name = "SpikeRushPressure"
+		gui.IgnoreGuiInset = true
+		gui.ResetOnSpawn = false
+		gui.DisplayOrder = 3
+		local shade = Instance.new("Frame")
+		shade.Size = UDim2.fromScale(1, 1)
+		shade.BackgroundColor3 = Color3.fromRGB(30, 8, 60)
+		shade.BackgroundTransparency = 1
+		shade.BorderSizePixel = 0
+		shade.Parent = gui
+		local grad = Instance.new("UIGradient")
+		grad.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 0.15) })
+		grad.Parent = shade
+		gui.Parent = player:WaitForChild("PlayerGui")
+		TweenService:Create(shade, TweenInfo.new(0.3), { BackgroundTransparency = 0.45 }):Play()
+		local state = { gui = gui, alive = true }
+		PR.screen = state
+		task.spawn(function()
+			while state.alive do
+				for _ = 1, 3 do
+					local f = Instance.new("Frame")
+					f.BorderSizePixel = 0
+					f.BackgroundColor3 = Color3.fromRGB(230, 220, 255)
+					f.BackgroundTransparency = 0.45 + math.random() * 0.3
+					local h = 0.12 + math.random() * 0.18
+					f.Size = UDim2.new(0, math.random(1, 3), h, 0)
+					f.Position = UDim2.new(math.random(), 0, -h, 0)
+					f.Parent = gui
+					local life = 0.22 + math.random() * 0.12
+					TweenService:Create(f, TweenInfo.new(life, Enum.EasingStyle.Linear), { Position = UDim2.new(f.Position.X.Scale, 0, 1, 0) }):Play()
+					task.delay(life, f.Destroy, f)
+				end
+				task.wait(0.03)
+			end
+		end)
+	elseif not on and PR.screen then
+		local state = PR.screen
+		PR.screen = nil
+		state.alive = false
+		task.delay(0.4, state.gui.Destroy, state.gui)
+	end
+end
+
 local nextStatusScan = 0
 
 -- Auras for boosts the server flags on characters (and the team's Rally Cry): flame colours,
@@ -2240,7 +2357,7 @@ local STATUS = {
 	Molten = { fire = { Color3.fromRGB(255, 220, 140), Config.Abilities.Ironclad.Color }, rate = 30, fill = Color3.fromRGB(255, 90, 30), edge = Color3.fromRGB(255, 180, 90) },
 	-- the Tyrant's Emperor's Dictate: gold on his team, a heavy dark gold pressing on theirs
 	Dictate = { fire = { Color3.fromRGB(255, 248, 210), Config.Abilities.Tyrant.Color }, rate = 22, fill = Color3.fromRGB(255, 190, 40), edge = Color3.fromRGB(255, 236, 150) },
-	Dictated = { fire = { Color3.fromRGB(150, 110, 40), Color3.fromRGB(70, 45, 10) }, rate = 16, fill = Color3.fromRGB(90, 60, 10), edge = Color3.fromRGB(200, 150, 50) },
+	Dictated = { fire = { Color3.fromRGB(150, 120, 220), Color3.fromRGB(40, 15, 80) }, rate = 16, fill = Color3.fromRGB(70, 30, 140), edge = Color3.fromRGB(215, 200, 255) },
 	Grounded = { fire = { Color3.fromRGB(200, 170, 110), Color3.fromRGB(90, 70, 40) }, rate = 12, size = 1.4 },
 	-- Haesol's Sunshine, lit
 	Sunlit = { fire = { Color3.fromRGB(255, 255, 235), Config.Abilities.Sunshine.Color }, rate = 26, fill = Color3.fromRGB(255, 220, 110), edge = Color3.fromRGB(255, 250, 210) },
@@ -2371,9 +2488,12 @@ function VFXController.ability(entityId, ability, index)
 			local r = Util.rootOf(e.id)
 			if r then
 				task.delay(0.15, function()
-					floorRing(r.Position, Color3.fromRGB(150, 100, 20), 6, 0.5)
-					starburst(r.Position + Vector3.new(0, 4, 0), Color3.fromRGB(255, 210, 120), 4)
-					emit("Dust", Vector3.new(r.Position.X, 0.4, r.Position.Z), 10)
+					-- the first slam: a burst of heavy lines straight down onto them
+					floorRing(r.Position, Color3.fromRGB(60, 25, 110), 8, 0.5)
+					emit("Dust", Vector3.new(r.Position.X, 0.4, r.Position.Z), 14)
+					PR.rain(function()
+						return r.Parent and r.Position or nil
+					end, { dur = 0.35, rate = 260, top = 12, fall = 18, spreadZ = 3, spreadX = 2, color = WHITE, width = 0.1, len = 6 })
 				end)
 			end
 		end
@@ -3411,6 +3531,20 @@ local function updateAbilityFx(dt)
 			statusFx[model] = nil
 		end
 	end
+	-- the Dictate's pressure: the rain on everyone it presses, and your own screen when it's you
+	for model, w in pairs(want) do
+		if w.Dictated and not PR.on[model] then
+			PR.on[model] = PR.press(model)
+		end
+	end
+	for model, stop in pairs(PR.on) do
+		if not (model.Parent and want[model] and want[model].Dictated) then
+			stop()
+			PR.on[model] = nil
+		end
+	end
+	local myTeam = State.myTeam
+	PR.setScreen(State.isPlaying == true and myTeam ~= nil and State.dictateOn(myTeam == "Home" and "Away" or "Home", clock))
 	-- one status highlight a character (Roblox draws one a model, and a place holds only so many):
 	-- the first kind on in HW.HL_ORDER's order, moving to the next when it ends
 	for model, hl in pairs(HW.statusHl) do
@@ -6637,7 +6771,7 @@ end
 -- turning round it and a blinding light behind the scorer; the camera pushes in on them, circles,
 -- then the void shatters and the court comes back.
 local VOID_LIFE = 2.8
-local function endlessVoid(pos, tint, k, model, always)
+local function endlessVoid(pos, tint, k, model, always, victims)
 	local center = Vector3.new(0, 0, pos.Z > 0 and -8 or 8)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
 	local focus = hrp and hrp.Position or (pos + Vector3.new(0, 4, 0))
@@ -6685,6 +6819,19 @@ local function endlessVoid(pos, tint, k, model, always)
 	end
 	flare(focus + Vector3.new(0, 2, 6), Color3.fromRGB(230, 240, 255), 40, 1.2)
 	Fx.play("JumpStorm", focus, { scale = 2 })
+	-- gravity lines falling through the whole void, and pressing down on the scored-on team (the
+	-- owner: "add these same kind of visual lines on the infinite void too")
+	PR.rain(function()
+		return center + Vector3.new(0, 4, 0)
+	end, { dur = VOID_LIFE - 0.35, rate = 140, top = 22, fall = 30, spreadZ = L * 0.9, spreadX = W * 0.8, color = Color3.fromRGB(200, 215, 255), width = 0.06, len = 6 })
+	for _, v in ipairs(victims or {}) do
+		local vr = v:FindFirstChild("HumanoidRootPart")
+		if vr then
+			PR.rain(function()
+				return vr.Parent and vr.Position or nil
+			end, { dur = VOID_LIFE - 0.35, rate = 70, top = 9, fall = 15, spreadZ = 2.2, spreadX = 1.4, color = Color3.fromRGB(215, 200, 255), width = 0.07, len = 4.5 })
+		end
+	end
 	gradeFor(Color3.fromRGB(215, 225, 255), -0.2, 0.05, 0.2, VOID_LIFE - 0.5, 0.3)
 	sfx("BlackHoleBoom", pos)
 	-- the camera: in on the scorer's face, round them, back out
@@ -7531,7 +7678,7 @@ local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
 	elseif effect == "Freeze" then
 		deepFreeze(pos, tint, k or 1, model, always)
 	elseif effect == "Void" then
-		endlessVoid(pos, tint, k or 1, model, always)
+		endlessVoid(pos, tint, k or 1, model, always, victims)
 	elseif effect == "WorldSlash" then
 		worldSlash(pos, dirZ, tint, k or 1, model, victims, always)
 	elseif effect == "Fireworks" then
