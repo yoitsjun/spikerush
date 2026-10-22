@@ -468,6 +468,50 @@ local function hex(c)
 	return string.format("#%02X%02X%02X", math.floor(c.R * 255), math.floor(c.G * 255), math.floor(c.B * 255))
 end
 
+-- The serve clock (the owner, 2026-10-22: "add a clear serve time limit indicator"): under the point
+-- banner while the server holds the ball, the seconds left of Config.Match.ServeClock and a bar
+-- running down, "YOUR SERVE" when it's yours; the last 3 seconds red, pulsing, with a tick each.
+local function buildServeClock()
+	local f = Gui.plate(gui, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 210), Size = UDim2.fromOffset(300, 52), Visible = false }, Gui.CARD)
+	local scale = make("UIScale", { Scale = 1 }, f)
+	local who = label(f, { Text = "", FontFace = Gui.display(Enum.FontWeight.Heavy), TextSize = 20, TextColor3 = UI.Chalk, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(22, 4), Size = UDim2.new(1, -104, 0, 26), ZIndex = 3 })
+	local secs = label(f, { Text = "", FontFace = Gui.display(Enum.FontWeight.Heavy), TextSize = 40, TextColor3 = Gui.SIGNAL, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 2), Size = UDim2.fromOffset(80, 46), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3 })
+	local back = make("Frame", { Position = UDim2.fromOffset(22, 34), Size = UDim2.new(1, -110, 0, 8), BackgroundColor3 = Color3.fromRGB(10, 12, 26), BorderSizePixel = 0, ZIndex = 3 }, f)
+	local fill = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, ZIndex = 4 }, back)
+	ui.serveClock = { frame = f, scale = scale, who = who, secs = secs, fill = fill, lastSec = nil }
+end
+
+local function updateServeClock()
+	local S = ui.serveClock
+	local m = State.match
+	local left = (m.phaseEnd or 0) - Util.now()
+	local BR = mods.BallRenderer
+	local show = m.inMatch and State.phase() == "Serving" and left > 0 and left <= Config.Match.ServeClock + 0.5 and BR and BR.getState() == "Held"
+	S.frame.Visible = show == true
+	if not show then
+		S.lastSec = nil
+		return
+	end
+	local mine = State.isServer()
+	local entry = State.entry(m.serverId)
+	S.who.Text = mine and "YOUR SERVE" or string.upper((entry and entry.name or "Serve") .. " serving")
+	local sec = math.max(0, math.ceil(left))
+	S.secs.Text = tostring(sec)
+	S.fill.Size = UDim2.fromScale(math.clamp(left / Config.Match.ServeClock, 0, 1), 1)
+	local urgent = left <= 3
+	local col = urgent and HOT or Gui.SIGNAL
+	S.secs.TextColor3 = col
+	S.fill.BackgroundColor3 = col
+	S.who.TextColor3 = mine and Gui.SIGNAL or UI.Chalk
+	S.scale.Scale = (mine and 1.15 or 1) * (urgent and (1 + 0.06 * math.abs(math.sin(Util.now() * 6))) or 1)
+	if urgent and mine and S.lastSec ~= sec and sec > 0 then
+		if mods.AudioController then
+			mods.AudioController.play("UITick", { volume = 0.9 })
+		end
+	end
+	S.lastSec = sec
+end
+
 local function showBanner(a)
 	local b = ui.banner
 	b.token = b.token + 1
@@ -2443,6 +2487,7 @@ end
 -- most, so they refresh at 20 Hz; the top bar only changes with the match state.
 local function updateFast()
 	updateReadout()
+	updateServeClock()
 	updateOverhead()
 	updateRail()
 end
@@ -2670,6 +2715,7 @@ function UIController.init(m)
 	}, player:WaitForChild("PlayerGui"))
 	buildTopBar()
 	buildBanner()
+	buildServeClock()
 	buildScoreCard()
 	buildCallout()
 	buildHint()
