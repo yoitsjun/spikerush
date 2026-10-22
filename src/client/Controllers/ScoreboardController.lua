@@ -20,7 +20,7 @@ local ScoreboardController = {}
 local player = Players.LocalPlayer
 local make = Gui.make
 
-local PANEL_W = 960
+local PANEL_W = 1050 -- (with the ping column)
 local CARD_PAD = 8
 local HEAD_H = 64
 local ROW_H = 52
@@ -34,6 +34,8 @@ local COLS = {
 	{ key = "s", label = "AST", icon = "IconJump", w = 80 },
 	{ key = "t", label = "TOP KM/H", icon = "IconSpeed", w = 120 },
 	{ key = "pts", label = "SCORE", icon = "IconStar", w = 100, score = true },
+	-- each player's ping (the Ping attribute the server sets; the owner, 2026-10-22)
+	{ key = "ping", label = "PING", w = 90, ping = true },
 }
 local COLS_W = 0
 for _, c in ipairs(COLS) do
@@ -61,6 +63,23 @@ local function value(st, key)
 		return scoreOf(st)
 	end
 	return st[key] or 0
+end
+
+-- A row's ping (ms) from its player's Ping attribute, or nil (a bot, or not measured yet).
+local function pingOf(e)
+	local uid = type(e.id) == "string" and tonumber(string.match(e.id, "^P_(%d+)$"))
+	local p = uid and Players:GetPlayerByUserId(uid)
+	local v = p and p:GetAttribute("Ping")
+	return type(v) == "number" and v or nil
+end
+
+local function pingColor(ms)
+	if ms < 80 then
+		return Color3.fromRGB(90, 230, 120)
+	elseif ms < 150 then
+		return Gui.SIGNAL
+	end
+	return Color3.fromRGB(255, 80, 90)
 end
 
 local function fmt(key, v)
@@ -226,28 +245,42 @@ local function buildRow(parent, row, order, best, topScore, isMvp, team)
 
 	local x = NAME_W
 	for _, c in ipairs(COLS) do
-		local v = value(row.st, c.key)
-		local color = Gui.CHALK
-		if c.score then
-			if v > 0 and v == best[c.key] then
+		if c.ping then
+			local ms = pingOf(e)
+			Gui.label(f, {
+				Text = e.isBot and "BOT" or (ms and (ms .. " ms") or "-"),
+				display = true,
+				weight = Enum.FontWeight.Heavy,
+				TextSize = 22,
+				TextColor3 = ms and pingColor(ms) or Gui.MUTED,
+				Size = UDim2.fromOffset(c.w, ROW_H),
+				Position = UDim2.fromOffset(x, 0),
+				TextXAlignment = Enum.TextXAlignment.Center,
+			}, f)
+		else
+			local v = value(row.st, c.key)
+			local color = Gui.CHALK
+			if c.score then
+				if v > 0 and v == best[c.key] then
+					color = Gui.SIGNAL
+				elseif v > 0 and row.score == topScore then
+					color = lighten(def.Color, 0.4)
+				end
+			elseif v > 0 and v == best[c.key] then
 				color = Gui.SIGNAL
-			elseif v > 0 and row.score == topScore then
-				color = lighten(def.Color, 0.4)
 			end
-		elseif v > 0 and v == best[c.key] then
-			color = Gui.SIGNAL
+			Gui.label(f, {
+				Text = fmt(c.key, v),
+				display = true,
+				weight = Enum.FontWeight.Heavy,
+				TextSize = c.score and 32 or 28,
+				TextColor3 = color,
+				TextTransparency = (v == 0 and not c.score) and 0.4 or 0,
+				Size = UDim2.fromOffset(c.w, ROW_H),
+				Position = UDim2.fromOffset(x, 0),
+				TextXAlignment = Enum.TextXAlignment.Center,
+			}, f)
 		end
-		Gui.label(f, {
-			Text = fmt(c.key, v),
-			display = true,
-			weight = Enum.FontWeight.Heavy,
-			TextSize = c.score and 32 or 28,
-			TextColor3 = color,
-			TextTransparency = (v == 0 and not c.score) and 0.4 or 0,
-			Size = UDim2.fromOffset(c.w, ROW_H),
-			Position = UDim2.fromOffset(x, 0),
-			TextXAlignment = Enum.TextXAlignment.Center,
-		}, f)
 		x = x + c.w
 	end
 end
@@ -304,10 +337,16 @@ local function buildTeam(parent, team, list, best, mvp, order)
 				ZIndex = 2,
 			}, card)
 		end
-		Gui.iconImage(card, c.icon, 24, c.score and Gui.SIGNAL or Gui.CHALK, {
-			Position = UDim2.fromOffset(x + (c.w - 24) / 2, CARD_PAD + 8),
-			ZIndex = 2,
-		})
+		if c.icon then
+			Gui.iconImage(card, c.icon, 24, c.score and Gui.SIGNAL or Gui.CHALK, {
+				Position = UDim2.fromOffset(x + (c.w - 24) / 2, CARD_PAD + 8),
+				ZIndex = 2,
+			})
+		else
+			for b = 1, 3 do -- (signal bars)
+				make("Frame", { Size = UDim2.fromOffset(5, 6 + b * 5), AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromOffset(x + c.w / 2 - 11 + (b - 1) * 8, CARD_PAD + 30), BackgroundColor3 = Gui.CHALK, BorderSizePixel = 0, ZIndex = 2 }, card)
+			end
+		end
 		Gui.label(card, {
 			Text = c.label,
 			weight = Enum.FontWeight.Bold,
@@ -448,6 +487,16 @@ function ScoreboardController.init(mods)
 	end)
 	UserInputService.WindowFocusReleased:Connect(hide)
 
+	-- held open, it redraws every two seconds too (the pings move between points)
+	task.spawn(function()
+		while true do
+			task.wait(2)
+			if visible and State.watching() then
+				render()
+				fit()
+			end
+		end
+	end)
 	-- live while it is held: every MatchState broadcast (each point) redraws it
 	State.signals.Match:Connect(function()
 		if visible then

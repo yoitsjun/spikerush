@@ -1073,6 +1073,19 @@ end
 
 function MatchService.init(r)
 	reg = r
+	-- every player's ping (round trip, ms) as their Ping attribute, for the Tab scoreboard (the owner,
+	-- 2026-10-22: "add a ping display to the stats meter when you click tab"): only the server sees
+	-- everyone's
+	task.spawn(function()
+		while true do
+			for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+				pcall(function()
+					plr:SetAttribute("Ping", math.floor(plr:GetNetworkPing() * 1000 + 0.5))
+				end)
+			end
+			task.wait(2)
+		end
+	end)
 	Net.get("Timeout").OnServerEvent:Connect(function(plr, op)
 		local TS = reg.TeamService
 		local e = TS.entityForPlayer(plr)
