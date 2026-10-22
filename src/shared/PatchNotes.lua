@@ -15,6 +15,85 @@ PatchNotes.Reward = { Gold = 1000 }
 
 PatchNotes.List = {
 	{
+		Id = "2026-10-21",
+		Title = "Ranked & Clans",
+		Date = "October 21, 2026",
+		Reward = { Gold = 2500, Lucky = 1 },
+		Sections = {
+			{
+				Heading = "Ranked",
+				Items = {
+					{ Icon = "RankAlmighty", Text = "<b>Ranked</b> is here (Match screen): 1v1, 2v2 and 3v3 against real players only. Climb from <b>Bronze I</b> to <b>Diamond III</b>, then <b>Mighty</b> and <b>Almighty</b>. Every division has its own badge." },
+					{ Text = "Beat a stronger team and you gain more; lose to a weaker one and you drop more. The higher you climb, the less a win pays and the more a loss costs." },
+					{ Text = "Before every ranked match each team <b>bans two</b> characters." },
+					{ Text = "Seasons are monthly; <b>Season 1</b> ends December 1. A new season keeps half your RP." },
+					{ Icon = "RankGold3", Text = "<b>Ranked score effects</b>: Gold Crest, Platinum Spires, Diamond Storm, Mighty Wings and Almighty Ascension. Each is yours while you hold its rank; drop below it and it's gone." },
+					{ Text = "The <b>Ranked card</b>: your season, your wins and losses, and your rank's badge, in your rank's colours. It changes as you climb." },
+					{ Text = "Leaving a ranked match early costs extra RP and locks the ranked queue for a while. Rejoin the match while it's still on and you get it all back." },
+					{ Text = "Everyone who had the Almighty card now has <b>True Almighty</b>. The Almighty card comes from reaching Almighty." },
+				},
+			},
+			{
+				Heading = "Clans and parties",
+				Items = {
+					{ Text = "<b>Clans</b> (top bar): make one for 1,000 VP or with the Clan Founder pass. Pick a name and a 2 to 5 letter tag, public or private, and a minimum of wins to join." },
+					{ Text = "Members earn points for the clan with wins, kills, aces, blocks and MVPs. Spend them on upgrades: more VP and Gold, extra luck, more members, an emblem, and a clan intro when 3 of you play together." },
+					{ Text = "Buy a tag colour for your [TAG] in chat and over your head. The top 3 clans get their own cards." },
+					{ Text = "<b>Parties</b> (top right): invite up to 3 players in your server. The leader's Quick Match or ranked queue takes everyone, on one side." },
+				},
+			},
+			{
+				Heading = "New players",
+				Items = {
+					{ Icon = "AbilityTyrant", Text = "<b>Dohwan, The Tyrant</b> (S+ setter). <b>Emperor's Dictate</b> (Q): for 8 seconds he steals 15% of the other team's Attack, Jump and Speed for his own, every set of his hits at full power, and their blocks reach half as high. His sets are fast, and the spike off one is 1.3x faster and can't be stuffed. His jump serve dips hard and wrecks the pass." },
+					{ Icon = "AbilityTyrant", Text = "Spike past 180 km/h at Dohwan's team and you're <b>Grounded</b>: less Jump and Attack on your next attack." },
+					{ Icon = "AbilitySunshine", Text = "<b>Haesol, Sunshine</b> (S middle blocker). A far wider perfect-dig window; a perfect dig lights her up for 10 seconds with +10 to every stat. Her digs reach further, and her <b>Vert Spikes</b> cross the net and drive almost straight down, the steepest slipping under the block." },
+				},
+			},
+			{
+				Heading = "Custom matches",
+				Items = {
+					{ Text = "<b>Match modifiers</b> for custom lobbies: spike power, low or moon gravity, no ability cooldowns, abilities off, endless or fragile stamina, high jumps, turbo speed, walls or no blocking, and stronger serves." },
+					{ Text = "Picking the characters your bots play works again in 3v3." },
+					{ Text = "Your very first match is against bots at your own level." },
+				},
+			},
+			{
+				Heading = "Shop",
+				Items = {
+					{ Text = "The <b>Trade</b> tab: turn Gold into V Points, and buy 2x V Points with Gold or VP." },
+					{ Text = "Every game pass can be <b>gifted</b>: press Gift on its card." },
+				},
+			},
+			{
+				Heading = "Balance",
+				Items = {
+					{ Text = "Stacked boosts were sending spikes past 400 km/h. Past 250 km/h a boost now counts for less, and nothing goes over <b>300</b>." },
+					{ Text = "<b>Breakthroughs</b> now grow an ability's power more than its cooldown. Rally Cry's boost reaches 18% at +5, and Storm Call and Iron Wall get stronger too." },
+					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> has to jump to wall, and a set starts with one shield. The block that shatters a shield pops the ball up for his team, and only a 270+ km/h spike shatters one at once (more with breakthroughs)." },
+					{ Icon = "AbilityThunder", Text = "<b>YeJun</b>'s second swing gets its own freeze frame, in yellow (violet with the Fallen Angel)." },
+					{ Icon = "AbilitySkyward", Text = "<b>Seora</b>: new passive <b>Sharp Angle</b>, her spikes come down a little steeper." },
+				},
+			},
+			{
+				Heading = "Fixes",
+				Items = {
+					{ Text = "The Probability Table and the Lucky Spin Odds no longer show the same numbers (your recruits always used the right odds)." },
+					{ Text = "Bots no longer get duplicated, and nobody gets stuck on the wrong side of the net." },
+					{ Text = "The Haunted Forest no longer shows in the sky behind the beach court." },
+					{ Text = "The Circular Swing spikes with the right hand." },
+					{ Text = "Halloween card picks work on a controller, and running out of time picks one at random after 15 seconds." },
+				},
+			},
+			{
+				Heading = "Codes",
+				Items = {
+					{ Text = "New codes: <b>ranked</b>, <b>clans</b> and <b>1500discord</b>." },
+				},
+			},
+		},
+	},
+	{
 		Id = "2026-10-15",
 		Title = "Halloween Night",
 		Date = "October 15, 2026",
