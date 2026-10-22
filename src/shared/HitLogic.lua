@@ -1053,6 +1053,15 @@ local function attackDepth(dz, qContact, rng, deepest, shortest)
 	return depth + jitter(rng, (1 - qContact) ^ 1.5 * H.SpikeError)
 end
 
+-- Every spike and jump serve's speed past the soft cap: SpeedKnee and up counts SpeedOver, never
+-- past SpeedMax (the owner, 2026-10-21: stacked buffs had Dante at 400 km/h).
+function HitLogic.softCap(kmh)
+	if kmh <= H.SpeedKnee then
+		return kmh
+	end
+	return math.min(H.SpeedMax, H.SpeedKnee + (kmh - H.SpeedKnee) * H.SpeedOver)
+end
+
 -- ctx: the hitter's (nil: no ability, Talon Drop's plain power). zeroRange: Zero Point's km/h range
 -- when the ball is in his sweet spot (it beats the lightning range: the base the rest multiplies)
 local function attackPower(kind, q, qContact, heightM, stats, ctx, energy, zeroRange)
@@ -1374,6 +1383,8 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		kmh = kmh * (kind == "JumpServe" and hex.serveMul or hex.spikeMul)
 		meta.tierDrain = meta.tierDrain * hex.drainDeal
 	end
+	-- the soft cap: stacked boosts can't run away (Config.Hits.SpeedKnee)
+	kmh = HitLogic.softCap(kmh)
 	local steps = 0
 	if q >= H.SpikeAssistQuality and not overcharge then
 		steps = H.NetAssistSteps

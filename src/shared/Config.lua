@@ -153,6 +153,12 @@ Config.Hits = {
 	-- Spikes. Speeds are km/h at a maxed Attack stat (175); lower Attack scales them by Power.
 	SpikeKmhMin = 110, -- weakest clean contact
 	SpikeKmhMax = 140, -- perfect contact at the top of the jump
+	-- the soft cap on every spike and jump serve (the owner, 2026-10-21: "dante is hitting 400 kmh
+	-- and yejun is easily breaking 300" with buffs stacked): past SpeedKnee only SpeedOver of the
+	-- rest counts, and nothing goes past SpeedMax (266 -> 256, 300 -> 270, 400 -> 300)
+	SpeedKnee = 250,
+	SpeedOver = 0.4,
+	SpeedMax = 300,
 	ThunderHeight = 4.0, -- metres
 	ThunderKmhMin = 160,
 	ThunderKmhMax = 200,

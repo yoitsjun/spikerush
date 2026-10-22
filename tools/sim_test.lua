@@ -3034,6 +3034,22 @@ do
 		table.concat(names, ", ") .. string.format("; upset +%d / %d; S1 ends %d", upset, upsetL, endsNov))
 end
 
+print("== the speed cap ==")
+do
+	-- (the owner, 2026-10-21: "dante is hitting 400 kmh and yejun is easily breaking 300" with buffs)
+	local H2 = Config.Hits
+	local dante = Characters.derive(Characters.fromRoster(Roster.get("dante"), "max", 5))
+	local r = apexRoot(dante, 3.5 * K)
+	local b = ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	-- everything at once: a +5 Dante's first strike in Bloodlust, Rally Cry on, off a Tyrant's Set in the Dictate
+	local _, stacked = spike(r, b, { stats = dante, ability = "Feral", breakLevel = 5, bloodlust = true, firstStrike = true, teamBoost = 0.18, dictate = true,
+		lastHit = { team = "Away", hitType = "Set", tyrantSet = true, absolute = true } }, { gauge = 1.65, toward = true })
+	check(HitLogic.softCap(200) == 200 and HitLogic.softCap(H2.SpeedKnee) == H2.SpeedKnee and math.abs(HitLogic.softCap(300) - 270) < 1e-9 and HitLogic.softCap(1000) == H2.SpeedMax
+		and stacked.meta.kmh <= H2.SpeedMax + 1 and stacked.meta.kmh > H2.SpeedKnee,
+		"the speed cap: past 250 km/h a boost counts 40%, never past 300; everything stacked on a +5 Dante stays under it",
+		string.format("266 -> %.0f, 300 -> %.0f, 400 -> %.0f; the full stack %.0f km/h", HitLogic.softCap(266), HitLogic.softCap(300), HitLogic.softCap(400), stacked.meta.kmh))
+end
+
 print("== match modifiers ==")
 do
 	-- (the owner, 2026-10-21: "add custom match modifiers, like more power, low gravity, no ability cd
@@ -3486,8 +3502,8 @@ do
 	local _, th5 = spike(r, b, { stats = yj, ability = "Thunder", breakLevel = 5 }, { second = true })
 	local _, st5 = spike(r, b, { stats = yj, ability = "Thunder", abilities = ta, breakLevel = 5 }, { energy = 1, second = true })
 	local lc = { ability = "Thunder", abilities = ta, breakLevel = 5 }
-	check(st.meta.thunder and st.meta.pierce and st.meta.height >= 4.0 and math.abs(st.meta.kmh / th.meta.kmh - (1 + A.Azure.MaxBoost)) < 0.01
-		and math.abs(st5.meta.kmh / th5.meta.kmh - (1 + A.Azure.MaxBoost)) < 0.01 and th5.meta.kmh > th0.meta.kmh * 1.04
+	check(st.meta.thunder and st.meta.pierce and st.meta.height >= 4.0 and math.abs(st.meta.kmh / HitLogic.softCap(th.meta.kmh * (1 + A.Azure.MaxBoost)) - 1) < 0.01
+		and math.abs(st5.meta.kmh / HitLogic.softCap(th5.meta.kmh * (1 + A.Azure.MaxBoost)) - 1) < 0.01 and th5.meta.kmh > th0.meta.kmh * 1.04
 		and HitLogic.levelOf(lc, "Thunder") == 5 and HitLogic.levelOf(lc, "Azure") == 0 and HitLogic.has(lc, "Azure") and not HitLogic.has(lc, "Feral"),
 		"a Thunder Spiker with an Azure card: a thunder spike his energy multiplies; his breakthroughs grow his own ability, not the card's",
 		string.format("%.0f -> %.0f km/h at %.2f m (at +5: %.0f -> %.0f)", th.meta.kmh, st.meta.kmh, st.meta.height, th5.meta.kmh, st5.meta.kmh))
@@ -3530,8 +3546,8 @@ do
 	local _, storm = spike(zr, zb, { stats = tz, ability = "ZeroPoint", abilities = set("ZeroPoint", { "Thunder" }), stormOn = true })
 	local _, charged = spike(zr, zb, { stats = tz, ability = "ZeroPoint", abilities = set("ZeroPoint", { "Azure" }) }, { energy = 0.5 })
 	local _, leap = spike(zr, zb, { stats = tz, ability = "ZeroPoint", abilities = set("ZeroPoint", { "Feral" }) }, { gauge = 1, toward = true })
-	check(zero.meta.zero and storm.meta.zero and storm.meta.storm and math.abs(storm.meta.kmh / zero.meta.kmh - (1 + A.Thunder.StormBoost)) < 0.01
-		and charged.meta.zero and math.abs(charged.meta.kmh / zero.meta.kmh - (1 + A.Azure.MaxBoost * 0.5 ^ 1.2)) < 0.01
+	check(zero.meta.zero and storm.meta.zero and storm.meta.storm and math.abs(storm.meta.kmh / HitLogic.softCap(zero.meta.kmh * (1 + A.Thunder.StormBoost)) - 1) < 0.01
+		and charged.meta.zero and math.abs(charged.meta.kmh / HitLogic.softCap(zero.meta.kmh * (1 + A.Azure.MaxBoost * 0.5 ^ 1.2)) - 1) < 0.01
 		and leap.meta.zero and leap.meta.fullLeap and leap.meta.breakAtk == 999 and storm.launch.hold == A.ZeroPoint.Freeze,
 		"Zero Point keeps Storm Call's and the energy's boosts on top, and a full leap keeps his through-any-block",
 		string.format("%.0f, with Storm Call %.0f, half a bar %.0f km/h", zero.meta.kmh, storm.meta.kmh, charged.meta.kmh))
@@ -3606,7 +3622,7 @@ do
 	local kFloat = spikeOff(copy(sm, { charged = false }))
 	local kPlain = spikeOff(copy(sm, { charged = false, setBreak = false }))
 	check(okS and sm.setBreakFor == "Featherfall" and sm.charged and sm.featherSet and sm.vectorSet
-		and math.abs(kChain / kFloat - A.ChainReaction.PowerMul[1]) < 0.01 and math.abs(kFloat / kPlain - (1 + BTm.ab("Featherfall", "MaxBoost", 5)) / (1 + A.Featherfall.MaxBoost)) < 0.01,
+		and math.abs(kChain / HitLogic.softCap(kFloat * A.ChainReaction.PowerMul[1]) - 1) < 0.01 and math.abs(kFloat / kPlain - (1 + BTm.ab("Featherfall", "MaxBoost", 5)) / (1 + A.Featherfall.MaxBoost)) < 0.01,
 		"a +5 Featherfall setter with Chain Reaction and Vector cards: one set carries all three; her float's boost grows, the card's explosion doesn't",
 		string.format("%.0f plain, %.0f off the float, %.0f exploding", kPlain, kFloat, kChain))
 
