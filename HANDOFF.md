@@ -692,7 +692,7 @@ The owner's evening list, one request after another. Pushed in 1b1addc, 2d01fc7,
 
 ## Next steps
 
-0. **Next up (2026-10-22's work): try with real players in the live game.** Ranked with two people: the bans, then the pick screen (switch, Ready ending it early, a banned pick refused, a ban moving someone and their later pick taking), the ranked board filling. The AFK Lounge past 17 idle minutes (the teleport, the lounge reopening, the timer carrying on) only works live. A clan's weekly points rising after a match and the This week board. Dohwan's feel with Sovereign Strike.
+0. **Next up (2026-10-22's work): try with real players in the live game.** Ranked with two people: the bans, then the pick screen (switch, Ready ending it early, a banned pick refused, a ban moving someone and their later pick taking), the ranked board filling. The AFK Lounge only works live: AFK teleports you to a private server of your own (ReserveServer), Return to game back to a public one, and past 17 idle minutes it moves you to a fresh private one (the lounge reopening, the timer carrying on). A clan's weekly points rising after a match and the This week board. Dohwan's feel with Sovereign Strike.
 
 0. **Next up: see the new characters and badges in the live game.** The owner clicks "share access" in Studio's Output for the two ability icons and the seven rank badges if they still don't show. Then: Dohwan by hand (Q, the jump serve's dip and the wrecked pass, a Grounded hitter's HUD line), Haesol's sun on a dig and a perfect one lighting Sunshine, a Vert spike going under a block, Taesan's shatter pop. Not seen yet: Haesol digging a heavy ball and a Crown Jump Serve (the bots didn't serve or receive one in the playtest).
 

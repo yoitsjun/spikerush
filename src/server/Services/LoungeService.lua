@@ -7,6 +7,11 @@
 --     or { refused = text } / { refreshing = true }.
 --   * A player in a match can't come in; one in a lobby leaves it on the way in, and one pulled
 --     into a lobby or a match while inside (a party) is let out.
+--   * Your own server (the owner, 2026-10-22: "make this teleport you to your own game"): stepping
+--     in from a public server reserves a private server of this place for you alone and teleports
+--     you there with { lounge = true, loungeServer = true }; that server is a lounge server
+--     (isLoungeServer), where Return to game teleports you back to a public server. Where
+--     teleports can't happen (Studio, or one failing) the lounge runs where you are, as before.
 --   * Roblox drops a player after 20 minutes without input. Inputs come in as the Activity pings
 --     (InputController); past RefreshAfter without one, the profile is saved and the player is
 --     teleported to a fresh server of this place with { lounge = true }, where they're put
@@ -28,7 +33,8 @@ local L = Config.Lounge
 local reg
 local inside = {} -- player -> { earned, vp, synced }: this visit's Gold and V Points, the last send
 local lastInput = {} -- player -> os.clock() of their last input
-local refreshing = {} -- player -> true while their teleport is on its way
+local refreshing = {} -- player -> "lounge" or "game" while their teleport there is on its way
+local isLoungeServer = false -- this server is someone's own lounge (they came in with loungeServer)
 local rng = Random.new()
 
 local function perks(plr)
@@ -67,7 +73,9 @@ local function send(plr, extra)
 		today = rec.gold,
 		cap = Lounge.cap(vip, premium),
 		paidToday = rec.payouts,
-		refreshing = refreshing[plr] == true,
+		refreshing = refreshing[plr] ~= nil,
+		moving = refreshing[plr], -- ("lounge": to their own server; "game": back to a public one)
+		own = isLoungeServer,
 	}
 	for k, v in pairs(extra or {}) do
 		out[k] = v
@@ -77,6 +85,8 @@ local function send(plr, extra)
 	end
 	Net.get("Lounge"):FireClient(plr, out)
 end
+
+local move -- (a teleport to their own server or back: below)
 
 local function enter(plr)
 	if inside[plr] or not reg.ProfileService.lounge(plr) then
@@ -93,6 +103,9 @@ local function enter(plr)
 	inside[plr] = { earned = 0, vp = 0, synced = 0 }
 	lastInput[plr] = lastInput[plr] or os.clock()
 	send(plr)
+	if not isLoungeServer then
+		move(plr, "lounge") -- (their own server; the time inside counts on the way)
+	end
 end
 
 local function leave(plr)
@@ -104,13 +117,15 @@ local function leave(plr)
 	send(plr)
 end
 
--- A fresh server before Roblox's idle kick (see the top).
-local function refresh(plr)
+-- A teleport: `to` "lounge" is a new private server of this place for them alone (stepping in, and
+-- the refresh before Roblox's idle kick), "game" a public one (Return to game). The profile is
+-- saved first. Teleports don't work in Studio: there (or when one fails) they stay where they are.
+function move(plr, to)
 	if refreshing[plr] then
 		return
 	end
-	refreshing[plr] = true
-	lastInput[plr] = os.clock() -- (a failed teleport tries again after another RefreshAfter)
+	refreshing[plr] = to
+	lastInput[plr] = os.clock() -- (a failed refresh tries again after another RefreshAfter)
 	send(plr)
 	task.spawn(function()
 		reg.ProfileService.save(plr)
@@ -119,17 +134,28 @@ local function refresh(plr)
 				error("teleports don't work in Studio")
 			end
 			local opts = Instance.new("TeleportOptions")
-			opts:SetTeleportData({ lounge = true })
+			if to == "lounge" then
+				opts.ReservedServerAccessCode = TeleportService:ReserveServer(game.PlaceId)
+				opts:SetTeleportData({ lounge = true, loungeServer = true })
+			end
 			TeleportService:TeleportAsync(game.PlaceId, { plr }, opts)
 		end)
 		if not ok then
-			warn("[SpikeRush] lounge refresh for " .. plr.Name .. ": " .. tostring(err))
+			warn("[SpikeRush] lounge teleport (" .. to .. ") for " .. plr.Name .. ": " .. tostring(err))
 			refreshing[plr] = nil
 			if plr.Parent then
-				send(plr)
+				if to == "game" then
+					leave(plr) -- (back on the menus here)
+				else
+					send(plr)
+				end
 			end
 		end
 	end)
+end
+
+local function refresh(plr)
+	move(plr, "lounge")
 end
 
 local function tick(dt)
@@ -171,6 +197,9 @@ local function arrived(plr)
 	if not (ok and type(data) == "table" and data.lounge == true) then
 		return
 	end
+	if data.loungeServer == true then
+		isLoungeServer = true
+	end
 	task.spawn(function()
 		for _ = 1, 60 do
 			if not plr.Parent then
@@ -195,7 +224,11 @@ function LoungeService.init(r)
 		if op == "enter" then
 			enter(plr)
 		elseif op == "leave" then
-			leave(plr)
+			if isLoungeServer then
+				move(plr, "game") -- (your own server: back to a public one)
+			else
+				leave(plr)
+			end
 		elseif op == "get" then
 			send(plr)
 		end

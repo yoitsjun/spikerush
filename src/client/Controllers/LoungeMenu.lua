@@ -166,7 +166,7 @@ local function build()
 end
 
 -- the screen a refresh's teleport shows while it travels
-local function teleportScreen()
+local function teleportScreen(line)
 	local g = Instance.new("ScreenGui")
 	g.Name = "LoungeTeleport"
 	g.IgnoreGuiInset = true
@@ -176,7 +176,7 @@ local function teleportScreen()
 	f.BorderSizePixel = 0
 	f.Parent = g
 	Gui.label(f, { Text = "AFK LOUNGE", display = true, weight = Enum.FontWeight.Heavy, TextSize = 56, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -24), Size = UDim2.fromOffset(700, 64), TextXAlignment = Enum.TextXAlignment.Center })
-	Gui.label(f, { Text = "Refreshing your connection. Your rewards keep coming.", TextSize = 20, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MUTED, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 30), Size = UDim2.fromOffset(700, 26), TextXAlignment = Enum.TextXAlignment.Center })
+	Gui.label(f, { Text = line or "Refreshing your connection. Your rewards keep coming.", TextSize = 20, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MUTED, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 30), Size = UDim2.fromOffset(700, 26), TextXAlignment = Enum.TextXAlignment.Center })
 	return g
 end
 
@@ -230,7 +230,13 @@ function LoungeMenu.refresh()
 	ui.luck.Text = string.format('Every payout: <font color="#5AC8FF">%s%% chance</font> to find <font color="#5AC8FF">+%d V POINTS</font>', tostring(L.GemChance * 100), L.GemVP)
 	ui.vip.Visible = not s.vip
 	ui.vipL.Text = string.format("GET VIP  •  %dx GOLD", L.VipMult)
-	ui.foot.Text = s.refreshing and "Refreshing your connection..." or "Stay as long as you want: the lounge refreshes your connection automatically, past Roblox's 20 minute AFK limit."
+	if s.moving == "game" then
+		ui.foot.Text = "Taking you back to the game..."
+	elseif s.moving == "lounge" then
+		ui.foot.Text = s.own and "Refreshing your connection..." or "Taking you to your own lounge server..."
+	else
+		ui.foot.Text = (s.own and "Your own server. " or "") .. "Stay as long as you want: the lounge refreshes your connection automatically, past Roblox's 20 minute AFK limit."
+	end
 	tickTimer()
 end
 
@@ -244,8 +250,8 @@ function LoungeMenu.open()
 end
 
 function LoungeMenu.close()
-	if ui.root then
-		ui.root.Visible = false
+	if ui.root and not (state and state.own) then
+		ui.root.Visible = false -- (in your own server it stays up until the teleport back)
 	end
 	Net.get("Lounge"):FireServer("leave")
 end
@@ -267,11 +273,11 @@ local function onState(s)
 	end
 	state = s
 	stateAt = os.clock()
-	if s.refreshing and not ui.teleportSet then
-		-- (only for the refresh: a ranked match's teleport keeps Roblox's own screen)
-		ui.teleportSet = true
+	if s.moving and ui.teleportSet ~= s.moving then
+		-- (only for the lounge's own teleports: a ranked match's keeps Roblox's own screen)
+		ui.teleportSet = s.moving
 		pcall(function()
-			TeleportService:SetTeleportGui(teleportScreen())
+			TeleportService:SetTeleportGui(teleportScreen(s.moving == "game" and "Back to the game..." or (s.own and "Refreshing your connection. Your rewards keep coming." or "To your own lounge server...")))
 		end)
 	end
 	if ui.root then
