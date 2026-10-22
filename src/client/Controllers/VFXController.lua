@@ -2274,7 +2274,7 @@ function PR.press(model)
 	local alive = true
 	local stopRain = PR.rain(function()
 		return (alive and hrp.Parent) and hrp.Position or nil
-	end, { rate = 70, top = 9, fall = 15, spreadZ = 2.2, spreadX = 1.4, color = Color3.fromRGB(215, 200, 255), width = 0.07, len = 4.5 })
+	end, { rate = 120, top = 11, fall = 17, spreadZ = 2.6, spreadX = 1.6, color = Color3.fromRGB(225, 212, 255), width = 0.1, len = 5 })
 	task.spawn(function()
 		local first = true
 		while alive and hrp.Parent do
