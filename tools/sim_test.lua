@@ -4343,6 +4343,14 @@ do
 	local _, plainS = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = haesol })
 	local _, vert = spike(sr, ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy), { stats = haesol, ability = "Sunshine" })
 	local pP, pV = BallPhysics.buildPath(plainS.launch), BallPhysics.buildPath(vert.launch)
+	-- how steeply each comes down where it lands (degrees below level)
+	local function landAngle(path)
+		local L = path.landing
+		local v = BallPhysics.velocityAt(path, L.t - 0.001)
+		return math.deg(math.atan(-v.Y / math.max(math.abs(v.Z), 1e-3)))
+	end
+	local aP, aV = landAngle(pP), landAngle(pV)
+	check(aV > aP + 15 and aV > 45, "Vert Spikes: her spike dives, coming down far steeper than a usual one", string.format("%.0f vs %.0f degrees at the floor", aV, aP))
 	check(vert.meta.vert and vert.meta.vert > 0 and oppDepth(pV) < oppDepth(pP) and vert.meta.kmh > plainS.meta.kmh and Court.inBounds(pV.landing.pos) and not pV.flags.netTouch,
 		"Vert Spikes: her spike lands shorter and harder, and in", string.format("%.1f vs %.1f studs deep, %.1f vs %.1f km/h (+%.1f%%)", oppDepth(pV), oppDepth(pP), vert.meta.kmh, plainS.meta.kmh, vert.meta.vert * 100))
 	local unders, total = 0, 0

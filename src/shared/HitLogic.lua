@@ -1417,26 +1417,34 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	elseif q >= H.GreatAt then
 		hold = H.HitStopGreat
 	end
-	if plunge then
+	-- the turn and dive: Plunge Spin's, and Haesol's Vert Spikes (steeper and shorter: Sunshine's VertDive)
+	local pd = plunge and PLUNGE or (vert and ball.Y >= C.NetTop + PLUNGE.MinOverNet and SUNSHINE.VertDive) or nil
+	if pd then
 		-- the turn: past the net, a little under the contact; from there it plunges
 		-- to land where the contact sends it (below)
 		-- met out in front it flies on and dives near their back line, met further back it turns
 		-- down at once (Config.Abilities.Plunge)
 		local front = clamp((dz - H.SpikeDzDeep) / (H.SpikeDzShort - H.SpikeDzDeep), 0, 1)
-		local tan = math.tan(math.rad(lerp(PLUNGE.DiveAngleShort, PLUNGE.DiveAngleDeep, front)))
-		local turnY = math.max(ball.Y - PLUNGE.TurnDrop, C.NetTop + PLUNGE.TurnOverNet)
-		local land = lerp(PLUNGE.LandShort, deepest - PLUNGE.BackMargin, front) + (rng:NextNumber() - 0.5) * 0.5 * SPM
+		local tan = math.tan(math.rad(lerp(pd.DiveAngleShort, pd.DiveAngleDeep, front)))
+		local turnY = math.max(ball.Y - pd.TurnDrop, C.NetTop + pd.TurnOverNet)
+		local land = lerp(pd.LandShort, pd.LandDeep or (deepest - pd.BackMargin), front) + (rng:NextNumber() - 0.5) * 0.5 * SPM
 		local turnZ = land - (turnY - R) / tan
-		if turnZ < PLUNGE.TurnMin then
-			turnZ = PLUNGE.TurnMin
+		if turnZ < pd.TurnMin then
+			turnZ = pd.TurnMin
 			land = turnZ + (turnY - R) / tan
 		end
 		local turn = Vector3.new(0, turnY, -side * turnZ)
-		local g1 = G * PLUNGE.FlatGravity
+		local g1 = G * pd.FlatGravity
 		local v1 = HitLogic.solveSpeed(ball, turn, speed, g1)
 		local tau = math.abs(turn.Z - ball.Z) / math.max(math.abs(v1.Z), 1)
 		local down = Vector3.new(0, R, -side * land) - turn
-		local v2 = down.Unit * speed * PLUNGE.DiveSpeed
+		local v2 = down.Unit * speed * pd.DiveSpeed
+		if vert then
+			-- (under the block: the line from her hand to where it lands, as for any spike of hers)
+			local angle = math.deg(math.atan(math.max(ball.Y - R, 0) / math.max(math.abs(land + side * ball.Z), 1)))
+			meta.underBlock = angle >= SUNSHINE.UnderAngle or nil
+			meta.vertDive = true
+		end
 		hold = math.max(hold, H.HitStopGreat) -- (never less than a great hit's)
 		meta.turnAt = math.floor(tau * 1000 + 0.5) / 1000
 		local ok, res = launchResult(meta, ball, v1, Vector3.new(0, -g1, 0), t, hold)

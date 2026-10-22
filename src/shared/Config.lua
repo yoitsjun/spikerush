@@ -1672,13 +1672,18 @@ Config.Abilities = {
 		DigAdd = { Defense = 70, Speed = 18 }, -- and is played with these on top
 		-- Vert Spikes
 		VertDepthMul = 0.72,
+		-- (the owner, 2026-10-21: "add a passive for haesol for a more vertical spike or a steeper
+		-- sharper angle"): her spike crosses the net, then turns and drives down nearly vertical
+		-- (Plunge Spin's turn, steeper and shorter): met at the hand or behind it at AngleShort onto
+		-- LandShort, met out in front at AngleDeep onto LandDeep
+		VertDive = { DiveAngleShort = 76, DiveAngleDeep = 66, LandShort = 1.3 * M, LandDeep = 4.2 * M, TurnDrop = 0.3 * M, TurnOverNet = 0.45 * M, TurnMin = 0.5 * M, FlatGravity = 0.3, DiveSpeed = 1.0 },
 		VertAngle = { 20, 44 }, -- degrees below level, contact to landing: no boost, the whole VertBoost
 		VertBoost = 0.2,
-		UnderAngle = 36, -- from here a spike of hers goes under the block (Iron Wall and Bulwark still stop it)
+		UnderAngle = 50, -- from here a spike of hers goes under the block (Iron Wall and Bulwark still stop it; 36 before her dive)
 		Passives = {
 			{ Name = "Sunshine", Blurb = "Your perfect-dig window is far wider. A perfect dig lights Sunshine for 10 s: +10 to every stat, and your block and dig reach grow." },
 			{ Name = "Sun Dig", Blurb = "Your digs reach 33% wider and are played with +70 Defense and +18 Speed." },
-			{ Name = "Vert Spikes", Blurb = "Your spikes come down sharp: the steeper, the harder (up to +20%), and the steepest slip under the block." },
+			{ Name = "Vert Spikes", Blurb = "Your spikes cross the net and drive straight down at a sharp angle: the steeper, the harder (up to +20%), and the steepest slip under the block." },
 		},
 	},
 	Counter = {

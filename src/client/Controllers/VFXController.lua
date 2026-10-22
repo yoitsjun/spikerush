@@ -4635,6 +4635,21 @@ local function onHit(snap)
 			ringFx(pos, VECTOR, 1.5, 7 + 20 * boost, 0.35, 6)
 			tag(string.format("+%.1f%%", boost * 100), VECTOR, 0.9 + 2 * boost)
 		end
+		if meta.vertDive then
+			-- Vert Spikes' dive: where it turns down, a flash of sunlight and a ring
+			local sun = Config.Abilities.Sunshine.Color
+			local path = snap.path
+			local turn = path.segs[2]
+			if turn then
+				task.delay(math.max(0, turn.t0 - Util.now()), function()
+					if Util.now() < path.landing.t + 0.05 then
+						sonicRing(turn.p, turn.v, Color3.fromRGB(255, 245, 210), 9, 0.4)
+						starburst(turn.p, sun, 5)
+						burst(turn.p, sun, 4)
+					end
+				end)
+			end
+		end
 		if meta.plunge then
 			-- Plunge Spin: the ball leaves the hand through a big ring of wind (across its line);
 			-- where it turns down into the plunge, a second ring, a burst and a boom
