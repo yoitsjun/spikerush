@@ -842,6 +842,12 @@ Config.Cards = {
 		-- Almighty in ranked (Config.Ranked); the players who had it were moved to True Almighty
 		{ Key = "Almighty2", Name = "Almighty", Stat = "rankedBest", Need = 7, Goal = "Reach Almighty in ranked",
 			Look = { Base = Color3.fromRGB(58, 4, 12), Sweep = Color3.fromRGB(205, 26, 42), Accent = Color3.fromRGB(255, 222, 120), Edge = Color3.fromRGB(255, 210, 80), Pattern = "rays", Big = "ALMIGHTY", Avatar = true, Fx = { Wings = true, Crest = true, Glow = true, Halo = true, Shine = true, Sparkles = true, WordShine = true } } },
+		-- the ranked card (the owner, 2026-10-21: "add rank cards like this which update based on your
+		-- current rank", after another game's ranked banner: RANKED, SEASON 19, W and L, the rank's
+		-- emblem): unlocked by a ranked match; its colours and the badge on its edge follow your rank
+		-- now ("ranked": Cards.look), and it shows the season with this season's wins and losses
+		{ Key = "Ranked", Name = "Ranked", Stat = "rankedPlayed", Need = 1, Show = "ranked", Goal = "Play a ranked match",
+			Look = { Base = Color3.fromRGB(16, 10, 20), Sweep = "ranked", Accent = "ranked", Edge = "ranked", Pattern = "rays", Fx = { RankBadge = true, Glow = true } } },
 		-- the very best players, given from the admin panel (the owner, 2026-10-21: "replace the
 		-- people who had almighty card with True Almighty and put some more special stuff on it"):
 		-- black and gold, everything the Almighty card has, and an aura turning round its edge and

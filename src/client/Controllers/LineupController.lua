@@ -176,7 +176,7 @@ local function newScene(parent, entries, color, opts)
 			local card = model and Cards.get(model:GetAttribute("PlayerCard"))
 			local above = -2
 			if card and card.Key ~= Cards.default() then
-				local look = Cards.look(card, color, plr and tonumber(plr:GetAttribute("BoardRank")))
+				local look = Cards.look(card, color, plr and tonumber(plr:GetAttribute("BoardRank")), plr and tonumber(plr:GetAttribute("CardRp")))
 				local plate = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, -2), Size = UDim2.fromOffset(0, 24), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = look.Base, BorderSizePixel = 0, ZIndex = names.ZIndex }, slot.tag)
 				make("UIGradient", { Rotation = 0, Color = ColorSequence.new(look.Base, look.Sweep or look.Base) }, plate)
 				make("UIStroke", { Color = look.Edge or look.Accent, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, plate)

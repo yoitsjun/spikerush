@@ -855,6 +855,7 @@ local function applyCard(plr, profile)
 		inst:SetAttribute("CardValue", value)
 		inst:SetAttribute("CardLabel", label)
 		inst:SetAttribute("CardRank", stats.rank or 0)
+		inst:SetAttribute("CardRp", stats.rankedRp) -- (the Ranked card's colours and badge)
 	end
 end
 
@@ -897,7 +898,7 @@ local function publicOf(profile, userId, name)
 	return {
 		userId = userId,
 		name = name,
-		card = { key = cardKey, value = value, label = label, rank = stats.rank },
+		card = { key = cardKey, value = value, label = label, rank = stats.rank, rp = stats.rankedRp },
 		char = c and c.Id or nil,
 		record = {
 			matches = stats.matches,

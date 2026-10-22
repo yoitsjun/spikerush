@@ -4837,7 +4837,7 @@ function Extra.refreshCards(prof)
 	end
 	for key, r in pairs(L.cardRows) do
 		local def = C.get(key)
-		r.mini.set(C.look(def, team, stats.rank), data(def, false))
+		r.mini.set(C.look(def, team, stats.rank, stats.rankedRp), data(def, false))
 		if def.Look.Avatar then
 			Extra.cardAvatar(r.mini)
 		end
@@ -4861,7 +4861,7 @@ function Extra.refreshCards(prof)
 		r.edge.Transparency = key == picked and 0 or 1
 	end
 	local def = C.get(picked)
-	L.cardPreview.set(C.look(def, team, stats.rank), data(def, true))
+	L.cardPreview.set(C.look(def, team, stats.rank, stats.rankedRp), data(def, true))
 	if def.Look.Avatar then
 		Extra.cardAvatar(L.cardPreview)
 	end
@@ -6996,7 +6996,7 @@ function Extra.fillPlayerProfile(data)
 	local C = Extra.Cards
 	local def = C.get(data.card and data.card.key) or C.get(C.default())
 	local stats = { rank = data.card and data.card.rank }
-	local look = C.look(def, Config.Teams.Home.Color, stats.rank)
+	local look = C.look(def, Config.Teams.Home.Color, stats.rank, data.card and data.card.rp)
 	local c = Roster.get(data.char or "")
 	local tier = c and c.Tier or ""
 	if look.Avatar then

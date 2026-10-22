@@ -1048,6 +1048,8 @@ function Gui.playerCard(parent, props)
 	local _, setBadge = Gui.tierBadge(root, 30, { Position = UDim2.fromOffset(x, 58), ZIndex = z + 5 })
 	local line = Gui.label(root, { TextSize = 18, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(x + 38, 58), Size = UDim2.new(1, -x - 60, 0, 30), ZIndex = z + 5 })
 	-- the number the card shows, big at the right, and its label
+	-- (the Ranked card: the wearer's rank badge standing off the right edge)
+	local rankBadge = make("ImageLabel", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, math.floor(H * 0.18), 0.5, 0), Size = UDim2.fromOffset(math.floor(H * 1.25), math.floor(H * 1.25)), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Visible = false, ZIndex = z + 7 }, root)
 	local value = Gui.label(root, { display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -26, 0, 10), Size = UDim2.fromOffset(170, 48), ZIndex = z + 5 })
 	local valueLabel = Gui.label(root, { display = true, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 58), Size = UDim2.fromOffset(170, 18), ZIndex = z + 5 })
 	-- the card's title, on a small tag over the top left
@@ -1166,6 +1168,13 @@ function Gui.playerCard(parent, props)
 			Gui.tint(c, accent)
 		end
 		value.Visible, valueLabel.Visible = hasValue, hasValue
+		local badgeImage = look.Badge and Assets.image(look.Badge) or nil
+		rankBadge.Visible = badgeImage ~= nil
+		rankBadge.Image = badgeImage or ""
+		local badgeShift = badgeImage and math.floor(H * 0.95) or 0
+		value.Position = UDim2.new(1, -26 - badgeShift, 0, 10)
+		valueLabel.Position = UDim2.new(1, -28 - badgeShift, 0, 58)
+		valueLabel.Size = UDim2.fromOffset(badgeImage and 230 or 170, 18)
 		value.Text = hasValue and data.value or ""
 		valueLabel.Text = data.label or ""
 		valueLabel.TextColor3 = accent

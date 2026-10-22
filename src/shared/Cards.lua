@@ -3,6 +3,7 @@
 -- progress, and the headless tests check the rules.
 
 local Config = require(script.Parent.Config)
+local Ranked = require(script.Parent.Ranked)
 
 local Cards = {}
 
@@ -78,6 +79,12 @@ function Cards.stats(profile, owned)
 		rankBoard = r and r.board or nil,
 		clanRank = (cr and tonumber(cr.rank) and cr.rank >= 1) and math.floor(cr.rank) or nil,
 		rankedBest = whole(type(profile.ranked) == "table" and profile.ranked.best or 0),
+		-- (the Ranked card: this season's)
+		rankedRp = whole(type(profile.ranked) == "table" and profile.ranked.rp or 0),
+		rankedSeason = whole(type(profile.ranked) == "table" and profile.ranked.season or 0),
+		rankedWins = whole(type(profile.ranked) == "table" and profile.ranked.wins or 0),
+		rankedLosses = whole(type(profile.ranked) == "table" and profile.ranked.losses or 0),
+		rankedPlayed = whole(type(profile.ranked) == "table" and ((profile.ranked.wins or 0) + (profile.ranked.losses or 0) + #(profile.ranked.history or {})) or 0),
 		clanTag = cr and cr.tag or nil,
 	}
 end
@@ -125,6 +132,10 @@ function Cards.display(card, stats)
 		end
 		return "#" .. stats.clanRank, "[" .. tostring(stats.clanTag or "?") .. "] TOP CLAN"
 	end
+	if card.Show == "ranked" then
+		-- "SEASON 1", and "W:12  L:4  GOLD II"
+		return string.format("SEASON %d", math.max(1, stats.rankedSeason or 1)), string.format("W:%d  L:%d  %s", stats.rankedWins or 0, stats.rankedLosses or 0, string.upper(Ranked.name(stats.rankedRp or 0)))
+	end
 	if card.Show == "winRate" then
 		return string.format("%d%%", math.floor((stats.winPct or 0) + 0.5)), string.format("%s W  %s L", commas(stats.wins), commas(stats.losses))
 	end
@@ -134,20 +145,25 @@ function Cards.display(card, stats)
 	return commas(stats[card.Show] or 0), card.Label or ""
 end
 
--- A card's look with "team" and "rank" resolved: `team` is the scorer's team colour, `rank` the
--- place a rank card shows.
-function Cards.look(card, team, rank)
+-- A card's look with "team", "rank" and "ranked" resolved: `team` is the scorer's team colour,
+-- `rank` the place a rank card shows, `rp` the wearer's ranked points (the Ranked card: its colour
+-- is their rank's, and Badge is their division's badge key, Assets.Images).
+function Cards.look(card, team, rank, rp)
 	local L = card.Look
 	local rankColor = Config.Cards.RankColors[rank or 1] or Config.Cards.RankColors[1]
+	local _, ranked = Ranked.rankOf(rp or 0)
 	local function resolve(v)
 		if v == "team" then
 			return team
 		elseif v == "rank" then
 			return rankColor
+		elseif v == "ranked" then
+			return ranked.Color
 		end
 		return v
 	end
-	return { Base = L.Base, Sweep = resolve(L.Sweep), Accent = L.Accent, Edge = resolve(L.Edge), Pattern = L.Pattern, Big = L.Big, Avatar = L.Avatar == true, Fx = L.Fx }
+	local badge = (L.Fx and L.Fx.RankBadge) and Ranked.badgeKey(rp or 0) or nil
+	return { Base = L.Base, Sweep = resolve(L.Sweep), Accent = resolve(L.Accent), Edge = resolve(L.Edge), Pattern = L.Pattern, Big = L.Big, Avatar = L.Avatar == true, Fx = L.Fx, Badge = badge }
 end
 
 return Cards

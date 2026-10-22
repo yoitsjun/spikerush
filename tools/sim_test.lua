@@ -2607,7 +2607,7 @@ do
 	local stats0 = Cards.stats({ record = {} }, 0)
 	for _, c in ipairs(Cards.list()) do
 		ok = ok and not seen[c.Key] and type(c.Goal) == "string" and patterns[c.Look.Pattern] ~= nil and c.Look.Base ~= nil
-		ok = ok and (c.Stat == nil or c.Stat == "rank" or c.Stat == "clanRank" or c.Stat == "grant" or stats0[c.Stat] ~= nil) and (c.Show == nil or c.Show == "rank" or c.Show == "clanRank" or c.Show == "winRate" or stats0[c.Show] ~= nil)
+		ok = ok and (c.Stat == nil or c.Stat == "rank" or c.Stat == "clanRank" or c.Stat == "grant" or stats0[c.Stat] ~= nil) and (c.Show == nil or c.Show == "rank" or c.Show == "clanRank" or c.Show == "winRate" or c.Show == "ranked" or stats0[c.Show] ~= nil)
 		ok = ok and (c.Stat ~= "grant" or c.Grant == true)
 		seen[c.Key] = true
 	end
@@ -2627,6 +2627,16 @@ do
 	local bugGrant = Economy.cleanGrant({ Cards = { "BugCatcher" } })
 	check(bugCard ~= nil and Cards.isGrant(bugCard) and not Cards.met(bugCard, wlStats) and Cards.look(bugCard).Fx.Net == true and bugGrant.Cards[1] == "BugCatcher",
 		"the Bug Catcher card is given, never earned, and hangs its net")
+	-- the Ranked card (the owner, 2026-10-21): the season, this season's W and L and the rank, its
+	-- colours and badge following the rank now
+	local rcard = Cards.get("Ranked")
+	local rstats = Cards.stats({ ranked = { season = 2, rp = 1250, wins = 12, losses = 4, history = {} } }, 0)
+	local rv, rl = Cards.display(rcard, rstats)
+	local rlook = Cards.look(rcard, nil, nil, rstats.rankedRp)
+	local blook = Cards.look(rcard, nil, nil, 0)
+	check(rv == "SEASON 2" and rl == "W:12  L:4  DIAMOND I" and rlook.Badge == "RankDiamond1" and rlook.Sweep == Config.Ranked.Ranks[5].Color and blook.Badge == "RankBronze1"
+		and Cards.met(rcard, rstats) and not Cards.met(rcard, Cards.stats({}, 0)),
+		"the Ranked card: the season, W and L and the rank; its colours and badge follow your rank; unlocked by a ranked match", rv .. " / " .. rl)
 	local default = Cards.get(Cards.default())
 	check(ok and default and not default.Stat and #Cards.list() >= 10, "player cards: each has its own look, goal and achievement; the default needs nothing", #Cards.list() .. " cards")
 	-- they unlock by achievement: a streak, wins, spikes, MVPs, recruits, a leaderboard place
