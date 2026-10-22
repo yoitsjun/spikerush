@@ -1683,12 +1683,16 @@ function HitLogic.compute(input, ctx)
 		end
 		local frac = clamp((dz - H.SpikeDzDeep) / (H.SpikeDzShort - H.SpikeDzDeep), 0, 1)
 		local depth = lerp(H.FeintMaxDepth, 0.95 * SPM, frac) + jitter(rng, (1 - qContact) * H.FeintError)
-		local target = Vector3.new(0, R, -side * clamp(depth, 0.6 * SPM, H.FeintMaxDepth + 0.95 * SPM))
+		-- a deep tip: the tip button held (input.tipDepth, 0..1) pushes it towards the back of the court
+		local deep = clamp(tonumber(input.tipDepth) or 0, 0, 1)
+		depth = lerp(depth, H.FeintDeepDepth, deep)
+		meta.deepTip = deep > 0 and deep or nil
+		local target = Vector3.new(0, R, -side * clamp(depth, 0.6 * SPM, math.max(H.FeintMaxDepth + 0.95 * SPM, H.FeintDeepDepth)))
 		local g = G
 		if has(ctx, "Azure") then
 			g = G * 1.6 -- topspin roll shot: drops faster
 		end
-		local v = arcWithAssist(ball, target, math.max(ball.Y + 0.16 * SPM, C.NetTop + H.FeintApexOverNet), g)
+		local v = arcWithAssist(ball, target, math.max(ball.Y + 0.16 * SPM, C.NetTop + H.FeintApexOverNet) + H.FeintDeepLift * deep, g)
 		return launchResult(meta, ball, v, Vector3.new(0, -g, 0), t)
 	end
 

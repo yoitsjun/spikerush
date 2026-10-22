@@ -4479,6 +4479,20 @@ do
 	check(bad.payouts == 0 and bad.carry == LC.Interval - 1, "lounge: a bad stored record is clamped")
 end
 
+print("== deep tip ==")
+do
+	local root = apexRoot(SP, 3.5 * K)
+	local b = ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local function tipDepth(deep)
+		local ok, r = HitLogic.compute({ action = "Feint", t = 0, root = root, ball = b, vy = 0, grounded = false, tipDepth = deep }, ctx({ seq = 7, forceQuality = 1 }))
+		return ok and oppDepth(BallPhysics.buildPath(r.launch)) or -1
+	end
+	local short, half, full = tipDepth(nil), tipDepth(0.5), tipDepth(1)
+	check(short > 0 and short < Config.Hits.FeintMaxDepth + 1.5 * K and half > short + 2 * K and full > half and math.abs(full - Config.Hits.FeintDeepDepth) < 1.5 * K,
+		"deep tip: a tap tips short, holding the tip button pushes it to the back of the court",
+		string.format("%.1f / %.1f / %.1f m from the net", short / SPM, half / SPM, full / SPM))
+end
+
 print("== determinism ==")
 do
 	local root = apexRoot(SP, 4 * K)

@@ -180,6 +180,13 @@ Config.Hits = {
 	FeintKmh = 32,
 	FeintApexOverNet = 0.8 * M,
 	FeintMaxDepth = 2.8 * M,
+	-- a deep tip (the owner, 2026-10-22: "allow deep court tipping based on holding the tip button"):
+	-- the tip goes when the button's let go; held past FeintHoldDead it reaches deeper, all the way
+	-- to FeintDeepDepth (metres from the net) held FeintHoldFull seconds, its arc a little higher
+	FeintDeepDepth = 7.5 * M,
+	FeintHoldDead = 0.12,
+	FeintHoldFull = 0.7,
+	FeintDeepLift = 1.2 * M,
 	FeintError = 0.8 * M,
 	-- (the owner, 2026-10-16: "Buff faints. Right now they cannot go over any blocks. Especially
 	-- tetsuo. In tsc, faints are heavily effective tools that break stamina when they are low and

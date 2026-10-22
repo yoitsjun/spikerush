@@ -75,6 +75,7 @@ local airSwings = 0
 local buffered = nil
 local stance = nil -- { t0, lastCheck, assist }
 local slideCheck = nil
+local tipHold = nil -- { t0 }: the tip button held in the air (let go: the tip, deeper the longer)
 local block = { charging = false, t0 = 0, active = false, activeT0 = 0, lastT = nil, startT = nil, seq = nil }
 local serveHold = nil -- { t0 }
 local autoOverhand = false
@@ -494,6 +495,7 @@ local function execute(action, info, opts, t, ballPos)
 		assist = opts.assist == true,
 		stanceAge = opts.stanceAge or 0.25,
 		energy = opts.energy or 0,
+		tipDepth = opts.tipDepth, -- (a deep tip: the tip button's hold, 0..1)
 		second = opts.second, -- Thunder Spiker's second swing this jump (harder)
 		setType = opts.setType,
 		targetId = opts.targetId,
@@ -1336,8 +1338,21 @@ local function pressSlideFeint(info)
 		return
 	end
 	if inPlay() and os.clock() - lastActionAt >= P.ActionCooldown then
-		tryAttack("Feint", info, {})
+		tipHold = { t0 = os.clock() } -- (the tip goes on release: releaseTip)
 	end
+end
+
+-- The tip, on letting go of the button: held past FeintHoldDead it goes deeper, to the back of the
+-- court at FeintHoldFull (a quick tap is the usual short tip).
+local function releaseTip(info)
+	local hold = tipHold
+	tipHold = nil
+	if not hold or info.grounded or not inPlay() then
+		return
+	end
+	local held = os.clock() - hold.t0
+	local deep = math.clamp((held - H.FeintHoldDead) / (H.FeintHoldFull - H.FeintHoldDead), 0, 1)
+	tryAttack("Feint", info, { tipDepth = deep })
 end
 
 -- Hold W (or Up / Y) to crouch and charge, release to jump. Near the net in a rally the jump is
@@ -1601,6 +1616,8 @@ function ActionController.release(action)
 		releaseSpike(info)
 	elseif action == "Block" then
 		releaseBlock(info)
+	elseif action == "SlideFeint" then
+		releaseTip(info)
 	elseif action == "Serve" then
 		releaseServe(info)
 	elseif action == "Set" and setCharge then

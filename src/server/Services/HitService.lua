@@ -524,6 +524,7 @@ function HitService.onRequest(plr, req)
 		root = req.root,
 		ball = req.ball,
 		vy = num(req.vy, -200, 200, 0),
+		tipDepth = req.action == "Feint" and num(req.tipDepth, 0, 1, 0) or nil, -- (a deep tip: how long the tip button was held)
 		sundive = sundive,
 		grounded = req.grounded == true,
 		diving = req.diving == true,
