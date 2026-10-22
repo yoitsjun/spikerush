@@ -7688,6 +7688,193 @@ function HW.ghostSwarm(pos, tint, k)
 	end)
 end
 
+-- The ranked score effects (the owner, 2026-10-21: "lets start with ranked score effects", one a
+-- rank from Gold, each held only while you hold the rank). Each has its own main shape and the
+-- rank's own badge (Assets.Images Rank<Key>3, the top division's) rising out of the spot.
+-- (Kept in HW: the module is at Lua's 200 locals.)
+
+-- The rank's badge: a picture `size` studs across that pops up over `pos`, holds, then lifts and fades.
+function HW.rankBadge(pos, key, size, life, lift)
+	local img = Assets.image(key)
+	if not img then
+		return
+	end
+	local anchor = Instance.new("Part")
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+	anchor.CFrame = CFrame.new(pos)
+	anchor.Parent = fxFolder
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(0, 0, 0, 0)
+	gui.LightInfluence = 0
+	gui.AlwaysOnTop = false
+	gui.Adornee = anchor
+	gui.Parent = anchor
+	local im = Instance.new("ImageLabel")
+	im.BackgroundTransparency = 1
+	im.Size = UDim2.fromScale(1, 1)
+	im.Image = img
+	im.ScaleType = Enum.ScaleType.Fit
+	im.Parent = gui
+	TweenService:Create(gui, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(size, 0, size, 0) }):Play()
+	task.delay(life, function()
+		TweenService:Create(anchor, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = CFrame.new(pos + Vector3.new(0, lift or 4, 0)) }):Play()
+		TweenService:Create(gui, TweenInfo.new(0.5), { Size = UDim2.new(size * 1.25, 0, size * 1.25, 0) }):Play()
+		TweenService:Create(im, TweenInfo.new(0.5), { ImageTransparency = 1 }):Play()
+		task.delay(0.55, anchor.Destroy, anchor)
+	end)
+end
+
+-- Gold Crest: the Gold badge slams down onto the spot and a fan of gold shards bursts out of it,
+-- with a gold shockwave and glints.
+function HW.rankGold(pos, tint, k)
+	local GOLD = Color3.fromRGB(255, 205, 60)
+	local floor = CFrame.new(pos.X, 0.15, pos.Z)
+	HW.rankBadge(pos + Vector3.new(0, 5 * k, 0), "RankGold3", 7 * k, 0.9, 3)
+	for i = 1, 10 do
+		local a = (i / 10) * math.pi * 2
+		local at = floor * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, 1.2 * k) * CFrame.Angles(math.rad(-55), 0, 0)
+		task.delay(i * 0.012, meshFx, "FX_Shard", at, i % 2 == 0 and GOLD or Color3.fromRGB(255, 240, 170), 0.1, (1.1 + math.random() * 0.5) * k, 0.9, { base = true, grow = 0.12, hold = 0.45, ease = Enum.EasingStyle.Back, glow = 1.8 })
+	end
+	meshFx("FX_Ring", floor, GOLD, 0.3 * k, 3.2 * k, 0.8, { glow = 2 })
+	floorRing(pos, GOLD, 16 * k, 0.6)
+	starburst(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 245, 200), 10 * k)
+	emit("Glints", pos + Vector3.new(0, 2, 0), 18, GOLD)
+	sfx("ScoreImpact", pos)
+	if near(pos) then
+		mods.CameraController.shake(0.6)
+	end
+end
+
+-- Platinum Spires: a ring of teal spires erupts from the floor round the spot, the Platinum badge
+-- rising in the middle, a teal ring sweeping out.
+function HW.rankPlatinum(pos, tint, k)
+	local TEAL = Color3.fromRGB(90, 255, 215)
+	local floor = CFrame.new(pos.X, 0.15, pos.Z)
+	for i = 1, 8 do
+		local a = (i / 8) * math.pi * 2
+		local at = floor * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, 3.4 * k) * CFrame.Angles(math.rad(-12), 0, 0)
+		task.delay(0.03 * i, meshFx, "FX_Column", at, i % 2 == 0 and TEAL or Color3.fromRGB(210, 255, 245), 0.1, (0.55 + math.random() * 0.2) * k, 1.2, { base = true, grow = 0.15, hold = 0.7, glow = 1.8, alpha = 0.1 })
+	end
+	meshFx("FX_Crown", floor, TEAL, 0.3 * k, 1.2 * k, 0.8, { base = true, spin = 40, glow = 1.8 })
+	HW.rankBadge(pos + Vector3.new(0, 4 * k, 0), "RankPlatinum3", 7.5 * k, 1.0, 5)
+	meshFx("FX_Ring", floor, TEAL, 0.3 * k, 4 * k, 0.9, { glow = 2 })
+	floorRing(pos, TEAL, 18 * k, 0.7)
+	emit("Sparks", pos + Vector3.new(0, 2, 0), 16, TEAL)
+	sfx("ScoreRumble", pos)
+	sfx("ScoreImpact", pos)
+	if near(pos) then
+		mods.CameraController.shake(0.7)
+	end
+end
+
+-- Diamond Storm: great ice crystals burst up out of the spot, diamond shards rain down round it,
+-- a prism flash and a cold blue tint; the Diamond badge spins in over it.
+function HW.rankDiamond(pos, tint, k)
+	local ICE = Color3.fromRGB(140, 215, 255)
+	local floor = CFrame.new(pos.X, 0.15, pos.Z)
+	meshFx("FX_IceMass", floor * CFrame.Angles(0, math.random() * 6.28, 0), ICE, 0.05, 0.9 * k, 1.6, { plain = true, base = true, grow = 0.15, hold = 1.0, shrink = 0.45, ease = Enum.EasingStyle.Back })
+	for i = 1, 7 do
+		local a = (i / 7) * math.pi * 2
+		local at = floor * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, 2.2 * k) * CFrame.Angles(math.rad(-30), 0, 0)
+		task.delay(0.02 * i, meshFx, "FX_Shard", at, Color3.fromRGB(190, 235, 255), 0.1, (1.4 + math.random() * 0.8) * k, 1.3, { plain = true, material = Enum.Material.Glass, base = true, grow = 0.12, hold = 0.8, ease = Enum.EasingStyle.Back })
+	end
+	-- shards raining down round it
+	for i = 1, 16 do
+		task.delay(0.15 + i * 0.04, function()
+			local at = pos + Vector3.new((math.random() - 0.5) * 6, 14 + math.random() * 4, (math.random() - 0.5) * 14) * k
+			local p = take(Enum.PartType.Block)
+			p.Material = Enum.Material.Neon
+			p.Color = i % 3 == 0 and WHITE or ICE
+			p.Size = Vector3.new(0.35, 0.9, 0.35)
+			p.CFrame = CFrame.new(at) * CFrame.Angles(0, math.random() * 6, math.rad(45))
+			p.Transparency = 0.1
+			TweenService:Create(p, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = CFrame.new(at.X, 0.4, at.Z) * CFrame.Angles(0, math.random() * 6, math.rad(45)), Transparency = 0.4 }):Play()
+			task.delay(0.5, release, p)
+		end)
+	end
+	HW.rankBadge(pos + Vector3.new(0, 6 * k, 0), "RankDiamond3", 8 * k, 1.1, 5)
+	flare(pos + Vector3.new(0, 4, 0), Color3.fromRGB(220, 245, 255), 22 * k, 0.5)
+	gradeFor(Color3.fromRGB(200, 230, 255), -0.1, 0.03, 0.15, 0.7, 0.4)
+	floorRing(pos, ICE, 18 * k, 0.7)
+	sfx("ScoreFreeze", pos)
+	sfx("ScoreImpact", pos)
+	if near(pos) then
+		VFXController.flash(0.3, 0.25)
+		mods.CameraController.shake(0.8)
+	end
+end
+
+-- Mighty Wings: the scorer spreads huge violet wings in a whirl of feathers with a crown over the
+-- spot, and the Mighty badge rises between them.
+function HW.rankMighty(pos, tint, k, model)
+	local VIOLET = Color3.fromRGB(180, 90, 255)
+	local floor = CFrame.new(pos.X, 0.15, pos.Z)
+	if model and model.Parent then
+		wings(model, 1.6 * k, VIOLET, Color3.fromRGB(255, 220, 120), 1.8)
+	end
+	meshFx("FX_Crown", floor * CFrame.new(0, 7 * k, 0), Color3.fromRGB(255, 210, 90), 0.2 * k, 0.9 * k, 1.3, { spin = 60, grow = 0.25, hold = 0.7, glow = 2 })
+	meshFx("FX_Spiral", floor, VIOLET, 0.3 * k, 1.4 * k, 1.2, { base = true, spin = 360, grow = 0.3, hold = 0.5, glow = 1.8, alpha = 0.15 })
+	featherFall(pos + Vector3.new(0, 4 * k, 0), 22, k)
+	HW.rankBadge(pos + Vector3.new(0, 5 * k, 0), "RankMighty", 8.5 * k, 1.2, 6)
+	floorRing(pos, VIOLET, 20 * k, 0.8)
+	starburst(pos + Vector3.new(0, 3, 0), Color3.fromRGB(235, 210, 255), 12 * k)
+	gradeFor(Color3.fromRGB(225, 205, 255), 0.05, 0.02, 0.15, 0.8, 0.4)
+	sfx("ScoreHoly", pos)
+	sfx("ScoreImpact", pos)
+	if near(pos) then
+		VFXController.flash(0.35, 0.25)
+		mods.CameraController.shake(0.9)
+		mods.CameraController.kick(-4)
+	end
+end
+
+-- Almighty Ascension: a pillar of gold light lands on the spot, a halo turns over it, feathers
+-- stream up the light, the biggest badge rises through it, the whole screen washes gold.
+function HW.rankAlmighty(pos, tint, k, model)
+	local GOLD = Color3.fromRGB(255, 200, 70)
+	local floor = CFrame.new(pos.X, 0.15, pos.Z)
+	lightPillar(pos, Color3.fromRGB(255, 250, 230), 160, 7 * k / 2, 0.2)
+	lightPillar(pos, GOLD, 160, 14 * k / 2, 0.65)
+	for i = 1, 3 do
+		task.delay(0.1 * i, meshFx, "FX_Ring", floor * CFrame.new(0, (5 + i * 2.5) * k, 0), i == 2 and Color3.fromRGB(255, 70, 70) or GOLD, 0.3 * k, (1.2 + i * 0.4) * k, 1.6, { glow = 2.2, spin = 90 * (i % 2 == 0 and -1 or 1), grow = 0.3, hold = 1.0 })
+	end
+	meshFx("FX_Column", floor, GOLD, 0.3 * k, 1.5 * k, 1.6, { base = true, spin = 120, grow = 0.25, hold = 1.0, glow = 2, alpha = 0.25 })
+	if model and model.Parent then
+		halo(model, 1.4 * k, 2.0)
+	end
+	-- feathers streaming up the light
+	for i = 1, 20 do
+		task.delay(i * 0.05, function()
+			local at = pos + Vector3.new((math.random() - 0.5) * 3, 0.5, (math.random() - 0.5) * 3) * k
+			local p = take(Enum.PartType.Block)
+			p.Material = Enum.Material.Neon
+			p.Color = i % 2 == 0 and WHITE or GOLD
+			p.Size = Vector3.new(0.12, 0.7, 0.3)
+			p.CFrame = CFrame.new(at)
+			p.Transparency = 0.1
+			TweenService:Create(p, TweenInfo.new(1.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(at + Vector3.new(0, 16 * k, 0)) * CFrame.Angles(0, math.random() * 6, 0), Transparency = 1 }):Play()
+			task.delay(1.05, release, p)
+		end)
+	end
+	HW.rankBadge(pos + Vector3.new(0, 6 * k, 0), "RankAlmighty", 10 * k, 1.4, 8)
+	flare(pos + Vector3.new(0, 6, 0), GOLD, 34 * k, 0.8)
+	floorRing(pos, GOLD, 24 * k, 0.9)
+	groundMark("FX_Crack", pos, Color3.fromRGB(80, 50, 20), 1.3 * k, 1.8, 0.8)
+	gradeFor(Color3.fromRGB(255, 235, 190), 0.1, 0.05, 0.15, 1.1, 0.5)
+	sfx("ScoreHoly", pos)
+	sfx("BlackHoleBoom", pos)
+	if near(pos) then
+		VFXController.flash(0.55, 0.35)
+		mods.CameraController.shake(1.1)
+		mods.CameraController.kick(-6)
+	end
+end
+
 local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
 	effect = Spins.look("Effect", effect) -- (a limited one without its own look yet: its Base)
 	local always = reason == nil -- (the Locker's preview: the screen effects show there too)
@@ -7703,6 +7890,16 @@ local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
 		deepFreeze(pos, tint, k or 1, model, always)
 	elseif effect == "Void" then
 		endlessVoid(pos, tint, k or 1, model, always, victims)
+	elseif effect == "RankGold" then
+		HW.rankGold(pos, tint, k or 1)
+	elseif effect == "RankPlatinum" then
+		HW.rankPlatinum(pos, tint, k or 1)
+	elseif effect == "RankDiamond" then
+		HW.rankDiamond(pos, tint, k or 1)
+	elseif effect == "RankMighty" then
+		HW.rankMighty(pos, tint, k or 1, model)
+	elseif effect == "RankAlmighty" then
+		HW.rankAlmighty(pos, tint, k or 1, model)
 	elseif effect == "WorldSlash" then
 		worldSlash(pos, dirZ, tint, k or 1, model, victims, always)
 	elseif effect == "Fireworks" then
@@ -7957,6 +8154,14 @@ function VFXController.init(m)
 			local secs = tonumber(workspace:GetAttribute("TestFirstImpact"))
 			if secs and secs > 0 then
 				VFXController.firstImpact("P_" .. tostring(player.UserId), secs)
+			end
+		end)
+		-- (and TestScore = a score effect's key: it plays on the far court, your character the scorer)
+		workspace:GetAttributeChangedSignal("TestScore"):Connect(function()
+			local key = workspace:GetAttribute("TestScore")
+			if type(key) == "string" and key ~= "" then
+				local m = Util.modelOf("P_" .. tostring(player.UserId))
+				VFXController.previewEffect(Vector3.new(0, 0.5, -14), key, nil, -1, 1, m)
 			end
 		end)
 		-- (and TestSwingFrame = "yellow" or "fallen", with seconds after it to hold it longer, e.g.

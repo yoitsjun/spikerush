@@ -687,6 +687,14 @@ Config.Cosmetics = {
 		{ Key = "Freeze", Name = "Deep Freeze", Rarity = "Mythic" },
 		{ Key = "Void", Name = "Endless Void", Rarity = "Mythic" },
 		{ Key = "WorldSlash", Name = "World Slash", Rarity = "Mythic" },
+		-- the ranked score effects (the owner, 2026-10-21: "lets start with ranked score effects",
+		-- one per rank from Gold, "if you lose the rank, you lose the explosion"): never on a banner;
+		-- you hold one while your rank this season is that one or higher (Ranked.effectsFor)
+		{ Key = "RankGold", Name = "Gold Crest", Rarity = "Legendary", Ranked = "Gold" },
+		{ Key = "RankPlatinum", Name = "Platinum Spires", Rarity = "Legendary", Ranked = "Platinum" },
+		{ Key = "RankDiamond", Name = "Diamond Storm", Rarity = "Mythic", Ranked = "Diamond" },
+		{ Key = "RankMighty", Name = "Mighty Wings", Rarity = "Mythic", Ranked = "Mighty" },
+		{ Key = "RankAlmighty", Name = "Almighty Ascension", Rarity = "Mythic", Ranked = "Almighty" },
 		-- the owner's two Halloween score effects (Limited; Base: drawn as it until their own are made)
 		{ Key = "PumpkinBurst", Name = "Pumpkin Burst", Rarity = "Legendary", Limited = "Halloween" }, -- (VFXController pumpkinBurst)
 		{ Key = "GhostSwarm", Name = "Ghost Swarm", Rarity = "Legendary", Limited = "Halloween" }, -- (VFXController ghostSwarm)

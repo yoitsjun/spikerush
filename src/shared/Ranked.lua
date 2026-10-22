@@ -65,6 +65,23 @@ function Ranked.badgeKeys()
 	return out
 end
 
+-- The ranked score effects (Config.Cosmetics.Effect with Ranked = a rank's Key) an RP total holds:
+-- { key = true } for each one at that rank or below it (you lose one when you drop under its rank).
+function Ranked.effectsFor(rp)
+	local idx = Ranked.rankOf(rp)
+	local order = {}
+	for i, r in ipairs(R.Ranks) do
+		order[r.Key] = i
+	end
+	local out = {}
+	for _, item in ipairs(Config.Cosmetics.Effect or {}) do
+		if item.Ranked and order[item.Ranked] and idx >= order[item.Ranked] then
+			out[item.Key] = true
+		end
+	end
+	return out
+end
+
 -- How far through its division (0 to 1; 1 at the top).
 function Ranked.progress(rp)
 	local _, _, _, from, to = Ranked.rankOf(rp)

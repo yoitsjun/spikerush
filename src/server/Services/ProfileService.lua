@@ -516,6 +516,26 @@ local function owns(profile, kind, k)
 	return profile.owned[kind] ~= nil and profile.owned[kind][k] == true
 end
 
+-- The ranked score effects follow the rank you hold this season (Ranked.effectsFor): one at your
+-- rank or under it is yours, one above it isn't (the owner: "if you lose the rank, you lose the
+-- explosion"). Returns whether anything changed.
+local function syncRankedEffects(profile)
+	profile.ranked = Ranked.clean(profile.ranked, Ranked.season(os.time()))
+	local held = Ranked.effectsFor(profile.ranked.rp)
+	profile.owned.Effect = profile.owned.Effect or {}
+	local changed = false
+	for _, item in ipairs(Config.Cosmetics.Effect or {}) do
+		if item.Ranked then
+			local want = held[item.Key] or nil
+			if profile.owned.Effect[item.Key] ~= want then
+				profile.owned.Effect[item.Key] = want
+				changed = true
+			end
+		end
+	end
+	return changed
+end
+
 -- Anything equipped that this player doesn't own goes back to the default.
 local function keepOwned(profile)
 	for _, kind in ipairs(COS.Kinds) do
@@ -561,6 +581,7 @@ local function load(plr)
 	-- only a profile that loaded (or was confirmed new) may ever be written back
 	profile.canSave = ok
 	profile.dev = isDeveloper(plr)
+	syncRankedEffects(profile)
 	keepOwned(profile)
 	-- a player who left while the DataStore answered must not be cached (nothing would clear it)
 	if plr.Parent then
@@ -1235,6 +1256,10 @@ function ProfileService.rankedResult(plr, won, theirs)
 	local before = Ranked.name(profile.ranked.rp)
 	local d = Ranked.apply(profile.ranked, won, theirs)
 	dirty[plr] = true
+	if syncRankedEffects(profile) then
+		keepOwned(profile) -- (dropped under a rank: its effect comes off)
+		applyCosmetics(plr, profile)
+	end
 	local after = Ranked.name(profile.ranked.rp)
 	ProfileService.checkCards(plr)
 	push(plr, string.format("Ranked: %s%d RP  (%s%s)", d >= 0 and "+" or "", d, after, after ~= before and (d > 0 and ", up from " .. before or ", down from " .. before) or ""))
@@ -1251,6 +1276,9 @@ function ProfileService.rankedLeave(plr, theirs, key, code, job)
 	profile.ranked = Ranked.clean(profile.ranked, Ranked.season(os.time()))
 	local d, secs = Ranked.leave(profile.ranked, theirs, os.time(), key, code, job)
 	dirty[plr] = true
+	if syncRankedEffects(profile) then
+		keepOwned(profile)
+	end
 	return d, secs
 end
 
@@ -1262,6 +1290,10 @@ function ProfileService.rankedUnleave(plr, key)
 	profile.ranked = Ranked.clean(profile.ranked, Ranked.season(os.time()))
 	if Ranked.unleave(profile.ranked, key) then
 		dirty[plr] = true
+		if syncRankedEffects(profile) then
+			keepOwned(profile)
+			applyCosmetics(plr, profile)
+		end
 		push(plr, "Welcome back: your leave penalty is lifted.")
 		return true
 	end

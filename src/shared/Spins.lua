@@ -142,7 +142,7 @@ local pools = {}
 for kind, list in pairs(items) do
 	local byRarity = {}
 	for _, item in ipairs(list) do
-		if not starters[kind][item.Key] and not item.Limited then
+		if not starters[kind][item.Key] and not item.Limited and not item.Ranked then -- (ranked effects: held by rank)
 			byRarity[item.Rarity] = byRarity[item.Rarity] or { items = {}, weight = 0 }
 			local p = byRarity[item.Rarity]
 			table.insert(p.items, item)

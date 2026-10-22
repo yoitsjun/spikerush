@@ -3102,6 +3102,25 @@ do
 		string.format("3x: usual Mythic %.3f%%, lucky Mythic %.2f%%", basic3.Mythic, lucky3.Mythic))
 end
 
+print("== ranked score effects ==")
+do
+	-- (the owner, 2026-10-21: one a rank from Gold; "if you lose the rank, you lose the explosion")
+	local Ranked = require("Ranked")
+	local function count(t)
+		local n = 0
+		for _ in pairs(t) do n = n + 1 end
+		return n
+	end
+	local silver, gold, dia3, mighty, almighty = Ranked.effectsFor(500), Ranked.effectsFor(650), Ranked.effectsFor(1450), Ranked.effectsFor(1600), Ranked.effectsFor(2500)
+	local onBanner = false
+	for _, row in ipairs(Spins.table("Effect")) do
+		onBanner = onBanner or (Spins.item("Effect", row.item.Key).Ranked ~= nil)
+	end
+	check(count(silver) == 0 and gold.RankGold and count(gold) == 1 and dia3.RankDiamond and dia3.RankPlatinum and not dia3.RankMighty and count(mighty) == 4 and count(almighty) == 5 and not onBanner,
+		"ranked score effects: one a rank from Gold, held at that rank or higher (lost below it), never on a banner",
+		string.format("Silver %d, Gold %d, Diamond III %d, Mighty %d, Almighty %d", count(silver), count(gold), count(dia3), count(mighty), count(almighty)))
+end
+
 print("== ranked leavers ==")
 do
 	local Ranked = require("Ranked")

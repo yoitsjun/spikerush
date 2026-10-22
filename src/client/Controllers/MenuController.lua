@@ -4775,8 +4775,12 @@ local function buildLocker()
 			end
 			return
 		end
+		local rankedItem = Spins.item(lockerKind, key)
 		if owns(prof, lockerKind, key) then
 			Net.get("Profile"):FireServer("equip", lockerKind, key)
+		elseif rankedItem and rankedItem.Ranked then
+			-- a ranked score effect: held while you hold its rank this season
+			toast(string.format("Reach %s in ranked to use this. Drop below it and it's gone again.", rankedItem.Ranked))
 		else
 			banner = lockerKind
 			recruitTab = "Cosmetic"
@@ -4925,7 +4929,7 @@ local function refreshLocker(prof)
 	local item = Spins.item(lockerKind, key)
 	L.custom.Visible = lockerKind == "Effect" and key == "Grave" and owns(prof, "Effect", "Grave")
 	L.pickName.Text = item and item.Name or key
-	L.pickSub.Text = item and string.format('<font color="#%s">%s</font>  %s', Spins.rarityColor(item.Rarity):ToHex(), item.Rarity, SP.Banners[lockerKind].Name) or ""
+	L.pickSub.Text = item and string.format('<font color="#%s">%s</font>  %s', Spins.rarityColor(item.Rarity):ToHex(), item.Rarity, item.Ranked and string.format("Ranked: yours while you're %s or higher", item.Ranked) or SP.Banners[lockerKind].Name) or ""
 	-- the character you play wears a skin with its own jump (the Fallen Angel): say it takes over
 	local skinKey = lockerKind == "Jump" and prof.char and Extra.HW.skinOf(prof.skins, prof.char) or nil
 	local skinDef = skinKey and Config.Halloween.Skins[skinKey]
@@ -4937,7 +4941,7 @@ local function refreshLocker(prof)
 	if owns(prof, lockerKind, key) then
 		L.equipL.Text = equipped and "Equipped" or "Equip"
 	else
-		L.equipL.Text = "Recruit it"
+		L.equipL.Text = (item and item.Ranked) and ("Reach " .. item.Ranked) or "Recruit it"
 	end
 	local o = lockerOpts(prof)
 	local function nm(kind, k)
