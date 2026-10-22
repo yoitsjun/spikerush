@@ -7743,7 +7743,7 @@ function HW.rankGold(pos, tint, k)
 	meshFx("FX_Ring", floor, GOLD, 0.3 * k, 3.2 * k, 0.8, { glow = 2 })
 	floorRing(pos, GOLD, 16 * k, 0.6)
 	starburst(pos + Vector3.new(0, 2, 0), Color3.fromRGB(255, 245, 200), 10 * k)
-	emit("Glints", pos + Vector3.new(0, 2, 0), 18, GOLD)
+	Fx.play("Glints", pos + Vector3.new(0, 2, 0), { color = GOLD, scale = 1.4 * k }) -- (emit has no share for Glints)
 	sfx("ScoreImpact", pos)
 	if near(pos) then
 		mods.CameraController.shake(0.6)
@@ -7833,45 +7833,278 @@ function HW.rankMighty(pos, tint, k, model)
 	end
 end
 
--- Almighty Ascension: a pillar of gold light lands on the spot, a halo turns over it, feathers
--- stream up the light, the biggest badge rises through it, the whole screen washes gold.
+-- A gold statue of the scorer in their intro pose (the Locker's Pose; the owner: "for almighty
+-- maybe we can make a statue rise up from the ground aswell, displaying the intro pose for the
+-- player"): a local copy of the character, `height` tall, gilded, on a dark marble plinth with a
+-- gold rim, rising out of the floor at `pos` facing this screen's camera `start` seconds in,
+-- rumbling as it comes, then sinking back down by `life`.
+HW.StatueStrip = { Sound = true, BillboardGui = true, SurfaceGui = true, ParticleEmitter = true, Trail = true, Beam = true, Highlight = true, ForceField = true, Fire = true, Smoke = true, Sparkles = true, SurfaceAppearance = true, Shirt = true, Pants = true, ShirtGraphic = true, BodyColors = true, Tool = true, VectorForce = true }
+function HW.goldStatue(model, pos, height, start, life)
+	local AC = mods and mods.AnimationController
+	if not (AC and model and model:FindFirstChild("HumanoidRootPart")) then
+		return
+	end
+	-- (the owner: "its going off the screen"): no taller than this camera shows, its head (and the
+	-- rise's overshoot) under the top bar
+	local cam = workspace.CurrentCamera
+	if cam and cam.ViewportSize.Y > 50 then
+		local topY = cam.ViewportSize.Y * 0.2
+		local function fits(h)
+			local v = cam:WorldToViewportPoint(pos + Vector3.new(0, h * 1.25, 0))
+			return v.Z > 0 and v.Y >= topY
+		end
+		if not fits(height) then
+			local lo, hi = 0, height
+			for _ = 1, 12 do
+				local mid = (lo + hi) / 2
+				if fits(mid) then
+					lo = mid
+				else
+					hi = mid
+				end
+			end
+			height = math.max(lo, height * 0.35)
+		end
+	end
+	local was = model.Archivable
+	model.Archivable = true
+	local ok, c = pcall(function()
+		return model:Clone()
+	end)
+	model.Archivable = was
+	if not ok or not c then
+		return
+	end
+	local GILT = Color3.fromRGB(235, 180, 60)
+	for _, d in ipairs(c:GetDescendants()) do
+		if HW.StatueStrip[d.ClassName] or d:IsA("Light") or d:IsA("BodyMover") or d:GetAttribute("BallLook") then
+			d:Destroy()
+		elseif d:IsA("Decal") then
+			-- (the face stays, cast into the gold)
+			if d.Name == "face" then
+				d.Color3 = Color3.fromRGB(110, 70, 15)
+				d.Transparency = 0.35
+			else
+				d:Destroy()
+			end
+		elseif d:IsA("SpecialMesh") then
+			d.TextureId = ""
+		elseif d:IsA("BasePart") then
+			if d.Transparency < 0.9 and d.Name ~= "HumanoidRootPart" then
+				d.Color = GILT
+				d.Material = Enum.Material.Metal
+				d.Reflectance = 0.15
+			end
+			if d:IsA("MeshPart") then
+				pcall(function()
+					d.TextureID = ""
+				end)
+			end
+		end
+	end
+	pcall(function()
+		c:ScaleTo(c:GetScale() * height / math.max(c:GetExtentsSize().Y, 3))
+	end)
+	local rig = AC.rig(c)
+	if not rig then
+		c:Destroy()
+		return
+	end
+	local hum = c:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum:Destroy() -- (a still copy: nothing should take it for a player)
+	end
+	c.Name = "AlmightyStatue"
+	-- posed at the origin facing the camera, then stood on the plinth by its lowest point
+	local toCam = cam and (cam.CFrame.Position - pos) * Vector3.new(1, 0, 1) or Vector3.new(0, 0, -1)
+	if toCam.Magnitude < 0.1 then
+		toCam = Vector3.new(0, 0, -1)
+	end
+	local face = CFrame.lookAt(Vector3.zero, toCam.Unit)
+	AC.poseModel(rig, AC.poseJoints(AC.cardPose(model)) or AC.poseJoints("Intro_Ready"), face)
+	local box, size = c:GetBoundingBox()
+	local plinthH = height * 0.12
+	local plinth = Instance.new("Part")
+	plinth.Name = "Plinth"
+	plinth.Anchored = true
+	plinth.CanCollide = false
+	plinth.CanQuery = false
+	plinth.CanTouch = false
+	plinth.Material = Enum.Material.Marble
+	plinth.Color = Color3.fromRGB(38, 34, 42)
+	plinth.Size = Vector3.new(math.max(size.X, size.Z) * 0.9, plinthH, math.max(size.X, size.Z) * 0.9)
+	plinth.CFrame = face * CFrame.new(0, box.Position.Y - size.Y / 2 - plinthH / 2, 0)
+	plinth.Parent = c
+	local rim = plinth:Clone()
+	rim.Name = "Rim"
+	rim.Material = Enum.Material.Neon
+	rim.Color = Color3.fromRGB(255, 200, 70)
+	rim.Size = plinth.Size + Vector3.new(0.3, -plinthH * 0.7, 0.3)
+	rim.CFrame = plinth.CFrame * CFrame.new(0, plinthH / 2 - rim.Size.Y / 2 - plinthH * 0.08, 0)
+	rim.Parent = c
+	local glow = Instance.new("PointLight")
+	glow.Color = Color3.fromRGB(255, 210, 120)
+	glow.Range = height * 1.2
+	glow.Brightness = 2.5
+	glow.Parent = plinth
+	-- the whole thing from its plinth's foot: up from under the floor to standing on it
+	local foot = plinth.CFrame * CFrame.new(0, -plinthH / 2, 0)
+	local rel = foot:Inverse() * c:GetPivot()
+	local top = CFrame.new(pos.X, 0, pos.Z) * (face - face.Position)
+	local total = size.Y + plinthH
+	local function place(rise, shake)
+		local jig = Vector3.new((math.random() - 0.5) * shake, 0, (math.random() - 0.5) * shake)
+		c:PivotTo((top + jig - Vector3.new(0, total * (1 - rise), 0)) * rel)
+	end
+	place(0, 0)
+	c.Parent = fxFolder
+	-- (the owner: "make it super huge and exaggered"): it waits under the floor while the badge
+	-- shows, then heaves up through it shaking the screen, overshoots and slams down standing,
+	-- holds through the point's pause and sinks away just before the next serve
+	-- (the owner: "no effect on almighty on the statue, only the player"): nothing bursts round it,
+	-- only the ground's rumble and the boom as it lands
+	local RISE, SINK = 1.1, 0.4
+	local born = os.clock()
+	local slammed = false
+	local nextShake = 0
+	local function slam()
+		slammed = true
+		sfx("ScoreImpact", pos)
+		sfx("BlackHoleBoom", pos)
+		if near(pos) then
+			mods.CameraController.shake(1.3)
+			mods.CameraController.kick(-5)
+		end
+	end
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - born - start
+		if t > life - start or not c.Parent then
+			conn:Disconnect()
+			c:Destroy()
+			return
+		end
+		if t < 0 then
+			return
+		end
+		if t < RISE then
+			-- heaving up (a Back ease: a little past standing, then down onto the plinth's foot)
+			local x = t / RISE - 1
+			place(1 + 2.70158 * x * x * x + 1.70158 * x * x, height * 0.025)
+			if os.clock() > nextShake and near(pos) then
+				nextShake = os.clock() + 0.22
+				mods.CameraController.shake(0.5)
+			end
+		elseif t > life - start - SINK then
+			place(1 - ((t - (life - start - SINK)) / SINK) ^ 2, height * 0.01)
+		else
+			if not slammed then
+				slam()
+			end
+			place(1, 0)
+		end
+	end)
+	task.delay(start, sfx, "ScoreRumble", pos)
+end
+
+-- the ranked score effects' scale cap (a match's Mythic scale is 3.4; the Locker previews at 1)
+HW.RANK_K = 1.2
+
+-- A faint shaft of light from the heavens onto the scorer (the owner: "shine a transclucent light on
+-- the player who scores, very faint descending from the heavens"): a soft see-through beam whose
+-- foot comes down out of the sky onto them and follows them, and a warm glow on them, for `life`.
+function HW.heavenLight(model, life)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+	local SKY, DOWN, OUT = 160, 0.8, 0.7
+	local beams = {}
+	for i, look in ipairs({ { 3.5, 0.92 }, { 1.4, 0.86 } }) do -- (a soft haze about as wide as the player, a thin core)
+		local b = Instance.new("Part")
+		b.Name = "HeavenLight" .. i
+		b.Shape = Enum.PartType.Cylinder
+		b.Anchored = true
+		b.CanCollide = false
+		b.CanQuery = false
+		b.CanTouch = false
+		b.CastShadow = false
+		b.Material = Enum.Material.Neon
+		b.Color = Color3.fromRGB(255, 244, 214)
+		b.Transparency = 1
+		b.Parent = fxFolder
+		table.insert(beams, { part = b, width = look[1], alpha = look[2] })
+	end
+	local glow = Instance.new("PointLight")
+	glow.Color = Color3.fromRGB(255, 230, 170)
+	glow.Range = 12
+	glow.Brightness = 0
+	glow.Shadows = false
+	glow.Parent = hrp
+	follow(model, life, function(root, t)
+		local down = 1 - (1 - math.clamp(t / DOWN, 0, 1)) ^ 2
+		local fade = 1 - math.clamp((t - (life - OUT)) / OUT, 0, 1)
+		local foot = SKY * (1 - down)
+		local len = math.max(SKY - foot, 0.1)
+		local at = root.Position
+		for _, b in ipairs(beams) do
+			b.part.Size = Vector3.new(len, b.width, b.width)
+			b.part.CFrame = CFrame.new(at.X, foot + len / 2, at.Z) * CFrame.Angles(0, 0, math.rad(90))
+			b.part.Transparency = 1 - (1 - b.alpha) * math.min(down * 1.5, 1) * fade
+		end
+		glow.Brightness = 1.6 * down * fade
+	end, function()
+		for _, b in ipairs(beams) do
+			b.part:Destroy()
+		end
+		glow:Destroy()
+	end)
+end
+
+-- Almighty Ascension, all on the scorer (the owner: "no effect on almighty on the statue, only the
+-- player"): a faint shaft of light comes down on them, a halo over their head, rings turning round
+-- them over a gold column, feathers streaming up round them and the badge over them, the screen
+-- washing gold; meanwhile a plain gold statue of them in their intro pose rises out of the floor
+-- where the ball landed (HW.goldStatue).
 function HW.rankAlmighty(pos, tint, k, model)
+	-- (the owner, 2026-10-21: "i want them normal size i just wanted the statue to be big"): the
+	-- light, rings and badge at the Locker preview's size even in a match (where k is 3.4); only
+	-- the statue takes the match's scale
+	local statueK = k
+	k = math.min(k, HW.RANK_K)
 	local GOLD = Color3.fromRGB(255, 200, 70)
-	local floor = CFrame.new(pos.X, 0.15, pos.Z)
-	lightPillar(pos, Color3.fromRGB(255, 250, 230), 160, 7 * k / 2, 0.2)
-	lightPillar(pos, GOLD, 160, 14 * k / 2, 0.65)
-	for i = 1, 3 do
-		task.delay(0.1 * i, meshFx, "FX_Ring", floor * CFrame.new(0, (5 + i * 2.5) * k, 0), i == 2 and Color3.fromRGB(255, 70, 70) or GOLD, 0.3 * k, (1.2 + i * 0.4) * k, 1.6, { glow = 2.2, spin = 90 * (i % 2 == 0 and -1 or 1), grow = 0.3, hold = 1.0 })
+	local hrp = model and model.Parent and model:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		HW.heavenLight(model, 4.3)
+		halo(model, 1.2, 2.0)
+		HW.goldStatue(model, pos, 9 * statueK, 0.9, 4.3) -- (rising as the badge lifts away; gone before the next serve)
+		local at = Vector3.new(hrp.Position.X, 0, hrp.Position.Z)
+		local floor = CFrame.new(at.X, 0.15, at.Z)
+		for i = 1, 3 do
+			task.delay(0.1 * i, meshFx, "FX_Ring", floor * CFrame.new(0, (1.5 + i * 1.6) * k, 0), i == 2 and Color3.fromRGB(255, 70, 70) or GOLD, 0.3 * k, (0.8 + i * 0.25) * k, 1.6, { glow = 2.2, spin = 90 * (i % 2 == 0 and -1 or 1), grow = 0.3, hold = 1.0 })
+		end
+		meshFx("FX_Column", floor, GOLD, 0.3 * k, 1.1 * k, 1.6, { base = true, spin = 120, grow = 0.25, hold = 1.0, glow = 2, alpha = 0.25 })
+		-- feathers streaming up round them
+		for i = 1, 20 do
+			task.delay(i * 0.05, function()
+				local from = at + Vector3.new((math.random() - 0.5) * 3, 0.5, (math.random() - 0.5) * 3) * k
+				local p = take(Enum.PartType.Block)
+				p.Material = Enum.Material.Neon
+				p.Color = i % 2 == 0 and WHITE or GOLD
+				p.Size = Vector3.new(0.12, 0.7, 0.3)
+				p.CFrame = CFrame.new(from)
+				p.Transparency = 0.1
+				TweenService:Create(p, TweenInfo.new(1.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(from + Vector3.new(0, 12 * k, 0)) * CFrame.Angles(0, math.random() * 6, 0), Transparency = 1 }):Play()
+				task.delay(1.05, release, p)
+			end)
+		end
+		HW.rankBadge(at + Vector3.new(0, 11 * k, 0), "RankAlmighty", 11 * k, 1.4, 6) -- (the owner: "the rank image is so huge", then "slighty bigger its overshadowed")
 	end
-	meshFx("FX_Column", floor, GOLD, 0.3 * k, 1.5 * k, 1.6, { base = true, spin = 120, grow = 0.25, hold = 1.0, glow = 2, alpha = 0.25 })
-	if model and model.Parent then
-		halo(model, 1.4 * k, 2.0)
-	end
-	-- feathers streaming up the light
-	for i = 1, 20 do
-		task.delay(i * 0.05, function()
-			local at = pos + Vector3.new((math.random() - 0.5) * 3, 0.5, (math.random() - 0.5) * 3) * k
-			local p = take(Enum.PartType.Block)
-			p.Material = Enum.Material.Neon
-			p.Color = i % 2 == 0 and WHITE or GOLD
-			p.Size = Vector3.new(0.12, 0.7, 0.3)
-			p.CFrame = CFrame.new(at)
-			p.Transparency = 0.1
-			TweenService:Create(p, TweenInfo.new(1.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(at + Vector3.new(0, 16 * k, 0)) * CFrame.Angles(0, math.random() * 6, 0), Transparency = 1 }):Play()
-			task.delay(1.05, release, p)
-		end)
-	end
-	HW.rankBadge(pos + Vector3.new(0, 12 * k, 0), "RankAlmighty", 22 * k, 1.4, 8)
-	flare(pos + Vector3.new(0, 6, 0), GOLD, 34 * k, 0.8)
-	floorRing(pos, GOLD, 24 * k, 0.9)
-	groundMark("FX_Crack", pos, Color3.fromRGB(80, 50, 20), 1.3 * k, 1.8, 0.8)
 	gradeFor(Color3.fromRGB(255, 235, 190), 0.1, 0.05, 0.15, 1.1, 0.5)
 	sfx("ScoreHoly", pos)
-	sfx("BlackHoleBoom", pos)
 	if near(pos) then
-		VFXController.flash(0.55, 0.35)
-		mods.CameraController.shake(1.1)
-		mods.CameraController.kick(-6)
+		VFXController.flash(0.4, 0.3)
+		mods.CameraController.shake(0.8)
 	end
 end
 
@@ -7890,14 +8123,16 @@ local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
 		deepFreeze(pos, tint, k or 1, model, always)
 	elseif effect == "Void" then
 		endlessVoid(pos, tint, k or 1, model, always, victims)
+	-- the ranked ones at the Locker preview's size even in a match (HW.RANK_K; the owner, 2026-10-21:
+	-- "i want every single effect on normal size"); Almighty's statue alone takes the full scale
 	elseif effect == "RankGold" then
-		HW.rankGold(pos, tint, k or 1)
+		HW.rankGold(pos, tint, math.min(k or 1, HW.RANK_K))
 	elseif effect == "RankPlatinum" then
-		HW.rankPlatinum(pos, tint, k or 1)
+		HW.rankPlatinum(pos, tint, math.min(k or 1, HW.RANK_K))
 	elseif effect == "RankDiamond" then
-		HW.rankDiamond(pos, tint, k or 1)
+		HW.rankDiamond(pos, tint, math.min(k or 1, HW.RANK_K))
 	elseif effect == "RankMighty" then
-		HW.rankMighty(pos, tint, k or 1, model)
+		HW.rankMighty(pos, tint, math.min(k or 1, HW.RANK_K), model)
 	elseif effect == "RankAlmighty" then
 		HW.rankAlmighty(pos, tint, k or 1, model)
 	elseif effect == "WorldSlash" then

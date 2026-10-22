@@ -1573,6 +1573,10 @@ function SceneController.setPractice(opts)
 		end
 	end
 	practice.opts = opts
+	if practice.rig then
+		-- (the pose being previewed: Almighty Ascension's statue stands in it)
+		practice.rig.model:SetAttribute(Config.Cosmetics.Attribute.Pose, opts.pose)
+	end
 	styleBall(practice.ball, opts.color, opts.trail)
 	skinBall(practice.ball, opts.ball, practice.rig and practice.rig.model)
 	if opts.posing then

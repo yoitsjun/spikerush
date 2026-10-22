@@ -4694,6 +4694,7 @@ local function buildLocker()
 	local _, setKind = Gui.tabs(panel, kinds, { Name = "Kinds", Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -32, 0, 52) }, function(key)
 		click("UISelect")
 		lockerKind = key
+		ui.locker.grid.CanvasPosition = Vector2.zero -- (each kind starts at its Normal section)
 		MenuController.refresh()
 	end)
 	local grid = make("ScrollingFrame", {
@@ -4707,15 +4708,46 @@ local function buildLocker()
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
 	}, panel)
-	make("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingTop = UDim.new(0, 8) }, grid)
-	make("UIGridLayout", { CellSize = UDim2.fromOffset(150, 150), CellPadding = UDim2.fromOffset(16, 16), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	make("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 12) }, grid)
+	make("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	-- each kind's items in sections (the owner: "separate these by rank, normal, and events"):
+	-- Normal (from the banners), Ranked (held while you hold the rank), then one per event
+	-- (Limited, under that event's name), each keeping Config's Common-to-Mythic order
+	local function section(parent, order, title, note)
+		local head = make("Frame", { Name = title, Size = UDim2.new(1, 0, 0, 50), BackgroundTransparency = 1, LayoutOrder = order * 2 }, parent)
+		Gui.label(head, { Text = title, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, TextStrokeTransparency = 0.6, Position = UDim2.fromOffset(0, 8), Size = UDim2.new(1, 0, 0, 28) })
+		Gui.label(head, { Text = note, TextSize = 14, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextStrokeTransparency = 0.6, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 16), Size = UDim2.new(1, -160, 0, 18) })
+		Gui.plate(head, { Size = UDim2.fromOffset(46, 5), Position = UDim2.fromOffset(2, 38) }, Gui.SIGNAL)
+		local body = make("Frame", { Name = title .. "Items", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = order * 2 + 1 }, parent)
+		make("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 10) }, body)
+		make("UIGridLayout", { CellSize = UDim2.fromOffset(150, 150), CellPadding = UDim2.fromOffset(16, 16), SortOrder = Enum.SortOrder.LayoutOrder }, body)
+		return body
+	end
 	local chips = {}
-	for _, kind in ipairs(COS.Kinds) do
+	local kindFrames = {}
+	for k, kind in ipairs(COS.Kinds) do
 		chips[kind] = {}
+		local col = make("Frame", { Name = kind, Size = UDim2.new(1, -14, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = k, Visible = false }, grid)
+		make("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder }, col)
+		kindFrames[kind] = col
+		local bodies, events = {}, {}
 		for i, item in ipairs(COS[kind]) do
 			if not item.Hidden then -- (the Reaper skin's Souls trail comes with the skin)
-				local card = lockerCard(grid, kind, item)
+				local group = item.Ranked and "Ranked" or (item.Limited or "Normal")
+				if not bodies[group] then
+					if group == "Normal" then
+						bodies[group] = section(col, 1, "Normal", "From the banners")
+					elseif group == "Ranked" then
+						bodies[group] = section(col, 2, "Ranked", "Yours while you hold the rank this season")
+					else
+						table.insert(events, group)
+						local ev = Config[group]
+						bodies[group] = section(col, 2 + #events, ev and ev.Name or group, "Event  /  Limited")
+					end
+				end
+				local card = lockerCard(bodies[group], kind, item)
 				card.button.LayoutOrder = i
+				card.button.Visible = true
 				chips[kind][item.Key] = card
 			end
 		end
@@ -4793,7 +4825,7 @@ local function buildLocker()
 	onClick(custom, function()
 		Extra.openGraveEditor()
 	end)
-	ui.locker = { setKind = setKind, chips = chips, pickName = pickName, pickSub = pickSub, equipL = equipL, caption = caption, grid = grid, cardList = cardList, cardRows = cardRows, cardPreview = cardPreview, custom = custom }
+	ui.locker = { setKind = setKind, chips = chips, kindFrames = kindFrames, pickName = pickName, pickSub = pickSub, equipL = equipL, caption = caption, grid = grid, cardList = cardList, cardRows = cardRows, cardPreview = cardPreview, custom = custom }
 end
 
 -- The Locker's Cards tab: every player card with your own numbers on it (locked ones dimmed, with
@@ -4894,8 +4926,8 @@ local function refreshLocker(prof)
 	for kind, list in pairs(L.chips) do
 		local equipped = prof.equip and prof.equip[kind] or Spins.default(kind)
 		local picked = lockerPick[kind] or equipped
+		L.kindFrames[kind].Visible = kind == lockerKind
 		for key, card in pairs(list) do
-			card.button.Visible = kind == lockerKind
 			local have = owns(prof, kind, key)
 			if key == equipped then
 				card.state.Text = "EQUIPPED"
