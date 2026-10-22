@@ -138,6 +138,41 @@ function State.roster(team)
 	return (State.match.rosters and State.match.rosters[team]) or {}
 end
 
+-- A team's name as shown: its clan's while more than half of the team (bots counted) plays for
+-- one clan (the owner, 2026-10-22: "instead of sunrise if majority of the team is your clan i want
+-- it to display that"), else Config.Teams' (Sunrise, Tidal). Read from the players' ClanTag and
+-- ClanName attributes (ClanService).
+-- The clan most of a team plays for: its tag and name, or nil.
+function State.teamClan(team)
+	local members = State.roster(team)
+	local counts = {}
+	for _, e in ipairs(members) do
+		local uid = type(e.id) == "string" and tonumber(string.match(e.id, "^P_(%d+)$"))
+		local p = uid and Players:GetPlayerByUserId(uid)
+		local tag = p and p:GetAttribute("ClanTag")
+		if type(tag) == "string" and tag ~= "" then
+			counts[tag] = (counts[tag] or 0) + 1
+			if counts[tag] * 2 > #members then
+				return tag, p:GetAttribute("ClanName") or tag
+			end
+		end
+	end
+	return nil
+end
+
+function State.teamName(team)
+	local _, name = State.teamClan(team)
+	local t = Config.Teams[team or ""]
+	return name or (t and t.Name) or "?"
+end
+
+-- The short name on the arena's scoreboards: the clan's tag, or SUN / TDL.
+function State.teamShort(team)
+	local tag = State.teamClan(team)
+	local t = Config.Teams[team or ""]
+	return tag or (t and t.Short) or "?"
+end
+
 function State.entry(id)
 	for _, team in ipairs(Config.TeamOrder) do
 		for _, e in ipairs(State.roster(team)) do

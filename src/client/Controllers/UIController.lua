@@ -156,8 +156,7 @@ local function teamColor(team)
 end
 
 local function teamName(team)
-	local t = Config.Teams[team or ""]
-	return t and t.Name or "?"
+	return State.teamName(team) -- (a clan's name when most of the team is in it)
 end
 
 local function fmt2(x)
@@ -185,6 +184,8 @@ local function buildTeamBlock(parent, team, align)
 		ZIndex = 2,
 	})
 	stroke(name, 1.5, UI.Ink)
+	name.TextScaled = true -- (a clan's name can be long)
+	make("UITextSizeConstraint", { MaxTextSize = 21 }, name)
 	local barX, barY = right and 22 or 34, 32
 	local bar = make("Frame", {
 		Size = UDim2.new(1, -56, 0, 10),
@@ -319,6 +320,7 @@ local function updateStamina()
 			block.barStroke.Color = UI.Fog
 			block.barStroke.Transparency = 0.4
 		end
+		block.name.Text = teamName(team)
 		local left = State.timeouts(team)
 		local allowed = State.match.timeouts or Config.Timeout.PerSet
 		for i, p in ipairs(block.pips) do

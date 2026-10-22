@@ -146,8 +146,9 @@ local function surface(part, face, ppStud)
 	return g
 end
 
+local boardCourt = nil -- the court the boards were dressed for (the ticker's text follows the names)
 local function tickerText(courtId)
-	local home, away = Config.Teams.Home.Name, Config.Teams.Away.Name
+	local home, away = State.teamName("Home"), State.teamName("Away") -- (a clan's name when most of a team is in it)
 	local court = Config.Courts.List[courtId]
 	local where = court and (court.Name .. "      ") or ""
 	return string.rep("Spike Rush      " .. home .. " vs " .. away .. "      " .. where, 4)
@@ -158,6 +159,7 @@ local function buildBoards(scene, courtId)
 		g:Destroy()
 	end
 	guis, ledLabels, jumboLabels = {}, {}, {}
+	boardCourt = courtId
 	local led = scene:FindFirstChild("LEDBoards")
 	if led then
 		for _, p in ipairs(led:GetChildren()) do
@@ -230,7 +232,7 @@ local function refreshJumbo(flash)
 	local s = m.scores or {}
 	local text, sub
 	if m.inMatch then
-		text = string.format('<font color="%s">%s</font> %d : %d <font color="%s">%s</font>', hex(home.Color), home.Short, s.Home or 0, s.Away or 0, hex(away.Color), away.Short)
+		text = string.format('<font color="%s">%s</font> %d : %d <font color="%s">%s</font>', hex(home.Color), State.teamShort("Home"), s.Home or 0, s.Away or 0, hex(away.Color), State.teamShort("Away"))
 		local sets = m.sets or {}
 		sub = string.format("Set %d, sets %d-%d", m.setNumber or 1, sets.Home or 0, sets.Away or 0)
 	else
@@ -243,6 +245,12 @@ local function refreshJumbo(flash)
 	for _, j in ipairs(jumboLabels) do
 		j.score.Text = text
 		j.sub.Text = sub
+	end
+	local ticker = tickerText(boardCourt)
+	for _, l in ipairs(ledLabels) do
+		if l.Text ~= ticker then
+			l.Text = ticker
+		end
 	end
 end
 

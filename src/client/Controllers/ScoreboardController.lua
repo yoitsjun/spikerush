@@ -278,15 +278,17 @@ local function buildTeam(parent, team, list, best, mvp, order)
 	Gui.halftone(plate, { Size = UDim2.new(0.4, 0, 1, 0), Position = UDim2.fromScale(0.6, 0), ZIndex = 2 })
 	Gui.iconImage(plate, def.Icon, 46, def.Color, { Position = UDim2.fromOffset(16, (HEAD_H - 46) / 2), ZIndex = 3 })
 	local name = Gui.label(plate, {
-		Text = string.upper(def.Name),
+		Text = string.upper(State.teamName(team)), -- (a clan's name when most of the team is in it)
 		display = true,
 		weight = Enum.FontWeight.Heavy,
 		TextSize = 40,
+		TextScaled = true,
 		TextColor3 = Color3.new(1, 1, 1),
 		Size = UDim2.fromOffset(NAME_W - 40, HEAD_H),
 		Position = UDim2.fromOffset(76, 0),
 		ZIndex = 3,
 	})
+	make("UITextSizeConstraint", { MaxTextSize = 40 }, name)
 	Gui.gradient(name, lighten(def.Color, 0.6), def.Color, 90)
 
 	-- the column heads: an icon over its label, a hairline between them
