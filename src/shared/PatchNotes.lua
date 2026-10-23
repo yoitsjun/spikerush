@@ -81,7 +81,7 @@ PatchNotes.List = {
 				Items = {
 					{ Text = "Stacked boosts were sending spikes past 400 km/h. Past 250 km/h a boost now counts for less, and nothing goes over <b>300</b>." },
 					{ Text = "<b>Breakthroughs</b> now grow an ability's power more than its cooldown. Rally Cry's boost reaches 18% at +5, and Storm Call and Iron Wall get stronger too." },
-					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> has to jump to wall, and a set starts with one shield. His Intimidation meter only fills once every shield is broken. The block that shatters a shield pops the ball up for his team, and only a 270+ km/h spike shatters one at once (more with breakthroughs)." },
+					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> has to jump to wall, and a set starts with one shield. His Intimidation meter only fills once every shield is broken. The block that shatters a shield pops the ball up for his team, and no spike shatters one at once any more: every shield shuts down one spike, then pops up the next." },
 					{ Icon = "AbilityThunder", Text = "<b>YeJun</b>'s second swing gets its own freeze frame, in yellow (violet with the Fallen Angel)." },
 					{ Icon = "AbilitySkyward", Text = "<b>Seora</b>: new passive <b>Sharp Angle</b>, her spikes come down a little steeper." },
 				},

@@ -515,7 +515,7 @@ function HitLogic.ironAfterBlock(lives, cracks, meta)
 	end
 	-- (only Bulwark's own stops crack it, meta.bulwark: one made with Iron Wall up doesn't)
 	if meta.ironWall and meta.bulwark and meta.shatter then
-		return lives - 1, 0 -- the stop that shatters it (the last crack, or a ShatterKmh spike at once)
+		return lives - 1, 0 -- the stop that shatters it (its last crack)
 	end
 	if meta.ironWall and meta.bulwark then
 		cracks = cracks + 1
@@ -1805,9 +1805,10 @@ function HitLogic.compute(input, ctx)
 			v = vin * FERAL.BreakKeep
 			a = Vector3.new(0, -G * H.SpikeGravityScale, 0)
 			hold = 0.06
-		elseif perfect and meta.bulwark and (attackKmh >= ab("Ironclad", "ShatterKmh", levelOf(ctx, "Ironclad")) or (tonumber(ctx.ironCracks) or 0) + 1 >= IRON.CracksToBreak) then
-			-- Bulwark's stop that shatters a shield (its last crack, or a ShatterKmh spike at once): the
-			-- ball pops straight up on his side, an easy ball for his team
+		elseif perfect and meta.bulwark and (tonumber(ctx.ironCracks) or 0) + 1 >= IRON.CracksToBreak then
+			-- Bulwark's stop that shatters a shield (its last crack; however hard, never at once: the
+			-- owner, 2026-10-22, "have his shield soft block every other hit. right now any s+ can
+			-- consistently break it"): the ball pops straight up on his side, an easy ball for his team
 			meta.outcome = "Soft"
 			meta.shatter = true
 			meta.noDrain = true

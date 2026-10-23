@@ -536,23 +536,22 @@ do
 		"Bulwark is Iron Wall for 3 lives on a block jump (not standing): every attack shut down (245 km/h, clean, piercing, smashing, any height) but feints (they float over; a touch is soft); a stop cracks a shield, the next shatters it: 6 stops",
 		string.format("stops: 3 -> %d (%d crack) -> %d (%d); 3 shields last %d stops", l1, c1, l2, c2, stops))
 	-- the stop that shatters a shield pops straight up on his side (the owner, 2026-10-21: "when his
-	-- shield is shattered it pops up. also 250+ onehits"): a cracked shield's next stop, or a 250+
-	-- spike on a whole one; the shield goes at once
+	-- shield is shattered it pops up"): a cracked shield's next stop, never a whole one's however hard
+	-- (2026-10-22: "have his shield soft block every other hit. right now any s+ can consistently
+	-- break it")
 	local function popped(ok, r)
 		return ok and r.meta.outcome == "Soft" and r.meta.shatter and r.meta.bulwark and r.launch.v.Y > 0 and r.launch.v.Z * side >= 0
 			and r.launch.p.Z * side > 0
 	end
 	local popOk = true
 	for seq = 1, 20 do
-		popOk = popOk and popped(block(140, { seq = seq, cracks = 1 })) and popped(block(280, { seq = seq })) and walled(block(260, { seq = seq }))
+		popOk = popOk and popped(block(140, { seq = seq, cracks = 1 })) and popped(block(320, { seq = seq, cracks = 1 })) and walled(block(280, { seq = seq })) and walled(block(320, { seq = seq }))
 	end
-	local _, big = block(280)
-	-- (his breakthroughs raise the line: about 300 at +5, so a +5 Taesan holds a 290 on a whole shield)
-	local s0, s5 = BTm0.ab("Ironclad", "ShatterKmh", 0), BTm0.ab("Ironclad", "ShatterKmh", 5)
+	local _, big = block(320)
 	local l6, c6 = after(3, 0, big.meta)
-	check(popOk and l6 == 2 and c6 == 0 and s0 == 270 and s5 >= 298 and s5 <= 302,
-		"Bulwark: the stop that shatters a shield (its second, or a 270+ km/h spike at once, about 300 at +5) pops straight up on his side; the rest are shut down",
-		string.format("280 km/h on a whole shield: %d shields, %d cracks; one-hit line %d -> %.0f km/h at +5", l6, c6, s0, s5))
+	check(popOk and l6 == 3 and c6 == 1 and not big.meta.shatter,
+		"Bulwark: only the stop that shatters a shield (its second) pops straight up on his side; a whole shield shuts down any spike, 320 km/h too",
+		string.format("320 km/h on a whole shield: %d shields, %d cracks", l6, c6))
 	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 10 and IR.MeterBonus > 0 and IR.StartLives == 1,
 		"Bulwark: a set starts with 1 shield of 3; awakened, every touch fills Intimidation 10% (a kill or a stuff more)")
 	check(HitLogic.ironFills(0) and not HitLogic.ironFills(1) and not HitLogic.ironFills(IR.StartLives) and not HitLogic.ironFills(IR.Lives - 1) and not HitLogic.ironFills(nil),
