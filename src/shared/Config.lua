@@ -1469,14 +1469,15 @@ Config.Abilities = {
 		Name = "Ironclad",
 		Tier = "S+",
 		Role = "MB",
-		Blurb = "Bulwark: jump to block while you have shields (up to 3; a set starts with 1) and you're an Iron Wall at the net: every attack that crosses in front of you is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next (a 270+ km/h spike shatters it at once), and the block that shatters it pops straight up for your team. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Below 3 shields every touch fills Intimidation by 10%; full, all 3 shields are back.",
+		Blurb = "Bulwark: jump to block while you have shields (up to 3; a set starts with 1) and you're an Iron Wall at the net: every attack that crosses in front of you is shut down, at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next (a 270+ km/h spike shatters it at once), and the block that shatters it pops straight up for your team. A jump before the set hangs and charges your spike (about 178 km/h); with no shields left you awaken and it charges to about 215. Awakened, every touch fills Intimidation by 10%; full, all 3 shields are back.",
 		Kind = "Passive: shields, then awakened",
 		Color = Color3.fromRGB(255, 112, 52), -- awakened: molten
 		WallColor = Color3.fromRGB(170, 200, 235), -- the shields: steel
 		ChargeColor = Color3.fromRGB(255, 50, 60), -- Forge's charge: red
 		Lives = 3,
 		-- (the owner, 2026-10-21: "he does not start off fully charged"): a set starts with this many
-		-- shields, and Intimidation (below) fills whenever he has fewer than Lives
+		-- shields; Intimidation (below) fills only once they're all broken (the owner, 2026-10-22:
+		-- "make taesan only start charging his awakened after all of his shields break")
 		StartLives = 1,
 		-- Bulwark: while he has shields he's Iron Wall (the owner, 2026-10-15: "buff taesan block to
 		-- be iron wall for 3 lives. it cracks on one hit and breaks on the next"): Iron Wall's whole
@@ -1523,7 +1524,7 @@ Config.Abilities = {
 			{ Name = "Awakening", Blurb = "With no shields left you turn attacker: Forge charges far harder and widens your reach." },
 			{ Name = "Forge", Blurb = "Your fall is slow; jump before the set and hang: the longer you're up, the harder the spike (up to +39% with shields, +68% awakened). Jumping after the set gets 30% of it." },
 			{ Name = "Steel Reach", Blurb = "Your spike reaches 20% wider than usual, and awakened the charge widens it up to 50%." },
-			{ Name = "Intimidation", Blurb = "Below 3 shields, every touch fills the meter 10%, a kill or a stuff block 25%. Full: all 3 shields." },
+			{ Name = "Intimidation", Blurb = "Only once every shield is broken (awakened): every touch fills the meter 10%, a kill or a stuff block 25%. Full: all 3 shields." },
 		},
 	},
 	IronWall = {

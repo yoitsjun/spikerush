@@ -321,11 +321,11 @@ function HitService.process(entity, input, opts)
 				TS.setIron(entity, left, entity.intimidation or 0, cracks)
 			end
 		end
-		-- below full shields (a set starts with StartLives), every touch fills Intimidation; full
-		-- brings all of them (a stuff block fills it more; his kills are added when the point's
+		-- awakened (every shield broken: HitLogic.ironFills), every touch fills Intimidation; full
+		-- brings all of them back (a stuff block fills it more; his kills are added when the point's
 		-- judged: MatchService)
 		lives = HitLogic.ironLives(entity.ironLives)
-		if lives < IRON.Lives then
+		if HitLogic.ironFills(lives) then
 			local m = (entity.intimidation or 0) + IRON.MeterPerTouch + (meta.hitType == "Block" and meta.outcome == "Stuff" and IRON.MeterBonus or 0)
 			if m >= 100 then
 				TS.setIron(entity, IRON.Lives, 0)

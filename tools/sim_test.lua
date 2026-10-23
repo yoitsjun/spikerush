@@ -554,7 +554,9 @@ do
 		"Bulwark: the stop that shatters a shield (its second, or a 270+ km/h spike at once, about 300 at +5) pops straight up on his side; the rest are shut down",
 		string.format("280 km/h on a whole shield: %d shields, %d cracks; one-hit line %d -> %.0f km/h at +5", l6, c6, s0, s5))
 	check(HitLogic.ironLives(nil) == IR.Lives and HitLogic.ironLives(-1) == 0 and HitLogic.ironLives(9) == IR.Lives and IR.MeterPerTouch == 10 and IR.MeterBonus > 0 and IR.StartLives == 1,
-		"Bulwark: a set starts with 1 shield of 3; below 3, every touch fills Intimidation 10% (a kill or a stuff more)")
+		"Bulwark: a set starts with 1 shield of 3; awakened, every touch fills Intimidation 10% (a kill or a stuff more)")
+	check(HitLogic.ironFills(0) and not HitLogic.ironFills(1) and not HitLogic.ironFills(IR.StartLives) and not HitLogic.ironFills(IR.Lives - 1) and not HitLogic.ironFills(nil),
+		"Intimidation fills only once every shield is broken (awakened), not while he has one left")
 	-- Forge (awakened): a jump before the set charges up to about 215 km/h maxed; after the set,
 	-- LateShare of it; not awakened, nothing; the charge widens his reach
 	local root = apexRoot(taesan, 3.5 * K)

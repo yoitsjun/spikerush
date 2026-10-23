@@ -302,6 +302,12 @@ function HitLogic.ironLives(lives)
 	return clamp(math.floor(tonumber(lives) or IRON.Lives), 0, IRON.Lives)
 end
 
+-- Whether his touches fill Intimidation: only awakened, with every shield broken (the owner,
+-- 2026-10-22: "make taesan only start charging his awakened after all of his shields break").
+function HitLogic.ironFills(lives)
+	return HitLogic.ironLives(lives) == 0
+end
+
 -- The serve toss: release point and velocity for a toss `height` studs up. `forward` (0..1)
 -- throws it out in front so the server can run into it: at full it comes back to hand height
 -- TossForwardMax (x `reach`, HitLogic.tossReach) closer to the net. Also draws the client's
