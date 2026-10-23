@@ -3196,7 +3196,7 @@ do
 	end
 	do
 		-- anyone viewing a clan sees its members (best first, a pending one left out) and its totals
-		local clan = { tag = "ABC", name = "Alpha", members = {
+		local clan = { tag = "ABC", name = "Alpha", up = { VP = 3, Emblem = 1, Cap = 99 }, members = {
 			["1"] = { n = "Ann", r = "Owner", s = { wins = 2, kills = 5 } },
 			["2"] = { n = "Bo", r = "Member", s = { wins = 6, kills = 1 } },
 			["3"] = { n = "Cy", r = "Member", pending = true, s = { wins = 50 } },
@@ -3204,6 +3204,9 @@ do
 		local card = Clans.card(clan)
 		check(#card.members == 2 and card.members[1].name == "Bo" and card.totals.wins == 8 and card.totals.kills == 6 and card.members[1].stats.wins == 6,
 			"clans: a clan's page lists its members, best first, with their stats, and the clan's totals", string.format("%d members, %d wins", #card.members, card.totals.wins))
+		local capMax = Config.Clans.Upgrades[4].Max
+		check(card.up.VP == 3 and card.up.Emblem == 1 and card.up.Gold == 0 and card.up.Cap == capMax,
+			"clans: a clan's page shows its upgrades' levels (none bought is 0, a stored level past the top is the top)")
 	end
 	local CC = Config.Clans
 	local t1, w1 = Clans.cleanTag(" ab1 ")

@@ -372,7 +372,12 @@ function Clans.card(clan)
 		end
 		return tostring(a.name) < tostring(b.name)
 	end)
-	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, public = clan.public, minWins = clan.minWins, points = total, week = Clans.weekPoints(clan, os.time()), count = Clans.count(clan), cap = Clans.cap(clan), members = members, totals = totals }
+	-- its upgrades' levels too (the owner, 2026-10-22: "allow the view tab to also see the clan upgrades")
+	local up = {}
+	for _, u in ipairs(C.Upgrades) do
+		up[u.Key] = Clans.level(clan, u.Key)
+	end
+	return { tag = clan.tag, name = clan.name, desc = clan.desc, emblem = clan.emblem, public = clan.public, minWins = clan.minWins, points = total, week = Clans.weekPoints(clan, os.time()), count = Clans.count(clan), cap = Clans.cap(clan), members = members, totals = totals, up = up }
 end
 
 return Clans

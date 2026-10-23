@@ -196,9 +196,20 @@ end
 
 local STAT_COLS = { "wins", "kills", "aces", "blocks", "mvps" }
 
+-- what an upgrade does at `level` ("+6%", "35 members", "Unlocked")
+local function effectText(u, level)
+	if u.Show == "pct" then
+		return string.format("+%d%%", math.floor(level * u.Per * 100 + 0.5))
+	elseif u.Show == "num" then
+		return string.format("%d members", C.BaseCap + level * u.Per)
+	end
+	return level > 0 and "Unlocked" or "Locked"
+end
+
 ------------------------------------------------------------------------------------------
 -- any clan's page (the owner, 2026-10-22: "allow people to view clans stats and such and members"):
--- a search or Top clans' View opens it over the window, in a clan or not
+-- a search or Top clans' View opens it over the window, in a clan or not; its Members or its
+-- Upgrades (the owner: "allow the view tab to also see the clan upgrades")
 ------------------------------------------------------------------------------------------
 
 local function buildViewer(parent)
@@ -223,15 +234,40 @@ local function buildViewer(parent)
 	end)
 	-- the clan's totals, then its members
 	local totals = label(f, { Text = "", RichText = true, display = true, TextSize = 18, Position = UDim2.fromOffset(16, 118), Size = UDim2.new(1, -32, 0, 24), ZIndex = Z })
-	local head = make("Frame", { Position = UDim2.fromOffset(0, 150), Size = UDim2.new(1, -10, 0, 24), BackgroundTransparency = 1, ZIndex = Z }, f)
+	local V = { frame = f }
+	local _, setView = kit.segmented(f, { { key = "Members", text = "Members" }, { key = "Upgrades", text = "Upgrades" } }, { Position = UDim2.fromOffset(16, 150), Size = UDim2.fromOffset(320, 40), ZIndex = Z }, function(key)
+		ui.foundView = key
+		V.setView(key)
+		V.membersF.Visible = key == "Members"
+		V.upF.Visible = key == "Upgrades"
+	end)
+	V.setView = setView
+	local membersF = make("Frame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 1, -198), BackgroundTransparency = 1, ZIndex = Z }, f)
+	local head = make("Frame", { Size = UDim2.new(1, -10, 0, 24), BackgroundTransparency = 1, ZIndex = Z }, membersF)
 	label(head, { Text = "Player", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(200, 24), ZIndex = Z })
 	label(head, { Text = "Role", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(230, 0), Size = UDim2.fromOffset(90, 24), ZIndex = Z })
 	for i, k in ipairs(STAT_COLS) do
 		label(head, { Text = C.StatNames[k], TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(320 + (i - 1) * 92, 0), Size = UDim2.fromOffset(90, 24), ZIndex = Z })
 	end
 	label(head, { Text = "Points", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(780, 0), Size = UDim2.fromOffset(80, 24), ZIndex = Z })
-	local list = scroller(f, { Position = UDim2.fromOffset(0, 178), Size = UDim2.new(1, 0, 1, -178), ZIndex = Z })
-	return { frame = f, emblem = emblem, title = title, desc = desc, facts = facts, join = join, joinL = joinL, totals = totals, list = list }
+	local list = scroller(membersF, { Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, 0, 1, -28), ZIndex = Z })
+	-- its upgrades: each one's level and what it does now
+	local upF = make("Frame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 1, -198), BackgroundTransparency = 1, Visible = false, ZIndex = Z }, f)
+	local upList = scroller(upF, { Size = UDim2.fromScale(1, 1), ZIndex = Z })
+	V.upRows = {}
+	for i, u in ipairs(C.Upgrades) do
+		local r = row(upList, i, 50)
+		r.ZIndex = Z
+		local name = label(r, { Text = u.Name, display = true, TextSize = 19, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(200, 50), ZIndex = Z + 1 })
+		local lvl = label(r, { Text = "", display = true, TextSize = 18, TextColor3 = Gui.GOLD, Position = UDim2.fromOffset(220, 0), Size = UDim2.fromOffset(100, 50), ZIndex = Z + 1 })
+		local eff = label(r, { Text = "", display = true, TextSize = 18, TextColor3 = BLUE, Position = UDim2.fromOffset(330, 0), Size = UDim2.fromOffset(150, 50), ZIndex = Z + 1 })
+		label(r, { Text = u.Blurb, TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(490, 0), Size = UDim2.new(1, -500, 1, 0), ZIndex = Z + 1 })
+		V.upRows[u.Key] = { name = name, lvl = lvl, eff = eff }
+	end
+	V.membersF, V.upF = membersF, upF
+	V.emblem, V.title, V.desc, V.facts, V.join, V.joinL, V.totals, V.list = emblem, title, desc, facts, join, joinL, totals, list
+	setView("Members")
+	return V
 end
 
 local function showFound(card)
@@ -257,6 +293,16 @@ local function showFound(card)
 	local inClan = data.mine ~= false and data.mine ~= nil
 	F.join.Visible = not inClan
 	F.joinL.Text = card.public and "Join" or "Ask to join"
+	-- the upgrades' levels
+	for _, u in ipairs(C.Upgrades) do
+		local r = F.upRows[u.Key]
+		local lv = card.up and card.up[u.Key] or 0
+		r.lvl.Text = u.Max == 1 and (lv > 0 and "Done" or "-") or string.format("Lv. %d/%d", lv, u.Max)
+		r.lvl.TextColor3 = lv > 0 and Gui.GOLD or Gui.DIM
+		r.eff.Text = effectText(u, lv)
+		r.eff.TextColor3 = lv > 0 and BLUE or Gui.DIM
+		r.name.TextColor3 = lv > 0 and Gui.CHALK or Gui.DIM
+	end
 	local list = F.list
 	clearList(list)
 	for i, m in ipairs(card.members or {}) do
@@ -355,15 +401,6 @@ local function buildUpgrades(body)
 	end
 	ui.upgradeSel = C.Upgrades[1].Key
 	return { frame = f, rows = rows, title = title, blurb = blurb, now = now, buy = buy, buyL = buyL }
-end
-
-local function effectText(u, level)
-	if u.Show == "pct" then
-		return string.format("+%d%%", math.floor(level * u.Per * 100 + 0.5))
-	elseif u.Show == "num" then
-		return string.format("%d members", C.BaseCap + level * u.Per)
-	end
-	return level > 0 and "Unlocked" or "Locked"
 end
 
 local function fillUpgrades()
