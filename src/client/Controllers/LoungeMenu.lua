@@ -8,6 +8,8 @@
 --   * the odds' two ends (the top reward and the bottom line), Get VIP (when you haven't got it)
 --     and Return to game;
 --   * a line on the refresh that keeps you past Roblox's idle limit;
+--   * on the left, the odds (the owner: "show a probability table on the left"): every reward,
+--     the top one first, at your multiplier, with its chance;
 --   * on the right, the side panel (the owner: "in the sidebar, let it show how much you've
 --     made"): this stay's Gold, V Points, lucky spins and boosts, and its latest rolls.
 -- The countdown runs here between the server's updates (LoungeService.send).
@@ -39,7 +41,7 @@ local Z = 40
 -- a reward's colour by its Tier (Config.Lounge.Rewards)
 local TIER = { Color3.fromRGB(200, 204, 216), Color3.fromRGB(110, 220, 120), Color3.fromRGB(90, 170, 255), Color3.fromRGB(190, 110, 255), Color3.fromRGB(255, 200, 60) }
 local MAIN_W = 860 -- the main column's width
-local SIDE_W = 290 -- the side panel's (the main column moves left by half of it and the gap)
+local SIDE_W = 290 -- the side panels' (the odds on the left, this stay on the right)
 local GAP = 16
 
 local function make(...)
@@ -98,8 +100,8 @@ local function build()
 	local glow = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.new(1.6, 0, 0.75, 0), BackgroundColor3 = EMBER_DEEP, BorderSizePixel = 0, ZIndex = Z }, root)
 	make("UIGradient", { Rotation = -90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(0.6, 0.85), NumberSequenceKeypoint.new(1, 1) }) }, glow)
 
-	-- the main column, left of centre to leave room for the side panel
-	local main = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -(SIDE_W + GAP) / 2, 0, 0), Size = UDim2.new(0, MAIN_W, 1, 0), BackgroundTransparency = 1, ZIndex = Z }, root)
+	-- the main column, between the side panels
+	local main = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(0, MAIN_W, 1, 0), BackgroundTransparency = 1, ZIndex = Z }, root)
 
 	-- the title
 	label(main, { Text = "AFK LOUNGE", display = true, weight = Enum.FontWeight.Heavy, TextSize = 64, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 34), Size = UDim2.fromOffset(700, 70), TextXAlignment = Enum.TextXAlignment.Center })
@@ -148,8 +150,24 @@ local function build()
 
 	ui.luck = label(main, { Text = "", TextSize = 22, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MUTED, RichText = true, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 682), Size = UDim2.fromOffset(860, 24), TextXAlignment = Enum.TextXAlignment.Center })
 
+	-- the odds: every reward, the top one first
+	local odds = card(root, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(0.5, -MAIN_W / 2 - GAP, 0, 172), Size = UDim2.fromOffset(SIDE_W, 494), ClipsDescendants = true }, Color3.fromRGB(90, 60, 66))
+	label(odds, { Text = "REWARD ODDS", display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, Position = UDim2.fromOffset(0, 16), Size = UDim2.new(1, 0, 0, 24), TextXAlignment = Enum.TextXAlignment.Center })
+	ui.oddsRows = {}
+	local n = #L.Rewards
+	local rowH = math.min(26, math.floor((494 - 58) / n))
+	for k = 1, n do
+		local i = n - k + 1
+		local c = TIER[L.Rewards[i].Tier] or Gui.CHALK
+		local r = make("Frame", { Position = UDim2.fromOffset(12, 50 + (k - 1) * rowH), Size = UDim2.new(1, -24, 0, rowH - 2), BackgroundColor3 = Color3.fromRGB(24, 22, 28), BackgroundTransparency = k % 2 == 1 and 0 or 1, BorderSizePixel = 0, ZIndex = Z + 2 }, odds)
+		make("UICorner", { CornerRadius = UDim.new(0, 8) }, r)
+		local name = label(r, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 16, TextColor3 = c, Position = UDim2.fromOffset(10, 0), Size = UDim2.new(0.7, -10, 1, 0), ZIndex = Z + 3 })
+		label(r, { Text = tostring(math.floor(Lounge.chance(i) * 1000 + 0.5) / 10) .. "%", display = true, weight = Enum.FontWeight.Heavy, TextSize = 16, TextColor3 = Gui.MUTED, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 0), Size = UDim2.new(0.3, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = Z + 3 })
+		ui.oddsRows[i] = name
+	end
+
 	-- the side panel: this stay's totals and its latest rolls
-	local side = card(root, { Position = UDim2.new(0.5, -(SIDE_W + GAP) / 2 + MAIN_W / 2 + GAP, 0, 172), Size = UDim2.fromOffset(SIDE_W, 494), ClipsDescendants = true }, Color3.fromRGB(90, 60, 66))
+	local side = card(root, { Position = UDim2.new(0.5, MAIN_W / 2 + GAP, 0, 172), Size = UDim2.fromOffset(SIDE_W, 494), ClipsDescendants = true }, Color3.fromRGB(90, 60, 66))
 	label(side, { Text = "MADE THIS STAY", display = true, weight = Enum.FontWeight.Heavy, TextSize = 22, Position = UDim2.fromOffset(0, 16), Size = UDim2.new(1, 0, 0, 24), TextXAlignment = Enum.TextXAlignment.Center })
 	ui.sideCount = label(side, { Text = "", TextSize = 17, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MUTED, Position = UDim2.fromOffset(0, 42), Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Center })
 	local function row(y, name, color, icon)
@@ -288,6 +306,10 @@ function LoungeMenu.refresh()
 	ui.balSub.Text = string.format('gold  •  <font color="#5AC8FF">%s VP</font>', Economy.commas(prof.vp or 0))
 	local top = #L.Rewards
 	ui.luck.Text = string.format('Top reward: <font color="#FFC83C">%s</font> (%s)  •  every roll at least %s or %s', Lounge.label(Lounge.grant(top, 1)), pct(top), Lounge.label(Lounge.grant(1, s.mult or 1)), Lounge.label(Lounge.grant(2, s.mult or 1)))
+	-- the odds, at your multiplier
+	for i, l in pairs(ui.oddsRows) do
+		l.Text = Lounge.label(Lounge.grant(i, s.mult or 1))
+	end
 	-- the side panel
 	ui.sideCount.Text = (made.n or 0) == 1 and "1 reward rolled" or ((made.n or 0) .. " rewards rolled")
 	for _, k in ipairs(Lounge.Kinds) do
