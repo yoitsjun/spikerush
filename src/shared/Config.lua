@@ -2542,10 +2542,13 @@ Config.PlayRewards = {
 -- RefreshAfter idle seconds inside, the server moves them to a fresh server of this place (a
 -- teleport), where the lounge opens again and the loading screen skips its click.
 Config.Lounge = {
-	Interval = 600,
+	-- (was 600; the owner, 2026-10-22: "make the afk rewards 1 minute not 10 minutes", then "is there
+	-- a better time limit that you decide? maybe 2:30? maybe 4:30?": 4 minutes pays about two thirds
+	-- of the VP an hour of matches does, so playing still pays more)
+	Interval = 240,
 	VipMult = 2,
 	PremiumMult = 1.5,
-	DailyPayouts = 24, -- (four hours of it a day)
+	DailyPayouts = 60, -- (four hours of it a day)
 	-- what a payout can roll, from the bottom line up to the top reward: Weight is its chance in
 	-- percent (they add up to 100), Tier (1 to 5) its colour on the screen, Grant what it gives
 	-- (Economy.cleanGrant; boosts in seconds)

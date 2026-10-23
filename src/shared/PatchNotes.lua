@@ -38,7 +38,7 @@ PatchNotes.List = {
 			{
 				Heading = "AFK Lounge",
 				Items = {
-					{ Text = "<b>AFK</b> (top right): rest in the lounge and get <b>a random reward every 10 minutes</b>, rolled from 17: at least 30 Gold or 10 V Points, up to a <b>Lucky Spin</b>. VIP doubles the Gold and V Points and Roblox Premium adds x1.5, up to 4 hours a day. The side panel adds up what you've made." },
+					{ Text = "<b>AFK</b> (top right): rest in the lounge and get <b>a random reward every 4 minutes</b>, rolled from 17: at least 30 Gold or 10 V Points, up to a <b>Lucky Spin</b>. VIP doubles the Gold and V Points and Roblox Premium adds x1.5, up to 4 hours a day. The side panel adds up what you've made." },
 					{ Text = "Stay as long as you want: the lounge refreshes your connection before Roblox's 20 minute AFK kick, and your timer carries on." },
 				},
 			},

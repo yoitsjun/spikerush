@@ -4523,9 +4523,9 @@ do
 	local r3, s3 = Lounge.advance(rec, LC.Interval * 2.5, 1, topRoll)
 	check(#r3 == 2 and s3.Lucky == 2 and rec.made.Lucky == 2 and rec.made.n == 3 and rec.log[1].i == #LC.Rewards and rec.gold == 30 and math.abs(rec.carry - LC.Interval * 0.5) < 1e-6,
 		"lounge: a long step rolls each interval it covers, adds them up and keeps the remainder")
-	local kept = Lounge.clean({ day = 100, payouts = 3, gold = 900, carry = 250, made = { Gold = 90, VP = 10, n = 3 }, log = { { i = 1, m = 1 }, { i = 99, m = 1 } } }, 100)
-	local turned = Lounge.clean({ day = 99, payouts = LC.DailyPayouts, gold = 7200, carry = 250, made = { Gold = 40, n = 1 } }, 100)
-	check(kept.payouts == 3 and kept.gold == 900 and kept.carry == 250 and kept.made.Gold == 90 and kept.made.VP == 10 and #kept.log == 1 and turned.payouts == 0 and turned.gold == 0 and turned.carry == 250 and turned.made.Gold == 40,
+	local kept = Lounge.clean({ day = 100, payouts = 3, gold = 900, carry = 100, made = { Gold = 90, VP = 10, n = 3 }, log = { { i = 1, m = 1 }, { i = 99, m = 1 } } }, 100)
+	local turned = Lounge.clean({ day = 99, payouts = LC.DailyPayouts, gold = 7200, carry = 100, made = { Gold = 40, n = 1 } }, 100)
+	check(kept.payouts == 3 and kept.gold == 900 and kept.carry == 100 and kept.made.Gold == 90 and kept.made.VP == 10 and #kept.log == 1 and turned.payouts == 0 and turned.gold == 0 and turned.carry == 100 and turned.made.Gold == 40,
 		"lounge: the time towards the next payout and the stay's totals carry over (a bad log entry is dropped); a new day starts the payouts again")
 	Lounge.startStay(kept)
 	check(kept.made.Gold == 0 and kept.made.n == 0 and #kept.log == 0, "lounge: stepping in again starts a new stay")
