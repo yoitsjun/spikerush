@@ -2230,6 +2230,19 @@ end
 --   rate   lines a second        top / fall   how high they start over it, how far they drop
 --   spreadZ / spreadX  how wide (along the court, and toward the camera)   color, width, len
 local PR = { screen = nil, on = {} } -- the pressure effects (one local: the module is at Lua's 200)
+
+-- Plays a tween on a pooled part and puts the part back only once the tween is done (the owner,
+-- 2026-10-22: "these effects still stay": a release on a timer as long as the tween could run a
+-- frame before its last step, which then put the part back where it ended, still showing, and it
+-- stayed there in the pool).
+function PR.tweenRelease(part, info, goal)
+	local tw = TweenService:Create(part, info, goal)
+	tw.Completed:Once(function()
+		release(part)
+	end)
+	tw:Play()
+	return tw
+end
 function PR.rain(center, opts)
 	local stopped = false
 	local t0 = os.clock()
@@ -2254,8 +2267,7 @@ function PR.rain(center, opts)
 				line.CFrame = CFrame.new(at)
 				line.Transparency = 0.15 + math.random() * 0.35
 				local life = 0.16 + math.random() * 0.1
-				TweenService:Create(line, TweenInfo.new(life, Enum.EasingStyle.Linear), { CFrame = CFrame.new(at - Vector3.new(0, opts.fall or 14, 0)), Transparency = 0.85 }):Play()
-				task.delay(life, release, line)
+				PR.tweenRelease(line, TweenInfo.new(life, Enum.EasingStyle.Linear), { CFrame = CFrame.new(at - Vector3.new(0, opts.fall or 14, 0)), Transparency = 0.85 })
 			end
 		end
 	end)
@@ -7806,8 +7818,7 @@ function HW.rankDiamond(pos, tint, k)
 			p.Size = Vector3.new(0.35, 0.9, 0.35)
 			p.CFrame = CFrame.new(at) * CFrame.Angles(0, math.random() * 6, math.rad(45))
 			p.Transparency = 0.1
-			TweenService:Create(p, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = CFrame.new(at.X, 0.4, at.Z) * CFrame.Angles(0, math.random() * 6, math.rad(45)), Transparency = 0.4 }):Play()
-			task.delay(0.5, release, p)
+			PR.tweenRelease(p, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = CFrame.new(at.X, 0.4, at.Z) * CFrame.Angles(0, math.random() * 6, math.rad(45)), Transparency = 0.4 })
 		end)
 	end
 	HW.rankBadge(pos + Vector3.new(0, 10 * k, 0), "RankDiamond3", 16 * k, 1.1, 5)
