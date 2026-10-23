@@ -2527,21 +2527,43 @@ Config.PlayRewards = {
 }
 
 -- The AFK Lounge (the owner, 2026-10-22: "add an afk chamber", after another game's AFK Lounge):
--- from Home's AFK button, a screen of its own where Gold keeps coming while you rest. Every
--- Interval spent inside pays BaseGold, times VipMult with the VIP pass and PremiumMult with Roblox
--- Premium; up to DailyPayouts a day (the day turns with Config.PlayRewards'); each payout has
--- GemChance of GemVP V Points as well. Time towards the next payout is kept on the profile, so
+-- from Home's AFK button, a screen of its own where rewards keep coming while you rest. Every
+-- Interval spent inside rolls one of Rewards (the owner, 2026-10-22: "make it roll through
+-- possibilites of rewards ... top reward can be a lucky spin, and the bottom line be 30 gold or 10
+-- vp ... no roll animation, you just get it"); its Gold and V Points times VipMult with the VIP
+-- pass and PremiumMult with Roblox Premium; up to DailyPayouts a day (the day turns with
+-- Config.PlayRewards'). Time towards the next payout is kept on the profile, so
 -- leaving and coming back carries on. Roblox drops a player after 20 minutes without input: past
 -- RefreshAfter idle seconds inside, the server moves them to a fresh server of this place (a
 -- teleport), where the lounge opens again and the loading screen skips its click.
 Config.Lounge = {
 	Interval = 600,
-	BaseGold = 300,
 	VipMult = 2,
 	PremiumMult = 1.5,
 	DailyPayouts = 24, -- (four hours of it a day)
-	GemChance = 0.01,
-	GemVP = 100,
+	-- what a payout can roll, from the bottom line up to the top reward: Weight is its chance in
+	-- percent (they add up to 100), Tier (1 to 5) its colour on the screen, Grant what it gives
+	-- (Economy.cleanGrant; boosts in seconds)
+	Rewards = {
+		{ Weight = 20.5, Tier = 1, Grant = { Gold = 30 } },
+		{ Weight = 18, Tier = 1, Grant = { VP = 10 } },
+		{ Weight = 13, Tier = 1, Grant = { Gold = 50 } },
+		{ Weight = 11, Tier = 1, Grant = { VP = 15 } },
+		{ Weight = 8, Tier = 2, Grant = { Gold = 80 } },
+		{ Weight = 7, Tier = 2, Grant = { VP = 25 } },
+		{ Weight = 5, Tier = 2, Grant = { Gold = 120 } },
+		{ Weight = 4, Tier = 2, Grant = { VP = 40 } },
+		{ Weight = 3.5, Tier = 3, Grant = { Gold = 200 } },
+		{ Weight = 2.5, Tier = 3, Grant = { VP = 60 } },
+		{ Weight = 2.5, Tier = 3, Grant = { BoostVP = 5 * 60 } },
+		{ Weight = 1.5, Tier = 4, Grant = { Gold = 350 } },
+		{ Weight = 1.2, Tier = 4, Grant = { VP = 100 } },
+		{ Weight = 1, Tier = 4, Grant = { BoostLuck = 5 * 60 } },
+		{ Weight = 0.7, Tier = 4, Grant = { Gold = 600 } },
+		{ Weight = 0.4, Tier = 5, Grant = { VP = 200 } },
+		{ Weight = 0.2, Tier = 5, Grant = { Lucky = 1 } }, -- (the top reward)
+	},
+	LogSize = 8, -- the latest rolls the screen's side panel lists
 	RefreshAfter = 17 * 60,
 	SyncEvery = 20, -- seconds between the server's countdown corrections to the screen
 }

@@ -4479,22 +4479,43 @@ print("== AFK Lounge ==")
 do
 	local Lounge = require("Lounge")
 	local LC = Config.Lounge
-	local never = function() return 1 end
-	local always = function() return 0 end
-	check(Lounge.rate(false, false) == LC.BaseGold and Lounge.rate(true, true) == math.floor(LC.BaseGold * LC.VipMult * LC.PremiumMult + 0.5), "lounge: VIP and Premium multiply the base payout")
+	local bottom = function() return 0 end -- (the first reward: 30 Gold)
+	local topRoll = function() return 0.99999 end -- (the last: the top reward)
+	local total = 0
+	for _, r in ipairs(LC.Rewards) do
+		total = total + r.Weight
+	end
+	check(#LC.Rewards >= 15 and math.abs(total - 100) < 1e-6 and LC.Rewards[#LC.Rewards].Grant.Lucky == 1 and LC.Rewards[1].Grant.Gold == 30 and LC.Rewards[2].Grant.VP == 10,
+		"lounge: at least 15 rewards, weights in percent adding to 100, a lucky spin on top and 30 Gold or 10 VP at the bottom", #LC.Rewards .. " rewards, " .. total)
+	local counts, n = {}, 20000
+	local seed = 12345
+	for _ = 1, n do
+		seed = (seed * 1103515245 + 12345) % 2147483648
+		local i = Lounge.pick(seed / 2147483648)
+		counts[i] = (counts[i] or 0) + 1
+	end
+	check(math.abs((counts[1] or 0) / n - Lounge.chance(1)) < 0.02 and Lounge.pick(0) == 1 and Lounge.pick(0.99999) == #LC.Rewards, "lounge: a roll lands on each reward about as often as its weight says")
+	local g2 = Lounge.grant(1, Lounge.mult(true, true))
+	local gl = Lounge.grant(#LC.Rewards, Lounge.mult(true, true))
+	check(g2.Gold == math.floor(30 * LC.VipMult * LC.PremiumMult + 0.5) and gl.Lucky == 1 and Lounge.label(gl) == "LUCKY SPIN" and Lounge.label(Lounge.grant(2, 1)) == "+10 VP",
+		"lounge: VIP and Premium multiply a reward's Gold and V Points, not a lucky spin", Lounge.label(g2))
 	local rec = Lounge.clean(nil, 100)
-	local g1, v1, n1 = Lounge.advance(rec, LC.Interval - 1, 300, never)
-	local g2, _, n2 = Lounge.advance(rec, 1, 300, never)
-	check(g1 == 0 and n1 == 0 and v1 == 0 and g2 == 300 and n2 == 1 and rec.carry == 0 and rec.payouts == 1, "lounge: one payout per full interval inside")
-	local g3, v3, n3 = Lounge.advance(rec, LC.Interval * 2.5, 300, always)
-	check(g3 == 600 and v3 == 2 * LC.GemVP and n3 == 2 and rec.gold == 900 and math.abs(rec.carry - LC.Interval * 0.5) < 1e-6, "lounge: a long step pays each interval it covers and keeps the remainder; the gem roll can add V Points")
-	local kept = Lounge.clean({ day = 100, payouts = 3, gold = 900, carry = 250 }, 100)
-	local turned = Lounge.clean({ day = 99, payouts = LC.DailyPayouts, gold = 7200, carry = 250 }, 100)
-	check(kept.payouts == 3 and kept.gold == 900 and kept.carry == 250 and turned.payouts == 0 and turned.gold == 0 and turned.carry == 250, "lounge: the time towards the next payout carries over; a new day starts the payouts again")
+	local r1 = Lounge.advance(rec, LC.Interval - 1, 1, bottom)
+	local r2, s2 = Lounge.advance(rec, 1, 1, bottom)
+	check(#r1 == 0 and #r2 == 1 and s2.Gold == 30 and rec.carry == 0 and rec.payouts == 1 and rec.made.Gold == 30 and rec.made.n == 1 and rec.log[1].i == 1, "lounge: one rolled reward per full interval inside, counted in the stay's totals")
+	local r3, s3 = Lounge.advance(rec, LC.Interval * 2.5, 1, topRoll)
+	check(#r3 == 2 and s3.Lucky == 2 and rec.made.Lucky == 2 and rec.made.n == 3 and rec.log[1].i == #LC.Rewards and rec.gold == 30 and math.abs(rec.carry - LC.Interval * 0.5) < 1e-6,
+		"lounge: a long step rolls each interval it covers, adds them up and keeps the remainder")
+	local kept = Lounge.clean({ day = 100, payouts = 3, gold = 900, carry = 250, made = { Gold = 90, VP = 10, n = 3 }, log = { { i = 1, m = 1 }, { i = 99, m = 1 } } }, 100)
+	local turned = Lounge.clean({ day = 99, payouts = LC.DailyPayouts, gold = 7200, carry = 250, made = { Gold = 40, n = 1 } }, 100)
+	check(kept.payouts == 3 and kept.gold == 900 and kept.carry == 250 and kept.made.Gold == 90 and kept.made.VP == 10 and #kept.log == 1 and turned.payouts == 0 and turned.gold == 0 and turned.carry == 250 and turned.made.Gold == 40,
+		"lounge: the time towards the next payout and the stay's totals carry over (a bad log entry is dropped); a new day starts the payouts again")
+	Lounge.startStay(kept)
+	check(kept.made.Gold == 0 and kept.made.n == 0 and #kept.log == 0, "lounge: stepping in again starts a new stay")
 	local full = Lounge.clean({ day = 100, payouts = LC.DailyPayouts - 1, carry = 0 }, 100)
-	local gF, _, nF = Lounge.advance(full, LC.Interval * 5, 300, never)
-	local gAfter = Lounge.advance(full, LC.Interval * 5, 300, never)
-	check(nF == 1 and gF == 300 and gAfter == 0 and full.carry == 0 and Lounge.nextIn(full) == nil, "lounge: nothing past the daily cap")
+	local rF = Lounge.advance(full, LC.Interval * 5, 1, bottom)
+	local rAfter = Lounge.advance(full, LC.Interval * 5, 1, bottom)
+	check(#rF == 1 and #rAfter == 0 and full.carry == 0 and Lounge.nextIn(full) == nil, "lounge: nothing past the daily limit")
 	local bad = Lounge.clean({ day = 100, payouts = -5, carry = 1e9 }, 100)
 	check(bad.payouts == 0 and bad.carry == LC.Interval - 1, "lounge: a bad stored record is clamped")
 end

@@ -1,9 +1,10 @@
 -- The AFK Lounge (Config.Lounge, the Lounge module; the owner: "add an afk chamber"): a player who
--- steps in from Home's AFK button earns Gold every Interval they stay, up to today's cap, with a
--- small chance of V Points each payout. Their time towards the next payout lives on the profile
--- (ProfileService.lounge), so it carries on after leaving or rejoining.
+-- steps in from Home's AFK button gets a reward rolled from Config.Lounge.Rewards every Interval
+-- they stay, up to today's DailyPayouts. Their time towards the next payout and this stay's totals
+-- live on the profile (ProfileService.lounge, the Lounge module), so they carry on through the
+-- lounge's teleports, and the timer after leaving or rejoining.
 --   * "Lounge" remote: client -> server "enter", "leave", "get"; server -> client the lounge's
---     state ({ inside, nextIn, interval, rate, vip, premium, earned, earnedVP, today, cap, ... }),
+--     state ({ inside, nextIn, interval, mult, vip, premium, made, log, paidToday, daily, ... }),
 --     or { refused = text } / { refreshing = true }.
 --   * A player in a match can't come in; one in a lobby leaves it on the way in, and one pulled
 --     into a lobby or a match while inside (a party) is let out.
@@ -31,7 +32,7 @@ local Economy = require(Shared.Economy)
 local LoungeService = {}
 local L = Config.Lounge
 local reg
-local inside = {} -- player -> { earned, vp, synced }: this visit's Gold and V Points, the last send
+local inside = {} -- player -> { synced }: when they were last sent the state
 local lastInput = {} -- player -> os.clock() of their last input
 local refreshing = {} -- player -> "lounge" or "game" while their teleport there is on its way
 local isLoungeServer = false -- this server is someone's own lounge (they came in with loungeServer)
@@ -64,15 +65,13 @@ local function send(plr, extra)
 		inside = st ~= nil,
 		nextIn = Lounge.nextIn(rec), -- (nil once today's are all paid)
 		interval = L.Interval,
-		rate = Lounge.rate(vip, premium),
-		base = L.BaseGold,
+		mult = Lounge.mult(vip, premium),
 		vip = vip,
 		premium = premium,
-		earned = st and st.earned or 0,
-		earnedVP = st and st.vp or 0,
-		today = rec.gold,
-		cap = Lounge.cap(vip, premium),
+		made = rec.made, -- (this stay's totals)
+		log = rec.log, -- (its latest rolls, newest first)
 		paidToday = rec.payouts,
+		daily = L.DailyPayouts,
 		refreshing = refreshing[plr] ~= nil,
 		moving = refreshing[plr], -- ("lounge": to their own server; "game": back to a public one)
 		own = isLoungeServer,
@@ -88,7 +87,8 @@ end
 
 local move -- (a teleport to their own server or back: below)
 
-local function enter(plr)
+-- `fresh`: stepping in from the menus (a new stay), not put back in after a teleport
+local function enter(plr, fresh)
 	if inside[plr] or not reg.ProfileService.lounge(plr) then
 		send(plr)
 		return
@@ -100,7 +100,10 @@ local function enter(plr)
 	if inLobby(plr) then
 		reg.LobbyService.leave(plr)
 	end
-	inside[plr] = { earned = 0, vp = 0, synced = 0 }
+	if fresh and not isLoungeServer then
+		Lounge.startStay(reg.ProfileService.lounge(plr))
+	end
+	inside[plr] = { synced = 0 }
 	lastInput[plr] = lastInput[plr] or os.clock()
 	send(plr)
 	if not isLoungeServer then
@@ -168,16 +171,18 @@ local function tick(dt)
 			local rec = reg.ProfileService.lounge(plr)
 			if rec then
 				local vip, premium = perks(plr)
-				local gold, vp, n = Lounge.advance(rec, dt, Lounge.rate(vip, premium), function()
+				local rolls, sum = Lounge.advance(rec, dt, Lounge.mult(vip, premium), function()
 					return rng:NextNumber()
 				end)
 				reg.ProfileService.markDirty(plr)
-				if n > 0 then
-					st.earned = st.earned + gold
-					st.vp = st.vp + vp
-					local g = Economy.cleanGrant({ Gold = gold, VP = vp })
-					reg.ProfileService.grant(plr, g, (vp > 0 and "AFK Lounge, a lucky find: " or "AFK Lounge: ") .. Economy.describe(g))
-					send(plr, { paid = gold, paidVP = vp })
+				if #rolls > 0 then
+					local top = 0
+					for _, r in ipairs(rolls) do
+						top = math.max(top, L.Rewards[r.i].Tier)
+					end
+					local g = Economy.cleanGrant(sum)
+					reg.ProfileService.grant(plr, g, (top >= 4 and "AFK Lounge, a rare roll: " or "AFK Lounge: ") .. Economy.describe(g))
+					send(plr, { paid = rolls })
 				elseif os.clock() - st.synced >= L.SyncEvery then
 					send(plr)
 				end
@@ -206,7 +211,7 @@ local function arrived(plr)
 				return
 			end
 			if reg.ProfileService.lounge(plr) then
-				enter(plr)
+				enter(plr, false)
 				return
 			end
 			task.wait(0.5)
@@ -222,7 +227,7 @@ function LoungeService.init(r)
 	reg = r
 	Net.get("Lounge").OnServerEvent:Connect(function(plr, op)
 		if op == "enter" then
-			enter(plr)
+			enter(plr, true)
 		elseif op == "leave" then
 			if isLoungeServer then
 				move(plr, "game") -- (your own server: back to a public one)
