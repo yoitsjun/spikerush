@@ -19,17 +19,20 @@ local function register(name)
 	end)
 end
 
+-- Only the root (always upright, whatever the pose) meets the net; the posed body is "PlayerBody",
+-- which passes through it. The Bicycle Kick lays the torso and head flat back toward the net, and
+-- when they hit the net's wall the physics shoved the whole body up onto it or through it (the
+-- owner, 2026-10-23: "its possible for players to get stuck in the net")
 local function setGroup(model, group)
-	for _, d in ipairs(model:GetDescendants()) do
+	local function apply(d)
 		if d:IsA("BasePart") then
-			d.CollisionGroup = group
+			d.CollisionGroup = d.Name == "HumanoidRootPart" and group or "PlayerBody"
 		end
 	end
-	model.DescendantAdded:Connect(function(d)
-		if d:IsA("BasePart") then
-			d.CollisionGroup = group
-		end
-	end)
+	for _, d in ipairs(model:GetDescendants()) do
+		apply(d)
+	end
+	model.DescendantAdded:Connect(apply)
 end
 
 local function groundY(model)
@@ -70,8 +73,12 @@ function CharacterService.init(r)
 	reg = r
 	register("Players")
 	register("NetBarrier")
+	register("PlayerBody")
 	-- Players never shove each other (no body-blocking griefing, no clumping on the ball).
 	PhysicsService:CollisionGroupSetCollidable("Players", "Players", false)
+	PhysicsService:CollisionGroupSetCollidable("PlayerBody", "Players", false)
+	PhysicsService:CollisionGroupSetCollidable("PlayerBody", "PlayerBody", false)
+	PhysicsService:CollisionGroupSetCollidable("PlayerBody", "NetBarrier", false)
 	PhysicsService:CollisionGroupSetCollidable("NetBarrier", "Default", false)
 	PhysicsService:CollisionGroupSetCollidable("NetBarrier", "NetBarrier", false)
 
