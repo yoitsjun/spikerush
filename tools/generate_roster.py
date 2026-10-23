@@ -94,7 +94,7 @@ FIXED = [
     {"Name": "Seora", "Role": "WS", "Tier": "S", "Height": 178, "Attack": 204, "Defense": 124, "Speed": 158, "Jump": 196, "Ability": "Skyward"},
     # The Tyrant (the owner, 2026-10-21: "The Tyrant (S+ Setter)"): the first S+ setter, quicker and
     # steadier than any S setter, with a little more Attack and Jump for his own jump serve
-    {"Name": "Dohwan", "Role": "SE", "Tier": "S+", "Height": 180, "Attack": 140, "Defense": 182, "Speed": 188, "Jump": 150, "Ability": "Tyrant"},
+    {"Name": "Dohwan", "Role": "SE", "Tier": "S+", "Height": 180, "Attack": 170, "Defense": 182, "Speed": 188, "Jump": 150, "Ability": "Tyrant"},
     # Sunshine (the owner, 2026-10-21: an S middle blocker, "170 Attack 150 Jump 190 Defense 180
     # Speed"): a digging middle, shorter than the rest of them
     {"Name": "Haesol", "Role": "MB", "Tier": "S", "Height": 191, "Attack": 170, "Defense": 190, "Speed": 180, "Jump": 150, "Ability": "Sunshine"},

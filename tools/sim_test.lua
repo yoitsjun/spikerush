@@ -4361,6 +4361,19 @@ do
 	check(okS1 and okS2 and crown.meta.crown and crown.launch.a.Y < plainServe.launch.a.Y * 1.3,
 		"Crown Jump Serve: heavy topspin, it curls down steeply",
 		string.format("gravity %.0f vs %.0f", -crown.launch.a.Y, -plainServe.launch.a.Y))
+	-- and as hard as the best S+ wing spiker's serve (maxed), only the serve: his spike keeps his own Attack
+	local topWS = 0
+	for _, c in ipairs(Roster) do
+		if c.Tier == "S+" and c.Role == "WS" then
+			topWS = math.max(topWS, c.Attack)
+		end
+	end
+	local best = Characters.boosted(dohwan, { Attack = topWS - dohwan.Attack })
+	local okS3, bestServe = HitLogic.compute({ action = "Serve", t = 0, root = sv, ball = svBall, vy = 0, grounded = false },
+		ctx({ ability = nil, stats = best, touchNumber = 1, lastHit = { team = "Away", hitType = "Toss", id = "x" } }))
+	check(okS3 and Roster.get("dohwan").Attack + TY.CrownServeAttack == topWS and math.abs(crown.meta.kmh - bestServe.meta.kmh) < 0.5 and crown.meta.kmh > plainServe.meta.kmh * 1.1 and dohwan.Attack >= 165,
+		"Crown Jump Serve: as hard as the best S+ wing spiker's serve (maxed); his own Attack is solid too",
+		string.format("%.0f km/h (plain %.0f, top WS stats %.0f); top S+ WS Attack %d, his %d", crown.meta.kmh, plainServe.meta.kmh, bestServe.meta.kmh, topWS, dohwan.Attack))
 	local rroot = vec(0, GROUND, side * 18 * K)
 	local rball = vec(0, rroot.Y + Z.ReceiveIdealY, rroot.Z - side * Z.ReceiveForward)
 	local function recv(last)

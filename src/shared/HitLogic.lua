@@ -1113,6 +1113,11 @@ end
 
 local function attack(kind, input, ctx, rng, stats, scale)
 	local side = ctx.side
+	if kind == "JumpServe" and has(ctx, "Tyrant") then
+		-- the Crown Jump Serve: his serve alone hits with CrownServeAttack more Attack (the best S+
+		-- wing spiker's, maxed)
+		stats = Characters.boosted(stats, { Attack = TYRANT.CrownServeAttack })
+	end
 	local ball, root, t = input.ball, input.root, input.t
 	if kind == "Spike" then
 		-- (the widest of his abilities' reaches, each off its own input: Feral's leap gauge, and

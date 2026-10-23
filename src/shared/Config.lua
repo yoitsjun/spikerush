@@ -1626,7 +1626,7 @@ Config.Abilities = {
 		Role = "SE",
 		Active = true, -- Emperor's Dictate (Q)
 		ActiveName = "Emperor's Dictate",
-		Blurb = "Press Q for Emperor's Dictate: for 5 s their team is Locked (35% less Jump and Speed, 15% less Attack, no slides) and yours gets the stolen stats, your sets are met at full power, your own attacks hit at full power and 1.15x, and their blocks reach half as high. Your sets fly fast (spikes off them 1.3x, no block stuffs them); your jump serve dips hard and wrecks their pass.",
+		Blurb = "Press Q for Emperor's Dictate: for 5 s their team is Locked (35% less Jump and Speed, 15% less Attack, no slides) and yours gets the stolen stats, your sets are met at full power, your own attacks hit at full power and 1.15x, and their blocks reach half as high. Your sets fly fast (spikes off them 1.3x, no block stuffs them); your jump serve hits as hard as the best S+ wing spiker's, dips hard and wrecks their pass.",
 		Color = Color3.fromRGB(255, 196, 60),
 		-- (the owner, 2026-10-22: "make dohwans nerf more intense its basically doing nothing right now.
 		-- maybe like yamdera from the spike" (Lock: no slides, Speed and Jump down hard), "maybe not as
@@ -1646,6 +1646,11 @@ Config.Abilities = {
 		GuardKmh = 180,
 		GroundedCut = 0.1, -- the grounded hitter's Jump and Attack x (1 - this), one attack
 		-- Crown Jump Serve
+		-- (the owner, 2026-10-22: "make dohwan's crown serve give him a serve on par with the top of
+		-- the s+ ws. only for his serve though", "he should have a decently solid attack though": his
+		-- Attack went 140 -> 170, and his jump serve alone hits with this many Attack points more, so
+		-- maxed it's Dante's 222, the best S+ wing spiker's)
+		CrownServeAttack = 52,
 		CrownGravity = 1.55, -- topspin: x the usual jump serve's dip
 		CrownDepthMul = 0.85, -- a little shorter, for the steep path down
 		CrownDrainMul = 2, -- the receiver's guard drain
@@ -1663,7 +1668,7 @@ Config.Abilities = {
 			{ Name = "Emperor's Dictate", Blurb = "Press Q: for 5 s their team is Locked: 35% less Jump and Speed, 15% less Attack, and no slides. Your team gets +12 Attack, +10 Jump and +10 Speed, spikes off your sets hit at full power, and their blocks reach half as high." },
 			{ Name = "Sovereign Strike", Blurb = "While Emperor's Dictate is on, your own spikes and jump serves hit at full power, 1.15x as fast, and no ordinary block stuffs them." },
 			{ Name = "Sovereign's Guard", Blurb = "Spike faster than 180 km/h at your team and you're Grounded: 10% less Jump and Attack on your next attack." },
-			{ Name = "Crown Jump Serve", Blurb = "Your jump serve curls down steeply, costs the receiver double stamina, and leaves them a low, wild set." },
+			{ Name = "Crown Jump Serve", Blurb = "Your jump serve hits as hard as the best S+ wing spiker's (+52 Attack on it), curls down steeply, costs the receiver double stamina, and leaves them a low, wild set." },
 			{ Name = "Tyrant's Set", Blurb = "Your sets fly fast, the usual arc in less time. The spike off one goes 1.3x as fast with Armor Break: an ordinary block can't stuff it." },
 		},
 	},

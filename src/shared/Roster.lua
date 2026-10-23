@@ -11,7 +11,7 @@ local Roster = {
 	{ Id = "taeha", Name = "Taeho", Role = "WS", Tier = "S+", Height = 187, Attack = 205, Defense = 122, Speed = 146, Jump = 182, Ability = "ZeroPoint" },
 	{ Id = "yejun", Name = "YeJun", Role = "WS", Tier = "S+", Height = 189, Attack = 210, Defense = 124, Speed = 146, Jump = 190, Ability = "Thunder" },
 	{ Id = "taesan", Name = "Taesan", Role = "MB", Tier = "S+", Height = 203, Attack = 186, Defense = 162, Speed = 112, Jump = 182, Ability = "Ironclad" },
-	{ Id = "dohwan", Name = "Dohwan", Role = "SE", Tier = "S+", Height = 180, Attack = 140, Defense = 194, Speed = 190, Jump = 162, Ability = "Tyrant" }, -- (2026-10-22, the owner: "he's not doing enough to earn that s+ title": +12 Defense, +2 Speed (Laith stays the second fastest), +12 Jump)
+	{ Id = "dohwan", Name = "Dohwan", Role = "SE", Tier = "S+", Height = 180, Attack = 170, Defense = 194, Speed = 190, Jump = 162, Ability = "Tyrant" }, -- (2026-10-22, the owner: "he's not doing enough to earn that s+ title": +12 Defense, +2 Speed (Laith stays the second fastest), +12 Jump)
 	{ Id = "daon", Name = "Daon", Role = "WS", Tier = "S", Height = 186, Attack = 188, Defense = 122, Speed = 134, Jump = 170, Ability = "RisingSun" },
 	{ Id = "ines", Name = "Ines", Role = "WS", Tier = "S", Height = 184, Attack = 170, Defense = 130, Speed = 138, Jump = 180, Ability = "Counter" },
 	{ Id = "seora", Name = "Seora", Role = "WS", Tier = "S", Height = 178, Attack = 204, Defense = 124, Speed = 158, Jump = 196, Ability = "Skyward" },
