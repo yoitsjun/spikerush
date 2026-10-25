@@ -1110,6 +1110,9 @@ Config.Codes = {
 	ranked = { VP = 400, Gold = 5000, Lucky = 2 },
 	clans = { VP = 300, Gold = 5000, Lucky = 1 },
 	["1500discord"] = { VP = 500, Gold = 7500, Lucky = 2 },
+	-- the owner, 2026-10-25: "add 2 new codes... 2000discord and 10kgroup"
+	["2000discord"] = { VP = 750, Gold = 15000, Lucky = 5 },
+	["10kgroup"] = { VP = 750, Gold = 15000, Lucky = 3 },
 }
 
 -- Daily rewards (the owner: "daily rewards for group members only"): members of the group that
