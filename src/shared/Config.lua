@@ -2680,11 +2680,9 @@ Config.Bots = {
 	MissChance = { 0.07, 0.0 }, -- misses any ball
 	SpikeMishitChance = { 0.3, 0.01 }, -- frames the swing (a weak, wild spike)
 	ServeMissChance = { 0.12, 0.01 }, -- jump serves only (the underhand serve never misses)
-	-- (seconds early or late the AI's block jump goes when its BlockChance roll misses: it always
-	-- goes up, mistimed)
-	BlockMistime = { 0.32, 0.5 },
 	HumanAtNet = 1.0 * M, -- a human teammate this close to the net blocks; the AI blocker stays back
-	BlockChance = { 0.15, 0.4 }, -- (was 0.4 to 0.95, never felt: open and back sets went unblocked until BlockSetMaxDepth; at 0.4-0.95 it stuffed 8 spikes in 10, at 0.2-0.5 about 3 in 8)
+	-- (BlockChance is gone: the AI blocker goes up on every set now; at 0.15 to 0.4 it stood still
+	-- on most and looked broken)
 	-- the AI goes up to block a set that comes down this close to the net (it was 2.2 m, under the
 	-- open set's 2.3 m: the AI only ever blocked quicks; the community, "sometimes the middle blocker
 	-- doesn't block or jump"); back sets (BackDepth) come in too

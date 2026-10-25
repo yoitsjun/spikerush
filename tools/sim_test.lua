@@ -3775,11 +3775,11 @@ end
 print("== AI blocks ==")
 do
 	-- the AI goes up against open and back sets too (it only ever blocked quicks: the open set lands
-	-- past the old 2.2 m), at odds that don't stuff every spike
+	-- past the old 2.2 m), every time (the owner, 2026-10-25: "make him jump everytime")
 	local B = Config.Bots
-	check(B.BlockSetMaxDepth > Court.attackDepth("Open") + 0.5 and B.BlockSetMaxDepth >= Court.attackDepth("Back") and B.BlockChance[1] < B.BlockChance[2] and B.BlockChance[2] <= 0.5,
-		"the AI blocks open and back sets, not just quicks, and not every time",
-		string.format("up to %.1f m (open %.1f, back %.1f); %d-%d%%", B.BlockSetMaxDepth / Config.Scale.StudsPerMeter, Court.attackDepth("Open") / Config.Scale.StudsPerMeter, Court.attackDepth("Back") / Config.Scale.StudsPerMeter, B.BlockChance[1] * 100, B.BlockChance[2] * 100))
+	check(B.BlockSetMaxDepth > Court.attackDepth("Open") + 0.5 and B.BlockSetMaxDepth >= Court.attackDepth("Back") and B.BlockChance == nil,
+		"the AI blocks open and back sets, not just quicks, every time",
+		string.format("up to %.1f m (open %.1f, back %.1f)", B.BlockSetMaxDepth / Config.Scale.StudsPerMeter, Court.attackDepth("Open") / Config.Scale.StudsPerMeter, Court.attackDepth("Back") / Config.Scale.StudsPerMeter))
 end
 
 print("== four touches ==")
