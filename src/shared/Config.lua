@@ -1629,7 +1629,7 @@ Config.Abilities = {
 		Role = "SE",
 		Active = true, -- Emperor's Dictate (Q)
 		ActiveName = "Emperor's Dictate",
-		Blurb = "Press Q for Emperor's Dictate: for 5 s their team is Locked (35% less Jump and Speed, 15% less Attack, no slides) and yours gets the stolen stats, your sets are met at full power, your own attacks hit at full power and 1.15x, and their blocks reach half as high. Your sets fly fast (spikes off them 1.3x, no block stuffs them); your jump serve hits as hard as the best S+ wing spiker's, dips hard and wrecks their pass.",
+		Blurb = "Press Q for Emperor's Dictate: for 5 s their team is Locked (35% less Jump and Speed, 15% less Attack, spikes 20% slower, no slides) and yours gets the stolen stats, your sets are met at full power, your own attacks hit at full power and 1.15x, and their blocks reach half as high. Your sets fly fast (spikes off them 1.3x, no block stuffs them); your jump serve hits as hard as the best S+ wing spiker's, dips hard and wrecks their pass.",
 		Color = Color3.fromRGB(255, 196, 60),
 		-- (the owner, 2026-10-22: "make dohwans nerf more intense its basically doing nothing right now.
 		-- maybe like yamdera from the spike" (Lock: no slides, Speed and Jump down hard), "maybe not as
@@ -1641,6 +1641,10 @@ Config.Abilities = {
 		StealAttack = 0.43, -- and their Attack x (1 - Steal x this): about 15%
 		TeamAdd = { Attack = 12, Jump = 10, Speed = 10 }, -- his whole team's, stolen
 		BlockCut = 0.5, -- their block's reach over the tape x this
+		-- (the owner, 2026-10-25: "buff dohwan so that his ability reduces spike power aswell"): the
+		-- Locked team's spikes and jump serves x (1 - this), on top of the Attack it takes (more with a
+		-- grown Steal, in proportion)
+		LockSpikeCut = 0.2,
 		-- Sovereign Strike (2026-10-22, so the Tyrant shows it in his own hands): while Emperor's
 		-- Dictate is on, his own spikes and jump serves are met at full power, SelfMul faster, with
 		-- Armor Break
@@ -1668,7 +1672,7 @@ Config.Abilities = {
 		SetLower = 0.5 * M, -- and its top this much lower (then "dohwan sets a little too high now")
 		SetMul = 1.3, -- the spike off it
 		Passives = {
-			{ Name = "Emperor's Dictate", Blurb = "Press Q: for 5 s their team is Locked: 35% less Jump and Speed, 15% less Attack, and no slides. Your team gets +12 Attack, +10 Jump and +10 Speed, spikes off your sets hit at full power, and their blocks reach half as high." },
+			{ Name = "Emperor's Dictate", Blurb = "Press Q: for 5 s their team is Locked: 35% less Jump and Speed, 15% less Attack, their spikes and jump serves 20% slower, and no slides. Your team gets +12 Attack, +10 Jump and +10 Speed, spikes off your sets hit at full power, and their blocks reach half as high." },
 			{ Name = "Sovereign Strike", Blurb = "While Emperor's Dictate is on, your own spikes and jump serves hit at full power, 1.15x as fast, and no ordinary block stuffs them." },
 			{ Name = "Sovereign's Guard", Blurb = "Spike faster than 180 km/h at your team and you're Grounded: 10% less Jump and Attack on your next attack." },
 			{ Name = "Crown Jump Serve", Blurb = "Your jump serve hits as hard as the best S+ wing spiker's (+52 Attack on it), curls down steeply, costs the receiver double stamina, and leaves them a low, wild set." },

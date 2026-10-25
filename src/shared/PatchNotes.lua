@@ -86,6 +86,7 @@ PatchNotes.List = {
 					{ Text = "<b>Breakthroughs</b> now grow an ability's power more than its cooldown. Rally Cry's boost reaches 18% at +5, and Storm Call and Iron Wall get stronger too." },
 					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> has to jump to wall, and a set starts with one shield. His Intimidation meter only fills once every shield is broken. The block that shatters a shield pops the ball up for his team, and no spike shatters one at once any more: every shield shuts down one spike, then pops up the next." },
 					{ Icon = "AbilityTyrant", Text = "<b>Dohwan</b>: Attack up from 140 to 170, and his <b>Crown Jump Serve</b> now hits as hard as the best S+ wing spiker's (+52 Attack on the serve only)." },
+					{ Icon = "AbilityTyrant", Text = "<b>Dohwan</b>'s Emperor's Dictate also makes the Locked team's spikes and jump serves <b>20% slower</b>." },
 					{ Icon = "AbilityThunder", Text = "<b>YeJun</b>'s second swing gets its own freeze frame, in yellow (violet with the Fallen Angel)." },
 					{ Icon = "AbilitySkyward", Text = "<b>Seora</b>: new passive <b>Sharp Angle</b>, her spikes come down a little steeper." },
 				},

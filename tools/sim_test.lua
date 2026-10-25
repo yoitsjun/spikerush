@@ -4350,6 +4350,17 @@ do
 		and near(grounded.Attack, SP.Attack * 0.9) and near(grounded.Jump, SP.Jump * 0.9) and grounded.Speed == SP.Speed,
 		"Stat Hijack: his team +12 Attack, +10 Jump, +10 Speed; theirs Locked (35% less Jump and Speed, 15% less Attack); Grounded: 10% less Jump and Attack",
 		string.format("ATK %d / %d / %d (from %d)", mine.Attack, theirs.Attack, grounded.Attack, SP.Attack))
+	-- the Lock slows their spikes too (the owner, 2026-10-25), on top of the Attack it takes
+	do
+		local lroot = apexRoot(SP, 3.5 * K)
+		local lball = ballAt(lroot, Z.SpikeCenterDz, Z.SpikeCenterDy)
+		local okA, freeHit = spike(lroot, lball, { seq = 9, forceQuality = 1 })
+		local okB, lockedHit = spike(lroot, lball, { seq = 9, forceQuality = 1, dictated = true })
+		local okC, statsOnly = spike(lroot, lball, { seq = 9, forceQuality = 1, stats = HitLogic.effectiveStats(SP, nil, nil, { dictated = true }) })
+		check(okA and okB and okC and lockedHit.meta.lockCut and math.abs(lockedHit.meta.kmh - statsOnly.meta.kmh * (1 - TY.LockSpikeCut)) < 0.5 and lockedHit.meta.kmh < freeHit.meta.kmh * 0.8,
+			"Emperor's Dictate: the Locked team's spikes are LockSpikeCut slower, on top of the Attack it takes",
+			string.format("%.0f km/h free, %.0f with the Attack cut, %.0f Locked", freeHit.meta.kmh, statsOnly.meta.kmh, lockedHit.meta.kmh))
+	end
 	-- Crown Jump Serve: steeper (more topspin), double drain, a low and wild pass and set
 	local sv = vec(0, GROUND + 6.5, side * (C.SideDepth + 1))
 	local svBall = ballAt(sv, Z.SpikeCenterDz, Z.SpikeCenterDy)

@@ -1425,6 +1425,13 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		kmh = kmh * (kind == "JumpServe" and hex.serveMul or hex.spikeMul)
 		meta.tierDrain = meta.tierDrain * hex.drainDeal
 	end
+	-- Locked by the other team's Emperor's Dictate (the Tyrant): spikes and jump serves slower too
+	-- (ctx.dictated: his grown Steal, or true)
+	if ctx.dictated then
+		local steal = type(ctx.dictated) == "number" and ctx.dictated or TYRANT.Steal
+		kmh = kmh * (1 - clamp(TYRANT.LockSpikeCut * steal / TYRANT.Steal, 0, 0.6))
+		meta.lockCut = true
+	end
 	-- the soft cap: stacked boosts can't run away (Config.Hits.SpeedKnee); a Halloween Match has
 	-- none (the owner, 2026-10-25: "uncap the speed limit in halloween event")
 	if not ctx.uncapped then
