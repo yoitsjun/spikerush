@@ -247,6 +247,9 @@ local function nextIn()
 	if not state or state.nextIn == nil then
 		return nil
 	end
+	if state.moving then
+		return state.nextIn -- (on the way to a lounge server the clock waits)
+	end
 	return math.max(0, state.nextIn - (os.clock() - stateAt))
 end
 
@@ -299,9 +302,16 @@ function LoungeMenu.refresh()
 		ui.earnedSub.Text = "none yet"
 	end
 	local daily = s.daily or L.DailyPayouts
-	ui.today.Text = string.format('%d <font size="24" color="#B0B6C8">/ %d</font>', s.paidToday or 0, daily)
-	ui.todaySub.Text = "rewards today"
-	ui.todayFill.Size = UDim2.fromScale(math.clamp((s.paidToday or 0) / math.max(daily, 1), 0, 1), 1)
+	if daily then
+		ui.today.Text = string.format('%d <font size="24" color="#B0B6C8">/ %d</font>', s.paidToday or 0, daily)
+		ui.todaySub.Text = "rewards today"
+		ui.todayFill.Size = UDim2.fromScale(math.clamp((s.paidToday or 0) / math.max(daily, 1), 0, 1), 1)
+	else
+		-- no daily limit: just the count
+		ui.today.Text = tostring(s.paidToday or 0)
+		ui.todaySub.Text = "rewards today  •  no limit"
+		ui.todayFill.Size = UDim2.fromScale(1, 1)
+	end
 	ui.balance.Text = Economy.commas(prof.gold or 0)
 	ui.balSub.Text = string.format('gold  •  <font color="#5AC8FF">%s VP</font>', Economy.commas(prof.vp or 0))
 	local top = #L.Rewards

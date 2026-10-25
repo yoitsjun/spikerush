@@ -1306,7 +1306,7 @@ Config.Abilities = {
 		Name = "Corona",
 		Tier = "S+",
 		Active = true,
-		Blurb = "Press Q: every stat flares up 15% for 10 s and your jump becomes a Sun Leap, far higher. After each use your stats sit 1% lower while it's off (up to 12 uses); a timeout clears that. In the air, Spike with the ball below you to dive onto it: the further you drop, the harder the spike.",
+		Blurb = "Press Q: every stat flares up 15% for 10 s and your jump becomes a Sun Leap, far higher. After each use your stats sit 1% lower while it's off (up to 12 uses); a timeout clears that. In the air, Spike with the ball below you to dive onto it: the further you drop, the harder the spike. Your jump serve always gets some of that dive power.",
 		Color = Color3.fromRGB(255, 178, 46),
 		Duration = 10,
 		Cooldown = 20,
@@ -1952,8 +1952,10 @@ Config.Lobby = {
 		Refresh = 20, -- s: and at least this often
 		Expire = 60, -- s: an entry nobody rewrites is gone after this (its server stopped)
 		LaunchKeep = 45, -- s: a started lobby's entry (with its server's code) stays this long
-		Read = 4, -- s: how often a server with anyone in the menus reads the list
-		ReadPerEntry = 0.05, -- s: plus this per lobby listed (fewer reads when there are many)
+		-- (the map's partition ran over its request limit, 2026-10-25: reads less often, and an AFK
+		-- Lounge server or a player inside the lounge doesn't count as browsing)
+		Read = 8, -- s: how often a server with anyone in the menus reads the list
+		ReadPerEntry = 0.15, -- s: plus this per lobby listed (fewer reads when there are many)
 		MaxRead = 100, -- lobbies read at most
 		ListMax = 30, -- rows in a player's list (this server's lobbies first)
 		QuickFresh = 1.5, -- s: Quick Match reads the list again when it's older than this
@@ -2378,7 +2380,11 @@ Config.Leaderboards = {
 	},
 	StorePrefix = "SpikeRushBoard_v1_",
 	Top = 50,
-	RefreshInterval = 120, -- seconds between reading the global boards
+	RefreshInterval = 120, -- seconds between reading the global boards while someone has them open
+	-- and between background reads (for the names' entrance places) when nobody does: the reads ran
+	-- into the experience's OrderedDataStore limit (GetSortedAsync throttled, 2026-10-25), and an
+	-- AFK Lounge server never reads them
+	IdleRefresh = 360,
 	FlushInterval = 60, -- seconds between writing changed players' scores
 }
 
@@ -2548,7 +2554,9 @@ Config.Lounge = {
 	Interval = 240,
 	VipMult = 2,
 	PremiumMult = 1.5,
-	DailyPayouts = 60, -- (four hours of it a day)
+	-- DailyPayouts: a daily limit on payouts when set; none now (was 60, four hours a day: the
+	-- owner, 2026-10-25, "make afk chamber infinite rewards")
+	DailyPayouts = nil,
 	-- what a payout can roll, from the bottom line up to the top reward: Weight is its chance in
 	-- percent (they add up to 100), Tier (1 to 5) its colour on the screen, Grant what it gives
 	-- (Economy.cleanGrant; boosts in seconds)
@@ -2583,6 +2591,13 @@ Config.Tutorial = {
 	RewardVP = 50,
 	RewardGold = 1000,
 	RewardSpins = 5, -- free x1 recruits (used before V Points)
+	-- after the four drills, a short match against bots (the owner, 2026-10-25: "add a short 3
+	-- point bot tutorial match at the end of the tutorial"): you and a bot setter, one set to
+	-- MatchPoints (win by 1), D-tier bots; it pays nothing and doesn't count for your record
+	MatchMode = 2,
+	MatchPoints = 3,
+	MatchBots = "D",
+	MatchDelay = 5, -- seconds on the TUTORIAL COMPLETE card before it starts (its button skips them)
 }
 
 -- Practice drills (PracticeService). The court is a 2v2: you and a setter on your side, their

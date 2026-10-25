@@ -1812,8 +1812,9 @@ local function updateCoach()
 			-- on what the timeout does")
 			local vp, gold, spins = Tutorial.reward()
 			local key = State.isMobile and "the hourglass" or (mods.PadNav.usingPad() and "Select, or the hourglass" or "T or the hourglass")
-			c.body.Text = string.format("+%d VP, +%d Gold and %d free recruits the first time.\nOne last thing, for matches: a timeout (%s) pauses play for %d s, refills both teams' stamina and lets you change who serves next. %d per set; press it again to call it off.",
-				vp, gold, spins, key, Config.Timeout.Duration, Config.Timeout.PerSet)
+			c.body.Text = string.format("+%d VP, +%d Gold and %d free recruits the first time.\nIn matches, a timeout (%s) pauses play for %d s, refills both teams' stamina and lets you change who serves next.\nNext: a quick match to %d against bots.",
+				vp, gold, spins, key, Config.Timeout.Duration, Config.Tutorial.MatchPoints)
+			c.leave.Text = "Play the match"
 		else
 			c.body.Text = "Pick another drill from Practice, or run this one again."
 		end
@@ -1826,6 +1827,7 @@ local function updateCoach()
 		c.leave.TextColor3 = UI.Ink
 		return
 	end
+	c.leave.Text = "Back to the menu"
 	c.leave.BackgroundColor3 = UI.InkSoft
 	c.leave.TextColor3 = UI.Chalk
 	c.body.Size = UDim2.new(1, -24, 0, 60)
@@ -2567,7 +2569,7 @@ local function buildRotation()
 		click()
 		mods.MenuController.openSwap()
 	end)
-	ui.rotation = { frame = f, title = title, rows = rows, readyButton = ready, swap = swap }
+	ui.rotation = { frame = f, title = title, rows = rows, readyButton = ready, swap = swap, scale = make("UIScale", {}, f) }
 	mods.PadNav.root(f, { prio = 23, first = ready })
 end
 
@@ -2602,7 +2604,14 @@ local function updateRotation()
 			r.serve.Visible = #roster > 1
 		end
 	end
-	R.frame.Size = UDim2.fromOffset(460, 64 + #roster * 46 + 48)
+	local h = 64 + #roster * 46 + 48
+	R.frame.Size = UDim2.fromOffset(460, h)
+	-- a short phone held sideways: it ran off the bottom, Ready and all (the owner, 2026-10-25:
+	-- "timeout menu glitches off screen"), so it rises a little and shrinks to fit under the bar
+	local H = gui.AbsoluteSize.Y
+	local top = math.clamp(H * 0.3, 96, 130)
+	R.frame.Position = UDim2.new(0.5, 0, 0, top)
+	R.scale.Scale = math.clamp(math.min((H - top - 8) / h, (gui.AbsoluteSize.X - 16) / 460), 0.5, 1)
 end
 
 local function updateSlow()

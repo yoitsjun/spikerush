@@ -384,9 +384,14 @@ function PracticeService.run(lobby)
 			status.finished = true
 			publish(status)
 			MS.announce({ kind = "Drill", finished = true, tutorial = lobby.tutorial == true or nil })
-			-- the coach offers the way out; stay a moment, then the court frees up
+			-- the tutorial goes on to its short match (LobbyService.finished starts it)
+			if lobby.tutorial then
+				lobby.tutorialDone = true
+			end
+			-- the coach offers the way out (the tutorial's: on to the match); stay a moment, then the
+			-- court frees up
 			local t0 = os.clock()
-			while stillOn() and os.clock() - t0 < 8 do
+			while stillOn() and os.clock() - t0 < (lobby.tutorial and Config.Tutorial.MatchDelay or 8) do
 				task.wait(0.2)
 			end
 		end

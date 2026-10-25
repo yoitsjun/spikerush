@@ -1464,18 +1464,44 @@ local function wipeStats(plr, profile, id)
 	return true
 end
 
--- Wipe a player's match stats: at once if they're in this server, else through the mail (their
--- server picks it up right away if they're online, or they get it when they next join). The
--- leaderboards drop them either way. Returns ok and, if not, why.
-function ProfileService.wipeUser(userId)
-	local id = "wipe-" .. HttpService:GenerateGUID(false)
+-- An admin's rank reset (the owner, 2026-10-25: "add a rankreset button to the admin panel to
+-- counter alt farmers"): this season's RP, wins, losses and peak go back to zero, and the best
+-- rank ever too (what a farmed climb earned); past seasons stay in the history. Once per mail id.
+local function resetRank(plr, profile, id)
+	if seenMail(profile, id) then
+		return false
+	end
+	local rk = Ranked.clean(profile.ranked, Ranked.season(os.time()))
+	rk.rp, rk.wins, rk.losses, rk.peak, rk.best = 0, 0, 0, 0, 0
+	profile.ranked = rk
+	table.insert(profile.mailSeen, 1, id)
+	while #profile.mailSeen > Config.Gifts.MailSeen do
+		table.remove(profile.mailSeen)
+	end
+	dirty[plr] = true
 	if reg.LeaderboardService then
-		task.spawn(reg.LeaderboardService.forget, userId)
+		task.spawn(reg.LeaderboardService.forget, plr.UserId, { "ranked" })
+	end
+	push(plr, "Your ranked rank was reset by the developers.")
+	return true
+end
+
+-- Wipe a player's match stats (`rank`: reset their rank instead): at once if they're in this
+-- server, else through the mail (their server picks it up right away if they're online, or they
+-- get it when they next join). The leaderboards drop them either way. Returns ok and, if not, why.
+function ProfileService.wipeUser(userId, rank)
+	local id = (rank and "rank-" or "wipe-") .. HttpService:GenerateGUID(false)
+	if reg.LeaderboardService then
+		task.spawn(reg.LeaderboardService.forget, userId, rank and { "ranked" } or nil)
 	end
 	local plr = Players:GetPlayerByUserId(userId)
 	local profile = plr and profiles[plr]
 	if profile then
-		wipeStats(plr, profile, id)
+		if rank then
+			resetRank(plr, profile, id)
+		else
+			wipeStats(plr, profile, id)
+		end
 		save(plr, true)
 		push(plr)
 		return true
@@ -1486,7 +1512,7 @@ function ProfileService.wipeUser(userId)
 	local ok, err = pcall(function()
 		mailStore:UpdateAsync(mailKey(userId), function(old)
 			local list = (type(old) == "table" and type(old.list) == "table") and old.list or {}
-			table.insert(list, { id = id, wipe = true, t = os.time() })
+			table.insert(list, { id = id, wipe = not rank or nil, rankReset = rank and true or nil, t = os.time() })
 			while #list > 100 do
 				table.remove(list, 1)
 			end
@@ -1609,7 +1635,9 @@ function ProfileService.checkMail(plr)
 		for _, m in ipairs(list) do
 			if type(m) == "table" and type(m.id) == "string" then
 				ids[m.id] = true
-				if m.wipe == true then
+				if m.rankReset == true then
+					resetRank(plr, profile, m.id)
+				elseif m.wipe == true then
 					wipeStats(plr, profile, m.id)
 				elseif type(m.takeCard) == "string" then
 					takeCard(plr, profile, m.takeCard)

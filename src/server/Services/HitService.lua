@@ -271,6 +271,7 @@ function HitService.process(entity, input, opts)
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
 		mut = Mutators.live(), -- a custom match's modifiers (Config.Mutators)
 		hex = Halloween.effects(entity.hex), -- the Halloween Match's cards that hit this character
+		uncapped = ReplicatedStorage:GetAttribute("EventMatch") or nil, -- (a Halloween Match: no speed cap)
 	}
 	local computed, result = HitLogic.compute(input, ctx)
 	if not computed then

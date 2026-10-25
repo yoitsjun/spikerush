@@ -324,6 +324,10 @@ local function showFound(card)
 end
 
 
+-- your clan's Members tab: each stat column this wide (narrower than a clan page's, to fit Today
+-- and Week before the Remove / Officer / Make owner buttons)
+local MEMBER_STAT_W = 64
+
 local function buildMembers(body)
 	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 21 }, body)
 	-- the header row
@@ -331,9 +335,13 @@ local function buildMembers(body)
 	label(head, { Text = "Player", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(200, 26) })
 	label(head, { Text = "Role", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(230, 0), Size = UDim2.fromOffset(90, 26) })
 	for i, k in ipairs(STAT_COLS) do
-		label(head, { Text = C.StatNames[k], TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(320 + (i - 1) * 92, 0), Size = UDim2.fromOffset(90, 26) })
+		label(head, { Text = C.StatNames[k], TextSize = 13, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(320 + (i - 1) * MEMBER_STAT_W, 0), Size = UDim2.fromOffset(MEMBER_STAT_W - 2, 26) })
 	end
-	label(head, { Text = "Points", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(780, 0), Size = UDim2.fromOffset(80, 26) })
+	-- the points they earned today and this week, beside their total (who's making the quota)
+	local x = 320 + #STAT_COLS * MEMBER_STAT_W
+	label(head, { Text = "Points", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(x, 0), Size = UDim2.fromOffset(66, 26) })
+	label(head, { Text = "Today", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(x + 68, 0), Size = UDim2.fromOffset(58, 26) })
+	label(head, { Text = "Week", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(x + 128, 0), Size = UDim2.fromOffset(58, 26) })
 	local list = scroller(f, { Position = UDim2.fromOffset(0, 30), Size = UDim2.new(1, 0, 1, -30) })
 	return { frame = f, list = list }
 end
@@ -347,9 +355,12 @@ local function fillMembers()
 		label(r, { Text = m.name or "?", display = true, TextSize = 19, TextColor3 = m.id == player.UserId and Gui.SIGNAL or Gui.CHALK, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(210, 46), TextTruncate = Enum.TextTruncate.AtEnd })
 		label(r, { Text = m.role, TextSize = 16, TextColor3 = m.role == "Owner" and Gui.GOLD or (m.role == "Officer" and BLUE or Gui.DIM), Position = UDim2.fromOffset(230, 0), Size = UDim2.fromOffset(90, 46) })
 		for j, k in ipairs(STAT_COLS) do
-			label(r, { Text = Gui.num(m.stats and m.stats[k] or 0), TextSize = 17, Position = UDim2.fromOffset(320 + (j - 1) * 92, 0), Size = UDim2.fromOffset(90, 46) })
+			label(r, { Text = Gui.num(m.stats and m.stats[k] or 0), TextSize = 17, Position = UDim2.fromOffset(320 + (j - 1) * MEMBER_STAT_W, 0), Size = UDim2.fromOffset(MEMBER_STAT_W - 2, 46) })
 		end
-		label(r, { Text = Gui.num(m.points or 0), display = true, TextSize = 18, TextColor3 = BLUE, Position = UDim2.fromOffset(780, 0), Size = UDim2.fromOffset(80, 46) })
+		local x = 320 + #STAT_COLS * MEMBER_STAT_W
+		label(r, { Text = Gui.num(m.points or 0), display = true, TextSize = 18, TextColor3 = BLUE, Position = UDim2.fromOffset(x, 0), Size = UDim2.fromOffset(66, 46) })
+		label(r, { Text = Gui.num(m.today or 0), display = true, TextSize = 18, TextColor3 = (m.today or 0) > 0 and Gui.CHALK or Gui.DIM, Position = UDim2.fromOffset(x + 68, 0), Size = UDim2.fromOffset(58, 46) })
+		label(r, { Text = Gui.num(m.week or 0), display = true, TextSize = 18, TextColor3 = (m.week or 0) > 0 and Gui.CHALK or Gui.DIM, Position = UDim2.fromOffset(x + 128, 0), Size = UDim2.fromOffset(58, 46) })
 		-- the owner's and officers' controls on others
 		if m.id ~= player.UserId and (me == "Owner" or (me == "Officer" and m.role == "Member")) then
 			local x = -8

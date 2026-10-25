@@ -12,6 +12,11 @@ local L = Config.Lounge
 local KINDS = { "Gold", "VP", "Lucky", "BoostVP", "BoostLuck" }
 Lounge.Kinds = KINDS
 
+-- Today's payout limit (math.huge: none, Config.Lounge.DailyPayouts unset).
+local function cap()
+	return L.DailyPayouts or math.huge
+end
+
 -- The day number a time falls in (it turns when Config.PlayRewards' day does).
 function Lounge.day(now)
 	return math.floor((now + Config.PlayRewards.DayOffset) / 86400)
@@ -37,7 +42,7 @@ function Lounge.clean(data, day)
 	if type(data) == "table" then
 		out.carry = math.clamp(math.floor(tonumber(data.carry) or 0), 0, L.Interval - 1)
 		if tonumber(data.day) == day then
-			out.payouts = math.clamp(math.floor(tonumber(data.payouts) or 0), 0, L.DailyPayouts)
+			out.payouts = math.clamp(math.floor(tonumber(data.payouts) or 0), 0, cap())
 			out.gold = whole(data.gold)
 		end
 		if type(data.made) == "table" then
@@ -55,16 +60,18 @@ function Lounge.clean(data, day)
 			end
 		end
 	end
-	if out.payouts >= L.DailyPayouts then
+	if out.payouts >= cap() then
 		out.carry = 0
 	end
 	return out
 end
 
--- Starts a new stay: its totals and rolls back to nothing.
+-- Starts a new stay: its totals, its rolls and the time towards the next payout back to nothing
+-- (the owner, 2026-10-25: "the timer only starts when you join it")
 function Lounge.startStay(rec)
 	rec.made = Lounge.newMade()
 	rec.log = {}
+	rec.carry = 0
 end
 
 -- The Gold and V Points multiplier for the VIP pass and Roblox Premium.
@@ -134,7 +141,7 @@ end
 
 -- Seconds to the next payout (nil once today's are all paid).
 function Lounge.nextIn(rec)
-	if rec.payouts >= L.DailyPayouts then
+	if rec.payouts >= cap() then
 		return nil
 	end
 	return L.Interval - rec.carry
@@ -145,14 +152,14 @@ end
 -- ({ i, g } each) and their grants added together; past today's last payout the time stops counting.
 function Lounge.advance(rec, dt, mult, rand)
 	local rolls, sum = {}, {}
-	if rec.payouts >= L.DailyPayouts then
+	if rec.payouts >= cap() then
 		rec.carry = 0
 		return rolls, sum
 	end
 	rec.made = rec.made or Lounge.newMade()
 	rec.log = rec.log or {}
 	rec.carry = rec.carry + math.max(0, dt)
-	while rec.carry >= L.Interval and rec.payouts < L.DailyPayouts do
+	while rec.carry >= L.Interval and rec.payouts < cap() do
 		rec.carry = rec.carry - L.Interval
 		rec.payouts = rec.payouts + 1
 		local i = Lounge.pick(rand())
@@ -169,7 +176,7 @@ function Lounge.advance(rec, dt, mult, rand)
 		end
 		table.insert(rolls, { i = i, g = g })
 	end
-	if rec.payouts >= L.DailyPayouts then
+	if rec.payouts >= cap() then
 		rec.carry = 0
 	end
 	return rolls, sum

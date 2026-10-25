@@ -636,6 +636,8 @@ local function navBar(p, active, lit)
 			end
 		end)
 	end
+	ui.navBars = ui.navBars or {}
+	table.insert(ui.navBars, { nav = nav, side = side })
 	return nav, side
 end
 
@@ -1000,6 +1002,66 @@ function Extra.refreshHome(prof)
 	hm.adminBtn.Visible = prof.admin == true
 end
 
+-- The nav across the top and its right-hand group (AFK, Party, Help, Settings) share the top row.
+-- Centred, the nav ran into that group on anything narrower than 16:9 and into Roblox's buttons
+-- on a square or upright screen (the owner, 2026-10-25: "the top menu is way too crowded, and
+-- some buttons overlap"), so where the centred row doesn't clear both, the nav packs up against
+-- the group, and the buttons narrow (down to NAV_MIN_W) to fit right of Roblox's buttons. With
+-- too little room even then (a phone held upright) the row drops under Roblox's top bar.
+-- (no new locals here: this file is at Lua's 200)
+Extra.NAV = { W = 96, MinW = 70, Gap = 14, SideGap = 6, GroupGap = 24 }
+function Extra.placeNav()
+	local NAV_W, NAV_MIN_W, NAV_GAP, SIDE_GAP, GROUP_GAP = Extra.NAV.W, Extra.NAV.MinW, Extra.NAV.Gap, Extra.NAV.SideGap, Extra.NAV.GroupGap
+	local bars = ui.navBars
+	if not bars or #bars == 0 then
+		return
+	end
+	local s = canvasScale.Scale
+	local W = canvas.Size.X.Offset
+	local right = W - M + 12
+	local n1 = #MAIN_TABS
+	local n2 = 0
+	for _, c in ipairs(bars[1].side:GetChildren()) do
+		if c:IsA("GuiButton") then
+			n2 = n2 + 1
+		end
+	end
+	local function width(left)
+		return math.min(NAV_W, (right - left - NAV_GAP * (n1 - 1) - SIDE_GAP * (n2 - 1) - GROUP_GAP) / (n1 + n2))
+	end
+	local left = math.max(M, GuiService.TopbarInset.Min.X / s + 8)
+	local top = 18
+	local w = width(left)
+	Extra.navDropped = w < NAV_MIN_W
+	if Extra.navDropped then
+		top = math.max(18, GuiService:GetGuiInset().Y / s + 6)
+		left = M
+		w = math.max(width(M), 56)
+	end
+	local navW = n1 * w + NAV_GAP * (n1 - 1)
+	local sideW = n2 * w + SIDE_GAP * (n2 - 1)
+	local navLeft = W / 2 + 30 - navW / 2
+	if navLeft < left or navLeft + navW > right - sideW - GROUP_GAP then
+		navLeft = math.max(left, right - sideW - GROUP_GAP - navW)
+	end
+	Extra.navLeft = navLeft
+	Extra.navBottom = top + 74
+	for _, b in ipairs(bars) do
+		b.nav.AnchorPoint = Vector2.new(0, 0)
+		b.nav.Position = UDim2.fromOffset(navLeft, top)
+		b.nav.Size = UDim2.fromOffset(navW, 74)
+		b.side.Position = UDim2.new(1, -M + 12, 0, top)
+		b.side.Size = UDim2.fromOffset(sideW, 74)
+		for _, row in ipairs({ b.nav, b.side }) do
+			for _, c in ipairs(row:GetChildren()) do
+				if c:IsA("GuiButton") then
+					c.Size = UDim2.fromOffset(w, 74)
+				end
+			end
+		end
+	end
+end
+
 -- Home's profile sits under Roblox's own buttons at the top left, whatever size they are: the
 -- menus ignore the GUI inset, so it starts GetGuiInset's height down (pixels, divided by the
 -- canvas scale), and the left column follows it. When the name row still reaches the nav across
@@ -1011,11 +1073,15 @@ local function placeHome()
 	end
 	local inset = GuiService:GetGuiInset()
 	local top = math.max(24, inset.Y / canvasScale.Scale + 12)
+	if Extra.navDropped then
+		top = Extra.navBottom + 12 -- (the nav row sits under Roblox's bar: placeNav)
+	end
 	hm.profile.Position = UDim2.fromOffset(M, top)
 	hm.column.Position = UDim2.fromOffset(M, top + PROFILE_H + 20)
+	hm.extras.Position = UDim2.new(1, -M + 12, 0, (Extra.navBottom or NAV_BOTTOM) + 22)
 	local width = 420
-	if top - 4 < NAV_BOTTOM then
-		local navLeft = canvas.Size.X.Offset / 2 + 30 - hm.navWidth / 2
+	if top - 4 < (Extra.navBottom or NAV_BOTTOM) then
+		local navLeft = Extra.navLeft or (canvas.Size.X.Offset / 2 + 30 - hm.navWidth / 2)
 		width = math.clamp(navLeft - (M + 118) - 16, 160, 420)
 	end
 	hm.name.Size = UDim2.fromOffset(width, 46)
@@ -1034,7 +1100,11 @@ local function placeHeaders()
 		back.Position = UDim2.fromOffset(x, 64)
 	end
 	-- the main screens' currencies (and a player page's back arrow) sit under Roblox's buttons
+	-- (under the nav when it dropped under Roblox's bar)
 	local top = math.max(24, GuiService:GetGuiInset().Y / s + 12)
+	if Extra.navDropped then
+		top = Extra.navBottom + 12
+	end
 	for _, strip in ipairs(ui.strips or {}) do
 		strip.Position = UDim2.fromOffset(M, top)
 	end
@@ -7032,7 +7102,29 @@ function Extra.buildPlayerProfile()
 			end)
 		end
 	end)
-	ui.playerProfile = { modal = m, card = card, status = status, extra = extra, tiles = tiles, places = places, reset = reset }
+	-- and their rank (an alt farmer's), beside it: press twice too
+	local rankReset, rankResetL = hairButton(m.panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -322, 0, 18), Size = UDim2.fromOffset(170, 40), Visible = false }, "Reset rank", 17)
+	onClick(rankReset, function()
+		local id = Extra.viewingProfile
+		if not id then
+			return
+		end
+		if Extra.profileRankArmed and os.clock() - Extra.profileRankArmed < 4 then
+			Extra.profileRankArmed = nil
+			rankResetL.Text = "Reset rank"
+			Net.get("Admin"):FireServer("rankReset", tostring(id))
+		else
+			Extra.profileRankArmed = os.clock()
+			rankResetL.Text = "Sure? Again"
+			task.delay(4, function()
+				if Extra.profileRankArmed and os.clock() - Extra.profileRankArmed >= 4 then
+					Extra.profileRankArmed = nil
+					rankResetL.Text = "Reset rank"
+				end
+			end)
+		end
+	end)
+	ui.playerProfile = { modal = m, card = card, status = status, extra = extra, tiles = tiles, places = places, reset = reset, rankReset = rankReset }
 	Net.get("PlayerProfile").OnClientEvent:Connect(function(data)
 		if type(data) == "table" and data.userId == Extra.viewingProfile then
 			Extra.fillPlayerProfile(data)
@@ -7087,6 +7179,7 @@ function Extra.fillPlayerProfile(data)
 		data.username and string.format('  <font color="#9aa3b5">@%s  (id %d)</font>', data.username, data.userId) or string.format('  <font color="#9aa3b5">(id %d)</font>', data.userId),
 		c and (c.Name .. " (" .. c.Tier .. ")") or "nobody yet", data.owned or 0, #Roster, data.cards or 0)
 	PP.reset.Visible = profile().admin == true
+	PP.rankReset.Visible = PP.reset.Visible
 end
 
 -- Open a profile: yours, or anyone's by user id (the server sends it).
@@ -7100,6 +7193,7 @@ function MenuController.openPlayerProfile(userId)
 	PP.status.Visible = true
 	PP.extra.Visible = false
 	PP.reset.Visible = false
+	PP.rankReset.Visible = false
 	PP.modal.root.Visible = true
 	Net.get("Profile"):FireServer("profileOf", userId)
 end
@@ -8535,6 +8629,28 @@ function Extra.buildAdmin()
 			end
 		end)
 	end)
+	-- reset the username's rank (an alt farmer's climb: the owner, 2026-10-25): four presses too
+	local rankBtn, rankL = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 4), Size = UDim2.fromOffset(170, 38) }, "Reset rank", 17)
+	onClick(rankBtn, function()
+		local fresh = Extra.rankArmed and os.clock() - Extra.rankArmed < 4 and Extra.rankName == user.Text
+		Extra.rankPresses = fresh and (Extra.rankPresses or 0) + 1 or 1
+		Extra.rankName = user.Text
+		if Extra.rankPresses >= 4 then
+			Extra.rankArmed, Extra.rankPresses = nil, 0
+			rankL.Text = "Reset rank"
+			Net.get("Admin"):FireServer("rankReset", user.Text)
+			return
+		end
+		Extra.rankArmed = os.clock()
+		rankL.Text = string.format("Sure? %d more", 4 - Extra.rankPresses)
+		local at = Extra.rankArmed
+		task.delay(4, function()
+			if Extra.rankArmed == at then
+				Extra.rankArmed, Extra.rankPresses = nil, 0
+				rankL.Text = "Reset rank"
+			end
+		end)
+	end)
 	local status = Gui.label(m.panel, { Text = "", TextSize = 17, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -20), Size = UDim2.new(1, -56, 0, 44), ZIndex = 21 })
 	ui.admin = { modal = m, setLen = setLen, evRows = evRows, charButtons = charButtons, picked = picked, status = status, creatorL = creatorL, grid = grid, cosGrid = cosGrid, fragGrid = fragGrid, fragBoxes = fragBoxes, tabL = tabL, cosButtons = {}, newServer = newServer, newServerL = newServerL, adminsBtn = adminsBtn, adminList = adminList }
 end
@@ -9229,6 +9345,7 @@ local function layout()
 		ui.tour.scale.Scale = s
 		ui.tour.canvas.Size = canvas.Size
 	end
+	Extra.placeNav()
 	placeHome()
 	placeHeaders()
 end

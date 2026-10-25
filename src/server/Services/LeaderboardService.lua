@@ -28,6 +28,7 @@ local names = {} -- userId -> display name
 local stored = {} -- board key -> rows read from the store
 local global = false -- whether the last read reached the stores
 local lastRead = -math.huge
+local lastAsked = -math.huge -- os.clock() of the last time anyone here opened the boards
 local reading = false
 local lastRequest = {}
 
@@ -46,11 +47,13 @@ end
 -- given stay).
 local STAT_BOARDS = { "wins", "bestStreak", "kills", "aces", "blocks", "winRate" }
 
--- Take a player off the match-stat boards (an admin's stats wipe): drops any write still queued and
--- removes their entries; the boards show it at their next refresh.
-function LeaderboardService.forget(userId)
+-- Take a player off the match-stat boards (an admin's stats wipe), or the boards in `boards` (a
+-- rank reset: { "ranked" }): drops any write still queued and removes their entries; the boards
+-- show it at their next refresh.
+function LeaderboardService.forget(userId, boards)
+	boards = boards or STAT_BOARDS
 	pending[userId] = nil
-	for _, k in ipairs(STAT_BOARDS) do
+	for _, k in ipairs(boards) do
 		local store = stores[k]
 		if store then
 			local ok, err = pcall(function()
@@ -61,7 +64,7 @@ function LeaderboardService.forget(userId)
 			end
 		end
 	end
-	for _, k in ipairs(STAT_BOARDS) do
+	for _, k in ipairs(boards) do
 		local rows = stored[k]
 		if type(rows) == "table" then
 			for i = #rows, 1, -1 do
@@ -280,6 +283,7 @@ function LeaderboardService.init(r)
 			return
 		end
 		lastRequest[plr] = now
+		lastAsked = now
 		if Util.now() - lastRead > LB.RefreshInterval then
 			task.spawn(read)
 		end
@@ -304,12 +308,25 @@ function LeaderboardService.init(r)
 	end)
 	game:BindToClose(flush)
 	task.spawn(function()
-		read()
+		-- the first read once someone's in (and known not to be in their AFK Lounge: every lounge
+		-- refresh opens a new server, and those reads added up)
+		local t0 = os.clock()
+		while #Players:GetPlayers() == 0 and os.clock() - t0 < 30 do
+			task.wait(1)
+		end
+		task.wait(3) -- (LoungeService reads the arrival's teleport data first)
+		if not (reg.LoungeService and reg.LoungeService.isLoungeServer()) then
+			read()
+		end
 		checkRanks()
 		while true do
 			task.wait(LB.FlushInterval)
 			flush()
-			if Util.now() - lastRead >= LB.RefreshInterval then
+			-- on the RefreshInterval while someone has the boards open, else every IdleRefresh; never in an
+			-- AFK Lounge server
+			local open = os.clock() - lastAsked < LB.RefreshInterval * 2
+			local lounge = reg.LoungeService and reg.LoungeService.isLoungeServer()
+			if not lounge and Util.now() - lastRead >= (open and LB.RefreshInterval or LB.IdleRefresh) then
 				read()
 			end
 			checkRanks()

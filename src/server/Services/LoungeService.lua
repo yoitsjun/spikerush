@@ -1,8 +1,9 @@
 -- The AFK Lounge (Config.Lounge, the Lounge module; the owner: "add an afk chamber"): a player who
 -- steps in from Home's AFK button gets a reward rolled from Config.Lounge.Rewards every Interval
--- they stay, up to today's DailyPayouts. Their time towards the next payout and this stay's totals
--- live on the profile (ProfileService.lounge, the Lounge module), so they carry on through the
--- lounge's teleports, and the timer after leaving or rejoining.
+-- they stay, with no daily limit (unless DailyPayouts is set). Their time towards the next payout
+-- and this stay's totals live on the profile (ProfileService.lounge, the Lounge module), so they
+-- carry on through the lounge's teleports; stepping in starts both from zero, and the time on
+-- the way to your own server doesn't count (the timer starts once you're in).
 --   * "Lounge" remote: client -> server "enter", "leave", "get"; server -> client the lounge's
 --     state ({ inside, nextIn, interval, mult, vip, premium, made, log, paidToday, daily, ... }),
 --     or { refused = text } / { refreshing = true }.
@@ -107,7 +108,7 @@ local function enter(plr, fresh)
 	lastInput[plr] = lastInput[plr] or os.clock()
 	send(plr)
 	if not isLoungeServer then
-		move(plr, "lounge") -- (their own server; the time inside counts on the way)
+		move(plr, "lounge") -- (their own server; the timer starts there)
 	end
 end
 
@@ -167,6 +168,8 @@ local function tick(dt)
 			inside[plr] = nil
 		elseif onCourt(plr) or inLobby(plr) then
 			leave(plr) -- (pulled into a lobby or a match: a party's)
+		elseif refreshing[plr] then
+			-- on the way to a lounge server (or back): the clock waits until they're in
 		else
 			local rec = reg.ProfileService.lounge(plr)
 			if rec then
@@ -221,6 +224,11 @@ end
 
 function LoungeService.isInside(plr)
 	return inside[plr] ~= nil
+end
+
+-- This server is someone's own lounge (nobody here looks at the boards or the lobby list).
+function LoungeService.isLoungeServer()
+	return isLoungeServer
 end
 
 function LoungeService.init(r)

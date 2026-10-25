@@ -581,19 +581,17 @@ local function physicsStep()
 	if diving then
 		local e = os.clock() - diving.t0
 		if (not airborne and e > 0.05) or e > diving.T + CORONA.DiveHold then
-			diving = nil -- landed, or done hanging at the meeting point: gravity again
+			-- landed, or done hanging at the meeting point: gravity again, from a standstill
+			diving = nil
+			hrp.AssemblyLinearVelocity = Vector3.zero
 		else
 			-- hang, then along the arc (placed on it every step: it's nearly a teleport), then hang at
-			-- its end
+			-- its end. No velocity along it: the dash's speed (hundreds of studs/s) carried into the
+			-- floor on a low ball and the physics flung him across the court or 50 m up
 			local s = math.clamp((e - diving.wait) / diving.dash, 0, 1)
 			local pos = HitLogic.divePoint(diving.p0, diving.c, diving.target, s)
 			hrp.CFrame = CFrame.new(pos) * (hrp.CFrame - hrp.CFrame.Position)
-			if s > 0 and s < 1 then
-				local d = ((diving.c - diving.p0) * (2 * (1 - s)) + (diving.target - diving.c) * (2 * s)) / diving.dash
-				hrp.AssemblyLinearVelocity = Vector3.new(0, d.Y, d.Z)
-			else
-				hrp.AssemblyLinearVelocity = Vector3.zero
-			end
+			hrp.AssemblyLinearVelocity = Vector3.zero
 			cancel = 1
 		end
 	end

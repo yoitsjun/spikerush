@@ -3,7 +3,8 @@
 --   { v, tag, name, desc, emblem (an image id, "" for none), public, minWins, owner (user id),
 --     created, members = { [userId string] = { n = name, r = "Owner" | "Officer" | "Member",
 --     j = joined, b = their record when they joined, s = their stats since (record minus b),
---     sp = points of their own spent on tag colours } }, legacy (points of members who left),
+--     sp = points of their own spent on tag colours, dy = { d = day, p = points earned that day },
+--     wk = { w = week, p = points earned that week } } }, legacy (points of members who left),
 --     spent (points spent on upgrades), up = { [upgrade key] = level }, req = { [userId string] =
 --     { n = name, w = wins, t = when } } (requests to join a private clan) }
 -- A member's points are their stats since joining at Config.Clans.Points each; the clan's are every
@@ -237,6 +238,37 @@ function Clans.weekPoints(clan, now)
 	return (type(wk) == "table" and wk.w == Clans.week(now)) and whole(wk.p) or 0
 end
 
+-- The day a time falls in (the same Chicago days the weeks are made of).
+function Clans.day(now)
+	return math.floor(((tonumber(now) or 0) + C.WeekOffset) / 86400)
+end
+
+-- A member's points today and this week (the owner, 2026-10-25: "add a daily and weekly total
+-- for clan points so I can kick ppl who dont reach quota").
+function Clans.memberRecent(m, now)
+	local dy, wk = m and m.dy, m and m.wk
+	local today = (type(dy) == "table" and dy.d == Clans.day(now)) and whole(dy.p) or 0
+	local week = (type(wk) == "table" and wk.w == Clans.week(now)) and whole(wk.p) or 0
+	return today, week
+end
+
+-- Points a member just earned count towards their day and week.
+function Clans.addMemberRecent(m, gain, now)
+	gain = whole(gain)
+	if not m or gain <= 0 then
+		return
+	end
+	local d, w = Clans.day(now), Clans.week(now)
+	if type(m.dy) ~= "table" or m.dy.d ~= d then
+		m.dy = { d = d, p = 0 }
+	end
+	if type(m.wk) ~= "table" or m.wk.w ~= w then
+		m.wk = { w = w, p = 0 }
+	end
+	m.dy.p = whole(m.dy.p) + gain
+	m.wk.p = whole(m.wk.p) + gain
+end
+
 -- Points a member just earned count towards this week too.
 function Clans.addWeek(clan, gain, now)
 	gain = whole(gain)
@@ -257,7 +289,9 @@ function Clans.updateMember(clan, userId, record, now)
 	end
 	local s = Clans.since(record, m.b)
 	if now then
-		Clans.addWeek(clan, Clans.pointsOf(s) - Clans.pointsOf(m.s), now) -- (what they earned since the last count)
+		local gain = Clans.pointsOf(s) - Clans.pointsOf(m.s) -- (what they earned since the last count)
+		Clans.addWeek(clan, gain, now)
+		Clans.addMemberRecent(m, gain, now)
 	end
 	local changed = false
 	for _, k in ipairs(C.StatOrder) do
@@ -322,9 +356,11 @@ function Clans.view(clan)
 	end
 	local total, left = Clans.points(clan)
 	local members = {}
+	local now = os.time()
 	for id, m in pairs(clan.members) do
 		local p, own = Clans.memberPoints(m)
-		table.insert(members, { id = tonumber(id), name = m.n, role = m.r, joined = m.j, stats = m.s, points = p, own = own })
+		local today, week = Clans.memberRecent(m, now)
+		table.insert(members, { id = tonumber(id), name = m.n, role = m.r, joined = m.j, stats = m.s, points = p, own = own, today = today, week = week })
 	end
 	table.sort(members, function(a, b)
 		if a.points ~= b.points then

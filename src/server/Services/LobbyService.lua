@@ -769,6 +769,21 @@ function LobbyService.tutorial(plr)
 	LobbyService.practice(plr, nil, true)
 end
 
+-- The tutorial's last step: a short match against bots (Config.Tutorial.MatchPoints), a hidden
+-- lobby of your own started at once. It's a tutorial lobby too, so it pays nothing, counts for no
+-- record and leaves the Getting Started tour alone.
+function LobbyService.tutorialMatch(plr)
+	local TU = Config.Tutorial
+	local l = LobbyService.create(plr, { mode = TU.MatchMode, privacy = "Public", fill = true, botTier = TU.MatchBots, points = TU.MatchPoints, winBy = 1, sets = 1, timeouts = 1 }, false)
+	if not l then
+		return
+	end
+	l.hidden = true
+	l.tutorial = true
+	LobbyService.launch(l)
+	notify(plr, string.format("Tutorial match: first to %d points against bots. Use everything you just learned!", TU.MatchPoints))
+end
+
 -- A tournament (Config.Tournament, Cups): a hidden lobby of your own against bot teams, its
 -- modifiers on (MatchService), started at once; LobbyService.finished takes it round to round.
 function LobbyService.enterCup(plr, key)
@@ -1331,6 +1346,15 @@ function LobbyService.finished(l)
 		eventFinished(l)
 		return
 	end
+	-- the tutorial's four drills done: on to its short match
+	if l.tutorial and l.practice and l.tutorialDone then
+		local plr = members(l)[1]
+		dissolve(l)
+		if plr then
+			LobbyService.tutorialMatch(plr)
+		end
+		return
+	end
 	if l.quick or l.tutorial or l.practice or l.cup or l.event or #members(l) == 0 then
 		dissolve(l)
 		return
@@ -1678,10 +1702,14 @@ local function netTick()
 		end
 	end
 
+	-- anyone on the menus (not in a match, not in the AFK Lounge) might look at the list
 	local browsing = false
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if not (reg.TeamService.inMatch and reg.TeamService.entityForPlayer(plr)) then
-			browsing = true
+	local LoS = reg.LoungeService
+	if not (LoS and LoS.isLoungeServer()) then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if not (reg.TeamService.inMatch and reg.TeamService.entityForPlayer(plr)) and not (LoS and LoS.isInside(plr)) then
+				browsing = true
+			end
 		end
 	end
 	if browsing and not net.reading and clock - net.dirAt >= G.Read + G.ReadPerEntry * countOf(net.dir) then

@@ -1152,8 +1152,14 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	local dive = 0
 	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Corona") then
 		dive = ctx.auto and CORONA.AutoDive or HitLogic.diveFraction(input.sundive)
-		if dive > 0 and not ctx.auto then
+		if not ctx.auto and (dive > 0 or (tonumber(input.sundive) or 0) > 0) then
 			qHeight = math.max(qHeight, CORONA.DiveHeightFloor)
+		end
+		-- his jump serve: the toss is too low for a real drop, so a serve gets the AI's share of the
+		-- bonus at least (the owner, 2026-10-25: "reports that laith has a very weak serve": his
+		-- serves came off without the dive his spikes get)
+		if kind == "JumpServe" then
+			dive = math.max(dive, CORONA.AutoDive)
 		end
 	end
 	-- clean contact x good timing: a fingertip touch at a great height is still a poor hit
@@ -1419,8 +1425,11 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		kmh = kmh * (kind == "JumpServe" and hex.serveMul or hex.spikeMul)
 		meta.tierDrain = meta.tierDrain * hex.drainDeal
 	end
-	-- the soft cap: stacked boosts can't run away (Config.Hits.SpeedKnee)
-	kmh = HitLogic.softCap(kmh)
+	-- the soft cap: stacked boosts can't run away (Config.Hits.SpeedKnee); a Halloween Match has
+	-- none (the owner, 2026-10-25: "uncap the speed limit in halloween event")
+	if not ctx.uncapped then
+		kmh = HitLogic.softCap(kmh)
+	end
 	local steps = 0
 	if q >= H.SpikeAssistQuality and not overcharge then
 		steps = H.NetAssistSteps

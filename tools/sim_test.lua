@@ -303,8 +303,9 @@ do
 	end
 	local okP, servePlain = laithServe(0)
 	local okD, serveDive = laithServe(CO.DiveFullDrop)
-	check(okP and okD and servePlain.meta.hitType == "JumpServe" and serveDive.meta.dive == 1 and serveDive.meta.kmh > servePlain.meta.kmh * 1.25,
-		"Sundive works on his jump serve too", string.format("%.0f km/h plain, %.0f off a full dive", servePlain.meta.kmh, serveDive.meta.kmh))
+	-- (and a serve without a dive still gets the AI's share: his serves were weak, 2026-10-25)
+	check(okP and okD and servePlain.meta.hitType == "JumpServe" and serveDive.meta.dive == 1 and serveDive.meta.kmh > servePlain.meta.kmh * 1.2 and math.abs((servePlain.meta.dive or 0) - CO.AutoDive) < 1e-6,
+		"Sundive works on his jump serve too (a plain one gets the AI's share of it)", string.format("%.0f km/h plain, %.0f off a full dive", servePlain.meta.kmh, serveDive.meta.kmh))
 	check(not plain.meta.dive and lowPlain.meta.kmh < plain.meta.kmh and halfDive.meta.dive == 0.5 and fullDive.meta.dive == 1
 		and fullDive.meta.kmh > plain.meta.kmh * 1.25 and fullDive.meta.kmh > halfDive.meta.kmh + 15 and auto.meta.kmh > plain.meta.kmh and not auto.meta.dive
 		and flared.meta.kmh > 200 and flared.meta.kmh < 275,
@@ -4524,15 +4525,21 @@ do
 	check(#r3 == 2 and s3.Lucky == 2 and rec.made.Lucky == 2 and rec.made.n == 3 and rec.log[1].i == #LC.Rewards and rec.gold == 30 and math.abs(rec.carry - LC.Interval * 0.5) < 1e-6,
 		"lounge: a long step rolls each interval it covers, adds them up and keeps the remainder")
 	local kept = Lounge.clean({ day = 100, payouts = 3, gold = 900, carry = 100, made = { Gold = 90, VP = 10, n = 3 }, log = { { i = 1, m = 1 }, { i = 99, m = 1 } } }, 100)
-	local turned = Lounge.clean({ day = 99, payouts = LC.DailyPayouts, gold = 7200, carry = 100, made = { Gold = 40, n = 1 } }, 100)
+	local turned = Lounge.clean({ day = 99, payouts = 60, gold = 7200, carry = 100, made = { Gold = 40, n = 1 } }, 100)
 	check(kept.payouts == 3 and kept.gold == 900 and kept.carry == 100 and kept.made.Gold == 90 and kept.made.VP == 10 and #kept.log == 1 and turned.payouts == 0 and turned.gold == 0 and turned.carry == 100 and turned.made.Gold == 40,
 		"lounge: the time towards the next payout and the stay's totals carry over (a bad log entry is dropped); a new day starts the payouts again")
 	Lounge.startStay(kept)
-	check(kept.made.Gold == 0 and kept.made.n == 0 and #kept.log == 0, "lounge: stepping in again starts a new stay")
-	local full = Lounge.clean({ day = 100, payouts = LC.DailyPayouts - 1, carry = 0 }, 100)
-	local rF = Lounge.advance(full, LC.Interval * 5, 1, bottom)
-	local rAfter = Lounge.advance(full, LC.Interval * 5, 1, bottom)
-	check(#rF == 1 and #rAfter == 0 and full.carry == 0 and Lounge.nextIn(full) == nil, "lounge: nothing past the daily limit")
+	check(kept.made.Gold == 0 and kept.made.n == 0 and #kept.log == 0 and kept.carry == 0, "lounge: stepping in again starts a new stay, its timer from zero")
+	if LC.DailyPayouts then
+		local full = Lounge.clean({ day = 100, payouts = LC.DailyPayouts - 1, carry = 0 }, 100)
+		local rF = Lounge.advance(full, LC.Interval * 5, 1, bottom)
+		local rAfter = Lounge.advance(full, LC.Interval * 5, 1, bottom)
+		check(#rF == 1 and #rAfter == 0 and full.carry == 0 and Lounge.nextIn(full) == nil, "lounge: nothing past the daily limit")
+	else
+		local many = Lounge.clean({ day = 100, payouts = 500, carry = 0 }, 100)
+		local rM = Lounge.advance(many, LC.Interval * 5, 1, bottom)
+		check(#rM == 5 and many.payouts == 505 and Lounge.nextIn(many) == LC.Interval, "lounge: no daily limit, the rewards keep coming")
+	end
 	local bad = Lounge.clean({ day = 100, payouts = -5, carry = 1e9 }, 100)
 	check(bad.payouts == 0 and bad.carry == LC.Interval - 1, "lounge: a bad stored record is clamped")
 end

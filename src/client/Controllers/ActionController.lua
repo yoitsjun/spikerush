@@ -179,6 +179,7 @@ local function buildCtx(info, action, t)
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
 		mut = Mutators.live(), -- a custom match's modifiers
 		hex = Halloween.effects(player:GetAttribute("Hex")), -- the Halloween Match's cards that hit me
+		uncapped = ReplicatedStorage:GetAttribute("EventMatch") or nil, -- (a Halloween Match: no speed cap)
 	}, ok, why
 end
 
@@ -722,7 +723,7 @@ local function divePlan(info, now)
 		local d = target - info.root
 		local clear = ball.Z * side > -0.1 and ball.Y >= C.NetTop + H.SpikeMinContactOverNet
 		-- (the arc is about 1.15 times its chord)
-		if clear and -d.Y >= CORONA.DiveMinDrop and target.Y > info.groundY + 0.6 and d.Magnitude <= CORONA.DiveMaxDist and d.Magnitude * 1.15 / t <= CORONA.DiveSpeedMax then
+		if clear and -d.Y >= CORONA.DiveMinDrop and target.Y > info.groundY + 1.5 and d.Magnitude <= CORONA.DiveMaxDist and d.Magnitude * 1.15 / t <= CORONA.DiveSpeedMax then
 			return target, t, ball
 		end
 	end

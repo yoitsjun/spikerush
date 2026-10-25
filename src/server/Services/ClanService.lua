@@ -428,9 +428,8 @@ function ClanService.onLoaded(plr)
 			end)
 		end)
 	end
-	if os.clock() - topAt > 300 then
-		task.spawn(readTop)
-	end
+	-- (the board is read when someone opens the clan window, ops.get, and every five minutes: not on
+	-- every join, which each AFK Lounge refresh's new server did)
 	refresh(plr)
 end
 
@@ -1053,7 +1052,9 @@ function ClanService.init(r)
 	task.spawn(function()
 		while true do
 			task.wait(300)
-			pcall(readTop)
+			if not (reg.LoungeService and reg.LoungeService.isLoungeServer()) then -- (an AFK Lounge server never shows it)
+				pcall(readTop)
+			end
 		end
 	end)
 end

@@ -11,6 +11,9 @@
 --                                 servers (Config.Lobby.Global) with someone who stays behind
 --   ("giveAll", grant)         -> VP, Gold, lucky spins (and the rest of a grant) to everyone online
 --                                 in every server, once each (nobody offline: no mail)
+--   ("wipe", username)         -> reset someone's match stats (off those leaderboards)
+--   ("rankReset", username)    -> reset someone's ranked RP, record and best rank (an alt
+--                                 farmer's), off the ranked board
 --   ("admins")                 -> the whitelist: who the game's owner lets into the panel
 --   ("adminAdd", username)     -> let someone in (by username or user id)
 --   ("adminRemove", userId)    -> and out again
@@ -560,9 +563,11 @@ local function onAdmin(plr, op, a, b, c)
 			local list = cardOwners(a)
 			reply(plr, string.format("%d %s the %s card.", #list, #list == 1 and "player has" or "players have", cardName(a)), { owners = { card = a, list = list } })
 		end)
-	elseif op == "wipe" then
+	elseif op == "wipe" or op == "rankReset" then
 		-- reset someone's match stats (wins, matches, kills, aces, blocks, MVPs, streaks) and take
-		-- them off those leaderboards; their VP, Gold, characters and purchases stay
+		-- them off those leaderboards; their VP, Gold, characters and purchases stay. rankReset: their
+		-- ranked RP, wins, losses, peak and best rank instead, and off the ranked board
+		local rank = op == "rankReset"
 		local name = type(a) == "string" and string.match(a, "^%s*([%w_]+)%s*$") or nil
 		if not name then
 			reply(plr, "Enter a username (or a user id) to reset.")
@@ -574,10 +579,10 @@ local function onAdmin(plr, op, a, b, c)
 				reply(plr, why)
 				return
 			end
-			local done, why2 = reg.ProfileService.wipeUser(userId)
+			local done, why2 = reg.ProfileService.wipeUser(userId, rank)
 			if done then
 				local where = Players:GetPlayerByUserId(userId) and "now" or "when they're next in the game (at once if they're online)"
-				reply(plr, string.format("Reset %s's match stats: it applies %s. The leaderboards drop them at their next refresh.", name, where))
+				reply(plr, string.format(rank and "Reset %s's rank to Bronze I (0 RP): it applies %s. The ranked board drops them at its next refresh." or "Reset %s's match stats: it applies %s. The leaderboards drop them at their next refresh.", name, where))
 			else
 				reply(plr, why2 or "That didn't work.")
 			end

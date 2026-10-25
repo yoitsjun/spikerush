@@ -38,8 +38,8 @@ PatchNotes.List = {
 			{
 				Heading = "AFK Lounge",
 				Items = {
-					{ Text = "<b>AFK</b> (top right): rest in the lounge and get <b>a random reward every 4 minutes</b>, rolled from 17: at least 30 Gold or 10 V Points, up to a <b>Lucky Spin</b>. VIP doubles the Gold and V Points and Roblox Premium adds x1.5, up to 4 hours a day. The side panel adds up what you've made." },
-					{ Text = "Stay as long as you want: the lounge refreshes your connection before Roblox's 20 minute AFK kick, and your timer carries on." },
+					{ Text = "<b>AFK</b> (top right): rest in the lounge and get <b>a random reward every 4 minutes</b>, rolled from 17: at least 30 Gold or 10 V Points, up to a <b>Lucky Spin</b>. VIP doubles the Gold and V Points and Roblox Premium adds x1.5, with <b>no daily limit</b>. The side panel adds up what you've made." },
+					{ Text = "Stay as long as you want: the lounge refreshes your connection before Roblox's 20 minute AFK kick, and your timer carries on. The timer starts once you're in the lounge." },
 				},
 			},
 			{
@@ -48,6 +48,7 @@ PatchNotes.List = {
 					{ Text = "<b>Clans</b> (top bar): make one for 1,000 VP or with the Clan Founder pass. Pick a name and a 2 to 5 letter tag, public or private, and a minimum of wins to join." },
 					{ Text = "Members earn points for the clan with wins, kills, aces, blocks and MVPs. Spend them on upgrades: more VP and Gold, extra luck, more members, an emblem, and a clan intro when 3 of you play together." },
 					{ Text = "<b>Weekly clan points</b>: the clan board shows this week's points too, starting over every Monday." },
+					{ Text = "Your clan's <b>Members</b> tab shows the points each member earned <b>today</b> and <b>this week</b>." },
 					{ Text = "Buy a tag colour for your [TAG] in chat and over your head. The top 3 clans get their own cards." },
 					{ Text = "<b>Parties</b> (top right): invite up to 3 players in your server. The leader's Quick Match or ranked queue takes everyone, on one side." },
 				},
@@ -66,6 +67,7 @@ PatchNotes.List = {
 					{ Text = "<b>Match modifiers</b> for custom lobbies: spike power, low or moon gravity, no ability cooldowns, abilities off, endless or fragile stamina, high jumps, turbo speed, walls or no blocking, and stronger serves." },
 					{ Text = "Picking the characters your bots play works again in 3v3." },
 					{ Text = "Your very first match is against bots at your own level." },
+					{ Text = "The tutorial ends with a <b>quick match to 3</b> against bots." },
 				},
 			},
 			{
@@ -79,7 +81,8 @@ PatchNotes.List = {
 			{
 				Heading = "Balance",
 				Items = {
-					{ Text = "Stacked boosts were sending spikes past 400 km/h. Past 250 km/h a boost now counts for less, and nothing goes over <b>300</b>." },
+					{ Text = "Stacked boosts were sending spikes past 400 km/h. Past 250 km/h a boost now counts for less, and nothing goes over <b>300</b>, except in the <b>Halloween Match</b>, which has no speed limit." },
+					{ Icon = "AbilityCorona", Text = "<b>Laith</b>'s jump serve always gets some of his Sundive's power (about 11% harder)." },
 					{ Text = "<b>Breakthroughs</b> now grow an ability's power more than its cooldown. Rally Cry's boost reaches 18% at +5, and Storm Call and Iron Wall get stronger too." },
 					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> has to jump to wall, and a set starts with one shield. His Intimidation meter only fills once every shield is broken. The block that shatters a shield pops the ball up for his team, and no spike shatters one at once any more: every shield shuts down one spike, then pops up the next." },
 					{ Icon = "AbilityTyrant", Text = "<b>Dohwan</b>: Attack up from 140 to 170, and his <b>Crown Jump Serve</b> now hits as hard as the best S+ wing spiker's (+52 Attack on the serve only)." },
@@ -95,6 +98,8 @@ PatchNotes.List = {
 					{ Text = "The Haunted Forest no longer shows in the sky behind the beach court." },
 					{ Text = "The Circular Swing spikes with the right hand." },
 					{ Text = "Halloween card picks work on a controller, and running out of time picks one at random after 15 seconds." },
+					{ Icon = "AbilityCorona", Text = "Laith no longer gets launched across the court or high into the air when his Sundive goes for a low ball." },
+					{ Text = "The top bar's buttons no longer overlap on narrower screens, and the timeout panel fits on short phone screens." },
 				},
 			},
 			{
