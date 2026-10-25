@@ -705,10 +705,20 @@ local function planBlock(team, now)
 			break
 		end
 	end
-	if blocker and blocker.rng:NextNumber() < tierPair(blocker, B.BlockChance) then
+	-- it always goes up (the owner, 2026-10-25: "sometimes the ai blocker just doesn't block": it
+	-- stood still on every set its BlockChance roll missed); a missed roll is a mistimed jump instead,
+	-- early or late by BlockMistime, so the stuff rate stays about what BlockChance says
+	if blocker then
 		blocker.task = "Block"
 		blocker.targetZ = side * 0.4 * SPM
 		blocker.jumpAt = cT - blocker.tApex + 0.08 + (blocker.rng:NextNumber() * 2 - 1) * tierPair(blocker, B.JumpTimingNoise)
+		blocker.blockLate = nil
+		if blocker.rng:NextNumber() >= tierPair(blocker, B.BlockChance) then
+			local m = B.BlockMistime
+			local off = (blocker.rng:NextNumber() < 0.5 and -1 or 1) * (m[1] + (m[2] - m[1]) * blocker.rng:NextNumber())
+			blocker.jumpAt = blocker.jumpAt + off
+			blocker.blockLate = off > 0 and off or nil -- (kept when the spike re-times it, below)
+		end
 	end
 end
 
@@ -721,7 +731,7 @@ local function plan(now)
 	local blocking = {}
 	for _, b in pairs(bots) do
 		if b.task == "Block" then
-			blocking[b] = { jumpAt = b.jumpAt, targetZ = b.targetZ }
+			blocking[b] = { jumpAt = b.jumpAt, targetZ = b.targetZ, late = b.blockLate }
 		end
 		resetTask(b)
 	end
@@ -763,6 +773,11 @@ local function plan(now)
 						return pos.Z * side >= -0.2
 					end)
 					b.jumpAt = tC and math.min(was.jumpAt, tC - b.tApex) or was.jumpAt
+					-- a missed roll's late jump stays late
+					if tC and was.late then
+						b.jumpAt = tC - b.tApex + was.late
+					end
+					b.blockLate = was.late
 				end
 			end
 		end
