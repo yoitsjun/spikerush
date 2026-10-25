@@ -2683,6 +2683,7 @@ Config.Bots = {
 	-- (seconds early or late the AI's block jump goes when its BlockChance roll misses: it always
 	-- goes up, mistimed)
 	BlockMistime = { 0.32, 0.5 },
+	HumanAtNet = 1.0 * M, -- a human teammate this close to the net blocks; the AI blocker stays back
 	BlockChance = { 0.15, 0.4 }, -- (was 0.4 to 0.95, never felt: open and back sets went unblocked until BlockSetMaxDepth; at 0.4-0.95 it stuffed 8 spikes in 10, at 0.2-0.5 about 3 in 8)
 	-- the AI goes up to block a set that comes down this close to the net (it was 2.2 m, under the
 	-- open set's 2.3 m: the AI only ever blocked quicks; the community, "sometimes the middle blocker

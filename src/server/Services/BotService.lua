@@ -682,6 +682,19 @@ local function planPlay(team, now)
 	end
 end
 
+-- A human on `team` right up at the net (within HumanAtNet of it): the AI leaves the block to them
+-- (the owner, 2026-10-25: "if the player is on the net make the ai back off", "he has to be like
+-- right on it").
+local function humanAtNet(team)
+	for _, e in ipairs(reg.TeamService.members(team)) do
+		local z = not e.isBot and rootZ(e)
+		if z and math.abs(z) <= B.HumanAtNet then
+			return true
+		end
+	end
+	return false
+end
+
 local function planBlock(team, now)
 	local BS = reg.BallService
 	local last = BS.lastHit
@@ -697,6 +710,9 @@ local function planBlock(team, now)
 		return
 	end
 	local side = Court.sideOf(team)
+	if humanAtNet(team) then
+		return
+	end
 	local blocker = nil
 	for _, role in ipairs({ "MB", "SE", "WS" }) do
 		local e = reg.TeamService.byRole(team, role)
@@ -762,7 +778,8 @@ local function plan(now)
 	local last = BS.lastHit
 	if next(blocking) and last and (last.hitType == "Spike" or last.hitType == "Feint") then
 		for b, was in pairs(blocking) do
-			if last.team ~= b.entity.team then
+			-- (one not up yet backs off for a human who stepped up to the net since)
+			if last.team ~= b.entity.team and not (was.jumpAt and humanAtNet(b.entity.team)) then
 				resetTask(b)
 				b.task = "Block"
 				b.targetZ = was.targetZ
