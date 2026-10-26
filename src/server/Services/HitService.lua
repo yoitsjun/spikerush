@@ -536,6 +536,7 @@ function HitService.onRequest(plr, req)
 		grounded = req.grounded == true,
 		diving = req.diving == true,
 		assist = req.assist == true,
+		beginner = req.beginner == true and not ReplicatedStorage:GetAttribute("RankedMatch") or nil, -- (Config.Beginner; never in ranked)
 		stanceAge = num(req.stanceAge, 0, 2, 0.25),
 		energy = energy,
 		setType = SET_TYPES[req.setType] and req.setType or nil,

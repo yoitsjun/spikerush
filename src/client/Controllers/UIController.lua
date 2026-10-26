@@ -1789,7 +1789,17 @@ local function buildCoach()
 			end)
 		end
 	end)
-	ui.coach = { frame = f, head = head, title = title, body = body, dots = dots, streak = streak, leave = leave, skip = skip }
+	-- Beginner mode, introduced in the tutorial (the owner, 2026-10-25: "add a portion of the tutorial
+	-- that introduces it, and lets you turn it either on or off"; Config.Beginner): what it does, and
+	-- a switch (Settings has it too)
+	local begL = label(f, { Text = "Beginner mode: a little help with your jump, a white circle where to take off, and every spike goes to midcourt.", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = UI.Fog, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -24, 0, 32), Position = UDim2.new(0, 12, 1, -122), Visible = false })
+	local begB = button(f, "Beginner mode: OFF", { Size = UDim2.new(1, -24, 0, 30), Position = UDim2.new(0, 12, 1, -84), BackgroundColor3 = UI.InkSoft, TextColor3 = UI.Chalk, TextSize = 14, Visible = false })
+	Gui.pressSound(begB)
+	begB.MouseButton1Click:Connect(function()
+		click()
+		State.setSetting("beginner", not State.settings.beginner)
+	end)
+	ui.coach = { frame = f, head = head, title = title, body = body, dots = dots, streak = streak, leave = leave, skip = skip, begL = begL, begB = begB }
 end
 
 local function updateCoach()
@@ -1804,6 +1814,16 @@ local function updateCoach()
 		ui.coachScale.Scale = math.clamp(cam.ViewportSize.Y / 760, 0.62, 1.1)
 	end
 	local d = Tutorial.drill(pr.drill)
+	-- (the Beginner mode switch, through the tutorial's drills)
+	local beg = pr.tutorial == true and not pr.finished and d ~= nil
+	c.begL.Visible, c.begB.Visible = beg, beg
+	c.frame.Size = UDim2.fromOffset(360, beg and 294 or 214)
+	if beg then
+		local on = State.settings.beginner == true
+		c.begB.Text = on and "Beginner mode: ON" or "Beginner mode: OFF"
+		c.begB.BackgroundColor3 = on and UI.Mint or UI.InkSoft
+		c.begB.TextColor3 = on and UI.Ink or UI.Chalk
+	end
 	if pr.finished or not d then
 		c.head.Text = pr.tutorial and "TUTORIAL COMPLETE" or "DRILL COMPLETE"
 		c.title.Text = "Nice work!"
@@ -1867,6 +1887,7 @@ local Keys = {} -- Settings > Controls (Keys.build)
 local SETTINGS = {
 	{ key = "doubleApproach", text = "Double approach", sub = "Tap Jump once to start your approach, again to jump" },
 	{ key = "setterAim", text = "Setter aim", sub = "As the setter, aim your sets (your team sees it)" },
+	{ key = "beginner", text = "Beginner mode", sub = "Jump help, a jump circle, spikes to midcourt" },
 	{ key = "landingMarker", text = "Landing marker" },
 	{ key = "dramatic", text = "Impact frames and speed lines" },
 	{ key = "assist", text = "Receive assist" },

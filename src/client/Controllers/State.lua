@@ -61,6 +61,7 @@ State.settings = {
 	followCam = false, -- off: the fully zoomed-out wide shot during play
 	doubleApproach = false, -- Spike on the ground starts a run-up and a second press jumps
 	setterAim = true, -- as the setter, aim where your set goes (SetterAim)
+	beginner = false, -- Beginner mode (Config.Beginner): offered in the tutorial
 	touchLayout = {}, -- touch buttons you moved or resized: name -> { x, y, size }
 	hudLayout = {}, -- HUD pieces you moved or resized on touch (HudLayout): key -> { x, y, size }
 	tour = 0, -- the menu tour after the tutorial: the step you're on (4: done)
@@ -207,6 +208,11 @@ player.AttributeChanged:Connect(function()
 	statsCache = nil
 	abilitiesCache = nil
 end)
+
+-- Beginner mode is on for your spikes: switched on, and not a ranked match (Config.Beginner).
+function State.beginner()
+	return State.settings.beginner == true and not ReplicatedStorage:GetAttribute("RankedMatch")
+end
 
 function State.myStats()
 	if not statsCache then

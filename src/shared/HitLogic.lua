@@ -58,6 +58,7 @@ local CORONA = Config.Abilities.Corona
 local SQUALL = Config.Abilities.Squall
 local TYRANT = Config.Abilities.Tyrant
 local SUNSHINE = Config.Abilities.Sunshine
+local BEGIN = Config.Beginner
 
 -- An ability's setting grown by breakthroughs (Config.Breakthrough): `level` is the character's
 -- (ctx.breakLevel, for its own ability only: levelOf), or for a setter's ability read on the spike,
@@ -1119,6 +1120,11 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		stats = Characters.boosted(stats, { Attack = TYRANT.CrownServeAttack })
 	end
 	local ball, root, t = input.ball, input.root, input.t
+	-- Beginner mode (Config.Beginner): a wider spike, forgiving timing, and every spike to midcourt
+	local beginner = kind == "Spike" and input.beginner == true and not ctx.auto
+	if beginner then
+		scale = scale * BEGIN.ReachMul
+	end
 	if kind == "Spike" then
 		-- (the widest of his abilities' reaches, each off its own input: Feral's leap gauge, and
 		-- awakened Ironclad's Forge charge; Long Claws on top)
@@ -1161,6 +1167,10 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		if kind == "JumpServe" then
 			dive = math.max(dive, CORONA.AutoDive)
 		end
+	end
+	if beginner then
+		qHeight = math.max(qHeight, BEGIN.HeightFloor)
+		qContact = math.max(qContact, BEGIN.ContactFloor)
 	end
 	-- clean contact x good timing: a fingertip touch at a great height is still a poor hit
 	local q = clamp(qContact * (H.ContactWeight + (1 - H.ContactWeight) * qHeight), 0, 1)
@@ -1345,6 +1355,11 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		local boost = ab("Sunshine", "VertBoost", levelOf(ctx, "Sunshine")) * k
 		kmh = kmh * (1 + boost)
 		meta.vert = math.floor(boost * 1000 + 0.5) / 1000
+	end
+	if beginner and not overcharge then
+		-- no aim of your own: the middle of their side
+		depth = C.SideDepth * BEGIN.Depth + jitter(rng, BEGIN.DepthJitter)
+		meta.beginner = true
 	end
 	local target = Vector3.new(0, R, -side * depth)
 	-- Vector Set: off her set, the steeper the line from the contact to where it lands, the more

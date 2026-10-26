@@ -494,6 +494,7 @@ local function execute(action, info, opts, t, ballPos)
 		diving = opts.diving == true,
 		ball = ballPos,
 		assist = opts.assist == true,
+		beginner = action == "Spike" and State.beginner() or nil, -- (Config.Beginner)
 		stanceAge = opts.stanceAge or 0.25,
 		energy = opts.energy or 0,
 		tipDepth = opts.tipDepth, -- (a deep tip: the tip button's hold, 0..1)
@@ -552,6 +553,7 @@ local function execute(action, info, opts, t, ballPos)
 		diving = input.diving,
 		ball = ballPos,
 		assist = input.assist,
+		beginner = input.beginner,
 		stanceAge = input.stanceAge,
 		energy = input.energy,
 		setType = input.setType,
@@ -753,6 +755,7 @@ local function tryAttack(action, info, opts)
 	local scale = ATTACK_SCALE[action] or 1
 	if action == "Spike" then
 		scale = scale * HitLogic.spikeReachAll(State.abilitySet(), leap.gauge, forgeReach()) -- Feral Leap reaches wider (wider still off a leap); Ironclad's Steel Reach too (the widest of mine)
+		scale = scale * (State.beginner() and Config.Beginner.ReachMul or 1) -- (and Beginner mode's: HitLogic)
 	end
 	local nz, ny = zoneOffset(info.root, ball, scale)
 	local d = math.sqrt(nz * nz + ny * ny)
@@ -1976,7 +1979,7 @@ local function evaluate(info, now)
 		ctx.spikeLabel = groundSpikeLabel()
 		ctx.canSet = ok and (HitLogic.setZone(info.root, bp, side, stats))
 	else
-		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReachAll(State.abilitySet(), leap.gauge, forgeReach())))
+		ctx.inZone = (HitLogic.spikeZone(info.root, bp, side, stats, HitLogic.spikeReachAll(State.abilitySet(), leap.gauge, forgeReach()) * (State.beginner() and Config.Beginner.ReachMul or 1)))
 		-- Corona: a Sundive is there to take (the HUD says Dive, and its path is drawn)
 		ctx.dive = sundive(info, now, "Spike")
 		ctx.spikeLabel = airLabel("Spike", ctx.dive)

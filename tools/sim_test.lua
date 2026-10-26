@@ -145,6 +145,40 @@ do
 	check(n >= 3 and marked == n, "a down tilt under the net is marked dead from the moment it goes under", string.format("%d of %d under-net spikes marked", marked, n))
 end
 
+print("== beginner mode ==")
+do
+	-- (the owner, 2026-10-25: "beginner mode... slight jump assistance... you cant control your aim,
+	-- rather you always hit in square in the middle so it usually goes midcourt")
+	local B = Config.Beginner
+	local root = apexRoot(SP, 3.0 * K)
+	local mid = C.SideDepth * B.Depth
+	local worst = 0
+	for _, dz in ipairs({ -0.1, 1.0, 2.2 }) do
+		local ok, res = spike(root, ballAt(root, dz, 0), nil, { beginner = true })
+		local path = ok and BallPhysics.buildPath(res.launch)
+		worst = math.max(worst, path and math.abs(oppDepth(path) - mid) or 999)
+	end
+	check(worst <= B.DepthJitter + 1.5, "beginner spikes all go midcourt, wherever the ball meets the hand", string.format("furthest %.1f studs off the middle (%.1f)", worst, mid))
+	-- a ball just past the usual reach: only a beginner hits it
+	local far = ballAt(root, Z.SpikeCenterDz, 0)
+	local reach, okN, okB = nil, false, false
+	for i = 0, 60 do
+		local dy = i * 0.1
+		local b = vec(far.X, far.Y + dy, far.Z)
+		local n = spike(root, b)
+		local bb = spike(root, b, nil, { beginner = true })
+		if not n and bb then reach, okN, okB = dy, true, true break end
+	end
+	check(okN and okB, "beginner spikes reach a little further", reach and string.format("a ball %.1f studs over the sweet spot", reach) or "no difference")
+	-- a mistimed, scrappy swing (under the top, the ball at the edge of the hand) still hits with some power
+	local low = root - vec(0, 3.2, 0)
+	local _, rn = spike(low, ballAt(low, 1.9, 1.3))
+	local _, rb = spike(low, ballAt(low, 1.9, 1.3), nil, { beginner = true })
+	check(rn and rb and rb.meta.kmh > rn.meta.kmh + 2, "a beginner's scrappy, mistimed swing hits harder than usual", string.format("%.0f vs %.0f km/h", rb and rb.meta.kmh or 0, rn and rn.meta.kmh or 0))
+	local _, auto = spike(root, ballAt(root, 2.2, 0), { auto = true }, { beginner = true })
+	check(auto and not auto.meta.beginner, "bots never play in beginner mode")
+end
+
 print("== spike direction from relative position ==")
 do
 	local root = apexRoot(SP, 3.0 * K)

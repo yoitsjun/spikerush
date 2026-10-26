@@ -68,6 +68,7 @@ PatchNotes.List = {
 					{ Text = "Picking the characters your bots play works again in 3v3." },
 					{ Text = "Your very first match is against bots at your own level." },
 					{ Text = "The tutorial ends with a <b>quick match to 3</b> against bots." },
+					{ Text = "<b>Beginner mode</b> (the tutorial offers it, and it's in Settings): a little help with your jump, a <b>white circle</b> on the floor where to take off for your team's set, and every spike goes to <b>midcourt</b>. It's off in ranked." },
 				},
 			},
 			{

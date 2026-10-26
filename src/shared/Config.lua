@@ -2612,6 +2612,25 @@ Config.Tutorial = {
 	MatchDelay = 5, -- seconds on the TUTORIAL COMPLETE card before it starts (its button skips them)
 }
 
+-- Beginner mode (the owner, 2026-10-25: "implement a beginner mode, just like tsc. you have slight
+-- jump assistance, and where you spike and jump there is a white circle indicator. also, you cant
+-- control your aim, rather you always hit in square in the middle so it usually goes midcourt"):
+-- Settings' beginner switch, offered in the tutorial (its coach). Your spikes reach ReachMul wider
+-- and a mistimed jump or a scrappy contact counts as at least HeightFloor and ContactFloor of a
+-- clean one; every spike
+-- lands Depth of the way into their side (give or take DepthJitter), whatever the contact; and a
+-- white ring on the floor shows where to take off for your team's set (BeginnerGuide). Never in
+-- a ranked match (the RankedMatch attribute). Spikes only: serves, sets and receives are as usual.
+Config.Beginner = {
+	ReachMul = 1.15,
+	HeightFloor = 0.6,
+	ContactFloor = 0.55,
+	Depth = 0.5,
+	DepthJitter = 0.5 * M,
+	RingSize = { 3.2, 9 }, -- the ring's width (studs): when it's time to jump, and LeadTime before
+	LeadTime = 1.2, -- seconds before take-off the ring starts closing
+}
+
 -- Practice drills (PracticeService). The court is a 2v2: you and a setter on your side, their
 -- setter and attacker on the other. Bots stand still; a drill moves only the one it needs.
 Config.Practice = {
@@ -2737,7 +2756,7 @@ Config.Bots = {
 -- Settings saved in each player's profile (the Settings module cleans them; the client's
 -- State.settings holds the defaults and the live values).
 Config.Settings = {
-	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach", "setterAim" },
+	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach", "setterAim", "beginner" },
 	-- tour: the menu tour's step after the tutorial (MenuController; 4 is done)
 	Numbers = { shake = { 0, 1 }, tour = { 0, 4 } },
 	-- touch buttons can be moved (x, y: the centre as a fraction of the screen) and resized

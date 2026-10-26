@@ -738,6 +738,7 @@ function MatchService.playMatch()
 	TS.botTier = lobby.botTier
 	TS.event = lobby.event -- the Halloween Match's cards (TeamService.dealHex)
 	ReplicatedStorage:SetAttribute("EventMatch", lobby.event and true or nil) -- (no speed cap: HitLogic.softCap)
+	ReplicatedStorage:SetAttribute("RankedMatch", lobby.ranked and true or nil) -- (no beginner mode: Config.Beginner)
 	TS.assign(lobby.mode, reg.LobbyService.plan(lobby), Lobbies.botPicks(lobby))
 	TS.resetStats()
 	MatchService.rankedDone = {}
@@ -1028,6 +1029,7 @@ function MatchService.intermission()
 	TS.endMatch()
 	TS.event = nil
 	ReplicatedStorage:SetAttribute("EventMatch", nil)
+	ReplicatedStorage:SetAttribute("RankedMatch", nil)
 	BS.hide()
 	MatchService.lobby = nil
 	MatchService.serverId = nil
