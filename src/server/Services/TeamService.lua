@@ -43,8 +43,11 @@ TeamService.event = nil -- the Halloween Match's run while one plays (MatchServi
 
 local botCounter = 0
 local usedNames = {}
-local usedChars = {} -- roster ids already on court this match
-local reservedChars = {} -- the host's picks while the bots are being made (TeamService.assign)
+-- roster ids already on each team this match, by team: one of each character a team (the other
+-- team can play it too: the owner, 2026-10-25, "you made it so that there can only be one of each
+-- player. change that"; a custom lobby's picks for the right side lost to the left's)
+local usedChars = { Home = {}, Away = {} }
+local reservedChars = { Home = {}, Away = {} } -- the host's picks while the bots are being made (TeamService.assign)
 
 -- The active abilities (Config.Abilities[x].Active), in the usual order: each has its own window
 -- and cooldown attributes (AbilityUntil_<Name>, AbilityReadyAt_<Name>).
@@ -149,7 +152,7 @@ local function playerEntity(plr, team)
 	local e = newEntity("P_" .. tostring(plr.UserId), plr.DisplayName, false, plr, team, tier, c.Ability, build)
 	e.breakLevel = brk or 0 -- breakthroughs: its ability grows (Breakthrough.ab)
 	e.charId, e.charName, e.prefRole = c.Id, c.Name, c.Role
-	usedChars[c.Id] = true
+	usedChars[team][c.Id] = true
 	TeamService.dealHex(e)
 	return e
 end
@@ -174,13 +177,13 @@ local function freeRole(team, roles, want)
 end
 
 -- A roster character for a bot: that role, the tier nearest the bot level (within two steps),
--- not already on court.
-local function rosterFor(tier, role)
+-- not already on that team.
+local function rosterFor(tier, role, team)
 	local want = role == "Solo" and "WS" or role
 	local ti = Characters.tierIndex(tier) or 11
 	local best, bestD = {}, 3
 	for _, c in ipairs(Roster) do
-		if c.Role == want and not usedChars[c.Id] and not reservedChars[c.Id] then
+		if c.Role == want and not usedChars[team][c.Id] and not reservedChars[team][c.Id] then
 			local d = math.abs((Characters.tierIndex(c.Tier) or 1) - ti)
 			if d < bestD then
 				best, bestD = { c }, d
@@ -775,26 +778,26 @@ local function addBot(team, index, role, captain, pickId, picker)
 	local e
 	local c, tier, build, brk = nil, nil, nil, 0
 	local picked = pickId and Roster.get(pickId)
-	if picked and not usedChars[picked.Id] then
+	if picked and not usedChars[team][picked.Id] then
 		c = picked
 		tier, build = Characters.fromRoster(c, "max")
 	end
 	local fromPick = false
 	if captain and not c then
 		c, tier, build, brk = reg.ProfileService.teamPick(captain, TeamService.teamSize, role)
-		if c and (usedChars[c.Id] or reservedChars[c.Id]) then
+		if c and (usedChars[team][c.Id] or reservedChars[team][c.Id]) then
 			c = nil -- already on the court (the captain plays it themselves), or the host's pick
 		end
 		fromPick = c ~= nil
 	end
 	if not c then
-		c = rosterFor(TeamService.botTier, role)
+		c = rosterFor(TeamService.botTier, role, team)
 		if c then
 			tier, build = Characters.fromRoster(c, "max")
 		end
 	end
 	if c then
-		usedChars[c.Id] = true
+		usedChars[team][c.Id] = true
 		e = newEntity(id, c.Name, true, nil, team, tier, c.Ability, build)
 		e.charId, e.charName = c.Id, c.Name
 		e.breakLevel = brk or 0 -- (the captain's own build of it, breakthroughs too)
@@ -870,7 +873,7 @@ function TeamService.clear()
 	TeamService.pendingJoin = {}
 	TeamService.benched = {}
 	usedNames = {}
-	usedChars = {}
+	usedChars = { Home = {}, Away = {} }
 	reg.FriendService.releaseAll()
 end
 
@@ -879,10 +882,10 @@ end
 function TeamService.assign(size, plan, picks)
 	TeamService.clear()
 	-- the host's picks for the bot spots: no other bot takes these characters first
-	reservedChars = {}
+	reservedChars = { Home = {}, Away = {} }
 	for _, team in ipairs(Config.TeamOrder) do
 		for _, id in ipairs((picks and picks[team]) or {}) do
-			reservedChars[id] = true
+			reservedChars[team][id] = true
 		end
 	end
 	TeamService.teamSize = size
@@ -905,10 +908,10 @@ function TeamService.assign(size, plan, picks)
 	for _, team in ipairs(Config.TeamOrder) do
 		while #TeamService.teams[team].order < size do
 			local role = freeRole(team, roles)
-			addBot(team, nil, role, captains[team], Lobbies.pickFor((picks and picks[team]) or {}, role, usedChars), picker)
+			addBot(team, nil, role, captains[team], Lobbies.pickFor((picks and picks[team]) or {}, role, usedChars[team]), picker)
 		end
 	end
-	reservedChars = {}
+	reservedChars = { Home = {}, Away = {} }
 	TeamService.inMatch = true
 	for _, team in ipairs(Config.TeamOrder) do
 		TeamService.rallyUntil[team] = -1
@@ -1121,7 +1124,7 @@ function TeamService.swapCharacter(plr)
 	e.counter = 0
 	e.windows = {} -- every active's window off (the cooldowns stay)
 	e.coronaStacks = 0 -- a substitution clears Corona's penalty
-	usedChars[c.Id] = true
+	usedChars[e.team][c.Id] = true
 	reg.ProfileService.applyActive(plr) -- the player's own attributes (the client predicts from them)
 	TeamService.dealHex(e) -- (the Halloween Match: the ability cards stack on the new character's own)
 	TeamService.applyToModel(e)

@@ -27,7 +27,7 @@ PatchNotes.List = {
 					{ Text = "Beat a stronger team and you gain more; lose to a weaker one and you drop more. The higher you climb, the less a win pays and the more a loss costs." },
 					{ Text = "Before every ranked match each team <b>bans one</b> character, then everyone <b>picks</b> who they play. Pick your character from the Ranked window before you queue, too." },
 					{ Text = "Seasons are monthly; <b>Season 1</b> ends December 1. A new season keeps half your RP." },
-					{ Icon = "RankGold3", Text = "<b>Ranked score effects</b>: Gold Crest, Platinum Spires, Diamond Storm, Mighty Wings and Almighty Ascension. Each is yours while you hold its rank; drop below it and it's gone." },
+					{ Icon = "RankGold3", Text = "<b>Ranked score effects</b>: Gold Crest, Platinum Spires, Diamond Storm, Mighty Wings and Almighty Ascension. Each is yours while you hold its rank; drop below it and it's gone. They're <b>Season 1's</b>: every season brings new ones." },
 					{ Icon = "RankAlmighty", Text = "<b>Almighty Ascension</b>: a giant gold statue of you in your intro pose rises out of the court, and a beam of light comes down on you from the heavens." },
 					{ Text = "The <b>Ranked leaderboard</b> (Ranks): this season's top players by rank points. It starts fresh every season." },
 					{ Text = "The <b>Ranked card</b>: your season, your wins and losses, and your rank's badge, in your rank's colours. It changes as you climb." },
@@ -101,6 +101,9 @@ PatchNotes.List = {
 					{ Text = "Halloween card picks work on a controller, and running out of time picks one at random after 15 seconds." },
 					{ Icon = "AbilityCorona", Text = "Laith no longer gets launched across the court or high into the air when his Sundive goes for a low ball." },
 					{ Text = "The top bar's buttons no longer overlap on narrower screens, and the timeout panel fits on short phone screens." },
+					{ Text = "In custom lobbies both sides can play the same characters (one of each per team), so the right side's picks are no longer swapped out, and the bots you pick wear your skins." },
+					{ Text = "<b>Rainbow</b> is a spike colour now, not a trail (if you had it, you still do). <b>Bat Swarm</b> keeps its own violet whatever your spike colour." },
+					{ Text = "The clan window's tabs always mark the one you're on." },
 				},
 			},
 			{

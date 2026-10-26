@@ -1709,6 +1709,12 @@ do
 		"picks go along to the lobby's own server, cleaned")
 	check(Lobbies.pickFor({ ws, se }, "SE", {}) == se and Lobbies.pickFor({ ws, se }, "MB", {}) == ws and Lobbies.pickFor({ ws }, "WS", { [ws] = true }) == nil and Lobbies.pickFor({ ws }, "Solo", {}) == ws,
 		"a bot takes the pick made for its role first, else the next one left")
+	-- (the owner, 2026-10-25: "there can only be one of each player. change that": once a team, so
+	-- both sides can pick the same character; and the host's skins go on the picked bots)
+	local both = Lobbies.setPick(pk, "Away", 2, se)
+	local bp2 = Lobbies.botPicks(pk)
+	check(both and bp2.Home[1] == se and bp2.Away[1] == se and bp2.host == 1 and Lobbies.pickFor(bp2.Away, "SE", {}) == se,
+		"both sides can pick the same character (one of each a team), and the picks name the host for their skins")
 	local qk = Lobbies.new(45, 1, "a", Lobbies.settings({ mode = 3 })); qk.quick = true
 	check(not Lobbies.setPick(qk, "Away", 1, ws) and #Lobbies.botPicks(qk).Away == 0, "Quick Match takes no picks")
 	local l = Lobbies.new(1, 100, "Host", s2)
