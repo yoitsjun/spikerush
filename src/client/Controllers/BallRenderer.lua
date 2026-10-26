@@ -637,6 +637,11 @@ local function applyStyle(meta)
 			trail.Transparency = fade(emission < 0.1 and 0.02 or 0.08)
 			trail.Lifetime = trail.Lifetime * 1.25
 			core.Enabled = emission > 0.1 -- (a white core would show through a black trail)
+			-- its sparkles and light in its own colours too, whatever the spike colour (the owner,
+			-- 2026-10-25: "the bat swarm changes colors... dont make it")
+			accent = trailItem.Solid[#trailItem.Solid]
+			sparkles.Color = ColorSequence.new(accent:Lerp(Color3.new(1, 1, 1), 0.4), accent)
+			glow.Color = accent
 		end
 		-- (one with its own kit, Halloween's, rides it on top; a limited one without, its Base's)
 		trailKey = Fx.has("Trail" .. trailItem.Key) and trailItem.Key or trailItem.Base or "Ribbon"

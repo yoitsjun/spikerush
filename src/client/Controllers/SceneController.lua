@@ -1502,6 +1502,10 @@ local function styleBall(b, colorKey, trailKey)
 		b.trail.LightEmission = emission
 		b.trail.Lifetime = 0.75
 		b.prism = false
+		-- (its sparkles and light in its own colours, as in a match: BallRenderer)
+		accent = trailItem.Solid[#trailItem.Solid]
+		b.sparkles.Color = ColorSequence.new(accent:Lerp(Color3.new(1, 1, 1), 0.4), accent)
+		b.glow.Color = accent
 		trailKey = Fx.has("Trail" .. trailItem.Key) and trailItem.Key or "Ribbon"
 	end
 	if trailKey and trailKey ~= "Ribbon" then

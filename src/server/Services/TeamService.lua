@@ -766,8 +766,9 @@ end
 -- `captain`: the player whose team this bot fills; it plays their pick for the role (their own
 -- build of that character) when they made one, else a roster character near the bot level.
 -- `pickId`: the custom lobby host's pick for this spot (Lobbies.botPicks), played maxed whether
--- or not anyone owns it; it comes first.
-local function addBot(team, index, role, captain, pickId)
+-- or not anyone owns it; it comes first, wearing `picker`'s skin for it (the host's: the owner,
+-- 2026-10-25, "allow ais to use the skins that you own if you select them").
+local function addBot(team, index, role, captain, pickId, picker)
 	botCounter = botCounter + 1
 	local id = "B_" .. botCounter
 	role = role or "WS"
@@ -797,7 +798,7 @@ local function addBot(team, index, role, captain, pickId)
 		e = newEntity(id, c.Name, true, nil, team, tier, c.Ability, build)
 		e.charId, e.charName = c.Id, c.Name
 		e.breakLevel = brk or 0 -- (the captain's own build of it, breakthroughs too)
-		e.skinOwner = fromPick and captain or nil -- (and the captain's skin on it)
+		e.skinOwner = (fromPick and captain) or (c == picked and picker) or nil -- (and the captain's or host's skin on it)
 	else
 		local build = Characters.template(TeamService.botTier, role, Characters.rollHeight(Random.new()))
 		e = newEntity(id, pickBotName(), true, nil, team, TeamService.botTier, nil, build)
@@ -885,6 +886,7 @@ function TeamService.assign(size, plan, picks)
 		end
 	end
 	TeamService.teamSize = size
+	local picker = picks and picks.host and Players:GetPlayerByUserId(picks.host) or nil
 	local roles = roleList(size)
 	local captains = {} -- the first player on each team: bots fill it with their picks
 	for _, team in ipairs(Config.TeamOrder) do
@@ -903,7 +905,7 @@ function TeamService.assign(size, plan, picks)
 	for _, team in ipairs(Config.TeamOrder) do
 		while #TeamService.teams[team].order < size do
 			local role = freeRole(team, roles)
-			addBot(team, nil, role, captains[team], Lobbies.pickFor((picks and picks[team]) or {}, role, usedChars))
+			addBot(team, nil, role, captains[team], Lobbies.pickFor((picks and picks[team]) or {}, role, usedChars), picker)
 		end
 	end
 	reservedChars = {}

@@ -607,6 +607,9 @@ Config.Cosmetics = {
 		{ Key = "Void", Name = "Void", Rarity = "Epic", Color = Color3.fromRGB(120, 50, 200) },
 		{ Key = "Black", Name = "Jet Black", Rarity = "Epic", Color = Color3.fromRGB(78, 76, 92), Trail = { Color3.fromRGB(6, 6, 10), Color3.fromRGB(44, 42, 56) }, Emission = 0 },
 		{ Key = "Prism", Name = "Prism", Rarity = "Legendary", Color = Color3.fromRGB(255, 120, 220) },
+		-- a colour, not a trail (the owner, 2026-10-25: "rainbow should be a color"): the ribbon in the
+		-- rainbow's six bands; an owned or equipped Rainbow trail carries over (ProfileService)
+		{ Key = "Rainbow", Name = "Rainbow", Rarity = "Legendary", Color = Color3.fromRGB(255, 160, 40), Trail = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) } },
 		-- Halloween (Limited: only from Config.Halloween's banner and shop)
 		-- Pumpkin: deep burnt orange with its green stem; Ectoplasm: a pale ghost glow into mint and
 		-- deep teal (Lime is the plain green); Blood Moon: blood red into black, dimly lit
@@ -624,8 +627,6 @@ Config.Cosmetics = {
 		{ Key = "Flame", Name = "Flame", Rarity = "Epic" },
 		{ Key = "Lightning", Name = "Lightning", Rarity = "Epic" },
 		{ Key = "Stardust", Name = "Stardust", Rarity = "Legendary" },
-		-- a solid ribbon in its own colours, whatever the spike colour (the owner: "colored trails")
-		{ Key = "Rainbow", Name = "Rainbow", Rarity = "Legendary", Solid = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }, Emission = 0.7 },
 		-- Halloween (Limited). Bat Swarm: a violet-black ribbon with bats circling the ball the whole
 		-- flight (Fx.batRing; the owner: "batswarm should have a bat flying around effect. it only is
 		-- a color right now") and more beating off it (TrailBats). Souls is the Reaper skin's

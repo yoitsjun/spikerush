@@ -159,6 +159,7 @@ function Lobbies.botPicks(l)
 	if not Lobbies.canPick(l) or not l.picks then
 		return out
 	end
+	out.host = l.host -- (whose skins the picked bots wear: TeamService.assign)
 	for _, side in ipairs(SIDES) do
 		for i = #l[side] + 1, l.mode do
 			local id = l.picks[side][i]
