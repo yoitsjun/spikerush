@@ -640,11 +640,13 @@ function ClanMenu.refresh()
 	end
 	if not valid[tab] then
 		tab = inClan and "Members" or "Find"
-		if inClan then
-			ui.inSet(tab)
-		else
-			ui.outSet(tab)
-		end
+	end
+	-- the yellow mark on the row showing, every time (Top clans is on both rows, so switching rows
+	-- on it left the new row unmarked: the owner, 2026-10-25, "make the yellow highlight which slot im on")
+	if inClan then
+		ui.inSet(tab)
+	else
+		ui.outSet(tab)
 	end
 	ui.find.frame.Visible = tab == "Find"
 	ui.create.frame.Visible = tab == "Create"
