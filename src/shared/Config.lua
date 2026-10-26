@@ -699,10 +699,11 @@ Config.Cosmetics = {
 		{ Key = "WorldSlash", Name = "World Slash", Rarity = "Mythic" },
 		-- the ranked score effects (the owner, 2026-10-21: "lets start with ranked score effects",
 		-- one per rank from Gold, "if you lose the rank, you lose the explosion"): never on a banner;
-		-- you hold one while your rank this season is that one or higher (Ranked.effectsFor). Season:
-		-- the ranked season they belong to (the owner, 2026-10-25: "rank rewards by season. make the
-		-- effects for this season s1 bound and next time we will have new ones"): nobody holds them in
-		-- another season, and the Locker shows only this season's; a new season adds its own rows
+		-- reaching that rank (or higher) in its Season earns it for good (Ranked.effectsFor; the owner,
+		-- 2026-10-25: "keep the rewards permanently"). Season: the ranked season it's earned in ("rank
+		-- rewards by season. make the effects for this season s1 bound and next time we will have new
+		-- ones"): nobody earns it in another season, and the Locker shows this season's and the ones you
+		-- earned; a new season adds its own rows
 		{ Key = "RankGold", Name = "Gold Crest", Rarity = "Legendary", Ranked = "Gold", Season = 1 },
 		{ Key = "RankPlatinum", Name = "Platinum Spires", Rarity = "Legendary", Ranked = "Platinum", Season = 1 },
 		{ Key = "RankDiamond", Name = "Diamond Storm", Rarity = "Mythic", Ranked = "Diamond", Season = 1 },

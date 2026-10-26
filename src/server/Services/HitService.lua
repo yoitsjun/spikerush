@@ -165,6 +165,11 @@ function HitService.process(entity, input, opts)
 		if input.t >= path.landing.t then
 			return false, "landed"
 		end
+		-- through under the net: a fault the moment it went under (MatchService.judge), so no touch
+		-- after it counts (a dig or block on the far side used to start a new rally from there)
+		if path.flags.underNetT and input.t >= path.flags.underNetT then
+			return false, "undernet"
+		end
 		local truePos = BallPhysics.positionAt(path, input.t)
 		if opts.fromClient then
 			if (truePos - input.ball).Magnitude > Config.Net.BallTolerance then

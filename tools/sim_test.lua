@@ -121,6 +121,30 @@ do
 	check(ok2 and res2.meta.kmh >= 108 and res2.meta.kmh < 124, "edge contact below the apex is the weak end", string.format("%.1f km/h, contact %.2f", ok2 and res2.meta.kmh or 0, ok2 and res2.meta.contact or 0))
 end
 
+print("== under the net ==")
+do
+	-- (the owner, 2026-10-25: "down tilts and sets can go under the net and does NOT count a fault"):
+	-- the path marks when it went under, and HitService refuses every touch from then on
+	local tae = Characters.derive(Characters.fromRoster(Roster.get("taeha"), "max"))
+	local n, marked = 0, 0
+	for _, ab in ipairs({ "ZeroPoint", false }) do
+		for _, dist in ipairs({ 1.5, 2.5, 4 }) do
+			local root = apexRoot(tae, dist * SPM)
+			local ok, res = spike(root, ballAt(root, 3, 0), { ability = ab or nil, stats = tae })
+			local path = ok and BallPhysics.buildPath(res.launch)
+			if path and path.flags.underNet then
+				n = n + 1
+				local t = path.flags.underNetT
+				local p = t and BallPhysics.positionAt(path, t)
+				if t and t < path.landing.t and math.abs(p.Z) < 1 and p.Y < C.NetBottom then
+					marked = marked + 1
+				end
+			end
+		end
+	end
+	check(n >= 3 and marked == n, "a down tilt under the net is marked dead from the moment it goes under", string.format("%d of %d under-net spikes marked", marked, n))
+end
+
 print("== spike direction from relative position ==")
 do
 	local root = apexRoot(SP, 3.0 * K)
@@ -3148,11 +3172,11 @@ do
 		onBanner = onBanner or (Spins.item("Effect", row.item.Key).Ranked ~= nil)
 	end
 	check(count(silver) == 0 and gold.RankGold and count(gold) == 1 and dia3.RankDiamond and dia3.RankPlatinum and not dia3.RankMighty and count(mighty) == 4 and count(almighty) == 5 and not onBanner,
-		"ranked score effects: one a rank from Gold, held at that rank or higher (lost below it), never on a banner",
+		"ranked score effects: one a rank from Gold, earned at that rank or higher (kept for good: ProfileService), never on a banner",
 		string.format("Silver %d, Gold %d, Diamond III %d, Mighty %d, Almighty %d", count(silver), count(gold), count(dia3), count(mighty), count(almighty)))
 	-- (the owner, 2026-10-25: "make the effects for this season s1 bound")
 	local s2 = Ranked.effectsFor(2500, 2)
-	check(count(s2) == 0 and Spins.item("Effect", "RankGold").Season == 1, "ranked score effects: Season 1's are nobody's in Season 2, even at Almighty", string.format("Season 2 Almighty holds %d", count(s2)))
+	check(count(s2) == 0 and Spins.item("Effect", "RankGold").Season == 1, "ranked score effects: Season 1's can't be earned in Season 2, even at Almighty", string.format("Season 2 Almighty holds %d", count(s2)))
 end
 
 print("== ranked leavers ==")

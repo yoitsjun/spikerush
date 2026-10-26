@@ -522,21 +522,20 @@ local function owns(profile, kind, k)
 	return profile.owned[kind] ~= nil and profile.owned[kind][k] == true
 end
 
--- The ranked score effects follow the rank you hold this season (Ranked.effectsFor): one at your
--- rank or under it is yours, one above it isn't (the owner: "if you lose the rank, you lose the
--- explosion"). Returns whether anything changed.
+-- The ranked score effects: reaching a rank this season earns that season's effect for it and the
+-- ones under it (Ranked.effectsFor), and it's yours for good, past the season and past dropping
+-- below the rank (the owner, 2026-10-25: "keep the rewards permanently its stupid if they get
+-- removed"; until then: "if you lose the rank, you lose the explosion"). Returns whether anything
+-- changed.
 local function syncRankedEffects(profile)
 	profile.ranked = Ranked.clean(profile.ranked, Ranked.season(os.time()))
 	local held = Ranked.effectsFor(profile.ranked.rp, profile.ranked.season) -- (this season's only)
 	profile.owned.Effect = profile.owned.Effect or {}
 	local changed = false
 	for _, item in ipairs(Config.Cosmetics.Effect or {}) do
-		if item.Ranked then
-			local want = held[item.Key] or nil
-			if profile.owned.Effect[item.Key] ~= want then
-				profile.owned.Effect[item.Key] = want
-				changed = true
-			end
+		if item.Ranked and held[item.Key] and not profile.owned.Effect[item.Key] then
+			profile.owned.Effect[item.Key] = true
+			changed = true
 		end
 	end
 	return changed

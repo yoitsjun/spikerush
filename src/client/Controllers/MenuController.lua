@@ -4823,14 +4823,13 @@ local function buildLocker()
 		kindFrames[kind] = col
 		local bodies, events = {}, {}
 		for i, item in ipairs(COS[kind]) do
-			-- (the Reaper skin's Souls trail comes with the skin; another season's ranked effects aren't shown)
-			if not item.Hidden and not (item.Ranked and not Extra.Ranked.effectInSeason(item, Extra.Ranked.season(os.time()))) then
+			if not item.Hidden then -- (the Reaper skin's Souls trail comes with the skin)
 				local group = item.Ranked and "Ranked" or (item.Limited or "Normal")
 				if not bodies[group] then
 					if group == "Normal" then
 						bodies[group] = section(col, 1, "Normal", "From the banners")
 					elseif group == "Ranked" then
-						bodies[group] = section(col, 2, "Ranked  ·  Season " .. Extra.Ranked.season(os.time()), "This season only: yours while you hold the rank")
+						bodies[group] = section(col, 2, "Ranked", "Reach the rank in its season and it's yours for good")
 					else
 						table.insert(events, group)
 						local ev = Config[group]
@@ -4840,6 +4839,8 @@ local function buildLocker()
 				local card = lockerCard(bodies[group], kind, item)
 				card.button.LayoutOrder = i
 				card.button.Visible = true
+				-- another season's ranked effect shows only once you've earned it (the refresh below)
+				card.pastSeason = item.Ranked ~= nil and not Extra.Ranked.effectInSeason(item, Extra.Ranked.season(os.time()))
 				chips[kind][item.Key] = card
 			end
 		end
@@ -4903,8 +4904,8 @@ local function buildLocker()
 		if owns(prof, lockerKind, key) then
 			Net.get("Profile"):FireServer("equip", lockerKind, key)
 		elseif rankedItem and rankedItem.Ranked then
-			-- a ranked score effect: held while you hold its rank this season
-			toast(string.format("Reach %s in ranked to use this. Drop below it and it's gone again.", rankedItem.Ranked))
+			-- a ranked score effect: earned by reaching its rank in its season, for good
+			toast(string.format("Reach %s in ranked this season and it's yours for good.", rankedItem.Ranked))
 		else
 			banner = lockerKind
 			recruitTab = "Cosmetic"
@@ -5021,6 +5022,9 @@ local function refreshLocker(prof)
 		L.kindFrames[kind].Visible = kind == lockerKind
 		for key, card in pairs(list) do
 			local have = owns(prof, kind, key)
+			if card.pastSeason then
+				card.button.Visible = have
+			end
 			if key == equipped then
 				card.state.Text = "EQUIPPED"
 				card.state.TextColor3 = card.color
@@ -5053,7 +5057,7 @@ local function refreshLocker(prof)
 	local item = Spins.item(lockerKind, key)
 	L.custom.Visible = lockerKind == "Effect" and key == "Grave" and owns(prof, "Effect", "Grave")
 	L.pickName.Text = item and item.Name or key
-	L.pickSub.Text = item and string.format('<font color="#%s">%s</font>  %s', Spins.rarityColor(item.Rarity):ToHex(), item.Rarity, item.Ranked and string.format("Ranked Season %d: yours while you're %s or higher this season", item.Season or Extra.Ranked.season(os.time()), item.Ranked) or SP.Banners[lockerKind].Name) or ""
+	L.pickSub.Text = item and string.format('<font color="#%s">%s</font>  %s', Spins.rarityColor(item.Rarity):ToHex(), item.Rarity, item.Ranked and string.format("Ranked Season %d: reach %s that season and it's yours for good", item.Season or Extra.Ranked.season(os.time()), item.Ranked) or SP.Banners[lockerKind].Name) or ""
 	-- the character you play wears a skin with its own jump (the Fallen Angel): say it takes over
 	local skinKey = lockerKind == "Jump" and prof.char and Extra.HW.skinOf(prof.skins, prof.char) or nil
 	local skinDef = skinKey and Config.Halloween.Skins[skinKey]

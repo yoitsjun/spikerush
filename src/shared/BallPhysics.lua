@@ -110,6 +110,9 @@ local function scan(s, flags)
 			end
 			if cp.Y <= C.NetBottom - R and ax <= C.NetHalfWidth then
 				flags.underNet = true
+				-- when it went under: dead from then on, nobody can touch it on the far side (HitService;
+				-- the owner, 2026-10-25: a dig or block there was scoring a down tilt under the net)
+				flags.underNetT = flags.underNetT or (s.t0 + (s.hold or 0) + tc)
 			end
 			flags.crossings = (flags.crossings or 0) + 1
 		end
