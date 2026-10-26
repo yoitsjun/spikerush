@@ -65,9 +65,15 @@ function Ranked.badgeKeys()
 	return out
 end
 
+-- Whether a ranked score effect belongs to `season` (Config.Cosmetics.Effect's Season).
+function Ranked.effectInSeason(item, season)
+	return item.Season == nil or item.Season == season
+end
+
 -- The ranked score effects (Config.Cosmetics.Effect with Ranked = a rank's Key) an RP total holds:
--- { key = true } for each one at that rank or below it (you lose one when you drop under its rank).
-function Ranked.effectsFor(rp)
+-- { key = true } for each one at that rank or below it (you lose one when you drop under its rank),
+-- of `season`'s only (an item's Season; one without is any season's).
+function Ranked.effectsFor(rp, season)
 	local idx = Ranked.rankOf(rp)
 	local order = {}
 	for i, r in ipairs(R.Ranks) do
@@ -75,7 +81,7 @@ function Ranked.effectsFor(rp)
 	end
 	local out = {}
 	for _, item in ipairs(Config.Cosmetics.Effect or {}) do
-		if item.Ranked and order[item.Ranked] and idx >= order[item.Ranked] then
+		if item.Ranked and order[item.Ranked] and idx >= order[item.Ranked] and Ranked.effectInSeason(item, season) then
 			out[item.Key] = true
 		end
 	end

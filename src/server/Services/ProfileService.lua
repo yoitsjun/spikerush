@@ -527,7 +527,7 @@ end
 -- explosion"). Returns whether anything changed.
 local function syncRankedEffects(profile)
 	profile.ranked = Ranked.clean(profile.ranked, Ranked.season(os.time()))
-	local held = Ranked.effectsFor(profile.ranked.rp)
+	local held = Ranked.effectsFor(profile.ranked.rp, profile.ranked.season) -- (this season's only)
 	profile.owned.Effect = profile.owned.Effect or {}
 	local changed = false
 	for _, item in ipairs(Config.Cosmetics.Effect or {}) do

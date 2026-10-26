@@ -3136,7 +3136,7 @@ do
 		for _ in pairs(t) do n = n + 1 end
 		return n
 	end
-	local silver, gold, dia3, mighty, almighty = Ranked.effectsFor(500), Ranked.effectsFor(650), Ranked.effectsFor(1450), Ranked.effectsFor(1600), Ranked.effectsFor(2500)
+	local silver, gold, dia3, mighty, almighty = Ranked.effectsFor(500, 1), Ranked.effectsFor(650, 1), Ranked.effectsFor(1450, 1), Ranked.effectsFor(1600, 1), Ranked.effectsFor(2500, 1)
 	local onBanner = false
 	for _, row in ipairs(Spins.table("Effect")) do
 		onBanner = onBanner or (Spins.item("Effect", row.item.Key).Ranked ~= nil)
@@ -3144,6 +3144,9 @@ do
 	check(count(silver) == 0 and gold.RankGold and count(gold) == 1 and dia3.RankDiamond and dia3.RankPlatinum and not dia3.RankMighty and count(mighty) == 4 and count(almighty) == 5 and not onBanner,
 		"ranked score effects: one a rank from Gold, held at that rank or higher (lost below it), never on a banner",
 		string.format("Silver %d, Gold %d, Diamond III %d, Mighty %d, Almighty %d", count(silver), count(gold), count(dia3), count(mighty), count(almighty)))
+	-- (the owner, 2026-10-25: "make the effects for this season s1 bound")
+	local s2 = Ranked.effectsFor(2500, 2)
+	check(count(s2) == 0 and Spins.item("Effect", "RankGold").Season == 1, "ranked score effects: Season 1's are nobody's in Season 2, even at Almighty", string.format("Season 2 Almighty holds %d", count(s2)))
 end
 
 print("== ranked leavers ==")

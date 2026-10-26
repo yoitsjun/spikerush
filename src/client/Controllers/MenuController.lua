@@ -4823,13 +4823,14 @@ local function buildLocker()
 		kindFrames[kind] = col
 		local bodies, events = {}, {}
 		for i, item in ipairs(COS[kind]) do
-			if not item.Hidden then -- (the Reaper skin's Souls trail comes with the skin)
+			-- (the Reaper skin's Souls trail comes with the skin; another season's ranked effects aren't shown)
+			if not item.Hidden and not (item.Ranked and not Extra.Ranked.effectInSeason(item, Extra.Ranked.season(os.time()))) then
 				local group = item.Ranked and "Ranked" or (item.Limited or "Normal")
 				if not bodies[group] then
 					if group == "Normal" then
 						bodies[group] = section(col, 1, "Normal", "From the banners")
 					elseif group == "Ranked" then
-						bodies[group] = section(col, 2, "Ranked", "Yours while you hold the rank this season")
+						bodies[group] = section(col, 2, "Ranked  ·  Season " .. Extra.Ranked.season(os.time()), "This season only: yours while you hold the rank")
 					else
 						table.insert(events, group)
 						local ev = Config[group]
@@ -5052,7 +5053,7 @@ local function refreshLocker(prof)
 	local item = Spins.item(lockerKind, key)
 	L.custom.Visible = lockerKind == "Effect" and key == "Grave" and owns(prof, "Effect", "Grave")
 	L.pickName.Text = item and item.Name or key
-	L.pickSub.Text = item and string.format('<font color="#%s">%s</font>  %s', Spins.rarityColor(item.Rarity):ToHex(), item.Rarity, item.Ranked and string.format("Ranked: yours while you're %s or higher", item.Ranked) or SP.Banners[lockerKind].Name) or ""
+	L.pickSub.Text = item and string.format('<font color="#%s">%s</font>  %s', Spins.rarityColor(item.Rarity):ToHex(), item.Rarity, item.Ranked and string.format("Ranked Season %d: yours while you're %s or higher this season", item.Season or Extra.Ranked.season(os.time()), item.Ranked) or SP.Banners[lockerKind].Name) or ""
 	-- the character you play wears a skin with its own jump (the Fallen Angel): say it takes over
 	local skinKey = lockerKind == "Jump" and prof.char and Extra.HW.skinOf(prof.skins, prof.char) or nil
 	local skinDef = skinKey and Config.Halloween.Skins[skinKey]
