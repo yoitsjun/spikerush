@@ -6,7 +6,7 @@
 --   * in one: its header (emblem, [TAG] name, points and what's left to spend), Members (each
 --     one's stats since joining, and the owner's and officers' controls), Upgrades, Requests
 --     (a private clan's), Tag colour (yours, bought with your own share of points), Top clans,
---     Settings (the owner) and Leave.
+--     Settings (the owner's controls, and everyone's Leave; the owner's Transfer ownership).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -69,6 +69,34 @@ local function scroller(parent, props)
 	end
 	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, s)
 	return s
+end
+
+-- A button that only fires on the third press, each within 4 s of the last (the owner, 2026-10-25:
+-- "add like triple confirms" to Leave and Transfer ownership). Returns a reset for when its target changes.
+local CONFIRMS = { "Are you sure?", "Really? Press once more" }
+local function tripleConfirm(btn, lbl, idle, fire)
+	local presses, at = 0, nil
+	local function reset()
+		presses, at = 0, nil
+		lbl.Text = idle()
+	end
+	kit.onClick(btn, function()
+		presses = (at and os.clock() - at < 4) and presses + 1 or 1
+		if presses >= 3 then
+			reset()
+			fire()
+			return
+		end
+		at = os.clock()
+		lbl.Text = CONFIRMS[presses]
+		local mark = at
+		task.delay(4, function()
+			if at == mark then
+				reset()
+			end
+		end)
+	end)
+	return reset
 end
 
 local function row(parent, order, height)
@@ -378,7 +406,6 @@ local function fillMembers()
 				elseif m.role == "Officer" then
 					btn("Member", "demote")
 				end
-				btn("Make owner", "transfer")
 			end
 		end
 	end
@@ -535,7 +562,81 @@ local function buildSettings(body)
 		local jersey = m and m.up and (m.up.Jersey or 0) > 0
 		send("settings", { desc = desc.Text, public = ui.setPublic, minWins = tonumber(minWins.Text) or 0, emblem = (m and m.up and (m.up.Emblem or 0) > 0) and emblem.Text or nil, shirt = jersey and shirt.Text or nil, pants = jersey and pants.Text or nil })
 	end)
-	return { frame = f, desc = desc, minWins = minWins, emblem = emblem, shirt = shirt, pants = pants, setDoor = setDoor, nameBox = nameBox, tagBox = tagBox }
+	-- the owner's controls above sit in `own`; Transfer ownership and Leave sit in their own column
+	-- (moved off the member rows and the window's header, 2026-10-25)
+	local own = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 21 }, f)
+	for _, c in ipairs(f:GetChildren()) do
+		if c ~= own then
+			c.Parent = own
+		end
+	end
+	local give = make("Frame", { Position = UDim2.fromOffset(800, 0), Size = UDim2.new(1, -800, 0, 310), BackgroundTransparency = 1, ZIndex = 21 }, f)
+	label(give, { Text = "Transfer ownership", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Size = UDim2.new(1, 0, 0, 24) })
+	label(give, { Text = "Pick who gets the clan. You become an officer.", TextSize = 14, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 20) })
+	local picks = scroller(give, { Position = UDim2.fromOffset(0, 52), Size = UDim2.new(1, 0, 0, 200) })
+	local giveBtn, giveL = kit.hairButton(give, { Position = UDim2.fromOffset(0, 262), Size = UDim2.new(1, 0, 0, 44) }, "Pick a member", 17)
+	local function giveIdle()
+		return ui.giveTo and ("Make " .. ui.giveTo.name .. " owner") or "Pick a member"
+	end
+	local resetGive = tripleConfirm(giveBtn, giveL, giveIdle, function()
+		if ui.giveTo then
+			send("transfer", ui.giveTo.id)
+			ui.giveTo = nil
+			giveL.Text = giveIdle()
+		end
+	end)
+	local leaveF = make("Frame", { Position = UDim2.fromOffset(800, 330), Size = UDim2.new(1, -800, 0, 120), BackgroundTransparency = 1, ZIndex = 21 }, f)
+	label(leaveF, { Text = "Leave clan", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Size = UDim2.new(1, 0, 0, 24) })
+	local leaveHint = label(leaveF, { Text = "", TextSize = 14, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 38) })
+	local leaveBtn, leaveL = kit.hairButton(leaveF, { Position = UDim2.fromOffset(0, 70), Size = UDim2.new(1, 0, 0, 44) }, "Leave clan", 17)
+	tripleConfirm(leaveBtn, leaveL, function()
+		return "Leave clan"
+	end, function()
+		send("leave")
+	end)
+	return { frame = f, own = own, give = give, picks = picks, giveL = giveL, giveIdle = giveIdle, resetGive = resetGive, leaveF = leaveF, leaveHint = leaveHint, desc = desc, minWins = minWins, emblem = emblem, shirt = shirt, pants = pants, setDoor = setDoor, nameBox = nameBox, tagBox = tagBox }
+end
+
+-- the Transfer ownership picks: everyone but you, officers first
+local function fillGive()
+	local S = ui.settings
+	clearList(S.picks)
+	local others = {}
+	for _, mem in ipairs(data.mine.members or {}) do
+		if mem.id ~= player.UserId then
+			table.insert(others, mem)
+		end
+	end
+	table.sort(others, function(a, b)
+		if (a.role == "Officer") ~= (b.role == "Officer") then
+			return a.role == "Officer"
+		end
+		return (a.points or 0) > (b.points or 0)
+	end)
+	local still = false
+	for i, mem in ipairs(others) do
+		local picked = ui.giveTo and ui.giveTo.id == mem.id
+		still = still or picked
+		local b = make("TextButton", { Size = UDim2.new(1, -10, 0, 36), BackgroundColor3 = picked and Gui.LINE or Gui.NAVY, BorderSizePixel = 0, AutoButtonColor = false, Text = "", LayoutOrder = i, ZIndex = 22 }, S.picks)
+		Gui.corner(b, 6)
+		if picked then
+			make("UIStroke", { Color = Gui.SIGNAL, Thickness = 2 }, b)
+		end
+		label(b, { Text = mem.name or "?", display = true, TextSize = 17, Position = UDim2.fromOffset(10, 0), Size = UDim2.new(1, -100, 1, 0), TextTruncate = Enum.TextTruncate.AtEnd })
+		label(b, { Text = mem.role, TextSize = 14, TextColor3 = mem.role == "Officer" and BLUE or Gui.DIM, TextXAlignment = Enum.TextXAlignment.Right, Position = UDim2.new(1, -90, 0, 0), Size = UDim2.fromOffset(80, 36) })
+		kit.onClick(b, function()
+			ui.giveTo = { id = mem.id, name = mem.name or "?" }
+			S.resetGive() -- a new pick starts the three presses over
+			fillGive()
+		end)
+	end
+	if #others == 0 then
+		label(S.picks, { Text = "Nobody else is in the clan yet.", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.new(1, -10, 0, 36) })
+	end
+	if ui.giveTo and not still then
+		ui.giveTo = nil -- they left
+		S.resetGive()
+	end
 end
 
 local function fillSettings()
@@ -587,25 +688,6 @@ local function buildWindow()
 	local title = label(head, { Text = "", RichText = true, display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, Position = UDim2.fromOffset(68, 0), Size = UDim2.fromOffset(620, 38) })
 	local sub = label(head, { Text = "", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(68, 38), Size = UDim2.fromOffset(760, 20) })
 	ui.head = { frame = head, emblem = emblem, title = title, sub = sub }
-	local leave, leaveL = kit.hairButton(m.panel, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -150, 0, 24), Size = UDim2.fromOffset(120, 40), Visible = false, ZIndex = 23 }, "Leave", 16)
-	kit.onClick(leave, function()
-		-- press twice within 4 s
-		if ui.leaveArmed and os.clock() - ui.leaveArmed < 4 then
-			ui.leaveArmed = nil
-			leaveL.Text = "Leave"
-			send("leave")
-		else
-			ui.leaveArmed = os.clock()
-			leaveL.Text = "Sure?"
-			task.delay(4, function()
-				if ui.leaveArmed and os.clock() - ui.leaveArmed >= 4 then
-					ui.leaveArmed = nil
-					leaveL.Text = "Leave"
-				end
-			end)
-		end
-	end)
-	ui.leave = leave
 	local outSeg, outSet = kit.segmented(m.panel, OUT_TABS, { Position = UDim2.fromOffset(28, 86), Size = UDim2.fromOffset(480, 46), ZIndex = 22 }, ClanMenu.setTab)
 	local inSeg, inSet = kit.segmented(m.panel, IN_TABS, { Position = UDim2.fromOffset(28, 86), Size = UDim2.fromOffset(900, 46), ZIndex = 22 }, ClanMenu.setTab)
 	ui.outSeg, ui.outSet, ui.inSeg, ui.inSet = outSeg, outSet, inSeg, inSet
@@ -631,7 +713,6 @@ function ClanMenu.refresh()
 	ui.outSeg.Visible = not inClan
 	ui.inSeg.Visible = inClan
 	ui.head.frame.Visible = inClan
-	ui.leave.Visible = inClan
 	ui.window.title.Visible = not inClan
 	-- a tab the other side doesn't have goes back to its first
 	local valid = {}
@@ -677,10 +758,18 @@ function ClanMenu.refresh()
 	elseif tab == "Colors" then
 		fillColors()
 	elseif tab == "Settings" then
-		if role ~= "Owner" then
-			ui.settings.frame.Visible = false
-		else
+		-- everyone gets Leave here; only the owner gets the rest (and the column moves left without it)
+		local S = ui.settings
+		local owner = role == "Owner"
+		S.own.Visible, S.give.Visible = owner, owner
+		S.leaveF.Position = owner and UDim2.fromOffset(800, 330) or UDim2.fromOffset(0, 0)
+		S.leaveF.Size = owner and UDim2.new(1, -800, 0, 120) or UDim2.fromOffset(324, 120)
+		if owner then
+			S.leaveHint.Text = (mine.count or 1) > 1 and "The clan goes to your top officer (or top member). Transfer it first to choose." or "You're the only one in it, so it closes."
 			fillSettings()
+			fillGive()
+		else
+			S.leaveHint.Text = "The points you earned stay with the clan."
 		end
 	end
 end
