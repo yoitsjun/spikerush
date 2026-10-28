@@ -1,0 +1,12 @@
+[
+ {"old": "SpikeRushFX5", "file": "art/SpikeRushFX5.fbx", "type": "Model", "name": "FxMeshes A"},
+ {"old": "SpikeRushFX3", "file": "art/SpikeRushFX3.fbx", "type": "Model", "name": "FxMeshes B"},
+ {"old": "SpikeRushFX6", "file": "art/SpikeRushFX6.fbx", "type": "Model", "name": "FxMeshes C"},
+ {"old": "ScoreFxMeshes", "file": "assets/fx/ScoreFxMeshes.fbx", "type": "Model", "name": "ScoreFx meshes"},
+ {"old": "FallenAngel", "file": "assets/skins/FallenAngel.fbx", "type": "Model", "name": "FallenAngel"},
+ {"old": "ReaperScythe", "file": "assets/skins/ReaperScythe.fbx", "type": "Model", "name": "ReaperScythe"},
+ {"old": "BallSkinMeshes", "file": "assets/balls/BallSkinMeshes.fbx", "type": "Model", "name": "Ball skin meshes"},
+ {"old": "BallPumpkin", "file": "assets/balls/BallPumpkin.fbx", "type": "Model", "name": "BallPumpkin"},
+ {"old": "BallWitchHat", "file": "assets/balls/BallWitchHat.fbx", "type": "Model", "name": "BallWitchHat"},
+ {"old": "HalloweenSprites", "file": "assets/fx/halloween/HalloweenSprites.fbx", "type": "Model", "name": "HalloweenSprites"}
+]

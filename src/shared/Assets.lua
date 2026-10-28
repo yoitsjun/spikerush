@@ -468,15 +468,15 @@ Assets.Fx = {
 	ToonElectric = "111494882405387", -- jagged bolts crackling out, new ones every frame
 	ToonBurst = "138250827688419", -- a spiky star blast ringing out
 	-- the Halloween event's (tools/generate_halloween_textures.py, the PNGs in assets/fx/halloween).
-	-- Uploaded again as Jun Games Production on 2026-10-28 (tools/opencloud_upload.py) after the old
-	-- group's copies were lost with the account; a fresh upload can take a while to show up.
-	SoulWisp = "140433134651677", -- a screaming soul with a wispy tail (the Reaper's Souls trail)
-	Skull = "108395940507939", -- a skull with hollow eyes
-	GhostSheet = "79976106496360", -- a sheet ghost, black eyes (Ghost Swarm)
-	Bat = "138032965469941", -- a bat, wings spread
-	BatFlap = "97090408258410", -- a bat's wingbeat, a 2x2 flipbook played on a loop (Bat Swarm)
-	InkSplat = "92575437361228", -- a splash of ink with flung streaks
-	CandyCorn = "130079234129661", -- a candy corn in its own colours (not tinted)
+	-- The copies that came in HalloweenSprites.fbx, uploaded again as Jun Games Production on
+	-- 2026-10-28 (tools/meshes_manifest.json): FBX-embedded textures load at once.
+	SoulWisp = "99931500530389", -- a screaming soul with a wispy tail (the Reaper's Souls trail)
+	Skull = "131429931090679", -- a skull with hollow eyes
+	GhostSheet = "125781948678297", -- a sheet ghost, black eyes (Ghost Swarm)
+	Bat = "133450613318178", -- a bat, wings spread
+	BatFlap = "127489609038048", -- a bat's wingbeat, a 2x2 flipbook played on a loop (Bat Swarm)
+	InkSplat = "110148383136194", -- a splash of ink with flung streaks
+	CandyCorn = "106176482222720", -- a candy corn in its own colours (not tinted)
 }
 
 -- The ball skins' textures (tools/generate_ball_skins.py, the PNGs in assets/balls): equirectangular
@@ -490,10 +490,10 @@ Assets.BallSkins = {
 	Galaxy = "78486839153788",
 	Planet = "96923597581404",
 	-- the owner's Halloween balls, baked in Blender onto their own UVs (assets/balls/Pumpkin.png and
-	-- WitchHat.png, embedded in BallPumpkin.fbx and BallWitchHat.fbx), uploaded again as Jun Games
-	-- Production on 2026-10-28
-	Pumpkin = "120448295839444",
-	WitchHat = "104373825649292",
+	-- WitchHat.png, embedded in BallPumpkin.fbx and BallWitchHat.fbx): the FBX copies, uploaded again
+	-- as Jun Games Production on 2026-10-28
+	Pumpkin = "100236614421455",
+	WitchHat = "135830846515653",
 }
 
 -- Font families (a FontFace family: rbxasset://fonts/families/<Name>.json, or a Creator Store
