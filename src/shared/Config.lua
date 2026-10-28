@@ -1871,7 +1871,7 @@ Config.Abilities = {
 -- one loses it on its next load and gets a ticket per retired character it owned (once): the
 -- ticket recruits any TicketTier character it doesn't own yet (Home opens the pick).
 Config.Retired = {
-	Chars = { "hayun", "gaeul", "akira" }, -- Adrenaline (Shoyo stays), Iron Wall (Tetsuo), Chain Reaction (Seoyeon)
+	Chars = { "hayun", "gaeul", "akira" }, -- Adrenaline (Haruto stays), Iron Wall (Tetsuo), Chain Reaction (Seoyeon)
 	TicketTier = "S",
 }
 

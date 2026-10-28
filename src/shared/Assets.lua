@@ -66,7 +66,7 @@ Assets.Sounds = {
 	Serve = "9119334115", -- Pro Sound Effects: soccer chip shot, a hard thud
 	Slide = "",
 	Squeak = { "93928767284165", "121230189767569" }, -- "squeak 1" / "SQUEAK 2": a double approach's run-up starts
-	GuardBreak = "126675766605170", -- "jjs guard break" (the owner's pick, kept on their call)
+	GuardBreak = "9114593452", -- Pro Sound Effects "Glass Breaks 20": a guard shattering (replaced a sound ripped from another game, 2026-10-28)
 	-- the score blast where a point lands (VFXController's celebrate; the owner's uploads)
 	ScoreImpact = "91288569991875", -- Ground Slam 3 Explosion, Impact (the owner's pick)
 	ScoreShockwave = "9125484367", -- Pro Sound Effects: deep reverberant boom, rumbling tail
@@ -130,8 +130,8 @@ Assets.Sounds = {
 	Bloodlust = "9116292530", -- Dante's Bloodlust (Q): "Lion Roar Beast Snarl 5" (Pro Sound Effects)
 	SinisterLaugh = "9067394653", -- a Mythic skin's pull, as the scythe cuts the screen open: "deep demonic laugh 1" (zapsplat)
 	-- the S+ skins' own (the owner, 2026-10-16: "lets make some custom sfx for the 2 s+ skins")
-	ReaperSwing = "106480446539437", -- the scythe through every spike: "Kali_Special_Vert_Atk [LoR]" (Library of Ruina)
-	ReaperSlash = "112710059259649", -- its slice on a hard one: "rien scythe slash (1)" (the Red Mist split that was here was the swing's own file)
+	ReaperSwing = "9120629501", -- the scythe through every spike: Pro Sound Effects "Web Whoosh Fast Heavy Swooshes 1"
+	ReaperSlash = "9119742466", -- its slice on a hard one: Pro Sound Effects "Sword Draw Clang Unsheathing Two Sabers 1"
 	ReaperSouls = "9114170094", -- souls wailing where a Souls ball lands: "Dream Weirdness Constant 6" (Pro Sound Effects, Ghosts)
 	ReaperFrame = "108165623473748", -- the Reaper's impact frame: "black wipe jwoomph faster attack"
 	FallenArms = "9114628818", -- the underworld's arms clawing up: "Goliath Vocal Deep Growling Voice 22" (Pro Sound Effects)
@@ -227,8 +227,7 @@ Assets.SoundFiles = {
 	["9116292530"] = { start = 0.38, gain = 2.1 }, -- Bloodlust "Lion Roar Beast Snarl 5": 0.4 s in, peak 187
 	["9067394653"] = { start = 0.02, gain = 2.8 }, -- SinisterLaugh "deep demonic laugh 1": peak 132
 	-- the S+ skins' own (measured 2026-10-16 at Volume 0.5; a layer under another sound sits lower)
-	["106480446539437"] = { gain = 0.6 }, -- ReaperSwing "Kali_Special_Vert_Atk": peak 579, under every spike
-	["112710059259649"] = { gain = 0.9 }, -- ReaperSlash "rien scythe slash (1)": peak 445
+	["9120629501"] = { gain = 0.6 }, -- ReaperSwing: under every spike (by ear)
 	["9114170094"] = { start = 0.8, gain = 6.5 }, -- ReaperSouls "Dream Weirdness Constant 6": in by 0.9 s, peak 38, a wail under the landing
 	["108165623473748"] = { gain = 0.8 }, -- ReaperFrame "black wipe jwoomph faster attack": peak 479
 	["9114628818"] = { start = 0.06, gain = 2.5 }, -- FallenArms "Goliath Vocal Deep Growling Voice 22": peak 160
@@ -237,7 +236,6 @@ Assets.SoundFiles = {
 	["9120730294"] = { start = 0.26, gain = 1.6 }, -- ForgeHit: 0.28 s in, peak 253
 	["117922524763696"] = { gain = 0.5 }, -- Thunder: peak 798
 	["83411385693493"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491
-	["126675766605170"] = { start = 0.64, gain = 1.2 }, -- GuardBreak: faint noise, then the hit at 0.65 s, peak 340
 	["9118113825"] = { start = 0.1, gain = 1.8 }, -- Whistle: peak 217
 	["9119335569"] = { gain = 6 }, -- Block: peak 47
 	["9120256647"] = { start = 0.12, gain = 1.2 }, -- StuffSlam: peak 328
