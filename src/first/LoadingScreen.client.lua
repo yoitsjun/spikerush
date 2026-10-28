@@ -1,6 +1,6 @@
 -- Loading screen (ReplicatedFirst, so it shows before anything else loads).
--- A single frame held like a freeze in a replay: a flat amber screen, a pillar of light with a
--- black ball at its top, and the SPIKE RUSH logo top left. While the game loads, a quiet line on
+-- A single frame held like a freeze in a replay: a flat cyan screen, a pillar of light with a
+-- black ball at its top, and the VOLLEYBALL RUSH logo top left. While the game loads, a quiet line on
 -- the right says so (and a tip sits bottom left). Once the controllers run (Main.client sets
 -- "SpikeRushLoaded") and your avatar has loaded, its silhouette rises into the pillar and holds
 -- the bow-draw, the pointing hand just under the ball: the frame freezes on "Click to continue".
@@ -21,10 +21,10 @@ local player = Players.LocalPlayer
 local MAX_WAIT = 25 -- never hold a player on the loading part longer than this
 local MIN_LOAD = 1.5 -- the loading line shows at least this long
 
-local AMBER = Color3.fromRGB(255, 198, 41)
+local CYAN = Color3.fromRGB(0, 214, 240)
 local INK = Color3.fromRGB(16, 18, 34)
-local BEAM = Color3.fromRGB(255, 247, 214)
-local ORANGE = Color3.fromRGB(255, 122, 24)
+local BEAM = Color3.fromRGB(228, 252, 255)
+local MAGENTA = Color3.fromRGB(255, 46, 170)
 local WHITE = Color3.new(1, 1, 1)
 local MONTSERRAT = "rbxasset://fonts/families/Montserrat.json"
 local LOGO_FACE = Font.new(MONTSERRAT, Enum.FontWeight.Heavy, Enum.FontStyle.Italic) -- Heavy is 900: Montserrat Black
@@ -73,7 +73,7 @@ pcall(function()
 	ReplicatedFirst:RemoveDefaultLoadingScreen()
 end)
 
-local bg = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = AMBER, BorderSizePixel = 0 }, gui)
+local bg = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = CYAN, BorderSizePixel = 0 }, gui)
 
 -- the stage: the silhouette, the pillar and the ball (shaken together on the hit)
 local stage = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, bg)
@@ -110,13 +110,13 @@ make("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.
 local flash = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 30 }, gui)
 
 ------------------------------------------------------------------------------------------
--- the logo: SPIKE in white with an ink outline, an orange rim and an ink extrude; RUSH in an
--- orange-to-gold gradient tucked under it with three speed marks; tilted up a few degrees
+-- the logo: VOLLEYBALL in white with an ink outline, a magenta rim and an ink extrude; RUSH in
+-- a magenta-to-pink gradient tucked under it with three speed marks; tilted up a few degrees
 ------------------------------------------------------------------------------------------
 
 local function buildLogo(parent)
 	local box = make("Frame", { BackgroundTransparency = 1, Rotation = -4, ZIndex = 10 }, parent)
-	make("UIAspectRatioConstraint", { AspectRatio = 2.15 }, box)
+	make("UIAspectRatioConstraint", { AspectRatio = 2.6 }, box)
 	local function word(text, pos, size, color, z)
 		return make("TextLabel", {
 			BackgroundTransparency = 1,
@@ -130,19 +130,19 @@ local function buildLogo(parent)
 			ZIndex = z,
 		}, box)
 	end
-	local spikeSize = UDim2.fromScale(1, 0.64)
-	local extrude = word("SPIKE", UDim2.new(), spikeSize, INK, 10)
-	local rim = word("SPIKE", UDim2.new(), spikeSize, ORANGE, 11)
-	local face = word("SPIKE", UDim2.new(), spikeSize, WHITE, 12)
-	local rush = word("RUSH", UDim2.fromScale(0.36, 0.58), UDim2.fromScale(0.6, 0.38), WHITE, 12)
-	make("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 214, 70), Color3.fromRGB(255, 108, 20)) }, rush)
+	local topSize = UDim2.fromScale(1, 0.5)
+	local extrude = word("VOLLEYBALL", UDim2.new(), topSize, INK, 10)
+	local rim = word("VOLLEYBALL", UDim2.new(), topSize, MAGENTA, 11)
+	local face = word("VOLLEYBALL", UDim2.new(), topSize, WHITE, 12)
+	local rush = word("RUSH", UDim2.fromScale(0.36, 0.47), UDim2.fromScale(0.6, 0.5), WHITE, 12)
+	make("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 150, 220), MAGENTA) }, rush)
 	local function stroke(label, color)
 		return make("UIStroke", { Color = color, LineJoinMode = Enum.LineJoinMode.Round }, label)
 	end
 	-- stroke widths as fractions of the logo's height
 	local strokes = {
 		{ stroke(extrude, INK), 0.05 },
-		{ stroke(rim, ORANGE), 0.07 },
+		{ stroke(rim, MAGENTA), 0.07 },
 		{ stroke(face, INK), 0.032 },
 		{ stroke(rush, INK), 0.03 },
 	}
@@ -150,7 +150,7 @@ local function buildLogo(parent)
 	for i, len in ipairs({ 0.2, 0.15, 0.1 }) do
 		local m = make("Frame", {
 			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.fromScale(0.335 - (i - 1) * 0.015, 0.68 + (i - 1) * 0.1),
+			Position = UDim2.fromScale(0.335 - (i - 1) * 0.015, 0.6 + (i - 1) * 0.12),
 			Size = UDim2.fromScale(len, 0.045),
 			BackgroundColor3 = WHITE,
 			BorderSizePixel = 0,

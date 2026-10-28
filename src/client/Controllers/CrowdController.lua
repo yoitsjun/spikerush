@@ -151,7 +151,7 @@ local function tickerText(courtId)
 	local home, away = State.teamName("Home"), State.teamName("Away") -- (a clan's name when most of a team is in it)
 	local court = Config.Courts.List[courtId]
 	local where = court and (court.Name .. "      ") or ""
-	return string.rep("Spike Rush      " .. home .. " vs " .. away .. "      " .. where, 4)
+	return string.rep("Volleyball Rush      " .. home .. " vs " .. away .. "      " .. where, 4)
 end
 
 local function buildBoards(scene, courtId)
@@ -236,7 +236,7 @@ local function refreshJumbo(flash)
 		local sets = m.sets or {}
 		sub = string.format("Set %d, sets %d-%d", m.setNumber or 1, sets.Home or 0, sets.Away or 0)
 	else
-		text = "Spike Rush"
+		text = "Volleyball Rush"
 		sub = "Next match soon"
 	end
 	if flash then

@@ -1,4 +1,4 @@
--- Spike Rush client bootstrap.
+-- Volleyball Rush client bootstrap.
 
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")

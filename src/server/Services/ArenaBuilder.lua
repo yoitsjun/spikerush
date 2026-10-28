@@ -461,7 +461,7 @@ COURTS.Arena = {
 			wall = Color3.fromRGB(24, 28, 58),
 			accentA = HOME,
 			accentB = AWAY,
-			bannerText = "SPIKE RUSH",
+			bannerText = "VOLLEYBALL RUSH",
 			bannerColor = CHALK,
 			ceiling = Color3.fromRGB(14, 16, 30),
 			light = Color3.fromRGB(255, 244, 226),
@@ -761,7 +761,7 @@ COURTS.Rooftop = {
 		for _, sz in ipairs({ -1, 1 }) do
 			deco(part(scene, "Parapet", Vector3.new(W + 100, 3.2, 1.6), CFrame.new(W / 2 - 50, 1.6, sz * (D + 1)), concrete, Enum.Material.Concrete))
 		end
-		banner(scene, "Tag", Vector3.new(0.3, 2.6, 30), CFrame.new(W - 0.1, 1.6, -58), Enum.NormalId.Left, "SPIKE RUSH", Color3.fromRGB(255, 90, 170), Color3.fromRGB(128, 130, 138))
+		banner(scene, "Tag", Vector3.new(0.3, 2.6, 30), CFrame.new(W - 0.1, 1.6, -58), Enum.NormalId.Left, "VOLLEYBALL RUSH", Color3.fromRGB(255, 90, 170), Color3.fromRGB(128, 130, 138))
 		stands(scene, id, function(row)
 			return row.index % 2 == 0 and Color3.fromRGB(120, 128, 142) or Color3.fromRGB(100, 108, 122)
 		end, Enum.Material.Metal)
@@ -842,7 +842,7 @@ COURTS.Rooftop = {
 			end
 		end
 		deco(part(city, "Street", Vector3.new(900, 1, 1400), CFrame.new(W + 450, -120, 0), Color3.fromRGB(20, 22, 30), Enum.Material.Asphalt))
-		banner(city, "Sign", Vector3.new(0.4, 10, 44), CFrame.new(W + 88, 62, -120), Enum.NormalId.Left, "SPIKE RUSH", Color3.fromRGB(255, 80, 170), Color3.fromRGB(20, 18, 30))
+		banner(city, "Sign", Vector3.new(0.4, 10, 44), CFrame.new(W + 88, 62, -120), Enum.NormalId.Left, "VOLLEYBALL RUSH", Color3.fromRGB(255, 80, 170), Color3.fromRGB(20, 18, 30))
 		-- the score screens in front of the bleachers
 		screens(scene, { frame = Color3.fromRGB(46, 48, 58) })
 		ledBoards(scene, true)

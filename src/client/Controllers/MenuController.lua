@@ -1868,7 +1868,7 @@ function Extra.refreshHowTo()
 	end
 	local tut = profile().tutorial
 	HT.skip.Visible = tut ~= nil and tut.done ~= true -- (only while it's still to do)
-	HT.sub.Text = Extra.mustTutorial() and "Welcome to Spike Rush! Here are the controls; the tutorial teaches them one at a time (a couple of minutes, with a reward)." or "The controls; the tutorial teaches them one at a time."
+	HT.sub.Text = Extra.mustTutorial() and "Welcome to Volleyball Rush! Here are the controls; the tutorial teaches them one at a time (a couple of minutes, with a reward)." or "The controls; the tutorial teaches them one at a time."
 end
 
 -- forced: a new player's (no closing it).
@@ -7284,7 +7284,7 @@ function Extra.promptFavorite()
 		Extra.AES:PromptSetFavorite(game.PlaceId, Enum.AvatarItemType.Asset, true)
 	end)
 	if not ok then
-		toast("Favorite Spike Rush on its Roblox page (the star), and give it a like!")
+		toast("Favorite Volleyball Rush on its Roblox page (the star), and give it a like!")
 	end
 end
 -- Codes or Daily opened: check the favorite, and the first time a player who hasn't favorited
@@ -7575,7 +7575,7 @@ function Extra.refreshCodes(prof)
 	C.verify.Visible = not d.done
 	local reward = Economy.describe(Economy.cleanGrant(Config.Discord.Reward))
 	local code = d.code ~= "" and d.code or "CODE"
-	C.head.Text = (C.linkOk and "Verify in the Spike Rush Discord for " or "Verify in the Spike Rush community server for ") .. reward .. "."
+	C.head.Text = (C.linkOk and "Verify in the Volleyball Rush Discord for " or "Verify in the Volleyball Rush community server for ") .. reward .. "."
 	if d.done then
 		C.codeBox.Text = "Verified"
 		C.steps.Text = "You're verified. Thanks for joining! The Community Squad card is in your cards."
@@ -7584,7 +7584,7 @@ function Extra.refreshCodes(prof)
 		C.steps.Text = "1. Join the Discord with the link (copy it)\n2. In the Discord, type /discordverify " .. code .. "\n3. Come back here and click Verify"
 	else
 		C.codeBox.Text = d.code ~= "" and d.code or "..."
-		C.steps.Text = "1. Open the Spike Rush game page and join from the Community link\n2. There, type /discordverify " .. code .. "\n3. Come back here and click Verify"
+		C.steps.Text = "1. Open the Volleyball Rush game page and join from the Community link\n2. There, type /discordverify " .. code .. "\n3. Come back here and click Verify"
 	end
 end
 
@@ -8103,7 +8103,7 @@ function Extra.buildCrop()
 				return
 			end
 			if len <= 0 then
-				status.Text = "That sound wouldn't load. If it's your own upload, share it with Spike Rush on its Creator Hub page."
+				status.Text = "That sound wouldn't load. If it's your own upload, share it with Volleyball Rush on its Creator Hub page."
 				return
 			end
 			status.Text = ""

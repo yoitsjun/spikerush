@@ -1,4 +1,4 @@
--- Spike Rush configuration (2.5D side-view edition).
+-- Volleyball Rush configuration (2.5D side-view edition).
 -- Every gameplay number lives here so feel can be tuned in one place.
 --
 -- Units: M studs = 1 metre, so the HUD shows real km/h and hitting heights. The scale matches
@@ -14,7 +14,7 @@ local Config = {}
 
 local M = 4.6 -- studs per metre
 
-Config.GameName = "Spike Rush"
+Config.GameName = "Volleyball Rush"
 
 Config.Scale = {
 	StudsPerMeter = M,
@@ -761,7 +761,7 @@ Config.Perks = {
 	ScoreSound = {
 		-- the owner: "buff custom sound effects to be able to change spike sound, jump, and all that"
 		Name = "Custom sound effects",
-		Blurb = "Your own sounds when you score, spike, jump, serve, receive, set, block or feint. Use sound ids from the Creator Store, or your own uploads shared with Spike Rush.",
+		Blurb = "Your own sounds when you score, spike, jump, serve, receive, set, block or feint. Use sound ids from the Creator Store, or your own uploads shared with Volleyball Rush.",
 		VP = 3000,
 		PassId = 1998447396, -- "Custom Sound Effects", 199 Robux
 		Attribute = "ScoreSound",
@@ -886,7 +886,7 @@ Config.Cards = {
 		-- the Discord's card (Config.Discord): only from verifying your account in the Discord
 		-- (named for the community, not Discord: everyone sees cards, and Roblox lets only some players
 		-- see Discord named)
-		{ Key = "Discord", Name = "Community Squad", Stat = "grant", Grant = true, Goal = "Verify your account in the Spike Rush community server",
+		{ Key = "Discord", Name = "Community Squad", Stat = "grant", Grant = true, Goal = "Verify your account in the Volleyball Rush community server",
 			Look = { Base = Color3.fromRGB(14, 16, 44), Sweep = Color3.fromRGB(88, 101, 242), Accent = Color3.fromRGB(235, 238, 255), Edge = Color3.fromRGB(130, 142, 255), Pattern = "halftone", Big = "COMMUNITY\nSQUAD" } },
 		-- the owner, 2026-10-17: "add a halloween 2026 card also pullable": on the Halloween banner (and
 		-- by scout points), never earned
@@ -898,7 +898,7 @@ Config.Cards = {
 		-- time. maybe have a bug net on the right hand side hanging off": given from the admin panel
 		-- to players who report bugs; Fx.Net hangs a swaying bug net off the
 		-- card's right edge (Gui.playerCard)
-		{ Key = "BugCatcher", Name = "Bug Catcher", Stat = "grant", Grant = true, Goal = "Given for catching bugs in Spike Rush",
+		{ Key = "BugCatcher", Name = "Bug Catcher", Stat = "grant", Grant = true, Goal = "Given for catching bugs in Volleyball Rush",
 			Look = { Base = Color3.fromRGB(8, 28, 14), Sweep = Color3.fromRGB(110, 205, 60), Accent = Color3.fromRGB(255, 214, 80), Edge = Color3.fromRGB(140, 225, 80), Pattern = "halftone", Big = "BUG\nCATCHER", Fx = { Net = true } } },
 	},
 }

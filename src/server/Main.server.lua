@@ -1,4 +1,4 @@
--- Spike Rush server bootstrap.
+-- Volleyball Rush server bootstrap.
 -- Services receive a shared registry instead of requiring each other, which keeps the
 -- dependency graph flat and avoids circular requires.
 

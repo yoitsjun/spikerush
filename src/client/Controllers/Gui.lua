@@ -19,19 +19,21 @@ local Assets = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("As
 
 local Gui = {}
 
--- broadcast palette (from the volleyball: yellow, blue, white panels)
-Gui.NAVY = Color3.fromRGB(13, 27, 62)
-Gui.NAVY_LIGHT = Color3.fromRGB(26, 44, 92)
-Gui.SIGNAL = Color3.fromRGB(255, 210, 31)
-Gui.SIGNAL_HOT = Color3.fromRGB(255, 228, 110)
-Gui.BLUE = Color3.fromRGB(31, 87, 214)
-Gui.BLUE_HOT = Color3.fromRGB(62, 118, 240)
+-- broadcast palette (Volleyball Rush: electric cyan on deep navy, magenta highlights)
+Gui.NAVY = Color3.fromRGB(11, 16, 46)
+Gui.NAVY_LIGHT = Color3.fromRGB(26, 34, 88)
+Gui.SIGNAL = Color3.fromRGB(0, 229, 255)
+Gui.SIGNAL_HOT = Color3.fromRGB(125, 243, 255)
+Gui.MAGENTA = Color3.fromRGB(255, 46, 170)
+Gui.MAGENTA_HOT = Color3.fromRGB(255, 122, 206)
+Gui.BLUE = Color3.fromRGB(40, 92, 232)
+Gui.BLUE_HOT = Color3.fromRGB(72, 126, 248)
 Gui.CHALK = Color3.fromRGB(242, 245, 250)
-Gui.LINE = Color3.fromRGB(7, 13, 34)
+Gui.LINE = Color3.fromRGB(6, 10, 30)
 Gui.ALERT = Color3.fromRGB(232, 56, 79)
-Gui.DIM = Color3.fromRGB(150, 164, 196)
-Gui.HAIRLINE = Color3.fromRGB(222, 184, 96) -- the thin gold edge on every card
-Gui.CARD = Color3.fromRGB(12, 14, 22)
+Gui.DIM = Color3.fromRGB(150, 164, 204)
+Gui.HAIRLINE = Color3.fromRGB(255, 46, 170) -- the thin magenta edge on every card
+Gui.CARD = Color3.fromRGB(10, 12, 28)
 
 Gui.INK = Color3.fromRGB(16, 18, 30)
 Gui.WHITE = Color3.fromRGB(246, 247, 250)
@@ -106,13 +108,13 @@ function Gui.text(parent, props)
 	return l
 end
 
--- Big display title: gold gradient fill with an ink outline.
+-- Big display title: white-to-cyan gradient fill with an ink outline.
 function Gui.title(parent, props)
 	local l = Gui.text(parent, { Font = Gui.FONT_TITLE, TextSize = 44 })
 	for k, v in pairs(props or {}) do
 		l[k] = v
 	end
-	Gui.gradient(l, Color3.fromRGB(255, 244, 190), Gui.GOLD)
+	Gui.gradient(l, Color3.fromRGB(236, 255, 255), Gui.SIGNAL)
 	Gui.stroke(l, 3, Gui.INK, 0)
 	return l
 end
@@ -148,8 +150,8 @@ function Gui.primary(parent, text, props)
 		b[k] = v
 	end
 	Gui.corner(b, 6)
-	Gui.gradient(b, Color3.fromRGB(255, 214, 80), Color3.fromRGB(255, 170, 24))
-	Gui.stroke(b, 1.5, Gui.GOLD_DARK, 0.1, true)
+	Gui.gradient(b, Color3.fromRGB(120, 246, 255), Color3.fromRGB(0, 186, 255))
+	Gui.stroke(b, 1.5, Color3.fromRGB(0, 112, 168), 0.1, true)
 	return b
 end
 

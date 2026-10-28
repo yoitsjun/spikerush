@@ -936,7 +936,7 @@ local function furnishGym()
 		return
 	end
 	local body = box(gymProps, Vector3.new(9, 5, 6), CFrame.new(at + Vector3.new(0, 6, 0)), Color3.fromRGB(34, 74, 190), Enum.Material.Fabric)
-	surfaceText(body, Enum.NormalId.Back, "SPIKE RUSH", Color3.fromRGB(245, 245, 250), Enum.Font.FredokaOne)
+	surfaceText(body, Enum.NormalId.Back, "VOLLEYBALL RUSH", Color3.fromRGB(245, 245, 250), Enum.Font.FredokaOne)
 	box(gymProps, Vector3.new(9.2, 0.4, 6.2), CFrame.new(at + Vector3.new(0, 8.6, 0)), Color3.fromRGB(24, 54, 150), Enum.Material.Fabric)
 	for _, dx in ipairs({ -4.2, 4.2 }) do
 		for _, dz in ipairs({ -2.7, 2.7 }) do
