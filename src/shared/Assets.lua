@@ -325,22 +325,22 @@ Assets.Images = {
 	Smoke = "rbxasset://textures/particles/smoke_main.dds",
 	Fire = "rbxasset://textures/particles/fire_main.dds",
 	-- each ability's icon, on the HUD's round badges and the touch skill buttons (the owner's
-	-- reference was The Spike's own icons; these are Creator Store ones, white on clear)
-	AbilityThunder = "2522353714", -- decal 2522353721 (a bolt)
-	AbilityAzure = "137420198235206", -- decal 114282842219079 (a dragon's head)
-	AbilityFeral = "7486991621", -- decal 7486991661 (claw marks)
-	AbilityAdrenaline = "132570476091718", -- IconAttack's flame
-	AbilityIronWall = "7461510428", -- IconDefense's shield
-	AbilityChainReaction = "10601266774", -- decal 10601266786 (a burst)
-	AbilityVector = "12614416478", -- decal 12614416526 (a crosshair)
-	AbilityTurnabout = "232203094", -- decal 232203095 (circling arrows)
-	AbilityRisingSun = "82174181192946", -- decal 134410622522060 (a sun)
-	AbilityRallyCry = "11874376205", -- decal 11874376247 (a megaphone)
-	AbilityCounter = "12902637748", -- decal 12902637801 (crossed swords)
-	AbilityPlunge = "232203094", -- stand-in: Turnabout's circling arrows (a Creator Store spin or comet icon goes here)
-	AbilityZeroPoint = "12614416478", -- stand-in: Vector Set's crosshair (precision)
-	AbilitySkyward = "13751812696", -- stand-in: IconJump's leap
-	AbilityCorona = "82174181192946", -- stand-in: Rising Sun's sun (a Creator Store solar flare icon goes here)
+	-- own art since 2026-10-28, white on clear, tinted in code)
+	AbilityThunder = "92092680295887", -- our own: a lightning bolt (assets/ui, tools/generate_ui_icons.py)
+	AbilityAzure = "121415345598955", -- our own: a dragon's head (assets/ui, tools/generate_ui_icons.py)
+	AbilityFeral = "90869992638854", -- our own: claw marks (assets/ui, tools/generate_ui_icons.py)
+	AbilityAdrenaline = "137438713088445", -- our own: a flame (assets/ui, tools/generate_ui_icons.py)
+	AbilityIronWall = "134408087231634", -- our own: a shield (assets/ui, tools/generate_ui_icons.py)
+	AbilityChainReaction = "76703154544999", -- our own: a burst (assets/ui, tools/generate_ui_icons.py)
+	AbilityVector = "83887958815685", -- our own: a crosshair (assets/ui, tools/generate_ui_icons.py)
+	AbilityTurnabout = "104073632643804", -- our own: circling arrows (assets/ui, tools/generate_ui_icons.py)
+	AbilityRisingSun = "70428699370149", -- our own: a sun on the horizon (assets/ui, tools/generate_ui_icons.py)
+	AbilityRallyCry = "71920832750603", -- our own: a megaphone (assets/ui, tools/generate_ui_icons.py)
+	AbilityCounter = "87092154072332", -- our own: crossed swords (assets/ui, tools/generate_ui_icons.py)
+	AbilityPlunge = "126785422049223", -- our own: a diving comet (assets/ui, tools/generate_ui_icons.py)
+	AbilityZeroPoint = "114247601826218", -- our own: a pinpoint (assets/ui, tools/generate_ui_icons.py)
+	AbilitySkyward = "124450783350830", -- our own: climbing chevrons (assets/ui, tools/generate_ui_icons.py)
+	AbilityCorona = "139313716822338", -- our own: a flaring sun (assets/ui, tools/generate_ui_icons.py)
 	AbilitySquall = "113680494267156", -- our own white tornado (assets/icon/AbilitySquall.png)
 	AbilityFeatherfall = "129198567408182", -- our own white feather (assets/icon/AbilityFeatherfall.png)
 	AbilityIronclad = "77773837528485", -- our own clawed shield (assets/icon/AbilityIronclad.png)
@@ -375,39 +375,39 @@ Assets.Images = {
 	RankDiamond1 = "97409362125622",
 	RankDiamond2 = "140693202947445",
 	RankDiamond3 = "116040870088165",
-	CardPumpkin = "15297085802", -- the Halloween 2026 card's jack-o'-lantern (Creator Store decal 15297085809, "Laughing_Pumpkin_Icon")
+	CardPumpkin = "78396191300977", -- our own: the Halloween card's jack-o'-lantern (assets/ui, tools/generate_ui_icons.py)
 	CardBugNet = "134300946819235", -- the Bug Catcher card's net, mirrored from the owner's pick (assets/card/bug_net.png)
 	-- menu icons: one filled white glyph style (Toolbox decals)
-	IconHome = "13300916613", -- decal 13300916690 (Fluent "home")
-	IconSettings = "13300915301", -- decal 13300915335 (Fluent "settings")
-	IconRanks = "71015270952901", -- decal 111656292605156
-	IconPlayers = "100423427541804", -- decal 112043200329621
-	IconShop = "13429538917", -- decal 13429538960
-	IconLocker = "11955919597", -- decal 11955919656
-	IconHelp = "546164656", -- decal 546164659
-	IconBack = "116379345467715", -- decal 106533782606560
+	IconHome = "134576977267684", -- our own: a house (assets/ui, tools/generate_ui_icons.py)
+	IconSettings = "80759482861840", -- our own: a gear (assets/ui, tools/generate_ui_icons.py)
+	IconRanks = "94951858286624", -- our own: a trophy (assets/ui, tools/generate_ui_icons.py)
+	IconPlayers = "128622123859265", -- our own: two players (assets/ui, tools/generate_ui_icons.py)
+	IconShop = "103147315517425", -- our own: a cart (assets/ui, tools/generate_ui_icons.py)
+	IconLocker = "102715520382602", -- our own: a shirt (assets/ui, tools/generate_ui_icons.py)
+	IconHelp = "73768815669869", -- our own: a question mark (assets/ui, tools/generate_ui_icons.py)
+	IconBack = "133274486599289", -- our own: a back arrow (assets/ui, tools/generate_ui_icons.py)
 	-- the four stats, favourites and locked characters (same filled style)
-	IconAttack = "132570476091718", -- decal 119691290898756 (flame)
-	IconDefense = "7461510428", -- decal 7461510456 (shield)
-	IconSpeed = "90651561026782", -- decal 135031436615807 (runner)
-	IconJump = "13751812696", -- decal 13751812742 (leap)
-	IconStar = "93992148478224", -- decal 109164246035556
-	IconLock = "18854796316", -- decal 18854796355
+	IconAttack = "71392345507947", -- our own: a flame (assets/ui, tools/generate_ui_icons.py)
+	IconDefense = "86230129329549", -- our own: a shield (assets/ui, tools/generate_ui_icons.py)
+	IconSpeed = "135065710278270", -- our own: a fast-forward (assets/ui, tools/generate_ui_icons.py)
+	IconJump = "82844023450162", -- our own: a leap (assets/ui, tools/generate_ui_icons.py)
+	IconStar = "109144555171208", -- our own: a star (assets/ui, tools/generate_ui_icons.py)
+	IconLock = "95175508309633", -- our own: a padlock (assets/ui, tools/generate_ui_icons.py)
 	-- the team emblems (the matchup intro, the showcase): white line glyphs
-	TeamSunrise = "101573322846819", -- decal 108787768126626 (a sun)
-	TeamTidal = "18828405697", -- decal 18828405739 (three waves)
+	TeamSunrise = "122340681695290", -- our own: a sun (assets/ui, tools/generate_ui_icons.py)
+	TeamTidal = "106561860778086", -- our own: three waves (assets/ui, tools/generate_ui_icons.py)
 	-- the match's corner buttons
-	IconTimeout = "132706456899814", -- decal 109363194447921 (sand timer)
-	IconForfeit = "9440647549", -- decal 9440647555 (flag)
+	IconTimeout = "75432321072874", -- our own: an hourglass (assets/ui, tools/generate_ui_icons.py)
+	IconForfeit = "78596513021469", -- our own: a flag (assets/ui, tools/generate_ui_icons.py)
 	-- Home's buttons down the right edge and the Shop's gifts; empty ones fall back to IconStar,
 	-- IconShop and IconSettings (MenuController's `icon`)
-	IconDaily = "", -- a calendar
-	IconCode = "", -- a ticket
-	IconAdmin = "", -- a crown or a wrench
-	IconGift = "", -- a gift box
+	IconDaily = "91496067012593", -- our own: a calendar (assets/ui, tools/generate_ui_icons.py)
+	IconCode = "85359819468377", -- our own: a ticket (assets/ui, tools/generate_ui_icons.py)
+	IconAdmin = "85587493942600", -- our own: a wrench (assets/ui, tools/generate_ui_icons.py)
+	IconGift = "117471119335629", -- our own: a gift box (assets/ui, tools/generate_ui_icons.py)
 	-- a right triangle (right angle bottom-left): mirrored, the slanted ends of every plate
-	Slant = "2288884279", -- decal 2288884281
-	Halftone = "102527515036737", -- decal 124271316176270: a halftone dot fade
+	Slant = "70555412223130", -- our own: the plate caps' right triangle (right angle bottom left) (assets/ui, tools/generate_ui_icons.py)
+	Halftone = "130875147275516", -- our own: a halftone dot fade (assets/ui, tools/generate_ui_icons.py)
 	-- the Match screen's card art: our own courts, rendered in Studio (assets/menu, uploaded to
 	-- the owner's account)
 	MatchArena = "127761392901061", -- Rush Arena

@@ -1,0 +1,242 @@
+[
+ {
+  "old": "AbilityAdrenaline",
+  "file": "assets/ui/AbilityAdrenaline.png",
+  "type": "Decal",
+  "name": "AbilityAdrenaline"
+ },
+ {
+  "old": "AbilityAzure",
+  "file": "assets/ui/AbilityAzure.png",
+  "type": "Decal",
+  "name": "AbilityAzure"
+ },
+ {
+  "old": "AbilityChainReaction",
+  "file": "assets/ui/AbilityChainReaction.png",
+  "type": "Decal",
+  "name": "AbilityChainReaction"
+ },
+ {
+  "old": "AbilityCorona",
+  "file": "assets/ui/AbilityCorona.png",
+  "type": "Decal",
+  "name": "AbilityCorona"
+ },
+ {
+  "old": "AbilityCounter",
+  "file": "assets/ui/AbilityCounter.png",
+  "type": "Decal",
+  "name": "AbilityCounter"
+ },
+ {
+  "old": "AbilityFeral",
+  "file": "assets/ui/AbilityFeral.png",
+  "type": "Decal",
+  "name": "AbilityFeral"
+ },
+ {
+  "old": "AbilityIronWall",
+  "file": "assets/ui/AbilityIronWall.png",
+  "type": "Decal",
+  "name": "AbilityIronWall"
+ },
+ {
+  "old": "AbilityPlunge",
+  "file": "assets/ui/AbilityPlunge.png",
+  "type": "Decal",
+  "name": "AbilityPlunge"
+ },
+ {
+  "old": "AbilityRallyCry",
+  "file": "assets/ui/AbilityRallyCry.png",
+  "type": "Decal",
+  "name": "AbilityRallyCry"
+ },
+ {
+  "old": "AbilityRisingSun",
+  "file": "assets/ui/AbilityRisingSun.png",
+  "type": "Decal",
+  "name": "AbilityRisingSun"
+ },
+ {
+  "old": "AbilitySkyward",
+  "file": "assets/ui/AbilitySkyward.png",
+  "type": "Decal",
+  "name": "AbilitySkyward"
+ },
+ {
+  "old": "AbilityThunder",
+  "file": "assets/ui/AbilityThunder.png",
+  "type": "Decal",
+  "name": "AbilityThunder"
+ },
+ {
+  "old": "AbilityTurnabout",
+  "file": "assets/ui/AbilityTurnabout.png",
+  "type": "Decal",
+  "name": "AbilityTurnabout"
+ },
+ {
+  "old": "AbilityVector",
+  "file": "assets/ui/AbilityVector.png",
+  "type": "Decal",
+  "name": "AbilityVector"
+ },
+ {
+  "old": "AbilityZeroPoint",
+  "file": "assets/ui/AbilityZeroPoint.png",
+  "type": "Decal",
+  "name": "AbilityZeroPoint"
+ },
+ {
+  "old": "CardPumpkin",
+  "file": "assets/ui/CardPumpkin.png",
+  "type": "Decal",
+  "name": "CardPumpkin"
+ },
+ {
+  "old": "Halftone",
+  "file": "assets/ui/Halftone.png",
+  "type": "Decal",
+  "name": "Halftone"
+ },
+ {
+  "old": "IconAdmin",
+  "file": "assets/ui/IconAdmin.png",
+  "type": "Decal",
+  "name": "IconAdmin"
+ },
+ {
+  "old": "IconAttack",
+  "file": "assets/ui/IconAttack.png",
+  "type": "Decal",
+  "name": "IconAttack"
+ },
+ {
+  "old": "IconBack",
+  "file": "assets/ui/IconBack.png",
+  "type": "Decal",
+  "name": "IconBack"
+ },
+ {
+  "old": "IconCode",
+  "file": "assets/ui/IconCode.png",
+  "type": "Decal",
+  "name": "IconCode"
+ },
+ {
+  "old": "IconDaily",
+  "file": "assets/ui/IconDaily.png",
+  "type": "Decal",
+  "name": "IconDaily"
+ },
+ {
+  "old": "IconDefense",
+  "file": "assets/ui/IconDefense.png",
+  "type": "Decal",
+  "name": "IconDefense"
+ },
+ {
+  "old": "IconForfeit",
+  "file": "assets/ui/IconForfeit.png",
+  "type": "Decal",
+  "name": "IconForfeit"
+ },
+ {
+  "old": "IconGift",
+  "file": "assets/ui/IconGift.png",
+  "type": "Decal",
+  "name": "IconGift"
+ },
+ {
+  "old": "IconHelp",
+  "file": "assets/ui/IconHelp.png",
+  "type": "Decal",
+  "name": "IconHelp"
+ },
+ {
+  "old": "IconHome",
+  "file": "assets/ui/IconHome.png",
+  "type": "Decal",
+  "name": "IconHome"
+ },
+ {
+  "old": "IconJump",
+  "file": "assets/ui/IconJump.png",
+  "type": "Decal",
+  "name": "IconJump"
+ },
+ {
+  "old": "IconLock",
+  "file": "assets/ui/IconLock.png",
+  "type": "Decal",
+  "name": "IconLock"
+ },
+ {
+  "old": "IconLocker",
+  "file": "assets/ui/IconLocker.png",
+  "type": "Decal",
+  "name": "IconLocker"
+ },
+ {
+  "old": "IconPlayers",
+  "file": "assets/ui/IconPlayers.png",
+  "type": "Decal",
+  "name": "IconPlayers"
+ },
+ {
+  "old": "IconRanks",
+  "file": "assets/ui/IconRanks.png",
+  "type": "Decal",
+  "name": "IconRanks"
+ },
+ {
+  "old": "IconSettings",
+  "file": "assets/ui/IconSettings.png",
+  "type": "Decal",
+  "name": "IconSettings"
+ },
+ {
+  "old": "IconShop",
+  "file": "assets/ui/IconShop.png",
+  "type": "Decal",
+  "name": "IconShop"
+ },
+ {
+  "old": "IconSpeed",
+  "file": "assets/ui/IconSpeed.png",
+  "type": "Decal",
+  "name": "IconSpeed"
+ },
+ {
+  "old": "IconStar",
+  "file": "assets/ui/IconStar.png",
+  "type": "Decal",
+  "name": "IconStar"
+ },
+ {
+  "old": "IconTimeout",
+  "file": "assets/ui/IconTimeout.png",
+  "type": "Decal",
+  "name": "IconTimeout"
+ },
+ {
+  "old": "Slant",
+  "file": "assets/ui/Slant.png",
+  "type": "Decal",
+  "name": "Slant"
+ },
+ {
+  "old": "TeamSunrise",
+  "file": "assets/ui/TeamSunrise.png",
+  "type": "Decal",
+  "name": "TeamSunrise"
+ },
+ {
+  "old": "TeamTidal",
+  "file": "assets/ui/TeamTidal.png",
+  "type": "Decal",
+  "name": "TeamTidal"
+ }
+]
