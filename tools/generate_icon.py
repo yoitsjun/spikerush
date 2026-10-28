@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Generate Spike Rush's game icon (512x512) and thumbnail (1920x1080).
+"""Generate Volleyball Rush's game icon (512x512) and thumbnail (1920x1080).
 
-Original art, drawn entirely here (no source images): a shaded yellow / blue / white
-volleyball in the classic 18-panel layout, a speed ribbon, a burst of light, soft grey
-stadium haze with light rays, floating bubbles and the "SPIKE RUSH" logo. The thumbnail adds
+Original art, drawn entirely here (no source images): a shaded cyan / magenta / white
+volleyball in the classic 18-panel layout, a magenta speed ribbon, a burst of light, a deep
+navy arena haze with light rays, floating bubbles and the "VOLLEYBALL RUSH" logo. The thumbnail adds
 the owner's avatar mid-spike, rendered from boxes by tools/avatar_render.py.
 
     python3 tools/generate_icon.py            -> assets/icon/GameIcon.png, Thumbnail.png
@@ -21,14 +21,16 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "assets" / "icon"
 
-INK = (20, 23, 43)
-SPARK = (255, 225, 77)
-YELLOW = np.array([255, 205, 40], dtype=float)
-BLUE = np.array([34, 86, 196], dtype=float)
+INK = (10, 12, 34)
+CYAN = (0, 229, 255)
+MAGENTA = (255, 46, 170)
+YELLOW = np.array([0, 214, 245], dtype=float)  # the ball's two colours: the brand cyan
+BLUE = np.array([228, 36, 156], dtype=float)  # and magenta
 WHITE = np.array([246, 247, 250], dtype=float)
-SEAM = np.array([40, 44, 70], dtype=float)
+SEAM = np.array([24, 28, 64], dtype=float)
 
 FONT_CANDIDATES = [
+    "C:/Windows/Fonts/ariblk.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
@@ -127,16 +129,16 @@ def background(w, h, seed):
     rnd = random.Random(seed)
     ys = np.linspace(0, 1, h)[:, None]
     xs = np.linspace(0, 1, w)[None, :]
-    top = np.array([236, 240, 246], dtype=float)
-    mid = np.array([178, 186, 204], dtype=float)
-    bot = np.array([84, 92, 120], dtype=float)
+    top = np.array([46, 72, 150], dtype=float)
+    mid = np.array([20, 30, 84], dtype=float)
+    bot = np.array([8, 10, 34], dtype=float)
     t = ys + 0.15 * (xs - 0.5)
     t = np.clip(t, 0, 1)[..., None]
     col = np.where(t < 0.55, top + (mid - top) * (t / 0.55), mid + (bot - mid) * ((t - 0.55) / 0.45))
     # haze glow from the top left
     gx, gy = 0.25, 0.1
     d = np.sqrt((xs - gx) ** 2 * (w / h) ** 2 + (ys - gy) ** 2)
-    col = col + np.clip(1 - d / 0.9, 0, 1)[..., None] ** 2 * 40
+    col = col + np.clip(1 - d / 0.9, 0, 1)[..., None] ** 2 * np.array([10, 90, 110])
     img = Image.fromarray(np.clip(col, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 
     # light rays
@@ -147,7 +149,7 @@ def background(w, h, seed):
         a0 = math.radians(28 + i * 7.5 + rnd.uniform(-1.5, 1.5))
         a1 = a0 + math.radians(rnd.uniform(1.8, 3.6))
         L = 2.5 * max(w, h)
-        rd.polygon([(ox, oy), (ox + L * math.cos(a0), oy + L * math.sin(a0)), (ox + L * math.cos(a1), oy + L * math.sin(a1))], fill=(255, 255, 255, 34))
+        rd.polygon([(ox, oy), (ox + L * math.cos(a0), oy + L * math.sin(a0)), (ox + L * math.cos(a1), oy + L * math.sin(a1))], fill=(160, 240, 255, 30))
     rays = rays.filter(ImageFilter.GaussianBlur(max(w, h) / 120))
     img.alpha_composite(rays)
     return img
@@ -208,13 +210,18 @@ def burst(img, center, radius, rays, color, seed):
     img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(radius / 5)))
 
 
-def logo(img, text, center, size, lean=0.18):
-    """Heavy italic title: yellow fill, thick ink outline, drop shadow."""
-    f = font(size)
-    stroke = max(3, size // 9)
+def logo(img, text, center, size, lean=0.18, fill=CYAN, band=(235, 255, 255), max_width=None):
+    """Heavy italic title: a coloured fill with a light band, thick ink outline, drop shadow;
+    shrunk until it fits max_width."""
     probe = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
-    bbox = probe.textbbox((0, 0), text, font=f, stroke_width=stroke)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    while True:
+        f = font(size)
+        stroke = max(3, size // 9)
+        bbox = probe.textbbox((0, 0), text, font=f, stroke_width=stroke)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        if not max_width or tw * (1 + lean) + 8 * stroke <= max_width or size < 12:
+            break
+        size = int(size * 0.95)
     pad = 4 * stroke
     slant = int(lean * (th + 2 * pad))
     W, H = tw + 2 * pad + slant, th + 2 * pad
@@ -225,14 +232,14 @@ def logo(img, text, center, size, lean=0.18):
     sd = ImageDraw.Draw(shadow)
     sd.text((ox + stroke, oy + stroke * 1.2), text, font=f, fill=INK + (200,), stroke_width=stroke, stroke_fill=INK + (200,))
     tmp.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(stroke / 2)))
-    d.text((ox, oy), text, font=f, fill=SPARK + (255,), stroke_width=stroke, stroke_fill=INK + (255,))
+    d.text((ox, oy), text, font=f, fill=fill + (255,), stroke_width=stroke, stroke_fill=INK + (255,))
     # a light band across the top of the letters
-    band = Image.new("RGBA", tmp.size, (0, 0, 0, 0))
-    ImageDraw.Draw(band).text((ox, oy), text, font=f, fill=(255, 250, 220, 255))
+    band_layer = Image.new("RGBA", tmp.size, (0, 0, 0, 0))
+    ImageDraw.Draw(band_layer).text((ox, oy), text, font=f, fill=band + (255,))
     mask = Image.new("L", tmp.size, 0)
     ImageDraw.Draw(mask).rectangle([0, 0, W, oy + bbox[1] + th * 0.45], fill=150)
-    band.putalpha(Image.fromarray(np.minimum(np.array(band.split()[3]), np.array(mask))))
-    tmp.alpha_composite(band)
+    band_layer.putalpha(Image.fromarray(np.minimum(np.array(band_layer.split()[3]), np.array(mask))))
+    tmp.alpha_composite(band_layer)
     # italic lean: the top slides right
     leaned = tmp.transform(tmp.size, Image.AFFINE, (1, lean, -lean * H, 0, 1, 0), resample=Image.BICUBIC, fillcolor=(0, 0, 0, 0))
     x = int(center[0] - W / 2)
@@ -245,12 +252,12 @@ def compose_icon(size=512):
     bubbles(img, 16, seed=5, scale=size / 512)
     ball_d = int(size * 0.62)
     cx, cy = int(size * 0.56), int(size * 0.42)
-    ribbon(img, (size * -0.1, size * 0.98), (cx - ball_d * 0.1, cy + ball_d * 0.1), size * 0.16, (255, 70, 120))
-    burst(img, (cx, cy), size * 0.52, 22, (255, 250, 225), seed=9)
+    ribbon(img, (size * -0.1, size * 0.98), (cx - ball_d * 0.1, cy + ball_d * 0.1), size * 0.16, MAGENTA)
+    burst(img, (cx, cy), size * 0.52, 22, (215, 250, 255), seed=9)
     ball = volleyball(ball_d)
     img.alpha_composite(ball, (cx - ball_d // 2, cy - ball_d // 2))
-    logo(img, "SPIKE", (size * 0.5, size * 0.77), int(size * 0.17))
-    logo(img, "RUSH", (size * 0.5, size * 0.9), int(size * 0.13))
+    logo(img, "VOLLEYBALL", (size * 0.5, size * 0.775), int(size * 0.15), max_width=size * 0.97)
+    logo(img, "RUSH", (size * 0.5, size * 0.9), int(size * 0.14), fill=MAGENTA, band=(255, 170, 225))
     return img.convert("RGB")
 
 
@@ -288,15 +295,15 @@ def compose_thumbnail(w=1920, h=1080):
     cx, cy = hx - h * 0.055, hy - h * 0.035  # contact, just past the fingertips
     bx, by = cx - h * 0.72, cy + h * 0.46
     speed_lines(img, (bx - cx, by - cy), 60, seed=21)
-    burst(img, (cx, cy), h * 0.75, 30, (255, 250, 225), seed=17)
-    # a warm rim of light behind the spiker
+    burst(img, (cx, cy), h * 0.75, 30, (215, 250, 255), seed=17)
+    # a cyan rim of light behind the spiker
     glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).ellipse([ox - h * 0.05, oy, ox + spiker.size[0] + h * 0.05, oy + tall], fill=(255, 214, 120, 105))
+    ImageDraw.Draw(glow).ellipse([ox - h * 0.05, oy, ox + spiker.size[0] + h * 0.05, oy + tall], fill=(60, 220, 255, 105))
     img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(h * 0.08)))
     img.alpha_composite(spiker, (ox, oy))
 
-    ribbon(img, (cx, cy), (bx, by), h * 0.13, (255, 70, 120))
-    ribbon(img, (cx - h * 0.01, cy + h * 0.03), (bx - h * 0.02, by + h * 0.05), h * 0.045, (80, 220, 255))
+    ribbon(img, (cx, cy), (bx, by), h * 0.13, MAGENTA)
+    ribbon(img, (cx - h * 0.01, cy + h * 0.03), (bx - h * 0.02, by + h * 0.05), h * 0.045, CYAN)
     # impact at the contact: a white flash and a ring
     flash = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     fd = ImageDraw.Draw(flash)
@@ -307,12 +314,13 @@ def compose_thumbnail(w=1920, h=1080):
     ball = volleyball(ball_d, rotation=(0.35, -0.8, 0.4))
     img.alpha_composite(ball, (int(bx - ball_d / 2), int(by - ball_d / 2)))
 
-    logo(img, "SPIKE RUSH", (w * 0.3, h * 0.17), int(h * 0.14))
-    f = font(int(h * 0.036))
+    logo(img, "VOLLEYBALL", (w * 0.3, h * 0.14), int(h * 0.14), max_width=w * 0.56)
+    logo(img, "RUSH", (w * 0.36, h * 0.3), int(h * 0.15), fill=MAGENTA, band=(255, 170, 225))
+    f = font(int(h * 0.034))
     d = ImageDraw.Draw(img)
     tag = "ANIME VOLLEYBALL  -  1v1  2v2  3v3"
     tb = d.textbbox((0, 0), tag, font=f)
-    d.text((w * 0.3 - (tb[2] - tb[0]) / 2, h * 0.29), tag, font=f, fill=(255, 255, 255, 255), stroke_width=4, stroke_fill=INK + (255,))
+    d.text((w * 0.3 - (tb[2] - tb[0]) / 2, h * 0.41), tag, font=f, fill=(255, 255, 255, 255), stroke_width=4, stroke_fill=INK + (255,))
     return img.convert("RGB")
 
 
