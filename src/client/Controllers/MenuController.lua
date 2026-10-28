@@ -849,7 +849,7 @@ local function buildHome()
 	end)
 
 	-- your record: a warm card, the win streak big, the rest in a row
-	local stats = Gui.card(column, { Size = UDim2.fromOffset(470, 118), Position = UDim2.fromOffset(0, 304) }, Color3.fromRGB(120, 92, 24))
+	local stats = Gui.card(column, { Size = UDim2.fromOffset(470, 118), Position = UDim2.fromOffset(0, 304) }, Color3.fromRGB(96, 18, 72))
 	Gui.label(stats, { Text = "Win streak", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL_HOT, Size = UDim2.fromOffset(140, 18), Position = UDim2.fromOffset(18, 12) })
 	local counters = {}
 	counters.streak = {

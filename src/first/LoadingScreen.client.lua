@@ -171,7 +171,7 @@ local function buildLogo(parent)
 end
 
 local logo = buildLogo(bg)
-logo.Position = UDim2.new(0.03, 0, 0, GuiService:GetGuiInset().Y + 10) -- under Roblox's own buttons
+logo.Position = UDim2.new(0.03, 0, 0, math.max(GuiService:GetGuiInset().Y, 58) + 10) -- under Roblox's own buttons (the inset reads 0 this early)
 logo.Size = UDim2.fromScale(0.22, 0.2)
 local logoScale = make("UIScale", { Scale = 1.25 }, logo)
 TweenService:Create(logoScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
