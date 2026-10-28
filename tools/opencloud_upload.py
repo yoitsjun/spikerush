@@ -6,7 +6,9 @@ key, and swap the new ids into src/shared/Assets.lua.
 
 The manifest is a list of {"old": "<id>", "file": "<path from the repo root>", "type": "Decal" |
 "Audio" | "Model", "name": "<display name>"}. Results go to <manifest>.results.json (old -> new),
-so a rerun only uploads what hasn't gone up yet. The key is read from the file in
+so a rerun only uploads what hasn't gone up yet. A "Decal" upload returns the decal's id, not its
+image's: before --swap, replace each with the image id, read in Studio's command bar with
+game:GetObjects("rbxassetid://<decal>")[1].Texture. The key is read from the file in
 VOLLEYBALL_KEY_FILE (default Documents/NewVolleyball/.roblox_api_key) and never printed; the group
 id comes from VOLLEYBALL_GROUP (default 805769952, Jun Games Production).
 """

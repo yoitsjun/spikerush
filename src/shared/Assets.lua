@@ -114,7 +114,7 @@ Assets.Sounds = {
 	CrowdLoop = "",
 	CrowdCheer = "133064028732021", -- "end of rally cheer": a point won by a kill, ace, stuff or break
 	CrowdServe = "140530824120891", -- "crowd hype": the crowd swells as the server tosses
-	CrowdGasp = "86816529419846", -- crowd ooh (the owner's upload)
+	CrowdGasp = "83411385693493", -- crowd ooh (the owner's upload)
 	Music = "",
 	ImpactFrame = "",
 	Blades = "", -- Counter Edge: blades out and back in (the volley along her released spike)
@@ -236,7 +236,7 @@ Assets.SoundFiles = {
 	["6993372814"] = { gain = 2.6 }, -- FallenThunder "Lightning Strike": peak 155 (played at 0.82), level with Thunder
 	["9120730294"] = { start = 0.26, gain = 1.6 }, -- ForgeHit: 0.28 s in, peak 253
 	["117922524763696"] = { gain = 0.5 }, -- Thunder: peak 798
-	["86816529419846"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491
+	["83411385693493"] = { start = 0.08, gain = 0.8 }, -- CrowdGasp: peak 491
 	["126675766605170"] = { start = 0.64, gain = 1.2 }, -- GuardBreak: faint noise, then the hit at 0.65 s, peak 340
 	["9118113825"] = { start = 0.1, gain = 1.8 }, -- Whistle: peak 217
 	["9119335569"] = { gain = 6 }, -- Block: peak 47
@@ -343,24 +343,24 @@ Assets.Images = {
 	AbilityZeroPoint = "12614416478", -- stand-in: Vector Set's crosshair (precision)
 	AbilitySkyward = "13751812696", -- stand-in: IconJump's leap
 	AbilityCorona = "82174181192946", -- stand-in: Rising Sun's sun (a Creator Store solar flare icon goes here)
-	AbilitySquall = "136720600263240", -- our own white tornado (assets/icon/AbilitySquall.png)
-	AbilityFeatherfall = "127397238348566", -- our own white feather (assets/icon/AbilityFeatherfall.png)
-	AbilityIronclad = "114616937430963", -- our own clawed shield (assets/icon/AbilityIronclad.png)
-	AbilityTyrant = "93788300108328", -- our own crown (assets/icon/AbilityTyrant.png, tools/generate_ability_icons.py)
-	AbilitySunshine = "123000364781875", -- our own sun (assets/icon/AbilitySunshine.png)
-	IroncladShield = "139926246453254", -- one of his shields, floating by him (assets/icon/IroncladShield.png)
+	AbilitySquall = "113680494267156", -- our own white tornado (assets/icon/AbilitySquall.png)
+	AbilityFeatherfall = "129198567408182", -- our own white feather (assets/icon/AbilityFeatherfall.png)
+	AbilityIronclad = "77773837528485", -- our own clawed shield (assets/icon/AbilityIronclad.png)
+	AbilityTyrant = "116739662945201", -- our own crown (assets/icon/AbilityTyrant.png, tools/generate_ability_icons.py)
+	AbilitySunshine = "106265761499045", -- our own sun (assets/icon/AbilitySunshine.png)
+	IroncladShield = "122579444814029", -- one of his shields, floating by him (assets/icon/IroncladShield.png)
 	-- the Almighty card's ornaments (Look.Divine), our own art (tools/generate_card_ornaments.py)
-	CardWingL = "99486627259504", -- gold wing out of the card's left (assets/card/almighty_wing_l.png)
-	CardWingR = "111732458070383", -- and its right (assets/card/almighty_wing_r.png)
-	CardCrest = "108825089093797", -- a crown with a red gem over the top (assets/card/almighty_crest.png)
+	CardWingL = "92361767681368", -- gold wing out of the card's left (assets/card/almighty_wing_l.png)
+	CardWingR = "81243094935205", -- and its right (assets/card/almighty_wing_r.png)
+	CardCrest = "124663177354514", -- a crown with a red gem over the top (assets/card/almighty_crest.png)
 	-- the ranked badges (Config.Ranked.Ranks): 3D crests rendered in Blender (tools/render_rank_badges_blender.py, then tools/finish_rank_badges.py into assets/ranks)
-	RankBronze = "133146279644760",
-	RankSilver = "116715106004066",
-	RankGold = "101473176396044",
-	RankPlatinum = "72724175458395",
-	RankDiamond = "76761660462837",
-	RankMighty = "116667204972282",
-	RankAlmighty = "101067179255987",
+	RankBronze = "103886302950823",
+	RankSilver = "123041125552754",
+	RankGold = "121550200070565",
+	RankPlatinum = "105934149359387",
+	RankDiamond = "77218192158446",
+	RankMighty = "129364484476461",
+	RankAlmighty = "91356345193454",
 	-- each division's own badge (I, II, III climbing like Roblox RIVALS: Ranked.badgeKey), the one above it the fallback
 	RankBronze1 = "77313822748886",
 	RankBronze2 = "140408409732283",
@@ -378,7 +378,7 @@ Assets.Images = {
 	RankDiamond2 = "140693202947445",
 	RankDiamond3 = "116040870088165",
 	CardPumpkin = "15297085802", -- the Halloween 2026 card's jack-o'-lantern (Creator Store decal 15297085809, "Laughing_Pumpkin_Icon")
-	CardBugNet = "72834624157291", -- the Bug Catcher card's net, mirrored from the owner's pick (assets/card/bug_net.png)
+	CardBugNet = "134300946819235", -- the Bug Catcher card's net, mirrored from the owner's pick (assets/card/bug_net.png)
 	-- menu icons: one filled white glyph style (Toolbox decals)
 	IconHome = "13300916613", -- decal 13300916690 (Fluent "home")
 	IconSettings = "13300915301", -- decal 13300915335 (Fluent "settings")
@@ -419,8 +419,8 @@ Assets.Images = {
 	MatchColosseum = "108168199371323", -- Colosseum
 	MatchPractice = "127970476168767", -- the club room's ball cart
 	-- Decorate's tiles: each Home room rendered in Studio (assets/rooms), Room<Config.Rooms key>
-	RoomClubhouse = "80868767010219",
-	RoomHaunted = "128293664977042",
+	RoomClubhouse = "99777257526596",
+	RoomHaunted = "130995790024847",
 }
 
 -- Effect textures (image ids) for the particle kits in Fx.lua: hand-drawn anime sprites and
@@ -455,50 +455,47 @@ Assets.Fx = {
 	Arcs = "16951505034", -- 2x2: lightning arcs (BIG, Anime Lighting-03)
 	-- our own, for the premium score effects (tools/generate_fx_textures.py; the stat card drawn in
 	-- Figma, "Spike Rush Score FX"); the PNGs are in assets/fx
-	Swirl = "116715458220913", -- a spiral accretion disc (Black Hole)
-	Wind = "72621193352332", -- a streaky band of wind, laid along beams (Tornado)
-	Foam = "124482496885067", -- 4x4: spray bursting and thinning (Tsunami)
-	Water = "84146225428661", -- tiling water with foam streaks (Tsunami)
-	Shock = "90810996100926", -- a glowing ring with a hot rim, laid on the floor
-	Flare = "72648189689787", -- a six-point lens flare
-	StatCard = "109112222614632", -- the slanted stat plate behind Speed Burst's number
+	Swirl = "80708525637021", -- a spiral accretion disc (Black Hole)
+	Wind = "78326427385002", -- a streaky band of wind, laid along beams (Tornado)
+	Foam = "127115009029101", -- 4x4: spray bursting and thinning (Tsunami)
+	Water = "128162093994051", -- tiling water with foam streaks (Tsunami)
+	Shock = "88411235546191", -- a glowing ring with a hot rim, laid on the floor
+	Flare = "121376733191681", -- a six-point lens flare
+	StatCard = "105576360842696", -- the slanted stat plate behind Speed Burst's number
 	-- our own toon flipbooks for the jump effects (tools/generate_fx_flipbooks.py, the PNGs in
 	-- art/tex): 4x4, white cores with a grey band, tinted in code
-	ToonFire = "86485033681728", -- a fire puff blooming, licking up and burning away
-	ToonSmoke = "75110203932548", -- a cel-shaded smoke puff billowing and eroding
-	ToonSpark = "115949917960267", -- a four-point star flaring and shrinking
-	ToonElectric = "115855857218883", -- jagged bolts crackling out, new ones every frame
-	ToonBurst = "108360852617432", -- a spiky star blast ringing out
+	ToonFire = "136212220013921", -- a fire puff blooming, licking up and burning away
+	ToonSmoke = "100966658733928", -- a cel-shaded smoke puff billowing and eroding
+	ToonSpark = "121718144752045", -- a four-point star flaring and shrinking
+	ToonElectric = "111494882405387", -- jagged bolts crackling out, new ones every frame
+	ToonBurst = "138250827688419", -- a spiky star blast ringing out
 	-- the Halloween event's (tools/generate_halloween_textures.py, the PNGs in assets/fx/halloween).
-	-- These are the copies Studio's 3D importer uploaded from HalloweenSprites.fbx: they loaded at
-	-- once, while the same PNGs uploaded on their own were still processing an hour later (those
-	-- ids: SoulWisp 107324428805753, Skull 116674822883407, GhostSheet 128336687021408, Bat
-	-- 112869581547343, BatFlap 76651903127083, InkSplat 134261821932939, CandyCorn 98077675358365)
-	SoulWisp = "81697687251215", -- a screaming soul with a wispy tail (the Reaper's Souls trail)
-	Skull = "72078282943552", -- a skull with hollow eyes
-	GhostSheet = "106240366903046", -- a sheet ghost, black eyes (Ghost Swarm)
-	Bat = "73893232514689", -- a bat, wings spread
-	BatFlap = "73670445845087", -- a bat's wingbeat, a 2x2 flipbook played on a loop (Bat Swarm)
-	InkSplat = "111244076536691", -- a splash of ink with flung streaks
-	CandyCorn = "104351078141678", -- a candy corn in its own colours (not tinted)
+	-- Uploaded again as Jun Games Production on 2026-10-28 (tools/opencloud_upload.py) after the old
+	-- group's copies were lost with the account; a fresh upload can take a while to show up.
+	SoulWisp = "140433134651677", -- a screaming soul with a wispy tail (the Reaper's Souls trail)
+	Skull = "108395940507939", -- a skull with hollow eyes
+	GhostSheet = "79976106496360", -- a sheet ghost, black eyes (Ghost Swarm)
+	Bat = "138032965469941", -- a bat, wings spread
+	BatFlap = "97090408258410", -- a bat's wingbeat, a 2x2 flipbook played on a loop (Bat Swarm)
+	InkSplat = "92575437361228", -- a splash of ink with flung streaks
+	CandyCorn = "130079234129661", -- a candy corn in its own colours (not tinted)
 }
 
 -- The ball skins' textures (tools/generate_ball_skins.py, the PNGs in assets/balls): equirectangular
 -- maps for the BallSphere mesh (BallSkins).
 Assets.BallSkins = {
-	ProSwirl = "102765409707796",
-	TriPanel = "112449624078091",
-	Beach = "98494400707072",
-	Eyeball = "86293073979138",
-	Lava = "136063469609688",
-	Galaxy = "136596164467380",
-	Planet = "95862712000351",
+	ProSwirl = "93502986653893",
+	TriPanel = "88325341855487",
+	Beach = "80024358295953",
+	Eyeball = "92160046861735",
+	Lava = "85665629262248",
+	Galaxy = "78486839153788",
+	Planet = "96923597581404",
 	-- the owner's Halloween balls, baked in Blender onto their own UVs (assets/balls/Pumpkin.png and
-	-- WitchHat.png, embedded in BallPumpkin.fbx and BallWitchHat.fbx). These are the copies Studio's
-	-- 3D importer uploaded with the meshes: they loaded at once, while the same images uploaded on
-	-- their own (110443908414192, 103486535160481) were still processing
-	Pumpkin = "136024092259388",
-	WitchHat = "120836544400364",
+	-- WitchHat.png, embedded in BallPumpkin.fbx and BallWitchHat.fbx), uploaded again as Jun Games
+	-- Production on 2026-10-28
+	Pumpkin = "120448295839444",
+	WitchHat = "104373825649292",
 }
 
 -- Font families (a FontFace family: rbxasset://fonts/families/<Name>.json, or a Creator Store
