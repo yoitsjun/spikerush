@@ -7685,9 +7685,24 @@ end
 -- The playtime rewards window (Config.PlayRewards): the time played today, a bar across the tiers,
 -- and a card for each with what it pays and whether it's collected. They pay out on their own
 -- (ProfileService.tickPlayTime); this only shows them.
+-- This device's UTC offset in seconds (clock hours and minutes, local against UTC, so daylight
+-- saving counts). The playtime day turns at the player's own midnight: the server is sent this
+-- ("tz") and the window below uses it too.
+function Extra.localOffset()
+	local now = os.time()
+	local lt, ut = os.date("*t", now), os.date("!*t", now)
+	local mins = (lt.hour * 60 + lt.min) - (ut.hour * 60 + ut.min)
+	if mins > 14 * 60 then
+		mins = mins - 1440
+	elseif mins < -12 * 60 then
+		mins = mins + 1440
+	end
+	return mins * 60
+end
+
 function Extra.buildPlaytime()
 	local m = modal("Playtime", "Playtime rewards", 900, 520, true)
-	Gui.label(m.panel, { Text = "Just play: each reward pays out by itself the moment you reach it, once a day. Today's time starts over at midnight, Chicago time.", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 40), ZIndex = 21 })
+	Gui.label(m.panel, { Text = "Just play: each reward pays out by itself the moment you reach it, once a day. Today's time starts over at midnight, your local time.", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(28, 84), Size = UDim2.new(1, -56, 0, 40), ZIndex = 21 })
 	local today = Gui.label(m.panel, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, Position = UDim2.fromOffset(28, 132), Size = UDim2.new(1, -56, 0, 52), ZIndex = 21 })
 	local track = make("Frame", { Position = UDim2.fromOffset(28, 196), Size = UDim2.new(1, -56, 0, 14), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, ZIndex = 21 }, m.panel)
 	make("UICorner", { CornerRadius = UDim.new(0, 7) }, track)
@@ -7714,9 +7729,9 @@ end
 function Extra.refreshPlaytime(prof)
 	local PT = ui.playtime
 	local pt = prof.playToday or {}
-	local day = math.floor((os.time() + Config.PlayRewards.DayOffset) / 86400)
+	local day = math.floor((os.time() + Extra.localOffset()) / 86400)
 	local secs, claimed = 0, {}
-	if pt.day == day then
+	if (pt.day or 0) >= day then
 		-- the server's count at the last profile, and the time since (it counts every 15 seconds)
 		secs = (pt.secs or 0) + math.max(0, os.clock() - Extra.profileAt)
 		claimed = pt.claimed or {}
@@ -9507,6 +9522,14 @@ function MenuController.init(m)
 
 	MenuController.go("home")
 	setShown(not State.isPlaying)
+	-- tell the server this device's UTC offset (the playtime day turns at the player's midnight),
+	-- and again now and then in case daylight saving changes mid-session
+	task.spawn(function()
+		while true do
+			Net.get("Profile"):FireServer("tz", Extra.localOffset())
+			task.wait(600)
+		end
+	end)
 
 	-- slow ticks: countdowns, the featured recruit and tips rotating
 	local acc, tick = 0, 0

@@ -95,6 +95,7 @@ local loading = {}
 local store = nil
 local warned = false
 local lastRequest = {}
+local tzOffset = {} -- player -> their UTC offset in seconds (from their client), so playtime days turn at their own midnight
 local mailStore = nil -- gifts waiting for their player (Config.Admin.MailStore)
 local mailBusy = {}
 local pendingGift = {} -- plr -> the gift their prompted purchase is: { productId, userId, name, t }
@@ -2437,6 +2438,15 @@ local function onRequest(plr, kind, a, b, c)
 		push(plr)
 		return
 	end
+	if kind == "tz" then
+		-- the client's UTC offset (seconds), for the playtime day (Config.PlayRewards); the real range
+		-- of time zones is UTC-12 to UTC+14
+		local off = tonumber(a)
+		if off and off == off and off >= -12 * 3600 and off <= 14 * 3600 then
+			tzOffset[plr] = math.floor(off / 60) * 60
+		end
+		return
+	end
 	-- a little spacing between requests (buttons can be mashed)
 	local now = os.clock()
 	if kind ~= "stop" and lastRequest[plr] and now - lastRequest[plr] < 0.05 then
@@ -3177,12 +3187,18 @@ function ProfileService.init(r)
 				pt = { day = 0, secs = 0, claimed = {} }
 				profile.playToday = pt
 			end
-			local today = math.floor((now + Config.PlayRewards.DayOffset) / 86400)
-			if pt.day ~= today then
+			-- the day turns at midnight where the player is (their own offset, sent by the client). It
+			-- only ever moves forward, so changing the offset can't win a second reset; until the
+			-- offset arrives (a few seconds after joining) nothing counts or turns over
+			local off = tzOffset[plr]
+			local today = off and math.floor((now + off) / 86400) or pt.day
+			if today > pt.day then
 				pt.day, pt.secs, pt.claimed = today, 0, {}
 				push(plr) -- (the Playtime window starts a new day)
 			end
-			pt.secs = pt.secs + gain
+			if off then
+				pt.secs = pt.secs + gain
+			end
 			for _, t in ipairs(Config.PlayRewards.Tiers) do
 				if not pt.claimed[t.Key] and pt.secs >= t.Minutes * 60 then
 					pt.claimed[t.Key] = true
@@ -3224,6 +3240,7 @@ function ProfileService.init(r)
 		dirty[plr] = nil
 		loading[plr] = nil
 		lastRequest[plr] = nil
+		tzOffset[plr] = nil
 		passes[plr] = nil
 		ownedPasses[plr] = nil
 		lastPerkSet[plr] = nil

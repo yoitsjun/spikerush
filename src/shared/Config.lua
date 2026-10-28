@@ -2403,7 +2403,8 @@ Config.Leaderboards = {
 -- Playtime rewards (the owner: "10 min is 80vp, 1,000 gold, 30 min is 200 vp, 5,000 gold 3 lucky
 -- spins, 1 hr is 10,000 gold, 5 lucky spins, 400 vp"): each tier pays its own grant once a day, the
 -- moment a player has been in the game that long today (ProfileService.tickPlayTime). The day turns
--- at midnight in Chicago (UTC-5; close enough in winter, like the Halloween days).
+-- at midnight where each player is (their client sends its UTC offset: ProfileService "tz"; the day
+-- only moves forward, so the offset can't be used for a second reset).
 -- Parties (the owner, 2026-10-21: "add a proper party system so you can actually queue ranked, but
 -- also regular queues"): up to Max players here; an invite lasts InviteSeconds.
 Config.Party = {
@@ -2541,6 +2542,8 @@ Config.Clans = {
 }
 
 Config.PlayRewards = {
+	-- Chicago (UTC-5): no longer the playtime day (that follows each player's own offset), but still
+	-- what the AFK Lounge's day (Lounge.day) turns on
 	DayOffset = -5 * 3600,
 	Tiers = {
 		{ Key = "m10", Name = "10 minutes", Minutes = 10, Grant = { VP = 80, Gold = 1000 } },
