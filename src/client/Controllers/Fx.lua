@@ -1,6 +1,6 @@
 -- Hand-drawn effects. Every burst, ring, spark, smoke puff and ball trail in a match is a
--- particle kit made from anime flipbook textures out of two Creator Store VFX packs (the ids are
--- in Assets.Fx), and any kit can be swapped for a whole Toolbox effect: a template in
+-- particle kit made from our own anime flipbook textures (the ids are in Assets.Fx,
+-- tools/generate_fx_own.py), and any kit can be swapped for a whole Toolbox effect: a template in
 -- ReplicatedStorage.ToolboxAssets.VFX.<Name> plays instead, sized by its "Scale" attribute and
 -- hue-shifted to the play's colour where the kit would have been tinted.
 --
@@ -93,8 +93,7 @@ local SPARKLE = { t = "Sparkle", n = 1, life = { 0.25, 0.45 }, size = { { 0, 0 }
 
 -- the jump kits' layers (the owner: "make them look more similar to blox fruits"): many flames,
 -- puffs or crackles piled up into one volume, two colours each (a hot core layer inside a deeper
--- outer one), as Blox Fruits' fire, smoke and lightning do. On the Creator Store flipbooks; our
--- own toon ones (Assets.Fx.Toon*) can take over once Roblox has processed them.
+-- outer one). On Assets.Fx's flipbooks; the toon ones (Assets.Fx.Toon*) are an alternative.
 local TFIRE = { t = "FireWhite", grid = "Grid4x4", n = 14, life = { 0.5, 0.8 }, size = { { 0, 3 }, { 0.35, 5.5 }, { 1, 4 } }, speed = { 6, 16 }, spread = 70, drag = 3, accel = Vector3.new(0, 14, 0), rot = { -20, 20 }, glow = 0.5, z = 1.5 }
 local TCORE = layer(TFIRE, { n = 8, d = 0.04, size = { { 0, 2 }, { 0.35, 3.5 }, { 1, 2 } }, speed = { 4, 11 }, glow = 1, z = 2 })
 local TSMOKE = { t = "Smoke", grid = "Grid4x4", n = 8, life = { 0.7, 1.1 }, size = { { 0, 2.5 }, { 1, 6 } }, speed = { 8, 18 }, spread = 85, drag = 4, accel = Vector3.new(0, 4, 0), rot = { 0, 360 }, glow = 0, z = 0.5 }

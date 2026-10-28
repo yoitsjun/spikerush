@@ -1,0 +1,158 @@
+[
+ {
+  "old": "Arcs",
+  "file": "assets/fx/own/Arcs.png",
+  "type": "Decal",
+  "name": "FxArcs"
+ },
+ {
+  "old": "Bolt",
+  "file": "assets/fx/own/Bolt.png",
+  "type": "Decal",
+  "name": "FxBolt"
+ },
+ {
+  "old": "Bolt2",
+  "file": "assets/fx/own/Bolt2.png",
+  "type": "Decal",
+  "name": "FxBolt2"
+ },
+ {
+  "old": "Crack",
+  "file": "assets/fx/own/Crack.png",
+  "type": "Decal",
+  "name": "FxCrack"
+ },
+ {
+  "old": "Crater",
+  "file": "assets/fx/own/Crater.png",
+  "type": "Decal",
+  "name": "FxCrater"
+ },
+ {
+  "old": "Dot",
+  "file": "assets/fx/own/Dot.png",
+  "type": "Decal",
+  "name": "FxDot"
+ },
+ {
+  "old": "DustRing",
+  "file": "assets/fx/own/DustRing.png",
+  "type": "Decal",
+  "name": "FxDustRing"
+ },
+ {
+  "old": "Electric",
+  "file": "assets/fx/own/Electric.png",
+  "type": "Decal",
+  "name": "FxElectric"
+ },
+ {
+  "old": "Fire",
+  "file": "assets/fx/own/Fire.png",
+  "type": "Decal",
+  "name": "FxFire"
+ },
+ {
+  "old": "Fireball",
+  "file": "assets/fx/own/Fireball.png",
+  "type": "Decal",
+  "name": "FxFireball"
+ },
+ {
+  "old": "FireWhite",
+  "file": "assets/fx/own/FireWhite.png",
+  "type": "Decal",
+  "name": "FxFireWhite"
+ },
+ {
+  "old": "Glint",
+  "file": "assets/fx/own/Glint.png",
+  "type": "Decal",
+  "name": "FxGlint"
+ },
+ {
+  "old": "Glow",
+  "file": "assets/fx/own/Glow.png",
+  "type": "Decal",
+  "name": "FxGlow"
+ },
+ {
+  "old": "GroundWave",
+  "file": "assets/fx/own/GroundWave.png",
+  "type": "Decal",
+  "name": "FxGroundWave"
+ },
+ {
+  "old": "HitBurst",
+  "file": "assets/fx/own/HitBurst.png",
+  "type": "Decal",
+  "name": "FxHitBurst"
+ },
+ {
+  "old": "HitRing",
+  "file": "assets/fx/own/HitRing.png",
+  "type": "Decal",
+  "name": "FxHitRing"
+ },
+ {
+  "old": "HitStar",
+  "file": "assets/fx/own/HitStar.png",
+  "type": "Decal",
+  "name": "FxHitStar"
+ },
+ {
+  "old": "Radial",
+  "file": "assets/fx/own/Radial.png",
+  "type": "Decal",
+  "name": "FxRadial"
+ },
+ {
+  "old": "Ring",
+  "file": "assets/fx/own/Ring.png",
+  "type": "Decal",
+  "name": "FxRing"
+ },
+ {
+  "old": "Rock",
+  "file": "assets/fx/own/Rock.png",
+  "type": "Decal",
+  "name": "FxRock"
+ },
+ {
+  "old": "Slash",
+  "file": "assets/fx/own/Slash.png",
+  "type": "Decal",
+  "name": "FxSlash"
+ },
+ {
+  "old": "Smoke",
+  "file": "assets/fx/own/Smoke.png",
+  "type": "Decal",
+  "name": "FxSmoke"
+ },
+ {
+  "old": "Sparkle",
+  "file": "assets/fx/own/Sparkle.png",
+  "type": "Decal",
+  "name": "FxSparkle"
+ },
+ {
+  "old": "Specks",
+  "file": "assets/fx/own/Specks.png",
+  "type": "Decal",
+  "name": "FxSpecks"
+ },
+ {
+  "old": "SpikyRing",
+  "file": "assets/fx/own/SpikyRing.png",
+  "type": "Decal",
+  "name": "FxSpikyRing"
+ },
+ {
+  "old": "Streak",
+  "file": "assets/fx/own/Streak.png",
+  "type": "Decal",
+  "name": "FxStreak"
+ }
+]

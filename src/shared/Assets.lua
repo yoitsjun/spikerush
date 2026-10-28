@@ -421,36 +421,36 @@ Assets.Images = {
 	RoomHaunted = "130995790024847",
 }
 
--- Effect textures (image ids) for the particle kits in Fx.lua: hand-drawn anime sprites and
--- flipbooks out of two free Creator Store VFX packs, "Yona VFX Pack" (18170940328) and
--- "BIG VFX PACK" (17290956157). The flipbook layout is noted where there is one.
+-- Effect textures (image ids) for the particle kits in Fx.lua: anime sprites and flipbooks, all
+-- our own since 2026-10-28 (tools/generate_fx_own.py, the PNGs in assets/fx/own), in place of the
+-- Creator Store VFX packs they started from. The flipbook layout is noted where there is one.
 Assets.Fx = {
-	HitStar = "7919757890", -- a jagged comic impact star (Yona, Hit-03)
-	HitBurst = "16937229477", -- a many-pointed white burst (BIG, Anime Crack-01)
-	Glint = "13768810492", -- a thin four-point glint (Yona, Arrow-Shot)
-	Sparkle = "1084970835", -- a fat four-point star (Yona, Golden-Sparks-01)
-	Streak = "7845168136", -- a tapered spark line (Yona, Hit-03)
-	HitRing = "13634052022", -- 4x4: an impact ring breaking into shards (Yona, Hit-02)
-	Ring = "7919579655", -- a thin ring, the sonic boom around a hard spike (Yona, Hit-03)
-	SpikyRing = "8904012224", -- a ragged shockwave ring (Yona, Red-Explosion)
-	Radial = "2850138336", -- a ring of speed lines (Yona, Explosion-01)
-	Slash = "7216847656", -- a crescent swoosh (BIG, Anime Slashes-01)
-	Glow = "4509687978", -- a soft white glow (Yona, Blast-Explosion-02)
-	Dot = "10558378459", -- a soft dot, embers (Yona, Block)
-	Specks = "1851669703", -- scattered star specks (BIG, Anime Stars-01)
-	Smoke = "16669188960", -- 4x4: cel-shaded smoke puffs (BIG, Anime Smoke-01)
-	GroundWave = "16954602535", -- a radial shock disc, laid on the floor (BIG, Lighting-01)
-	DustRing = "13108021212", -- a ring of dust, laid on the floor (Yona, Electricity Impact)
-	Crack = "13784241004", -- 4x4: a crack spreading across the floor (Yona, Ground-Crack-02)
-	Crater = "17067057050", -- a cracked crater (BIG, Big-Crack-01)
-	Fire = "11395090403", -- 4x4: anime flames (Yona, Explosion-02)
-	FireWhite = "11534281007", -- 4x4: white flames, tinted in code (Yona, Blast-Explosion-02)
-	Fireball = "12782553831", -- 4x4: a rolling fireball (BIG, Anime Realistic-Explosion-01)
-	Rock = "8132607319", -- a rock, meteor debris (Yona, Explosion-01)
-	Bolt = "13592365549", -- a lightning bolt (Yona, Lightning)
-	Bolt2 = "13612625856", -- another bolt (Yona, Lightning)
-	Electric = "14862694841", -- 4x4: crackling electricity (Yona, Lightning)
-	Arcs = "16951505034", -- 2x2: lightning arcs (BIG, Anime Lighting-03)
+	HitStar = "84578776691802", -- a jagged comic impact star (our own, tools/generate_fx_own.py)
+	HitBurst = "126411693371336", -- a many-pointed white burst (our own, tools/generate_fx_own.py)
+	Glint = "70421026274490", -- a thin four-point glint (our own, tools/generate_fx_own.py)
+	Sparkle = "132804290092923", -- a fat four-point star (our own, tools/generate_fx_own.py)
+	Streak = "130178526915601", -- a tapered spark line (our own, tools/generate_fx_own.py)
+	HitRing = "132772814642418", -- 4x4: an impact ring breaking into shards (our own, tools/generate_fx_own.py)
+	Ring = "125834387367711", -- a thin ring, the sonic boom around a hard spike (our own, tools/generate_fx_own.py)
+	SpikyRing = "84769116363514", -- a ragged shockwave ring (our own, tools/generate_fx_own.py)
+	Radial = "136382539905094", -- a ring of speed lines (our own, tools/generate_fx_own.py)
+	Slash = "77282827501139", -- a crescent swoosh (our own, tools/generate_fx_own.py)
+	Glow = "110774508883625", -- a soft white glow (our own, tools/generate_fx_own.py)
+	Dot = "125870173557967", -- a soft dot, embers (our own, tools/generate_fx_own.py)
+	Specks = "74137990865897", -- scattered star specks (our own, tools/generate_fx_own.py)
+	Smoke = "100136475024282", -- 4x4: cel-shaded smoke puffs (our own, tools/generate_fx_own.py)
+	GroundWave = "118536844661487", -- a radial shock disc, laid on the floor (our own, tools/generate_fx_own.py)
+	DustRing = "132621947143809", -- a ring of dust, laid on the floor (our own, tools/generate_fx_own.py)
+	Crack = "100938226132811", -- 4x4: a crack spreading across the floor (our own, tools/generate_fx_own.py)
+	Crater = "96837525357185", -- a cracked crater (our own, tools/generate_fx_own.py)
+	Fire = "103685843431601", -- 4x4: anime flames (our own, tools/generate_fx_own.py)
+	FireWhite = "116567298725900", -- 4x4: white flames, tinted in code (our own, tools/generate_fx_own.py)
+	Fireball = "102171971966936", -- 4x4: a rolling fireball (our own, tools/generate_fx_own.py)
+	Rock = "93208054984887", -- a rock, meteor debris (our own, tools/generate_fx_own.py)
+	Bolt = "124691333332600", -- a lightning bolt (our own, tools/generate_fx_own.py)
+	Bolt2 = "79025753395778", -- another bolt (our own, tools/generate_fx_own.py)
+	Electric = "78550052410229", -- 4x4: crackling electricity (our own, tools/generate_fx_own.py)
+	Arcs = "129463515329686", -- 2x2: lightning arcs (our own, tools/generate_fx_own.py)
 	-- our own, for the premium score effects (tools/generate_fx_textures.py; the stat card drawn in
 	-- Figma, "Spike Rush Score FX"); the PNGs are in assets/fx
 	Swirl = "80708525637021", -- a spiral accretion disc (Black Hole)
@@ -538,9 +538,9 @@ Assets.Toolbox = {
 		GuardBreak = "",
 		AzureAura = "",
 		-- score effects (the Locker's Effect unlocks), played where the point lands
-		ScoreFire = "17290956157/Folder/Big/Explosion-01", -- BIG VFX PACK: a cel-shaded fireball
-		ScoreMeteor = "18170940328/Explosion-VFX/Explosion-01", -- Yona: rocks, smoke, speed lines
-		ScoreThunderbolt = "17290956157/Folder/Big/Lighting-01", -- BIG VFX PACK: a shock disc and a rising bolt
+		ScoreFire = "", -- (was a Creator Store pack; Fx.lua's own ScoreFire kit plays)
+		ScoreMeteor = "", -- (was a Creator Store pack; Fx.lua's own kit plays)
+		ScoreThunderbolt = "", -- (was a Creator Store pack; Fx.lua's own kit plays)
 		ScoreShockwave = "",
 		-- ball trails (the Locker's Trail unlocks), held on the ball while an attack flies
 		TrailComet = "",
