@@ -2173,8 +2173,8 @@ local function update()
 		local p = GYM + Vector3.new(x, f.y + math.sin(a * math.pi) * 3, f.z)
 		f.model:PivotTo(CFrame.new(p) * CFrame.Angles(0, 0, -a * 12))
 	end
-	if not current then
-		return
+	if not current or (mods and mods.State and mods.State.camPreview) then
+		return -- (Settings > Camera's preview has the camera: CameraController)
 	end
 	local cam = workspace.CurrentCamera
 	if not cam then
