@@ -3,7 +3,7 @@
 -- matters. Team, stamina and ability colours carry the energy.
 --
 -- In play (laid out like The Spike's): a slanted scoreboard across the top (each team's name over
--- its stamina bar and timeout ticks, a signal-yellow VS plate with the points played to over it
+-- its stamina bar and timeout ticks, an orange VS plate with the points played to over it
 -- and a white score box under each side); the attack readout under it (the km/h with small
 -- decimals, and the hitting height); a point banner with gold edges and the reason; name tags
 -- with tier badges and a marker over the player you control; the abilities as round badges at
@@ -195,7 +195,8 @@ local function buildTeamBlock(parent, team, align)
 		ZIndex = 2,
 	}, f)
 	local barStroke = make("UIStroke", { Thickness = 1, Color = UI.Fog, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, bar)
-	local fill = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = UI.Chalk, BorderSizePixel = 0, ZIndex = 2 }, bar)
+	-- (in the team's colour, red when it runs low: 2026-10-28, was white)
+	local fill = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = teamColor(team), BorderSizePixel = 0, ZIndex = 2 }, bar)
 	if right then
 		fill.AnchorPoint = Vector2.new(1, 0)
 		fill.Position = UDim2.fromScale(1, 0)
@@ -220,14 +221,14 @@ local function buildTeamBlock(parent, team, align)
 	for i = 1, math.max(Config.Timeout.PerSet, Config.Match.Custom.TimeoutsMax) do
 		table.insert(pipList, make("Frame", { Size = UDim2.fromOffset(18, 5), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 2 }, pips))
 	end
-	return { frame = f, name = name, bar = bar, fill = fill, barStroke = barStroke, broken = broken, pips = pipList, barX = barX, barY = barY }
+	return { team = team, frame = f, name = name, bar = bar, fill = fill, barStroke = barStroke, broken = broken, pips = pipList, barX = barX, barY = barY }
 end
 
 local function buildTopBar()
 	local bar = make("Frame", { Name = "TopBar", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(820, 84), BackgroundTransparency = 1 }, gui)
 	local home = buildTeamBlock(bar, "Home", "Left")
 	local away = buildTeamBlock(bar, "Away", "Right")
-	-- the centre: a signal-yellow VS plate with the points played to on a dark tag over it (it
+	-- the centre: an orange VS plate with the points played to on a dark tag over it (it
 	-- rises in a deuce), and a white score box under each side
 	local mid = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(170, 84), BackgroundTransparency = 1, ZIndex = 3 }, bar)
 	local vs = Gui.plate(mid, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10), Size = UDim2.fromOffset(122, 42), ZIndex = 3 }, Gui.SIGNAL)
@@ -316,7 +317,7 @@ local function updateStamina()
 			block.barStroke.Color = HOT
 			block.barStroke.Transparency = 0.3
 		else
-			block.fill.BackgroundColor3 = UI.Chalk
+			block.fill.BackgroundColor3 = teamColor(block.team)
 			block.barStroke.Color = UI.Fog
 			block.barStroke.Transparency = 0.4
 		end
