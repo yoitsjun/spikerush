@@ -51,6 +51,7 @@ State.isMobile = (UserInputService.TouchEnabled and not UserInputService.Keyboar
 State.context = {}
 State.profile = nil
 State.lastAttack = nil -- { kmh, height, thunder, ... } for the speed readout
+State.camPreview = nil -- Settings > Camera from the menus: the camera shows the empty court (UIController)
 
 -- The defaults; the profile's saved settings replace them once it arrives (setProfile).
 State.settings = {
