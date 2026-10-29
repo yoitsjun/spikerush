@@ -173,7 +173,9 @@ local function update(dt)
 	if not cam then
 		return
 	end
-	if mods.SceneController and mods.SceneController.active() then
+	-- (Settings > Camera opened from the menus: the empty court through your match camera)
+	local preview = State.camPreview == true
+	if mods.SceneController and mods.SceneController.active() and not preview then
 		camPos = nil -- the menus own the camera; start fresh when play resumes
 		return
 	end
@@ -182,7 +184,7 @@ local function update(dt)
 	end
 	local now = os.clock()
 	local pos, look, fov
-	local zoomedOut = State.watching() and not State.settings.followCam
+	local zoomedOut = (State.watching() and not State.settings.followCam) or preview
 	if pointCam and pointCam.target and now < pointCam.untilT and State.watching() then
 		if pointCam.landing and now < pointCam.landingUntil then
 			-- the score blast first, where the point landed (VFXController's celebrate)

@@ -17,6 +17,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -2059,23 +2060,35 @@ end
 
 -- Settings > Camera (the owner, 2026-10-29: "a dynamic fov setter. you have a set screen and you
 -- can adjust how high or low it is, and how zoomed in or zoomed out you are. also left or right"):
--- a small panel low on the screen, so the shot it changes stays in view; each press moves one
--- setting a step (Config.Settings.CamStep) and the camera follows at once.
+-- a small panel low on the screen, so the shot it changes stays in view; a slider each ("make it a
+-- slider not button"), snapping to Config.Settings.CamStep, the camera following as you drag.
 function CamAdjust.build()
-	local rows = { { "camHeight", "Height", "Lower", "Higher" }, { "camZoom", "Zoom", "Wider", "Closer" }, { "camPan", "Left / right", "Left", "Right" } }
+	local rows = { { "camHeight", "Height", "Low", "High" }, { "camZoom", "Zoom", "Wide", "Close" }, { "camPan", "Left / right", "Left", "Right" } }
 	local f = panel(gui, { Name = "CameraAdjust", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.fromOffset(460, 72 + #rows * 50 + 58), Visible = false, ZIndex = 8 })
 	f.BackgroundTransparency = 0.08
 	edge(f, Gui.HAIRLINE, 0.3)
 	label(f, { Text = "Camera", Font = Enum.Font.GothamBlack, TextSize = 24, Size = UDim2.new(1, -32, 0, 28), Position = UDim2.fromOffset(16, 10), ZIndex = 8 })
 	Gui.plate(f, { Size = UDim2.fromOffset(56, 5), Position = UDim2.fromOffset(18, 42), ZIndex = 8 }, Gui.SIGNAL)
-	local values = {}
+	local values, knobs = {}, {}
 	local step = Config.Settings.CamStep
-	local function nudge(key, dir)
-		local v = State.settings[key] or 0
-		v = math.clamp(math.floor((v + dir * step) / step + 0.5) * step, -1, 1)
-		click()
-		State.setSetting(key, v)
+	local dragging = nil -- { key, track }
+	local function setFrom(key, track, x)
+		local f = math.clamp((x - track.AbsolutePosition.X) / math.max(1, track.AbsoluteSize.X), 0, 1)
+		local v = math.clamp(math.floor((f * 2 - 1) / step + 0.5) * step, -1, 1)
+		if v ~= (State.settings[key] or 0) then
+			State.setSetting(key, v)
+		end
 	end
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			setFrom(dragging.key, dragging.track, input.Position.X)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+			dragging = nil
+		end
+	end)
 	local function button(parent, text, x, w, onPress)
 		local b = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, x, 0.5, 0), Size = UDim2.fromOffset(w, 34), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, AutoButtonColor = true, Text = text, Font = Enum.Font.GothamBlack, TextSize = 15, TextColor3 = Gui.LINE, ZIndex = 9 }, parent)
 		corner(b, 6)
@@ -2087,18 +2100,27 @@ function CamAdjust.build()
 		local row = make("Frame", { Position = UDim2.fromOffset(12, 56 + (i - 1) * 50), Size = UDim2.new(1, -24, 0, 44), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 8 }, f)
 		corner(row, 6)
 		label(row, { Text = r[2], Font = Enum.Font.GothamBlack, TextSize = 17, Size = UDim2.fromOffset(130, 44), Position = UDim2.fromOffset(12, 0), ZIndex = 9 })
-		values[r[1]] = label(row, { Text = "0", Font = Enum.Font.GothamBlack, TextSize = 17, TextColor3 = Gui.SIGNAL, Size = UDim2.fromOffset(50, 44), Position = UDim2.fromOffset(136, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 9 })
-		button(row, r[4], -6, 82, function()
-			nudge(r[1], 1)
-		end)
-		button(row, r[3], -94, 82, function()
-			nudge(r[1], -1)
+		values[r[1]] = label(row, { Text = "0", Font = Enum.Font.GothamBlack, TextSize = 17, TextColor3 = Gui.SIGNAL, Size = UDim2.fromOffset(40, 44), Position = UDim2.fromOffset(118, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 9 })
+		label(row, { Text = r[3], TextSize = 12, TextColor3 = UI.Fog, Size = UDim2.fromOffset(40, 14), Position = UDim2.fromOffset(166, 30), ZIndex = 9 })
+		label(row, { Text = r[4], TextSize = 12, TextColor3 = UI.Fog, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(40, 14), Position = UDim2.new(1, -12, 0, 30), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 9 })
+		-- the track (a button, so a press anywhere on it jumps there and starts the drag)
+		local track = make("TextButton", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 170, 0, 18), Size = UDim2.new(1, -186, 0, 8), BackgroundColor3 = Color3.fromRGB(64, 68, 86), BorderSizePixel = 0, AutoButtonColor = false, Text = "", ZIndex = 9 }, row)
+		corner(track, 4)
+		make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(0, 2, 0, 14), BackgroundColor3 = UI.Fog, BorderSizePixel = 0, ZIndex = 9 }, track)
+		local knob = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(20, 20), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, ZIndex = 10 }, track)
+		corner(knob, 10)
+		knobs[r[1]] = knob
+		track.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = { key = r[1], track = track }
+				setFrom(r[1], track, input.Position.X)
+			end
 		end)
 	end
 	local foot = make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -10), Size = UDim2.new(1, -24, 0, 40), BackgroundTransparency = 1, ZIndex = 8 }, f)
 	button(foot, "Done", 0, 100, function()
 		click()
-		f.Visible = false
+		CamAdjust.close()
 	end)
 	button(foot, "Reset", -110, 100, function()
 		click()
@@ -2110,6 +2132,7 @@ function CamAdjust.build()
 		for key, l in pairs(values) do
 			local v = State.settings[key] or 0
 			l.Text = (v > 0 and "+" or "") .. tostring(math.floor(v * 10 + (v >= 0 and 0.5 or -0.5)))
+			knobs[key].Position = UDim2.fromScale((v + 1) / 2, 0.5)
 		end
 	end
 	State.signals.Settings:Connect(refresh)
@@ -2117,9 +2140,35 @@ function CamAdjust.build()
 	CamAdjust.frame = f
 end
 
+-- Opened from the menus (not playing), it shows you the shot it changes ("allow people to see a
+-- reference of their screen... an empty court with just their camera"): the menus step aside and
+-- the camera goes to the court through your match camera until Done.
 function CamAdjust.open()
+	if not CamAdjust.frame then
+		return
+	end
+	CamAdjust.frame.Visible = true
+	if not State.watching() then
+		State.camPreview = true
+		local menu = player.PlayerGui:FindFirstChild("SpikeRushMenu")
+		CamAdjust.hidMenu = menu and menu.Enabled and menu or nil
+		if CamAdjust.hidMenu then
+			CamAdjust.hidMenu.Enabled = false
+		end
+		gui.Enabled = true
+	end
+end
+
+function CamAdjust.close()
 	if CamAdjust.frame then
-		CamAdjust.frame.Visible = true
+		CamAdjust.frame.Visible = false
+	end
+	if State.camPreview then
+		State.camPreview = nil
+		if CamAdjust.hidMenu then
+			CamAdjust.hidMenu.Enabled = true
+			CamAdjust.hidMenu = nil
+		end
 	end
 end
 
