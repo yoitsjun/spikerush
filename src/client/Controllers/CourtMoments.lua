@@ -140,7 +140,7 @@ function CourtMoments.whale()
 		if ahead.Magnitude < 1e-3 then
 			ahead = Vector3.new(0, -1, 0.3)
 		end
-		local root = CFrame.lookAt(pos, pos + ahead) * CFrame.Angles(0, 0, math.rad(200 * t))
+		local root = CFrame.lookAt(pos, pos + ahead) * CFrame.Angles(0, 0, math.rad(30 * t)) -- (a slight roll: it stays belly down, flukes flat)
 		for _, e in ipairs(parts) do
 			e.p.CFrame = root * e.o
 		end

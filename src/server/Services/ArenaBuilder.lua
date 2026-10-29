@@ -791,7 +791,7 @@ COURTS.Beach = {
 			words = { "SUNSET BEACH", "VOLLEYBALL RUSH", "BEACH TOUR", "VOLLEYBALL RUSH", "SUNSET BEACH" },
 			wordColors = { Color3.fromRGB(255, 124, 28), Color3.fromRGB(30, 100, 212) },
 			flags = { HOME, Color3.fromRGB(250, 196, 40), AWAY, CHALK },
-			up = 3.6,
+			up = 4.8,
 		})
 		-- palms behind the bleachers and along the ends
 		for _, z in ipairs({ -84, -62, -38, 34, 60, 86 }) do
@@ -1051,7 +1051,7 @@ COURTS.Rooftop = {
 			wall = Color3.fromRGB(34, 36, 50), material = Enum.Material.DiamondPlate, trim = Color3.fromRGB(0, 229, 255), panel = Color3.fromRGB(16, 16, 30),
 			words = { "NIGHT ROOFTOP", "VOLLEYBALL RUSH", "CITY LEAGUE", "VOLLEYBALL RUSH", "NIGHT ROOFTOP" },
 			wordColors = { Color3.fromRGB(255, 80, 170), Color3.fromRGB(255, 132, 34), Color3.fromRGB(0, 229, 255) },
-			up = 3.6,
+			up = 4.8,
 		})
 		-- the next roof over, right behind the court (the owner, 2026-10-29: "its a lazy approach to
 		-- cover up the scene with a higher stadium"): a water tower on legs, a big neon sign on its
@@ -1280,8 +1280,7 @@ COURTS.Haunted = {
 			wall = Color3.fromRGB(52, 38, 32), material = Enum.Material.WoodPlanks, trim = Color3.fromRGB(28, 22, 26), panel = Color3.fromRGB(26, 16, 30),
 			words = { "HAUNTED FOREST", "TRICK OR TREAT", "VOLLEYBALL RUSH", "DON'T LOOK BACK", "HAUNTED FOREST" },
 			wordColors = { Color3.fromRGB(255, 140, 40), Color3.fromRGB(180, 110, 255) },
-			flags = { Color3.fromRGB(255, 120, 30), Color3.fromRGB(20, 16, 22), Color3.fromRGB(130, 60, 200) },
-			up = 3.6,
+			up = 4.8,
 		})
 		-- a graveyard on the rise behind the bleachers, in the camera's view (the owner, 2026-10-29:
 		-- not a taller stand covering the scene): a mound of dark earth, crooked crosses and stones,
