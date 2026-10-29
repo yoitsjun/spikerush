@@ -325,7 +325,7 @@ local function beam(parent, from, to, color, width, seed)
 	local planes = {}
 	for i = 0, 1 do
 		local p = box(parent, Vector3.new(width, 0.05, len), CFrame.identity, color, Enum.Material.Neon)
-		p.Transparency = 0.9
+		p.Transparency = 0.93
 		p.CastShadow = false
 		table.insert(planes, { part = p, roll = i * math.pi / 2 })
 	end
@@ -386,11 +386,10 @@ local function buildHome()
 		strip(room, Vector3.new(34, 0.02, lw), CFrame.new(H + Vector3.new(0, lineY, z)), CYAN, 0.15)
 	end
 	-- the name painted on the floor between you and the net
-	local paint = box(room, Vector3.new(22, 0.02, 4.4), CFrame.new(H + Vector3.new(1, 0.07, 12.4)), Color3.new(1, 1, 1))
+	local paint = box(room, Vector3.new(4.4, 0.02, 22), CFrame.new(H + Vector3.new(1, 0.07, 13)) * CFrame.Angles(0, math.rad(90), 0), Color3.new(1, 1, 1))
 	paint.Transparency = 1
 	local word = surfaceText(paint, Enum.NormalId.Top, "VOLLEYBALL RUSH", CYAN, Enum.Font.GothamBlack)
 	word.TextTransparency = 0.55
-	word.Rotation = 180
 
 	-- the net: posts in magenta pads, a white top band, the mesh, antennas
 	for _, x in ipairs({ -19.5, 19.5 }) do
@@ -443,12 +442,12 @@ local function buildHome()
 		end
 	end
 	-- an LED ribbon along the front of the stands, and the sideline boards
-	ticker(room, Vector3.new(96, 2.6, 0.4), CFrame.new(H + Vector3.new(0, 1.5, 58)) * CFrame.Angles(0, math.rad(180), 0), "VOLLEYBALL RUSH  //  RANKED  //  CLANS  //  ", CYAN, 0.035)
+	ticker(room, Vector3.new(96, 2.6, 0.4), CFrame.new(H + Vector3.new(0, 1.5, 58)), "VOLLEYBALL RUSH  //  RANKED  //  CLANS  //  ", CYAN, 0.035)
 	ticker(room, Vector3.new(40, 2.2, 0.4), CFrame.new(H + Vector3.new(-26, 1.3, NET_Z + 20)) * CFrame.Angles(0, math.rad(-90), 0), "SPIKE IT  //  ", MAGENTA, 0.05)
 	ticker(room, Vector3.new(40, 2.2, 0.4), CFrame.new(H + Vector3.new(26, 1.3, NET_Z + 20)) * CFrame.Angles(0, math.rad(90), 0), "SPIKE IT  //  ", MAGENTA, 0.05)
 
 	-- the big screen over the stands: the logo in the brand's colours
-	local screen = box(room, Vector3.new(66, 20, 0.6), CFrame.new(H + Vector3.new(0, 42, 104)) * CFrame.Angles(0, math.rad(180), 0), Color3.fromRGB(6, 8, 18))
+	local screen = box(room, Vector3.new(66, 20, 0.6), CFrame.new(H + Vector3.new(0, 36, 104)), Color3.fromRGB(6, 8, 18))
 	local sg = Instance.new("SurfaceGui")
 	sg.Face = Enum.NormalId.Front
 	sg.LightInfluence = 0
@@ -487,8 +486,8 @@ local function buildHome()
 	end
 	screenWord("VOLLEYBALL", UDim2.fromScale(0.08, 0.1), UDim2.fromScale(0.84, 0.46), Color3.fromRGB(236, 255, 255), CYAN)
 	screenWord("RUSH", UDim2.fromScale(0.3, 0.52), UDim2.fromScale(0.4, 0.4), Color3.fromRGB(255, 170, 225), MAGENTA)
-	strip(room, Vector3.new(67, 0.4, 0.4), CFrame.new(H + Vector3.new(0, 52.2, 103.6)), CYAN)
-	strip(room, Vector3.new(67, 0.4, 0.4), CFrame.new(H + Vector3.new(0, 31.8, 103.6)), MAGENTA)
+	strip(room, Vector3.new(67, 0.4, 0.4), CFrame.new(H + Vector3.new(0, 46.2, 103.6)), CYAN)
+	strip(room, Vector3.new(67, 0.4, 0.4), CFrame.new(H + Vector3.new(0, 25.8, 103.6)), MAGENTA)
 
 	-- the lighting rig: trusses across the roof, lamps on them, beams sweeping down
 	for _, z in ipairs({ 6, 30, 54 }) do
@@ -497,13 +496,12 @@ local function buildHome()
 	end
 	local bseed = 0
 	for _, rig in ipairs({
-		{ -36, 30, -14, 22, CYAN }, { -18, 54, -6, 34, MAGENTA }, { 0, 30, 2, 40, CYAN }, { 18, 54, 8, 28, MAGENTA }, { 36, 30, 16, 20, CYAN },
-		{ -26, 6, -10, 30, MAGENTA }, { 26, 6, 12, 32, CYAN },
+		{ -36, 54, -14, 30, CYAN }, { -16, 54, -6, 40, MAGENTA }, { 2, 54, 4, 44, CYAN }, { 20, 54, 10, 36, MAGENTA }, { 38, 54, 16, 28, CYAN },
 	}) do
 		local from = H + Vector3.new(rig[1], 46, rig[2])
 		local lamp = strip(room, Vector3.new(1.4, 1, 1.4), CFrame.new(from), rig[5])
 		bseed = bseed + 1.7
-		beam(room, from + Vector3.new(0, -0.6, 0), H + Vector3.new(rig[3], 0, rig[4]), rig[5], 2.6, bseed)
+		beam(room, from + Vector3.new(0, -0.6, 0), H + Vector3.new(rig[3], 0, rig[4]), rig[5], 1.8, bseed)
 		local spot = light(lamp, "SpotLight", { Face = Enum.NormalId.Bottom, Range = 60, Angle = 28, Brightness = 2.4, Color = rig[5], Shadows = false })
 		table.insert(arena.pulses, { light = spot, base = 2.4, rate = 0.7 + (bseed % 1), seed = bseed })
 	end
