@@ -4089,7 +4089,7 @@ local function buildPlayer()
 	local cols = {}
 	local colW = 1 / Config.Breakthrough.Max
 	for i = 1, Config.Breakthrough.Max do
-		local col = make("Frame", { Position = UDim2.new(colW * (i - 1), 16 - (i - 1) * 32 / Config.Breakthrough.Max + (i - 1) * 6 / Config.Breakthrough.Max, 0, 66), Size = UDim2.new(colW, -32 / Config.Breakthrough.Max - 6, 0, 290), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0 }, bt)
+		local col = make("Frame", { Position = UDim2.new(colW * (i - 1), 16 - (i - 1) * 32 / Config.Breakthrough.Max + (i - 1) * 6 / Config.Breakthrough.Max, 0, 66), Size = UDim2.new(colW, -32 / Config.Breakthrough.Max - 6, 0, 340), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0 }, bt)
 		make("UICorner", { CornerRadius = UDim.new(0, 6) }, col)
 		local edge = make("UIStroke", { Color = Gui.SIGNAL, Thickness = 2, Transparency = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, col)
 		local head = Gui.plate(col, { Position = UDim2.fromOffset(6, 6), Size = UDim2.new(1, -12, 0, 36) }, Gui.LINE)
@@ -4098,9 +4098,9 @@ local function buildPlayer()
 		local body = Gui.label(col, { Text = "", TextSize = 21, LineHeight = 1.1, RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(10, 50), Size = UDim2.new(1, -16, 1, -56) })
 		cols[i] = { frame = col, edge = edge, head = head, headL = headL, body = body }
 	end
-	local sellB, sellL = hairButton(bt, { Name = "Sell", Position = UDim2.fromOffset(16, 372), Size = UDim2.fromOffset(200, 48) }, "Sell player", 19)
-	local sellNote = Gui.label(bt, { Text = "", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(228, 370), Size = UDim2.new(1, -228 - 170, 0, 52) })
-	local fragOpen = hairButton(bt, { Name = "Fragments", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 372), Size = UDim2.fromOffset(150, 48) }, "Fragments", 19)
+	local sellB, sellL = hairButton(bt, { Name = "Sell", Position = UDim2.fromOffset(16, 422), Size = UDim2.fromOffset(200, 48) }, "Sell player", 19)
+	local sellNote = Gui.label(bt, { Text = "", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(228, 420), Size = UDim2.new(1, -228 - 170, 0, 52) })
+	local fragOpen = hairButton(bt, { Name = "Fragments", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 422), Size = UDim2.fromOffset(150, 48) }, "Fragments", 19)
 	onClick(fragOpen, function()
 		Extra.openFragments()
 	end)
@@ -4122,7 +4122,7 @@ local function buildPlayer()
 	end)
 	-- the admins' shortcuts (the owner, 2026-10-29: "a seperate breakthrough max button and a remove
 	-- breakthrough button"): +Max at once, or every breakthrough taken off; free
-	local adminRow = make("Frame", { Name = "Admin", Position = UDim2.fromOffset(16, 436), Size = UDim2.new(1, -34, 0, 48), BackgroundTransparency = 1, Visible = false }, bt)
+	local adminRow = make("Frame", { Name = "Admin", Position = UDim2.fromOffset(16, 486), Size = UDim2.new(1, -34, 0, 48), BackgroundTransparency = 1, Visible = false }, bt)
 	Gui.label(adminRow, { Text = "Admin", display = true, TextSize = 18, TextColor3 = Gui.MAGENTA, Size = UDim2.fromOffset(72, 48) })
 	local maxBrk = hairButton(adminRow, { Name = "MaxBreak", Position = UDim2.fromOffset(76, 0), Size = UDim2.fromOffset(220, 48) }, "Max breakthrough", 19)
 	local noBrk = hairButton(adminRow, { Name = "RemoveBreak", Position = UDim2.fromOffset(308, 0), Size = UDim2.fromOffset(240, 48) }, "Remove breakthrough", 19)
