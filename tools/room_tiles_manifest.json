@@ -1,1 +1,2 @@
-[{"old": "RoomClubhouse", "file": "assets/rooms/Clubhouse.png", "type": "Decal", "name": "RoomArena"}]
+[{"old": "RoomClubhouse", "file": "assets/rooms/Clubhouse.png", "type": "Decal", "name": "RoomRushArena"},
+ {"old": "RoomNeon", "file": "assets/rooms/Neon.png", "type": "Decal", "name": "RoomNeonCourt"}]

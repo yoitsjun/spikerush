@@ -2317,9 +2317,10 @@ Config.Halloween = {
 -- SceneController draws each one's decorations.
 Config.Rooms = {
 	Default = "Clubhouse",
-	Order = { "Clubhouse", "Haunted" },
+	Order = { "Clubhouse", "Neon", "Haunted" },
 	List = {
-		Clubhouse = { Name = "Rush Arena", Default = true, Blurb = "Center court at night: the crowd, the big screen and the stage lights." }, -- (key kept for saves; was the club room)
+		Clubhouse = { Name = "Rush Arena", Default = true, Blurb = "The pro hall: a maple court under the lights, the crowd, the banners and the big screen." }, -- (key kept for saves; was the club room)
+		Neon = { Name = "Neon Court", Default = true, Blurb = "Center court at night: the crowd in the dark, the big screen and the stage lights sweeping." },
 		Haunted = { Name = "Haunted Forest", Rarity = "Legendary", Limited = "Halloween", Blurb = "Home out in a moonlit forest: the clubhouse a haunted cabin among dead trees, a graveyard, a bubbling cauldron, jack-o'-lanterns, fog and a huge orange moon." },
 	},
 }

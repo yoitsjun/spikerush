@@ -417,7 +417,8 @@ Assets.Images = {
 	MatchColosseum = "108168199371323", -- Colosseum
 	MatchPractice = "127970476168767", -- the club room's ball cart
 	-- Decorate's tiles: each Home room rendered in Studio (assets/rooms), Room<Config.Rooms key>
-	RoomClubhouse = "115001179141888", -- the Rush Arena (assets/rooms/Clubhouse.png, shot in Studio 2026-10-28)
+	RoomClubhouse = "118243753679709", -- the Rush Arena (assets/rooms/Clubhouse.png, shot in Studio 2026-10-28)
+	RoomNeon = "115001179141888", -- the Neon Court (assets/rooms/Neon.png)
 	RoomHaunted = "130995790024847",
 }
 
