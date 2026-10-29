@@ -128,9 +128,9 @@ end
 function CourtMoments.whale()
 	local f = holder()
 	local parts = buildWhale(f)
-	local x0 = 175
+	local x0 = 122 -- (out past the surf, close enough to fill the sky over the stands)
 	local function at(t)
-		return Vector3.new(x0, -34 + 4 * 92 * t * (1 - t), -70 + 110 * t)
+		return Vector3.new(x0, -30 + 4 * 68 * t * (1 - t), -60 + 100 * t)
 	end
 	sound("Boom", { volume = 0.8 })
 	local splashedUp, splashedDown = false, false
@@ -215,9 +215,9 @@ function CourtMoments.horseman()
 				e.p.CFrame = root * e.o
 			end
 		end
-		if os.clock() - lastFire > 0.07 then
+		if os.clock() - lastFire > 0.11 then
 			lastFire = os.clock()
-			Fx.play("Fire", Vector3.new(x, 0.6, z - 2), { color = Color3.fromRGB(255, 110, 30), scale = 1.3 })
+			Fx.play("Fire", Vector3.new(x, 0.4, z - 2), { color = Color3.fromRGB(255, 90, 20), scale = 0.55 })
 		end
 	end, function()
 		Fx.play("Dust", Vector3.new(x, 1, z1), { color = Color3.fromRGB(120, 90, 160), scale = 3 })
@@ -231,8 +231,8 @@ function CourtMoments.fireworks()
 	for i = 1, 9 do
 		task.delay((i - 1) * 0.32, function()
 			local f = holder()
-			local from = Vector3.new(120 + (i % 3) * 30, 0, -90 + i * 20)
-			local to = from + Vector3.new(-20, 70 + (i % 4) * 10, 0)
+			local from = Vector3.new(110 + (i % 3) * 25, 0, -80 + i * 17)
+			local to = from + Vector3.new(-20, 40 + (i % 4) * 4, 0) -- (bursting in the frame, over the stands)
 			local col = colors[(i - 1) % #colors + 1]
 			local rocket = piece(f, Enum.PartType.Ball, Vector3.new(1.4, 1.4, 1.4), col, Enum.Material.Neon)
 			rocket.CFrame = CFrame.new(from)

@@ -791,6 +791,7 @@ COURTS.Beach = {
 			words = { "SUNSET BEACH", "VOLLEYBALL RUSH", "BEACH TOUR", "VOLLEYBALL RUSH", "SUNSET BEACH" },
 			wordColors = { Color3.fromRGB(255, 124, 28), Color3.fromRGB(30, 100, 212) },
 			flags = { HOME, Color3.fromRGB(250, 196, 40), AWAY, CHALK },
+			up = 3.6,
 		})
 		-- palms behind the bleachers and along the ends
 		for _, z in ipairs({ -84, -62, -38, 34, 60, 86 }) do
@@ -823,6 +824,16 @@ COURTS.Beach = {
 		end
 		deco(part(tower, "Hut", Vector3.new(5.5, 4, 5.5), CFrame.new(46, 11, tz), Color3.fromRGB(236, 72, 60), Enum.Material.Wood))
 		deco(part(tower, "Roof", Vector3.new(6.5, 0.5, 6.5), CFrame.new(46, 13.25, tz), CHALK, Enum.Material.Wood))
+		-- a white yacht lying off the point, in view over the stands
+		local yacht = Instance.new("Model")
+		yacht.Name = "Yacht"
+		yacht.Parent = scene
+		local yp = Vector3.new(C.WallHalfX + 170, 0, -26)
+		deco(part(yacht, "Hull", Vector3.new(34, 4, 9), CFrame.new(yp + Vector3.new(0, 1.6, 0)) * CFrame.Angles(0, math.rad(84), 0), CHALK, Enum.Material.SmoothPlastic))
+		deco(part(yacht, "Stripe", Vector3.new(34.2, 0.6, 9.2), CFrame.new(yp + Vector3.new(0, 1.2, 0)) * CFrame.Angles(0, math.rad(84), 0), Color3.fromRGB(30, 100, 212), Enum.Material.SmoothPlastic))
+		deco(part(yacht, "Cabin", Vector3.new(16, 4, 7), CFrame.new(yp + Vector3.new(0, 5.4, 2)) * CFrame.Angles(0, math.rad(84), 0), CHALK, Enum.Material.SmoothPlastic))
+		deco(part(yacht, "Windows", Vector3.new(14, 1.4, 7.2), CFrame.new(yp + Vector3.new(0, 5.8, 2)) * CFrame.Angles(0, math.rad(84), 0), Color3.fromRGB(30, 40, 60), Enum.Material.Glass))
+		deco(part(yacht, "Bridge", Vector3.new(8, 2.6, 5.6), CFrame.new(yp + Vector3.new(0, 8.6, 3)) * CFrame.Angles(0, math.rad(84), 0), CHALK, Enum.Material.SmoothPlastic))
 		-- out on the water: a sailboat, orange buoys marking the swim line, a pier with lamps
 		local boat = Instance.new("Model")
 		boat.Name = "Sailboat"
@@ -1040,7 +1051,31 @@ COURTS.Rooftop = {
 			wall = Color3.fromRGB(34, 36, 50), material = Enum.Material.DiamondPlate, trim = Color3.fromRGB(0, 229, 255), panel = Color3.fromRGB(16, 16, 30),
 			words = { "NIGHT ROOFTOP", "VOLLEYBALL RUSH", "CITY LEAGUE", "VOLLEYBALL RUSH", "NIGHT ROOFTOP" },
 			wordColors = { Color3.fromRGB(255, 80, 170), Color3.fromRGB(255, 132, 34), Color3.fromRGB(0, 229, 255) },
+			up = 3.6,
 		})
+		-- the next roof over, right behind the court (the owner, 2026-10-29: "its a lazy approach to
+		-- cover up the scene with a higher stadium"): a water tower on legs, a big neon sign on its
+		-- frame, an antenna with a red light, a lit stair hut
+		local roof2 = folder(scene, "NextRoof")
+		local nx = W + 34
+		deco(part(roof2, "Roof", Vector3.new(40, 60, 150), CFrame.new(nx, -32, -10), Color3.fromRGB(44, 46, 58), Enum.Material.Concrete))
+		deco(part(roof2, "Ledge", Vector3.new(40.6, 1.2, 150.6), CFrame.new(nx, -1.4, -10), Color3.fromRGB(70, 72, 84), Enum.Material.Concrete))
+		local wt = Vector3.new(nx + 4, -2, 52)
+		for _, o in ipairs({ Vector3.new(-3, 0, -3), Vector3.new(3, 0, -3), Vector3.new(-3, 0, 3), Vector3.new(3, 0, 3) }) do
+			cylinder(roof2, "TowerLeg", 12, 0.6, wt + o, Color3.fromRGB(50, 44, 40), Enum.Material.Metal)
+		end
+		cylinder(roof2, "WaterTower", 12, 10, wt + Vector3.new(0, 12, 0), Color3.fromRGB(122, 86, 60), Enum.Material.WoodPlanks)
+		deco(part(roof2, "TowerCap", Vector3.new(11, 1.6, 11), CFrame.new(wt + Vector3.new(0, 24.8, 0)), Color3.fromRGB(64, 56, 52), Enum.Material.Metal))
+		local sign = Vector3.new(nx - 6, 18, -34) -- (clear of the billboard across the street)
+		deco(part(roof2, "SignFrame", Vector3.new(1, 12, 36), CFrame.new(sign + Vector3.new(0.6, 0, 0)), Color3.fromRGB(20, 20, 30), Enum.Material.Metal))
+		banner(roof2, "NeonSign", Vector3.new(0.4, 10.4, 34.4), CFrame.new(sign), Enum.NormalId.Left, "OPEN ALL NIGHT", Color3.fromRGB(255, 80, 170), Color3.fromRGB(14, 12, 26))
+		for _, oz in ipairs({ -12, 12 }) do
+			deco(part(roof2, "SignLeg", Vector3.new(0.6, 20, 0.6), CFrame.new(sign + Vector3.new(1, -12, oz)), Color3.fromRGB(40, 42, 50), Enum.Material.Metal))
+		end
+		deco(part(roof2, "Antenna", Vector3.new(0.5, 34, 0.5), CFrame.new(nx + 8, 15, -8), Color3.fromRGB(150, 152, 160), Enum.Material.Metal))
+		ball(roof2, "AntennaLight", Vector3.new(1.2, 1.2, 1.2), Vector3.new(nx + 8, 32.4, -8), Color3.fromRGB(255, 40, 40), Enum.Material.Neon)
+		deco(part(roof2, "Hut", Vector3.new(10, 8, 12), CFrame.new(nx + 8, 2, -64), Color3.fromRGB(70, 72, 84), Enum.Material.Concrete))
+		deco(part(roof2, "HutDoor", Vector3.new(0.2, 5, 3), CFrame.new(nx + 2.9, 1, -64), Color3.fromRGB(255, 196, 120), Enum.Material.Neon))
 		-- string lights over the bleachers, sagging between poles
 		local bulbs = folder(scene, "StringLights")
 		local poles = { -66, -22, 22, 66 }
@@ -1246,7 +1281,42 @@ COURTS.Haunted = {
 			words = { "HAUNTED FOREST", "TRICK OR TREAT", "VOLLEYBALL RUSH", "DON'T LOOK BACK", "HAUNTED FOREST" },
 			wordColors = { Color3.fromRGB(255, 140, 40), Color3.fromRGB(180, 110, 255) },
 			flags = { Color3.fromRGB(255, 120, 30), Color3.fromRGB(20, 16, 22), Color3.fromRGB(130, 60, 200) },
+			up = 3.6,
 		})
+		-- a graveyard on the rise behind the bleachers, in the camera's view (the owner, 2026-10-29:
+		-- not a taller stand covering the scene): a mound of dark earth, crooked crosses and stones,
+		-- a mausoleum with its door glowing green, mist
+		local hill = folder(scene, "HillGraves")
+		local hx = back + 52
+		ball(hill, "Mound", Vector3.new(70, 16, 150), Vector3.new(hx, -2, 0), Color3.fromRGB(28, 22, 30), Enum.Material.Ground)
+		local grng = Random.new(77)
+		for _ = 1, 26 do
+			local z = -66 + grng:NextNumber() * 132
+			local x = hx - 22 + grng:NextNumber() * 30
+			local y = 6 - ((x - hx) / 35) ^ 2 * 6 - (z / 75) ^ 2 * 6 + 1.2
+			local tilt = CFrame.Angles(math.rad((grng:NextNumber() - 0.5) * 18), 0, math.rad((grng:NextNumber() - 0.5) * 18))
+			if grng:NextNumber() < 0.5 then
+				deco(part(hill, "Cross", Vector3.new(0.5, 4.2, 0.5), CFrame.new(x, y + 2.1, z) * tilt, Color3.fromRGB(96, 92, 104), Enum.Material.Slate))
+				deco(part(hill, "CrossArm", Vector3.new(0.5, 0.5, 2.4), CFrame.new(x, y + 3.1, z) * tilt, Color3.fromRGB(96, 92, 104), Enum.Material.Slate))
+			else
+				deco(part(hill, "Stone", Vector3.new(0.7, 3, 2.2), CFrame.new(x, y + 1.5, z) * tilt, Color3.fromRGB(104, 104, 116), Enum.Material.Slate))
+			end
+		end
+		local mz = 18
+		deco(part(hill, "Mausoleum", Vector3.new(12, 12, 14), CFrame.new(hx + 6, 10, mz), Color3.fromRGB(84, 82, 94), Enum.Material.Slate))
+		for _, side in ipairs({ -1, 1 }) do
+			deco(part(hill, "MausoleumRoof", Vector3.new(8, 0.8, 15), CFrame.new(hx + 6 + side * 3, 17.6, mz) * CFrame.Angles(0, 0, math.rad(side * 30)), Color3.fromRGB(46, 44, 54), Enum.Material.Slate))
+		end
+		local door = deco(part(hill, "MausoleumDoor", Vector3.new(0.3, 6, 4), CFrame.new(hx - 0.1, 7, mz), Color3.fromRGB(110, 255, 160), Enum.Material.Neon))
+		local dl = Instance.new("SurfaceLight")
+		dl.Face = Enum.NormalId.Left
+		dl.Range = 24
+		dl.Brightness = 2
+		dl.Color = Color3.fromRGB(110, 255, 160)
+		dl.Parent = door
+		for _, z in ipairs({ -40, 0, 44 }) do
+			ball(hill, "Mist", Vector3.new(40, 5, 46), Vector3.new(hx - 14, 4, z), Color3.fromRGB(150, 140, 200), Enum.Material.SmoothPlastic).Transparency = 0.82
+		end
 		-- string lights over the bleachers
 		local bulbs = folder(scene, "StringLights")
 		local poles = { -66, -22, 22, 66 }
