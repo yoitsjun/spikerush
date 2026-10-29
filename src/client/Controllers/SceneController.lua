@@ -696,7 +696,7 @@ local function buildHome()
 
 	-- the hall: a dark floor round the court, a roof, padded navy walls with grey above
 	box(room, Vector3.new(170, 1, 190), CFrame.new(H + Vector3.new(0, -0.5, 50)), Color3.fromRGB(34, 38, 54), Enum.Material.SmoothPlastic, { Reflectance = 0.06 })
-	box(room, Vector3.new(170, 2, 190), CFrame.new(H + Vector3.new(0, 64, 50)), Color3.fromRGB(30, 32, 40))
+	box(room, Vector3.new(170, 2, 190), CFrame.new(H + Vector3.new(0, 64, 50)), Color3.fromRGB(92, 96, 110))
 	for _, w in ipairs({
 		{ Vector3.new(1, 66, 190), Vector3.new(-85, 32, 50) }, { Vector3.new(1, 66, 190), Vector3.new(85, 32, 50) },
 		{ Vector3.new(170, 66, 1), Vector3.new(0, 32, 140) }, { Vector3.new(170, 66, 1), Vector3.new(0, 32, -40) },
@@ -784,6 +784,7 @@ local function buildHome()
 		local panel = box(room, Vector3.new(60, 0.2, 18), CFrame.new(H + Vector3.new(0, 47, z)), Color3.new(1, 1, 1))
 		panel.Transparency = 1
 		light(panel, "SurfaceLight", { Face = Enum.NormalId.Bottom, Range = 60, Angle = 90, Brightness = 1.4, Color = Color3.fromRGB(240, 246, 255), Shadows = z == 26 })
+		light(panel, "SurfaceLight", { Face = Enum.NormalId.Top, Range = 20, Angle = 90, Brightness = 0.7, Color = Color3.fromRGB(220, 230, 250), Shadows = false }) -- (the roof and trusses, lit from under)
 	end
 	-- you: a soft key in front, a warm rim from the right
 	local key = box(room, Vector3.one * 0.2, CFrame.new(H + Vector3.new(1, 9, -2)), Color3.new(1, 1, 1))
@@ -1301,6 +1302,10 @@ function SceneController.applyRoom()
 		roomState.decor = build()
 		placeForest()
 	end
+	-- (each room has its own Home shot: glide to it if Home's is up)
+	if current == "home" and SceneController.reshootHome then
+		SceneController.reshootHome()
+	end
 	SceneController.refreshGrade()
 end
 
@@ -1628,15 +1633,31 @@ local SHOTS = {
 	-- the score effect where the ball lands both play left of the Locker's panel (the owner: "have
 	-- the angle a bit moved over... i cant see it too well")
 	practice = { from = GYM + Vector3.new(-42, 10, 19), to = GYM + Vector3.new(0, 7, 19), fov = 46 },
+	-- Home in the Rush Arena, wider (the owner: "i do kind of want a more zoomed out look on the
+	-- real court"): a little higher and further, a wide lens, you centre-right, the hall around you
+	homeWide = { from = HOME + Vector3.new(-0.5, 4.2, -6), to = HOME + Vector3.new(6.8, 5, 14), fov = 62, focus = 13.4, blur = 0.12 },
 }
+local lastShot = nil
+
+-- Home's shot for the room up: the Rush Arena's wide one, else the close one.
+local function homeShot()
+	if roomState.key == "Haunted" or roomState.key == "Neon" then
+		return "home"
+	end
+	return "homeWide"
+end
 
 local function shotCF(name)
+	if name == "home" then
+		name = homeShot()
+	end
 	local s = SHOTS[name]
 	return CFrame.lookAt(s.from, s.to), s.fov
 end
 
 -- Cut (duration 0) or glide to a named shot.
 function SceneController.shot(name, duration)
+	lastShot = name
 	local cf, fov = shotCF(name)
 	if not duration or duration <= 0 or not camCF then
 		camCF, camFov = cf, fov
@@ -1647,6 +1668,16 @@ function SceneController.shot(name, duration)
 	shotTo = { cf = cf, fov = fov }
 	shotT0 = os.clock()
 	shotDur = duration
+end
+
+-- Home's shot again for the room now up, when Home's is the shot (each room has its own).
+function SceneController.reshootHome()
+	if lastShot == "home" then
+		SceneController.shot("home", 0.5)
+		local s = SHOTS[homeShot()]
+		dof.FocusDistance = s.focus or 16
+		dof.FarIntensity = s.blur or 0.35
+	end
 end
 
 -- Show a scene ("home" or "gym") or nil to hand the camera back to the game.
@@ -1661,7 +1692,8 @@ function SceneController.show(name)
 			SceneController.refreshHomeAvatar()
 		end
 		SceneController.shot("home")
-		dof.FocusDistance = 16
+		dof.FocusDistance = SHOTS[homeShot()].focus or 16
+		dof.FarIntensity = SHOTS[homeShot()].blur or 0.35
 		dof.InFocusRadius = 6
 	elseif name == "gym" then
 		buildGym()
@@ -1670,6 +1702,7 @@ function SceneController.show(name)
 		end
 		SceneController.shot("recruit")
 		dof.FocusDistance = 22
+		dof.FarIntensity = 0.35
 		dof.InFocusRadius = 12
 	end
 	grade.Enabled = name ~= nil
