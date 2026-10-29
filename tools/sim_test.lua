@@ -1834,7 +1834,7 @@ do
 	for _, row in ipairs(Court.standRows("Beach")) do
 		if row.axis == "X" then farRows = farRows + 1 else endRows = endRows + 1 end
 	end
-	check(farRows == CC.List.Beach.Stands.Rows and endRows == 0 and #Court.standRows() == #Court.standRows(CC.Default), "courts: each court seats its own stands", string.format("beach %d far, %d end", farRows, endRows))
+	check(farRows == CC.List.Beach.Stands.Rows and endRows == 2 * CC.List.Beach.Stands.EndRows and #Court.standRows() == #Court.standRows(CC.Default), "courts: each court seats its own stands", string.format("beach %d far, %d end", farRows, endRows))
 	-- the teleport round trip
 	picked.Home = { 5 }
 	local pb = Lobbies.import(Lobbies.export(picked), 98)

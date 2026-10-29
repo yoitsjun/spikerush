@@ -543,6 +543,45 @@ local function rails(scene, id, farColor)
 	end
 end
 
+-- The top of the stands dressed as a venue, not a block (the owner, 2026-10-29: the courts but
+-- the Rush Arena were "small and lackluster", "quite plain"): a back wall rising `up` over the top
+-- row with a band of name panels facing the court, flags on poles along it, and the same wall
+-- behind each end stand. Returns the wall's top. o = { wall, material, trim, panel, words,
+-- wordColors, flags, up }
+local function crown(scene, id, o)
+	local S = Court.stands(id)
+	local f = folder(scene, "StandCrown")
+	local top = S.BaseTop + (S.Rows - 1) * S.RowRise
+	local back = standsBack(id)
+	local up = o.up or 7
+	local h = top + up
+	deco(part(f, "BackWall", Vector3.new(1.2, h, S.FarLength + 2), CFrame.new(back + 0.6, h / 2, 0), o.wall, o.material))
+	deco(part(f, "Trim", Vector3.new(1.8, 0.6, S.FarLength + 2), CFrame.new(back + 0.5, h + 0.3, 0), o.trim, Enum.Material.Metal))
+	local n = #o.words
+	local span = S.FarLength / n
+	for i, word in ipairs(o.words) do
+		local z = -S.FarLength / 2 + span * (i - 0.5)
+		banner(f, "Panel", Vector3.new(0.4, up - 2.2, span - 3), CFrame.new(back - 0.2, top + 1.6 + (up - 2.2) / 2, z), Enum.NormalId.Left, word, o.wordColors[(i - 1) % #o.wordColors + 1], o.panel)
+	end
+	if o.flags then
+		local k = 0
+		for z = -S.FarLength / 2 + 6, S.FarLength / 2 - 5, 13 do
+			k = k + 1
+			deco(part(f, "FlagPole", Vector3.new(0.35, 9, 0.35), CFrame.new(back + 0.6, h + 4.5, z), o.trim, Enum.Material.Metal))
+			deco(part(f, "Flag", Vector3.new(0.15, 3.2, 5), CFrame.new(back + 0.6, h + 7.2, z + 2.6), o.flags[(k - 1) % #o.flags + 1], Enum.Material.Fabric))
+		end
+	end
+	if S.EndRows > 0 then
+		local eh = S.BaseTop + (S.EndRows - 1) * S.RowRise + up - 2
+		for _, sz in ipairs({ -1, 1 }) do
+			local ez = sz * (S.EndStart + S.EndRows * S.RowDepth + 0.6)
+			deco(part(f, "EndWall", Vector3.new(S.EndLength + 2, eh, 1.2), CFrame.new(S.EndLength * 0.25, eh / 2, ez), o.wall, o.material))
+			deco(part(f, "EndTrim", Vector3.new(S.EndLength + 2, 0.6, 1.8), CFrame.new(S.EndLength * 0.25, eh + 0.3, ez), o.trim, Enum.Material.Metal))
+		end
+	end
+	return h
+end
+
 local COURTS = {}
 
 -- Rush Arena: the pro hall, as Home's (the owner, 2026-10-28: "i like how this arena looks"), in
@@ -607,7 +646,7 @@ COURTS.Nationals = {
 	build = function(scene, id)
 		local gold = Color3.fromRGB(236, 184, 44)
 		local wx = hall(scene, id, {
-			wall = Color3.fromRGB(26, 26, 32),
+			wall = Color3.fromRGB(24, 30, 64),
 			accentA = gold,
 			accentB = gold,
 			bannerText = "NATIONALS",
@@ -629,6 +668,12 @@ COURTS.Nationals = {
 		local deckY = S.BaseTop + S.Rows * S.RowRise + 1
 		deco(part(scene, "Fascia", Vector3.new(0.4, 1.6, S.FarLength), CFrame.new(standsBack(id) + 0.4, deckY, 0), INK))
 		deco(part(scene, "FasciaGold", Vector3.new(0.5, 0.3, S.FarLength), CFrame.new(standsBack(id) + 0.2, deckY + 0.9, 0), gold, Enum.Material.Metal))
+		-- the ribbon board: a lit band of the championship's name round the deck (the owner,
+		-- 2026-10-29: "quite plain")
+		for i, word in ipairs({ "NATIONALS", "CHAMPIONSHIP", "VOLLEYBALL RUSH", "CHAMPIONSHIP", "NATIONALS" }) do
+			local span = S.FarLength / 5
+			banner(scene, "Ribbon", Vector3.new(0.4, 3, span - 1), CFrame.new(standsBack(id) - 0.1, deckY + 2.8, -S.FarLength / 2 + span * (i - 0.5)), Enum.NormalId.Left, word, i % 2 == 0 and CHALK or gold, Color3.fromRGB(12, 14, 34))
+		end
 		-- the skyboxes over the upper deck: a dark glass band of lit boxes, people in some of them
 		local boxY = deckY + 7
 		deco(part(scene, "Suites", Vector3.new(0.6, 10, C.WallHalfZ * 2), CFrame.new(wx - 0.4, boxY, 0), Color3.fromRGB(14, 16, 24), Enum.Material.Glass, { Transparency = 0.1, Reflectance = 0.15 }))
@@ -740,11 +785,18 @@ COURTS.Beach = {
 			return row.index % 2 == 0 and Color3.fromRGB(190, 196, 206) or Color3.fromRGB(170, 176, 188)
 		end, Enum.Material.Metal)
 		local back = standsBack(id)
+		-- the grandstands wrapped in the tour's blue, its name panels and flags along the top
+		local crownTop = crown(scene, id, {
+			wall = Color3.fromRGB(30, 100, 212), material = Enum.Material.Fabric, trim = CHALK, panel = CHALK,
+			words = { "SUNSET BEACH", "VOLLEYBALL RUSH", "BEACH TOUR", "VOLLEYBALL RUSH", "SUNSET BEACH" },
+			wordColors = { Color3.fromRGB(255, 124, 28), Color3.fromRGB(30, 100, 212) },
+			flags = { HOME, Color3.fromRGB(250, 196, 40), AWAY, CHALK },
+		})
 		-- palms behind the bleachers and along the ends
 		for _, z in ipairs({ -84, -62, -38, 34, 60, 86 }) do
 			palmTree(scene, Vector3.new(back + 4 + rng:NextNumber() * 6, 0, z + rng:NextNumber() * 4), 26 + rng:NextNumber() * 8, Vector3.new(rng:NextNumber() * 0.4, 0, (rng:NextNumber() - 0.5) * 0.6), rng)
 		end
-		for _, z in ipairs({ -80, 80 }) do
+		for _, z in ipairs({ -92, 92 }) do
 			palmTree(scene, Vector3.new(4, 0, z), 24, Vector3.new(0.3, 0, -z / math.abs(z) * 0.3), rng)
 		end
 		-- umbrellas at the ends of the court
@@ -753,8 +805,8 @@ COURTS.Beach = {
 			{ Color3.fromRGB(250, 196, 40), Color3.fromRGB(40, 150, 220) },
 			{ Color3.fromRGB(40, 190, 150), CHALK },
 		}
-		-- (clear of the bleachers, which run to z = +-70 from x = 28)
-		local spots = { Vector3.new(18, 0, -66), Vector3.new(6, 0, -76), Vector3.new(20, 0, 68), Vector3.new(4, 0, 78), Vector3.new(30, 0, -80) }
+		-- (clear of the end stands, which reach z = +-79)
+		local spots = { Vector3.new(18, 0, -86), Vector3.new(6, 0, -96), Vector3.new(20, 0, 88), Vector3.new(4, 0, 98), Vector3.new(32, 0, -94) }
 		for i, p in ipairs(spots) do
 			local s = stripes[(i - 1) % #stripes + 1]
 			umbrella(scene, p, s[1], s[2], rng)
@@ -814,7 +866,7 @@ COURTS.Beach = {
 			for k = 0, n do
 				local t = k / n
 				local z = span[1] + (span[2] - span[1]) * t
-				local y = 15 - math.sin(t * math.pi) * 2.4
+				local y = crownTop + 4.5 - math.sin(t * math.pi) * 2.4
 				if k < n then
 					local flag = Instance.new("WedgePart")
 					flag.Name = "Pennant"
@@ -830,11 +882,11 @@ COURTS.Beach = {
 					flag.Parent = bunting
 				end
 			end
-			deco(part(bunting, "Rope", Vector3.new(0.1, 0.1, span[2] - span[1]), CFrame.new(back2 + 0.5, 13.4, (span[1] + span[2]) / 2), Color3.fromRGB(240, 236, 226)))
+			deco(part(bunting, "Rope", Vector3.new(0.1, 0.1, span[2] - span[1]), CFrame.new(back2 + 0.5, crownTop + 2.9, (span[1] + span[2]) / 2), Color3.fromRGB(240, 236, 226)))
 		end
 		-- surfboards stood in the sand by the bleachers
 		local boards = { Color3.fromRGB(255, 124, 28), Color3.fromRGB(40, 190, 220), CHALK, Color3.fromRGB(236, 64, 96) }
-		for i, z in ipairs({ -73, -71.2, 72, 73.8 }) do
+		for i, z in ipairs({ -83, -81.2, 82, 83.8 }) do
 			deco(part(scene, "Surfboard", Vector3.new(0.4, 7, 1.8), CFrame.new(28 + (i % 2) * 0.8, 3.2, z) * CFrame.Angles(0, 0, math.rad(8 - i * 3)), boards[i], Enum.Material.SmoothPlastic))
 		end
 		-- the scoreboards in wooden frames in front of the bleachers
@@ -908,6 +960,27 @@ COURTS.Colosseum = {
 		deco(part(scene, "Cornice", Vector3.new(3.4, 1, 200), CFrame.new(wx, archBase + archH + 0.5, 0), stoneDark, Enum.Material.Limestone))
 		deco(part(scene, "Attic", Vector3.new(2, 7, 200), CFrame.new(wx + 0.4, archBase + archH + 4.5, 0), stone, Enum.Material.Limestone))
 		deco(part(scene, "Base", Vector3.new(1, archBase, 200), CFrame.new(wx + 0.8, archBase / 2, 0), stoneDark, Enum.Material.Limestone))
+		-- statues along the attic, gilded eagle standards between them, a brazier at each end (the
+		-- owner, 2026-10-29: "quite plain")
+		local bronze = Color3.fromRGB(150, 104, 56)
+		local attic = archBase + archH + 8
+		for i = -8, 8, 2 do
+			local z = i * span + span / 2
+			if i % 4 == 0 then
+				deco(part(scene, "Plinth", Vector3.new(3, 1.6, 3), CFrame.new(wx, attic + 0.8, z), stoneDark, Enum.Material.Limestone))
+				deco(part(scene, "StatueBody", Vector3.new(1.8, 5.2, 2.2), CFrame.new(wx, attic + 4.2, z), stone, Enum.Material.Marble))
+				ball(scene, "StatueHead", Vector3.new(1.3, 1.5, 1.3), Vector3.new(wx, attic + 7.6, z), stone, Enum.Material.Marble)
+				deco(part(scene, "StatueSpear", Vector3.new(0.25, 9, 0.25), CFrame.new(wx - 0.4, attic + 5.6, z + 1.4), bronze, Enum.Material.Metal))
+				deco(part(scene, "StatueShield", Vector3.new(0.4, 2.6, 2.6), CFrame.new(wx - 1.2, attic + 3.8, z - 0.6), bronze, Enum.Material.Metal, { Shape = Enum.PartType.Cylinder }))
+			else
+				deco(part(scene, "Standard", Vector3.new(0.3, 10, 0.3), CFrame.new(wx, attic + 5, z), Color3.fromRGB(220, 170, 60), Enum.Material.Metal))
+				deco(part(scene, "StandardFlag", Vector3.new(0.15, 4, 2.6), CFrame.new(wx - 0.2, attic + 7.4, z), Color3.fromRGB(150, 26, 26), Enum.Material.Fabric))
+				ball(scene, "StandardEagle", Vector3.new(0.9, 1, 1.6), Vector3.new(wx, attic + 10.4, z), Color3.fromRGB(230, 180, 70), Enum.Material.Metal)
+			end
+		end
+		for _, sz in ipairs({ -1, 1 }) do
+			brazier(scene, Vector3.new(wx, attic, sz * 92))
+		end
 		-- red banners on every third pier
 		for i = -9, 9, 3 do
 			local z = i * span + span / 2
@@ -957,11 +1030,18 @@ COURTS.Rooftop = {
 			return row.index % 2 == 0 and Color3.fromRGB(120, 128, 142) or Color3.fromRGB(100, 108, 122)
 		end, Enum.Material.Metal)
 		local back = standsBack(id)
+		-- the bleachers' back wall in dark steel, neon name panels along the top
+		local crownTop = crown(scene, id, {
+			wall = Color3.fromRGB(34, 36, 50), material = Enum.Material.DiamondPlate, trim = Color3.fromRGB(0, 229, 255), panel = Color3.fromRGB(16, 16, 30),
+			words = { "NIGHT ROOFTOP", "VOLLEYBALL RUSH", "CITY LEAGUE", "VOLLEYBALL RUSH", "NIGHT ROOFTOP" },
+			wordColors = { Color3.fromRGB(255, 80, 170), Color3.fromRGB(255, 132, 34), Color3.fromRGB(0, 229, 255) },
+		})
 		-- string lights over the bleachers, sagging between poles
 		local bulbs = folder(scene, "StringLights")
 		local poles = { -66, -22, 22, 66 }
+		local poleH = crownTop + 9
 		for _, z in ipairs(poles) do
-			deco(part(bulbs, "Pole", Vector3.new(0.4, 14, 0.4), CFrame.new(back + 1, 7, z), Color3.fromRGB(40, 42, 50), Enum.Material.Metal))
+			deco(part(bulbs, "Pole", Vector3.new(0.4, poleH, 0.4), CFrame.new(back + 1.6, poleH / 2, z), Color3.fromRGB(40, 42, 50), Enum.Material.Metal))
 		end
 		local warm = Color3.fromRGB(255, 214, 150)
 		for i = 1, #poles - 1 do
@@ -969,10 +1049,10 @@ COURTS.Rooftop = {
 			local n = 16
 			for k = 1, n - 1 do
 				local t = k / n
-				local y = 13.6 - math.sin(t * math.pi) * 3
-				ball(bulbs, "Bulb", Vector3.new(0.55, 0.55, 0.55), Vector3.new(back + 1, y, z0 + (z1 - z0) * t), warm, Enum.Material.Neon)
+				local y = poleH - 0.4 - math.sin(t * math.pi) * 3
+				ball(bulbs, "Bulb", Vector3.new(0.55, 0.55, 0.55), Vector3.new(back + 1.6, y, z0 + (z1 - z0) * t), warm, Enum.Material.Neon)
 			end
-			lamp(bulbs, Vector3.new(back - 1, 11, (z0 + z1) / 2), "PointLight", { Range = 18, Brightness = 1.2, Color = warm, Shadows = false })
+			lamp(bulbs, Vector3.new(back - 1, poleH - 3, (z0 + z1) / 2), "PointLight", { Range = 22, Brightness = 1.2, Color = warm, Shadows = false })
 		end
 		-- floodlights at the corners
 		for _, sz in ipairs({ -1, 1 }) do
@@ -1155,20 +1235,28 @@ COURTS.Haunted = {
 			l.Shadows = false
 			l.Parent = p
 		end
+		-- the bleachers' back wall of old planks, painted signs and tattered flags along the top
+		local crownTop = crown(scene, id, {
+			wall = Color3.fromRGB(52, 38, 32), material = Enum.Material.WoodPlanks, trim = Color3.fromRGB(28, 22, 26), panel = Color3.fromRGB(26, 16, 30),
+			words = { "HAUNTED FOREST", "TRICK OR TREAT", "VOLLEYBALL RUSH", "DON'T LOOK BACK", "HAUNTED FOREST" },
+			wordColors = { Color3.fromRGB(255, 140, 40), Color3.fromRGB(180, 110, 255) },
+			flags = { Color3.fromRGB(255, 120, 30), Color3.fromRGB(20, 16, 22), Color3.fromRGB(130, 60, 200) },
+		})
 		-- string lights over the bleachers
 		local bulbs = folder(scene, "StringLights")
 		local poles = { -66, -22, 22, 66 }
+		local poleH = crownTop + 11
 		for _, z in ipairs(poles) do
-			deco(part(bulbs, "Pole", Vector3.new(0.5, 14, 0.5), CFrame.new(back + 1, 7, z), Color3.fromRGB(40, 30, 26), Enum.Material.Wood))
+			deco(part(bulbs, "Pole", Vector3.new(0.5, poleH, 0.5), CFrame.new(back + 1.6, poleH / 2, z), Color3.fromRGB(40, 30, 26), Enum.Material.Wood))
 		end
 		local bulbColors = { Color3.fromRGB(255, 140, 40), Color3.fromRGB(170, 90, 255), Color3.fromRGB(255, 200, 90) }
 		for i = 1, #poles - 1 do
 			local z0, z1 = poles[i], poles[i + 1]
 			for k = 1, 15 do
 				local t = k / 16
-				ball(bulbs, "Bulb", Vector3.new(0.6, 0.6, 0.6), Vector3.new(back + 1, 13.6 - math.sin(t * math.pi) * 3, z0 + (z1 - z0) * t), bulbColors[(k - 1) % 3 + 1], Enum.Material.Neon)
+				ball(bulbs, "Bulb", Vector3.new(0.6, 0.6, 0.6), Vector3.new(back + 1.6, poleH - 0.4 - math.sin(t * math.pi) * 3, z0 + (z1 - z0) * t), bulbColors[(k - 1) % 3 + 1], Enum.Material.Neon)
 			end
-			lamp(bulbs, Vector3.new(back - 1, 11, (z0 + z1) / 2), "PointLight", { Range = 18, Brightness = 1, Color = Color3.fromRGB(255, 170, 110), Shadows = false })
+			lamp(bulbs, Vector3.new(back - 1, poleH - 3, (z0 + z1) / 2), "PointLight", { Range = 22, Brightness = 1, Color = Color3.fromRGB(255, 170, 110), Shadows = false })
 		end
 		-- lantern floodlights at the corners: warm, enough to play by
 		for _, sz in ipairs({ -1, 1 }) do

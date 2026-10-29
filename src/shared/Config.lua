@@ -2365,8 +2365,10 @@ Config.Courts = {
 		},
 		Beach = {
 			Name = "Sunset Beach",
-			Blurb = "Sand, sea and a few bleachers under the palms.",
-			Stands = { Rows = 4, EndRows = 0 },
+			Blurb = "A beach tour stadium: wrapped grandstands on the sand, palms and the sea behind.",
+			-- (the owner, 2026-10-29: the courts but the Rush Arena were "small and lackluster", "quite
+			-- plain": grandstands at the Arena's size, wrapped and flagged, ArenaBuilder's crown)
+			Stands = { Rows = 10, EndRows = 6 },
 			Crowd = 0.9,
 		},
 		Colosseum = {
@@ -2384,7 +2386,7 @@ Config.Courts = {
 		Rooftop = {
 			Name = "Night Rooftop",
 			Blurb = "A court on the roof, the city lit up behind it.",
-			Stands = { Rows = 3, EndRows = 0 },
+			Stands = { Rows = 9, EndRows = 6 },
 			Crowd = 0.9,
 		},
 		-- Halloween's (the owner, 2026-10-15: "and with that a halloween court"): the Halloween
@@ -2392,7 +2394,7 @@ Config.Courts = {
 		Haunted = {
 			Name = "Haunted Forest",
 			Blurb = "An old plank court in a clearing at midnight: dead trees, jack-o'-lanterns, a graveyard and a huge orange moon.",
-			Stands = { Rows = 4, EndRows = 0 },
+			Stands = { Rows = 9, EndRows = 6 },
 			Crowd = 0.75,
 		},
 	},
