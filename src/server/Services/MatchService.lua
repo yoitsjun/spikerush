@@ -404,6 +404,13 @@ function MatchService.awardPoint(res)
 	else
 		matchPoint = setPoint ~= nil and MatchService.setNumber >= M.Sets -- any set from here may be the last
 	end
+	-- the point that wins the match (the court's moment plays on it: CourtMoments)
+	local matchWon
+	if R.sets > 1 then
+		matchWon = setOver and MatchService.sets[winner] + 1 >= math.floor(R.sets / 2) + 1
+	else
+		matchWon = setOver and MatchService.setNumber >= M.Sets
+	end
 
 	MatchService.setPhase("Point", M.PointPauseTime)
 	MatchService.announce({
@@ -419,6 +426,7 @@ function MatchService.awardPoint(res)
 		scores = s,
 		setPoint = setPoint,
 		matchPoint = matchPoint,
+		matchWon = matchWon or nil,
 		playTo = playTo,
 		deuce = deuce and not setOver and s[winner] == s[loser],
 	})

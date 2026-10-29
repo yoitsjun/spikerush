@@ -221,7 +221,10 @@ end
 function CameraController.init(m)
 	mods = m
 	State.signals.Announce:Connect(function(a)
-		if a.kind == "Point" and a.scorerId and not a.error and Config.Match.Celebrate[a.reason] then
+		if a.kind == "Point" and a.matchWon and mods.CourtMoments and mods.CourtMoments.has() then
+			-- the match's last point: the wide shot holds for the court's moment (CourtMoments)
+			pointCam = nil
+		elseif a.kind == "Point" and a.scorerId and not a.error and Config.Match.Celebrate[a.reason] then
 			-- the hero shot: the camera holds on the player who scored while their card is up
 			local dur = Config.Match.PointPauseTime * 0.85
 			local sideOf = State.sideOfEntity(a.scorerId) or -1

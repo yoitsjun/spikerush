@@ -964,15 +964,20 @@ COURTS.Colosseum = {
 		-- owner, 2026-10-29: "quite plain")
 		local bronze = Color3.fromRGB(150, 104, 56)
 		local attic = archBase + archH + 8
+		local marble = Color3.fromRGB(236, 230, 216)
 		for i = -8, 8, 2 do
 			local z = i * span + span / 2
-			if i % 4 == 0 then
-				deco(part(scene, "Plinth", Vector3.new(3, 1.6, 3), CFrame.new(wx, attic + 0.8, z), stoneDark, Enum.Material.Limestone))
-				deco(part(scene, "StatueBody", Vector3.new(1.8, 5.2, 2.2), CFrame.new(wx, attic + 4.2, z), stone, Enum.Material.Marble))
-				ball(scene, "StatueHead", Vector3.new(1.3, 1.5, 1.3), Vector3.new(wx, attic + 7.6, z), stone, Enum.Material.Marble)
-				deco(part(scene, "StatueSpear", Vector3.new(0.25, 9, 0.25), CFrame.new(wx - 0.4, attic + 5.6, z + 1.4), bronze, Enum.Material.Metal))
-				deco(part(scene, "StatueShield", Vector3.new(0.4, 2.6, 2.6), CFrame.new(wx - 1.2, attic + 3.8, z - 0.6), bronze, Enum.Material.Metal, { Shape = Enum.PartType.Cylinder }))
-			else
+			-- a marble warrior in front of every other arch, lit warm from below (in the camera's
+			-- view), and a gilded eagle standard on the attic over it
+			local az = i * span
+			local sy = archBase + 0.4
+			deco(part(scene, "Plinth", Vector3.new(2.6, 1.4, 3), CFrame.new(wx - 1, sy + 0.7, az), stoneDark, Enum.Material.Limestone))
+			deco(part(scene, "StatueBody", Vector3.new(1.6, 5, 2), CFrame.new(wx - 1, sy + 3.9, az), marble, Enum.Material.Marble))
+			ball(scene, "StatueHead", Vector3.new(1.2, 1.4, 1.2), Vector3.new(wx - 1, sy + 7.1, az), marble, Enum.Material.Marble)
+			deco(part(scene, "StatueSpear", Vector3.new(0.25, 8.6, 0.25), CFrame.new(wx - 1.4, sy + 5.2, az + 1.3), bronze, Enum.Material.Metal))
+			deco(part(scene, "StatueShield", Vector3.new(0.4, 2.4, 2.4), CFrame.new(wx - 2, sy + 3.6, az - 0.7), bronze, Enum.Material.Metal, { Shape = Enum.PartType.Cylinder }))
+			lamp(scene, Vector3.new(wx - 3, sy + 1, az), "PointLight", { Range = 9, Brightness = 0.8, Color = Color3.fromRGB(255, 170, 90), Shadows = false })
+			do
 				deco(part(scene, "Standard", Vector3.new(0.3, 10, 0.3), CFrame.new(wx, attic + 5, z), Color3.fromRGB(220, 170, 60), Enum.Material.Metal))
 				deco(part(scene, "StandardFlag", Vector3.new(0.15, 4, 2.6), CFrame.new(wx - 0.2, attic + 7.4, z), Color3.fromRGB(150, 26, 26), Enum.Material.Fabric))
 				ball(scene, "StandardEagle", Vector3.new(0.9, 1, 1.6), Vector3.new(wx, attic + 10.4, z), Color3.fromRGB(230, 180, 70), Enum.Material.Metal)

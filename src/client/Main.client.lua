@@ -60,6 +60,7 @@ local order = {
 	"Skins",
 	"PadNav",
 	"QuickChat",
+	"CourtMoments",
 }
 
 local mods = { State = State }
