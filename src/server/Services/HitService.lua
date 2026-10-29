@@ -364,8 +364,9 @@ function HitService.process(entity, input, opts)
 	elseif meta.counterRelease then
 		TS.setCounter(entity, 0) -- her spike released it
 	end
-	if meta.zero or meta.firstStrike then
-		-- the freeze frame: the hitter hangs where they hit it while the ball holds on the hand
+	if entity.isBot and HitLogic.hangs(meta) then
+		-- the freeze frame: the hitter hangs where they hit it while the ball holds on the hand (a
+		-- player's own client holds them there, on time: MovementController.freeze)
 		local root = TS.getRoot(entity)
 		if root and not root.Anchored then
 			root.AssemblyLinearVelocity = Vector3.zero

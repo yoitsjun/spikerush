@@ -542,6 +542,10 @@ local function execute(action, info, opts, t, ballPos)
 	if meta.knock then
 		mods.MovementController.knockback(meta.knock)
 	end
+	if HitLogic.hangs(meta) then
+		-- a freeze frame: he hangs where he hit it while the ball holds on his hand
+		mods.MovementController.freeze(result.launch.hold or 0)
+	end
 	Net.get("HitRequest"):FireServer({
 		seq = ctx.seq,
 		action = action,
@@ -1486,7 +1490,7 @@ local function tossGuide(info)
 				local k = math.clamp((held - P.ServeTapTime) / H.TossChargeTime, 0, 1)
 				local height = H.TossHighMin + (H.TossHighMax - H.TossHighMin) * k
 				local p, v = HitLogic.tossLaunch(info.root, State.mySide, height, tossForward(), HitLogic.tossReach(State.abilitySet()))
-				path = BallPhysics.buildPath(BallPhysics.newLaunch(p, v, Vector3.new(0, -HitLogic.ballGravity(), 0), 0))
+				path = BallPhysics.buildPath(BallPhysics.newLaunch(p, v, Vector3.new(0, -HitLogic.ballGravity(), 0), 0, nil, nil, nil, BallPhysics.NO_DRAG))
 			end
 		elseif myToss() then
 			path, from = BR.getPath(), Util.now()

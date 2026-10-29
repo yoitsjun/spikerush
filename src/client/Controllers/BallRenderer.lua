@@ -34,8 +34,12 @@ local blendTime = Config.Ball.VisualBlendTime
 -- someone else's hit, heard late: shown from the hit, catching up (BallPhysics.catchUp)
 local warp = nil -- { seq, lag, at = os.clock() when heard }
 -- someone else's touch, ahead of it (Config.Ball.ReachHold): how far behind its flight the ball is
--- drawn while it's in their reach, caught up again after
+-- drawn while it's in their reach, caught up again after; and how late other players' touches
+-- really reach us (measured on each, smoothed): the hold never goes further behind than that, so
+-- with no lag (Studio, a good connection) the ball never slows at all (the owner, 2026-10-28: "the
+-- ball is slowing down": it slowed by every bot, whose touches arrive at once)
 local reachLag = 0
+local heardLag = 0
 
 -- Blocks seen from outside (the owner: "it looks like sometimes the ball teleports through the
 -- block"): a block is decided on the blocker's own client, so everyone else hears of it a beat
@@ -728,6 +732,10 @@ local function adopt(snap, keepEvents, remote)
 	end
 	if remote and not sameBall and cur.state == "Flight" and cur.path then
 		local lag = Util.now() - BallPhysics.startTime(cur.path)
+		local RH = Config.Ball.ReachHold
+		if lag >= 0 and lag <= RH.LagCap then
+			heardLag = heardLag + (lag - heardLag) * RH.LagEase
+		end
 		if BallPhysics.catchUp(lag, 0) then
 			warp = { seq = cur.seq, lag = lag, at = os.clock() }
 		end
@@ -969,10 +977,14 @@ local function updateReachHold(dt, realNow)
 	-- (the drawn ball's landing, not the real one's: a dig just before the floor is heard after the
 	-- real ball would have landed, and the drawn one waits for it; past it, the bounce eases back)
 	local shown = viewTime(realNow)
-	if cur.state == "Flight" and shown < cur.path.landing.t then
+	-- no further behind than other players' touches really arrive (none under MinLag)
+	local target = heardLag >= RH.MinLag and math.min(RH.Max, heardLag) or 0
+	if cur.state == "Flight" and shown < cur.path.landing.t and target > 0 then
 		local ball = BallPhysics.positionAt(cur.path, shown)
 		if inRemoteReach(ball, BallPhysics.velocityAt(cur.path, shown)) and not inMyReach(realNow) then
-			reachLag = math.min(RH.Max, reachLag + dt * (1 - RH.Rate))
+			if reachLag < target then
+				reachLag = math.min(target, reachLag + dt * (1 - RH.Rate))
+			end
 			return
 		end
 	end

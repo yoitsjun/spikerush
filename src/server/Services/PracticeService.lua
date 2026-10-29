@@ -76,7 +76,7 @@ local function feedSet(setter, target)
 	local v, g = HitLogic.setArc(hand, side, "Open")
 	-- a pass came in first, so the set is the second touch and your spike the third
 	local touch = HitLogic.nextTouch(HitLogic.nextTouch({ count = 0 }, setter.team, "Pass", "Bump"), setter.team, setter.id, "Set")
-	reg.BallService.launch(BallPhysics.newLaunch(hand, v, Vector3.new(0, -g, 0), now), {
+	reg.BallService.launch(BallPhysics.newLaunch(hand, v, Vector3.new(0, -g, 0), now, nil, nil, nil, BallPhysics.NO_DRAG), {
 		hitType = "Set",
 		setType = "Open",
 		id = setter.id,
@@ -167,7 +167,7 @@ local function setAndAttack(setter, attacker, target, kmh, maxY, onJump, stillOn
 	local v, T = HitLogic.solveArc(hand, p, math.max(hand.Y, p.Y) + PR.DrillSetRise, g)
 	local now = Util.now()
 	local touch = HitLogic.nextTouch(HitLogic.nextTouch({ count = 0 }, setter.team, "Pass", "Bump"), setter.team, setter.id, "Set")
-	reg.BallService.launch(BallPhysics.newLaunch(hand, v, Vector3.new(0, -g, 0), now), {
+	reg.BallService.launch(BallPhysics.newLaunch(hand, v, Vector3.new(0, -g, 0), now, nil, nil, nil, BallPhysics.NO_DRAG), {
 		hitType = "Set",
 		setType = "Open",
 		id = setter.id,

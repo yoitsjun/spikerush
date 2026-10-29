@@ -511,7 +511,7 @@ do
 		string.format("the court in %.2f s, up in %.2f s instead of %.2f, a full charge in %.2f s", C.SideDepth / SQ.DashSpeed, v0 / gUp, math.sqrt(2 * g * h) / g, SQ.ChargeTime))
 	-- Updraft at a set: slowed from t along the same curve (where it was u s on, it is u / SetSlow s
 	-- on), only a teammate's set, and her dash keeps NetClear off the net
-	local set = BallPhysics.buildPath(BallPhysics.newLaunch(Vector3.new(0, 8, 9), Vector3.new(0, 14, -6), Vector3.new(0, -g, 0), 100))
+	local set = BallPhysics.buildPath(BallPhysics.newLaunch(Vector3.new(0, 8, 9), Vector3.new(0, 14, -6), Vector3.new(0, -g, 0), 100, nil, nil, nil, BallPhysics.NO_DRAG))
 	local t0 = 100.3
 	local slowed = BallPhysics.buildPath(HitLogic.updraftLaunch(set, t0, SQ.SetSlow))
 	local worst = 0
@@ -1123,7 +1123,7 @@ do
 	local function serveGap(st)
 		local r0 = vec(0, GROUND, side * (C.SideDepth + 1))
 		local tp, tv = HitLogic.tossLaunch(r0, side, H.FeralTossHigh, 0, HitLogic.tossReach("Feral"))
-		local tossPath = BallPhysics.buildPath(BallPhysics.newLaunch(tp, tv, vec(0, -Config.Ball.Gravity, 0), 0))
+		local tossPath = BallPhysics.buildPath(BallPhysics.newLaunch(tp, tv, vec(0, -Config.Ball.Gravity, 0), 0, nil, nil, nil, BallPhysics.NO_DRAG))
 		local takeoff = FERAL.ChargeTime + P.ApproachGather
 		local jv, jy, tt, gap, rise, peak = math.sqrt(2 * g * Characters.jumpHeight(st, GROUND)), 0, 0, math.huge, 0, 0
 		repeat
@@ -1556,7 +1556,7 @@ do
 	-- quick: the middle is in the air before the set is even made
 	local qPath, qMeta = setPath("Quick")
 	local vq, gq = HitLogic.setArc(sball, side, "Quick")
-	local nominal = BallPhysics.buildPath(BallPhysics.newLaunch(sball, vq, vec(0, -gq, 0), 0))
+	local nominal = BallPhysics.buildPath(BallPhysics.newLaunch(sball, vq, vec(0, -gq, 0), 0, nil, nil, nil, BallPhysics.NO_DRAG))
 	local cT, cP = descent(nominal, mb.contactMaxStuds - 0.15)
 	local tApex = apexTime(jumpCurve(mb))
 	local takeoff = cT - tApex
@@ -2918,7 +2918,7 @@ do
 	local p = Vector3.new(0, Config.Court.NetTop + PRc.AttackAboveNet, side * PRc.AttackDepth)
 	local g = Config.Ball.Gravity * Config.Hits.SetGravityScale
 	local v, T = HitLogic.solveArc(hand, p, math.max(hand.Y, p.Y) + PRc.DrillSetRise, g)
-	local path = BallPhysics.buildPath(BallPhysics.newLaunch(hand, v, Vector3.new(0, -g, 0), 0))
+	local path = BallPhysics.buildPath(BallPhysics.newLaunch(hand, v, Vector3.new(0, -g, 0), 0, nil, nil, nil, BallPhysics.NO_DRAG))
 	local at = BallPhysics.positionAt(path, T)
 	local own = true
 	for i = 0, 10 do
@@ -3607,6 +3607,18 @@ do
 	local ratio = second.meta.kmh / first.meta.kmh
 	check(second.meta.secondSwing and not first.meta.secondSwing and math.abs(ratio - (1 + Config.Abilities.Thunder.SecondBoost)) < 0.01 and not other.meta.secondSwing and math.abs(other.meta.kmh - plain.meta.kmh) < 1e-6 and Config.Abilities.Thunder.Passives[1].Name == "Double Swing",
 		"YeJun's Double Swing: his second swing in a jump hits harder; nobody else's does", string.format("%.0f -> %.0f km/h", first.meta.kmh, second.meta.kmh))
+	-- his impact frames hold the play (the owner, 2026-10-29: "pause the gameplay a bit like taeho
+	-- ... not as long"): a thunder spike's ball waits Thunder.Freeze on his hand, a second swing's
+	-- SwingFreeze, both longer than any other big hit's stop and shorter than a Zero Point's, and he
+	-- hangs for them; nobody else's spike hangs
+	local TH = Config.Abilities.Thunder
+	local _, storm = spike(r, b, { stats = yj, ability = "Thunder", stormOn = true })
+	local _, storm2 = spike(r, b, { stats = yj, ability = "Thunder", stormOn = true }, { second = true })
+	check(storm.meta.thunder and storm.launch.hold == TH.Freeze and storm2.launch.hold == TH.SwingFreeze
+		and TH.Freeze > Config.Hits.HitStopThunder and TH.Freeze < TH.SwingFreeze and TH.SwingFreeze < Config.Abilities.ZeroPoint.Freeze
+		and HitLogic.hangs(storm.meta) and HitLogic.hangs(storm2.meta) and not HitLogic.hangs(plain.meta) and plain.launch.hold <= Config.Hits.HitStopThunder,
+		"YeJun's impact frames hold the play: the ball waits on his hand while he hangs, not as long as a Zero Point",
+		string.format("thunder %.2f s, second swing %.2f s (Zero Point %.2f s, other big hits %.2f s)", storm.launch.hold, storm2.launch.hold, Config.Abilities.ZeroPoint.Freeze, Config.Hits.HitStopThunder))
 end
 
 print("== stacked abilities ==")

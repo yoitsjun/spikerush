@@ -815,17 +815,19 @@ end
 
 -- The manga impact frame: white screen, black silhouette, coloured radial burst. (A Reaper's is its
 -- own, VFXController.reaperFrame: the white hid the scythe.) dark: the frame inverted, a near-black
--- screen and a pale silhouette (the Fallen Angel's thunder).
-function VFXController.impactFrame(entityId, color, dark)
+-- screen and a pale silhouette (the Fallen Angel's thunder). hold: how long the ball waits on the
+-- hand (YeJun's frames hold the play: Config.Abilities.Thunder.Freeze); the frame stays up for it.
+function VFXController.impactFrame(entityId, color, dark, hold)
 	if not State.settings.dramatic or not onCourt() then
 		return
 	end
 	local cam = workspace.CurrentCamera
 	local model = Util.modelOf(entityId)
 	if model and mods and mods.Skins and mods.Skins.isReaper(model) and VFXController.reaperFrame then
-		VFXController.reaperFrame(entityId, nil, 0.26, false)
+		VFXController.reaperFrame(entityId, nil, math.max(0.26, hold or 0), false)
 		return
 	end
+	local solid = math.max(0.09, (hold or 0) - 0.07) -- (it fades as the ball fires)
 	local hrp = model and model:FindFirstChild("HumanoidRootPart")
 	if not cam or not hrp then
 		VFXController.flash(0.7, 0.2)
@@ -917,7 +919,7 @@ function VFXController.impactFrame(entityId, color, dark)
 	end
 
 	impactGui.Enabled = true
-	task.delay(0.09, function()
+	task.delay(solid, function()
 		local fade = TweenInfo.new(0.14)
 		TweenService:Create(bg, fade, { BackgroundTransparency = 1 }):Play()
 		TweenService:Create(vp, fade, { ImageTransparency = 1 }):Play()
@@ -926,7 +928,7 @@ function VFXController.impactFrame(entityId, color, dark)
 		end
 		TweenService:Create(pillar, TweenInfo.new(0.16), { BackgroundTransparency = 1 }):Play()
 	end)
-	task.delay(0.26, function()
+	task.delay(solid + 0.17, function()
 		impactGui.Enabled = false
 		impactGui:ClearAllChildren()
 	end)
@@ -4579,17 +4581,19 @@ local function onHit(snap)
 		-- his second swing gets Jaeil's frame (the owner, 2026-10-21: "recycle taeho's impact frame
 		-- for yejun if he double swings but make his effect yellow, and on the halloween effect
 		-- purple ... with hands reaching out"): the court dark and him lit, then his silhouette on
-		-- yellow (the Fallen Angel's: on violet, the underworld's arms reaching up at him). Short:
-		-- the ball doesn't wait for it
+		-- yellow (the Fallen Angel's: on violet, the underworld's arms reaching up at him). The ball
+		-- waits on his hand for it (Config.Abilities.Thunder.SwingFreeze: shorter than Jaeil's)
 		if close and State.settings.dramatic then
 			local col, fallen = HW.thunderOf(meta)
 			local bgCol = fallen and Color3.fromRGB(110, 50, 200) or Color3.fromRGB(255, 214, 60)
-			if VFXController.darkFrame(meta.id, pos, 0.12, col) then
-				task.delay(0.12, function()
-					VFXController.freezeFrame(meta.id, pos, 0.3, bgCol, fallen)
+			local holds = math.max(0.15, seg.t0 + (seg.hold or 0) - Util.now())
+			local darkFor = math.min(Config.Abilities.Thunder.SwingDark, holds * 0.4)
+			if VFXController.darkFrame(meta.id, pos, darkFor, col) then
+				task.delay(darkFor, function()
+					VFXController.freezeFrame(meta.id, pos, holds - darkFor, bgCol, fallen)
 				end)
 			else
-				VFXController.freezeFrame(meta.id, pos, 0.3, bgCol, fallen)
+				VFXController.freezeFrame(meta.id, pos, holds, bgCol, fallen)
 			end
 		end
 	end
@@ -4862,7 +4866,12 @@ local function onHit(snap)
 		-- rest of the hit plays as it fires (the owner's reference)
 		local dark = false -- (the dark frame is Zero Point's alone now: the owner, "just the white spiker guy")
 		local TH, voidThunder = HW.thunderOf(meta) -- (the Fallen Angel's thunder: violet on black)
-		task.delay(dark and fires or 0, function()
+		-- YeJun's impact frame holds the play: up from the contact while the ball waits on his hand,
+		-- and the lightning goes off as it fires (a second swing has its own frame, above)
+		if meta.thunder and close and not meta.secondSwing then
+			VFXController.impactFrame(meta.id, TH, voidThunder, fires)
+		end
+		task.delay((dark or meta.thunder) and fires or 0, function()
 			if heavy or meta.thunder or meta.energy or meta.gauge then
 				local ring = meta.thunder and TH or (meta.energy and AZURE) or (meta.gauge and FERAL) or WHITE
 				boomRings(snap.path, ring, (meta.thunder or meta.fullLeap) and 3 or 2)
@@ -4881,9 +4890,6 @@ local function onHit(snap)
 				end
 				thunderPath(snap.path, TH)
 				if close then
-					if not dark and not meta.secondSwing then -- (a second swing has its own frame)
-						VFXController.impactFrame(meta.id, TH, voidThunder)
-					end
 					VFXController.speedLines(0.5, voidThunder and Color3.fromRGB(205, 175, 255) or Color3.fromRGB(255, 244, 180), dirZ)
 					shaker.shake(0.75)
 					shaker.kick(-8)

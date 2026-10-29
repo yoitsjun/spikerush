@@ -50,6 +50,9 @@ local leaping = nil -- { dir, carry, t0 } from a Feral Leap's takeoff until he l
 -- hangs at its end for DiveHold, then falls again
 local diving = nil
 local CORONA = Config.Abilities.Corona
+-- A freeze frame's hang (HitLogic.hangs): { cf, untilT } (os.clock): he stays where he hit it,
+-- gravity off, until the ball leaves his hand
+local frozen = nil
 -- Squall: Tailwind's rush ({ target }: the spot along the court she runs to, nil: the way you hold),
 -- its spring rising faster until the top, and Eye of the Storm's hover
 local SQUALL = Config.Abilities.Squall
@@ -343,6 +346,20 @@ function MovementController.isDiving()
 	return diving ~= nil
 end
 
+-- Hang where he is for `seconds` (a freeze frame: Zero Point, a first strike, YeJun's impact
+-- frames), then fall from a standstill. Only in the air.
+function MovementController.freeze(seconds)
+	if not hrp or seconds <= 0 or not inAir() then
+		return
+	end
+	local untilT = os.clock() + seconds
+	if frozen then
+		frozen.untilT = math.max(frozen.untilT, untilT)
+	else
+		frozen = { cf = hrp.CFrame, untilT = untilT }
+	end
+end
+
 -- The dive under way: where it's taking him, where he meets the ball, and the arc's start and
 -- control point (nil when not diving).
 function MovementController.diveTarget()
@@ -578,6 +595,16 @@ local function physicsStep()
 	local airborne = inAir()
 	holdServeLine(airborne)
 	local cancel = 0
+	if frozen then
+		if os.clock() >= frozen.untilT or diving then
+			frozen = nil
+			hrp.AssemblyLinearVelocity = Vector3.zero
+		else
+			hrp.CFrame = frozen.cf
+			hrp.AssemblyLinearVelocity = Vector3.zero
+			cancel = 1
+		end
+	end
 	if diving then
 		local e = os.clock() - diving.t0
 		if (not airborne and e > 0.05) or e > diving.T + CORONA.DiveHold then
@@ -598,7 +625,7 @@ local function physicsStep()
 	if rushRise and airborne and vy <= 0 then
 		rushRise = false -- the spring's top: her usual (lighter) fall from here
 	end
-	if airborne and not slide and not diving then
+	if airborne and not slide and not diving and not frozen then
 		cancel = MovementController.airCancel(vy)
 		if hovering then
 			-- no rising while she hovers; the glide along the court is hers (moveStep)
@@ -739,8 +766,8 @@ local function moveStep()
 		if State.hasAbility("Azure") then
 			air = air * AZURE.AirSpeedBonus
 		end
-		if diving then
-			hum:Move(Vector3.zero, false) -- the dive's path moves him (physicsStep)
+		if diving or frozen then
+			hum:Move(Vector3.zero, false) -- the dive's path moves him, or he hangs (physicsStep)
 			return
 		end
 		if hovering then

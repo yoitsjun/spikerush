@@ -281,13 +281,14 @@ function HitLogic.updraftCanSlow(meta, team, id)
 	return type(meta) == "table" and meta.hitType == "Set" and meta.team ~= nil and meta.team == team and meta.id ~= id
 end
 
--- The set slowed to `f` of its speed from shared time `t`, along the same curve: velocity x f and
--- gravity x f^2 (where it is u seconds on, it now is u / f seconds on). The server relaunches the
--- ball with it, and her client works out the same path to spring at.
+-- The set slowed to `f` of its speed from shared time `t`, along the same curve: velocity x f,
+-- gravity x f^2 and the air drag x f (where it is u seconds on, it now is u / f seconds on; the
+-- flight already has its drag, so it isn't re-aimed). The server relaunches the ball with it, and
+-- her client works out the same path to spring at.
 function HitLogic.updraftLaunch(path, t, f)
 	local s = BallPhysics.segmentAt(path, t)
 	local p = BallPhysics.positionAt(path, t)
-	return BallPhysics.newLaunch(p, BallPhysics.velocityAt(path, t) * f, s.a * (f * f), t)
+	return BallPhysics.newLaunch(p, BallPhysics.velocityAt(path, t) * f, s.a * (f * f), t, nil, nil, nil, { k = (s.k or 0) * f, raw = true })
 end
 
 -- Squall: a hover's charge (0..1) as the spot it sends the spike to, from `lo` (just over the net)
@@ -975,9 +976,18 @@ local function finish(meta, v)
 	return meta
 end
 
+-- Whether a hit's hitter hangs where they hit it while the ball holds on the hand (a freeze frame:
+-- Zero Point, a first strike, YeJun's impact frames). The server holds a bot there; a player's own
+-- client holds them (MovementController.freeze), so it starts on time.
+function HitLogic.hangs(meta)
+	return meta ~= nil and (meta.zero or meta.firstStrike or meta.thunder or meta.secondSwing) and true or false
+end
+
+-- (sets and the serve's toss fly without air drag: BallPhysics.NO_DRAG)
+local SOFT = { Set = true, Toss = true }
 local function launchResult(meta, p, v, a, t, hold)
 	return true, {
-		launch = BallPhysics.newLaunch(planar(p), planar(v), planar(a), t, hold),
+		launch = BallPhysics.newLaunch(planar(p), planar(v), planar(a), t, hold, nil, nil, SOFT[meta.hitType] and BallPhysics.NO_DRAG or nil),
 		meta = finish(meta, planar(v)),
 	}
 end
@@ -1471,13 +1481,18 @@ local function attack(kind, input, ctx, rng, stats, scale)
 			g = g * TYRANT.CrownGravity
 		end
 	end
-	-- the hit stop: a Zero Point's freeze frame first, then a first strike's, then a big hit's
+	-- the hit stop: a Zero Point's freeze frame first, then a first strike's, then YeJun's impact
+	-- frames (a second swing's, a thunder spike's: Config.Abilities.Thunder.Freeze), then a big hit's
 	local hold = 0
 	if zero then
 		hold = ZERO.Freeze -- the freeze-frame cut-in
 	elseif meta.firstStrike then
 		hold = FERAL.FirstFreeze
-	elseif thunder or pierce or fullLeap or zenith or dive >= 0.7 or gale >= 0.95 or metal >= 0.9 then
+	elseif second then
+		hold = THUNDER.SwingFreeze
+	elseif thunder then
+		hold = THUNDER.Freeze
+	elseif pierce or fullLeap or zenith or dive >= 0.7 or gale >= 0.95 or metal >= 0.9 then
 		hold = H.HitStopThunder
 	elseif q >= H.PerfectAt then
 		hold = H.HitStopPerfect

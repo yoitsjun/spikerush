@@ -1164,7 +1164,8 @@ local function refreshHome(prof)
 	hm.sub.Text = string.format('Playing <font color="#%s"><b>%s</b></font>, %s %s', tierColor(c.Tier):ToHex(), c.Name, c.Tier, string.lower(roleName(c.Role)))
 	local have, total = ownedCount(prof, "Char")
 	if prof.saving == false then
-		hm.badge.Text = "Progress isn't being saved in this session"
+		-- (in Studio that's the experience's "Enable Studio Access to API Services" being off)
+		hm.badge.Text = prof.studio and "Not saving: Studio's API access is off" or "Progress isn't being saved in this session"
 	elseif prof.dev then
 		hm.badge.Text = "Developer: everything unlocked"
 	else
@@ -3432,8 +3433,14 @@ local function characterCard(parent, c)
 	setBadge(c.Tier, color, false)
 	Gui.label(b, { Text = c.Role, display = true, TextSize = 21, TextStrokeTransparency = 0.35, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 58), Size = UDim2.fromOffset(70, 24), TextXAlignment = Enum.TextXAlignment.Right })
 	local plus = Gui.label(b, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, TextStrokeTransparency = 0.3, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 82), Size = UDim2.fromOffset(70, 22), TextXAlignment = Enum.TextXAlignment.Right })
-	local tag = Gui.label(b, { Text = "", display = true, TextSize = 17, TextStrokeTransparency = 0.35, Position = UDim2.new(0, 10, 1, -62), Size = UDim2.new(1, -20, 0, 20) })
-	Gui.label(b, { Text = c.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextStrokeTransparency = 0.35, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.new(0, 10, 1, -42), Size = UDim2.new(1, -20, 0, 34) })
+	local tag = Gui.label(b, { Text = "", display = true, TextSize = 17, TextStrokeTransparency = 0.35, Position = UDim2.new(0, 10, 1, -78), Size = UDim2.new(1, -20, 0, 20) })
+	Gui.label(b, { Text = c.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextStrokeTransparency = 0.35, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.new(0, 10, 1, -58), Size = UDim2.new(1, -20, 0, 34) })
+	-- their ability under the name, in its colour (the owner, 2026-10-28, after the renames: "display
+	-- the abilities below the name. i no longer recognize any of them")
+	local ab = c.Ability and Config.Abilities[c.Ability]
+	if ab then
+		Gui.label(b, { Text = ab.Name, display = true, TextSize = 16, TextColor3 = ab.Color or Gui.CHALK, TextStrokeTransparency = 0.3, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.new(0, 10, 1, -24), Size = UDim2.new(1, -20, 0, 18) })
+	end
 	local star = Gui.iconImage(b, "IconStar", 22, Gui.SIGNAL, { Position = UDim2.fromOffset(8, 8), Visible = false })
 	local lock = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.42, BorderSizePixel = 0, Visible = false, ZIndex = 3 }, b)
 	Gui.iconImage(lock, "IconLock", 34, Gui.CHALK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.4), ImageTransparency = 0.2, ZIndex = 3 })

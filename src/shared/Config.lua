@@ -66,6 +66,9 @@ Config.Ball = {
 	Radius = 0.85,
 	Gravity = 11.25 * M, -- ball gravity (a floaty 11.25 m/s2), separate from workspace gravity
 	MaxFlightTime = 9,
+	-- air drag, per second (BallPhysics: a launch keeps its landing point and time, and leaves the
+	-- hand faster and slows toward the end, as a real ball does)
+	Drag = 0.22,
 	LandGrace = 0.2,
 	VisualBlendTime = 0.08,
 	-- an attack reaching the hands of a blocker on another client waits there this long (s) for the
@@ -81,10 +84,12 @@ Config.Ball = {
 	-- it arrived the ball flew on past their hands, into the floor even, then jumped back. While the
 	-- ball is in the reach of a player on another client who may touch it next (Side studs across,
 	-- Below..Above studs from their root, not rising faster than RiseMax), it's drawn at Rate of its
-	-- speed, falling up to Max seconds behind its flight, so their touch starts about where it's
-	-- drawn. Out of reach with no touch it catches up, Release seconds a second. Never while it's in
-	-- your own reach (Mine): you hit the real ball. Visual only.
-	ReachHold = { Rate = 0.2, Max = 0.35, Release = 1.6, Side = 7.5, Below = 4.5, Above = 7.5, RiseMax = 18, NetSlack = 0.5, Mine = 8.5 },
+	-- speed until it's as far behind its flight as other players' touches really reach us (measured
+	-- on each one, eased by LagEase; LagCap the most a measure counts; Max at most), so their touch
+	-- starts about where it's drawn; under MinLag (Studio, a good connection) it never slows (the
+	-- owner: "the ball is slowing down"). Out of reach with no touch it catches up, Release seconds a
+	-- second. Never while it's in your own reach (Mine): you hit the real ball. Visual only.
+	ReachHold = { Rate = 0.55, Max = 0.35, MinLag = 0.06, LagEase = 0.35, LagCap = 0.6, Release = 1.6, Side = 7.5, Below = 4.5, Above = 7.5, RiseMax = 18, NetSlack = 0.5, Mine = 8.5 },
 	-- a correction this far (studs) or nearer glides over VisualBlendTime + distance / BlendSpeed
 	-- seconds (at most BlendTimeMax); further, it jumps (a new rally, a rejoin)
 	BlendMax = 40,
@@ -1237,6 +1242,14 @@ Config.Abilities = {
 		-- serve jumps go this much higher (17.6 studs maxed -> about 22, with Hayul and Laith); his
 		-- hitting point on the card, and so Thunder, stay where they were
 		LeapMul = 1.25,
+		-- His impact frames hold the play (the owner, 2026-10-29: "on yejuns impact frame kind of
+		-- pause the gameplay a bit like taeho just not as exaggerated", "i mean not as long"): a thunder
+		-- spike's ball waits on his hand this long while he hangs in the air under the frame (Jaeil's
+		-- Zero Point holds 0.6 s, any other big hit 0.13); a second swing's (Jaeil's frame in yellow:
+		-- the court dark around him for SwingDark, then his silhouette) a little longer
+		Freeze = 0.22,
+		SwingFreeze = 0.34,
+		SwingDark = 0.1,
 		Passives = {
 			{ Name = "Double Swing", Blurb = "Swing again in the same jump: the second swing (only the second) hits 18% harder." },
 			{ Name = "Storm Call", Blurb = "Press Q: for 10 s every spike is a full-strength lightning spike, at any height, 10% harder still." },

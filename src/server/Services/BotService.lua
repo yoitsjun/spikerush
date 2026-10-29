@@ -374,7 +374,7 @@ end
 local function planQuick(mb, team, tSet, ballP)
 	local side = Court.sideOf(team)
 	local v, g = HitLogic.setArc(ballP, side, "Quick")
-	local path = BallPhysics.buildPath(BallPhysics.newLaunch(ballP, v, Vector3.new(0, -g, 0), tSet))
+	local path = BallPhysics.buildPath(BallPhysics.newLaunch(ballP, v, Vector3.new(0, -g, 0), tSet, nil, nil, nil, BallPhysics.NO_DRAG))
 	local stats = statsOf(mb.entity)
 	mb.tApex = jumpTime(mb.hum.JumpHeight, P.HangGravityCancel)
 	local cT, cP = descentTo(path, tSet, stats.contactMaxStuds - 0.15, side)

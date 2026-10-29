@@ -19,8 +19,42 @@ local R = Config.Ball.Radius
 local STEP = 1 / 120
 local SPM = Config.Scale.StudsPerMeter
 
-function BallPhysics.newLaunch(p, v, a, t0, hold, wob, wobF)
-	return {
+-- Air drag (the owner, 2026-10-28: "make it more like a realistic volleyball game physics"): a
+-- flying ball loses speed in proportion to its speed, Config.Ball.Drag per second (linear drag, so
+-- a segment stays exact: p(t) = p + (a/k)t + (v - a/k)(1 - e^(-kt))/k). A launch is re-aimed for
+-- it (`dragged`): the drag-free launch's landing point and time are kept, so every aim, landing
+-- marker and bot plan still holds; only the flight between changes: off the hand faster, slowing
+-- toward the end, falling steeper than it rose.
+local function dragged(s)
+	local k = s.k or 0
+	if k <= 0 or s.a.Y >= 0 then
+		return s
+	end
+	local g = -s.a.Y
+	local h = s.p.Y - R
+	if h < 0 then
+		return s
+	end
+	-- when the drag-free flight would reach the floor
+	local T = (s.v.Y + math.sqrt(s.v.Y * s.v.Y + 2 * g * h)) / g
+	if T <= 0.02 or T > Config.Ball.MaxFlightTime then
+		return s
+	end
+	local target = s.p + s.v * T + s.a * (0.5 * T * T)
+	local f = (1 - math.exp(-k * T)) / k
+	local term = s.a / k
+	s.v = term + (target - s.p - term * T) / f
+	return s
+end
+
+-- `drag`: nil for the usual air drag (and the launch re-aimed for it), or { k = per second, raw =
+-- true } for a flight already worked out with drag (a retimed path: Updraft). Sets and tosses fly
+-- without it (BallPhysics.NO_DRAG): they're aimed at a point mid-flight (a hitter's hand, the
+-- server's contact), which a re-aim for the floor would move; soft and short, a real one barely
+-- feels it anyway.
+BallPhysics.NO_DRAG = { k = 0, raw = true }
+function BallPhysics.newLaunch(p, v, a, t0, hold, wob, wobF, drag)
+	local s = {
 		p = p,
 		v = v,
 		a = a,
@@ -29,18 +63,41 @@ function BallPhysics.newLaunch(p, v, a, t0, hold, wob, wobF)
 		wob = wob or 0, -- float serve lateral wobble amplitude
 		wobF = wobF or 0,
 		ph = 0,
+		k = (type(drag) == "table" and drag.k) or Config.Ball.Drag or 0,
 	}
+	if type(drag) == "table" and drag.raw then
+		return s
+	end
+	return dragged(s)
 end
 
 local function posAt(s, tau)
-	local x = s.p.X + s.v.X * tau + 0.5 * s.a.X * tau * tau
+	local k = s.k or 0
+	local x, y, z
+	if k > 0 then
+		local e = (1 - math.exp(-k * tau)) / k
+		local ax, ay, az = s.a.X / k, s.a.Y / k, s.a.Z / k
+		x = s.p.X + ax * tau + (s.v.X - ax) * e
+		y = s.p.Y + ay * tau + (s.v.Y - ay) * e
+		z = s.p.Z + az * tau + (s.v.Z - az) * e
+	else
+		x = s.p.X + s.v.X * tau + 0.5 * s.a.X * tau * tau
+		y = s.p.Y + s.v.Y * tau + 0.5 * s.a.Y * tau * tau
+		z = s.p.Z + s.v.Z * tau + 0.5 * s.a.Z * tau * tau
+	end
 	if s.wob ~= 0 then
 		x = x + s.wob * (math.sin(s.wobF * tau + s.ph) - math.sin(s.ph))
 	end
-	return Vector3.new(x, s.p.Y + s.v.Y * tau + 0.5 * s.a.Y * tau * tau, s.p.Z + s.v.Z * tau + 0.5 * s.a.Z * tau * tau)
+	return Vector3.new(x, y, z)
 end
 
 local function baseVelAt(s, tau)
+	local k = s.k or 0
+	if k > 0 then
+		local e = math.exp(-k * tau)
+		local term = s.a / k
+		return term + (s.v - term) * e
+	end
 	return Vector3.new(s.v.X + s.a.X * tau, s.v.Y + s.a.Y * tau, s.v.Z + s.a.Z * tau)
 end
 
@@ -138,7 +195,7 @@ function BallPhysics.buildPath(launch)
 		if kind == "Dive" then
 			-- the turn: on from here with the new velocity and pull
 			flags.dive = absT
-			s = { p = pos, v = s.dive.v, a = s.dive.a, t0 = absT, hold = 0, wob = 0, wobF = 0, ph = 0 }
+			s = dragged({ p = pos, v = s.dive.v, a = s.dive.a, t0 = absT, hold = 0, wob = 0, wobF = 0, ph = 0, k = s.k })
 		elseif kind == "Net" then
 			flags.netTouch = true
 			local ns
@@ -160,6 +217,7 @@ function BallPhysics.buildPath(launch)
 					wob = 0,
 					wobF = 0,
 					ph = 0,
+					k = s.k,
 				}
 				table.insert(netEvents, { t = absT, pos = pos, kind = "Cord" })
 			else
@@ -179,6 +237,7 @@ function BallPhysics.buildPath(launch)
 					wob = 0,
 					wobF = 0,
 					ph = 0,
+					k = s.k,
 				}
 				table.insert(netEvents, { t = absT, pos = hp, kind = "Mesh" })
 			end
