@@ -94,7 +94,7 @@ FIXED = [
     {"Name": "Seora", "Role": "WS", "Tier": "S", "Height": 178, "Attack": 204, "Defense": 124, "Speed": 158, "Jump": 196, "Ability": "Skyward"},
     # The Tyrant (the owner, 2026-10-21: "The Tyrant (S+ Setter)"): the first S+ setter, quicker and
     # steadier than any S setter, with a little more Attack and Jump for his own jump serve
-    {"Name": "Dohwan", "Role": "SE", "Tier": "S+", "Height": 180, "Attack": 170, "Defense": 182, "Speed": 188, "Jump": 150, "Ability": "Tyrant"},
+    {"Name": "Dohwan", "Role": "SE", "Tier": "S+", "Height": 180, "Attack": 170, "Defense": 194, "Speed": 190, "Jump": 162, "Ability": "Tyrant"},  # (2026-10-22, the owner: "he's not doing enough to earn that s+ title": +12 Defense, +2 Speed, +12 Jump)
     # Sunshine (the owner, 2026-10-21: an S middle blocker, "170 Attack 150 Jump 190 Defense 180
     # Speed"): a digging middle, shorter than the rest of them
     {"Name": "Haesol", "Role": "MB", "Tier": "S", "Height": 191, "Attack": 170, "Defense": 190, "Speed": 180, "Jump": 150, "Ability": "Sunshine"},
@@ -155,11 +155,113 @@ def slug(name):
     return KEEP_ID.get(name, name.lower())
 
 
+# The names players see, by id (the names above only drive the generation, which stays exactly as
+# it was). Everyone but YeJun and Laith was renamed for the Volleyball Rush rerelease (2026-10-28),
+# so the roster doesn't match the stolen game's; their ids, and so everyone's saves, stay.
+DISPLAY = {
+    "dante": "Valen",
+    "haneul": "Hayul",
+    "seojin": "Mujin",
+    "taeha": "Jaeil",
+    "taesan": "Dongha",
+    "dohwan": "Gunwoo",
+    "daon": "Hwan",
+    "ines": "Lucia",
+    "seora": "Yeseul",
+    "shoyo": "Riki",
+    "yeonho": "Seho",
+    "haesol": "Dasol",
+    "joon": "Beom",
+    "tetsuo": "Gaku",
+    "arin": "Narae",
+    "haeri": "Sae",
+    "ilya": "Viktor",
+    "seoyeon": "Jiyu",
+    "junseo": "Woojin",
+    "mateus": "Rafael",
+    "aoi": "Chiaki",
+    "siwoo": "Doha",
+    "eunbi": "Sohee",
+    "kenji": "Shunta",
+    "donghae": "Taewon",
+    "rin": "Tsumugi",
+    "hinata": "Kosei",
+    "rei": "Nayu",
+    "ryusei": "Shogo",
+    "hayeon": "Ara",
+    "hotaru": "Yuzuki",
+    "soyeon": "Minji",
+    "haein": "Dain",
+    "jinwoo": "Juwon",
+    "shion": "Akito",
+    "isamu": "Masaru",
+    "kazuki": "Ryoji",
+    "sora": "Fuyu",
+    "itsuki": "Naoki",
+    "kaori": "Ayame",
+    "seungwoo": "Jaeseok",
+    "chaewon": "Eunseo",
+    "emiko": "Chiyo",
+    "mio": "Rina",
+    "hayato": "Kyohei",
+    "jiwon": "Yena",
+    "kyungmin": "Sangwoo",
+    "yuna": "Sumin",
+    "kotaro": "Daigo",
+    "minjae": "Hyeonu",
+    "akari": "Saki",
+    "ganghyun": "Kangjun",
+    "zara": "Amara",
+    "elias": "Tobias",
+    "seulgi": "Bora",
+    "yoonseo": "Yeeun",
+    "genji": "Isao",
+    "marco": "Luca",
+    "nico": "Enzo",
+    "minho": "Taemin",
+    "nagi": "Ryou",
+    "yerin": "Sarang",
+    "gyuri": "Hyeri",
+    "takumi": "Shota",
+    "yuto": "Tomoki",
+    "chanwoo": "Gyumin",
+    "jaehyun": "Hojun",
+    "minseo": "Seoa",
+    "jiho": "Dojin",
+    "noa": "Lina",
+    "hyunwoo": "Wonho",
+    "nari": "Gaeun",
+    "daeho": "Hyeok",
+    "hikari": "Kotone",
+    "daiki": "Yusei",
+    "natsuki": "Misaki",
+    "iker": "Mikel",
+    "insoo": "Taeil",
+    "leo": "Felix",
+    "theo": "Oskar",
+    "bomin": "Jungwoo",
+    "eunwoo": "Seonu",
+    "ren": "Kaname",
+    "yamato": "Tatsuya",
+    "dohyun": "Siyun",
+    "ryota": "Ikki",
+    "kaede": "Momiji",
+    "sakura": "Tsubaki",
+    "hyejin": "Yujin",
+    "kaito": "Raiki",
+    "asahi": "Goro",
+    "mateo": "Diego",
+    "riku": "Rui",
+    "daichi": "Kanta",
+    "hana": "Noeul",
+}
+
+
 def lua_entry(c):
     ability = '"%s"' % c["Ability"] if c.get("Ability") else "nil"
     return (
         '\t{ Id = "%s", Name = "%s", Role = "%s", Tier = "%s", Height = %d, Attack = %d, Defense = %d, Speed = %d, Jump = %d, Ability = %s },'
-        % (slug(c["Name"]), c["Name"], c["Role"], c["Tier"], c["Height"], c["Attack"], c["Defense"], c["Speed"], c["Jump"], ability)
+        % (slug(c["Name"]), DISPLAY.get(slug(c["Name"]), c["Name"]), c["Role"], c["Tier"], c["Height"], c["Attack"], c["Defense"], c["Speed"], c["Jump"], ability)
     )
 
 

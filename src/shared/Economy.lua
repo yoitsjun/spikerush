@@ -278,7 +278,7 @@ function Economy.apply(profile, g, now)
 	return added
 end
 
--- "+500 VP, +5,000 Gold, 1 lucky spin and Dante". `chars` (optional) are the ones to name,
+-- "+500 VP, +5,000 Gold, 1 lucky spin and Valen". `chars` (optional) are the ones to name,
 -- say only those a player didn't have yet.
 function Economy.describe(g, chars)
 	local parts = {}

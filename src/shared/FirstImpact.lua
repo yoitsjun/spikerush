@@ -1,4 +1,4 @@
--- Dante's First Strike cinematic ("First Impact"), from a Moon Animator 2 save a friend of the owner
+-- Valen's First Strike cinematic ("First Impact"), from a Moon Animator 2 save a friend of the owner
 -- made (rawull (1).rbxl, 2026-10-16): 60 frames at 60 fps. Generated from the save; played by
 -- VFXController (HW.firstImpact). Joints are keyed by the moving part; a key is { frame, CFrame
 -- components } as Moon keeps it (Part1 = Part0 * C0 * key) and `def` its rest value, so the joint's

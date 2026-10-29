@@ -932,7 +932,7 @@ function VFXController.impactFrame(entityId, color, dark)
 	end)
 end
 
--- The freeze frame (Zero Point, Dante's First Strike; the owner's reference: a black silhouette on
+-- The freeze frame (Zero Point, Valen's First Strike; the owner's reference: a black silhouette on
 -- white between letterbox bars): while the ball holds on the hand, a close shot of the hitter
 -- and the ball in black on white, pushing in slowly; it snaps away as the ball fires.
 local freezeGui = nil
@@ -952,7 +952,7 @@ local function freezeScreen()
 	return freezeToken
 end
 
--- Dante's First Strike as a cinematic (the owner, 2026-10-16: "someone made this first impact
+-- Valen's First Strike as a cinematic (the owner, 2026-10-16: "someone made this first impact
 -- animation for raul. can you implement", then "cant you just implement the animation file i sent
 -- you and play it how i sent you?"): the Moon Animator 2 save (shared/FirstImpact) played as made,
 -- matched frame by frame to the owner's video in a playtest: his whole body plays its keys, the
@@ -1175,7 +1175,7 @@ function VFXController.freezeFrame(entityId, ballPos, duration, color, hands)
 	local token = freezeScreen()
 	local bg = Instance.new("Frame")
 	bg.Size = UDim2.fromScale(1, 1)
-	bg.BackgroundColor3 = color or WHITE -- (Dante's First Strike: purple, the owner's call)
+	bg.BackgroundColor3 = color or WHITE -- (Valen's First Strike: purple, the owner's call)
 	bg.BorderSizePixel = 0
 	bg.Parent = freezeGui
 	local vp = Instance.new("ViewportFrame")
@@ -2384,9 +2384,9 @@ local STATUS = {
 	Dictate = { fire = { Color3.fromRGB(255, 248, 210), Config.Abilities.Tyrant.Color }, rate = 22, fill = Color3.fromRGB(255, 190, 40), edge = Color3.fromRGB(255, 236, 150) },
 	Dictated = { fire = { Color3.fromRGB(150, 120, 220), Color3.fromRGB(40, 15, 80) }, rate = 16, fill = Color3.fromRGB(70, 30, 140), edge = Color3.fromRGB(215, 200, 255) },
 	Grounded = { fire = { Color3.fromRGB(200, 170, 110), Color3.fromRGB(90, 70, 40) }, rate = 12, size = 1.4 },
-	-- Haesol: always a soft yellow glow on her (light: a warm PointLight with it), brighter lit
+	-- Dasol: always a soft yellow glow on her (light: a warm PointLight with it), brighter lit
 	SunGlow = { fire = { Color3.fromRGB(255, 248, 210), Config.Abilities.Sunshine.Color }, rate = 8, size = 1.4, light = Color3.fromRGB(255, 214, 120) },
-	-- Haesol's Sunshine, lit
+	-- Dasol's Sunshine, lit
 	Sunlit = { fire = { Color3.fromRGB(255, 255, 235), Config.Abilities.Sunshine.Color }, rate = 26, fill = Color3.fromRGB(255, 220, 110), edge = Color3.fromRGB(255, 250, 210) },
 }
 
@@ -2914,7 +2914,7 @@ function VFXController.diveStart(entityId, p0, c, p2, wait)
 end
 
 ------------------------------------------------------------------------------------------
--- Squall (Haneul): Tailwind's rush and spring, Downdraft, Eye of the Storm's hover and target
+-- Squall (Hayul): Tailwind's rush and spring, Downdraft, Eye of the Storm's hover and target
 ------------------------------------------------------------------------------------------
 
 local updateWinds
@@ -3193,7 +3193,7 @@ do
 end
 
 ------------------------------------------------------------------------------------------
--- Ironclad (Taesan): Bulwark's shields float by him; a broken block shatters one (the owner: "make
+-- Ironclad (Dongha): Bulwark's shields float by him; a broken block shatters one (the owner: "make
 -- him visually lose a shield"); the last one gone, he awakens; a full Intimidation brings them back
 ------------------------------------------------------------------------------------------
 
@@ -4576,7 +4576,7 @@ local function onHit(snap)
 	end
 	if meta.secondSwing then
 		VFXController.popup(pos + Vector3.new(0, 3.4, 0), "Double Swing!", Config.Abilities.Thunder.Color, 1.1)
-		-- his second swing gets Taeho's frame (the owner, 2026-10-21: "recycle taeho's impact frame
+		-- his second swing gets Jaeil's frame (the owner, 2026-10-21: "recycle taeho's impact frame
 		-- for yejun if he double swings but make his effect yellow, and on the halloween effect
 		-- purple ... with hands reaching out"): the court dark and him lit, then his silhouette on
 		-- yellow (the Fallen Angel's: on violet, the underworld's arms reaching up at him). Short:
@@ -4776,7 +4776,7 @@ local function onHit(snap)
 			return
 		end
 		if meta.firstStrike then
-			-- Dante's First Strike: a shorter freeze frame, in purple, then his usual burst (below) as it
+			-- Valen's First Strike: a shorter freeze frame, in purple, then his usual burst (below) as it
 			-- fires
 			if not VFXController.firstImpact(meta.id, fires) then
 				VFXController.freezeFrame(meta.id, pos, fires, FERAL)
@@ -4989,7 +4989,7 @@ local function onHit(snap)
 			Fx.play("BlockImpact", pos, { color = Config.Abilities.IronWall.Color, scale = 1.35 })
 		end
 		if meta.wild then
-			-- Haneul's Shear: the spike whips off the hands in a gust of shattered glass
+			-- Hayul's Shear: the spike whips off the hands in a gust of shattered glass
 			local col = Config.Abilities.Squall.Color
 			ringFx(pos, col, 1, 9, 0.3, 6)
 			shards(pos, Color3.fromRGB(235, 250, 255), 14, 60)
@@ -5011,7 +5011,7 @@ local function onHit(snap)
 			Fx.play("ReceiveImpact", pos, { color = tc })
 			emit("Sparks", pos, 8, tc)
 			if meta.shatter then
-				-- Taesan's shield gives way: steel shards, the ball popping straight up
+				-- Dongha's shield gives way: steel shards, the ball popping straight up
 				local steel = Config.Abilities.Ironclad.WallColor
 				shards(pos, steel, 18, 55)
 				starburst(pos, Color3.fromRGB(235, 245, 255), 6)
@@ -5038,7 +5038,7 @@ local function onHit(snap)
 			VFXController.shield(meta.id)
 		end
 		if meta.dig and hrp then
-			-- Haesol: a soft warm flare as she digs (the owner: "she has a sun aura when she bumps";
+			-- Dasol: a soft warm flare as she digs (the owner: "she has a sun aura when she bumps";
 			-- then "i dont want a sun beam to strike down on the player as her, i just want a passive
 			-- yellow glow on her": her glow is the SunGlow status; a dig only brightens it a moment)
 			local sun = Config.Abilities.Sunshine.Color
@@ -8406,7 +8406,7 @@ function VFXController.init(m)
 	fxFolder = Instance.new("Folder")
 	fxFolder.Name = "SpikeRushFX"
 	fxFolder.Parent = workspace
-	-- (Studio only: setting workspace attribute TestFirstImpact to a number plays Dante's First Impact
+	-- (Studio only: setting workspace attribute TestFirstImpact to a number plays Valen's First Impact
 	-- on your own character for that many seconds, through the real path, to check it on screen)
 	if RunService:IsStudio() then
 		workspace:GetAttributeChangedSignal("TestFirstImpact"):Connect(function()

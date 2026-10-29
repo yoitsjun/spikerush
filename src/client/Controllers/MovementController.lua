@@ -63,7 +63,7 @@ local homing = nil -- Updraft's spring at the ball: { vz, untilT } (carried alon
 local queued = nil -- { height, kind }
 -- A jump the humanoid was told to take, until it's off the floor: now and then it ignores
 -- Humanoid.Jump (the owner: "i dash forward a tad and my arms swing back but i do not jump", and
--- Dante's leap "cancelled"), so if it hasn't left within TAKEOFF_NUDGE it's made to.
+-- Valen's leap "cancelled"), so if it hasn't left within TAKEOFF_NUDGE it's made to.
 local takeoff = nil -- { t0, vz: the run-up's push along the court, if any }
 local TAKEOFF_NUDGE, TAKEOFF_GIVEUP = 0.03, 0.25
 

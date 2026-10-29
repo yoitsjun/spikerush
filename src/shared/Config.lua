@@ -244,7 +244,7 @@ Config.Hits = {
 	TossLow = 13, -- studs above the release: the overhand toss comes back to the hand
 	TossHighMin = 4.2 * M,
 	TossHighMax = 7.0 * M,
-	FeralTossHigh = 5.6 * M, -- Dante's charging toss stays at the old top: his full charge still meets it at the top of his jump
+	FeralTossHigh = 5.6 * M, -- Valen's charging toss stays at the old top: his full charge still meets it at the top of his jump
 	TossChargeTime = 0.8,
 	TossForward = 1.2,
 	TossForwardMax = 2.4 * M, -- a full forward toss comes back down this far in front of the hand
@@ -369,10 +369,10 @@ Config.Breakthrough = {
 	NoAbilityMul = 1.5,
 	-- the lower the tier, the more each step gives (the owner, 2026-10-15: "make breakthroughs way
 	-- more powerful on lower tier in terms of stats", then "a d shouldn't be hitting low s"): maxed,
-	-- D totals about 405 stat points, C 447, B 504, A 566, S 619 (Daon 575 the lowest), S+ 678; at +5
+	-- D totals about 405 stat points, C 447, B 504, A 566, S 619 (Hwan 575 the lowest), S+ 678; at +5
 	-- (40 a step's base, x TierMul, x NoAbilityMul without an ability, each point rounded) a D gains
-	-- 132 (Riku to 554: near a maxed A like Sora's 580, under every S), C 114, B 92, A 80, S 46, S+ 40
-	-- (D 3 put a +5 Riku at 604, over Daon; D 4 at 662)
+	-- 132 (Rui to 554: near a maxed A like Fuyu's 580, under every S), C 114, B 92, A 80, S 46, S+ 40
+	-- (D 3 put a +5 Rui at 604, over Hwan; D 4 at 662)
 	TierMul = { D = 2.2, C = 1.9, B = 1.5, A = 1.25, S = 1.15, ["S+"] = 1 },
 	-- an active ability's cooldown is this much shorter at +Max, a fifth of it a step (the owner:
 	-- "allow breakthroughs to also effect cooldowns"; was 0.3, then 0.4). Then (2026-10-21: "dont
@@ -437,7 +437,7 @@ Config.StatCurve = {
 	DrainReduction = { Stat = "Defense", Range = { 0.0, 0.35 } },
 	ReceiveBonus = { Stat = "Defense", Range = { -0.1, 0.08 } },
 	BlockPower = { Stat = "Defense", Range = { 0.75, 1.15 } },
-	-- (past 210 it keeps adding: Haneul, the fastest, is above it, and boosts push others past it)
+	-- (past 210 it keeps adding: Hayul, the fastest, is above it, and boosts push others past it)
 	WalkSpeed = { Stat = "Speed", Range = { 22, 32 }, Extrapolate = true },
 	SetAccuracy = { Stat = "Speed", Range = { 0.7, 1.0 } },
 }
@@ -446,7 +446,7 @@ Config.StatCurve = {
 -- characters with the same Jump stat hit from different heights.
 Config.Height = {
 	Min = 165,
-	Max = 216, -- Mateus (was 210; ZoneScale's top moved with it, so every other height keeps its zone)
+	Max = 216, -- Rafael (was 210; ZoneScale's top moved with it, so every other height keeps its zone)
 	Mean = 185,
 	Spread = 9, -- roughly one standard deviation, cm
 	ReachPerCm = 0.013, -- standing reach in metres per cm of height
@@ -1221,7 +1221,7 @@ Config.Abilities = {
 		StaticPer = 0.06,
 		StaticMax = 3,
 		-- High Strike (the owner: "yejun is just jumping too low. can we buff him"): his spike and
-		-- serve jumps go this much higher (17.6 studs maxed -> about 22, with Haneul and Laith); his
+		-- serve jumps go this much higher (17.6 studs maxed -> about 22, with Hayul and Laith); his
 		-- hitting point on the card, and so Thunder, stay where they were
 		LeapMul = 1.25,
 		Passives = {
@@ -1237,8 +1237,8 @@ Config.Abilities = {
 		Blurb = "Hold Spike in the air to gather energy under low gravity. A full bar hits hardest and pierces blocks. Hold too long and it flies out.",
 		Kind = "Hold Spike in the air", -- how it's used (the menus; Active abilities say Q)
 		Color = Color3.fromRGB(57, 213, 255),
-		-- Dragon Surge (the owner: Seojin "feels lacking compared to the other s+"; a full bar was
-		-- about 201 km/h maxed, under Dante's 204 / 235 and YeJun's 236): a quicker bar, more room
+		-- Dragon Surge (the owner: Mujin "feels lacking compared to the other s+"; a full bar was
+		-- about 201 km/h maxed, under Valen's 204 / 235 and YeJun's 236): a quicker bar, more room
 		-- before it overcharges, about 225 km/h full, and a full bar costs the digger more stamina
 		ChargeTime = 0.6, -- seconds of holding to fill the bar (was 0.8)
 		-- (2026-10-12, the owner: "buff the others": every S+'s dependable best into 220-240)
@@ -1305,7 +1305,7 @@ Config.Abilities = {
 	-- that raises every stat while it's on and lowers them after by how many times it was used, up
 	-- to 12, cleared by a timeout or a substitution; a dive mid-air during the spike, the faster the
 	-- descent the more power; a chance for a spike to burst, +13% power and +1 spin; a much further
-	-- serve toss like Dante's; and a path he travels along when he jumps). The names are ours
+	-- serve toss like Valen's; and a path he travels along when he jumps). The names are ours
 	-- (CLAUDE.md): Corona is the stat flare, Sundive the dive, Zenith the burst, Long Toss the toss.
 	-- Sundive: Spike pressed in the air while the ball is below his reach sends him down at it on a
 	-- straight path (gravity off, homing on where the ball will be), and the spike gets up to
@@ -1352,16 +1352,16 @@ Config.Abilities = {
 		ZenithChance = 0.22,
 		ZenithPower = 0.13,
 		ZenithSpin = 1.3, -- heavier topspin: gravity on the spike x this (it dips harder)
-		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front (Dante's)
+		TossReachMul = 1.6, -- his forward serve toss comes down this much further in front (Valen's)
 		Passives = {
 			{ Name = "Sunfire", Blurb = "Every spike of yours burns 14% harder." },
 			{ Name = "Sundive", Blurb = "In the air, Spike with the ball below your reach (up to 12 m away): you streak down a path onto it, and the further you drop, the harder it goes (up to +38%)." },
 			{ Name = "Sun Leap", Blurb = "While Corona is on, your jump goes far higher, so you can dive from above everything." },
 			{ Name = "Zenith", Blurb = "About one spike in five bursts into a Zenith: +13% power and heavy topspin." },
-			{ Name = "Long Toss", Blurb = "Your forward serve toss goes much further, like Dante's." },
+			{ Name = "Long Toss", Blurb = "Your forward serve toss goes much further, like Valen's." },
 		},
 	},
-	-- Haneul (the owner: a new spiker "similar to sara seo": "she dashes across the court and jumps
+	-- Hayul (the owner: a new spiker "similar to sara seo": "she dashes across the court and jumps
 	-- right where the ball is. she has lower gravity and stay in the air to charge up her spike. she
 	-- can aim wherever she wants on the opposing side. she has wider spike range. and has an active
 	-- ability where she can increase speed and attack", "she is easily the fastest character",
@@ -1465,7 +1465,7 @@ Config.Abilities = {
 		AttackBonus = 18, -- stat points while active
 		JumpBonus = 16,
 	},
-	-- Taesan (the owner: an S+ middle blocker "with the iron wall ability but as a passive. he has 3
+	-- Dongha (the owner: an S+ middle blocker "with the iron wall ability but as a passive. he has 3
 	-- lives, and each time his block gets broken he loses 1. after he loses all 3 lives, he awakens
 	-- and he becomes more of an offensive based hitter. jumping before the ball is set, he hovers
 	-- midair and charges. this can reach maybe 210 220? you decide. jumping after the ball nets him
@@ -1520,7 +1520,7 @@ Config.Abilities = {
 		ChargeSlack = 0.15, -- charge a spike may claim over the time the server saw him up
 		EarlyGrace = 0.35, -- a jump this soon after the set still counts as before it (latency)
 		-- (the owner: "give taesan also extended spike range"): his spike always reaches SpikeReach
-		-- times the usual (Haneul's Shear is 1.2 too), and awakened Steel Reach adds up to ReachMul
+		-- times the usual (Hayul's Shear is 1.2 too), and awakened Steel Reach adds up to ReachMul
 		-- more with the charge (up to 1.5 in all)
 		SpikeReach = 1.2,
 		ReachMul = 0.3, -- Steel Reach: + this x the charge
@@ -1567,7 +1567,7 @@ Config.Abilities = {
 		Role = "SE",
 		Blurb = "Your sets are charged. The spike or feint off one explodes: more power, and it tears through the receivers' stamina. Every explosion in a rally makes the next one bigger (up to x1.30 power). Off in 1v1s.",
 		Color = Color3.fromRGB(255, 64, 64),
-		-- the chain grows (the owner picked it for Seoyeon's buff): the first explosion of a rally
+		-- the chain grows (the owner picked it for Jiyu's buff): the first explosion of a rally
 		-- uses the first step, each one after it the next, until the rally ends
 		PowerMul = { 1.15, 1.22, 1.30 }, -- spike speed off a charged set
 		DrainMul = { 2.4, 2.8, 3.2 }, -- receive drain of the exploding ball
@@ -1590,7 +1590,7 @@ Config.Abilities = {
 		SetDepthMul = 0.6,
 		SetLift = 1.2 * M,
 	},
-	-- Arin (the owner: "a setter that works well. a setter that sets high and the ball drops slowly,
+	-- Narae (the owner: "a setter that works well. a setter that sets high and the ball drops slowly,
 	-- the longer it drops the harder your spike gets. dont know how high that buff should be but you
 	-- pick"). Featherfall: her open and back sets go up higher and float down from the top (lighter
 	-- gravity), so the hitter has time to line up; a spike off one gets more power the longer the
@@ -1618,7 +1618,7 @@ Config.Abilities = {
 		Cooldown = 18,
 		PowerMul = 1.12,
 	},
-	-- Dohwan (the owner, 2026-10-21: "The Tyrant (S+ Setter)": Emperor's Dictate, Sovereign's Guard,
+	-- Gunwoo (the owner, 2026-10-21: "The Tyrant (S+ Setter)": Emperor's Dictate, Sovereign's Guard,
 	-- Crown Jump Serve and Tyrant's Set, their numbers kept as the owner wrote them). Emperor's
 	-- Dictate (Q): a golden aura across the court; for Duration the other team loses Steal of its
 	-- Attack, Jump and Speed and his team gains TeamAdd (Stat Hijack), a spike off his set is met at
@@ -1661,7 +1661,7 @@ Config.Abilities = {
 		-- (the owner, 2026-10-22: "make dohwan's crown serve give him a serve on par with the top of
 		-- the s+ ws. only for his serve though", "he should have a decently solid attack though": his
 		-- Attack went 140 -> 170, and his jump serve alone hits with this many Attack points more, so
-		-- maxed it's Dante's 222, the best S+ wing spiker's)
+		-- maxed it's Valen's 222, the best S+ wing spiker's)
 		CrownServeAttack = 52,
 		CrownGravity = 1.55, -- topspin: x the usual jump serve's dip
 		CrownDepthMul = 0.85, -- a little shorter, for the steep path down
@@ -1705,7 +1705,7 @@ Config.Abilities = {
 		Cooldown = 30,
 		Boost = 0.12,
 	},
-	-- Haesol (the owner, 2026-10-21: an S middle blocker, "Ability, Sunshine gives increase perfect
+	-- Dasol (the owner, 2026-10-21: an S middle blocker, "Ability, Sunshine gives increase perfect
 	-- bump window, once this perfect bump is hit, block hitbox, bump hitbox, and all stats increased
 	-- by ten. Passive Vert Spikes, all spikes are sharper, the shaper it is, the harder it is, can
 	-- be used to go under blocks", "During Bump, Defense Range increases by 33%, Defense by 70, and
@@ -1755,7 +1755,7 @@ Config.Abilities = {
 		PerFull = { Attack = 40, Defense = 70 },
 		-- her spike releases the meter: speed x (1 + this x meter / 100), then it's empty (the owner:
 		-- "buff ines to be able to have around 200-210 at maxed out": maxed, a full one is about 205
-		-- km/h, with Dante's full leap 204 and a full Azure 201; it was 0.12, 157 km/h)
+		-- km/h, with Valen's full leap 204 and a full Azure 201; it was 0.12, 157 km/h)
 		ReleaseBoost = 0.46,
 		GainPerKmh = 0.8, -- meter per km/h of a hard spike she receives (a 125 km/h spike fills it)
 		MinGain = 40,
@@ -1796,7 +1796,7 @@ Config.Abilities = {
 		DiveSpeed = 1.0, -- the plunge keeps this much of the speed
 		PowerBoost = 0.06, -- and it leaves the hand x (1 + this) faster
 	},
-	-- Taeho (the owner: "an ability focused on perfect contact... a perfect contact spike hits a ???
+	-- Jaeil (the owner: "an ability focused on perfect contact... a perfect contact spike hits a ???
 	-- km/h... around [YeJun's] double spike power or maybe higher. a perfect spike plays the image
 	-- like i show you, but a normal one doesnt"; then, the PERFECT grade being "impossible": "change
 	-- how its achieved", "you need some leniency or else its not possible", "maybe do it if the
@@ -1833,7 +1833,7 @@ Config.Abilities = {
 		FreezeDark = 0.25,
 		DrainMul = 1.3, -- digging one costs this much more stamina
 	},
-	-- Seora (the owner: "a jump that starts low, but the higher spike point she gets the higher her
+	-- Yeseul (the owner: "a jump that starts low, but the higher spike point she gets the higher her
 	-- jump increases... at her peak, maybe 4.7-4.8", and "instead of a typical feint she has a sharp
 	-- nearly 90 degree spike"; then, back to S+: "if her attack scales with highest jump too, and
 	-- maybe make it so her vertical feint is based on her distance from net"). Her hitting point
@@ -1845,7 +1845,7 @@ Config.Abilities = {
 	-- can't clear the tape: it always comes down just over the net on their side.
 	Skyward = {
 		Name = "Skyward",
-		Tier = "S", -- (the owner dropped Seora to S, keeping her Attack climb)
+		Tier = "S", -- (the owner dropped Yeseul to S, keeping her Attack climb)
 		Role = "WS",
 		Blurb = "Your jump starts low and climbs: every spike raises your hitting point and your Attack, most when you meet it at the very top (up to about 4.75 m and +24 Attack maxed), until the set ends.",
 		Color = Color3.fromRGB(255, 120, 200),
@@ -1871,7 +1871,7 @@ Config.Abilities = {
 -- one loses it on its next load and gets a ticket per retired character it owned (once): the
 -- ticket recruits any TicketTier character it doesn't own yet (Home opens the pick).
 Config.Retired = {
-	Chars = { "hayun", "gaeul", "akira" }, -- Adrenaline (Haruto stays), Iron Wall (Tetsuo), Chain Reaction (Seoyeon)
+	Chars = { "hayun", "gaeul", "akira" }, -- Adrenaline (Riki stays), Iron Wall (Gaku), Chain Reaction (Jiyu)
 	TicketTier = "S",
 }
 
@@ -2080,7 +2080,7 @@ Config.Tournament = {
 }
 
 -- The Halloween event (the owner, 2026-10-14, after Spike Cross's Kingmaker, Western and Tiger
--- Eyes events), until Ends (unix; the end of November 2 in the US Central time zone). The shared
+-- Eyes events), until Ends (unix; the end of November 11 in the US Central time zone). The shared
 -- Halloween module holds its rules.
 --   Match       a daily Halloween Match against the AI: Stages stages of Points points, one set
 --               each (the tournament flow: LobbyService takes the run stage to stage). Before each
@@ -2127,8 +2127,8 @@ Config.Quotes = {
 
 Config.Halloween = {
 	Name = "Halloween Night",
-	Ends = 1793685600, -- 2026-11-03 06:00 UTC: the end of November 2 in Chicago
-	DayOffset = -5 * 3600, -- event days turn at midnight in Chicago (UTC-5 in October; close enough in November)
+	Ends = 1794463200, -- 2026-11-12 06:00 UTC: the end of November 11 in Chicago (restarted for the Volleyball Rush rerelease; was November 2)
+	DayOffset = -6 * 3600, -- event days turn at midnight in Chicago (UTC-6 from November 1)
 	Mode = 3,
 	Points = 12,
 	Stages = 2,
@@ -2268,7 +2268,7 @@ Config.Halloween = {
 		Reaper = {
 			Name = "Reaper",
 			Rarity = "Mythic",
-			Blurb = "Taeho's skin, and Taeho with it if he isn't yours yet: he spikes with a scythe, souls streaming behind the ball. Swap it on and off any time on his page.",
+			Blurb = "Jaeil's skin, and Jaeil with it if he isn't yours yet: he spikes with a scythe, souls streaming behind the ball. Swap it on and off any time on his page.",
 			Trail = "Souls", -- the trail it wears (Config.Cosmetics.Trail; only with the skin)
 			Color = Color3.fromRGB(150, 220, 255),
 			-- the only character it fits (the owner, 2026-10-15: "restrict the skin to only taeho
@@ -2746,10 +2746,10 @@ Config.Bots = {
 	TurnaboutChance = { 0.3, 0.65 }, -- a Turnabout setter arms it off a pass it can jump for
 	RallyCryChance = 0.5, -- a Rally Cry bot pops it at a serve this often once it's ready
 	CoronaChance = 0.3, -- and a Corona bot (Laith) his
-	SquallChance = 0.4, -- and a Squall bot (Haneul) hers
+	SquallChance = 0.4, -- and a Squall bot (Hayul) hers
 	ThunderChance = 0.4, -- and a Thunder bot (YeJun) Storm Call
-	TyrantChance = 0.5, -- and a Tyrant bot (Dohwan) Emperor's Dictate
-	FeralChance = 0.4, -- and a Feral bot (Dante) Bloodlust
+	TyrantChance = 0.5, -- and a Tyrant bot (Gunwoo) Emperor's Dictate
+	FeralChance = 0.4, -- and a Feral bot (Valen) Bloodlust
 	CoverDepth = 1.5, -- the cover stands this much deeper than the human's spot
 	CoverAfterMiss = 1.5, -- after the human whiffs, the cover plays the ball for this long
 	SwapMargin = 1.2 * M, -- a human this much closer to a teammate's spot than their own takes it

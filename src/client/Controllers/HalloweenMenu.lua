@@ -752,7 +752,7 @@ function HalloweenMenu.refresh()
 					local row = skins[it.key]
 					local have = row ~= nil and row.copies > 0
 					r.have.Text = have and "Owned" or ""
-					r.pick.Visible = not have -- (a second copy would only be a duplicate: Taeho wears one)
+					r.pick.Visible = not have -- (a second copy would only be a duplicate: Jaeil wears one)
 				elseif it.kind == "Room" then
 					local have = p.rooms and p.rooms.owned and p.rooms.owned[it.key] == true
 					r.have.Text = have and "Owned" or ""

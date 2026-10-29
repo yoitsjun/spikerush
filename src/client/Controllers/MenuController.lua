@@ -3824,7 +3824,7 @@ local function buildPlayer()
 
 	-- the character's skins (The Spike's player screen: a skin card on the left with Apply, swapped
 	-- at will; the owner, 2026-10-15: "make the skin kind of like this, where you can swap at
-	-- will"): Default and each skin that fits (the Reaper is Taeho's), a picture, its name and Apply
+	-- will"): Default and each skin that fits (the Reaper is Jaeil's), a picture, its name and Apply
 	local skinCard = make("Frame", { Name = "Skins", Position = UDim2.new(0, M, 0, 104), Size = UDim2.fromOffset(372, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.18, BorderSizePixel = 0, Visible = false }, p)
 	make("UICorner", { CornerRadius = UDim.new(0, 8) }, skinCard)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, skinCard)
@@ -4375,7 +4375,7 @@ function Extra.refreshSkins(prof, c, mine)
 	end
 end
 
--- What the menu room's avatar holds: the skin's piece of the character on show (Taeho's page) or
+-- What the menu room's avatar holds: the skin's piece of the character on show (Jaeil's page) or
 -- of the one you play, while it's on (the Reaper's scythe).
 function Extra.refreshHomeProp(prof)
 	local id = screen == "player" and selectedChar or (prof.char or player:GetAttribute("CharId"))

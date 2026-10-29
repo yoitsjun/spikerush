@@ -1,7 +1,7 @@
 -- The breakthrough reveal (the owner, 2026-10-15, with Spike Cross's "Breakthrough 5 Achieved!"
 -- card: "animations for breakthrough"): after a breakthrough (ProfileService sends the profile with
 -- `breakReveal = { id, level }`), two beats. First the reference's splash: on near-black, your
--- avatar in the character's role pose (you play every character as yourself; Taeho holds the
+-- avatar in the character's role pose (you play every character as yourself; Jaeil holds the
 -- scythe while the Reaper's on) dead centre in a glow of its tier colour, "Breakthrough N
 -- Achieved!" in gold across its middle, popping in with a split-colour glitch and glitch slices
 -- tearing across the picture, sparse confetti specks drifting. Then the character steps left and

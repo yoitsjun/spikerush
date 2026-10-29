@@ -56,9 +56,9 @@ PatchNotes.List = {
 			{
 				Heading = "New players",
 				Items = {
-					{ Icon = "AbilityTyrant", Text = "<b>Dohwan, The Tyrant</b> (S+ setter). <b>Emperor's Dictate</b> (Q): for 5 seconds the other team is <b>Locked</b>: 35% less Jump and Speed, 15% less Attack and no slides, and his team gets the stolen stats. Every set of his and his own attacks hit at full power, and their blocks reach half as high. His sets are fast, and the spike off one is 1.3x faster and can't be stuffed. His jump serve dips hard and wrecks the pass." },
-					{ Icon = "AbilityTyrant", Text = "Spike past 180 km/h at Dohwan's team and you're <b>Grounded</b>: less Jump and Attack on your next attack." },
-					{ Icon = "AbilitySunshine", Text = "<b>Haesol, Sunshine</b> (S middle blocker). A far wider perfect-dig window; a perfect dig lights her up for 10 seconds with +10 to every stat. Her digs reach further, and her <b>Vert Spikes</b> cross the net and drive almost straight down, the steepest slipping under the block." },
+					{ Icon = "AbilityTyrant", Text = "<b>Gunwoo, The Tyrant</b> (S+ setter). <b>Emperor's Dictate</b> (Q): for 5 seconds the other team is <b>Locked</b>: 35% less Jump and Speed, 15% less Attack and no slides, and his team gets the stolen stats. Every set of his and his own attacks hit at full power, and their blocks reach half as high. His sets are fast, and the spike off one is 1.3x faster and can't be stuffed. His jump serve dips hard and wrecks the pass." },
+					{ Icon = "AbilityTyrant", Text = "Spike past 180 km/h at Gunwoo's team and you're <b>Grounded</b>: less Jump and Attack on your next attack." },
+					{ Icon = "AbilitySunshine", Text = "<b>Dasol, Sunshine</b> (S middle blocker). A far wider perfect-dig window; a perfect dig lights her up for 10 seconds with +10 to every stat. Her digs reach further, and her <b>Vert Spikes</b> cross the net and drive almost straight down, the steepest slipping under the block." },
 				},
 			},
 			{
@@ -85,11 +85,11 @@ PatchNotes.List = {
 					{ Text = "Stacked boosts were sending spikes past 400 km/h. Past 250 km/h a boost now counts for less, and nothing goes over <b>300</b>, except in the <b>Halloween Match</b>, which has no speed limit." },
 					{ Icon = "AbilityCorona", Text = "<b>Laith</b>'s jump serve always gets some of his Sundive's power (about 11% harder)." },
 					{ Text = "<b>Breakthroughs</b> now grow an ability's power more than its cooldown. Rally Cry's boost reaches 18% at +5, and Storm Call and Iron Wall get stronger too." },
-					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> has to jump to wall, and a set starts with one shield. His Intimidation meter only fills once every shield is broken. The block that shatters a shield pops the ball up for his team, and no spike shatters one at once any more: every shield shuts down one spike, then pops up the next." },
-					{ Icon = "AbilityTyrant", Text = "<b>Dohwan</b>: Attack up from 140 to 170, and his <b>Crown Jump Serve</b> now hits as hard as the best S+ wing spiker's (+52 Attack on the serve only)." },
-					{ Icon = "AbilityTyrant", Text = "<b>Dohwan</b>'s Emperor's Dictate also makes the Locked team's spikes and jump serves <b>20% slower</b>." },
+					{ Icon = "AbilityIronclad", Text = "<b>Dongha</b> has to jump to wall, and a set starts with one shield. His Intimidation meter only fills once every shield is broken. The block that shatters a shield pops the ball up for his team, and no spike shatters one at once any more: every shield shuts down one spike, then pops up the next." },
+					{ Icon = "AbilityTyrant", Text = "<b>Gunwoo</b>: Attack up from 140 to 170, and his <b>Crown Jump Serve</b> now hits as hard as the best S+ wing spiker's (+52 Attack on the serve only)." },
+					{ Icon = "AbilityTyrant", Text = "<b>Gunwoo</b>'s Emperor's Dictate also makes the Locked team's spikes and jump serves <b>20% slower</b>." },
 					{ Icon = "AbilityThunder", Text = "<b>YeJun</b>'s second swing gets its own freeze frame, in yellow (violet with the Fallen Angel)." },
-					{ Icon = "AbilitySkyward", Text = "<b>Seora</b>: new passive <b>Sharp Angle</b>, her spikes come down a little steeper." },
+					{ Icon = "AbilitySkyward", Text = "<b>Yeseul</b>: new passive <b>Sharp Angle</b>, her spikes come down a little steeper." },
 				},
 			},
 			{
@@ -128,12 +128,12 @@ PatchNotes.List = {
 					{ Text = "<b>Home > Halloween</b>: the <b>Halloween Match</b> on Easy, Normal or Hard. Two stages to 12 points against the AI: before each, a strip of cards rolls past and lands on three, and you pick one, twice. Win both stages for <b>Candy</b>; the first clear of each difficulty every day pays the most." },
 					{ Text = "59 cards: stat buffs and trade-offs, team cards, curses on the other team, rule changes, and an <b>ability card</b> for every ability. Ability cards stack on your own ability, up to <b>two</b> of them." },
 					{ Text = "The <b>Halloween banner</b> (VP or Candy): the Pumpkin and Witch Hat balls, the Pumpkin Burst and Ghost Swarm score effects, Halloween jumps, trails and colours, the <b>Haunted Forest</b>, and the Mythic <b>Reaper</b>. Every recruit is a scout point: spend them to pick an item outright." },
-					{ Icon = "AbilityZeroPoint", Text = "<b>The Reaper</b> is Taeho's skin: he spikes with a void scythe, souls stream behind the ball and his Zero Point gets its own impact frame. Swap it on and off any time on his page." },
+					{ Icon = "AbilityZeroPoint", Text = "<b>The Reaper</b> is Jaeil's skin: he spikes with a void scythe, souls stream behind the ball and his Zero Point gets its own impact frame. Swap it on and off any time on his page." },
 					{ Text = "<b>The Haunted Forest</b>: Home out in a moonlit forest, the clubhouse a haunted cabin among dead trees, with a graveyard, a bubbling cauldron, jack-o'-lanterns and a huge orange moon. Home's new <b>Decorate</b> shows a room behind you the moment you pick it; Apply keeps it." },
 					{ Icon = "AbilityThunder", Text = "<b>The Fallen Angel</b> is YeJun's skin: one broken black wing, lightning in violet and black, and arms from the underworld that drag him back down on every jump (his own jump while it's on). It shares the banner's Mythic slot with the Reaper." },
 					{ Text = "When the Fallen Angel scores, arms burst up under the other team and drag them down through the floor. His Storm Call turns violet too, and the arms on his jumps are bigger, clawing their way out." },
 					{ Text = "Each Mythic skin has its own reveal: the Reaper's scythe slashes the screen to pieces, and the Fallen Angel's arms crack their way through it." },
-					{ Text = "A skin brings its player with it: pull the Reaper and Taeho is yours, pull the Fallen Angel and YeJun is. Already pulled one? They've joined your roster." },
+					{ Text = "A skin brings its player with it: pull the Reaper and Jaeil is yours, pull the Fallen Angel and YeJun is. Already pulled one? They've joined your roster." },
 					{ Text = "Both skins have sounds of their own. The Reaper's scythe swings through every spike and slices on a hard one, and souls wail where his ball lands. The Fallen Angel's wing beats, the underworld growls and the ground gives way on every jump, and his thunder rumbles low." },
 					{ Text = "New score effect on the banner, <b>Rest in Peace</b>: a giant gravestone drops on the spot and flings the other team. Carve your own words and a picture on it in the Locker (Customize); otherwise it bears your name." },
 					{ Text = "The <b>Candy shop</b>: lucky spins, Gold, VP and Halloween cosmetics." },
@@ -164,17 +164,17 @@ PatchNotes.List = {
 					{ Text = "<b>2x VP</b> (the event, your boosts and the 2x V Points pass) now doubles all the VP you earn: tournament prizes and daily rewards as well as matches. Codes, gifts and purchases stay as they are." },
 					{ Text = "Practice drills are endless: go as long as you like, with your streak, best and misses counted, until you head back to the menu. The tutorial can be skipped (no reward), from How to play or from inside it." },
 					{ Text = "The serve toss goes higher." },
-					{ Icon = "AbilityFeral", Text = "<b>Dante</b>'s First Strike plays a cinematic: the world goes black, he glows purple and cocks his fist, then the white flash as it fires." },
+					{ Icon = "AbilityFeral", Text = "<b>Valen</b>'s First Strike plays a cinematic: the world goes black, he glows purple and cocks his fist, then the white flash as it fires." },
 					{ Text = "Timeouts: your favourite players come first in the character switch." },
 				},
 			},
 			{
 				Heading = "Player changes",
 				Items = {
-					{ Text = "<b>Daon</b>, <b>Haruto</b> and <b>Seora</b> buffed: Daon +12 Attack, +7 Defense, +10 Speed and +10 Jump; Haruto +7 Attack, +6 Defense, +7 Speed and +3 Jump; Seora +8 Attack, +6 Defense and +8 Speed." },
-					{ Icon = "AbilityFeral", Text = "<b>Dante</b>: new <b>Bloodlust</b> (Q). His charge bar burns blood red and races past full, up to <b>165%</b>, for one charged hit (10 seconds at most), and an overcharged leap hits around 265 km/h." },
-					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> buffed: while he has shields he's an <b>Iron Wall</b> at the net. Every attack that crosses in front of him is shut down (all but feints), at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
-					{ Icon = "AbilityChainReaction", Text = "<b>Seoyeon</b>'s Chain Reaction is off in 1v1s." },
+					{ Text = "<b>Hwan</b>, <b>Riki</b> and <b>Yeseul</b> buffed: Hwan +12 Attack, +7 Defense, +10 Speed and +10 Jump; Riki +7 Attack, +6 Defense, +7 Speed and +3 Jump; Yeseul +8 Attack, +6 Defense and +8 Speed." },
+					{ Icon = "AbilityFeral", Text = "<b>Valen</b>: new <b>Bloodlust</b> (Q). His charge bar burns blood red and races past full, up to <b>165%</b>, for one charged hit (10 seconds at most), and an overcharged leap hits around 265 km/h." },
+					{ Icon = "AbilityIronclad", Text = "<b>Dongha</b> buffed: while he has shields he's an <b>Iron Wall</b> at the net. Every attack that crosses in front of him is shut down (all but feints), at any height, however hard. Each shield cracks on the first spike it stops and shatters on the next: 3 shields, 6 stops." },
+					{ Icon = "AbilityChainReaction", Text = "<b>Jiyu</b>'s Chain Reaction is off in 1v1s." },
 				},
 			},
 			{
@@ -206,8 +206,8 @@ PatchNotes.List = {
 			{
 				Heading = "Player changes",
 				Items = {
-					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> reworked. He jumps to block now, with a block a little bigger than anyone's. A 185 km/h or a clean spike breaks a shield, and every spike a shield stops <b>cracks</b> it: the second one shatters it. A broken shield slows the spike so his team can dig it, tips go over him, his spike reaches 20% wider, and awakened he fills Intimidation twice as fast. His shields now show over his head." },
-					{ Icon = "AbilitySquall", Text = "<b>Haneul</b>: let go of Jump to stop her dash right where she is, and she stays off the net. Steer her while she hovers. New in <b>Updraft</b>: spring off a teammate's set and it slows down while she goes right at the ball." },
+					{ Icon = "AbilityIronclad", Text = "<b>Dongha</b> reworked. He jumps to block now, with a block a little bigger than anyone's. A 185 km/h or a clean spike breaks a shield, and every spike a shield stops <b>cracks</b> it: the second one shatters it. A broken shield slows the spike so his team can dig it, tips go over him, his spike reaches 20% wider, and awakened he fills Intimidation twice as fast. His shields now show over his head." },
+					{ Icon = "AbilitySquall", Text = "<b>Hayul</b>: let go of Jump to stop her dash right where she is, and she stays off the net. Steer her while she hovers. New in <b>Updraft</b>: spring off a teammate's set and it slows down while she goes right at the ball." },
 				},
 			},
 			{
@@ -233,18 +233,18 @@ PatchNotes.List = {
 				Heading = "New players",
 				Items = {
 					{ Icon = "AbilityCorona", Text = "<b>Laith</b> (S+ wing spiker, Corona). Press Q to flare up: every stat +15%, and your spike jump becomes a towering Sun Leap. Every spike of his burns 14% harder (<b>Sunfire</b>). In the air, Spike with the ball below you to <b>Sundive</b> onto it: the further you drop, the harder it hits (up to +38%), on jump serves too. Some spikes burst into a Zenith for extra power and topspin." },
-					{ Icon = "AbilitySquall", Text = "<b>Haneul</b> (S+ wing spiker, Squall), the fastest player in the game. Press Jump to dash under the ball in a flash, leaving shattered glass behind, and spring up while the other team slows down. Hold Spike in the air to hover: the target on their court jumps spot by spot toward their back corner, so let go when it's where you want it. The longer you charge, the deeper and harder it goes, and her spikes whip wildly off blocks." },
-					{ Icon = "AbilityFeatherfall", Text = "<b>Arin</b> (S setter, Featherfall). Her open and back sets go up high and float down slowly, and a spike off one hits up to 30% harder the longer the ball was falling." },
-					{ Icon = "AbilityIronclad", Text = "<b>Taesan</b> (S+ middle blocker, Ironclad). Three shields: while he has one he's a wall at the net, no jump needed, and every block is a perfect shut-down, but a 150 km/h spike shatters a shield, unless he's <b>Unbreakable</b> (a chance to stop it anyway, best against the softer ones). Lose them all and he <b>awakens</b>: jump before the set and hammer out a charged spike of up to about 215 km/h. Every touch fills his Intimidation meter, and a full one brings the shields back." },
+					{ Icon = "AbilitySquall", Text = "<b>Hayul</b> (S+ wing spiker, Squall), the fastest player in the game. Press Jump to dash under the ball in a flash, leaving shattered glass behind, and spring up while the other team slows down. Hold Spike in the air to hover: the target on their court jumps spot by spot toward their back corner, so let go when it's where you want it. The longer you charge, the deeper and harder it goes, and her spikes whip wildly off blocks." },
+					{ Icon = "AbilityFeatherfall", Text = "<b>Narae</b> (S setter, Featherfall). Her open and back sets go up high and float down slowly, and a spike off one hits up to 30% harder the longer the ball was falling." },
+					{ Icon = "AbilityIronclad", Text = "<b>Dongha</b> (S+ middle blocker, Ironclad). Three shields: while he has one he's a wall at the net, no jump needed, and every block is a perfect shut-down, but a 150 km/h spike shatters a shield, unless he's <b>Unbreakable</b> (a chance to stop it anyway, best against the softer ones). Lose them all and he <b>awakens</b>: jump before the set and hammer out a charged spike of up to about 215 km/h. Every touch fills his Intimidation meter, and a full one brings the shields back." },
 				},
 			},
 			{
 				Heading = "Buffs",
 				Items = {
 					{ Icon = "AbilityThunder", Text = "<b>YeJun</b>: new <b>Storm Call</b> (Q). For 10 seconds every spike is a full-strength lightning spike at any height, around 220 km/h, and a second swing reaches about 260. New <b>Static Charge</b>: each lightning spike in a rally makes your next ones 6% harder (up to 3 times). New <b>High Strike</b>: his spike jumps go 25% higher." },
-					{ Icon = "AbilityAzure", Text = "<b>Seojin</b>'s Dragon Surge fills faster, holds much longer before it overcharges and hits far harder at full (about 232 km/h maxed); digging a full bar costs more stamina." },
-					{ Icon = "AbilityFeral", Text = "<b>Dante</b>'s Feral Leap hits harder: a full leap reaches about 220 km/h maxed, and his First Strike about 250." },
-					{ Icon = "AbilityChainReaction", Text = "<b>Seoyeon</b>'s Chain Reaction grows with every explosion in a rally (\"Chain Reaction x2!\"), and its spikes now always break the guard." },
+					{ Icon = "AbilityAzure", Text = "<b>Mujin</b>'s Dragon Surge fills faster, holds much longer before it overcharges and hits far harder at full (about 232 km/h maxed); digging a full bar costs more stamina." },
+					{ Icon = "AbilityFeral", Text = "<b>Valen</b>'s Feral Leap hits harder: a full leap reaches about 220 km/h maxed, and his First Strike about 250." },
+					{ Icon = "AbilityChainReaction", Text = "<b>Jiyu</b>'s Chain Reaction grows with every explosion in a rally (\"Chain Reaction x2!\"), and its spikes now always break the guard." },
 				},
 			},
 			{

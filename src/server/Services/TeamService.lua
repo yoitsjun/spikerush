@@ -358,7 +358,7 @@ function TeamService.applyToModel(e)
 				inst:SetAttribute("PeakY", e.peakY)
 				inst:SetAttribute("PeakZ", e.peakZ)
 			else
-				-- (a peak left on a player who played Seora before must not show)
+				-- (a peak left on a player who played Yeseul before must not show)
 				inst:SetAttribute("PeakM", nil)
 				inst:SetAttribute("PeakY", nil)
 				inst:SetAttribute("PeakZ", nil)

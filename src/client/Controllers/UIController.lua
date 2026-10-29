@@ -419,7 +419,7 @@ local REASON = {
 	Point = "Point",
 }
 
--- "Home (Riku) scored" on a dark bar with a gold edge, and the reason on a tag in the scorer's
+-- "Home (Rui) scored" on a dark bar with a gold edge, and the reason on a tag in the scorer's
 -- colour, like a broadcast lower third.
 local function buildBanner()
 	local f = make("Frame", {

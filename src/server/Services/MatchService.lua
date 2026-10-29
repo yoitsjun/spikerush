@@ -345,7 +345,7 @@ function MatchService.awardPoint(res)
 			local IRON = Config.Abilities.Ironclad
 			local ironNow = HitLogic.ironLives(scorer.ironLives)
 			if TS.has(scorer, "Ironclad") and HitLogic.ironFills(ironNow) then
-				-- Intimidation: an awakened Taesan fills it more with a kill (his touch already added
+				-- Intimidation: an awakened Dongha fills it more with a kill (his touch already added
 				-- its share)
 				local m = (scorer.intimidation or 0) + IRON.MeterBonus
 				if m >= 100 then

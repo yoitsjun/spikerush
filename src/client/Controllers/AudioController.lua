@@ -67,7 +67,7 @@ local BORROW = {
 	RecruitRevealGold = { "CrowdCheer" },
 	RecruitCharge = { "Boom" },
 	RecruitSpike = { "SpikeHeavy" },
-	SkyPeak = { "CounterParry", 0.9, 1.25 }, -- Seora's climb: a quick sword shink
+	SkyPeak = { "CounterParry", 0.9, 1.25 }, -- Yeseul's climb: a quick sword shink
 	-- (the owner: "the spike sfx feels too weak rn i want the game to feel powerful"): a sub boom
 	-- under every spike's crack, and a fast airy whoosh behind the hard ones
 	SpikeBody = { "BlackHoleBoom" }, -- APM "BOOM-Sub Boom 16", only its front (fade)

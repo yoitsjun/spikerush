@@ -120,14 +120,14 @@ Assets.Sounds = {
 	Blades = "", -- Counter Edge: blades out and back in (the volley along her released spike)
 	CounterParry = "137580087669661", -- Parry3 (the owner's pick)
 	CounterReturn = "137628815514180", -- sword-slash-and-swing (the owner's pick)
-	-- Taeho and Seora (Creator Store, Pro Sound Effects, picked 2026-10-09); both spikes still
+	-- Jaeil and Yeseul (Creator Store, Pro Sound Effects, picked 2026-10-09); both spikes still
 	-- play the owner's Spike crack under these
 	ZeroPoint = "9120729973", -- "Whoosh Impact 1": thick swish, hard reverberant impact (a Zero Point)
 	TalonDrop = "9120730138", -- "Whoosh Impact 4": a shorter swish into a hard hit (Talon Drop)
-	SkyPeak = "", -- Seora's jump climbs: borrows Ines's parry, quicker (the owner: "nice and quick sword shink maaybe reuse ines"; the Magic Swirling Tone, 9116408879, was "bad")
+	SkyPeak = "", -- Yeseul's jump climbs: borrows Lucia's parry, quicker (the owner: "nice and quick sword shink maaybe reuse ines"; the Magic Swirling Tone, 9116408879, was "bad")
 	FeralFull = "", -- Feral Leap: the charge is full (let go now)
 	FeralLeap = "", -- Feral Leap: the leap off the floor (louder the fuller the charge)
-	Bloodlust = "9116292530", -- Dante's Bloodlust (Q): "Lion Roar Beast Snarl 5" (Pro Sound Effects)
+	Bloodlust = "9116292530", -- Valen's Bloodlust (Q): "Lion Roar Beast Snarl 5" (Pro Sound Effects)
 	SinisterLaugh = "9067394653", -- a Mythic skin's pull, as the scythe cuts the screen open: "deep demonic laugh 1" (zapsplat)
 	-- the S+ skins' own (the owner, 2026-10-16: "lets make some custom sfx for the 2 s+ skins")
 	ReaperSwing = "9120629501", -- the scythe through every spike: Pro Sound Effects "Web Whoosh Fast Heavy Swooshes 1"
@@ -142,18 +142,18 @@ Assets.Sounds = {
 	-- unless noted, starts and gains measured in a playtest)
 	CoronaFlare = "9114442751", -- Laith's Corona: "Fire Whoosh 2", a punchy torch burst
 	SunBlast = "9120704078", -- Laith's big Sundive hit: "Whoosh Combo Of Impacts Bys 5", huge
-	TyrantSnap = "9114427575", -- Dohwan's Emperor's Dictate: "Finger Snaps 1" (Pro Sound Effects)
-	SquallOn = "133639929570919", -- Haneul's Squall: TornadoBurst's "Wind Burst Heavy Shockwave"
+	TyrantSnap = "9114427575", -- Gunwoo's Emperor's Dictate: "Finger Snaps 1" (Pro Sound Effects)
+	SquallOn = "133639929570919", -- Hayul's Squall: TornadoBurst's "Wind Burst Heavy Shockwave"
 	SquallDash = "74818885604525", -- Tailwind's dash: "Woosh - Fast - Gust - Wind - Swing - Dash" (lorenzosaudiostash)
 	SquallGlass = "9114592102", -- the dash's trail of shattered glass (the owner: "playing that shatter glass effect"): PSE "Glass Breaks 11"
 	SquallSpring = "9120704057", -- Tailwind's spring: "Whoosh Combo Of Impacts Bys 4"
 	SquallHover = "90848178756425", -- Eye of the Storm's hover: "strong gust of wind" (Sunny_CIover)
 	SquallStep = "117000832074549", -- the target jumping a spot: UITick, pitched up each step
 	SquallHit = "9113077334", -- a charged hover's hit: "Air Whoosh Heavy Bys And Impacts 1"
-	FeatherSet = "135385970610304", -- Arin's floating set: "Twinkle08" (DonReqin)
+	FeatherSet = "135385970610304", -- Narae's floating set: "Twinkle08" (DonReqin)
 	FeatherHit = "135385970610304", -- the spike off it: the same twinkle, higher and louder
 	IronShieldBreak = "9114592102", -- a Bulwark shield shattering: "Glass Breaks 11", shards
-	IronAwaken = "9120729732", -- Taesan awakens: "Whoosh Impact 1", a big stinger up and hit, pitched down
+	IronAwaken = "9120729732", -- Dongha awakens: "Whoosh Impact 1", a big stinger up and hit, pitched down
 	IronRestore = "9119747260", -- his shields back: "Sword In 1", steel scraping home
 	-- Forge's charge hammered out on an anvil (the owner: "a metal clanging sound effect. like hes
 	-- forging it on a blacksmith iron", "aggressive heavy sharp"): strikes as it builds, each one
@@ -223,7 +223,7 @@ Assets.SoundFiles = {
 	["9125362418"] = { gain = 2.5 }, -- ForgeStrike "Anvil Hits Ringing Metal Clinks 31": peak 159
 	["9125669267"] = { gain = 1.7 }, -- ForgeFull: peak 237
 	["9116767882"] = { start = 0.1 }, -- ForgeRing: 0.11 s in, peak 410
-	-- (2026-10-16) Dante's Bloodlust and the Mythic skin pull: start just before the sound, peak to about 400
+	-- (2026-10-16) Valen's Bloodlust and the Mythic skin pull: start just before the sound, peak to about 400
 	["9116292530"] = { start = 0.38, gain = 2.1 }, -- Bloodlust "Lion Roar Beast Snarl 5": 0.4 s in, peak 187
 	["9067394653"] = { start = 0.02, gain = 2.8 }, -- SinisterLaugh "deep demonic laugh 1": peak 132
 	-- the S+ skins' own (measured 2026-10-16 at Volume 0.5; a layer under another sound sits lower)
@@ -264,7 +264,7 @@ Assets.SoundFiles = {
 	["9113217388"] = { start = 0.14, gain = 1.25 }, -- ScoreRumble: from 0.17 s, peak 323
 	["118217695193917"] = { start = 0.1, gain = 1.15 }, -- MeteorFall: from 0.13 s, peak 346
 	["112627943804905"] = { gain = 0.9 }, -- MeteorImpact: peak 446
-	-- Taeho and Seora (2026-10-09): started on the hit, not the swish before it
+	-- Jaeil and Yeseul (2026-10-09): started on the hit, not the swish before it
 	["9120729973"] = { start = 0.24, gain = 1.9 }, -- ZeroPoint: swish from 0.11 s, the hit at 0.32 s, peak 212
 	["9120730138"] = { start = 0.28, gain = 1.6 }, -- TalonDrop: swish from 0.23 s, the hit at 0.36 s, peak 249
 	["126761084927046"] = { start = 5.2, gain = 0.78 }, -- TsunamiRush: builds to a peak of 511 at 7.3 s

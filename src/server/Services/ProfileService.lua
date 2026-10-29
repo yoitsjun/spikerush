@@ -38,7 +38,7 @@
 --   ("favor", charId, "up"|"down"|nil) -> boost, lower or reset a character's odds (Config.Spins.Favor)
 --   ("entrance", boardKey | nil)     -> the board whose place shows over your head (nil: your best)
 --   ("profileOf", userId)            -> a player's public profile, on the PlayerProfile remote
---   ("skin", "on"|"off", charId, key) -> swap a skin on or off for a character (the Reaper: Taeho)
+--   ("skin", "on"|"off", charId, key) -> swap a skin on or off for a character (the Reaper: Jaeil)
 --   ("room", key)                    -> Home's room (Config.Rooms: the Haunted Forest)
 -- Codes and the daily reward are for members of the group who favorited the game (the owner:
 -- "actually check"; Roblox can't tell a game who liked it, but its favorite prompt tells the
@@ -2153,7 +2153,7 @@ local function eventOn()
 end
 
 -- One banner item to the profile: a skin is one more copy (Candy once every character it fits has
--- one: the Reaper is Taeho's alone) and its character with it, when missing (Halloween.skinChars);
+-- one: the Reaper is Jaeil's alone) and its character with it, when missing (Halloween.skinChars);
 -- a cosmetic is yours, or Candy when you have it already. Returns dup, candy, and the characters a
 -- skin brought (ids).
 local function grantEventItem(profile, item)

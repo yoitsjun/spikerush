@@ -61,7 +61,7 @@ local function has(e, name)
 	return reg.TeamService.has(e, name)
 end
 
--- Sunshine (Haesol): her receive reach, wider still while it's lit (HitLogic.digReach); nil for anyone else.
+-- Sunshine (Dasol): her receive reach, wider still while it's lit (HitLogic.digReach); nil for anyone else.
 local function digReach(e, now)
 	if not has(e, "Sunshine") then
 		return nil

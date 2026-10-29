@@ -628,7 +628,7 @@ function Halloween.cleanGrave(data)
 	return out
 end
 
--- Whether a skin fits a character: its Chars, or anyone when it has none (the Reaper is Taeho's
+-- Whether a skin fits a character: its Chars, or anyone when it has none (the Reaper is Jaeil's
 -- alone since 2026-10-15).
 function Halloween.skinFits(key, charId)
 	local s = type(key) == "string" and HW.Skins[key]
@@ -657,7 +657,7 @@ function Halloween.skinsFor(charId)
 	return out
 end
 
--- The characters a skin fits, by name ("Taeho"; "anyone" without Chars).
+-- The characters a skin fits, by name ("Jaeil"; "anyone" without Chars).
 function Halloween.skinCharNames(key)
 	local s = HW.Skins[key]
 	if not s or not s.Chars then

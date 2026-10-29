@@ -12,9 +12,9 @@
 --   * Azure Dragon: energy gathered in the air multiplies power; overcharging sends it out.
 --   * Feral Leap: the gauge charged on the ground before the leap multiplies power; a full one
 --     leaping at the net smashes through a block with less Attack.
---   * Ironclad (Taesan): a breakable Iron Wall while he has shields (ctx.ironclad); awakened
+--   * Ironclad (Dongha): a breakable Iron Wall while he has shields (ctx.ironclad); awakened
 --     (ctx.awakened), Forge's charge powers and widens his spike (input.metal, input.early).
---   * Squall (Haneul): Eye of the Storm's hover charges the spike, and the charge is how deep it goes
+--   * Squall (Hayul): Eye of the Storm's hover charges the spike, and the charge is how deep it goes
 --     (input.gale: let go at once, just over the net; the whole charge, their back line).
 --   * Corona (Laith): Sundive, dropping onto the ball from above, multiplies power; Zenith bursts some
 --     spikes (the seeded rng picks them, so the hitter's client agrees).
@@ -400,7 +400,7 @@ function HitLogic.wallReach(ironWallUp, bulwark, hitType)
 	return nil
 end
 
--- Sunshine lit (Haesol): her block box grows by SunBox, on top of any other extras (Iron Wall's
+-- Sunshine lit (Dasol): her block box grows by SunBox, on top of any other extras (Iron Wall's
 -- whole wall already covers it).
 function HitLogic.sunBox(iron, sunOn)
 	if not sunOn then
@@ -443,7 +443,7 @@ function HitLogic.blockCut(dictated)
 	return dictated and TYRANT.BlockCut or nil
 end
 
--- Haesol's receive reach: DigReach always, SunReach more while Sunshine is lit.
+-- Dasol's receive reach: DigReach always, SunReach more while Sunshine is lit.
 function HitLogic.digReach(ctx)
 	if not has(ctx, "Sunshine") then
 		return 1
@@ -1010,7 +1010,7 @@ function HitLogic.canTouch(touch, team, id, action, teamSize)
 	if count >= 3 then
 		-- (your own ball again, say your serve still frozen at your hand by Zero Point, is a
 		-- double touch, never the four-touch fault: the community saw "4 touches" spiking with
-		-- Taeho, "usually on serves")
+		-- Jaeil, "usually on serves")
 		return false, double and "double" or "count", false
 	end
 	if double then
@@ -1070,7 +1070,7 @@ local function attackDepth(dz, qContact, rng, deepest, shortest)
 end
 
 -- Every spike and jump serve's speed past the soft cap: SpeedKnee and up counts SpeedOver, never
--- past SpeedMax (the owner, 2026-10-21: stacked buffs had Dante at 400 km/h).
+-- past SpeedMax (the owner, 2026-10-21: stacked buffs had Valen at 400 km/h).
 function HitLogic.softCap(kmh)
 	if kmh <= H.SpeedKnee then
 		return kmh
@@ -1341,7 +1341,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		kmh = kmh * (1 + ab("Plunge", "PowerBoost", levelOf(ctx, "Plunge")))
 		meta.plunge = true
 	end
-	-- Sharp Angle (Skyward): Seora's spikes land a little shorter, so a little steeper
+	-- Sharp Angle (Skyward): Yeseul's spikes land a little shorter, so a little steeper
 	if kind == "Spike" and has(ctx, "Skyward") and not overcharge and not hovered and not plunge and not zero then
 		depth = math.max(shortest, depth * SKY.AngleDepthMul)
 	end
@@ -1484,7 +1484,7 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	elseif q >= H.GreatAt then
 		hold = H.HitStopGreat
 	end
-	-- the turn and dive: Plunge Spin's, and Haesol's Vert Spikes (steeper and shorter: Sunshine's VertDive)
+	-- the turn and dive: Plunge Spin's, and Dasol's Vert Spikes (steeper and shorter: Sunshine's VertDive)
 	local pd = plunge and PLUNGE or (vert and ball.Y >= C.NetTop + PLUNGE.MinOverNet and SUNSHINE.VertDive) or nil
 	if pd then
 		-- the turn: past the net, a little under the contact; from there it plunges
@@ -1791,7 +1791,7 @@ function HitLogic.compute(input, ctx)
 		if last.pierce or last.armorBreak then
 			stuffScore = math.min(stuffScore, 0.3) -- (the Tyrant's Set's Armor Break too)
 		end
-		-- Shear (Haneul's spike): harder to stuff (only the stuff check moves: a touch that would be
+		-- Shear (Hayul's spike): harder to stuff (only the stuff check moves: a touch that would be
 		-- soft stays soft unless the wild roll below takes it), and wild off the hands
 		local shear = last.shear == true and last.hitType == "Spike"
 		local shearDrop = shear and SQUALL.ShearStuffDrop or 0

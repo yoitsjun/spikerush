@@ -208,7 +208,7 @@ function ActionController.abilityActive(name)
 	return false
 end
 
--- Sunshine (Haesol): her receive reach, wider still while it's lit (HitLogic.digReach).
+-- Sunshine (Dasol): her receive reach, wider still while it's lit (HitLogic.digReach).
 local function myDigReach()
 	if not State.hasAbility("Sunshine") then
 		return nil
@@ -947,7 +947,7 @@ local function releaseProwl(info)
 end
 
 ------------------------------------------------------------------------------------------
--- Squall (Haneul): Tailwind and Eye of the Storm
+-- Squall (Hayul): Tailwind and Eye of the Storm
 ------------------------------------------------------------------------------------------
 
 isSquall = function()

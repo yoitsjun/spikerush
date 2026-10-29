@@ -4147,8 +4147,8 @@ do
 		and not first and nextDay and not again,
 		"Candy: a day's first clear pays in full, later ones less, a stage-2 loss a little, a stage-1 loss nothing; harder pays more; each day starts over",
 		string.format("Hard %d / %d / %d", hard.Candy, hard.Repeat, hard.StageOne))
-	check(Halloween.day(HW.Ends) ~= Halloween.day(HW.Ends - 86400) and Halloween.active(HW.Ends - 1) and not Halloween.active(HW.Ends) and HW.Ends == 1793685600,
-		"the event runs until the end of November 2 (Chicago)")
+	check(Halloween.day(HW.Ends) ~= Halloween.day(HW.Ends - 86400) and Halloween.active(HW.Ends - 1) and not Halloween.active(HW.Ends) and HW.Ends == 1794463200,
+		"the event runs until the end of November 11 (Chicago), restarted for the rerelease")
 
 	-- the banner: chances add up to 1, the two Mythic skins (the Reaper and the Fallen Angel) share
 	-- its rarest weight, every item exists, the limited items stay off the usual banners
@@ -4240,8 +4240,8 @@ do
 		and not okA and whyA == "wrongChar" and okB and not okC and whyC == "applied" and offOk and offShow == nil and Halloween.skinOf(skins, "taeha") == "Reaper"
 		and Halloween.skinOf(skins, "yejun") == nil and Halloween.skinOf({ Reaper = { copies = 1, on = { yejun = true } } }, "yejun") == nil and not okD
 		and Halloween.skinDuplicate(skins, "Reaper") and not Halloween.skinDuplicate(fresh, "Reaper") and Halloween.skinFits("Reaper", "taeha") and not Halloween.skinFits("Reaper", "yejun")
-		and Halloween.skinCharNames("Reaper") == "Taeho",
-		"the Reaper is Taeho's alone: an old copy on YeJun comes back free, it applies to Taeho only, swaps off and on, and a second copy is a duplicate")
+		and Halloween.skinCharNames("Reaper") == "Jaeil",
+		"the Reaper is Jaeil's (taeha) alone: an old copy on YeJun comes back free, it applies to Jaeil only, swaps off and on, and a second copy is a duplicate")
 
 	-- a skin comes with its character (the owner, 2026-10-16: "make sure pulling the skins grant the
 	-- characters aswell"): a copy gives Taeho or YeJun when they're missing, once; no copy, nothing
