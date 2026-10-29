@@ -14,7 +14,7 @@ The bot is `worker.js`, a single file with no installs. It runs free on Cloudfla
 
 ### 1. Roblox: an Open Cloud API key
 1. Go to Creator Hub > **Open Cloud** > **API Keys** > **Create API Key**. Name it "Discord verify".
-2. Under **Access Permissions**, add **Data Stores** (or "universe-datastores"), pick **Volleyball Spike: Rush**, and tick:
+2. Under **Access Permissions**, add **Data Stores** (or "universe-datastores"), pick **Volleyball Rush**, and tick:
    - read entry
    - create entry
    - update entry
@@ -47,7 +47,7 @@ The bot is `worker.js`, a single file with no installs. It runs free on Cloudfla
    | `DISCORD_GUILD_ID` | the server ID (step 2.5) |
    | `DISCORD_BOT_TOKEN` (secret) | the bot token (step 2.3) |
    | `ROBLOX_API_KEY` (secret) | the Open Cloud key (step 1.4) |
-   | `UNIVERSE_ID` | `10768040963` |
+   | `UNIVERSE_ID` | `10773415799` |
    | `SETUP_SECRET` (secret) | any made-up password |
    | `VERIFIED_ROLE_ID` | the role ID (step 2.6), or leave it out |
 

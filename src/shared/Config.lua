@@ -763,7 +763,7 @@ Config.Perks = {
 		Name = "Custom sound effects",
 		Blurb = "Your own sounds when you score, spike, jump, serve, receive, set, block or feint. Use sound ids from the Creator Store, or your own uploads shared with Volleyball Rush.",
 		VP = 3000,
-		PassId = 1998447396, -- "Custom Sound Effects", 199 Robux
+		PassId = 2061424314, -- "Custom Sound Effects", 199 Robux
 		Attribute = "ScoreSound",
 		Types = { 3 },
 		Slots = {
@@ -781,7 +781,7 @@ Config.Perks = {
 		Name = "Custom score effect",
 		Blurb = "Your own image pops up and fades when you score. Use an image or decal id.",
 		VP = 3000,
-		PassId = 2001902276, -- "Custom Score Effect", 199 Robux
+		PassId = 2058305668, -- "Custom Score Effect", 199 Robux
 		Attribute = "ScoreImage",
 		Types = { 1, 13 },
 	},
@@ -912,18 +912,18 @@ Config.Shop = {
 	-- 3,500 in lucky spins; about 40% less VP a pack puts it near 2,630. Base prices on Creator Hub;
 	-- regional pricing shows some players about 10% less)
 	Packs = {
-		{ Id = 3715199842, VP = 300, Name = "Pouch" }, -- 99 Robux (was 500 VP)
-		{ Id = 3715199863, VP = 700, Name = "Bag" }, -- 199 (was 1,200)
-		{ Id = 3715199882, VP = 1600, Name = "Crate" }, -- 399 (was 2,800)
-		{ Id = 3715199894, VP = 3800, Name = "Vault" }, -- 799 (was 6,500)
+		{ Id = 3723421173, VP = 300, Name = "Pouch" }, -- 99 Robux (was 500 VP)
+		{ Id = 3723421174, VP = 700, Name = "Bag" }, -- 199 (was 1,200)
+		{ Id = 3723421176, VP = 1600, Name = "Crate" }, -- 399 (was 2,800)
+		{ Id = 3723421179, VP = 3800, Name = "Vault" }, -- 799 (was 6,500)
 	},
 	-- Gold for stat upgrades: ten times the VP pack at the same step (a win pays 300 Gold, and
 	-- maxing one S+ stat from where a recruit starts costs about 8,000)
 	GoldPacks = {
-		{ Id = 3715199914, Gold = 5000, Name = "Stack" }, -- 99 Robux
-		{ Id = 3715199928, Gold = 12000, Name = "Satchel" }, -- 199
-		{ Id = 3715199946, Gold = 28000, Name = "Chest" }, -- 399
-		{ Id = 3715199999, Gold = 65000, Name = "Treasury" }, -- 799
+		{ Id = 3723421181, Gold = 5000, Name = "Stack" }, -- 99 Robux
+		{ Id = 3723421182, Gold = 12000, Name = "Satchel" }, -- 199
+		{ Id = 3723421183, Gold = 28000, Name = "Chest" }, -- 399
+		{ Id = 3723421184, Gold = 65000, Name = "Treasury" }, -- 799
 	},
 	ReceiptHistory = 50, -- purchase ids remembered per profile (duplicate receipts are ignored)
 }
@@ -945,10 +945,10 @@ Config.Lucky = {
 		-- (2026-10-22: were 99 / 199 / 399 / 799, the 3-pack the cheapest a spin; set through Open Cloud to
 		-- a ladder where each bigger pack is the better deal: 99 / 249 / 399 / 699, about 99 / 83 / 80 /
 		-- 70 a spin. Base prices; regional pricing shows some players about 10% less)
-		{ Id = 3715530476, Lucky = 1, Name = "Lucky Spin" }, -- 99 Robux
-		{ Id = 3715530517, Lucky = 3, Name = "3 Lucky Spins" }, -- 249
-		{ Id = 3715530562, Lucky = 5, Name = "5 Lucky Spins" }, -- 399
-		{ Id = 3715530621, Lucky = 10, Name = "10 Lucky Spins" }, -- 699
+		{ Id = 3723421185, Lucky = 1, Name = "Lucky Spin" }, -- 99 Robux
+		{ Id = 3723421187, Lucky = 3, Name = "3 Lucky Spins" }, -- 249
+		{ Id = 3723421188, Lucky = 5, Name = "5 Lucky Spins" }, -- 399
+		{ Id = 3723421190, Lucky = 10, Name = "10 Lucky Spins" }, -- 699
 	},
 	-- traded for V Points in the Shop's Lucky tab (the owner, 2026-10-13: "exchange vp for lucky
 	-- spins rate of 250 vpoints for 1"): VPCost each, in these amounts. (2026-10-22, the owner: "2500
@@ -985,20 +985,20 @@ Config.Boosts = {
 		{ BoostVP = 3 * 3600, Gold = 330000, VP = 2200 },
 	},
 	Packs = {
-		{ Id = 3715530751, BoostVP = 15 * 60, Name = "2x VP, 15 minutes" }, -- 49 Robux
-		{ Id = 3715530672, BoostVP = 30 * 60, Name = "2x VP, 30 minutes" }, -- 79
-		{ Id = 3715530800, BoostVP = 60 * 60, Name = "2x VP, 1 hour" }, -- 129
-		{ Id = 3715530842, BoostVP = 3 * 3600, Name = "2x VP, 3 hours" }, -- 299
+		{ Id = 3723421192, BoostVP = 15 * 60, Name = "2x VP, 15 minutes" }, -- 49 Robux
+		{ Id = 3723421193, BoostVP = 30 * 60, Name = "2x VP, 30 minutes" }, -- 79
+		{ Id = 3723421195, BoostVP = 60 * 60, Name = "2x VP, 1 hour" }, -- 129
+		{ Id = 3723421198, BoostVP = 3 * 3600, Name = "2x VP, 3 hours" }, -- 299
 	},
 	-- 2x Luck for yourself (the owner asked for "the 2x luck developer products"): for its time your
 	-- usual recruits on the Characters banner are twice as lucky (Config.Spins.LuckEvent: A- and
 	-- up twice as likely), and with the admin panel's 2x Luck on too they stack: 4x. Id 0 until the
 	-- product exists (free in Studio); suggested names and prices on each line.
 	LuckPacks = {
-		{ Id = 3716309041, BoostLuck = 15 * 60, Name = "2x Luck, 15 minutes" }, -- 79 Robux
-		{ Id = 3716309076, BoostLuck = 30 * 60, Name = "2x Luck, 30 minutes" }, -- 129
-		{ Id = 3716309109, BoostLuck = 60 * 60, Name = "2x Luck, 1 hour" }, -- 199
-		{ Id = 3716309176, BoostLuck = 3 * 3600, Name = "2x Luck, 3 hours" }, -- 449
+		{ Id = 3723421200, BoostLuck = 15 * 60, Name = "2x Luck, 15 minutes" }, -- 79 Robux
+		{ Id = 3723421203, BoostLuck = 30 * 60, Name = "2x Luck, 30 minutes" }, -- 129
+		{ Id = 3723421205, BoostLuck = 60 * 60, Name = "2x Luck, 1 hour" }, -- 199
+		{ Id = 3723421207, BoostLuck = 3 * 3600, Name = "2x Luck, 3 hours" }, -- 449
 	},
 	-- stronger luck for yourself (the owner, 2026-10-16: "Add 4x 6x 8x and 16x luck to admin panel
 	-- and to the shop and accomadte prices accordingly"): each tier its own Developer Products in the
@@ -1008,28 +1008,28 @@ Config.Boosts = {
 	-- (prices on each line; icons in assets/products).
 	LuckTiers = { 2, 4, 6, 8, 16 },
 	LuckPacks4 = {
-		{ Id = 3719055718, BoostLuck = 15 * 60, LuckMul = 4, Name = "4x Luck, 15 minutes" }, -- 149 Robux
-		{ Id = 3719055737, BoostLuck = 30 * 60, LuckMul = 4, Name = "4x Luck, 30 minutes" }, -- 249 Robux
-		{ Id = 3719055755, BoostLuck = 60 * 60, LuckMul = 4, Name = "4x Luck, 1 hour" }, -- 379 Robux
-		{ Id = 3719055772, BoostLuck = 3 * 3600, LuckMul = 4, Name = "4x Luck, 3 hours" }, -- 849 Robux
+		{ Id = 3723421215, BoostLuck = 15 * 60, LuckMul = 4, Name = "4x Luck, 15 minutes" }, -- 149 Robux
+		{ Id = 3723421221, BoostLuck = 30 * 60, LuckMul = 4, Name = "4x Luck, 30 minutes" }, -- 249 Robux
+		{ Id = 3723421230, BoostLuck = 60 * 60, LuckMul = 4, Name = "4x Luck, 1 hour" }, -- 379 Robux
+		{ Id = 3723421241, BoostLuck = 3 * 3600, LuckMul = 4, Name = "4x Luck, 3 hours" }, -- 849 Robux
 	},
 	LuckPacks6 = {
-		{ Id = 3719055784, BoostLuck = 15 * 60, LuckMul = 6, Name = "6x Luck, 15 minutes" }, -- 219 Robux
-		{ Id = 3719055798, BoostLuck = 30 * 60, LuckMul = 6, Name = "6x Luck, 30 minutes" }, -- 349 Robux
-		{ Id = 3719055808, BoostLuck = 60 * 60, LuckMul = 6, Name = "6x Luck, 1 hour" }, -- 549 Robux
-		{ Id = 3719055821, BoostLuck = 3 * 3600, LuckMul = 6, Name = "6x Luck, 3 hours" }, -- 1249 Robux
+		{ Id = 3723421255, BoostLuck = 15 * 60, LuckMul = 6, Name = "6x Luck, 15 minutes" }, -- 219 Robux
+		{ Id = 3723421258, BoostLuck = 30 * 60, LuckMul = 6, Name = "6x Luck, 30 minutes" }, -- 349 Robux
+		{ Id = 3723421268, BoostLuck = 60 * 60, LuckMul = 6, Name = "6x Luck, 1 hour" }, -- 549 Robux
+		{ Id = 3723421274, BoostLuck = 3 * 3600, LuckMul = 6, Name = "6x Luck, 3 hours" }, -- 1249 Robux
 	},
 	LuckPacks8 = {
-		{ Id = 3719055833, BoostLuck = 15 * 60, LuckMul = 8, Name = "8x Luck, 15 minutes" }, -- 279 Robux
-		{ Id = 3719055850, BoostLuck = 30 * 60, LuckMul = 8, Name = "8x Luck, 30 minutes" }, -- 449 Robux
-		{ Id = 3719055858, BoostLuck = 60 * 60, LuckMul = 8, Name = "8x Luck, 1 hour" }, -- 699 Robux
-		{ Id = 3719055875, BoostLuck = 3 * 3600, LuckMul = 8, Name = "8x Luck, 3 hours" }, -- 1599 Robux
+		{ Id = 3723421285, BoostLuck = 15 * 60, LuckMul = 8, Name = "8x Luck, 15 minutes" }, -- 279 Robux
+		{ Id = 3723421291, BoostLuck = 30 * 60, LuckMul = 8, Name = "8x Luck, 30 minutes" }, -- 449 Robux
+		{ Id = 3723421296, BoostLuck = 60 * 60, LuckMul = 8, Name = "8x Luck, 1 hour" }, -- 699 Robux
+		{ Id = 3723421301, BoostLuck = 3 * 3600, LuckMul = 8, Name = "8x Luck, 3 hours" }, -- 1599 Robux
 	},
 	LuckPacks16 = {
-		{ Id = 3719055891, BoostLuck = 15 * 60, LuckMul = 16, Name = "16x Luck, 15 minutes" }, -- 499 Robux
-		{ Id = 3719055904, BoostLuck = 30 * 60, LuckMul = 16, Name = "16x Luck, 30 minutes" }, -- 799 Robux
-		{ Id = 3719055916, BoostLuck = 60 * 60, LuckMul = 16, Name = "16x Luck, 1 hour" }, -- 1249 Robux
-		{ Id = 3719055928, BoostLuck = 3 * 3600, LuckMul = 16, Name = "16x Luck, 3 hours" }, -- 2799 Robux
+		{ Id = 3723421302, BoostLuck = 15 * 60, LuckMul = 16, Name = "16x Luck, 15 minutes" }, -- 499 Robux
+		{ Id = 3723421310, BoostLuck = 30 * 60, LuckMul = 16, Name = "16x Luck, 30 minutes" }, -- 799 Robux
+		{ Id = 3723421320, BoostLuck = 60 * 60, LuckMul = 16, Name = "16x Luck, 1 hour" }, -- 1249 Robux
+		{ Id = 3723421326, BoostLuck = 3 * 3600, LuckMul = 16, Name = "16x Luck, 3 hours" }, -- 2799 Robux
 	},
 }
 
@@ -1040,8 +1040,8 @@ Config.Boosts = {
 -- paid), and not giftable. Id 0 shows "Soon" (free in Studio).
 Config.Bundles = {
 	Packs = {
-		{ Id = 3717319531, Name = "Starter Pack", Once = true, VP = 1500, Gold = 15000, Lucky = 3, BoostLuck = 30 * 60, Value = 800 }, -- 149 Robux
-		{ Id = 3717319999, Name = "Pro Bundle", VP = 4000, Gold = 40000, Lucky = 5, BoostVP = 60 * 60, Value = 1400 }, -- 799
+		{ Id = 3723421328, Name = "Starter Pack", Once = true, VP = 1500, Gold = 15000, Lucky = 3, BoostLuck = 30 * 60, Value = 800 }, -- 149 Robux
+		{ Id = 3723421329, Name = "Pro Bundle", VP = 4000, Gold = 40000, Lucky = 5, BoostVP = 60 * 60, Value = 1400 }, -- 799
 	},
 }
 
@@ -1053,18 +1053,18 @@ Config.Bundles = {
 -- gives (a Grant card); Tag: the chat tag its owners get. Developers own every pass.
 Config.Passes = {
 	Order = { "VIP", "DoubleVP", "Lucky" },
-	VIP = { PassId = 2021828280, Name = "VIP", Blurb = "1.5x the V Points you earn and the Gold matches pay, a gold VIP chat tag and the VIP player card.", VP = 1.5, Gold = 1.5, Card = "VIP", Tag = "VIP" }, -- 349 Robux
-	DoubleVP = { PassId = 2021552278, Name = "2x V Points", Blurb = "Matches, tournaments and daily rewards pay double V Points, for good. Stacks with VIP, boosts and events.", VP = 2 }, -- 499
-	Lucky = { PassId = 2022146273, Name = "Lucky", Blurb = "Your Characters recruits are 1.5x luckier, for good. Stacks with 2x Luck.", Luck = 1.5 }, -- 399
+	VIP = { PassId = 2061244340, Name = "VIP", Blurb = "1.5x the V Points you earn and the Gold matches pay, a gold VIP chat tag and the VIP player card.", VP = 1.5, Gold = 1.5, Card = "VIP", Tag = "VIP" }, -- 349 Robux
+	DoubleVP = { PassId = 2061928252, Name = "2x V Points", Blurb = "Matches, tournaments and daily rewards pay double V Points, for good. Stacks with VIP, boosts and events.", VP = 2 }, -- 499
+	Lucky = { PassId = 2061598293, Name = "Lucky", Blurb = "Your Characters recruits are 1.5x luckier, for good. Stacks with 2x Luck.", Luck = 1.5 }, -- 399
 	-- every pass giftable (the owner, 2026-10-21: "Make all the gamepasses giftable"): Roblox can't
 	-- gift a game pass, so each has a gift Developer Product at the pass's price (made through Open
 	-- Cloud) that gives it inside the game (a profile's giftedPasses, or perks for the perk passes)
 	GiftPacks = {
-		{ Id = 3720713212, Passes = { "VIP" }, Name = "VIP" }, -- 349 Robux
-		{ Id = 3720713229, Passes = { "DoubleVP" }, Name = "2x V Points" }, -- 499
-		{ Id = 3720713242, Passes = { "Lucky" }, Name = "Lucky" }, -- 399
-		{ Id = 3720713255, Perks = { "ScoreSound" }, Name = "Custom sound effects" }, -- 199
-		{ Id = 3720713276, Perks = { "ScoreImage" }, Name = "Custom score effect" }, -- 199
+		{ Id = 3723421335, Passes = { "VIP" }, Name = "VIP" }, -- 349 Robux
+		{ Id = 3723421345, Passes = { "DoubleVP" }, Name = "2x V Points" }, -- 499
+		{ Id = 3723421348, Passes = { "Lucky" }, Name = "Lucky" }, -- 399
+		{ Id = 3723421354, Perks = { "ScoreSound" }, Name = "Custom sound effects" }, -- 199
+		{ Id = 3723421361, Perks = { "ScoreImage" }, Name = "Custom score effect" }, -- 199
 	},
 }
 
@@ -2496,7 +2496,7 @@ Config.Clans = {
 	WeekOffset = -5 * 3600,
 	Topic = "SpikeRushClans", -- MessagingService: a clan changed (its tag), every server re-reads it
 	CostVP = 1000,
-	PassId = 2044226785, -- the Clan Founder game pass (made through Open Cloud, 249 Robux): founds a clan without VP
+	PassId = 2061856257, -- the Clan Founder game pass (249 Robux, tools/monetization_manifest.json): founds a clan without VP
 	TagMin = 2,
 	TagMax = 5,
 	NameMax = 24,
