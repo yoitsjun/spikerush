@@ -3452,7 +3452,9 @@ local function characterCard(parent, c)
 	-- the abilities below the name. i no longer recognize any of them")
 	local ab = c.Ability and Config.Abilities[c.Ability]
 	if ab then
-		Gui.label(b, { Text = ab.Name, display = true, TextSize = 16, TextColor3 = ab.Color or Gui.CHALK, TextStrokeTransparency = 0.3, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.new(0, 10, 1, -24), Size = UDim2.new(1, -20, 0, 18) })
+		-- its icon on the left, in its colour (the owner, 2026-10-29: "display icons on the left side")
+		Gui.iconImage(b, "Ability" .. c.Ability, 20, ab.Color or Gui.CHALK, { Position = UDim2.new(0, 9, 1, -25) })
+		Gui.label(b, { Text = ab.Name, display = true, TextSize = 16, TextColor3 = ab.Color or Gui.CHALK, TextStrokeTransparency = 0.3, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.new(0, 33, 1, -24), Size = UDim2.new(1, -43, 0, 18) })
 	end
 	local star = Gui.iconImage(b, "IconStar", 22, Gui.SIGNAL, { Position = UDim2.fromOffset(8, 8), Visible = false })
 	local lock = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.42, BorderSizePixel = 0, Visible = false, ZIndex = 3 }, b)
@@ -4062,8 +4064,12 @@ local function buildPlayer()
 	local ab = make("Frame", { Position = UDim2.fromOffset(16, 12), Size = UDim2.new(1, -32, 0, 196), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0 }, info)
 	make("UICorner", { CornerRadius = UDim.new(0, 6) }, ab)
 	Gui.label(ab, { Text = "Ability", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MAGENTA, Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(200, 18) })
-	local gem = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(46, 72), Size = UDim2.fromOffset(40, 40), Rotation = 45, BorderSizePixel = 0 }, ab)
-	make("UIStroke", { Color = Color3.new(1, 1, 1), Transparency = 0.4, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, gem)
+	-- the gem holds the ability's icon in its colour (the owner, 2026-10-29: "in the gem rather than
+	-- a color")
+	local gem = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(46, 72), Size = UDim2.fromOffset(44, 44), Rotation = 45, BackgroundColor3 = Gui.LINE, BorderSizePixel = 0 }, ab)
+	local gemEdge = make("UIStroke", { Color = Color3.new(1, 1, 1), Transparency = 0.1, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, gem)
+	local gemIcon = Gui.iconImage(gem, "AbilityThunder", 34, Gui.CHALK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Rotation = -45 })
+	Extra.gem = { edge = gemEdge, icon = gemIcon }
 	local abName = Gui.label(ab, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, Position = UDim2.fromOffset(84, 50), Size = UDim2.new(1, -250, 0, 42) })
 	local abKind = Gui.plate(ab, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 54), Size = UDim2.fromOffset(170, 34) }, Gui.SIGNAL)
 	local abKindL = Gui.label(abKind, { Text = "", display = true, TextSize = 18, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
@@ -4704,7 +4710,9 @@ local function refreshPlayer(prof)
 
 	-- Information
 	if def then
-		d.gem.BackgroundColor3 = def.Color
+		Extra.gem.edge.Color = def.Color
+		Extra.gem.icon.Image = Assets.image("Ability" .. c.Ability) or ""
+		Extra.gem.icon.ImageColor3 = def.Color
 		d.gem.Visible = true
 		d.abName.Text = def.Name
 		d.abName.TextColor3 = def.Color
