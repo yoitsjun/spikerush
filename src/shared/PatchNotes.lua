@@ -18,20 +18,20 @@ PatchNotes.List = {
 		Id = "2026-10-29",
 		Title = "Welcome to Volleyball Rush",
 		Date = "October 29, 2026",
-		Reward = { Gold = 2500, Lucky = 2 },
+		Reward = { Gold = 2500, Lucky = 1 },
 		Sections = {
 			{
 				Heading = "A fresh start",
 				Items = {
-					{ Icon = "IconHome", Text = "<b>Volleyball Rush</b> is here: a new name, a new look in electric cyan and magenta, and new icons and effects all through the game." },
-					{ Icon = "IconStar", Text = "Home is now the <b>Rush Arena</b>: center court at night, the crowd in the stands, the big screen and the stage lights sweeping over you." },
-					{ Icon = "IconPlayers", Text = "Meet the roster: every character has a new name. Their abilities, stats and stories are the same." },
+					{ Text = "<b>Volleyball Rush</b> is here: a new name, a new look in electric cyan and magenta, and new icons and effects all through the game." },
+					{ Text = "Home is now the <b>Rush Arena</b>: center court at night, the crowd in the stands, the big screen and the stage lights sweeping over you." },
+					{ Icon = "AbilityThunder", Text = "Meet the roster: every character has a new name. Their abilities, stats and stories are the same." },
 				},
 			},
 			{
 				Heading = "Halloween Night is back",
 				Items = {
-					{ Icon = "CardPumpkin", Text = "The <b>Halloween event</b> runs again until <b>November 11</b>: Halloween Matches, the Candy shop, the Halloween banner and the Haunted Forest." },
+					{ Text = "The <b>Halloween event</b> runs again until <b>November 11</b>: Halloween Matches, the Candy shop, the Halloween banner and the Haunted Forest." },
 				},
 			},
 		},
