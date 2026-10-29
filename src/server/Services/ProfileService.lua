@@ -2523,17 +2523,28 @@ local function onRequest(plr, kind, a, b, c)
 		snap.breakReveal = { id = a, level = level + 1 }
 		Net.get("Profile"):FireClient(plr, snap)
 	elseif kind == "adminBreak" then
-		-- the admins' shortcut on a character's Breakthrough tab (the owner, 2026-10-29: "a seperate
-		-- breakthrough max button and a remove breakthrough button"): straight to +Max, or back to
-		-- +0, free (nothing refunded)
+		-- a character's Breakthrough tab (the owner, 2026-10-29: "a seperate breakthrough max button
+		-- and a remove breakthrough button"; then "just make a remove breakthrough button for all
+		-- people"): admins go straight to +Max, free; anyone takes theirs back to +0, the fragments
+		-- they paid refunded (a developer paid none)
 		local c = type(a) == "string" and Roster.get(a)
 		local admin = profile.dev or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))
-		if not c or not admin or not owns(profile, "Char", a) or (b ~= "max" and b ~= "remove") then
+		if not c or not owns(profile, "Char", a) or not (b == "remove" or (b == "max" and admin)) then
 			return
 		end
 		if a == ProfileService.character(plr).Id and inMatch(plr) then
 			push(plr, "Your character is locked until this match ends.")
 			return
+		end
+		if b == "remove" and not profile.dev then
+			local back = 0
+			for i = 1, profile.breaks[a] or 0 do
+				back = back + (Config.Breakthrough.Cost[i] or 0)
+			end
+			if back > 0 then
+				local g = Breakthrough.group(c.Tier)
+				profile.fragments[g] = (profile.fragments[g] or 0) + back
+			end
 		end
 		profile.breaks[a] = b == "max" and Config.Breakthrough.Max or nil
 		dirty[plr] = true

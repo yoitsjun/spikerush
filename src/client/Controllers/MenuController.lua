@@ -4122,8 +4122,10 @@ local function buildPlayer()
 	end)
 	-- the admins' shortcuts (the owner, 2026-10-29: "a seperate breakthrough max button and a remove
 	-- breakthrough button"): +Max at once, or every breakthrough taken off; free
+	-- (Remove is everyone's: "just make a remove breakthrough button for all people", the fragments
+	-- refunded; Max stays the admins')
 	local adminRow = make("Frame", { Name = "Admin", Position = UDim2.fromOffset(16, 486), Size = UDim2.new(1, -34, 0, 48), BackgroundTransparency = 1, Visible = false }, bt)
-	Gui.label(adminRow, { Text = "Admin", display = true, TextSize = 18, TextColor3 = Gui.MAGENTA, Size = UDim2.fromOffset(72, 48) })
+	local adminL = Gui.label(adminRow, { Text = "Admin", display = true, TextSize = 18, TextColor3 = Gui.MAGENTA, Size = UDim2.fromOffset(72, 48) })
 	local maxBrk = hairButton(adminRow, { Name = "MaxBreak", Position = UDim2.fromOffset(76, 0), Size = UDim2.fromOffset(220, 48) }, "Max breakthrough", 19)
 	local noBrk = hairButton(adminRow, { Name = "RemoveBreak", Position = UDim2.fromOffset(308, 0), Size = UDim2.fromOffset(240, 48) }, "Remove breakthrough", 19)
 	onClick(maxBrk, function()
@@ -4136,7 +4138,7 @@ local function buildPlayer()
 			sendProfile("adminBreak", selectedChar, "remove")
 		end
 	end)
-	Extra.bt = { frame = bt, level = btLevel, have = btHave, go = btGo, goL = btGoL, cols = cols, sell = sellB, sellL = sellL, sellNote = sellNote, admin = adminRow }
+	Extra.bt = { frame = bt, level = btLevel, have = btHave, go = btGo, goL = btGoL, cols = cols, sell = sellB, sellL = sellL, sellNote = sellNote, admin = adminRow, adminL = adminL, maxBrk = maxBrk, noBrk = noBrk }
 
 	-- Profile: the character's story (Bios), like The Spike Cross's character pages
 	local profPage = make("Frame", { Position = UDim2.fromOffset(0, 184), Size = UDim2.new(1, 0, 1, -184), BackgroundTransparency = 1, Visible = false }, panel)
@@ -4479,7 +4481,12 @@ function Extra.refreshBreak(prof, c, mine)
 		B.goL.Text = string.format("Break through (%d %s)", cost, g)
 	end
 	Gui.enable(B.go, B.goL, mine and cost ~= nil and (prof.dev or have >= cost))
-	B.admin.Visible = mine and prof.admin == true
+	local admin = prof.admin == true
+	B.admin.Visible = mine and (admin or level > 0)
+	B.adminL.Visible = admin
+	B.maxBrk.Visible = admin
+	B.noBrk.Visible = level > 0
+	B.noBrk.Position = UDim2.fromOffset(admin and 308 or 0, 0)
 	local def = c.Ability and Config.Abilities[c.Ability]
 	for i, col in ipairs(B.cols) do
 		local d = Extra.BT.describe(c, i)
