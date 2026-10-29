@@ -779,7 +779,7 @@ COURTS.Beach = {
 		deco(part(scene, "Sea", Vector3.new(1100, 0.4, 2400), CFrame.new(C.WallHalfX + 17 + 550, -0.1, 0), Color3.fromRGB(34, 130, 190), Enum.Material.SmoothPlastic, { Reflectance = 0.15 }))
 		-- low islands on the horizon (the first also hides the menu rooms behind it)
 		-- (the first tall enough to hide the Home room's box behind it: the owner saw it)
-		for _, isle in ipairs({ { 1040, -320, 360, 70 }, { 900, 240, 220, 30 }, { 1080, 640, 380, 40 } }) do
+		for _, isle in ipairs({ { 1040, -330, 440, 92 }, { 900, 240, 220, 30 }, { 1080, 640, 380, 40 } }) do
 			ball(scene, "Island", Vector3.new(160, isle[4] * 2, isle[3]), Vector3.new(isle[1], 0, isle[2]), Color3.fromRGB(96, 124, 112), Enum.Material.Grass)
 		end
 		-- the sun over the sea, with a soft halo
