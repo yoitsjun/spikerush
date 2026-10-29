@@ -5,7 +5,7 @@
 --   Beach      a whale breaches out past the surf and crashes back in
 --   Haunted    the Headless Horseman gallops the length of the court, hooves on fire
 --   Rooftop    fireworks over the city
---   Arena, Nationals, Colosseum   confetti cannons along the far stands, in the court's colours
+-- (only these three for now: the owner, 2026-10-29, "i dont think all of them need the effect")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -249,23 +249,6 @@ function CourtMoments.fireworks()
 	end
 end
 
--- Confetti cannons along the far stands, in the court's colours.
-function CourtMoments.confetti(colors)
-	local S = require(Shared.Court).stands(courtNow())
-	local x = S.FarStart - 2
-	sound("ScoreConfetti", { volume = 0.9 })
-	for i = 1, 8 do
-		task.delay((i - 1) * 0.1, function()
-			local z = -60 + (i - 1) * (120 / 7)
-			for k = 1, 3 do
-				local col = colors[(i + k) % #colors + 1]
-				Fx.play("Sparks", Vector3.new(x, 6 + k * 6, z), { color = col, scale = 3.5 })
-				Fx.play("Glints", Vector3.new(x, 10 + k * 5, z), { color = col, scale = 3 })
-			end
-		end)
-	end
-end
-
 local MOMENTS = {
 	Beach = function()
 		CourtMoments.whale()
@@ -275,15 +258,6 @@ local MOMENTS = {
 	end,
 	Rooftop = function()
 		CourtMoments.fireworks()
-	end,
-	Arena = function()
-		CourtMoments.confetti({ Color3.fromRGB(255, 124, 28), WHITE, Color3.fromRGB(40, 92, 232) })
-	end,
-	Nationals = function()
-		CourtMoments.confetti({ Color3.fromRGB(236, 184, 44), WHITE, Color3.fromRGB(150, 30, 44) })
-	end,
-	Colosseum = function()
-		CourtMoments.confetti({ Color3.fromRGB(150, 26, 26), Color3.fromRGB(230, 180, 70), WHITE })
 	end,
 }
 
