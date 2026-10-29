@@ -515,7 +515,7 @@ local function navItem(parent, icon, caption, props, active)
 	if type(icon) == "string" then
 		img = Gui.iconImage(b, icon, 30, rest, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6) })
 	else
-		local drawn = icon(b, 30, Gui.HAIRLINE)
+		local drawn = icon(b, 30, rest)
 		drawn.AnchorPoint = Vector2.new(0.5, 0)
 		drawn.Position = UDim2.new(0.5, 0, 0, 6)
 	end
@@ -611,7 +611,7 @@ function Extra.profileChip(p)
 	local sub = Gui.label(chip, { Text = "", TextSize = 14, weight = Enum.FontWeight.Medium, RichText = true, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.fromOffset(textW, 18), Position = UDim2.fromOffset(C.H, 32) })
 	local bar = Gui.plate(chip, { Size = UDim2.fromOffset(34, 4), Position = UDim2.fromOffset(C.H, 57) }, Gui.SIGNAL)
 	local badge = Gui.label(chip, { Text = "", TextSize = 12, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.fromOffset(textW - 40, 14), Position = UDim2.fromOffset(C.H + 40, 52) })
-	make("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -C.CUR, 0.5, 0), Size = UDim2.fromOffset(1, C.H - 20), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.55, BorderSizePixel = 0 }, chip)
+	make("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -C.CUR, 0.5, 0), Size = UDim2.fromOffset(1, C.H - 20), BackgroundColor3 = Gui.DIM, BackgroundTransparency = 0.55, BorderSizePixel = 0 }, chip)
 	-- V Points and Gold, one a row, right-aligned
 	local amounts = {}
 	for i, iconFn in ipairs({ Gui.icon.vp, Gui.icon.gold }) do
@@ -827,14 +827,14 @@ local function buildHome()
 		Position = UDim2.new(1, 10, 1, 40),
 		Size = UDim2.fromOffset(320, 240),
 	})
-	Gui.label(ev, { Text = "Featured recruit", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Size = UDim2.fromOffset(300, 18), Position = UDim2.fromOffset(18, 14) })
+	Gui.label(ev, { Text = "Featured recruit", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MAGENTA, Size = UDim2.fromOffset(300, 18), Position = UDim2.fromOffset(18, 14) })
 	local evName = Gui.label(ev, { Text = "", display = true, TextSize = 50, Size = UDim2.fromOffset(330, 54), Position = UDim2.fromOffset(16, 30) })
 	local evTier = Gui.plate(ev, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 18), Size = UDim2.fromOffset(78, 34) }, Gui.SIGNAL)
 	local evTierText = Gui.label(evTier, { Text = "", display = true, TextSize = 24, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
 	local evLine = Gui.label(ev, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, Size = UDim2.fromOffset(434, 20), Position = UDim2.fromOffset(18, 88) })
 	-- their story (Bios, The Spike Cross's recruit text; the owner: "i was referencing this"), in a
 	-- box that scrolls: a story runs longer than the card; the odds sit right of the links
-	local evScroll = make("ScrollingFrame", { Name = "Story", Size = UDim2.fromOffset(440, 86), Position = UDim2.fromOffset(18, 112), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Gui.HAIRLINE, ScrollingDirection = Enum.ScrollingDirection.Y, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, ev)
+	local evScroll = make("ScrollingFrame", { Name = "Story", Size = UDim2.fromOffset(440, 86), Position = UDim2.fromOffset(18, 112), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Gui.DIM, ScrollingDirection = Enum.ScrollingDirection.Y, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, ev)
 	local evBlurb = Gui.label(evScroll, { Text = "", TextSize = 14, TextColor3 = Gui.CHALK, TextTransparency = 0.12, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, -10, 0, 0) })
 	local evOdds = Gui.label(ev, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(136, 36), Position = UDim2.new(1, -16, 0, 214) })
 	local links = make("Frame", { Size = UDim2.fromOffset(434, 80), Position = UDim2.fromOffset(12, 200), BackgroundTransparency = 1 }, ev)
@@ -855,7 +855,7 @@ local function buildHome()
 		value = Gui.label(stats, { Text = "0", display = true, TextSize = 54, Size = UDim2.fromOffset(120, 56), Position = UDim2.fromOffset(16, 30) }),
 		sub = Gui.label(stats, { Text = "", TextSize = 13, TextColor3 = Gui.CHALK, TextTransparency = 0.2, Size = UDim2.fromOffset(120, 16), Position = UDim2.fromOffset(18, 88) }),
 	}
-	make("Frame", { Size = UDim2.fromOffset(1, 86), Position = UDim2.fromOffset(150, 16), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.5, BorderSizePixel = 0 }, stats)
+	make("Frame", { Size = UDim2.fromOffset(1, 86), Position = UDim2.fromOffset(150, 16), BackgroundColor3 = Gui.DIM, BackgroundTransparency = 0.5, BorderSizePixel = 0 }, stats)
 	for i, def in ipairs({ { "wins", "Wins" }, { "kills", "Spike kills" }, { "aces", "Aces" }, { "blocks", "Blocks" } }) do
 		local x = 164 + (i - 1) * 74
 		counters[def[1]] = {
@@ -916,7 +916,7 @@ local function buildHome()
 
 	-- Recruit Player: a square hairline button beside it
 	local recruit = Gui.cardButton(p, { Name = "RecruitPlayer", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M - 360 - 14, 1, -M), Size = UDim2.fromOffset(150, 120) })
-	local rIcon = Gui.icon.recruit(recruit, 40, Gui.HAIRLINE)
+	local rIcon = Gui.icon.recruit(recruit, 40, Gui.MAGENTA)
 	rIcon.AnchorPoint = Vector2.new(0.5, 0)
 	rIcon.Position = UDim2.new(0.5, 0, 0, 16)
 	Gui.label(recruit, { Text = "Recruit Player", display = true, TextSize = 19, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 64), TextXAlignment = Enum.TextXAlignment.Center })
@@ -925,7 +925,7 @@ local function buildHome()
 
 	-- Party beside it (the owner, 2026-10-28: "move party near recruitment"): queue up together
 	local partyBtn = Gui.cardButton(p, { Name = "Party", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M - 360 - 14 - 150 - 12, 1, -M), Size = UDim2.fromOffset(120, 120) })
-	local pIcon = Gui.iconImage(partyBtn, "IconPlayers", 40, Gui.HAIRLINE, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 16) })
+	local pIcon = Gui.iconImage(partyBtn, "IconPlayers", 40, Gui.MAGENTA, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 16) })
 	pIcon.Name = "Icon"
 	Gui.label(partyBtn, { Text = "Party", display = true, TextSize = 19, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 64), TextXAlignment = Enum.TextXAlignment.Center })
 	Gui.label(partyBtn, { Text = "Queue together", TextSize = 13, TextColor3 = Gui.DIM, Size = UDim2.new(1, -12, 0, 16), Position = UDim2.fromOffset(6, 90), TextXAlignment = Enum.TextXAlignment.Center })
@@ -1123,6 +1123,19 @@ local function placeHeaders()
 	end
 	for _, strip in ipairs(ui.strips or {}) do
 		strip.Position = UDim2.fromOffset(M, top)
+	end
+	-- the Players screen's teams panel and the Practice title under the AFK and Help pills (on a
+	-- short window, such as Studio's 1445 x 793, the pills reach down past 110 and sat on them)
+	local below = top + 40 + 12
+	if Extra.teamsPanel then
+		local y = math.max(110, below)
+		Extra.teamsPanel.Position = UDim2.fromOffset(M, y)
+		Extra.teamsPanel.Size = UDim2.new(0, 560, 1, -y - M - 132 - 16)
+	end
+	if Extra.practiceTitle then
+		local y = math.max(112, below - 8)
+		Extra.practiceTitle.Position = UDim2.fromOffset(M, y)
+		Extra.practiceSub.Position = UDim2.fromOffset(M + 4, y + 64)
 	end
 	-- the player page's skin card under its currencies (it sat on them: the owner, "slight overlap
 	-- move it down")
@@ -1914,7 +1927,7 @@ local function buildTable()
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 5,
-		ScrollBarImageColor3 = Gui.HAIRLINE,
+		ScrollBarImageColor3 = Gui.DIM,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
 		ZIndex = 21,
@@ -3507,7 +3520,7 @@ local function buildPlayers()
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 5,
-		ScrollBarImageColor3 = Gui.HAIRLINE,
+		ScrollBarImageColor3 = Gui.DIM,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
 	}, panel)
@@ -3552,7 +3565,8 @@ local function buildPlayers()
 	-- the chosen slot's card: the character, height, tier, the four stats and the ability. Your
 	-- AI teammates play the characters you pick here (a random roster player when you don't).
 	local teams = Gui.card(p, { Name = "Teams", Position = UDim2.fromOffset(M, 110), Size = UDim2.new(0, 560, 1, -110 - M - 132 - 16) })
-	Gui.label(teams, { Text = "Your teams", display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Position = UDim2.fromOffset(18, 10), Size = UDim2.fromOffset(220, 34) })
+	Extra.teamsPanel = teams -- (placeHeaders keeps it under the AFK and Help pills)
+	Gui.label(teams,{ Text = "Your teams", display = true, weight = Enum.FontWeight.Heavy, TextSize = 26, Position = UDim2.fromOffset(18, 10), Size = UDim2.fromOffset(220, 34) })
 	local _, setMode = Gui.tabs(teams, { { key = "3v3", text = "3v3" }, { key = "2v2", text = "2v2" }, { key = "1v1", text = "1v1" } }, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 8), Size = UDim2.fromOffset(300, 44) }, function(key)
 		click("UISelect")
 		teamMode = key
@@ -3624,7 +3638,7 @@ local function buildPlayers()
 
 	-- bottom left, under your avatar: who you play now, and a way into their page
 	local now = Gui.card(p, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, M, 1, -M), Size = UDim2.fromOffset(470, 132) })
-	Gui.label(now, { Text = "Playing now", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Position = UDim2.fromOffset(122, 12), Size = UDim2.fromOffset(200, 18) })
+	Gui.label(now, { Text = "Playing now", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MAGENTA, Position = UDim2.fromOffset(122, 12), Size = UDim2.fromOffset(200, 18) })
 	local _, setNowBadge = Gui.tierBadge(now, 88, { Position = UDim2.fromOffset(18, 22) })
 	local nowName = Gui.label(now, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(120, 30), Size = UDim2.fromOffset(200, 46) })
 	local nowLine = Gui.label(now, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, RichText = true, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(122, 80), Size = UDim2.fromOffset(200, 20) })
@@ -3961,10 +3975,10 @@ local function buildPlayer()
 
 	-- Growth: the four stats with their bars, + and - by the chosen step, and the build's numbers
 	local growth = make("Frame", { Position = UDim2.fromOffset(0, 184), Size = UDim2.new(1, 0, 1, -184), BackgroundTransparency = 1 }, panel)
-	Gui.label(growth, { Text = "Gold raises each stat up to this player's ceiling.", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(22, 10), Size = UDim2.new(1, -250, 0, 20) })
+	Gui.label(growth, { Text = "Gold raises each stat up to this player's ceiling.", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(22, 10), Size = UDim2.new(1, -310, 0, 20), TextTruncate = Enum.TextTruncate.AtEnd })
 	local stepItems = {}
 	for _, n in ipairs(Config.Upgrades.Steps) do
-		table.insert(stepItems, { key = n, text = "x" .. n, width = 58 })
+		table.insert(stepItems, { key = n, text = n == Config.Upgrades.MaxStep and "Max" or ("x" .. n), width = 58 })
 	end
 	local _, setStep = Gui.chips(growth, stepItems, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 2), Size = UDim2.fromOffset(#stepItems * 66, 36) }, function(key)
 		click("UISelect")
@@ -4026,7 +4040,7 @@ local function buildPlayer()
 	local info = make("Frame", { Position = UDim2.fromOffset(0, 184), Size = UDim2.new(1, 0, 1, -184), BackgroundTransparency = 1, Visible = false }, panel)
 	local ab = make("Frame", { Position = UDim2.fromOffset(16, 12), Size = UDim2.new(1, -32, 0, 196), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0 }, info)
 	make("UICorner", { CornerRadius = UDim.new(0, 6) }, ab)
-	Gui.label(ab, { Text = "Ability", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(200, 18) })
+	Gui.label(ab, { Text = "Ability", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MAGENTA, Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(200, 18) })
 	local gem = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(46, 72), Size = UDim2.fromOffset(40, 40), Rotation = 45, BorderSizePixel = 0 }, ab)
 	make("UIStroke", { Color = Color3.new(1, 1, 1), Transparency = 0.4, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, gem)
 	local abName = Gui.label(ab, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, Position = UDim2.fromOffset(84, 50), Size = UDim2.new(1, -250, 0, 42) })
@@ -4036,14 +4050,14 @@ local function buildPlayer()
 	local abText = Gui.label(ab, { Text = "", TextSize = 18, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(18, 104), Size = UDim2.new(1, -36, 0, 84) })
 	local roleBox = make("Frame", { Position = UDim2.fromOffset(16, 220), Size = UDim2.new(1, -32, 0, 110), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0 }, info)
 	make("UICorner", { CornerRadius = UDim.new(0, 6) }, roleBox)
-	Gui.label(roleBox, { Text = "Role", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(200, 18) })
+	Gui.label(roleBox, { Text = "Role", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MAGENTA, Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(200, 18) })
 	local roleName2 = Gui.label(roleBox, { Text = "", display = true, TextSize = 28, Position = UDim2.fromOffset(18, 32), Size = UDim2.new(1, -36, 0, 34) })
 	local roleText = Gui.label(roleBox, { Text = "", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(18, 68), Size = UDim2.new(1, -36, 0, 40) })
 	-- an ability's extra passive (Thunder Spiker's Double Swing: the owner, "display the double
 	-- swing passive"), in a card of its own under the facts
 	local passive = make("Frame", { Position = UDim2.fromOffset(16, 438), Size = UDim2.new(1, -32, 0, 112), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0, Visible = false }, info)
 	make("UICorner", { CornerRadius = UDim.new(0, 6) }, passive)
-	Gui.label(passive, { Text = "Passive", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(200, 18) })
+	Gui.label(passive, { Text = "Passive", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MAGENTA, Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(200, 18) })
 	local passiveName = Gui.label(passive, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Position = UDim2.fromOffset(18, 32), Size = UDim2.new(1, -230, 0, 36) })
 	local passiveTag = Gui.plate(passive, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 34), Size = UDim2.fromOffset(170, 32) }, Gui.SIGNAL)
 	Gui.label(passiveTag, { Text = "Passive", display = true, TextSize = 18, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center })
@@ -4106,13 +4120,29 @@ local function buildPlayer()
 		MenuController.refresh()
 		task.delay(3.1, MenuController.refresh)
 	end)
-	Extra.bt = { frame = bt, level = btLevel, have = btHave, go = btGo, goL = btGoL, cols = cols, sell = sellB, sellL = sellL, sellNote = sellNote }
+	-- the admins' shortcuts (the owner, 2026-10-29: "a seperate breakthrough max button and a remove
+	-- breakthrough button"): +Max at once, or every breakthrough taken off; free
+	local adminRow = make("Frame", { Name = "Admin", Position = UDim2.fromOffset(16, 436), Size = UDim2.new(1, -34, 0, 48), BackgroundTransparency = 1, Visible = false }, bt)
+	Gui.label(adminRow, { Text = "Admin", display = true, TextSize = 18, TextColor3 = Gui.MAGENTA, Size = UDim2.fromOffset(72, 48) })
+	local maxBrk = hairButton(adminRow, { Name = "MaxBreak", Position = UDim2.fromOffset(76, 0), Size = UDim2.fromOffset(220, 48) }, "Max breakthrough", 19)
+	local noBrk = hairButton(adminRow, { Name = "RemoveBreak", Position = UDim2.fromOffset(308, 0), Size = UDim2.fromOffset(240, 48) }, "Remove breakthrough", 19)
+	onClick(maxBrk, function()
+		if selectedChar then
+			sendProfile("adminBreak", selectedChar, "max")
+		end
+	end)
+	onClick(noBrk, function()
+		if selectedChar then
+			sendProfile("adminBreak", selectedChar, "remove")
+		end
+	end)
+	Extra.bt = { frame = bt, level = btLevel, have = btHave, go = btGo, goL = btGoL, cols = cols, sell = sellB, sellL = sellL, sellNote = sellNote, admin = adminRow }
 
 	-- Profile: the character's story (Bios), like The Spike Cross's character pages
 	local profPage = make("Frame", { Position = UDim2.fromOffset(0, 184), Size = UDim2.new(1, 0, 1, -184), BackgroundTransparency = 1, Visible = false }, panel)
 	local bioBox = make("Frame", { Position = UDim2.fromOffset(16, 12), Size = UDim2.new(1, -32, 1, -28), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.96, BorderSizePixel = 0 }, profPage)
 	make("UICorner", { CornerRadius = UDim.new(0, 6) }, bioBox)
-	Gui.label(bioBox, { Text = "Profile", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.HAIRLINE, Position = UDim2.fromOffset(22, 14), Size = UDim2.fromOffset(200, 18) })
+	Gui.label(bioBox, { Text = "Profile", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.MAGENTA, Position = UDim2.fromOffset(22, 14), Size = UDim2.fromOffset(200, 18) })
 	local bioName = Gui.label(bioBox, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, Position = UDim2.fromOffset(22, 34), Size = UDim2.new(1, -44, 0, 46) })
 	local bioLine = Gui.label(bioBox, { Text = "", TextSize = 17, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, Position = UDim2.fromOffset(22, 82), Size = UDim2.new(1, -44, 0, 20) })
 	Gui.plate(bioBox, { Size = UDim2.fromOffset(60, 5), Position = UDim2.fromOffset(22, 112) }, Gui.SIGNAL)
@@ -4162,8 +4192,8 @@ function Extra.buildDecorate()
 	d.name = Gui.label(bar, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(24, 18), Size = UDim2.fromOffset(372, 40) })
 	d.tag = Gui.label(bar, { Text = "", display = true, TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(24, 60), Size = UDim2.fromOffset(372, 20) })
 	d.apply, d.applyL = actionPlate(bar, { Name = "Apply", Position = UDim2.fromOffset(24, H - 24 - 52), Size = UDim2.fromOffset(330, 52) }, "Apply", 22)
-	make("Frame", { Position = UDim2.fromOffset(420, 20), Size = UDim2.new(0, 1, 1, -40), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.55, BorderSizePixel = 0 }, bar)
-	local row = make("ScrollingFrame", { Name = "Rooms", Position = UDim2.fromOffset(436, 0), Size = UDim2.new(1, -448, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Gui.HAIRLINE, ScrollingDirection = Enum.ScrollingDirection.X, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.X }, bar)
+	make("Frame", { Position = UDim2.fromOffset(420, 20), Size = UDim2.new(0, 1, 1, -40), BackgroundColor3 = Gui.DIM, BackgroundTransparency = 0.55, BorderSizePixel = 0 }, bar)
+	local row = make("ScrollingFrame", { Name = "Rooms", Position = UDim2.fromOffset(436, 0), Size = UDim2.new(1, -448, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Gui.DIM, ScrollingDirection = Enum.ScrollingDirection.X, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.X }, bar)
 	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 16), SortOrder = Enum.SortOrder.LayoutOrder }, row)
 	make("UIPadding", { PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) }, row) -- (room for the picked tile's edge)
 	for i, r in ipairs(Extra.Rooms.list()) do
@@ -4449,6 +4479,7 @@ function Extra.refreshBreak(prof, c, mine)
 		B.goL.Text = string.format("Break through (%d %s)", cost, g)
 	end
 	Gui.enable(B.go, B.goL, mine and cost ~= nil and (prof.dev or have >= cost))
+	B.admin.Visible = mine and prof.admin == true
 	local def = c.Ability and Config.Abilities[c.Ability]
 	for i, col in ipairs(B.cols) do
 		local d = Extra.BT.describe(c, i)
@@ -4825,7 +4856,7 @@ local function buildLocker()
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 5,
-		ScrollBarImageColor3 = Gui.HAIRLINE,
+		ScrollBarImageColor3 = Gui.DIM,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
 	}, panel)
@@ -4883,7 +4914,7 @@ local function buildLocker()
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 5,
-		ScrollBarImageColor3 = Gui.HAIRLINE,
+		ScrollBarImageColor3 = Gui.DIM,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
 		Visible = false,
@@ -4910,7 +4941,7 @@ local function buildLocker()
 	local cardPreview = Gui.playerCard(p, { Position = UDim2.fromOffset(M + 20, 160), Visible = false })
 	make("UIScale", { Scale = 1.15 }, cardPreview.root)
 	-- the picked item along the bottom, and Equip
-	make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -102), Size = UDim2.new(1, -32, 0, 1), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.6, BorderSizePixel = 0 }, panel)
+	make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -102), Size = UDim2.new(1, -32, 0, 1), BackgroundColor3 = Gui.DIM, BackgroundTransparency = 0.6, BorderSizePixel = 0 }, panel)
 	local pickName = Gui.label(panel, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, TextTruncate = Enum.TextTruncate.AtEnd, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 20, 1, -46), Size = UDim2.new(1, -260, 0, 40) })
 	local pickSub = Gui.label(panel, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, RichText = true, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 22, 1, -22), Size = UDim2.new(1, -260, 0, 20) })
 	local equip, equipL = actionPlate(panel, { Name = "Equip", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -18, 1, -22), Size = UDim2.fromOffset(210, 60) }, "", 26)
@@ -5912,7 +5943,7 @@ local function buildMatch()
 
 	-- the lobby list
 	local browse = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, body)
-	local list = make("ScrollingFrame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, browse)
+	local list = make("ScrollingFrame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, browse)
 	make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local empty = Gui.label(browse, { Text = "No lobbies here yet. Create one, or use Quick Match.", TextSize = 18, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 20), TextXAlignment = Enum.TextXAlignment.Center })
 	local rows = {}
@@ -6202,7 +6233,7 @@ local function buildMatch()
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 5,
-		ScrollBarImageColor3 = Gui.HAIRLINE,
+		ScrollBarImageColor3 = Gui.DIM,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
 	}, picker)
@@ -6839,8 +6870,9 @@ end
 local function buildPractice()
 	local p = page("practice")
 	mainChrome(p, "practice")
-	Gui.label(p, { Text = "Practice", display = true, weight = Enum.FontWeight.Heavy, TextSize = 56, Position = UDim2.fromOffset(M, 112), Size = UDim2.fromOffset(600, 64) })
-	Gui.label(p, { Text = "One ball at a time, no rallies: the court sets you up for each rep.", TextSize = 18, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(M + 4, 176), Size = UDim2.fromOffset(900, 24) })
+	-- (placeHeaders moves the title and its line down under the AFK and Help pills on short windows)
+	Extra.practiceTitle = Gui.label(p, { Text = "Practice", display = true, weight = Enum.FontWeight.Heavy, TextSize = 56, Position = UDim2.fromOffset(M, 112), Size = UDim2.fromOffset(600, 64) })
+	Extra.practiceSub = Gui.label(p, { Text = "One ball at a time, no rallies: the court sets you up for each rep.", TextSize = 18, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(M + 4, 176), Size = UDim2.fromOffset(900, 24) })
 	local cards = {}
 	local w, gap = 358, 20
 	for i, d in ipairs(Tutorial.Drills) do
@@ -6860,7 +6892,7 @@ local function buildPractice()
 	-- practice as anyone (the owner, 2026-10-17: "make it so in practice mode, any character can be
 	-- chosen"): your own by default; the grid lists the whole roster, best first
 	local asBtn, asL = hairButton(p, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 132), Size = UDim2.fromOffset(380, 52) }, "", 20)
-	local grid = make("ScrollingFrame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 190), Size = UDim2.fromOffset(660, 440), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 40 }, p)
+	local grid = make("ScrollingFrame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 190), Size = UDim2.fromOffset(660, 440), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 40 }, p)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, grid)
 	make("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10) }, grid)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(150, 40), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
@@ -6979,7 +7011,7 @@ local function buildRanks()
 		sendProfile("entrance", cur ~= boardKey and boardKey or nil)
 	end)
 	local scope = Gui.label(panel, { Text = "", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.new(1, -40, 0, 18), Position = UDim2.fromOffset(24, 78) })
-	local rowsFrame = make("ScrollingFrame", { Position = UDim2.fromOffset(12, 106), Size = UDim2.new(1, -24, 1, -170), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, panel)
+	local rowsFrame = make("ScrollingFrame", { Position = UDim2.fromOffset(12, 106), Size = UDim2.new(1, -24, 1, -170), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, panel)
 	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, rowsFrame)
 	local rows = {}
 	for i = 1, Config.Leaderboards.Top do
@@ -7415,7 +7447,7 @@ function Extra.buildPatch()
 	for i, patch in ipairs(Extra.PatchNotes.List) do
 		if i > 1 then
 			order = order + 1
-			make("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.3, BorderSizePixel = 0, LayoutOrder = order, ZIndex = 22 }, scroll)
+			make("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Gui.DIM, BackgroundTransparency = 0.3, BorderSizePixel = 0, LayoutOrder = order, ZIndex = 22 }, scroll)
 		end
 		line(scroll, patch.Title, 34, Gui.WHITE, { display = true, weight = Enum.FontWeight.Heavy }) -- (light on the dark panel)
 		line(scroll, patch.Date, 16, Gui.DIM)
@@ -7805,7 +7837,7 @@ function Extra.buildGift()
 	local what = Gui.label(m.panel, { Text = "", display = true, TextSize = 26, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(28, 86), Size = UDim2.new(1, -56, 0, 30), ZIndex = 21 })
 	Gui.label(m.panel, { Text = "Who is it for? Their Roblox username, or someone here.", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 124), Size = UDim2.new(1, -56, 0, 20), ZIndex = 21 })
 	local box = Extra.inputBox(m.panel, { Position = UDim2.fromOffset(26, 152), Size = UDim2.new(1, -52, 0, 52), TextSize = 22 }, "Username")
-	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(26, 216), Size = UDim2.new(1, -52, 0, 214), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 21 }, m.panel)
+	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(26, 216), Size = UDim2.new(1, -52, 0, 214), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 21 }, m.panel)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(192, 44), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local nobody = Gui.label(m.panel, { Text = "Nobody else is in this server: type their username.", TextSize = 15, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(28, 222), Size = UDim2.new(1, -56, 0, 20), Visible = false, ZIndex = 21 })
 	local send = Gui.plateButton(m.panel, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -26), Size = UDim2.fromOffset(360, 62), ZIndex = 22 }, Gui.SIGNAL, Gui.SIGNAL_HOT)
@@ -8273,7 +8305,7 @@ function Extra.buildAdminList(m)
 			Net.get("Admin"):FireServer("adminAdd", box.Text)
 		end
 	end)
-	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(28, 170), Size = UDim2.new(1, -56, 1, -250), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, wl)
+	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(28, 170), Size = UDim2.new(1, -56, 1, -250), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, wl)
 	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local back = hairButton(wl, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -18), Size = UDim2.fromOffset(160, 48) }, "Back", 18)
 	onClick(back, function()
@@ -8453,7 +8485,7 @@ function Extra.buildAdmin()
 	Extra.adminCardDrop = cardDrop
 	-- who has the picked card (the owner: "a list of those who own it, so i can easily take it
 	-- away"): click a name to fill in the username, then Take card
-	local ownersList = make("ScrollingFrame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 198), Size = UDim2.fromOffset(250, 230), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 39 }, right)
+	local ownersList = make("ScrollingFrame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 198), Size = UDim2.fromOffset(250, 230), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 39 }, right)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, ownersList)
 	make("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, ownersList)
 	function Extra.showOwners(owners)
@@ -8484,7 +8516,7 @@ function Extra.buildAdmin()
 		tabDrop.Visible = false
 		ownersList.Visible = false
 	end)
-	local grid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 22 }, right)
+	local grid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 22 }, right)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(158, 36), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
 	-- best first: S+ down to D-
 	local order = {}
@@ -8515,7 +8547,7 @@ function Extra.buildAdmin()
 		charButtons[c.Id] = { button = b, color = color }
 	end
 	-- the cosmetics grid (one kind at a time), in the characters' place
-	local cosGrid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 22 }, right)
+	local cosGrid = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.new(1, 0, 0, 300), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 22 }, right)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(158, 36), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, cosGrid)
 	-- breakthrough fragments (the owner: "add breakthrough fragments to the admin panel"): an amount
 	-- for each letter, best first, in the grid's place
@@ -8635,7 +8667,7 @@ function Extra.buildAdmin()
 	user.Size = UDim2.new(1, -244, 0, 46) -- room for the players list and Reset stats beside it
 	-- the players in this server: a dropdown that fills in the username
 	local here = hairButton(right, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -182, 0, 48), Size = UDim2.fromOffset(56, 46) }, "v", 20)
-	local drop = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 98), Size = UDim2.new(1, -182, 0, 220), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 40 }, right)
+	local drop = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 98), Size = UDim2.new(1, -182, 0, 220), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false, ZIndex = 40 }, right)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, drop)
 	make("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, drop)
 	onClick(here, function()
@@ -8836,7 +8868,7 @@ local function buildSwap()
 	local m = modal("Swap", "Timeout: character and look", 1040, 600, true)
 	local P = m.panel
 	Gui.label(P, { Text = "Your characters. You keep your spot and role on court.", TextSize = 15, TextColor3 = Gui.DIM, Size = UDim2.fromOffset(460, 20), Position = UDim2.fromOffset(28, 84), ZIndex = 21 })
-	local chars = make("ScrollingFrame", { Position = UDim2.fromOffset(20, 112), Size = UDim2.fromOffset(490, 468), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 21 }, P)
+	local chars = make("ScrollingFrame", { Position = UDim2.fromOffset(20, 112), Size = UDim2.fromOffset(490, 468), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 21 }, P)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(154, 84), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, chars)
 	local cards = {}
 	for i, c in ipairs(Roster) do
@@ -8863,7 +8895,7 @@ local function buildSwap()
 		swapKind = key
 		MenuController.refresh()
 	end)
-	local looks = make("ScrollingFrame", { Position = UDim2.fromOffset(528, 136), Size = UDim2.fromOffset(490, 444), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 21 }, P)
+	local looks = make("ScrollingFrame", { Position = UDim2.fromOffset(528, 136), Size = UDim2.fromOffset(490, 444), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 21 }, P)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(154, 62), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, looks)
 	local chips = {}
 	for _, kind in ipairs(COS.Kinds) do
@@ -9551,6 +9583,12 @@ function MenuController.init(m)
 
 	MenuController.go("home")
 	setShown(not State.isPlaying)
+	-- every edge wears your spike trail's colour (Gui.setEdge), and changes with it
+	local function wearTrail()
+		Gui.setEdge(player:GetAttribute(COS.Attribute.Color), player:WaitForChild("PlayerGui"))
+	end
+	wearTrail()
+	player:GetAttributeChangedSignal(COS.Attribute.Color):Connect(wearTrail)
 	-- tell the server this device's UTC offset (the playtime day turns at the player's midnight),
 	-- and again now and then in case daylight saving changes mid-session
 	task.spawn(function()

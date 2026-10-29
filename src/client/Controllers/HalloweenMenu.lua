@@ -301,7 +301,7 @@ end
 local function buildBannerTab(body)
 	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 21 }, body)
 	Gui.label(f, { Text = HW.Banner.Blurb, TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(0, 700, 0, 44), ZIndex = 22 })
-	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 52), Size = UDim2.fromOffset(700, 444), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 22 }, f)
+	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(0, 52), Size = UDim2.fromOffset(700, 444), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 22 }, f)
 	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local rows = {}
 	for i, row in ipairs(Halloween.bannerTable()) do

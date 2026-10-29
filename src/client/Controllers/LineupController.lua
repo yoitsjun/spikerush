@@ -340,7 +340,7 @@ local function chip(parent, e, x, w)
 		Size = UDim2.new(1, -24, 0, 28),
 		ZIndex = c.ZIndex + 1,
 	})
-	make("Frame", { Position = UDim2.fromOffset(14, 76), Size = UDim2.new(1, -28, 0, 1), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = c.ZIndex + 1 }, c)
+	make("Frame", { Position = UDim2.fromOffset(14, 76), Size = UDim2.new(1, -28, 0, 1), BackgroundColor3 = Gui.DIM, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = c.ZIndex + 1 }, c)
 	return c
 end
 

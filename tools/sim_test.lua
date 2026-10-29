@@ -3899,6 +3899,18 @@ do
 		"Plunge Spin's depth follows the contact: in front, near the back line; at the hand, short and steep", string.format("front %.1f m at %.0f degrees, back %.1f m at %.0f", fd, angleIn(fp), bd, angleIn(bp)))
 	local turn = pp.segs[2]
 	check(turn.p.Y > Config.Court.NetTop and -turn.p.Z * side > 0, "the turn comes past the net, over the tape", string.format("%.2f m high, %.2f m past", turn.p.Y / SPM, -turn.p.Z * side / SPM))
+	-- an arrow (the owner, 2026-10-29: "can it be an arrow with a sharp downwards angle"): halfway to
+	-- the turn the ball is still on the straight line from the hand, and it turns down steeply
+	local s1 = pp.segs[1]
+	local leave = s1.t0 + (s1.hold or 0)
+	local midP = BallPhysics.positionAt(pp, leave + (turn.t0 - leave) * 0.5)
+	local u = (turn.p - s1.p).Unit
+	local off = (midP - s1.p) - u * (midP - s1.p):Dot(u)
+	local diveDeg = math.deg(math.atan(-turn.v.Y / math.max(math.abs(turn.v.Z), 0.01)))
+	local backDive = BallPhysics.buildPath(backHit.launch).segs[2]
+	local backDeg = math.deg(math.atan(-backDive.v.Y / math.max(math.abs(backDive.v.Z), 0.01)))
+	check(off.Magnitude < 0.02 * SPM and diveDeg >= Config.Abilities.Plunge.DiveAngleDeep - 1 and backDeg >= 70,
+		"Plunge Spin flies like an arrow: dead straight off the hand, then a sharp turn down", string.format("%.3f m off the line halfway, turns down at %.0f degrees (met at the hand: %.0f)", off.Magnitude / SPM, diveDeg, backDeg))
 	local mateus, junseo, yejun = Roster.get("mateus"), Roster.get("junseo"), Roster.get("yejun")
 	local tallest, shortestWS = true, true
 	for _, c in ipairs(Roster) do

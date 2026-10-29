@@ -2520,6 +2520,25 @@ local function onRequest(plr, kind, a, b, c)
 		snap.notice = string.format("%s broke through: +%d!", c.Name, level + 1)
 		snap.breakReveal = { id = a, level = level + 1 }
 		Net.get("Profile"):FireClient(plr, snap)
+	elseif kind == "adminBreak" then
+		-- the admins' shortcut on a character's Breakthrough tab (the owner, 2026-10-29: "a seperate
+		-- breakthrough max button and a remove breakthrough button"): straight to +Max, or back to
+		-- +0, free (nothing refunded)
+		local c = type(a) == "string" and Roster.get(a)
+		local admin = profile.dev or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))
+		if not c or not admin or not owns(profile, "Char", a) or (b ~= "max" and b ~= "remove") then
+			return
+		end
+		if a == ProfileService.character(plr).Id and inMatch(plr) then
+			push(plr, "Your character is locked until this match ends.")
+			return
+		end
+		profile.breaks[a] = b == "max" and Config.Breakthrough.Max or nil
+		dirty[plr] = true
+		if a == ProfileService.character(plr).Id then
+			ProfileService.applyActive(plr)
+		end
+		push(plr, b == "max" and string.format("%s is at +%d.", c.Name, Config.Breakthrough.Max) or (c.Name .. "'s breakthroughs are removed."))
 	elseif kind == "sellFragment" then
 		-- fragments you don't need, for a duplicate's VP (S+: a lucky spin too)
 		local g = type(a) == "string" and Breakthrough.isGroup(a) and a or nil

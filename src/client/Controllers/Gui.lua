@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Assets = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Assets"))
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local Gui = {}
 
@@ -35,7 +36,11 @@ Gui.CHALK = Color3.fromRGB(242, 245, 250)
 Gui.LINE = Color3.fromRGB(6, 10, 30)
 Gui.ALERT = Color3.fromRGB(232, 56, 79)
 Gui.DIM = Color3.fromRGB(150, 164, 204)
-Gui.HAIRLINE = Color3.fromRGB(255, 46, 170) -- the thin magenta edge on every card
+-- the edge on every card and button: black (the owner, 2026-10-29: "the outlines dont have to be
+-- pink. black or a more clean color would work"), or your spike trail's colour (Gui.setEdge, below);
+-- magenta stays an accent (a card's small headings, the Party and Recruit icons), and thin dividers
+-- and scrollbars are DIM
+Gui.HAIRLINE = Color3.fromRGB(0, 0, 0)
 Gui.CARD = Color3.fromRGB(10, 12, 28)
 
 Gui.INK = Color3.fromRGB(16, 18, 30)
@@ -48,6 +53,81 @@ Gui.FONT = Enum.Font.BuilderSansBold
 Gui.FONT_HEAVY = Enum.Font.BuilderSansExtraBold
 Gui.FONT_TITLE = Enum.Font.FredokaOne
 Gui.FONT_NUM = Enum.Font.GothamBlack
+
+-- The edges follow your spike trail (the owner, 2026-10-29: "make the menu outlines the same as
+-- your spike trail"): Classic keeps them black, a one-colour trail paints them its colour, and a
+-- banded one (Rainbow, Candy Corn...) runs its bands along every edge. Gui.HAIRLINE is always the
+-- current edge colour, nudged a hair off the colour itself so an edge can be told from any other
+-- stroke (white under a banded trail's gradient); a stroke set back to it (a tab losing the orange
+-- selection) wears the trail again. MenuController calls this with your SpikeColor.
+local EDGE_BLACK = Gui.HAIRLINE
+local function edgeOf(c)
+	return Color3.new(c.R, c.G, c.B + (c.B > 0.5 and -1 or 1) / 2048) -- (invisible)
+end
+Gui.HAIRLINE = edgeOf(EDGE_BLACK)
+local edgeBands = nil -- a banded trail's ColorSequence
+local edgeHooked = false
+
+-- A banded trail's gradient on a stroke, shown only while the stroke wears the edge colour.
+local function bandStroke(stroke)
+	local g = stroke:FindFirstChild("TrailEdge")
+	if not g then
+		if not edgeBands then
+			return
+		end
+		g = Instance.new("UIGradient")
+		g.Name = "TrailEdge"
+		g.Rotation = 30
+		g.Parent = stroke
+		stroke:GetPropertyChangedSignal("Color"):Connect(function()
+			g.Enabled = edgeBands ~= nil and stroke.Color == Gui.HAIRLINE
+		end)
+	end
+	if edgeBands then
+		g.Color = edgeBands
+	end
+	g.Enabled = edgeBands ~= nil and stroke.Color == Gui.HAIRLINE
+end
+
+function Gui.setEdge(colorKey, root)
+	local item = nil
+	for _, it in ipairs(Config.Cosmetics.Color or {}) do
+		if it.Key == colorKey then
+			item = it
+			break
+		end
+	end
+	local bands = item and type(item.Trail) == "table" and #item.Trail >= 2 and item.Trail or nil
+	local old = Gui.HAIRLINE
+	if bands then
+		local kps = {}
+		for i, c in ipairs(bands) do
+			table.insert(kps, ColorSequenceKeypoint.new((i - 1) / (#bands - 1), c))
+		end
+		edgeBands = ColorSequence.new(kps)
+		Gui.HAIRLINE = edgeOf(Color3.new(1, 1, 1))
+	else
+		edgeBands = nil
+		Gui.HAIRLINE = edgeOf(item and item.Color or EDGE_BLACK)
+	end
+	for _, d in ipairs(root:GetDescendants()) do
+		if d:IsA("UIStroke") then
+			if d.Color == old then
+				d.Color = Gui.HAIRLINE
+			end
+			bandStroke(d)
+		end
+	end
+	if not edgeHooked then
+		-- (strokes made later: a list filling, a card opening)
+		edgeHooked = true
+		root.DescendantAdded:Connect(function(d)
+			if edgeBands and d:IsA("UIStroke") then
+				task.defer(bandStroke, d)
+			end
+		end)
+	end
+end
 
 function Gui.make(class, props, parent)
 	local o = Instance.new(class)
@@ -801,7 +881,7 @@ function Gui.tabs(parent, items, props, onPick)
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.fromScale(0, 1),
 		Size = UDim2.new(1, 0, 0, 1),
-		BackgroundColor3 = Gui.HAIRLINE,
+		BackgroundColor3 = Gui.DIM,
 		BackgroundTransparency = 0.55,
 		BorderSizePixel = 0,
 	}, f)

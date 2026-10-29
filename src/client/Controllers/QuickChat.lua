@@ -369,7 +369,7 @@ local function build()
 		end)
 		editSlots[n] = { plate = plate, label = label }
 	end
-	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(12, 126), Size = UDim2.new(1, -24, 1, -138), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.HAIRLINE, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, editor)
+	local list = make("ScrollingFrame", { Position = UDim2.fromOffset(12, 126), Size = UDim2.new(1, -24, 1, -138), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, editor)
 	make("UIGridLayout", { CellSize = UDim2.fromOffset(140, 40), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local order = 0
 	for _, kind in ipairs({ "P", "E" }) do
