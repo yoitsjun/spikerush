@@ -132,7 +132,8 @@ function CourtMoments.whale()
 	local function at(t)
 		return Vector3.new(x0, -30 + 4 * 68 * t * (1 - t), -60 + 100 * t)
 	end
-	sound("Boom", { volume = 0.8 })
+	sound("Boom", { volume = 0.6 })
+	task.delay(0.5, sound, "WhaleCall", { volume = 1.2 })
 	local splashedUp, splashedDown = false, false
 	animate(3.4, function(t)
 		local pos = at(t)
@@ -147,11 +148,13 @@ function CourtMoments.whale()
 		if not splashedUp and pos.Y > -2 then
 			splashedUp = true
 			spray(Vector3.new(x0, 0, pos.Z), 34)
+			sound("BigSplash", { volume = 1.1 })
 		end
 		if splashedUp and not splashedDown and t > 0.5 and pos.Y < 2 then
 			splashedDown = true
 			spray(Vector3.new(x0, 0, pos.Z), 44)
-			sound("Boom", { volume = 1 })
+			sound("BigSplashDown", { volume = 1.3 })
+			sound("Boom", { volume = 0.9 })
 		end
 	end, function()
 		f:Destroy()
@@ -201,7 +204,9 @@ function CourtMoments.horseman()
 
 	local x = C.HalfWidth + C.FreeZoneSide - 3
 	local z0, z1 = -(C.SideDepth + C.FreeZoneEnd + 30), C.SideDepth + C.FreeZoneEnd + 30
-	sound("SinisterLaugh", { volume = 0.9 })
+	sound("HorseNeigh", { volume = 1.2 })
+	sound("HorseGallop", { volume = 1.1 })
+	task.delay(0.9, sound, "SinisterLaugh", { volume = 1 })
 	local lastFire = 0
 	animate(2.8, function(t)
 		local z = z0 + (z1 - z0) * t

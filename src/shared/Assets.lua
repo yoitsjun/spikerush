@@ -128,6 +128,13 @@ Assets.Sounds = {
 	FeralFull = "", -- Feral Leap: the charge is full (let go now)
 	FeralLeap = "", -- Feral Leap: the leap off the floor (louder the fuller the charge)
 	Bloodlust = "9116292530", -- Valen's Bloodlust (Q): "Lion Roar Beast Snarl 5" (Pro Sound Effects)
+	-- the court moments' (CourtMoments; Creator Store, 2026-10-29: the owner, "put some sfx on them.
+	-- they feel a bit drab")
+	WhaleCall = "3595240019", -- "Haunting Call of a Humpback Whale"
+	BigSplash = "9120585252", -- Pro Sound Effects "Water Splash Big Water Splash Dive In 1"
+	BigSplashDown = "9120586063", -- Pro Sound Effects "Water Splash Big Water Splash Dive In 6"
+	HorseGallop = "118636555040923", -- "Horse Gallop Loopable"
+	HorseNeigh = "128890675066690", -- "Undead Horse Neigh"
 	SinisterLaugh = "9067394653", -- a Mythic skin's pull, as the scythe cuts the screen open: "deep demonic laugh 1" (zapsplat)
 	-- the S+ skins' own (the owner, 2026-10-16: "lets make some custom sfx for the 2 s+ skins")
 	ReaperSwing = "9120629501", -- the scythe through every spike: Pro Sound Effects "Web Whoosh Fast Heavy Swooshes 1"
