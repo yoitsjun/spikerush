@@ -1,15 +1,16 @@
 -- The menu scenes: two small sets built on this client only, far from the court.
---   * Home: a sunlit club room (lockers, a big window, a bench, a ball cart, a clock) with
---     your own avatar posed in front of the camera. Its room (Config.Rooms, Home's Decorate) can
---     swap it: the Haunted Forest puts you in a moonlit forest clearing instead (setRoom).
+--   * Home: the Rush Arena, a court at night (the net behind you, a crowd in the stands, LED
+--     boards, a big screen with the logo, cyan and magenta stage beams sweeping) with your own
+--     avatar posed in front of the camera. Its room (Config.Rooms, Home's Decorate) can swap it:
+--     the Haunted Forest puts you in a moonlit forest clearing instead (setRoom).
 --   * Gym: a school gym (vaulted ceiling with timber arches, tall windows throwing light shafts,
 --     a stage with a red curtain, a ball cart) where recruiting happens: three silhouettes of
 --     your avatar stand in for the players you can recruit, and the recruit sequence plays
 --     (volleyballs flying under the ceiling, then lined up over the stage).
 -- The Locker previews unlockables in the gym: your avatar spikes on a loop with the spike style,
 -- colour, trail and score effect you're looking at.
--- The lockers, the bench, the ball carts and every ball are Toolbox models when their slots in
--- ReplicatedStorage.ToolboxAssets.Models are filled (Locker, Bench, BallCart, Volleyball), and
+-- The bench, the ball carts and every ball are Toolbox models when their slots in
+-- ReplicatedStorage.ToolboxAssets.Models are filled (Bench, BallCart, Volleyball), and
 -- simple built stand-ins when they aren't. A cart's own balls are swapped for the volleyball.
 -- While a scene is shown this controller owns the camera (CameraController stands down) and a
 -- local colour grade and depth of field are switched on.
@@ -43,7 +44,7 @@ local camCF, camFov = nil, 40
 local shotFrom, shotTo, shotT0, shotDur = nil, nil, 0, 0
 local grade, dof
 local homeRig, showcase = nil, {}
-local homeBits = {} -- the club room (a room in its place hides it)
+local homeBits = {} -- the arena (a room in its place hides it)
 local roomState = { key = nil, decor = nil, flicker = {} } -- the room shown (setRoom) and its decor
 local practice = nil -- the Locker's practice spike (see below)
 local balls = {}
@@ -220,10 +221,17 @@ local function surfaceText(p, face, text, color, font, bg)
 end
 
 ------------------------------------------------------------------------------------------
--- home: the club room
+-- home: the Rush Arena (the default room, still keyed "Clubhouse" in Config.Rooms for saves)
 ------------------------------------------------------------------------------------------
 
--- The club room's furniture, into homeProps: the Toolbox lockers, bench and ball cart when those
+local CYAN = Color3.fromRGB(0, 229, 255)
+local MAGENTA = Color3.fromRGB(255, 46, 170)
+local NIGHT = Color3.fromRGB(12, 14, 32)
+-- the arena's moving parts (updateArena): LED tickers scrolling, stage beams sweeping, rig lights
+-- pulsing
+local arena = { tickers = {}, beams = {}, pulses = {} }
+
+-- The arena's courtside furniture, into homeProps: the Toolbox bench and ball cart when those
 -- slots are filled, else built stand-ins. Runs again whenever a Toolbox model lands.
 local function furnishHome()
 	if not homeProps then
@@ -231,50 +239,117 @@ local function furnishHome()
 	end
 	homeProps:ClearAllChildren()
 	local H = HOME
-	-- lockers along the right of the back wall
-	local lockers = toolboxModel("Locker")
-	if lockers then
-		lockers.Parent = homeProps
-		standProp(lockers, CFrame.new(H + Vector3.new(15.2, 0, 17.95)), Vector3.new(14.6, 12, 0), true)
-	else
-		local steel = Color3.fromRGB(150, 158, 166)
-		for i = 0, 5 do
-			local x = 9 + i * 2.5
-			local body = box(homeProps, Vector3.new(2.4, 12, 3), CFrame.new(H + Vector3.new(x, 6, 16.3)), steel, Enum.Material.Metal)
-			body.Reflectance = 0.05
-			for v = 0, 3 do
-				box(homeProps, Vector3.new(1.4, 0.12, 0.05), CFrame.new(H + Vector3.new(x, 10.4 - v * 0.35, 14.78)), Color3.fromRGB(70, 76, 84))
-			end
-			box(homeProps, Vector3.new(0.14, 0.9, 0.12), CFrame.new(H + Vector3.new(x + 0.8, 6.5, 14.74)), Color3.fromRGB(60, 64, 70), Enum.Material.Metal)
-			box(homeProps, Vector3.new(0.06, 12, 0.06), CFrame.new(H + Vector3.new(x + 1.22, 6, 14.78)), Color3.fromRGB(88, 94, 102))
-		end
-	end
-	-- a bench with a towel on it
+	-- the team bench along the left touchline, a cyan towel on it
 	local benchTop = 2.45
 	local bench = toolboxModel("Bench")
 	if bench then
 		bench.Parent = homeProps
-		benchTop = standProp(bench, CFrame.new(H + Vector3.new(-6, 0, 5)), Vector3.new(11, 0, 0)).Y
+		benchTop = standProp(bench, CFrame.new(H + Vector3.new(-12, 0, 9)) * CFrame.Angles(0, math.rad(-8), 0), Vector3.new(11, 0, 0)).Y
 	else
-		local seat = box(homeProps, Vector3.new(11, 0.5, 2.2), CFrame.new(H + Vector3.new(-6, 2.2, 5)), Color3.fromRGB(176, 124, 80), Enum.Material.WoodPlanks)
+		local seat = box(homeProps, Vector3.new(11, 0.5, 2.2), CFrame.new(H + Vector3.new(-12, 2.2, 9)), Color3.fromRGB(34, 38, 70), Enum.Material.SmoothPlastic)
 		for _, dx in ipairs({ -4.8, 4.8 }) do
 			box(homeProps, Vector3.new(0.4, 2, 1.8), seat.CFrame * CFrame.new(dx, -1.2, 0), Color3.fromRGB(60, 62, 70), Enum.Material.Metal)
 		end
 	end
-	box(homeProps, Vector3.new(3, 0.16, 1.3), CFrame.new(H + Vector3.new(-3.5, benchTop + 0.08, 5.2)) * CFrame.Angles(0, math.rad(8), 0), Color3.fromRGB(246, 246, 240), Enum.Material.Fabric) -- a towel
-	-- the ball cart under the window, full of volleyballs
-	local cartAt = H + Vector3.new(-10, 0, 13.4)
+	box(homeProps, Vector3.new(3, 0.16, 1.3), CFrame.new(H + Vector3.new(-9.5, benchTop + 0.08, 9.2)) * CFrame.Angles(0, math.rad(8), 0), CYAN, Enum.Material.Fabric)
+	-- the ball cart by the right post, full of volleyballs
+	local cartAt = H + Vector3.new(12, 0, 14)
 	local cart = toolboxModel("BallCart")
 	if cart then
 		cart.Parent = homeProps
-		local size = standProp(cart, CFrame.new(cartAt), Vector3.new(8.8, 0, 0))
+		local size = standProp(cart, CFrame.new(cartAt) * CFrame.Angles(0, math.rad(-20), 0), Vector3.new(8, 0, 0))
 		stockWithBalls(cart, size.Y * 0.15)
 	else
-		local basket = box(homeProps, Vector3.new(5, 3.4, 4), CFrame.new(cartAt + Vector3.new(0, 1.7, 0)), Color3.fromRGB(40, 70, 170), Enum.Material.Fabric)
+		local basket = box(homeProps, Vector3.new(5, 3.4, 4), CFrame.new(cartAt + Vector3.new(0, 1.7, 0)), Color3.fromRGB(30, 34, 70), Enum.Material.Fabric)
 		basket.Reflectance = 0
 		for i = 0, 4 do
 			makeBall(homeProps, 0.9, cartAt + Vector3.new(-1.6 + i * 0.85, 3.9 + (i % 2) * 0.5, -0.8 + (i % 3) * 0.7), true)
 		end
+	end
+	-- a couple of loose balls on the floor
+	makeBall(homeProps, 0.9, H + Vector3.new(8.5, 0.9, 9.5), true)
+	makeBall(homeProps, 0.9, H + Vector3.new(-5.5, 0.9, 13), true)
+end
+
+-- A neon strip: a thin glowing bar.
+local function strip(parent, size, cf, color, alpha)
+	local p = box(parent, size, cf, color, Enum.Material.Neon)
+	p.Transparency = alpha or 0
+	p.CastShadow = false
+	return p
+end
+
+-- An LED board: a dark panel whose face scrolls `text` (updateArena moves it).
+local function ticker(parent, size, cf, text, color, speed)
+	local p = box(parent, size, cf, Color3.fromRGB(6, 8, 18), Enum.Material.SmoothPlastic)
+	local sg = Instance.new("SurfaceGui")
+	sg.Face = Enum.NormalId.Front
+	sg.LightInfluence = 0
+	sg.Brightness = 2.2
+	sg.PixelsPerStud = 24
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.ClipsDescendants = true
+	sg.Parent = p
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.fromScale(1, 1)
+	bg.BackgroundColor3 = Color3.fromRGB(8, 10, 26)
+	bg.BorderSizePixel = 0
+	bg.Parent = sg
+	local row = Instance.new("TextLabel")
+	row.BackgroundTransparency = 1
+	row.Size = UDim2.new(3, 0, 0.8, 0)
+	row.Position = UDim2.fromScale(0, 0.1)
+	row.TextScaled = true
+	row.Font = Enum.Font.GothamBlack
+	row.TextColor3 = color
+	row.Text = string.rep(text, 6)
+	row.TextXAlignment = Enum.TextXAlignment.Left
+	row.Parent = bg
+	table.insert(arena.tickers, { label = row, speed = speed or 0.04 })
+	return p
+end
+
+-- A stage beam: two crossed glowing planes from `from` toward `to`, swept a little by
+-- updateArena.
+local function beam(parent, from, to, color, width, seed)
+	local len = (to - from).Magnitude
+	local pivot = Instance.new("Part")
+	pivot.Anchored = true
+	pivot.CanCollide = false
+	pivot.CanQuery = false
+	pivot.CanTouch = false
+	pivot.Transparency = 1
+	pivot.Size = Vector3.one * 0.2
+	pivot.CFrame = CFrame.lookAt(from, to)
+	pivot.Parent = parent
+	local planes = {}
+	for i = 0, 1 do
+		local p = box(parent, Vector3.new(width, 0.05, len), CFrame.identity, color, Enum.Material.Neon)
+		p.Transparency = 0.9
+		p.CastShadow = false
+		table.insert(planes, { part = p, roll = i * math.pi / 2 })
+	end
+	local b = { base = pivot.CFrame, planes = planes, len = len, seed = seed }
+	table.insert(arena.beams, b)
+	return b
+end
+
+local function placeBeam(b, now)
+	local sway = CFrame.Angles(math.sin(now * 0.45 + b.seed) * 0.16, math.sin(now * 0.33 + b.seed * 2) * 0.22, 0)
+	for _, pl in ipairs(b.planes) do
+		pl.part.CFrame = b.base * sway * CFrame.Angles(0, 0, pl.roll) * CFrame.new(0, 0, -b.len / 2)
+	end
+end
+
+local function updateArena(now)
+	for _, t in ipairs(arena.tickers) do
+		t.label.Position = UDim2.new(-((now * t.speed) % (1 / 3)) * 3, 0, 0.1, 0)
+	end
+	for _, b in ipairs(arena.beams) do
+		placeBeam(b, now)
+	end
+	for _, p in ipairs(arena.pulses) do
+		p.light.Brightness = p.base * (0.75 + 0.25 * math.sin(now * p.rate + p.seed))
 	end
 end
 
@@ -287,96 +362,197 @@ local function buildHome()
 	room.Name = "HomeRoom"
 	room.Parent = folder
 	local H = HOME
-	local wood = Color3.fromRGB(150, 104, 72)
-	local cream = Color3.fromRGB(226, 214, 190)
-	box(room, Vector3.new(46, 1, 36), CFrame.new(H + Vector3.new(0, -0.5, 4)), wood, Enum.Material.WoodPlanks)
-	box(room, Vector3.new(46, 1, 36), CFrame.new(H + Vector3.new(0, 24.5, 4)), Color3.fromRGB(214, 200, 176))
-	box(room, Vector3.new(46, 25, 1), CFrame.new(H + Vector3.new(0, 12, 18.5)), cream)
-	box(room, Vector3.new(1, 25, 36), CFrame.new(H + Vector3.new(-23, 12, 4)), cream)
-	box(room, Vector3.new(1, 25, 36), CFrame.new(H + Vector3.new(23, 12, 4)), Color3.fromRGB(208, 196, 172))
-	-- skirting and a dado rail
-	box(room, Vector3.new(46, 1.2, 0.3), CFrame.new(H + Vector3.new(0, 0.6, 17.9)), Color3.fromRGB(120, 84, 58))
-	box(room, Vector3.new(46, 0.3, 0.3), CFrame.new(H + Vector3.new(0, 7, 17.9)), Color3.fromRGB(190, 170, 140))
+	local NET_Z = 16
 
-	-- the window: a bright outdoor view on a SurfaceGui (sky and soft trees)
-	local win = box(room, Vector3.new(22, 12, 0.2), CFrame.new(H + Vector3.new(-5, 12.5, 17.8)), Color3.fromRGB(236, 246, 226), Enum.Material.Neon)
-	local sg = Instance.new("SurfaceGui")
-	sg.Face = Enum.NormalId.Front
-	sg.LightInfluence = 0
-	sg.Brightness = 1.6
-	sg.PixelsPerStud = 20
-	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	sg.Parent = win
-	local sky = Instance.new("Frame")
-	sky.Size = UDim2.fromScale(1, 1)
-	sky.BorderSizePixel = 0
-	sky.BackgroundColor3 = Color3.new(1, 1, 1)
-	sky.Parent = sg
-	local g = Instance.new("UIGradient")
-	g.Rotation = 90
-	g.Color = ColorSequence.new(Color3.fromRGB(236, 248, 255), Color3.fromRGB(196, 226, 170))
-	g.Parent = sky
-	local rnd = Random.new(3)
-	for _ = 1, 9 do
-		local tree = Instance.new("Frame")
-		local d = rnd:NextInteger(60, 150)
-		tree.Size = UDim2.fromOffset(d, d)
-		tree.Position = UDim2.new(rnd:NextNumber(), -d / 2, 0.45 + rnd:NextNumber() * 0.5, -d / 2)
-		tree.BackgroundColor3 = Color3.fromRGB(rnd:NextInteger(120, 170), rnd:NextInteger(170, 205), rnd:NextInteger(90, 120))
-		tree.BackgroundTransparency = 0.25
-		tree.BorderSizePixel = 0
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(0.5, 0)
-		c.Parent = tree
-		tree.Parent = sky
-	end
-	local frameColor = Color3.fromRGB(244, 242, 236)
-	for _, x in ipairs({ -16, -8.7, -1.3, 6 }) do
-		box(room, Vector3.new(0.6, 12.6, 0.6), CFrame.new(H + Vector3.new(x, 12.5, 17.5)), frameColor)
-	end
-	for _, y in ipairs({ 6.5, 12.5, 18.5 }) do
-		box(room, Vector3.new(22.6, 0.6, 0.6), CFrame.new(H + Vector3.new(-5, y, 17.5)), frameColor)
-	end
-	box(room, Vector3.new(24, 0.5, 1.6), CFrame.new(H + Vector3.new(-5, 6.1, 17.1)), frameColor)
-	light(win, "SurfaceLight", { Face = Enum.NormalId.Front, Range = 40, Angle = 70, Brightness = 2.2, Color = Color3.fromRGB(255, 240, 214), Shadows = true })
-	-- sun shafts through the window
-	for i, x in ipairs({ -11, -4, 3 }) do
-		local shaft = box(room, Vector3.new(4.5, 30, 0.1), CFrame.new(H + Vector3.new(x + 3, 8, 11)) * CFrame.Angles(math.rad(-38), math.rad(-12), 0), Color3.fromRGB(255, 240, 210), Enum.Material.Neon)
-		shaft.Transparency = 0.9 + i * 0.015
-		shaft.CastShadow = false
-	end
+	-- the hall: a glossy dark floor, a roof that keeps the sky out, dark walls
+	box(room, Vector3.new(170, 1, 190), CFrame.new(H + Vector3.new(0, -0.5, 50)), Color3.fromRGB(14, 16, 34), Enum.Material.SmoothPlastic, { Reflectance = 0.16 })
+	box(room, Vector3.new(170, 2, 190), CFrame.new(H + Vector3.new(0, 64, 50)), Color3.fromRGB(6, 7, 16))
+	box(room, Vector3.new(1, 66, 190), CFrame.new(H + Vector3.new(-85, 32, 50)), NIGHT)
+	box(room, Vector3.new(1, 66, 190), CFrame.new(H + Vector3.new(85, 32, 50)), NIGHT)
+	box(room, Vector3.new(170, 66, 1), CFrame.new(H + Vector3.new(0, 32, 140)), NIGHT)
+	box(room, Vector3.new(170, 66, 1), CFrame.new(H + Vector3.new(0, 32, -40)), NIGHT)
 
-	-- a jersey pinned on the wall above the lockers: black with a gold number
-	local jersey = box(room, Vector3.new(4, 4.6, 0.12), CFrame.new(H + Vector3.new(15.2, 15.2, 17.8)), Color3.fromRGB(24, 24, 28), Enum.Material.Fabric)
-	surfaceText(jersey, Enum.NormalId.Front, "7", Color3.fromRGB(230, 184, 70), Enum.Font.FredokaOne)
-	box(room, Vector3.new(4.2, 0.2, 0.3), CFrame.new(H + Vector3.new(15.2, 17.6, 17.8)), Color3.fromRGB(90, 90, 96), Enum.Material.Metal)
+	-- the court: navy free zone, a blue playing area, white lines, cyan attack lines
+	box(room, Vector3.new(56, 0.04, 92), CFrame.new(H + Vector3.new(0, 0.02, NET_Z)), Color3.fromRGB(18, 26, 68), Enum.Material.SmoothPlastic, { Reflectance = 0.12 })
+	box(room, Vector3.new(34, 0.05, 68), CFrame.new(H + Vector3.new(0, 0.04, NET_Z)), Color3.fromRGB(28, 52, 132), Enum.Material.SmoothPlastic, { Reflectance = 0.1 })
+	local lineY, lw, white = 0.08, 0.28, Color3.fromRGB(240, 244, 255)
+	for _, x in ipairs({ -17, 17 }) do
+		box(room, Vector3.new(lw, 0.02, 68), CFrame.new(H + Vector3.new(x, lineY, NET_Z)), white)
+	end
+	for _, z in ipairs({ NET_Z - 34, NET_Z, NET_Z + 34 }) do
+		box(room, Vector3.new(34, 0.02, lw), CFrame.new(H + Vector3.new(0, lineY, z)), white)
+	end
+	for _, z in ipairs({ NET_Z - 9.8, NET_Z + 9.8 }) do
+		strip(room, Vector3.new(34, 0.02, lw), CFrame.new(H + Vector3.new(0, lineY, z)), CYAN, 0.15)
+	end
+	-- the name painted on the floor between you and the net
+	local paint = box(room, Vector3.new(22, 0.02, 4.4), CFrame.new(H + Vector3.new(1, 0.07, 12.4)), Color3.new(1, 1, 1))
+	paint.Transparency = 1
+	local word = surfaceText(paint, Enum.NormalId.Top, "VOLLEYBALL RUSH", CYAN, Enum.Font.GothamBlack)
+	word.TextTransparency = 0.55
+	word.Rotation = 180
 
-	-- a clock above the window
-	local clock = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 3, 3), CFrame = CFrame.new(H + Vector3.new(-5, 21.3, 17.8)) * CFrame.Angles(0, math.rad(90), 0), Color = Color3.fromRGB(245, 245, 240) }, room)
-	part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 3.3, 3.3), CFrame = clock.CFrame * CFrame.new(0.06, 0, 0), Color = Color3.fromRGB(40, 40, 44) }, room)
-	box(room, Vector3.new(0.12, 1.1, 0.05), CFrame.new(H + Vector3.new(-5, 21.7, 17.6)), Color3.fromRGB(30, 30, 34))
-	box(room, Vector3.new(0.8, 0.12, 0.05), CFrame.new(H + Vector3.new(-4.65, 21.3, 17.6)), Color3.fromRGB(30, 30, 34))
-
-	-- shelves with boxes on the left wall
-	for i, y in ipairs({ 4, 8.5, 13 }) do
-		box(room, Vector3.new(3, 0.3, 14), CFrame.new(H + Vector3.new(-21.2, y, 8)), Color3.fromRGB(120, 86, 60), Enum.Material.WoodPlanks)
-		for b = 0, 2 do
-			box(room, Vector3.new(2.4, 2 + (b + i) % 2 * 0.8, 2.6), CFrame.new(H + Vector3.new(-21.2, y + 1.2, 3 + b * 4 + i)) * CFrame.Angles(0, math.rad((b * 7) % 11), 0), Color3.fromRGB(196, 158, 112), Enum.Material.Cardboard)
+	-- the net: posts in magenta pads, a white top band, the mesh, antennas
+	for _, x in ipairs({ -19.5, 19.5 }) do
+		part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(9.4, 0.7, 0.7), CFrame = CFrame.new(H + Vector3.new(x, 4.7, NET_Z)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(200, 206, 220), Material = Enum.Material.Metal }, room)
+		box(room, Vector3.new(1.3, 6, 1.3), CFrame.new(H + Vector3.new(x, 3, NET_Z)), Color3.fromRGB(26, 28, 52), Enum.Material.Fabric)
+		strip(room, Vector3.new(1.34, 0.35, 1.34), CFrame.new(H + Vector3.new(x, 5.4, NET_Z)), MAGENTA)
+		strip(room, Vector3.new(1.34, 0.35, 1.34), CFrame.new(H + Vector3.new(x, 1.2, NET_Z)), CYAN)
+	end
+	local cord = Color3.fromRGB(225, 230, 245)
+	box(room, Vector3.new(39, 0.36, 0.1), CFrame.new(H + Vector3.new(0, 7.9, NET_Z)), Color3.fromRGB(250, 250, 255), Enum.Material.Fabric)
+	box(room, Vector3.new(39, 0.14, 0.08), CFrame.new(H + Vector3.new(0, 5.05, NET_Z)), Color3.fromRGB(30, 32, 50), Enum.Material.Fabric)
+	for x = -19, 19, 0.75 do
+		local c = box(room, Vector3.new(0.05, 2.75, 0.05), CFrame.new(H + Vector3.new(x, 6.45, NET_Z)), cord)
+		c.Transparency = 0.35
+		c.CastShadow = false
+	end
+	for y = 5.4, 7.6, 0.75 do
+		local c = box(room, Vector3.new(39, 0.05, 0.05), CFrame.new(H + Vector3.new(0, y, NET_Z)), cord)
+		c.Transparency = 0.35
+		c.CastShadow = false
+	end
+	for _, x in ipairs({ -17, 17 }) do
+		for s = 0, 4 do
+			box(room, Vector3.new(0.14, 0.62, 0.14), CFrame.new(H + Vector3.new(x, 8.4 + s * 0.62, NET_Z)), s % 2 == 0 and Color3.fromRGB(230, 40, 60) or Color3.new(1, 1, 1))
 		end
 	end
 
-	-- the lockers, the bench and the ball cart (furnishHome)
+	-- the far stands: tiers rising behind the end line, a crowd in the dark with phones lit
+	local crowd = Instance.new("Model")
+	crowd.Name = "Crowd"
+	crowd.Parent = room
+	local crng = Random.new(11)
+	local shirts = { Color3.fromRGB(30, 34, 64), Color3.fromRGB(40, 30, 60), Color3.fromRGB(24, 44, 70), Color3.fromRGB(56, 26, 52) }
+	for i = 0, 9 do
+		local z, y = 64 + i * 3.4, i * 1.9
+		box(room, Vector3.new(130, 1.9, 3.4), CFrame.new(H + Vector3.new(0, y + 0.95, z)), Color3.fromRGB(16, 18, 36))
+		strip(room, Vector3.new(130, 0.12, 0.12), CFrame.new(H + Vector3.new(0, y + 1.95, z - 1.66)), i % 2 == 0 and CYAN or MAGENTA, 0.55)
+		for x = -60, 60, 2.3 do
+			if crng:NextNumber() < 0.82 then
+				local px = x + crng:NextNumber() * 0.8
+				local h = 2 + crng:NextNumber() * 0.5
+				local body = box(crowd, Vector3.new(1.3, h, 0.9), CFrame.new(H + Vector3.new(px, y + 1.9 + h / 2, z + 0.4)), shirts[crng:NextInteger(1, #shirts)])
+				body.CastShadow = false
+				local head = part({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.95, CFrame = CFrame.new(H + Vector3.new(px, y + 2.4 + h, z + 0.4)), Color = Color3.fromRGB(28, 26, 36), CastShadow = false }, crowd)
+				head.Material = Enum.Material.SmoothPlastic
+				if crng:NextNumber() < 0.12 then
+					strip(crowd, Vector3.new(0.3, 0.45, 0.08), CFrame.new(H + Vector3.new(px + 0.5, y + 2.9 + h, z - 0.1)), Color3.fromRGB(230, 240, 255))
+				end
+			end
+		end
+	end
+	-- an LED ribbon along the front of the stands, and the sideline boards
+	ticker(room, Vector3.new(96, 2.6, 0.4), CFrame.new(H + Vector3.new(0, 1.5, 58)) * CFrame.Angles(0, math.rad(180), 0), "VOLLEYBALL RUSH  //  RANKED  //  CLANS  //  ", CYAN, 0.035)
+	ticker(room, Vector3.new(40, 2.2, 0.4), CFrame.new(H + Vector3.new(-26, 1.3, NET_Z + 20)) * CFrame.Angles(0, math.rad(-90), 0), "SPIKE IT  //  ", MAGENTA, 0.05)
+	ticker(room, Vector3.new(40, 2.2, 0.4), CFrame.new(H + Vector3.new(26, 1.3, NET_Z + 20)) * CFrame.Angles(0, math.rad(90), 0), "SPIKE IT  //  ", MAGENTA, 0.05)
+
+	-- the big screen over the stands: the logo in the brand's colours
+	local screen = box(room, Vector3.new(66, 20, 0.6), CFrame.new(H + Vector3.new(0, 42, 104)) * CFrame.Angles(0, math.rad(180), 0), Color3.fromRGB(6, 8, 18))
+	local sg = Instance.new("SurfaceGui")
+	sg.Face = Enum.NormalId.Front
+	sg.LightInfluence = 0
+	sg.Brightness = 1.8
+	sg.PixelsPerStud = 14
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.Parent = screen
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.fromScale(1, 1)
+	bg.BorderSizePixel = 0
+	bg.BackgroundColor3 = Color3.new(1, 1, 1)
+	bg.Parent = sg
+	local bgGrad = Instance.new("UIGradient")
+	bgGrad.Rotation = 20
+	bgGrad.Color = ColorSequence.new(Color3.fromRGB(10, 18, 54), Color3.fromRGB(48, 10, 52))
+	bgGrad.Parent = bg
+	local function screenWord(text, pos, size, c0, c1)
+		local l = Instance.new("TextLabel")
+		l.BackgroundTransparency = 1
+		l.Position = pos
+		l.Size = size
+		l.Text = text
+		l.TextScaled = true
+		l.Font = Enum.Font.GothamBlack
+		l.TextColor3 = Color3.new(1, 1, 1)
+		l.Rotation = -3
+		l.Parent = bg
+		local g = Instance.new("UIGradient")
+		g.Rotation = 90
+		g.Color = ColorSequence.new(c0, c1)
+		g.Parent = l
+		local st = Instance.new("UIStroke")
+		st.Color = Color3.fromRGB(6, 8, 20)
+		st.Thickness = 6
+		st.Parent = l
+	end
+	screenWord("VOLLEYBALL", UDim2.fromScale(0.08, 0.1), UDim2.fromScale(0.84, 0.46), Color3.fromRGB(236, 255, 255), CYAN)
+	screenWord("RUSH", UDim2.fromScale(0.3, 0.52), UDim2.fromScale(0.4, 0.4), Color3.fromRGB(255, 170, 225), MAGENTA)
+	strip(room, Vector3.new(67, 0.4, 0.4), CFrame.new(H + Vector3.new(0, 52.2, 103.6)), CYAN)
+	strip(room, Vector3.new(67, 0.4, 0.4), CFrame.new(H + Vector3.new(0, 31.8, 103.6)), MAGENTA)
+
+	-- the lighting rig: trusses across the roof, lamps on them, beams sweeping down
+	for _, z in ipairs({ 6, 30, 54 }) do
+		box(room, Vector3.new(120, 1.2, 1.2), CFrame.new(H + Vector3.new(0, 48, z)), Color3.fromRGB(34, 36, 48), Enum.Material.Metal)
+		box(room, Vector3.new(120, 0.5, 0.5), CFrame.new(H + Vector3.new(0, 46.4, z)), Color3.fromRGB(34, 36, 48), Enum.Material.Metal)
+	end
+	local bseed = 0
+	for _, rig in ipairs({
+		{ -36, 30, -14, 22, CYAN }, { -18, 54, -6, 34, MAGENTA }, { 0, 30, 2, 40, CYAN }, { 18, 54, 8, 28, MAGENTA }, { 36, 30, 16, 20, CYAN },
+		{ -26, 6, -10, 30, MAGENTA }, { 26, 6, 12, 32, CYAN },
+	}) do
+		local from = H + Vector3.new(rig[1], 46, rig[2])
+		local lamp = strip(room, Vector3.new(1.4, 1, 1.4), CFrame.new(from), rig[5])
+		bseed = bseed + 1.7
+		beam(room, from + Vector3.new(0, -0.6, 0), H + Vector3.new(rig[3], 0, rig[4]), rig[5], 2.6, bseed)
+		local spot = light(lamp, "SpotLight", { Face = Enum.NormalId.Bottom, Range = 60, Angle = 28, Brightness = 2.4, Color = rig[5], Shadows = false })
+		table.insert(arena.pulses, { light = spot, base = 2.4, rate = 0.7 + (bseed % 1), seed = bseed })
+	end
+	for _, b in ipairs(arena.beams) do
+		placeBeam(b, 0)
+	end
+
+	-- you: a cool key light in front, a cyan rim from the left and a magenta one from the right
+	local key = box(room, Vector3.one * 0.2, CFrame.new(H + Vector3.new(1, 9, -2)), Color3.new(1, 1, 1))
+	key.Transparency = 1
+	light(key, "PointLight", { Range = 22, Brightness = 1.1, Color = Color3.fromRGB(226, 236, 255), Shadows = false })
+	for _, r in ipairs({ { Vector3.new(-7, 11, 14), CYAN }, { Vector3.new(11, 11, 13), MAGENTA } }) do
+		local rim = box(room, Vector3.one * 0.2, CFrame.lookAt(H + r[1], H + Vector3.new(2.6, 3, 7)), Color3.new(1, 1, 1))
+		rim.Transparency = 1
+		light(rim, "SpotLight", { Face = Enum.NormalId.Front, Range = 22, Angle = 40, Brightness = 5, Color = r[2], Shadows = false })
+	end
+	-- cool floodlight over the whole court
+	local flood = box(room, Vector3.new(30, 0.2, 40), CFrame.new(H + Vector3.new(0, 45, 26)), Color3.new(1, 1, 1))
+	flood.Transparency = 1
+	light(flood, "SurfaceLight", { Face = Enum.NormalId.Bottom, Range = 60, Angle = 80, Brightness = 0.9, Color = Color3.fromRGB(200, 214, 255), Shadows = true })
+
+	-- glowing edges where the floor meets the dark
+	strip(room, Vector3.new(0.3, 0.1, 92), CFrame.new(H + Vector3.new(-28, 0.05, NET_Z)), CYAN, 0.2)
+	strip(room, Vector3.new(0.3, 0.1, 92), CFrame.new(H + Vector3.new(28, 0.05, NET_Z)), MAGENTA, 0.2)
+
+	-- dust drifting through the light
+	local haze = box(room, Vector3.new(60, 30, 50), CFrame.new(H + Vector3.new(0, 18, 30)), Color3.new(1, 1, 1))
+	haze.Transparency = 1
+	haze.CastShadow = false
+	local dust = Instance.new("ParticleEmitter")
+	dust.Texture = Assets.id(Assets.Fx.Dot) or ""
+	dust.Shape = Enum.ParticleEmitterShape.Box
+	dust.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	dust.Rate = 14
+	dust.Lifetime = NumberRange.new(8, 12)
+	dust.Speed = NumberRange.new(0.2, 0.6)
+	dust.SpreadAngle = Vector2.new(180, 180)
+	dust.Size = NumberSequence.new(0.18)
+	dust.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.55), NumberSequenceKeypoint.new(0.7, 0.55), NumberSequenceKeypoint.new(1, 1) })
+	dust.LightEmission = 1
+	dust.Color = ColorSequence.new(Color3.fromRGB(200, 236, 255))
+	dust.Parent = haze
+
+	-- the bench and the ball cart (furnishHome)
 	homeProps = Instance.new("Model")
 	homeProps.Name = "Props"
 	homeProps.Parent = room
 	furnishHome()
 
-	-- warm room light
-	local lamp = box(room, Vector3.new(10, 0.2, 3), CFrame.new(H + Vector3.new(2, 24, 4)), Color3.fromRGB(255, 244, 222), Enum.Material.Neon)
-	light(lamp, "SurfaceLight", { Face = Enum.NormalId.Bottom, Range = 26, Angle = 100, Brightness = 1.1, Color = Color3.fromRGB(255, 236, 206), Shadows = true })
-	local fill = box(room, Vector3.new(1, 1, 1), CFrame.new(H + Vector3.new(0, 8, -6)), Color3.new(1, 1, 1))
-	fill.Transparency = 1
-	light(fill, "PointLight", { Range = 26, Brightness = 0.8, Color = Color3.fromRGB(255, 226, 196), Shadows = false })
 	homeBits.room = room
 	if room and SceneController.roomKey then
 		SceneController.applyRoom()
@@ -384,7 +560,7 @@ local function buildHome()
 end
 
 ------------------------------------------------------------------------------------------
--- rooms (Config.Rooms): the club room's decor
+-- rooms (Config.Rooms): the default arena and the rooms that replace it
 ------------------------------------------------------------------------------------------
 
 -- A jack-o'-lantern: the owner's Pumpkin ball (its carved face lit, a candle's light inside; its
@@ -858,8 +1034,8 @@ local function placeForest()
 	end
 end
 
--- The room on show (Config.Rooms; Home's Decorate): the club room, or the Haunted Forest in its
--- place (the club room goes while the forest is up, and comes back after).
+-- The room on show (Config.Rooms; Home's Decorate): the arena, or the Haunted Forest in its
+-- place (the arena goes while the forest is up, and comes back after).
 function SceneController.applyRoom()
 	local key = SceneController.roomKey or Config.Rooms.Default
 	if not homeBits.room or roomState.key == key then
@@ -880,7 +1056,7 @@ function SceneController.applyRoom()
 	SceneController.refreshGrade()
 end
 
--- The menus' room (Config.Rooms key; Home's Decorate), drawn when the club room is up.
+-- The menus' room (Config.Rooms key; Home's Decorate), drawn when the arena is up.
 function SceneController.setRoom(key)
 	if SceneController.roomKey == key then
 		return
@@ -889,17 +1065,18 @@ function SceneController.setRoom(key)
 	SceneController.applyRoom()
 end
 
--- The colour grade for the scene shown: the club room's warm one, or the Haunted Forest's cold
--- moonlit one.
+-- The colour grade for the scene shown: the arena's cool night one, the Haunted Forest's cold
+-- moonlit one, or the gym's warm one.
 function SceneController.refreshGrade()
 	if not grade then
 		return
 	end
-	local night = current == "home" and roomState.key == "Haunted"
-	grade.TintColor = night and Color3.fromRGB(214, 222, 255) or Color3.fromRGB(255, 242, 226)
-	grade.Brightness = night and -0.06 or 0.02
-	grade.Contrast = night and 0.2 or 0.08
-	grade.Saturation = night and 0.06 or 0.08
+	local forest = current == "home" and roomState.key == "Haunted"
+	local arenaOn = current == "home" and not forest
+	grade.TintColor = forest and Color3.fromRGB(214, 222, 255) or arenaOn and Color3.fromRGB(232, 238, 255) or Color3.fromRGB(255, 242, 226)
+	grade.Brightness = forest and -0.06 or arenaOn and -0.01 or 0.02
+	grade.Contrast = forest and 0.2 or arenaOn and 0.16 or 0.08
+	grade.Saturation = forest and 0.06 or arenaOn and 0.14 or 0.08
 end
 
 local function updateRoom(now)
@@ -1724,6 +1901,9 @@ local function update()
 	updatePractice(now)
 	if current == "home" and #roomState.flicker > 0 then
 		updateRoom(now)
+	end
+	if current == "home" and roomState.key ~= "Haunted" then
+		updateArena(now)
 	end
 	if homeRig and current == "home" then
 		-- breathing

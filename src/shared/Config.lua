@@ -2306,7 +2306,7 @@ Config.Rooms = {
 	Default = "Clubhouse",
 	Order = { "Clubhouse", "Haunted" },
 	List = {
-		Clubhouse = { Name = "Clubhouse", Default = true, Blurb = "The club room: lockers, the ball cart and the sun through the window." },
+		Clubhouse = { Name = "Rush Arena", Default = true, Blurb = "Center court at night: the crowd, the big screen and the stage lights." }, -- (key kept for saves; was the club room)
 		Haunted = { Name = "Haunted Forest", Rarity = "Legendary", Limited = "Halloween", Blurb = "Home out in a moonlit forest: the clubhouse a haunted cabin among dead trees, a graveyard, a bubbling cauldron, jack-o'-lanterns, fog and a huge orange moon." },
 	},
 }
