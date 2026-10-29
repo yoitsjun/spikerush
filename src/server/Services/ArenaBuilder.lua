@@ -787,8 +787,9 @@ COURTS.Beach = {
 			ball(scene, "Island", Vector3.new(rx * 2, ry * 2, rz * 2), Vector3.new(isle[1], 0, isle[2]), Color3.fromRGB(74, 146, 88), Enum.Material.Grass)
 			local irng = Random.new(isle[1] + isle[2])
 			for _ = 1, 9 do
-				local u, w = (irng:NextNumber() - 0.5) * 1.1, (irng:NextNumber() - 0.5) * 1.5
-				local y = ry * math.sqrt(math.max(0, 1 - u * u - w * w * 0.45)) - 2
+				-- (on the hill's own surface, sunk a little: they floated over its slopes)
+				local u, w = (irng:NextNumber() - 0.5) * 0.9, (irng:NextNumber() - 0.5) * 0.9
+				local y = ry * math.sqrt(math.max(0, 1 - u * u - w * w)) - 3
 				palmTree(scene, Vector3.new(isle[1] + u * rx, y, isle[2] + w * rz), 30 + irng:NextNumber() * 22 + ry * 0.2, Vector3.new((irng:NextNumber() - 0.5) * 0.5, 0, (irng:NextNumber() - 0.5) * 0.5), irng)
 			end
 		end
@@ -1020,7 +1021,7 @@ COURTS.Colosseum = {
 			deco(part(scene, "BannerTrim", Vector3.new(0.25, 0.5, 3.2), CFrame.new(wx - 1.5, archBase + archH - 1.2, z), Color3.fromRGB(220, 170, 60), Enum.Material.Metal))
 		end
 		-- end walls
-		local ez = S.EndStart + S.EndRows * S.RowDepth + 1
+		local ez = math.max(S.EndStart + S.EndRows * S.RowDepth + 1, C.WallHalfZ + 1) -- (out at the venue's edge: no end stands)
 		for _, sz in ipairs({ -1, 1 }) do
 			deco(part(scene, "EndWall", Vector3.new(wx + 60, archBase + archH + 8, 2), CFrame.new(wx / 2 - 30, (archBase + archH + 8) / 2, sz * ez), stone, Enum.Material.Limestone))
 			deco(part(scene, "EndBand", Vector3.new(wx + 60, 1, 2.4), CFrame.new(wx / 2 - 30, archBase + archH + 0.5, sz * ez), stoneDark, Enum.Material.Limestone))

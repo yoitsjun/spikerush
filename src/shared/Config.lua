@@ -2369,25 +2369,25 @@ Config.Courts = {
 			-- (the owner, 2026-10-29: "quite plain", then "the beach doesn't need huge audience, i like
 			-- how you could see the dock ... dont sacrifice the actual stage for more seats": low
 			-- stands, a slim wrapped band and flags on top, the sea and the pier in view)
-			Stands = { Rows = 5, EndRows = 3 },
+			Stands = { Rows = 5 },
 			Crowd = 0.9,
 		},
 		Colosseum = {
 			Name = "Colosseum",
 			Blurb = "Stone tiers, arches and braziers at dusk.",
-			Stands = { Rows = 14, EndRows = 9, RowRise = 1.9 },
+			Stands = { Rows = 14, RowRise = 1.9 },
 			Crowd = 0.8,
 		},
 		Nationals = {
 			Name = "Nationals",
 			Blurb = "The championship hall: packed stands, bright lights.",
-			Stands = { Rows = 14, EndRows = 10 },
+			Stands = { Rows = 14 },
 			Crowd = 0.85,
 		},
 		Rooftop = {
 			Name = "Night Rooftop",
 			Blurb = "A court on the roof, the city lit up behind it.",
-			Stands = { Rows = 4, EndRows = 2 }, -- (low: the city is the scene)
+			Stands = { Rows = 4 }, -- (low: the city is the scene)
 			Crowd = 0.9,
 		},
 		-- Halloween's (the owner, 2026-10-15: "and with that a halloween court"): the Halloween
@@ -2395,7 +2395,7 @@ Config.Courts = {
 		Haunted = {
 			Name = "Haunted Forest",
 			Blurb = "An old plank court in a clearing at midnight: dead trees, jack-o'-lanterns, a graveyard and a huge orange moon.",
-			Stands = { Rows = 4, EndRows = 2 }, -- (low: the forest is the scene)
+			Stands = { Rows = 4 }, -- (low: the forest is the scene)
 			Crowd = 0.75,
 		},
 	},
@@ -2798,7 +2798,12 @@ Config.Bots = {
 Config.Settings = {
 	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach", "setterAim", "beginner" },
 	-- tour: the menu tour's step after the tutorial (MenuController; 4 is done)
-	Numbers = { shake = { 0, 1 }, tour = { 0, 4 } },
+	-- camHeight, camZoom, camPan: your own match camera (the owner, 2026-10-29: "a dynamic fov
+	-- setter... how high or low it is, and how zoomed in or zoomed out you are. also left or
+	-- right"), each -1..1 in CamStep steps (CameraController.wide; Settings > Camera)
+	Numbers = { shake = { 0, 1 }, tour = { 0, 4 }, camHeight = { -1, 1 }, camZoom = { -1, 1 }, camPan = { -1, 1 } },
+	CamStep = 0.1,
+	Cam = { Height = 18, LookHeight = 6, Zoom = 0.3, Pan = 22 }, -- studs (Zoom: a share of the distance) at 1
 	-- touch buttons can be moved (x, y: the centre as a fraction of the screen) and resized
 	Touch = {
 		Buttons = { "A", "B", "C", "Set", "Skill1", "Skill2", "Skill3" },

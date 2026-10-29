@@ -149,7 +149,23 @@ local function wide()
 	local dist = math.max(WIDE_HALF_Z / (tv * aspect), halfH / tv) + 2
 	-- a wide screen leaves spare height: keep the floor near the bottom edge
 	local lookY = math.max((WIDE_TOP + WIDE_BOTTOM) / 2, WIDE_BOTTOM + dist * tv * 0.85)
-	return Vector3.new(-dist, lookY + dist * 0.1, 0), Vector3.new(2, lookY, 0), BASE_FOV
+	-- your own adjustments (Settings > Camera): higher or lower, closer or wider, left or right
+	local S, CAM = State.settings, Config.Settings.Cam
+	local h, z, p = S.camHeight or 0, S.camZoom or 0, S.camPan or 0
+	dist = dist * (1 - CAM.Zoom * z)
+	local pan = p * CAM.Pan
+	-- a ball flying off the edge of the shot: ease out until it's back in frame (the owner,
+	-- 2026-10-29: "when it flies off screen kind of zoom out so it can be visible"), up to twice
+	-- as far; the camera's own easing smooths the move in and out
+	local folder = workspace:FindFirstChild("SpikeRushBall")
+	local ball = folder and folder:FindFirstChild("Ball")
+	if ball and ball.Transparency < 1 then
+		local bp = ball.Position
+		local needZ = (math.abs(bp.Z - pan) + 8) / (tv * aspect)
+		local needY = (bp.Y + 6 - lookY) / (tv * 0.9)
+		dist = math.min(math.max(dist, needZ, needY), dist * 2)
+	end
+	return Vector3.new(-dist, lookY + dist * 0.1 + h * CAM.Height, pan), Vector3.new(2, lookY + h * CAM.LookHeight, pan), BASE_FOV
 end
 
 local function update(dt)

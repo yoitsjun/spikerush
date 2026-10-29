@@ -215,7 +215,9 @@ Court.Stands = {
 	BaseTop = 1.4,
 	FarStart = C.HalfWidth + C.FreeZoneSide + 6,
 	FarLength = 2 * (C.SideDepth + C.FreeZoneEnd) + 24,
-	EndRows = 8,
+	-- no stands at the ends (the owner, 2026-10-29: "theres always a chance to save the ball when
+	-- it flies off and run to the side, remove the side court seats because they block view")
+	EndRows = 0,
 	EndStart = C.SideDepth + C.FreeZoneEnd + 6,
 	EndLength = 2 * (C.HalfWidth + C.FreeZoneSide) + 10,
 }

@@ -1885,6 +1885,7 @@ end
 -- One row per setting: a switch (key), or a button (press) that opens something. `sub` is a
 -- line under the name; `touch` rows show on touch devices only, `keyboard` rows everywhere else.
 local Keys = {} -- Settings > Controls (Keys.build)
+local CamAdjust = {} -- Settings > Camera (CamAdjust.build)
 local SETTINGS = {
 	{ key = "doubleApproach", text = "Double approach", sub = "Tap Jump once to start your approach, again to jump" },
 	{ key = "setterAim", text = "Setter aim", sub = "As the setter, aim your sets (your team sees it)" },
@@ -1905,6 +1906,16 @@ local SETTINGS = {
 		end,
 	},
 	{ key = "shake", text = "Camera shake" },
+	{
+		key = "camera",
+		text = "Camera",
+		sub = "Higher or lower, closer or wider, left or right",
+		button = "Adjust",
+		press = function()
+			UIController.closeSettings()
+			CamAdjust.open()
+		end,
+	},
 	{
 		key = "touchLayout",
 		text = "Touch controls",
@@ -2044,6 +2055,72 @@ function Keys.listen(action)
 		end
 		Keys.refresh()
 	end)
+end
+
+-- Settings > Camera (the owner, 2026-10-29: "a dynamic fov setter. you have a set screen and you
+-- can adjust how high or low it is, and how zoomed in or zoomed out you are. also left or right"):
+-- a small panel low on the screen, so the shot it changes stays in view; each press moves one
+-- setting a step (Config.Settings.CamStep) and the camera follows at once.
+function CamAdjust.build()
+	local rows = { { "camHeight", "Height", "Lower", "Higher" }, { "camZoom", "Zoom", "Wider", "Closer" }, { "camPan", "Left / right", "Left", "Right" } }
+	local f = panel(gui, { Name = "CameraAdjust", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.fromOffset(460, 72 + #rows * 50 + 58), Visible = false, ZIndex = 8 })
+	f.BackgroundTransparency = 0.08
+	edge(f, Gui.HAIRLINE, 0.3)
+	label(f, { Text = "Camera", Font = Enum.Font.GothamBlack, TextSize = 24, Size = UDim2.new(1, -32, 0, 28), Position = UDim2.fromOffset(16, 10), ZIndex = 8 })
+	Gui.plate(f, { Size = UDim2.fromOffset(56, 5), Position = UDim2.fromOffset(18, 42), ZIndex = 8 }, Gui.SIGNAL)
+	local values = {}
+	local step = Config.Settings.CamStep
+	local function nudge(key, dir)
+		local v = State.settings[key] or 0
+		v = math.clamp(math.floor((v + dir * step) / step + 0.5) * step, -1, 1)
+		click()
+		State.setSetting(key, v)
+	end
+	local function button(parent, text, x, w, onPress)
+		local b = make("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, x, 0.5, 0), Size = UDim2.fromOffset(w, 34), BackgroundColor3 = Gui.SIGNAL, BorderSizePixel = 0, AutoButtonColor = true, Text = text, Font = Enum.Font.GothamBlack, TextSize = 15, TextColor3 = Gui.LINE, ZIndex = 9 }, parent)
+		corner(b, 6)
+		Gui.pressSound(b)
+		b.MouseButton1Click:Connect(onPress)
+		return b
+	end
+	for i, r in ipairs(rows) do
+		local row = make("Frame", { Position = UDim2.fromOffset(12, 56 + (i - 1) * 50), Size = UDim2.new(1, -24, 0, 44), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 8 }, f)
+		corner(row, 6)
+		label(row, { Text = r[2], Font = Enum.Font.GothamBlack, TextSize = 17, Size = UDim2.fromOffset(130, 44), Position = UDim2.fromOffset(12, 0), ZIndex = 9 })
+		values[r[1]] = label(row, { Text = "0", Font = Enum.Font.GothamBlack, TextSize = 17, TextColor3 = Gui.SIGNAL, Size = UDim2.fromOffset(50, 44), Position = UDim2.fromOffset(136, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 9 })
+		button(row, r[4], -6, 82, function()
+			nudge(r[1], 1)
+		end)
+		button(row, r[3], -94, 82, function()
+			nudge(r[1], -1)
+		end)
+	end
+	local foot = make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -10), Size = UDim2.new(1, -24, 0, 40), BackgroundTransparency = 1, ZIndex = 8 }, f)
+	button(foot, "Done", 0, 100, function()
+		click()
+		f.Visible = false
+	end)
+	button(foot, "Reset", -110, 100, function()
+		click()
+		for _, r in ipairs(rows) do
+			State.setSetting(r[1], 0)
+		end
+	end)
+	local function refresh()
+		for key, l in pairs(values) do
+			local v = State.settings[key] or 0
+			l.Text = (v > 0 and "+" or "") .. tostring(math.floor(v * 10 + (v >= 0 and 0.5 or -0.5)))
+		end
+	end
+	State.signals.Settings:Connect(refresh)
+	refresh()
+	CamAdjust.frame = f
+end
+
+function CamAdjust.open()
+	if CamAdjust.frame then
+		CamAdjust.frame.Visible = true
+	end
 end
 
 function Keys.open()
@@ -2755,6 +2832,7 @@ function UIController.init(m)
 	buildRail()
 	buildCorner()
 	Keys.build()
+	CamAdjust.build()
 	buildRotation()
 	buildCoach()
 	buildContinue()
