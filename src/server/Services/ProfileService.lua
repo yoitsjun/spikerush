@@ -2522,6 +2522,31 @@ local function onRequest(plr, kind, a, b, c)
 		snap.notice = string.format("%s broke through: +%d!", c.Name, level + 1)
 		snap.breakReveal = { id = a, level = level + 1 }
 		Net.get("Profile"):FireClient(plr, snap)
+	elseif kind == "adminMaxAll" then
+		-- admins: every stat of every player they own to its ceiling, free (the owner, 2026-10-29:
+		-- "give me a max every character button", "admin only"); breakthroughs stay as they are
+		local admin = profile.dev or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))
+		if not admin then
+			return
+		end
+		if inMatch(plr) then
+			push(plr, "Your players are locked until this match ends.")
+			return
+		end
+		local n = 0
+		for _, c in ipairs(Roster) do
+			if owns(profile, "Char", c.Id) then
+				local clean = {}
+				for _, stat in ipairs(Config.Stats.Order) do
+					clean[stat] = c[stat]
+				end
+				profile.levels[c.Id] = clean
+				n = n + 1
+			end
+		end
+		dirty[plr] = true
+		ProfileService.applyActive(plr)
+		push(plr, string.format("Maxed %d players.", n))
 	elseif kind == "adminBreak" then
 		-- a character's Breakthrough tab (the owner, 2026-10-29: "a seperate breakthrough max button
 		-- and a remove breakthrough button"; then "just make a remove breakthrough button for all

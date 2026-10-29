@@ -3503,6 +3503,26 @@ local function buildPlayers()
 		rosterFav = not rosterFav
 		MenuController.refresh()
 	end)
+	-- admins: every stat of every player you own to its ceiling (the owner, 2026-10-29: "give me a
+	-- max every character button", "admin only"); a second press within 3 s does it
+	local maxAllB, maxAllL = hairButton(panel, { Name = "MaxAll", Position = UDim2.fromOffset(258, 14), Size = UDim2.fromOffset(150, 46), Visible = false }, "Max all", 19)
+	Extra.maxAll = { button = maxAllB, label = maxAllL }
+	onClick(maxAllB, function()
+		if Extra.maxAllArmed and os.clock() - Extra.maxAllArmed < 3 then
+			Extra.maxAllArmed = nil
+			maxAllL.Text = "Max all"
+			sendProfile("adminMaxAll")
+			return
+		end
+		Extra.maxAllArmed = os.clock()
+		maxAllL.Text = "Press again"
+		task.delay(3.1, function()
+			if Extra.maxAllArmed and os.clock() - Extra.maxAllArmed >= 3 then
+				Extra.maxAllArmed = nil
+				maxAllL.Text = "Max all"
+			end
+		end)
+	end)
 	local roleItems = { { key = "All", text = "All", width = 76 } }
 	for _, r in ipairs({ "WS", "MB", "SE" }) do
 		table.insert(roleItems, { key = r, text = Config.Roles[r].Short, width = 76 })
@@ -3790,6 +3810,7 @@ local function refreshPlayers(prof)
 	pl.count.Text = string.format("%d of %d recruited. Showing %d.", have, total, #list)
 	pl.sortL.Text = "Sort: " .. rosterSort
 	pl.favIcon.ImageColor3 = rosterFav and Gui.SIGNAL or Gui.DIM
+	Extra.maxAll.button.Visible = prof.admin == true
 	pl.setRole(rosterRole)
 	pl.empty.Visible = #list == 0
 	for id, card in pairs(pl.cards) do
