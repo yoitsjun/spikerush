@@ -762,10 +762,12 @@ COURTS.Beach = {
 	pad = Color3.fromRGB(238, 98, 66),
 	paint = { court = Color3.fromRGB(234, 210, 162), line = Color3.fromRGB(30, 100, 212), material = Enum.Material.Sand, lineWidth = C.LineWidth * 1.6, lineMaterial = Enum.Material.Fabric, noFree = true },
 	light = {
-		props = { Ambient = Color3.fromRGB(118, 112, 110), OutdoorAmbient = Color3.fromRGB(150, 140, 136), Brightness = 2.4, ClockTime = 16.2, EnvironmentDiffuseScale = 0.5, EnvironmentSpecularScale = 0.3, ExposureCompensation = 0, ShadowSoftness = 0.25 },
-		bloom = { Intensity = 0.3, Size = 22, Threshold = 1.6 },
-		grade = { Saturation = 0.1, Contrast = 0.05, Brightness = 0.01, TintColor = Color3.fromRGB(255, 244, 228) },
-		atmo = { Density = 0.28, Haze = 1.4, Glare = 0.35, Color = Color3.fromRGB(214, 222, 236), Decay = Color3.fromRGB(236, 170, 120) },
+		-- a clear blue afternoon (the owner, 2026-10-29: "sky looks too drab. brighten up the
+		-- atmosphere. more blue"; it was a hazy pink dusk)
+		props = { Ambient = Color3.fromRGB(128, 132, 140), OutdoorAmbient = Color3.fromRGB(160, 170, 184), Brightness = 2.8, ClockTime = 14.2, EnvironmentDiffuseScale = 0.5, EnvironmentSpecularScale = 0.3, ExposureCompensation = 0.1, ShadowSoftness = 0.25 },
+		bloom = { Intensity = 0.35, Size = 24, Threshold = 1.5 },
+		grade = { Saturation = 0.2, Contrast = 0.06, Brightness = 0.03, TintColor = Color3.fromRGB(244, 250, 255) },
+		atmo = { Density = 0.2, Haze = 0.5, Glare = 0.2, Color = Color3.fromRGB(190, 224, 255), Decay = Color3.fromRGB(110, 176, 240) },
 		rays = { Intensity = 0.06, Spread = 0.8 },
 	},
 	build = function(scene, id)
@@ -776,9 +778,13 @@ COURTS.Beach = {
 		-- (it stops well short of the menu rooms, which SceneController builds 1600 studs out)
 		deco(part(scene, "Sea", Vector3.new(1100, 0.4, 2400), CFrame.new(C.WallHalfX + 17 + 550, -0.1, 0), Color3.fromRGB(34, 130, 190), Enum.Material.SmoothPlastic, { Reflectance = 0.15 }))
 		-- low islands on the horizon (the first also hides the menu rooms behind it)
-		for _, isle in ipairs({ { 1040, -320, 340, 46 }, { 900, 240, 220, 30 }, { 1080, 640, 380, 40 } }) do
+		-- (the first tall enough to hide the Home room's box behind it: the owner saw it)
+		for _, isle in ipairs({ { 1040, -320, 360, 70 }, { 900, 240, 220, 30 }, { 1080, 640, 380, 40 } }) do
 			ball(scene, "Island", Vector3.new(160, isle[4] * 2, isle[3]), Vector3.new(isle[1], 0, isle[2]), Color3.fromRGB(96, 124, 112), Enum.Material.Grass)
 		end
+		-- the sun over the sea, with a soft halo
+		deco(part(scene, "Sun", Vector3.new(2, 56, 56), CFrame.new(980, 108, 230), Color3.fromRGB(255, 246, 214), Enum.Material.Neon, { Shape = Enum.PartType.Cylinder }))
+		deco(part(scene, "SunHalo", Vector3.new(1, 130, 130), CFrame.new(990, 108, 230), Color3.fromRGB(255, 230, 170), Enum.Material.Neon, { Shape = Enum.PartType.Cylinder, Transparency = 0.86 }))
 		-- sand beyond the ends and the near side
 		deco(part(scene, "Dunes", Vector3.new(300, 1, 400), CFrame.new(-100, -0.55, 0), Color3.fromRGB(224, 198, 148), Enum.Material.Sand))
 		stands(scene, id, function(row)
