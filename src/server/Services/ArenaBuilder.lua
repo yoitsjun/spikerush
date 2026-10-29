@@ -780,7 +780,17 @@ COURTS.Beach = {
 		-- low islands on the horizon (the first also hides the menu rooms behind it)
 		-- (the first tall enough to hide the Home room's box behind it: the owner saw it)
 		for _, isle in ipairs({ { 1040, -330, 440, 92 }, { 900, 240, 220, 30 }, { 1080, 640, 380, 40 } }) do
-			ball(scene, "Island", Vector3.new(160, isle[4] * 2, isle[3]), Vector3.new(isle[1], 0, isle[2]), Color3.fromRGB(96, 124, 112), Enum.Material.Grass)
+			-- a sand shore round a green hill, palms on top (the owner, 2026-10-29: "instead of flat
+			-- green, we can add some sand and trees to them so they arent so drab")
+			local rx, ry, rz = 80, isle[4], isle[3] / 2
+			ball(scene, "IslandShore", Vector3.new(rx * 2.5, ry * 0.5, rz * 2.3), Vector3.new(isle[1], 0, isle[2]), Color3.fromRGB(236, 214, 164), Enum.Material.Sand)
+			ball(scene, "Island", Vector3.new(rx * 2, ry * 2, rz * 2), Vector3.new(isle[1], 0, isle[2]), Color3.fromRGB(74, 146, 88), Enum.Material.Grass)
+			local irng = Random.new(isle[1] + isle[2])
+			for _ = 1, 9 do
+				local u, w = (irng:NextNumber() - 0.5) * 1.1, (irng:NextNumber() - 0.5) * 1.5
+				local y = ry * math.sqrt(math.max(0, 1 - u * u - w * w * 0.45)) - 2
+				palmTree(scene, Vector3.new(isle[1] + u * rx, y, isle[2] + w * rz), 30 + irng:NextNumber() * 22 + ry * 0.2, Vector3.new((irng:NextNumber() - 0.5) * 0.5, 0, (irng:NextNumber() - 0.5) * 0.5), irng)
+			end
 		end
 		-- the sun over the sea, with a soft halo
 		deco(part(scene, "Sun", Vector3.new(2, 56, 56), CFrame.new(980, 108, 230), Color3.fromRGB(255, 246, 214), Enum.Material.Neon, { Shape = Enum.PartType.Cylinder }))
