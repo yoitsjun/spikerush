@@ -1,6 +1,6 @@
 -- Loading screen (ReplicatedFirst, so it shows before anything else loads).
--- A single frame held like a freeze in a replay: a flat cyan screen, a pillar of light with a
--- black ball at its top, and the VOLLEYBALL RUSH logo top left. While the game loads, a quiet line on
+-- A single frame held like a freeze in a replay: an orange-to-magenta screen, a pillar of light
+-- with a black ball at its top, and the VOLLEYBALL RUSH logo top left. While the game loads, a quiet line on
 -- the right says so (and a tip sits bottom left). Once the controllers run (Main.client sets
 -- "SpikeRushLoaded") and your avatar has loaded, its silhouette rises into the pillar and holds
 -- the bow-draw, the pointing hand just under the ball: the frame freezes on "Click to continue".
@@ -21,9 +21,9 @@ local player = Players.LocalPlayer
 local MAX_WAIT = 25 -- never hold a player on the loading part longer than this
 local MIN_LOAD = 1.5 -- the loading line shows at least this long
 
-local CYAN = Color3.fromRGB(0, 214, 240)
+local ORANGE = Color3.fromRGB(255, 132, 34)
 local INK = Color3.fromRGB(16, 18, 34)
-local BEAM = Color3.fromRGB(228, 252, 255)
+local BEAM = Color3.fromRGB(255, 240, 226)
 local MAGENTA = Color3.fromRGB(255, 46, 170)
 local WHITE = Color3.new(1, 1, 1)
 local MONTSERRAT = "rbxasset://fonts/families/Montserrat.json"
@@ -73,7 +73,8 @@ pcall(function()
 	ReplicatedFirst:RemoveDefaultLoadingScreen()
 end)
 
-local bg = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = CYAN, BorderSizePixel = 0 }, gui)
+local bg = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, gui)
+make("UIGradient", { Rotation = 35, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, ORANGE), ColorSequenceKeypoint.new(0.55, Color3.fromRGB(255, 92, 70)), ColorSequenceKeypoint.new(1, MAGENTA) }) }, bg) -- (orange into magenta: not the old flat amber)
 
 -- the stage: the silhouette, the pillar and the ball (shaken together on the hit)
 local stage = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, bg)

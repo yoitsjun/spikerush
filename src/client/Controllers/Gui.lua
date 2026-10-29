@@ -19,11 +19,14 @@ local Assets = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("As
 
 local Gui = {}
 
--- broadcast palette (Volleyball Rush: electric cyan on deep navy, magenta highlights)
+-- broadcast palette (Volleyball Rush: a deep orange on navy with magenta edges; the owner,
+-- 2026-10-28: "keep the core color orange on the menus... i just cant have it identical" to the old
+-- golden yellow)
 Gui.NAVY = Color3.fromRGB(11, 16, 46)
 Gui.NAVY_LIGHT = Color3.fromRGB(26, 34, 88)
-Gui.SIGNAL = Color3.fromRGB(0, 229, 255)
-Gui.SIGNAL_HOT = Color3.fromRGB(125, 243, 255)
+Gui.SIGNAL = Color3.fromRGB(255, 124, 28)
+Gui.SIGNAL_HOT = Color3.fromRGB(255, 178, 108)
+Gui.CYAN = Color3.fromRGB(0, 229, 255)
 Gui.MAGENTA = Color3.fromRGB(255, 46, 170)
 Gui.MAGENTA_HOT = Color3.fromRGB(255, 122, 206)
 Gui.BLUE = Color3.fromRGB(40, 92, 232)
@@ -108,13 +111,13 @@ function Gui.text(parent, props)
 	return l
 end
 
--- Big display title: white-to-cyan gradient fill with an ink outline.
+-- Big display title: white-to-orange gradient fill with an ink outline.
 function Gui.title(parent, props)
 	local l = Gui.text(parent, { Font = Gui.FONT_TITLE, TextSize = 44 })
 	for k, v in pairs(props or {}) do
 		l[k] = v
 	end
-	Gui.gradient(l, Color3.fromRGB(236, 255, 255), Gui.SIGNAL)
+	Gui.gradient(l, Color3.fromRGB(255, 242, 228), Gui.SIGNAL)
 	Gui.stroke(l, 3, Gui.INK, 0)
 	return l
 end
@@ -150,8 +153,8 @@ function Gui.primary(parent, text, props)
 		b[k] = v
 	end
 	Gui.corner(b, 6)
-	Gui.gradient(b, Color3.fromRGB(120, 246, 255), Color3.fromRGB(0, 186, 255))
-	Gui.stroke(b, 1.5, Color3.fromRGB(0, 112, 168), 0.1, true)
+	Gui.gradient(b, Color3.fromRGB(255, 170, 92), Color3.fromRGB(255, 102, 18))
+	Gui.stroke(b, 1.5, Color3.fromRGB(168, 58, 6), 0.1, true)
 	return b
 end
 

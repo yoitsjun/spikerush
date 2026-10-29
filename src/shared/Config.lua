@@ -77,6 +77,19 @@ Config.Ball = {
 	-- there. Now it starts from the hit and plays the path fast until it has caught up: over
 	-- lag * Stretch seconds (Time[1]..Time[2]). A lag past LagMax (joining mid-rally) still jumps.
 	CatchUp = { LagMin = 0.03, LagMax = 0.75, Stretch = 2.5, Time = { 0.15, 0.5 } },
+	-- Someone else's touch heard late (the owner, 2026-10-28: "work on the ball teleporting"): until
+	-- it arrived the ball flew on past their hands, into the floor even, then jumped back. While the
+	-- ball is in the reach of a player on another client who may touch it next (Side studs across,
+	-- Below..Above studs from their root, not rising faster than RiseMax), it's drawn at Rate of its
+	-- speed, falling up to Max seconds behind its flight, so their touch starts about where it's
+	-- drawn. Out of reach with no touch it catches up, Release seconds a second. Never while it's in
+	-- your own reach (Mine): you hit the real ball. Visual only.
+	ReachHold = { Rate = 0.2, Max = 0.35, Release = 1.6, Side = 7.5, Below = 4.5, Above = 7.5, RiseMax = 18, NetSlack = 0.5, Mine = 8.5 },
+	-- a correction this far (studs) or nearer glides over VisualBlendTime + distance / BlendSpeed
+	-- seconds (at most BlendTimeMax); further, it jumps (a new rally, a rejoin)
+	BlendMax = 40,
+	BlendSpeed = 220,
+	BlendTimeMax = 0.25,
 }
 
 Config.Player = {

@@ -33,6 +33,9 @@ local blendStart = 0
 local blendTime = Config.Ball.VisualBlendTime
 -- someone else's hit, heard late: shown from the hit, catching up (BallPhysics.catchUp)
 local warp = nil -- { seq, lag, at = os.clock() when heard }
+-- someone else's touch, ahead of it (Config.Ball.ReachHold): how far behind its flight the ball is
+-- drawn while it's in their reach, caught up again after
+local reachLag = 0
 
 -- Blocks seen from outside (the owner: "it looks like sometimes the ball teleports through the
 -- block"): a block is decided on the blocker's own client, so everyone else hears of it a beat
@@ -677,20 +680,21 @@ local function snapshot()
 end
 
 -- The time the ball is shown at: real time, or a little behind it while catching up to someone
--- else's hit (see warp).
+-- else's hit (see warp) or while it's in someone else's reach (see reachLag).
 local function viewTime(now)
 	if warp then
 		local behind = warp.seq == cur.seq and BallPhysics.catchUp(warp.lag, os.clock() - warp.at)
 		if behind then
-			return now - behind
+			return now - behind - reachLag
 		end
 		warp = nil
 	end
-	return now
+	return now - reachLag
 end
 
 local function adopt(snap, keepEvents, remote)
 	local oldPos = renderPos
+	local sameBall = snap.seq == cur.seq -- (the same flight, say its point called: no new hit)
 	cur.seq = snap.seq
 	cur.state = snap.state
 	cur.holder = snap.holder
@@ -718,8 +722,11 @@ local function adopt(snap, keepEvents, remote)
 	bounce = nil
 	blockHold = nil
 	blendOffset = Vector3.zero
-	warp = nil
-	if remote and cur.state == "Flight" and cur.path then
+	if not sameBall then
+		warp = nil
+		reachLag = 0
+	end
+	if remote and not sameBall and cur.state == "Flight" and cur.path then
 		local lag = Util.now() - BallPhysics.startTime(cur.path)
 		if BallPhysics.catchUp(lag, 0) then
 			warp = { seq = cur.seq, lag = lag, at = os.clock() }
@@ -728,10 +735,11 @@ local function adopt(snap, keepEvents, remote)
 	if cur.state == "Flight" and cur.path and oldPos.Y > -100 then
 		local newPos = BallPhysics.positionAt(cur.path, viewTime(Util.now()))
 		local err = oldPos - newPos
-		if err.Magnitude < 14 then
+		local B = Config.Ball
+		if err.Magnitude < B.BlendMax then
 			blendOffset = err
 			blendStart = os.clock()
-			blendTime = Config.Ball.VisualBlendTime
+			blendTime = math.min(B.VisualBlendTime + err.Magnitude / B.BlendSpeed, B.BlendTimeMax)
 		end
 	end
 	applyStyle(cur.meta)
@@ -911,7 +919,70 @@ local function atABlock(ball, vel)
 	return false
 end
 
+-- A root's reach box (Config.Ball.ReachHold) around `ball`: `side` studs across.
+local function inReachOf(root, ball, side)
+	local RH = Config.Ball.ReachHold
+	local d = ball - root
+	return d.Y > -RH.Below and d.Y < RH.Above and d.X * d.X + d.Z * d.Z < side * side
+end
+
+-- Whether the ball, drawn at `ball` moving with `vel`, is about to be touched on another client:
+-- in the reach of a player (or a bot) other than you who may touch it next (HitLogic.canTouch),
+-- on their side of the net, and not flying up past them.
+local function inRemoteReach(ball, vel)
+	local RH = Config.Ball.ReachHold
+	if vel.Y > RH.RiseMax then
+		return false
+	end
+	local touch = cur.touch or {}
+	for _, team in ipairs(Config.TeamOrder) do
+		if ball.Z * Config.Teams[team].Side > -RH.NetSlack then
+			local roster = State.roster(team)
+			for _, e in ipairs(roster) do
+				if e.id ~= State.myId and HitLogic.canTouch(touch, team, e.id, "Receive", #roster) then
+					local model = Util.modelOf(e.id)
+					local hrp = model and model:FindFirstChild("HumanoidRootPart")
+					if hrp and inReachOf(hrp.Position, ball, RH.Side) then
+						return true
+					end
+				end
+			end
+		end
+	end
+	return false
+end
+
+-- Whether the real ball is in your own reach (no holding it then: you hit the real ball).
+local function inMyReach(t)
+	local model = Util.modelOf(State.myId)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	return hrp ~= nil and inReachOf(hrp.Position, BallPhysics.positionAt(cur.path, t), Config.Ball.ReachHold.Mine)
+end
+
+-- Grow or ease off the reach hold for this frame (see reachLag).
+local function updateReachHold(dt, realNow)
+	local RH = Config.Ball.ReachHold
+	if (cur.state ~= "Flight" and cur.state ~= "Dead") or not cur.path then
+		reachLag = 0
+		return
+	end
+	-- (the drawn ball's landing, not the real one's: a dig just before the floor is heard after the
+	-- real ball would have landed, and the drawn one waits for it; past it, the bounce eases back)
+	local shown = viewTime(realNow)
+	if cur.state == "Flight" and shown < cur.path.landing.t then
+		local ball = BallPhysics.positionAt(cur.path, shown)
+		if inRemoteReach(ball, BallPhysics.velocityAt(cur.path, shown)) and not inMyReach(realNow) then
+			reachLag = math.min(RH.Max, reachLag + dt * (1 - RH.Rate))
+			return
+		end
+	end
+	if reachLag > 0 then
+		reachLag = math.max(0, reachLag - dt * RH.Release)
+	end
+end
+
 local function update(dt)
+	updateReachHold(dt, Util.now())
 	local now = viewTime(Util.now())
 	local pos, vel = HIDDEN, Vector3.zero
 	local live = false
@@ -1166,7 +1237,16 @@ function BallRenderer.init()
 	buildVisuals()
 	watchToolboxBall()
 	applyStyle(nil)
-	Net.get("BallState").OnClientEvent:Connect(onState)
+	-- (Studio only: a "FakeBallLag" number attribute on workspace delays every ball snapshot that
+	-- many seconds, to see a live server's lag where there is none)
+	Net.get("BallState").OnClientEvent:Connect(function(snap)
+		local lag = RunService:IsStudio() and workspace:GetAttribute("FakeBallLag")
+		if type(lag) == "number" and lag > 0 then
+			task.delay(lag, onState, snap)
+		else
+			onState(snap)
+		end
+	end)
 	Net.get("HitReject").OnClientEvent:Connect(onReject)
 	-- who's up for a block right now (a block jump lasts about this long)
 	Net.get("ActionFX").OnClientEvent:Connect(function(entityId, kind)

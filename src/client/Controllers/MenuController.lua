@@ -585,8 +585,90 @@ local function currencyStrip(parent, props)
 	return cur
 end
 
--- The nav across the top of every main screen, Home's too: the screens with this one lit, and
--- Help and Settings at the top right, in the nav's row so they stay clear of the panels below.
+-- The profile chip, top right of every main screen in the nav's row (the owner, 2026-10-28: "move
+-- the player currency and profile to the top right"): your headshot (it opens your profile), your
+-- name, who you play and a line under it (Home fills those in), and your V Points and Gold with a
+-- "+" to the shop. placeNav sizes it (Extra.CHIP.W, narrower down to MinW before the nav shrinks).
+Extra.CHIP = { W = 400, MinW = 300, H = 74, CUR = 132 }
+function Extra.profileChip(p)
+	local C = Extra.CHIP
+	local chip = make("Frame", { Name = "ProfileChip", AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(C.W, C.H), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.15, BorderSizePixel = 0 }, p)
+	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.15, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, chip)
+	local shot = make("ImageLabel", {
+		Size = UDim2.fromOffset(C.H - 12, C.H - 12),
+		Position = UDim2.fromOffset(6, 6),
+		BackgroundColor3 = Gui.NAVY_LIGHT,
+		BorderSizePixel = 0,
+		Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(player.UserId) .. "&w=150&h=150",
+	}, chip)
+	make("UIStroke", { Color = Gui.SIGNAL, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, shot)
+	local shotBtn = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = shot.ZIndex + 1 }, shot)
+	onClick(shotBtn, function()
+		MenuController.openPlayerProfile(player.UserId)
+	end)
+	local textW = C.W - C.H - C.CUR - 10
+	local name = Gui.label(chip, { Text = player.DisplayName, display = true, TextSize = 24, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.fromOffset(textW, 26), Position = UDim2.fromOffset(C.H, 5) })
+	local sub = Gui.label(chip, { Text = "", TextSize = 14, weight = Enum.FontWeight.Medium, RichText = true, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.fromOffset(textW, 18), Position = UDim2.fromOffset(C.H, 32) })
+	local bar = Gui.plate(chip, { Size = UDim2.fromOffset(34, 4), Position = UDim2.fromOffset(C.H, 57) }, Gui.SIGNAL)
+	local badge = Gui.label(chip, { Text = "", TextSize = 12, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.fromOffset(textW - 40, 14), Position = UDim2.fromOffset(C.H + 40, 52) })
+	make("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -C.CUR, 0.5, 0), Size = UDim2.fromOffset(1, C.H - 20), BackgroundColor3 = Gui.HAIRLINE, BackgroundTransparency = 0.55, BorderSizePixel = 0 }, chip)
+	-- V Points and Gold, one a row, right-aligned
+	local amounts = {}
+	for i, iconFn in ipairs({ Gui.icon.vp, Gui.icon.gold }) do
+		local row = make("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -6, 0, 6 + (i - 1) * 32), Size = UDim2.fromOffset(C.CUR - 12, 30), BackgroundTransparency = 1 }, chip)
+		make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, row)
+		iconFn(row, 24).LayoutOrder = 1
+		amounts[i] = Gui.label(row, { Text = "0", display = true, TextSize = 20, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 28), LayoutOrder = 2 })
+		local plus = make("TextButton", { Text = "+", FontFace = Gui.display(), TextSize = 26, TextColor3 = Gui.SIGNAL, BackgroundTransparency = 1, Size = UDim2.fromOffset(18, 28), LayoutOrder = 3 }, row)
+		plus:SetAttribute("NavSkipFirst", true)
+		onClick(plus, function()
+			MenuController.go("shop")
+		end)
+	end
+	ui.currencies = ui.currencies or {}
+	table.insert(ui.currencies, { vp = amounts[1], gold = amounts[2] })
+	return { root = chip, name = name, sub = sub, badge = badge, bar = bar }
+end
+
+-- A chip's width: its name lines follow it (the currencies keep theirs).
+function Extra.sizeChip(c, w)
+	local C = Extra.CHIP
+	c.root.Size = UDim2.fromOffset(w, C.H)
+	local textW = w - C.H - C.CUR - 10
+	c.name.Size = UDim2.fromOffset(textW, 26)
+	c.sub.Size = UDim2.fromOffset(textW, 18)
+	c.badge.Size = UDim2.fromOffset(math.max(0, textW - 40), 14)
+end
+
+-- A small pill (an icon and its name) for the top-left group: AFK, Party, Help, Settings.
+function Extra.sidePill(parent, icon, caption, props)
+	local b = make("TextButton", { Name = caption, Size = UDim2.fromOffset(112, 40), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.2, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, parent)
+	b:SetAttribute("NavSkipFirst", true)
+	for k, v in pairs(props or {}) do
+		b[k] = v
+	end
+	local stroke = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.45, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+	local img = Gui.iconImage(b, icon, 22, Gui.CHALK, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0) })
+	local cap = Gui.label(b, { Text = caption, display = true, TextSize = 16, TextColor3 = Gui.CHALK, Size = UDim2.new(1, -40, 1, 0), Position = UDim2.fromOffset(38, 0) })
+	b.MouseEnter:Connect(function()
+		img.ImageColor3 = Gui.SIGNAL
+		cap.TextColor3 = Gui.SIGNAL
+		stroke.Transparency = 0
+		if Gui.onHover then
+			Gui.onHover()
+		end
+	end)
+	b.MouseLeave:Connect(function()
+		img.ImageColor3 = Gui.CHALK
+		cap.TextColor3 = Gui.CHALK
+		stroke.Transparency = 0.45
+	end)
+	return b
+end
+
+-- The nav across the top of every main screen, Home's too: the screens with this one lit, your
+-- profile chip at the top right, and AFK, Party, Help and Settings as pills at the top left under
+-- Roblox's own buttons (placeHeaders puts them there, with the strips).
 -- `lit` lights another tab than the screen's own (the Match screen lights Home).
 -- (Clans opens its window, ClanMenu: the owner, 2026-10-21, "add clans to the top part here")
 local MAIN_TABS = { { "IconHome", "Home", "home" }, { "IconJump", "Practice", "practice" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" }, { "IconRanks", "Ranks", "ranks" }, { "IconDefense", "Clans", "clans" } }
@@ -606,12 +688,14 @@ local function navBar(p, active, lit)
 			end
 		end)
 	end
-	-- (Party here at the top right: the right edge's column ran into the Match plate; AFK, the AFK
-	-- Lounge, too: LoungeMenu)
-	local side = make("Frame", { Name = "Side", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, 18), Size = UDim2.fromOffset(4 * 96 + 18, 74), BackgroundTransparency = 1 }, p)
-	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Right, SortOrder = Enum.SortOrder.LayoutOrder }, side)
-	for i, e in ipairs({ { Extra.iconKey("IconAfk", Extra.iconKey("IconPlaytime", "IconSpeed")), "AFK", "afk" }, { "IconPlayers", "Party", "party" }, { "IconHelp", "Help", "help" }, { "IconSettings", "Settings", "settings" } }) do
-		local b = navItem(side, e[1], e[2], { LayoutOrder = i })
+	-- (AFK, the AFK Lounge (LoungeMenu), and Help: pills at the top left; Party is Home's, beside
+	-- Recruit Player; Settings is on the right, by your profile chip)
+	local side = make("Frame", { Name = "Side", Position = UDim2.fromOffset(M, 24), Size = UDim2.fromOffset(2 * 112 + 8, 40), BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, side)
+	ui.strips = ui.strips or {}
+	table.insert(ui.strips, side)
+	for i, e in ipairs({ { Extra.iconKey("IconAfk", Extra.iconKey("IconPlaytime", "IconSpeed")), "AFK", "afk" }, { "IconHelp", "Help", "help" } }) do
+		local b = Extra.sidePill(side, e[1], e[2], { LayoutOrder = i })
 		onClick(b, function()
 			if e[3] == "afk" then
 				-- going AFK leaves this server (your own lounge server), so a second press within 3 s
@@ -625,28 +709,26 @@ local function navBar(p, active, lit)
 					Extra.afkArmedAt = os.clock()
 					toast("Press AFK again to go to the AFK Lounge (you'll leave this server).")
 				end
-			elseif e[3] == "party" then
-				if mods.PartyMenu then
-					mods.PartyMenu.open()
-				end
-			elseif e[3] == "settings" then
-				mods.UIController.toggleSettings(b.AbsolutePosition.Y + b.AbsoluteSize.Y + 6)
 			else
 				ui.help.root.Visible = true
 			end
 		end)
 	end
+	-- Settings on the right (the owner, 2026-10-28: "fit settings somewhere on the right hand
+	-- side"): in the nav's row, just left of your profile chip (placeNav)
+	local gear = navItem(p, "IconSettings", "Settings", { Name = "SettingsButton" })
+	onClick(gear, function()
+		mods.UIController.toggleSettings(gear.AbsolutePosition.Y + gear.AbsoluteSize.Y + 6)
+	end)
+	local chip = Extra.profileChip(p)
 	ui.navBars = ui.navBars or {}
-	table.insert(ui.navBars, { nav = nav, side = side })
-	return nav, side
+	table.insert(ui.navBars, { nav = nav, side = side, chip = chip, gear = gear })
+	return nav, side, chip
 end
 
--- The top of the main screens (Practice, Shop, Players, Locker, Ranks, Match): the currencies top
--- left under Roblox's own buttons (placeHeaders moves them) and the nav.
+-- The top of the main screens (Practice, Shop, Players, Locker, Ranks, Match): the nav, with the
+-- profile chip (your currencies) top right and the pills top left under Roblox's own buttons.
 local function mainChrome(p, active, lit)
-	local strip = currencyStrip(p, { Position = UDim2.fromOffset(M, 24) })
-	ui.strips = ui.strips or {}
-	table.insert(ui.strips, strip)
 	return navBar(p, active, lit)
 end
 chrome.currencyStrip = currencyStrip
@@ -656,98 +738,15 @@ chrome.navItem = navItem
 -- across the top (every main screen's), the featured recruit and your record on the left, a tip
 -- at the bottom, and Recruit Player and the big slanted Match plate (the Match screen) bottom
 -- right.
-local PROFILE_H = 152 -- the profile block: the headshot row and the currencies under it
+local PILLS_H = 40 -- the pills under Roblox's buttons (AFK, Party, Help, Settings)
 local NAV_BOTTOM = 92 -- where the nav across the top ends
 
 local function buildHome()
 	local p = page("home")
 
-	-- profile, top left under Roblox's own buttons (placeHome moves it there): a square
-	-- headshot, the name, who you play, a slanted accent bar, and the currencies under it
-	local prof = make("Frame", { Name = "Profile", Size = UDim2.fromOffset(560, PROFILE_H), Position = UDim2.fromOffset(M, 24), BackgroundTransparency = 1 }, p)
-	local shot = make("ImageLabel", {
-		Size = UDim2.fromOffset(100, 100),
-		BackgroundColor3 = Gui.NAVY_LIGHT,
-		BorderSizePixel = 0,
-		Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(player.UserId) .. "&w=150&h=150",
-	}, prof)
-	make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, shot)
-	-- the headshot opens your profile (your record and your leaderboard places)
-	local shotBtn = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = shot.ZIndex + 1 }, shot)
-	local shotTag = Gui.plate(shot, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 6), Size = UDim2.fromOffset(84, 22), ZIndex = shot.ZIndex + 2 }, Gui.SIGNAL)
-	Gui.label(shotTag, { Text = "PROFILE", display = true, weight = Enum.FontWeight.Heavy, TextSize = 13, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = shot.ZIndex + 3 })
-	onClick(shotBtn, function()
-		MenuController.openPlayerProfile(player.UserId)
-	end)
-	local name = Gui.label(prof, {
-		Text = player.DisplayName,
-		display = true,
-		TextSize = 42,
-		TextStrokeTransparency = 0.6,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		Size = UDim2.fromOffset(420, 46),
-		Position = UDim2.fromOffset(118, -4),
-	})
-	local sub = Gui.label(prof, {
-		Text = "",
-		TextSize = 20,
-		weight = Enum.FontWeight.Medium,
-		RichText = true,
-		TextStrokeTransparency = 0.6,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		Size = UDim2.fromOffset(420, 24),
-		Position = UDim2.fromOffset(118, 44),
-	})
-	Gui.plate(prof, { Size = UDim2.fromOffset(84, 6), Position = UDim2.fromOffset(118, 80) }, Gui.SIGNAL)
-	local badge = Gui.label(prof, {
-		Text = "",
-		TextSize = 15,
-		weight = Enum.FontWeight.Medium,
-		TextColor3 = Gui.SIGNAL,
-		TextStrokeTransparency = 0.6,
-		Size = UDim2.fromOffset(330, 18),
-		Position = UDim2.fromOffset(214, 74),
-	})
-
-	-- currencies under the headshot: icon, amount, a "+" to the shop
-	local cur = make("Frame", { Size = UDim2.fromOffset(560, 40), Position = UDim2.fromOffset(0, 112), BackgroundTransparency = 1 }, prof)
-	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, cur)
-	local function currency(order, iconFn)
-		iconFn(cur, 32).LayoutOrder = order
-		local amount = Gui.label(cur, {
-			Text = "0",
-			display = true,
-			TextSize = 28,
-			TextStrokeTransparency = 0.6,
-			AutomaticSize = Enum.AutomaticSize.X,
-			Size = UDim2.fromOffset(0, 36),
-			LayoutOrder = order + 1,
-		})
-		local plus = make("TextButton", {
-			Text = "+",
-			FontFace = Gui.display(),
-			TextSize = 34,
-			TextColor3 = Gui.SIGNAL,
-			BackgroundTransparency = 1,
-			Size = UDim2.fromOffset(28, 36),
-			LayoutOrder = order + 2,
-		}, cur)
-		return amount, plus
-	end
-	local vp, vpPlus = currency(1, Gui.icon.vp)
-	make("Frame", { Size = UDim2.fromOffset(16, 1), BackgroundTransparency = 1, LayoutOrder = 4 }, cur)
-	local gold, goldPlus = currency(5, Gui.icon.gold)
-	onClick(vpPlus, function()
-		MenuController.go("shop")
-	end)
-	onClick(goldPlus, function()
-		MenuController.go("shop")
-	end)
-	ui.currencies = ui.currencies or {}
-	table.insert(ui.currencies, { vp = vp, gold = gold })
-
-	-- the nav across the top, the same as every main screen's
-	local nav = navBar(p, "home")
+	-- the nav across the top, the same as every main screen's, with your profile chip at its right
+	-- (your name, who you play, a line, your currencies) and the pills top left
+	local nav, side, chip = navBar(p, "home")
 
 	-- down the right edge (The Spike has its icons there): the daily reward (a dot when one's
 	-- waiting), codes, and the admin panel for developers
@@ -810,7 +809,7 @@ local function buildHome()
 	Extra.luckChip = { plate = luckPlate, label = Gui.label(luckPlate, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 21, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 }) }
 
 	-- the left column under the profile (placeHome moves the two together)
-	local column = make("Frame", { Name = "Column", Size = UDim2.fromOffset(470, 546), Position = UDim2.fromOffset(M, 24 + PROFILE_H + 20), BackgroundTransparency = 1 }, p)
+	local column = make("Frame", { Name = "Column", Size = UDim2.fromOffset(470, 546), Position = UDim2.fromOffset(M, 24 + PILLS_H + 16), BackgroundTransparency = 1 }, p)
 
 	-- the featured recruit, as an event card: the tier as a huge faint watermark (no character
 	-- art: the card sells the pull), halftone grain, the ability, quick links along the bottom
@@ -924,6 +923,18 @@ local function buildHome()
 	local rSub = Gui.label(recruit, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, Size = UDim2.new(1, -12, 0, 16), Position = UDim2.fromOffset(6, 90), TextXAlignment = Enum.TextXAlignment.Center })
 	onClick(recruit, goRecruit)
 
+	-- Party beside it (the owner, 2026-10-28: "move party near recruitment"): queue up together
+	local partyBtn = Gui.cardButton(p, { Name = "Party", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M - 360 - 14 - 150 - 12, 1, -M), Size = UDim2.fromOffset(120, 120) })
+	local pIcon = Gui.iconImage(partyBtn, "IconPlayers", 40, Gui.HAIRLINE, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 16) })
+	pIcon.Name = "Icon"
+	Gui.label(partyBtn, { Text = "Party", display = true, TextSize = 19, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 64), TextXAlignment = Enum.TextXAlignment.Center })
+	Gui.label(partyBtn, { Text = "Queue together", TextSize = 13, TextColor3 = Gui.DIM, Size = UDim2.new(1, -12, 0, 16), Position = UDim2.fromOffset(6, 90), TextXAlignment = Enum.TextXAlignment.Center })
+	onClick(partyBtn, function()
+		if mods.PartyMenu then
+			mods.PartyMenu.open()
+		end
+	end)
+
 	-- your AI is playing for you: a red-edged card over the buttons
 	local rejoin = Gui.card(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 134), Size = UDim2.fromOffset(524, 64), Visible = false })
 	rejoin.UIStroke.Color = Gui.ALERT
@@ -937,11 +948,11 @@ local function buildHome()
 	end)
 
 	ui.home = {
-		profile = prof,
+		profile = side,
 		column = column,
-		name = name,
-		sub = sub,
-		badge = badge,
+		name = chip.name,
+		sub = chip.sub,
+		badge = chip.badge,
 		evName = evName,
 		evTier = evTier,
 		evTierText = evTierText,
@@ -1002,16 +1013,17 @@ function Extra.refreshHome(prof)
 	hm.adminBtn.Visible = prof.admin == true
 end
 
--- The nav across the top and its right-hand group (AFK, Party, Help, Settings) share the top row.
--- Centred, the nav ran into that group on anything narrower than 16:9 and into Roblox's buttons
--- on a square or upright screen (the owner, 2026-10-25: "the top menu is way too crowded, and
--- some buttons overlap"), so where the centred row doesn't clear both, the nav packs up against
--- the group, and the buttons narrow (down to NAV_MIN_W) to fit right of Roblox's buttons. With
--- too little room even then (a phone held upright) the row drops under Roblox's top bar.
+-- The nav across the top and the profile chip at its right share the top row. Centred, the nav ran
+-- into the right of the row on anything narrower than 16:9 and into Roblox's buttons on a square
+-- or upright screen (the owner, 2026-10-25: "the top menu is way too crowded, and some buttons
+-- overlap"), so where the centred row doesn't clear both, the nav packs up against the chip, the
+-- chip narrows (to CHIP.MinW), then the buttons narrow (down to NAV_MIN_W) to fit right of
+-- Roblox's buttons. With too little room even then (a phone held upright) the row drops under
+-- Roblox's top bar.
 -- (no new locals here: this file is at Lua's 200)
 Extra.NAV = { W = 96, MinW = 70, Gap = 14, SideGap = 6, GroupGap = 24 }
 function Extra.placeNav()
-	local NAV_W, NAV_MIN_W, NAV_GAP, SIDE_GAP, GROUP_GAP = Extra.NAV.W, Extra.NAV.MinW, Extra.NAV.Gap, Extra.NAV.SideGap, Extra.NAV.GroupGap
+	local NAV_W, NAV_MIN_W, NAV_GAP, GROUP_GAP = Extra.NAV.W, Extra.NAV.MinW, Extra.NAV.Gap, Extra.NAV.GroupGap
 	local bars = ui.navBars
 	if not bars or #bars == 0 then
 		return
@@ -1020,29 +1032,36 @@ function Extra.placeNav()
 	local W = canvas.Size.X.Offset
 	local right = W - M + 12
 	local n1 = #MAIN_TABS
-	local n2 = 0
-	for _, c in ipairs(bars[1].side:GetChildren()) do
-		if c:IsA("GuiButton") then
-			n2 = n2 + 1
-		end
-	end
+	local CH = Extra.CHIP
+	local chipW = CH.W
+	local GEAR_GAP = 10 -- between Settings and the chip
 	local function width(left)
-		return math.min(NAV_W, (right - left - NAV_GAP * (n1 - 1) - SIDE_GAP * (n2 - 1) - GROUP_GAP) / (n1 + n2))
+		return math.min(NAV_W, (right - left - chipW - GEAR_GAP - NAV_GAP * (n1 - 1) - GROUP_GAP) / (n1 + 1))
 	end
 	local left = math.max(M, GuiService.TopbarInset.Min.X / s + 8)
 	local top = 18
 	local w = width(left)
+	if w < NAV_MIN_W then
+		-- the chip gives up its room first (its name narrows), down to MinW
+		chipW = math.max(CH.MinW, chipW - (NAV_MIN_W - w) * (n1 + 1))
+		w = width(left)
+	end
 	Extra.navDropped = w < NAV_MIN_W
 	if Extra.navDropped then
 		top = math.max(18, GuiService:GetGuiInset().Y / s + 6)
 		left = M
-		w = math.max(width(M), 56)
+		chipW = CH.W
+		w = width(M)
+		if w < 56 then
+			chipW = math.max(CH.MinW, chipW - (56 - w) * (n1 + 1))
+			w = math.max(width(M), 56)
+		end
 	end
 	local navW = n1 * w + NAV_GAP * (n1 - 1)
-	local sideW = n2 * w + SIDE_GAP * (n2 - 1)
+	local gearX = right - chipW - GEAR_GAP - w
 	local navLeft = W / 2 + 30 - navW / 2
-	if navLeft < left or navLeft + navW > right - sideW - GROUP_GAP then
-		navLeft = math.max(left, right - sideW - GROUP_GAP - navW)
+	if navLeft < left or navLeft + navW > gearX - GROUP_GAP then
+		navLeft = math.max(left, gearX - GROUP_GAP - navW)
 	end
 	Extra.navLeft = navLeft
 	Extra.navBottom = top + 74
@@ -1050,14 +1069,18 @@ function Extra.placeNav()
 		b.nav.AnchorPoint = Vector2.new(0, 0)
 		b.nav.Position = UDim2.fromOffset(navLeft, top)
 		b.nav.Size = UDim2.fromOffset(navW, 74)
-		b.side.Position = UDim2.new(1, -M + 12, 0, top)
-		b.side.Size = UDim2.fromOffset(sideW, 74)
-		for _, row in ipairs({ b.nav, b.side }) do
-			for _, c in ipairs(row:GetChildren()) do
-				if c:IsA("GuiButton") then
-					c.Size = UDim2.fromOffset(w, 74)
-				end
+		for _, c in ipairs(b.nav:GetChildren()) do
+			if c:IsA("GuiButton") then
+				c.Size = UDim2.fromOffset(w, 74)
 			end
+		end
+		if b.chip then
+			b.chip.root.Position = UDim2.new(1, -M + 12, 0, top)
+			Extra.sizeChip(b.chip, chipW)
+		end
+		if b.gear then
+			b.gear.Position = UDim2.fromOffset(gearX, top)
+			b.gear.Size = UDim2.fromOffset(w, 74)
 		end
 	end
 end
@@ -1077,15 +1100,8 @@ local function placeHome()
 		top = Extra.navBottom + 12 -- (the nav row sits under Roblox's bar: placeNav)
 	end
 	hm.profile.Position = UDim2.fromOffset(M, top)
-	hm.column.Position = UDim2.fromOffset(M, top + PROFILE_H + 20)
+	hm.column.Position = UDim2.fromOffset(M, top + PILLS_H + 16)
 	hm.extras.Position = UDim2.new(1, -M + 12, 0, (Extra.navBottom or NAV_BOTTOM) + 22)
-	local width = 420
-	if top - 4 < (Extra.navBottom or NAV_BOTTOM) then
-		local navLeft = Extra.navLeft or (canvas.Size.X.Offset / 2 + 30 - hm.navWidth / 2)
-		width = math.clamp(navLeft - (M + 118) - 16, 160, 420)
-	end
-	hm.name.Size = UDim2.fromOffset(width, 46)
-	hm.sub.Size = UDim2.fromOffset(width, 24)
 end
 
 -- A sub-screen's back button and title reach into the top bar on short screens: there they slide
@@ -1153,6 +1169,13 @@ local function refreshHome(prof)
 		hm.badge.Text = "Developer: everything unlocked"
 	else
 		hm.badge.Text = string.format("%d of %d players recruited", have, total)
+	end
+	-- every main screen's profile chip says the same as Home's
+	for _, bar in ipairs(ui.navBars or {}) do
+		if bar.chip and bar.chip.sub ~= hm.sub then
+			bar.chip.sub.Text = hm.sub.Text
+			bar.chip.badge.Text = hm.badge.Text
+		end
 	end
 	local f = FEATURED[((hm.featured - 1) % math.max(1, #FEATURED)) + 1]
 	if f then
@@ -9223,7 +9246,7 @@ function Extra.buildTour()
 		if mods.UIController.settingsOpen() then
 			mods.UIController.toggleSettings()
 		end
-		toast("Tour skipped. Help (top right) has the controls any time.")
+		toast("Tour skipped. Help (top left) has the controls any time.")
 	end)
 	-- your first match ends the tour
 	State.signals.Match:Connect(function()
@@ -9278,9 +9301,8 @@ function Extra.tourNow()
 			end
 		else
 			local pg = ui.pages[screen]
-			local side = pg and pg:FindFirstChild("Side")
-			s.body = "Open Settings (top right) to change your keys and the camera, any time."
-			s.targets = { side and side:FindFirstChild("Settings") }
+			s.body = "Open Settings (top right, by your profile) to change your keys and the camera, any time."
+			s.targets = { pg and pg:FindFirstChild("SettingsButton") }
 		end
 		return s
 	end
