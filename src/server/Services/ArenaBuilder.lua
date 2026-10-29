@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Court = require(Shared.Court)
+local Assets = require(Shared.Assets)
 
 local ArenaBuilder = {}
 
@@ -221,17 +222,18 @@ end
 ------------------------------------------------------------------------------------------
 
 -- The court paint: the free zone, the court, the darker front zones and the lines.
--- p = { free, court, front, line, material, lineWidth, noFree }
+-- p = { free, court, front, line, material, lineWidth, noFree, gloss (a polished floor's shine) }
 local function paint(scene, p)
 	local fx, fz = C.HalfWidth + C.FreeZoneSide, C.SideDepth + C.FreeZoneEnd
 	local mat = p.material or Enum.Material.SmoothPlastic
+	local shine = { Reflectance = p.gloss or 0 }
 	if not p.noFree then
-		deco(part(scene, "FreeZone", Vector3.new(fx * 2, 0.05, fz * 2), CFrame.new(0, 0.025, 0), p.free, mat))
+		deco(part(scene, "FreeZone", Vector3.new(fx * 2, 0.05, fz * 2), CFrame.new(0, 0.025, 0), p.free, mat, shine))
 	end
-	deco(part(scene, "Court", Vector3.new(C.HalfWidth * 2, 0.04, C.SideDepth * 2), CFrame.new(0, 0.06, 0), p.court, mat))
+	deco(part(scene, "Court", Vector3.new(C.HalfWidth * 2, 0.04, C.SideDepth * 2), CFrame.new(0, 0.06, 0), p.court, mat, shine))
 	if p.front then
 		for _, sz in ipairs({ -1, 1 }) do
-			deco(part(scene, "FrontZone", Vector3.new(C.HalfWidth * 2, 0.04, C.AttackLine), CFrame.new(0, 0.07, sz * C.AttackLine / 2), p.front, mat))
+			deco(part(scene, "FrontZone", Vector3.new(C.HalfWidth * 2, 0.04, C.AttackLine), CFrame.new(0, 0.07, sz * C.AttackLine / 2), p.front, mat, shine))
 		end
 	end
 
@@ -385,6 +387,104 @@ local function lamp(parent, pos, kind, props)
 	return holder
 end
 
+-- Daylight through a hall's high windows: a glass band along the far wall at `wx` from y0 to y1,
+-- steel mullions and a transom, and a glowing stripe under it.
+local function windowBand(scene, wx, y0, y1, glass, stripe)
+	local D = C.WallHalfZ
+	local steel = Color3.fromRGB(64, 68, 80)
+	local mid = (y0 + y1) / 2
+	deco(part(scene, "Windows", Vector3.new(0.4, y1 - y0, D * 2), CFrame.new(wx - 0.3, mid, 0), glass, Enum.Material.Neon, { Transparency = 0.42 }))
+	for z = -D, D, 9 do
+		deco(part(scene, "Mullion", Vector3.new(0.8, y1 - y0 + 0.6, 0.8), CFrame.new(wx - 0.7, mid, z), steel, Enum.Material.Metal))
+	end
+	deco(part(scene, "Transom", Vector3.new(0.8, 0.7, D * 2), CFrame.new(wx - 0.7, mid, 0), steel, Enum.Material.Metal))
+	if stripe then
+		deco(part(scene, "Stripe", Vector3.new(0.5, 0.6, D * 2), CFrame.new(wx - 0.5, y0 - 1.1, 0), stripe, Enum.Material.Neon))
+	end
+end
+
+-- Late sun through the high windows (the owner, 2026-10-28: "the orange glow and feel of haikyuu
+-- volleyball courts"): long shafts of light from the far wall's windows slanting down across the
+-- stands to the floor, each two crossed glowing planes, and dust hanging in the light.
+local function sunbeams(scene, wx, top, color)
+	local f = folder(scene, "Sunbeams")
+	for _, z in ipairs({ -54, -24, 6, 36, 62 }) do
+		local from = Vector3.new(wx - 1, top, z)
+		local to = Vector3.new(-6, 0, z - 14)
+		local len = (to - from).Magnitude
+		local base = CFrame.lookAt(from, to) * CFrame.new(0, 0, -len / 2)
+		for i = 0, 1 do
+			deco(part(f, "Beam", Vector3.new(7, 0.1, len), base * CFrame.Angles(0, 0, i * math.pi / 2), color, Enum.Material.Neon, { Transparency = 0.955 }))
+		end
+	end
+	local haze = deco(part(f, "Dust", Vector3.new(60, 26, C.WallHalfZ * 1.6), CFrame.new(18, 18, 0), WHITE, nil, { Transparency = 1 }))
+	local dust = Instance.new("ParticleEmitter")
+	dust.Texture = Assets.id(Assets.Fx.Dot) or ""
+	dust.Shape = Enum.ParticleEmitterShape.Box
+	dust.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	dust.Rate = 26
+	dust.Lifetime = NumberRange.new(9, 14)
+	dust.Speed = NumberRange.new(0.2, 0.5)
+	dust.SpreadAngle = Vector2.new(180, 180)
+	dust.Size = NumberSequence.new(0.22)
+	dust.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.55), NumberSequenceKeypoint.new(0.7, 0.55), NumberSequenceKeypoint.new(1, 1) })
+	dust.LightEmission = 1
+	dust.Color = ColorSequence.new(Color3.fromRGB(255, 220, 170))
+	dust.Parent = haze
+	return f
+end
+
+-- A cloth banner hung over the far stands, facing the camera: navy cloth, a stripe in `color`,
+-- a ball mark and three words.
+local function hangBanner(scene, pos, color, words)
+	local cloth = deco(part(scene, "Hang", Vector3.new(0.3, 13, 6), CFrame.new(pos), Color3.fromRGB(18, 26, 56), Enum.Material.Fabric))
+	deco(part(scene, "HangRod", Vector3.new(0.4, 0.4, 6.6), CFrame.new(pos + Vector3.new(0, 6.7, 0)), Color3.fromRGB(70, 74, 86), Enum.Material.Metal))
+	local sg = Instance.new("SurfaceGui")
+	sg.Face = Enum.NormalId.Left
+	sg.LightInfluence = 0.5
+	sg.PixelsPerStud = 20
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.Parent = cloth
+	local stripe = Instance.new("Frame")
+	stripe.Size = UDim2.new(0.16, 0, 1, 0)
+	stripe.Position = UDim2.fromScale(0.08, 0)
+	stripe.BackgroundColor3 = color
+	stripe.BorderSizePixel = 0
+	stripe.Parent = sg
+	local mark = Instance.new("Frame")
+	mark.AnchorPoint = Vector2.new(0.5, 0)
+	mark.Position = UDim2.fromScale(0.6, 0.07)
+	mark.Size = UDim2.fromOffset(56, 56)
+	mark.BackgroundTransparency = 1
+	mark.Parent = sg
+	local ring = Instance.new("UIStroke")
+	ring.Color = Color3.new(1, 1, 1)
+	ring.Thickness = 5
+	ring.Parent = mark
+	local rc = Instance.new("UICorner")
+	rc.CornerRadius = UDim.new(0.5, 0)
+	rc.Parent = mark
+	local seam = Instance.new("Frame")
+	seam.AnchorPoint = Vector2.new(0.5, 0.5)
+	seam.Position = UDim2.fromScale(0.5, 0.5)
+	seam.Size = UDim2.new(1, 0, 0, 5)
+	seam.Rotation = -30
+	seam.BackgroundColor3 = color
+	seam.BorderSizePixel = 0
+	seam.Parent = mark
+	local lines = Instance.new("TextLabel")
+	lines.BackgroundTransparency = 1
+	lines.AnchorPoint = Vector2.new(0.5, 0)
+	lines.Position = UDim2.fromScale(0.6, 0.32)
+	lines.Size = UDim2.fromScale(0.7, 0.6)
+	lines.Text = table.concat(words, "\n")
+	lines.TextScaled = true
+	lines.FontFace = DISPLAY
+	lines.TextColor3 = Color3.fromRGB(240, 242, 250)
+	lines.Parent = sg
+	return cloth
+end
+
 ------------------------------------------------------------------------------------------
 -- courts
 ------------------------------------------------------------------------------------------
@@ -445,35 +545,48 @@ end
 
 local COURTS = {}
 
--- Rush Arena: the original hall, navy and warm.
+-- Rush Arena: the pro hall, as Home's (the owner, 2026-10-28: "i like how this arena looks"), in
+-- the warm glow of an anime gym ("replicate the orange glow and feel of haikyuu volleyball
+-- courts"): a polished orange court on a teal free zone, late sun through the high windows
+-- slanting across the hall, dust in the light, warm lamps, a soft bloom; blue seats, banners hung
+-- in front of the windows.
+local ORANGE = Color3.fromRGB(255, 124, 28)
 COURTS.Arena = {
-	floor = { Color3.fromRGB(176, 124, 78), Enum.Material.WoodPlanks },
-	pad = Color3.fromRGB(38, 110, 235),
-	paint = { free = Color3.fromRGB(33, 96, 140), court = Color3.fromRGB(236, 128, 52), front = Color3.fromRGB(214, 108, 42) },
+	floor = { Color3.fromRGB(44, 40, 46), Enum.Material.SmoothPlastic },
+	pad = ORANGE,
+	paint = { free = Color3.fromRGB(22, 96, 132), court = Color3.fromRGB(232, 112, 36), front = Color3.fromRGB(214, 98, 30), gloss = 0.06 },
 	light = {
-		props = { Ambient = Color3.fromRGB(88, 86, 96), OutdoorAmbient = Color3.fromRGB(96, 94, 104), Brightness = 0.8, ClockTime = 20.5, EnvironmentDiffuseScale = 0.25, EnvironmentSpecularScale = 0.15, ExposureCompensation = -0.25, ShadowSoftness = 0.6 },
-		bloom = { Intensity = 0.18, Size = 18, Threshold = 2.2 },
-		grade = { Saturation = 0.02, Contrast = 0.04, Brightness = -0.02, TintColor = Color3.fromRGB(252, 246, 238) },
-		atmo = { Density = 0.06, Haze = 0.2, Glare = 0, Color = Color3.fromRGB(150, 150, 170), Decay = Color3.fromRGB(80, 80, 100) },
+		props = { Ambient = Color3.fromRGB(132, 112, 96), OutdoorAmbient = Color3.fromRGB(140, 118, 98), Brightness = 1.8, ClockTime = 17.2, EnvironmentDiffuseScale = 0.5, EnvironmentSpecularScale = 0.4, ExposureCompensation = -0.05, ShadowSoftness = 0.45 },
+		bloom = { Intensity = 0.26, Size = 26, Threshold = 1.75 },
+		grade = { Saturation = 0.18, Contrast = 0.14, Brightness = 0, TintColor = Color3.fromRGB(255, 234, 210) },
+		atmo = { Density = 0.1, Haze = 0.45, Glare = 0.1, Color = Color3.fromRGB(255, 212, 172), Decay = Color3.fromRGB(214, 140, 90) },
+		rays = { Intensity = 0.05, Spread = 0.6 },
 	},
 	build = function(scene, id)
-		hall(scene, id, {
-			wall = Color3.fromRGB(24, 28, 58),
+		local wx = hall(scene, id, {
+			wall = Color3.fromRGB(84, 78, 80),
 			accentA = HOME,
 			accentB = AWAY,
 			bannerText = "VOLLEYBALL RUSH",
 			bannerColor = CHALK,
-			ceiling = Color3.fromRGB(14, 16, 30),
-			light = Color3.fromRGB(255, 244, 226),
-			lightBrightness = 0.9,
-			wash = Color3.fromRGB(200, 210, 255),
+			ceiling = Color3.fromRGB(96, 90, 90),
+			light = Color3.fromRGB(255, 234, 200),
+			lightBrightness = 1.4,
+			wash = Color3.fromRGB(255, 224, 190),
 		})
 		stands(scene, id, function(row)
-			local s = 0.85 + (row.index % 2) * 0.12
-			return Color3.new(0.2 * s, 0.22 * s, 0.34 * s)
+			if row.index % 2 == 0 then
+				return Color3.fromRGB(40, 86, 180)
+			end
+			return Color3.fromRGB(32, 72, 156)
 		end)
-		rails(scene, id, CHALK)
-		screens(scene, { frame = Color3.fromRGB(40, 46, 80) })
+		rails(scene, id, ORANGE)
+		windowBand(scene, wx, 23, 36, Color3.fromRGB(255, 196, 128), ORANGE)
+		sunbeams(scene, wx, 32, Color3.fromRGB(255, 206, 140))
+		for i, b in ipairs({ { -50, HOME, { "SERVE", "SPIKE", "RISE" } }, { -17, AWAY, { "ONE", "MORE", "POINT" } }, { 17, HOME, { "RULE", "THE", "NET" } }, { 50, AWAY, { "JUMP", "HIGHER", "HIT" } } }) do
+			hangBanner(scene, Vector3.new(wx - 2.2, 31 + (i % 2) * 0.8, b[1]), b[2], b[3])
+		end
+		screens(scene, { frame = Color3.fromRGB(40, 44, 56) })
 		ledBoards(scene)
 		benches(scene)
 	end,
@@ -516,12 +629,24 @@ COURTS.Nationals = {
 		local deckY = S.BaseTop + S.Rows * S.RowRise + 1
 		deco(part(scene, "Fascia", Vector3.new(0.4, 1.6, S.FarLength), CFrame.new(standsBack(id) + 0.4, deckY, 0), INK))
 		deco(part(scene, "FasciaGold", Vector3.new(0.5, 0.3, S.FarLength), CFrame.new(standsBack(id) + 0.2, deckY + 0.9, 0), gold, Enum.Material.Metal))
-		-- championship flags hung over the far stands
+		-- the skyboxes over the upper deck: a dark glass band of lit boxes, people in some of them
+		local boxY = deckY + 7
+		deco(part(scene, "Suites", Vector3.new(0.6, 10, C.WallHalfZ * 2), CFrame.new(wx - 0.4, boxY, 0), Color3.fromRGB(14, 16, 24), Enum.Material.Glass, { Transparency = 0.1, Reflectance = 0.15 }))
+		local srng = Random.new(5)
+		for z = -C.WallHalfZ + 4, C.WallHalfZ - 4, 6 do
+			local warm = srng:NextNumber() < 0.7
+			deco(part(scene, "SuiteLight", Vector3.new(0.3, 7.4, 5.2), CFrame.new(wx - 0.9, boxY, z), warm and Color3.fromRGB(255, 196, 132) or Color3.fromRGB(70, 74, 92), Enum.Material.Neon, { Transparency = warm and 0.5 or 0.65 }))
+			for k = 1, srng:NextInteger(0, 3) do
+				deco(part(scene, "SuiteFan", Vector3.new(0.4, 2.2, 1), CFrame.new(wx - 1.3, boxY - 2.6, z - 2 + k * 1.2), Color3.fromRGB(30, 26, 36)))
+			end
+		end
+		deco(part(scene, "SuiteSill", Vector3.new(1.2, 0.6, C.WallHalfZ * 2), CFrame.new(wx - 1, boxY - 5.2, 0), gold, Enum.Material.Metal))
+		-- championship flags hung over the stands, low enough to be seen
 		local flags = { HOME, gold, AWAY, CHALK, HOME, gold, AWAY }
 		for i, col in ipairs(flags) do
 			local z = (i - 4) * 16 * LEN
-			deco(part(scene, "Flag", Vector3.new(0.2, 12, 5), CFrame.new(wx - 3, 58, z), col, Enum.Material.Fabric))
-			deco(part(scene, "FlagRod", Vector3.new(0.3, 0.3, 5.6), CFrame.new(wx - 3, 64.2, z), gold, Enum.Material.Metal))
+			deco(part(scene, "Flag", Vector3.new(0.2, 12, 5), CFrame.new(wx - 4, boxY + 14, z), col, Enum.Material.Fabric))
+			deco(part(scene, "FlagRod", Vector3.new(0.3, 0.3, 5.6), CFrame.new(wx - 4, boxY + 20.2, z), gold, Enum.Material.Metal))
 		end
 		-- trusses across the roof
 		for _, x in ipairs({ -8, 8, 26 }) do
@@ -646,6 +771,72 @@ COURTS.Beach = {
 		end
 		deco(part(tower, "Hut", Vector3.new(5.5, 4, 5.5), CFrame.new(46, 11, tz), Color3.fromRGB(236, 72, 60), Enum.Material.Wood))
 		deco(part(tower, "Roof", Vector3.new(6.5, 0.5, 6.5), CFrame.new(46, 13.25, tz), CHALK, Enum.Material.Wood))
+		-- out on the water: a sailboat, orange buoys marking the swim line, a pier with lamps
+		local boat = Instance.new("Model")
+		boat.Name = "Sailboat"
+		boat.Parent = scene
+		local bp = Vector3.new(C.WallHalfX + 120, 0, 18)
+		deco(part(boat, "Hull", Vector3.new(16, 2.2, 5), CFrame.new(bp + Vector3.new(0, 0.9, 0)) * CFrame.Angles(0, math.rad(78), 0), CHALK, Enum.Material.SmoothPlastic))
+		deco(part(boat, "Keel", Vector3.new(12, 0.6, 4.4), CFrame.new(bp + Vector3.new(0, 2.2, 0)) * CFrame.Angles(0, math.rad(78), 0), Color3.fromRGB(30, 100, 212), Enum.Material.SmoothPlastic))
+		deco(part(boat, "Mast", Vector3.new(0.4, 22, 0.4), CFrame.new(bp + Vector3.new(0, 13, 0)), Color3.fromRGB(200, 204, 214), Enum.Material.Metal))
+		local sail = Instance.new("WedgePart")
+		sail.Name = "Sail"
+		sail.Anchored = true
+		sail.CanCollide = false
+		sail.CanQuery = false
+		sail.CanTouch = false
+		sail.CastShadow = false
+		sail.Size = Vector3.new(0.2, 19, 10)
+		sail.CFrame = CFrame.new(bp + Vector3.new(0, 12.5, -5.2)) * CFrame.Angles(0, math.rad(-12), 0)
+		sail.Color = Color3.fromRGB(255, 132, 34)
+		sail.Material = Enum.Material.Fabric
+		sail.Parent = boat
+		for i = -3, 3 do
+			ball(scene, "Buoy", Vector3.new(1.6, 1.6, 1.6), Vector3.new(C.WallHalfX + 52 + (i % 2) * 4, 0.4, i * 18), Color3.fromRGB(255, 124, 28), Enum.Material.SmoothPlastic)
+		end
+		local pier = Instance.new("Model")
+		pier.Name = "Pier"
+		pier.Parent = scene
+		local pz = -54
+		deco(part(pier, "Deck", Vector3.new(90, 0.8, 7), CFrame.new(C.WallHalfX + 60, 2.6, pz), Color3.fromRGB(150, 112, 74), Enum.Material.WoodPlanks))
+		for x = C.WallHalfX + 18, C.WallHalfX + 102, 12 do
+			for _, oz in ipairs({ -3.2, 3.2 }) do
+				deco(part(pier, "Pile", Vector3.new(0.8, 6, 0.8), CFrame.new(x, 0, pz + oz), Color3.fromRGB(110, 82, 56), Enum.Material.Wood))
+			end
+			deco(part(pier, "LampPost", Vector3.new(0.3, 5, 0.3), CFrame.new(x, 5.4, pz + 3.2), Color3.fromRGB(46, 48, 58), Enum.Material.Metal))
+			ball(pier, "LampGlobe", Vector3.new(0.9, 0.9, 0.9), Vector3.new(x, 8.1, pz + 3.2), Color3.fromRGB(255, 226, 170), Enum.Material.Neon)
+		end
+		-- pennant bunting over the bleachers between the palms, in both teams' colours
+		local back2 = standsBack(id)
+		local bunting = folder(scene, "Bunting")
+		for _, span in ipairs({ { -70, -24 }, { -24, 24 }, { 24, 70 } }) do
+			local n = 14
+			for k = 0, n do
+				local t = k / n
+				local z = span[1] + (span[2] - span[1]) * t
+				local y = 15 - math.sin(t * math.pi) * 2.4
+				if k < n then
+					local flag = Instance.new("WedgePart")
+					flag.Name = "Pennant"
+					flag.Anchored = true
+					flag.CanCollide = false
+					flag.CanQuery = false
+					flag.CanTouch = false
+					flag.CastShadow = false
+					flag.Size = Vector3.new(0.1, 1.4, 1.6)
+					flag.CFrame = CFrame.new(back2 + 0.5, y - 0.8, z + (span[2] - span[1]) / n / 2) * CFrame.Angles(math.rad(180), 0, 0)
+					flag.Color = (k % 3 == 0 and HOME) or (k % 3 == 1 and CHALK) or AWAY
+					flag.Material = Enum.Material.Fabric
+					flag.Parent = bunting
+				end
+			end
+			deco(part(bunting, "Rope", Vector3.new(0.1, 0.1, span[2] - span[1]), CFrame.new(back2 + 0.5, 13.4, (span[1] + span[2]) / 2), Color3.fromRGB(240, 236, 226)))
+		end
+		-- surfboards stood in the sand by the bleachers
+		local boards = { Color3.fromRGB(255, 124, 28), Color3.fromRGB(40, 190, 220), CHALK, Color3.fromRGB(236, 64, 96) }
+		for i, z in ipairs({ -73, -71.2, 72, 73.8 }) do
+			deco(part(scene, "Surfboard", Vector3.new(0.4, 7, 1.8), CFrame.new(28 + (i % 2) * 0.8, 3.2, z) * CFrame.Angles(0, 0, math.rad(8 - i * 3)), boards[i], Enum.Material.SmoothPlastic))
+		end
 		-- the scoreboards in wooden frames in front of the bleachers
 		screens(scene, { frame = Color3.fromRGB(150, 110, 70), material = Enum.Material.Wood })
 		ledBoards(scene, true)
@@ -826,14 +1017,21 @@ COURTS.Rooftop = {
 				local col = Color3.fromRGB(26 + ring * 3, 30 + ring * 3, 46 + ring * 4)
 				local bottom = -120
 				deco(part(city, "Block", Vector3.new(depth, h - bottom, w), CFrame.new(bx, (h + bottom) / 2, z + w / 2), col, Enum.Material.Concrete))
-				-- lit floors
+				-- lit floors: a few panes each (a grid of windows, not one long strip)
 				local floorY = -40 + rng:NextInteger(0, 3) * 5
+				local panes = math.max(2, math.floor(w / 4))
 				while floorY < h - 4 do
-					if rng:NextNumber() < 0.28 then
-						local lw = w * (0.2 + rng:NextNumber() * 0.5)
-						deco(part(city, "Windows", Vector3.new(0.2, 1, lw), CFrame.new(bx - depth / 2 - 0.1, floorY, z + w / 2 + (rng:NextNumber() - 0.5) * (w - lw)), window[rng:NextInteger(1, #window)], Enum.Material.Neon))
+					if rng:NextNumber() < 0.42 then
+						local col = window[rng:NextInteger(1, #window)]
+						local first = rng:NextInteger(0, panes - 1)
+						local count = rng:NextInteger(1, math.max(1, panes - first))
+						for k = first, first + count - 1 do
+							if rng:NextNumber() < 0.8 then
+								deco(part(city, "Windows", Vector3.new(0.2, 1.4, 2.4), CFrame.new(bx - depth / 2 - 0.1, floorY, z + 2 + k * (w - 4) / math.max(1, panes - 1)), col, Enum.Material.Neon))
+							end
+						end
 					end
-					floorY = floorY + 6
+					floorY = floorY + 4.5
 				end
 				if rng:NextNumber() < 0.3 then
 					ball(city, "Beacon", Vector3.new(0.9, 0.9, 0.9), Vector3.new(bx, h + 0.8, z + w / 2), Color3.fromRGB(255, 50, 50), Enum.Material.Neon)
@@ -843,6 +1041,17 @@ COURTS.Rooftop = {
 		end
 		deco(part(city, "Street", Vector3.new(900, 1, 1400), CFrame.new(W + 450, -120, 0), Color3.fromRGB(20, 22, 30), Enum.Material.Asphalt))
 		banner(city, "Sign", Vector3.new(0.4, 10, 44), CFrame.new(W + 88, 62, -120), Enum.NormalId.Left, "VOLLEYBALL RUSH", Color3.fromRGB(255, 80, 170), Color3.fromRGB(20, 18, 30))
+		-- a billboard on the block across the street, in view over the bleachers: the name in the
+		-- brand's orange, a neon frame
+		local bb = Vector3.new(W + 70, 30, 8)
+		deco(part(city, "BillboardBack", Vector3.new(1, 13, 40), CFrame.new(bb + Vector3.new(0.6, 0, 0)), Color3.fromRGB(16, 18, 30), Enum.Material.Metal))
+		banner(city, "Billboard", Vector3.new(0.4, 11.6, 38.4), CFrame.new(bb), Enum.NormalId.Left, "VOLLEYBALL RUSH", Color3.fromRGB(255, 132, 34), Color3.fromRGB(14, 16, 32))
+		for _, e in ipairs({ { Vector3.new(0, 6.6, 0), Vector3.new(0.5, 0.5, 40) }, { Vector3.new(0, -6.6, 0), Vector3.new(0.5, 0.5, 40) }, { Vector3.new(0, 0, 20), Vector3.new(0.5, 13.6, 0.5) }, { Vector3.new(0, 0, -20), Vector3.new(0.5, 13.6, 0.5) } }) do
+			deco(part(city, "BillboardNeon", e[2], CFrame.new(bb + e[1] - Vector3.new(0.3, 0, 0)), Color3.fromRGB(0, 229, 255), Enum.Material.Neon))
+		end
+		for _, oz in ipairs({ -12, 12 }) do
+			deco(part(city, "BillboardLeg", Vector3.new(0.8, 30, 0.8), CFrame.new(bb + Vector3.new(1, -21, oz)), Color3.fromRGB(40, 42, 50), Enum.Material.Metal))
+		end
 		-- the score screens in front of the bleachers
 		screens(scene, { frame = Color3.fromRGB(46, 48, 58) })
 		ledBoards(scene, true)

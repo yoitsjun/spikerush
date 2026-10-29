@@ -2339,7 +2339,7 @@ Config.Courts = {
 	List = {
 		Arena = {
 			Name = "Rush Arena",
-			Blurb = "The home hall: navy stands and warm lights.",
+			Blurb = "The home hall: a maple court under bright lights, banners in the high windows.",
 			Stands = {},
 			Crowd = 1,
 		},
@@ -2922,7 +2922,7 @@ Config.UI = {
 	Ink = Color3.fromRGB(20, 23, 43),
 	InkSoft = Color3.fromRGB(36, 41, 74),
 	Chalk = Color3.fromRGB(244, 247, 255),
-	Spark = Color3.fromRGB(255, 225, 77),
+	Spark = Color3.fromRGB(255, 150, 46), -- (the match's callouts, boards and buttons: a bright orange, 2026-10-28; was the old yellow)
 	Whistle = Color3.fromRGB(255, 59, 92),
 	Mint = Color3.fromRGB(80, 240, 190),
 	Fog = Color3.fromRGB(160, 166, 200),

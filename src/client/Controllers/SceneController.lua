@@ -706,9 +706,21 @@ local function buildHome()
 	box(room, Vector3.new(1, 6, 120), CFrame.new(H + Vector3.new(30, 3, 26)), Color3.fromRGB(20, 30, 66), Enum.Material.Fabric)
 	-- high windows round the top of the hall, the daylight coming in over the stands
 	for _, w in ipairs({ { Vector3.new(150, 10, 0.4), Vector3.new(0, 53, 139) }, { Vector3.new(0.4, 10, 170), Vector3.new(-84, 53, 50) } }) do
-		local glass = box(room, w[1], CFrame.new(H + w[2]), Color3.fromRGB(196, 224, 255), Enum.Material.Neon)
-		glass.Transparency = 0.15
+		local glass = box(room, w[1], CFrame.new(H + w[2]), Color3.fromRGB(255, 200, 136), Enum.Material.Neon)
+		glass.Transparency = 0.2
 		glass.CastShadow = false
+	end
+	-- late sun slanting in through them across the hall
+	for _, sh in ipairs({ { -40, 120, -8, 30 }, { -10, 120, 6, 40 }, { 20, 120, 18, 34 }, { -70, 70, -24, 20 }, { -70, 30, -22, 4 } }) do
+		local from = H + Vector3.new(sh[1], 52, sh[2])
+		local to = H + Vector3.new(sh[3], 0, sh[4])
+		local len = (to - from).Magnitude
+		local base = CFrame.lookAt(from, to) * CFrame.new(0, 0, -len / 2)
+		for i = 0, 1 do
+			local ray = box(room, Vector3.new(8, 0.1, len), base * CFrame.Angles(0, 0, i * math.pi / 2), Color3.fromRGB(255, 206, 140), Enum.Material.Neon)
+			ray.Transparency = 0.955
+			ray.CastShadow = false
+		end
 	end
 	for x = -72, 72, 12 do
 		box(room, Vector3.new(1.2, 12, 1), CFrame.new(H + Vector3.new(x, 53, 138.4)), Color3.fromRGB(60, 64, 76), Enum.Material.Metal)
@@ -717,9 +729,10 @@ local function buildHome()
 		box(room, Vector3.new(1, 12, 1.2), CFrame.new(H + Vector3.new(-83.4, 53, z)), Color3.fromRGB(60, 64, 76), Enum.Material.Metal)
 	end
 
-	-- the court: a maple playing area on a navy free zone, white lines
-	box(room, Vector3.new(56, 0.04, 92), CFrame.new(H + Vector3.new(0, 0.02, NET_Z)), Color3.fromRGB(28, 50, 104), Enum.Material.SmoothPlastic, { Reflectance = 0.08 })
-	box(room, Vector3.new(34, 0.05, 68), CFrame.new(H + Vector3.new(0, 0.04, NET_Z)), Color3.fromRGB(214, 160, 104), Enum.Material.WoodPlanks, { Reflectance = 0.1 })
+	-- the court: a polished amber playing area on a teal free zone, white lines (the warm glow of
+	-- an anime gym: the owner, "replicate the orange glow and feel of haikyuu volleyball courts")
+	box(room, Vector3.new(56, 0.04, 92), CFrame.new(H + Vector3.new(0, 0.02, NET_Z)), Color3.fromRGB(22, 96, 132), Enum.Material.SmoothPlastic, { Reflectance = 0.14 })
+	box(room, Vector3.new(34, 0.05, 68), CFrame.new(H + Vector3.new(0, 0.04, NET_Z)), Color3.fromRGB(244, 166, 96), Enum.Material.WoodPlanks, { Reflectance = 0.12 })
 	courtLines(room, NET_Z, Color3.fromRGB(240, 244, 255), false)
 	floorName(room, ORANGE, 0.5)
 	courtNet(room, NET_Z, Color3.fromRGB(20, 28, 60), ORANGE, ORANGE)
@@ -783,17 +796,18 @@ local function buildHome()
 	for _, z in ipairs({ 0, 26, 52 }) do
 		local panel = box(room, Vector3.new(60, 0.2, 18), CFrame.new(H + Vector3.new(0, 47, z)), Color3.new(1, 1, 1))
 		panel.Transparency = 1
-		light(panel, "SurfaceLight", { Face = Enum.NormalId.Bottom, Range = 60, Angle = 90, Brightness = 1.4, Color = Color3.fromRGB(240, 246, 255), Shadows = z == 26 })
+		-- (bright enough on its own: the menu room shares the game's lighting with whatever court is up)
+		light(panel, "SurfaceLight", { Face = Enum.NormalId.Bottom, Range = 60, Angle = 90, Brightness = 1.8, Color = Color3.fromRGB(255, 236, 208), Shadows = z == 26 })
 		light(panel, "SurfaceLight", { Face = Enum.NormalId.Top, Range = 20, Angle = 90, Brightness = 0.7, Color = Color3.fromRGB(220, 230, 250), Shadows = false }) -- (the roof and trusses, lit from under)
 	end
 	-- you: a soft key in front, a warm rim from the right
 	local key = box(room, Vector3.one * 0.2, CFrame.new(H + Vector3.new(1, 9, -2)), Color3.new(1, 1, 1))
 	key.Transparency = 1
-	light(key, "PointLight", { Range = 22, Brightness = 0.9, Color = Color3.fromRGB(255, 246, 236), Shadows = false })
+	light(key, "PointLight", { Range = 22, Brightness = 1.3, Color = Color3.fromRGB(255, 244, 230), Shadows = false })
 	local rim = box(room, Vector3.one * 0.2, CFrame.lookAt(H + Vector3.new(-8, 11, 13), H + Vector3.new(2.6, 3, 7)), Color3.new(1, 1, 1))
 	rim.Transparency = 1
 	light(rim, "SpotLight", { Face = Enum.NormalId.Front, Range = 22, Angle = 40, Brightness = 2.2, Color = Color3.fromRGB(255, 180, 120), Shadows = false })
-	dustIn(room, CFrame.new(H + Vector3.new(0, 24, 34)), Vector3.new(60, 36, 50), 8, Color3.fromRGB(255, 246, 230))
+	dustIn(room, CFrame.new(H + Vector3.new(0, 24, 34)), Vector3.new(60, 36, 50), 16, Color3.fromRGB(255, 222, 176))
 
 	-- the bench and the ball cart (furnishHome)
 	homeProps = Instance.new("Model")
@@ -1327,10 +1341,10 @@ function SceneController.refreshGrade()
 	local forest = current == "home" and roomState.key == "Haunted"
 	local neon = current == "home" and roomState.key == "Neon"
 	local pro = current == "home" and not forest and not neon
-	grade.TintColor = forest and Color3.fromRGB(214, 222, 255) or neon and Color3.fromRGB(232, 238, 255) or pro and Color3.fromRGB(252, 250, 246) or Color3.fromRGB(255, 242, 226)
+	grade.TintColor = forest and Color3.fromRGB(214, 222, 255) or neon and Color3.fromRGB(232, 238, 255) or pro and Color3.fromRGB(255, 234, 212) or Color3.fromRGB(255, 242, 226)
 	grade.Brightness = forest and -0.06 or neon and -0.01 or pro and 0.03 or 0.02
-	grade.Contrast = forest and 0.2 or neon and 0.16 or pro and 0.1 or 0.08
-	grade.Saturation = forest and 0.06 or neon and 0.14 or pro and 0.1 or 0.08
+	grade.Contrast = forest and 0.2 or neon and 0.16 or pro and 0.12 or 0.08
+	grade.Saturation = forest and 0.06 or neon and 0.14 or pro and 0.14 or 0.08
 end
 
 local function updateRoom(now)
