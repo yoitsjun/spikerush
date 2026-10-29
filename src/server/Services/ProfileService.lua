@@ -584,8 +584,10 @@ local function load(plr)
 		end
 	end
 	local profile = data and sanitizeProfile(data) or newProfile()
-	-- only a profile that loaded (or was confirmed new) may ever be written back
-	profile.canSave = ok
+	-- only a profile that loaded (or was confirmed new) may ever be written back; in Studio the
+	-- workspace attribute NoSave keeps a playtest from writing it (a test run while the owner plays
+	-- the live game: the two sessions would overwrite each other's saves)
+	profile.canSave = ok and not (RunService:IsStudio() and workspace:GetAttribute("NoSave") == true)
 	profile.dev = isDeveloper(plr)
 	syncRankedEffects(profile)
 	keepOwned(profile)
