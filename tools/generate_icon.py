@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate Volleyball Rush's game icon (512x512) and thumbnail (1920x1080).
 
-Original art, drawn entirely here (no source images): a shaded cyan / magenta / white
-volleyball in the classic 18-panel layout, a magenta speed ribbon, a burst of light, a deep
-navy arena haze with light rays, floating bubbles and the "VOLLEYBALL RUSH" logo. The thumbnail adds
+Original art, drawn entirely here (no source images): a shaded orange / navy / white
+volleyball in the classic 18-panel layout, an orange speed ribbon, a burst of light, a deep
+navy arena haze lit warm orange with light rays, floating bubbles and the "VOLLEYBALL RUSH"
+logo (white and orange, the brand since 2026-10-28). The thumbnail adds
 the owner's avatar mid-spike, rendered from boxes by tools/avatar_render.py.
 
     python3 tools/generate_icon.py            -> assets/icon/GameIcon.png, Thumbnail.png
@@ -24,8 +25,10 @@ OUT = ROOT / "assets" / "icon"
 INK = (10, 12, 34)
 CYAN = (0, 229, 255)
 MAGENTA = (255, 46, 170)
-YELLOW = np.array([0, 214, 245], dtype=float)  # the ball's two colours: the brand cyan
-BLUE = np.array([228, 36, 156], dtype=float)  # and magenta
+ORANGE = (255, 124, 28)
+WHITE3 = (255, 255, 255)
+YELLOW = np.array([255, 124, 28], dtype=float)  # the ball's two colours: the brand orange
+BLUE = np.array([30, 56, 146], dtype=float)  # and navy
 WHITE = np.array([246, 247, 250], dtype=float)
 SEAM = np.array([24, 28, 64], dtype=float)
 
@@ -138,7 +141,7 @@ def background(w, h, seed):
     # haze glow from the top left
     gx, gy = 0.25, 0.1
     d = np.sqrt((xs - gx) ** 2 * (w / h) ** 2 + (ys - gy) ** 2)
-    col = col + np.clip(1 - d / 0.9, 0, 1)[..., None] ** 2 * np.array([10, 90, 110])
+    col = col + np.clip(1 - d / 0.9, 0, 1)[..., None] ** 2 * np.array([150, 74, 10])
     img = Image.fromarray(np.clip(col, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 
     # light rays
@@ -149,7 +152,7 @@ def background(w, h, seed):
         a0 = math.radians(28 + i * 7.5 + rnd.uniform(-1.5, 1.5))
         a1 = a0 + math.radians(rnd.uniform(1.8, 3.6))
         L = 2.5 * max(w, h)
-        rd.polygon([(ox, oy), (ox + L * math.cos(a0), oy + L * math.sin(a0)), (ox + L * math.cos(a1), oy + L * math.sin(a1))], fill=(160, 240, 255, 30))
+        rd.polygon([(ox, oy), (ox + L * math.cos(a0), oy + L * math.sin(a0)), (ox + L * math.cos(a1), oy + L * math.sin(a1))], fill=(255, 214, 160, 30))
     rays = rays.filter(ImageFilter.GaussianBlur(max(w, h) / 120))
     img.alpha_composite(rays)
     return img
@@ -252,12 +255,12 @@ def compose_icon(size=512):
     bubbles(img, 16, seed=5, scale=size / 512)
     ball_d = int(size * 0.62)
     cx, cy = int(size * 0.56), int(size * 0.42)
-    ribbon(img, (size * -0.1, size * 0.98), (cx - ball_d * 0.1, cy + ball_d * 0.1), size * 0.16, MAGENTA)
-    burst(img, (cx, cy), size * 0.52, 22, (215, 250, 255), seed=9)
+    ribbon(img, (size * -0.1, size * 0.98), (cx - ball_d * 0.1, cy + ball_d * 0.1), size * 0.16, ORANGE)
+    burst(img, (cx, cy), size * 0.52, 22, (255, 238, 212), seed=9)
     ball = volleyball(ball_d)
     img.alpha_composite(ball, (cx - ball_d // 2, cy - ball_d // 2))
-    logo(img, "VOLLEYBALL", (size * 0.5, size * 0.775), int(size * 0.15), max_width=size * 0.97)
-    logo(img, "RUSH", (size * 0.5, size * 0.9), int(size * 0.14), fill=MAGENTA, band=(255, 170, 225))
+    logo(img, "VOLLEYBALL", (size * 0.5, size * 0.775), int(size * 0.15), fill=WHITE3, band=(255, 230, 200), max_width=size * 0.97)
+    logo(img, "RUSH", (size * 0.5, size * 0.9), int(size * 0.14), fill=ORANGE, band=(255, 196, 130))
     return img.convert("RGB")
 
 
@@ -295,15 +298,15 @@ def compose_thumbnail(w=1920, h=1080):
     cx, cy = hx - h * 0.055, hy - h * 0.035  # contact, just past the fingertips
     bx, by = cx - h * 0.72, cy + h * 0.46
     speed_lines(img, (bx - cx, by - cy), 60, seed=21)
-    burst(img, (cx, cy), h * 0.75, 30, (215, 250, 255), seed=17)
-    # a cyan rim of light behind the spiker
+    burst(img, (cx, cy), h * 0.75, 30, (255, 238, 212), seed=17)
+    # a warm rim of light behind the spiker
     glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).ellipse([ox - h * 0.05, oy, ox + spiker.size[0] + h * 0.05, oy + tall], fill=(60, 220, 255, 105))
+    ImageDraw.Draw(glow).ellipse([ox - h * 0.05, oy, ox + spiker.size[0] + h * 0.05, oy + tall], fill=(255, 150, 60, 105))
     img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(h * 0.08)))
     img.alpha_composite(spiker, (ox, oy))
 
-    ribbon(img, (cx, cy), (bx, by), h * 0.13, MAGENTA)
-    ribbon(img, (cx - h * 0.01, cy + h * 0.03), (bx - h * 0.02, by + h * 0.05), h * 0.045, CYAN)
+    ribbon(img, (cx, cy), (bx, by), h * 0.13, ORANGE)
+    ribbon(img, (cx - h * 0.01, cy + h * 0.03), (bx - h * 0.02, by + h * 0.05), h * 0.045, MAGENTA)
     # impact at the contact: a white flash and a ring
     flash = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     fd = ImageDraw.Draw(flash)
@@ -314,8 +317,8 @@ def compose_thumbnail(w=1920, h=1080):
     ball = volleyball(ball_d, rotation=(0.35, -0.8, 0.4))
     img.alpha_composite(ball, (int(bx - ball_d / 2), int(by - ball_d / 2)))
 
-    logo(img, "VOLLEYBALL", (w * 0.3, h * 0.14), int(h * 0.14), max_width=w * 0.56)
-    logo(img, "RUSH", (w * 0.36, h * 0.3), int(h * 0.15), fill=MAGENTA, band=(255, 170, 225))
+    logo(img, "VOLLEYBALL", (w * 0.3, h * 0.14), int(h * 0.14), fill=WHITE3, band=(255, 230, 200), max_width=w * 0.56)
+    logo(img, "RUSH", (w * 0.36, h * 0.3), int(h * 0.15), fill=ORANGE, band=(255, 196, 130))
     f = font(int(h * 0.034))
     d = ImageDraw.Draw(img)
     tag = "ANIME VOLLEYBALL  -  1v1  2v2  3v3"
