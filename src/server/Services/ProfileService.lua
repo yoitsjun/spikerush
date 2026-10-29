@@ -2525,8 +2525,8 @@ local function onRequest(plr, kind, a, b, c)
 	elseif kind == "adminBreak" then
 		-- a character's Breakthrough tab (the owner, 2026-10-29: "a seperate breakthrough max button
 		-- and a remove breakthrough button"; then "just make a remove breakthrough button for all
-		-- people"): admins go straight to +Max, free; anyone takes theirs back to +0, the fragments
-		-- they paid refunded (a developer paid none)
+		-- people", "remove one at a time though"): admins go straight to +Max, free; anyone takes
+		-- theirs down one level, that level's fragments refunded (a developer paid none)
 		local c = type(a) == "string" and Roster.get(a)
 		local admin = profile.dev or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))
 		if not c or not owns(profile, "Char", a) or not (b == "remove" or (b == "max" and admin)) then
@@ -2536,22 +2536,25 @@ local function onRequest(plr, kind, a, b, c)
 			push(plr, "Your character is locked until this match ends.")
 			return
 		end
-		if b == "remove" and not profile.dev then
-			local back = 0
-			for i = 1, profile.breaks[a] or 0 do
-				back = back + (Config.Breakthrough.Cost[i] or 0)
+		local level = profile.breaks[a] or 0
+		if b == "remove" then
+			if level <= 0 then
+				return
 			end
-			if back > 0 then
+			local back = Config.Breakthrough.Cost[level] or 0
+			if back > 0 and not profile.dev then
 				local g = Breakthrough.group(c.Tier)
 				profile.fragments[g] = (profile.fragments[g] or 0) + back
 			end
+			profile.breaks[a] = level > 1 and level - 1 or nil
+		else
+			profile.breaks[a] = Config.Breakthrough.Max
 		end
-		profile.breaks[a] = b == "max" and Config.Breakthrough.Max or nil
 		dirty[plr] = true
 		if a == ProfileService.character(plr).Id then
 			ProfileService.applyActive(plr)
 		end
-		push(plr, b == "max" and string.format("%s is at +%d.", c.Name, Config.Breakthrough.Max) or (c.Name .. "'s breakthroughs are removed."))
+		push(plr, string.format("%s is at +%d.", c.Name, profile.breaks[a] or 0))
 	elseif kind == "sellFragment" then
 		-- fragments you don't need, for a duplicate's VP (S+: a lucky spin too)
 		local g = type(a) == "string" and Breakthrough.isGroup(a) and a or nil

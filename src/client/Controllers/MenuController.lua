@@ -4127,7 +4127,7 @@ local function buildPlayer()
 	local adminRow = make("Frame", { Name = "Admin", Position = UDim2.fromOffset(16, 486), Size = UDim2.new(1, -34, 0, 48), BackgroundTransparency = 1, Visible = false }, bt)
 	local adminL = Gui.label(adminRow, { Text = "Admin", display = true, TextSize = 18, TextColor3 = Gui.MAGENTA, Size = UDim2.fromOffset(72, 48) })
 	local maxBrk = hairButton(adminRow, { Name = "MaxBreak", Position = UDim2.fromOffset(76, 0), Size = UDim2.fromOffset(220, 48) }, "Max breakthrough", 19)
-	local noBrk = hairButton(adminRow, { Name = "RemoveBreak", Position = UDim2.fromOffset(308, 0), Size = UDim2.fromOffset(240, 48) }, "Remove breakthrough", 19)
+	local noBrk = hairButton(adminRow, { Name = "RemoveBreak", Position = UDim2.fromOffset(308, 0), Size = UDim2.fromOffset(240, 48) }, "Remove one level", 19)
 	onClick(maxBrk, function()
 		if selectedChar then
 			sendProfile("adminBreak", selectedChar, "max")
