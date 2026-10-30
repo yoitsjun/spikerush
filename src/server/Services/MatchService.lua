@@ -591,7 +591,7 @@ local function results(winner, forfeitTeam)
 	local devTeam = {}
 	for _, team in ipairs(Config.TeamOrder) do
 		for _, e in ipairs(reg.TeamService.members(team)) do
-			if e.player and reg.ProfileService.isDev(e.player) and not reg.ProfileService.onTrial(e.player) then
+			if e.player and reg.ProfileService.isDev(e.player) then
 				devTeam[team] = true
 			end
 		end
