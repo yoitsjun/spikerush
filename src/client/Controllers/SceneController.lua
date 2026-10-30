@@ -57,7 +57,7 @@ local practice = nil -- the Locker's practice spike (see below)
 local balls = {}
 local dropping = {} -- the pulls falling into the cart (SceneController.dropBalls)
 local rising = {} -- and rising out of it to the line-up (SceneController.lineUp)
-local cartBeam -- the shaft of light they fall down (buildCart)
+local cartBeam, cartHalo -- the shaft of light they fall down, and its soft edge (buildCart)
 local beamFx = nil -- { t0, t1, color }: the shaft shows over that time
 local shake = { t0 = 0, t1 = 0, amp = 0 } -- the camera's jolt as a rare pull lands
 
@@ -1439,7 +1439,9 @@ local function buildCart(parent)
 		makeBall(parent, 1, CART + Vector3.new(p[1], F + 1, p[2]), true)
 	end
 	-- the shaft of light from the roof (shown while the pulls fall: beamFx)
-	cartBeam = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(46, 7.5, 7.5), CFrame = CFrame.new(CART + Vector3.new(0, R + 23, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(255, 232, 190), Material = Enum.Material.Neon, Transparency = 1, CastShadow = false }, parent)
+	local up = CFrame.new(CART + Vector3.new(0, R + 23, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	cartBeam = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(46, 4.5, 4.5), CFrame = up, Color = Color3.fromRGB(255, 232, 190), Material = Enum.Material.Neon, Transparency = 1, CastShadow = false }, parent)
+	cartHalo = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(46, 10, 10), CFrame = up, Color = Color3.fromRGB(255, 232, 190), Material = Enum.Material.Neon, Transparency = 1, CastShadow = false }, parent)
 end
 
 -- The recruit hall's furniture, into gymProps: the recruit cart (buildCart) on the court and the
@@ -1864,6 +1866,7 @@ function SceneController.clearBalls()
 	beamFx = nil
 	if cartBeam then
 		cartBeam.Transparency = 1
+		cartHalo.Transparency = 1
 	end
 end
 
@@ -2398,11 +2401,12 @@ local function updateRecruit(now)
 	end
 	if beamFx and cartBeam then
 		local a = math.clamp((now - beamFx.t0) / 0.3, 0, 1) * math.clamp((beamFx.t1 - now) / 0.5, 0, 1)
-		cartBeam.Color = beamFx.color
-		cartBeam.Transparency = 1 - 0.16 * a
+		cartBeam.Color, cartHalo.Color = beamFx.color, beamFx.color
+		cartBeam.Transparency = 1 - 0.09 * a
+		cartHalo.Transparency = 1 - 0.035 * a
 		if now > beamFx.t1 then
 			beamFx = nil
-			cartBeam.Transparency = 1
+			cartBeam.Transparency, cartHalo.Transparency = 1, 1
 		end
 	end
 end
