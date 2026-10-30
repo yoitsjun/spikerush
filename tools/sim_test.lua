@@ -928,8 +928,8 @@ do
 	end
 	local g = PatchNotes.reward(latest)
 	check(latest ~= nil and latest.Title == "Welcome to Volleyball Rush" and okShape and okIcons and (g.Gold or 0) + (g.VP or 0) > 0 and (g.Gold or 0) <= 5000 and (g.VP or 0) <= 200 and (g.Lucky or 0) <= 1
-		and PatchNotes.reward(PatchNotes.List[5]) == PatchNotes.Reward,
-		"patch notes: the newest is Welcome to Volleyball Rush, every entry well formed, a small reading reward (its own, else the usual)",
+		and PatchNotes.reward({}) == PatchNotes.Reward and #PatchNotes.List == 1 and lines >= 30,
+		"patch notes: only Welcome to Volleyball Rush (the old ones purged), a full one, well formed, a small reading reward (its own, else the usual)",
 		string.format("%d patch(es), %d lines, reward %d Gold %d VP", #PatchNotes.List, lines, g.Gold or 0, g.VP or 0))
 end
 
