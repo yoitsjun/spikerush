@@ -2972,6 +2972,20 @@ do
 		string.format("met the hands %.3f s after the hit at the latest", through))
 end
 
+print("== the setter tracker ==")
+do
+	-- only a setter character aims its sets (the owner, 2026-10-30: "let anyone playing a setter
+	-- character have a setter tracker and if ur not playing setter u cant have it"): SetterAim
+	-- checks the Roster role of the character you play, HitService ignores anyone else's aim. A
+	-- starter is a setter, so everyone can play one.
+	local starterSetter = false
+	for _, id in ipairs(Roster.Starters) do
+		local c = Roster.get(id)
+		starterSetter = starterSetter or (c ~= nil and c.Role == "SE")
+	end
+	check(starterSetter, "a starter character is a setter, so anyone can have the setter tracker")
+end
+
 print("== the admin whitelist ==")
 do
 	-- the owner (2026-10-16): "add a whitelist to the admin panel that only i can access": the stored

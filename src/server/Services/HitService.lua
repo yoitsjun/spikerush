@@ -592,8 +592,9 @@ function HitService.onRequest(plr, req)
 		targetId = targetId,
 		tossHeight = num(req.tossHeight, H.TossLow, H.TossHighMax, H.TossLow),
 		tossForward = num(req.tossForward, 0, 1, 0),
-		aimDepth = req.action == "Set" and num(req.aimDepth, H.SetAimMin, H.SetAimMax, nil) or nil,
-		aimHeight = req.action == "Set" and num(req.aimHeight, H.SetAimLowY, H.SetAimHighY, nil) or nil,
+		-- (an aimed set is a setter character's alone: SetterAim)
+		aimDepth = req.action == "Set" and entity.prefRole == "SE" and num(req.aimDepth, H.SetAimMin, H.SetAimMax, nil) or nil,
+		aimHeight = req.action == "Set" and entity.prefRole == "SE" and num(req.aimHeight, H.SetAimLowY, H.SetAimHighY, nil) or nil,
 		gauge = gauge,
 		toward = toward,
 	}
@@ -745,8 +746,8 @@ function HitService.init(r)
 		aimAt[plr] = now
 		local TS = reg.TeamService
 		local entity = TS.entityForPlayer(plr)
-		if not entity or not TS.inMatch then
-			return
+		if not entity or not TS.inMatch or entity.prefRole ~= "SE" then
+			return -- (only a setter character aims: SetterAim)
 		end
 		local H = Config.Hits
 		local d = num(depth, H.SetAimMin, H.SetAimMax, nil)

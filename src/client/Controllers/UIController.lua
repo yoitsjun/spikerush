@@ -1895,7 +1895,7 @@ local Keys = {} -- Settings > Controls (Keys.build)
 local CamAdjust = {} -- Settings > Camera (CamAdjust.build)
 local SETTINGS = {
 	{ key = "doubleApproach", text = "Double approach", sub = "Tap Jump once to start your approach, again to jump" },
-	{ key = "setterAim", text = "Setter aim", sub = "As the setter, aim your sets (your team sees it)" },
+	{ key = "setterAim", text = "Setter aim", sub = "Playing a setter character, aim your sets (your team sees it)" },
 	{ key = "beginner", text = "Beginner mode", sub = "Jump help, a jump circle, spikes to midcourt" },
 	{ key = "landingMarker", text = "Landing marker" },
 	{ key = "dramatic", text = "Impact frames and speed lines" },

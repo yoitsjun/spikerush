@@ -1,7 +1,10 @@
 -- Setter aim. The owner: "setter mode: play as a setter and aim where the ball is going to be
 -- set. the opponent cannot see but your team can. mark the location with a circle or
 -- crosshair", then "up and down full control. you have to charge up the distance though".
--- While you set for your team (the setter, or alone in 1v1) and your team hasn't set yet, a
+-- Only a setter character has it (the owner, 2026-10-30: "let anyone playing a setter character
+-- have a setter tracker and if ur not playing setter u cant have it"): whatever spot you stand in,
+-- in 1v1 too, and the server ignores an aim from anyone else (HitService).
+-- While you play a setter, the rally is on and your team hasn't set yet, a
 -- marker on your side shows where your set will come down: a ring on the floor, a post, and a
 -- crosshair at the height the set comes down through. With a mouse the marker sits where the
 -- mouse points (the owner: "setter mode indicator is based on mouse position"): its height and
@@ -19,6 +22,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Court = require(Shared.Court)
 local Net = require(Shared.Net)
+local Roster = require(Shared.Roster)
 local State = require(script.Parent.State)
 
 local SetterAim = {}
@@ -45,12 +49,24 @@ local function clampHeight(y)
 	return math.clamp(y, H.SetAimLowY, H.SetAimHighY)
 end
 
--- Your aim is on while you set for your team, the rally is on and your team hasn't set yet.
+-- Whether the character you play in this match is a setter (its Roster role, not the spot).
+local function playingSetter()
+	local rosters = State.match and State.match.rosters
+	for _, e in ipairs(rosters and rosters[State.myTeam] or {}) do
+		if e.id == State.myId then
+			local c = Roster.get(e.charId)
+			return c ~= nil and c.Role == "SE"
+		end
+	end
+	return false
+end
+
+-- Your aim is on while you play a setter, the rally is on and your team hasn't set yet.
 local function on()
 	if not State.isPlaying or State.settings.setterAim == false or not mods then
 		return false
 	end
-	if State.myRole ~= "SE" and State.teamSize() > 1 then
+	if not playingSetter() then
 		return false
 	end
 	local phase = State.phase()
