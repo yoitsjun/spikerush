@@ -316,14 +316,18 @@ def circling_arrows():
 
 def plunge():
     img, d = canvas()
-    # a ball diving steeply down-right, a curling comet tail behind it and two spin marks
-    d.polygon([(130, 120), (802, 582), (680, 700), (558, 818)], fill=W)  # the tail, as wide as the ball where it meets it
-    cut(img, lambda m: (m.polygon([(130, 120), (520, 470), (420, 520)], fill=255), m.polygon([(130, 120), (470, 380), (560, 360)], fill=255)))
-    disc(d, 680, 700, 190)
-    cut(img, lambda m: (m.arc((540, 560, 820, 840), 190, 280, fill=255, width=40),
-                        m.arc((600, 620, 760, 780), 10, 100, fill=255, width=34)))
-    line(d, [(110, 420), (290, 520)], 44)
-    line(d, [(330, 90), (430, 230)], 44)
+    # (the owner, 2026-10-29: "just a straight line then a dip ---\"): a flat shaft off the hand,
+    # a sharp turn down, the arrowhead on the tip, and speed lines behind
+    turn, tip = (540, 300), (790, 860)
+    ux, uy = tip[0] - turn[0], tip[1] - turn[1]
+    n = (ux * ux + uy * uy) ** 0.5
+    ux, uy = ux / n, uy / n
+    px, py = -uy, ux
+    back = (tip[0] - ux * 250, tip[1] - uy * 250)
+    line(d, [(150, 300), turn, back], 120)
+    d.polygon([tip, (back[0] + px * 170, back[1] + py * 170), (back[0] - px * 170, back[1] - py * 170)], fill=W)
+    line(d, [(40, 170), (300, 170)], 50)
+    line(d, [(40, 430), (240, 430)], 50)
     finish(img, "AbilityPlunge")
 
 

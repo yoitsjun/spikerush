@@ -4208,53 +4208,6 @@ end
 -- three layers that thin away, with rings standing across it, biggest at the hand.
 local ZERO_GLOW = Color3.fromRGB(200, 225, 255)
 local ZERO_BEHIND = 90 -- studs of beam behind the hitter
--- A neon line drawn from `from` to `to` over `grow` seconds, kept `stay` seconds, then thinned away;
--- with `head`, a chevron rides its tip and points the way (Plunge Spin draws its flight as an arrow:
--- the owner, 2026-10-29, "can it be an arrow with a sharp downwards angle"). In the play plane: the
--- camera looks along x, so the barbs turn about it.
-local function arrowLine(from, to, color, width, grow, stay, head)
-	local d = to - from
-	if d.Magnitude < 0.5 then
-		return
-	end
-	local dir = d.Unit
-	local info = TweenInfo.new(math.max(grow, 0.01), Enum.EasingStyle.Linear)
-	local parts = {}
-	local function piece(cf0, cf1, w, len, col, alpha)
-		local p = take(Enum.PartType.Block)
-		p.Color = col
-		p.Transparency = alpha
-		p.Size = Vector3.new(w, w, len)
-		p.CFrame = cf0
-		TweenService:Create(p, info, { CFrame = cf1 }):Play()
-		table.insert(parts, p)
-		return p
-	end
-	for _, layer in ipairs({ { width, color, 0.15 }, { width * 0.4, WHITE, 0 } }) do
-		local w, col, alpha = layer[1], layer[2], layer[3]
-		local line = piece(CFrame.lookAt(from, to), CFrame.lookAt(from, to), w, 0.1, col, alpha)
-		TweenService:Create(line, info, { Size = Vector3.new(w, w, d.Magnitude), CFrame = CFrame.lookAt(from + d * 0.5, to) }):Play()
-		if head then
-			local barb = math.max(2.4, width * 6)
-			for _, sign in ipairs({ 1, -1 }) do
-				local bd = CFrame.fromAxisAngle(Vector3.xAxis, math.rad(28 * sign)):VectorToWorldSpace(-dir)
-				local c0 = from + bd * (barb / 2)
-				piece(CFrame.lookAt(c0, c0 + bd), CFrame.lookAt(c0 + d, c0 + d + bd), w * 1.2, barb, col, alpha)
-			end
-		end
-	end
-	task.delay(grow + stay, function()
-		for _, p in ipairs(parts) do
-			TweenService:Create(p, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1, Size = Vector3.new(0.05, 0.05, p.Size.Z) }):Play()
-		end
-		task.delay(0.32, function()
-			for _, p in ipairs(parts) do
-				release(p)
-			end
-		end)
-	end)
-end
-
 local function zeroBeam(path, void)
 	local from = path.segs[1].p
 	local to = path.landing.pos
@@ -4796,20 +4749,13 @@ local function onHit(snap)
 		end
 		if meta.plunge then
 			-- Plunge Spin: the ball leaves the hand through a big ring of wind (across its line);
-			-- where it turns down into the plunge, a second ring, a burst and a boom. Its flight is
-			-- drawn as an arrow: the shaft straight from the hand to the turn, then the line down the
-			-- plunge with the arrowhead on its tip
+			-- where it turns down into the plunge, a second ring, a burst and a boom
 			local col = Config.Abilities.Plunge.Color
 			sonicRing(pos, seg.v, WHITE, 11, 0.45)
 			ringFx(pos, col, 1, 8, 0.3)
 			local path = snap.path
 			local turn = path.segs[2]
 			if turn then
-				local leave = seg.t0 + (seg.hold or 0)
-				local flat = math.max(0.02, turn.t0 - leave)
-				local dive = math.max(0.02, path.landing.t - turn.t0)
-				task.delay(math.max(0, leave - Util.now()), arrowLine, pos, turn.p, col, 0.55, flat, dive + 0.25, false)
-				task.delay(math.max(0, turn.t0 - Util.now()), arrowLine, turn.p, path.landing.pos, col, 0.55, dive, 0.3, true)
 				task.delay(math.max(0, turn.t0 - Util.now()), function()
 					if Util.now() < path.landing.t + 0.05 then
 						sonicRing(turn.p, turn.v, WHITE, 14, 0.5)
