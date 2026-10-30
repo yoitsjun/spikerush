@@ -136,6 +136,25 @@ local function isDeveloper(plr)
 	return false
 end
 
+-- Whether a player holds a tester role (Config.Trial.Roles) in the group that owns the game.
+local function isTester(plr)
+	if game.CreatorType ~= Enum.CreatorType.Group then
+		return false
+	end
+	local ok, role = pcall(function()
+		return plr:GetRoleInGroup(game.CreatorId)
+	end)
+	if not ok or type(role) ~= "string" then
+		return false
+	end
+	for _, name in ipairs(Config.Trial.Roles) do
+		if string.lower(role) == string.lower(name) then
+			return true
+		end
+	end
+	return false
+end
+
 ------------------------------------------------------------------------------------------
 -- the group (daily rewards and codes are for its members)
 ------------------------------------------------------------------------------------------
@@ -473,6 +492,7 @@ local function sanitizeProfile(data)
 	out.ranked = Ranked.clean(data.ranked, Ranked.season(os.time()))
 	-- the AFK Lounge: today's payouts and the time towards the next (Lounge.clean)
 	out.lounge = Lounge.clean(data.lounge, Lounge.day(os.time()))
+	out.trial = Economy.cleanTrial(data.trial)
 	-- the leaderboard place over your head in the matchup intro: a board, or your best (nil)
 	if type(data.equip) == "table" and Leaderboards.isBoard(data.equip.Entrance) then
 		out.equip.Entrance = data.equip.Entrance
@@ -589,6 +609,35 @@ local function load(plr)
 	-- the live game: the two sessions would overwrite each other's saves)
 	profile.canSave = ok and not (RunService:IsStudio() and workspace:GetAttribute("NoSave") == true)
 	profile.dev = isDeveloper(plr)
+	if not profile.dev then
+		-- the testers' trial (Config.Trial): everything a developer has, but not the admin panel
+		local now = os.time()
+		local state = Economy.trialState(profile.trial, now, isTester(plr))
+		if state == "start" then
+			profile.trial = { start = now }
+			dirty[plr] = true
+			state = "on"
+		end
+		if state == "on" then
+			profile.dev = true
+			profile.trialEnds = profile.trial.start + Config.Trial.Hours * 3600
+		elseif state == "wipe" then
+			-- it ran out: a fresh save (what Robux bought is remembered, so no receipt pays twice),
+			-- off every leaderboard
+			local fresh = newProfile()
+			fresh.receipts = profile.receipts
+			fresh.spent = profile.spent
+			fresh.giftedPasses = profile.giftedPasses
+			fresh.canSave = profile.canSave
+			fresh.trial = { start = profile.trial.start, done = true }
+			fresh.trialWiped = true
+			profile = fresh
+			dirty[plr] = true
+			if reg.LeaderboardService then
+				task.spawn(reg.LeaderboardService.forget, plr.UserId)
+			end
+		end
+	end
 	syncRankedEffects(profile)
 	keepOwned(profile)
 	-- a player who left while the DataStore answered must not be cached (nothing would clear it)
@@ -664,6 +713,7 @@ local function save(plr, force)
 		rooms = profile.rooms,
 		grave = profile.grave,
 		lounge = profile.lounge,
+		trial = profile.trial,
 	}
 	local success = pcall(function()
 		store:UpdateAsync(key(plr), function()
@@ -1101,7 +1151,8 @@ function ProfileService.snapshot(plr)
 		fragments = table.clone(profile.fragments or {}),
 		breaks = table.clone(profile.breaks or {}),
 		dev = profile.dev or nil,
-		admin = (profile.dev or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))) or nil, -- the admin panel (developers, and whoever the owner's whitelist lets in)
+		admin = ((profile.dev and not profile.trialEnds) or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))) or nil, -- the admin panel (developers but not testers on trial, and whoever the owner's whitelist lets in)
+		trialEnds = profile.trialEnds, -- (a tester's trial: when it runs out)
 		adminOwner = (reg.AdminService and reg.AdminService.isOwner(plr)) or nil, -- the admin whitelist (the game's owner alone)
 		cards = (function()
 			local unlocked = {}
@@ -1849,10 +1900,16 @@ function ProfileService.eventPayout(plr, diff, stage, won)
 	return candy, first and cleared
 end
 
--- A developer (recruits and tournament entries are free for them).
+-- A developer (recruits and tournament entries are free for them; a tester on trial too).
 function ProfileService.isDev(plr)
 	local profile = profiles[plr]
 	return profile ~= nil and profile.dev == true
+end
+
+-- A tester on their trial (Config.Trial): a developer's everything, but not a developer.
+function ProfileService.onTrial(plr)
+	local profile = profiles[plr]
+	return profile ~= nil and profile.trialEnds ~= nil
 end
 
 -- Take VP (a tournament's entry). Returns true, or false and why. Developers play free, as with
@@ -2573,7 +2630,7 @@ local function onRequest(plr, kind, a, b, c)
 	elseif kind == "adminMaxAll" then
 		-- admins: every stat of every player they own to its ceiling, free (the owner, 2026-10-29:
 		-- "give me a max every character button", "admin only"); breakthroughs stay as they are
-		local admin = profile.dev or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))
+		local admin = (profile.dev and not profile.trialEnds) or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))
 		if not admin then
 			return
 		end
@@ -2601,7 +2658,7 @@ local function onRequest(plr, kind, a, b, c)
 		-- people", "remove one at a time though"): admins go straight to +Max, free; anyone takes
 		-- theirs down one level, that level's fragments refunded (a developer paid none)
 		local c = type(a) == "string" and Roster.get(a)
-		local admin = profile.dev or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))
+		local admin = (profile.dev and not profile.trialEnds) or (reg.AdminService and reg.AdminService.whitelisted(plr.UserId))
 		if not c or not owns(profile, "Char", a) or not (b == "remove" or (b == "max" and admin)) then
 			return
 		end
@@ -3214,10 +3271,19 @@ function ProfileService.init(r)
 
 	local function setup(plr)
 		task.spawn(function()
-			ProfileService.get(plr)
+			local profile = ProfileService.get(plr)
 			ProfileService.checkCards(plr, true)
 			ProfileService.applyActive(plr)
-			push(plr)
+			if profile.trialEnds then
+				local left = math.max(0, profile.trialEnds - os.time())
+				push(plr, string.format("Tester trial: everything's unlocked for %dh %02dm more. Your save resets when it ends.", math.floor(left / 3600), math.floor((left % 3600) / 60)))
+			elseif profile.trialWiped then
+				profile.trialWiped = nil
+				dirty[plr] = true
+				push(plr, "Your tester trial is over: your save was reset. Thanks for testing!")
+			else
+				push(plr)
+			end
 			-- in the group? (for daily rewards and codes); then any gifts waiting in their mail
 			task.spawn(function()
 				inGroup(plr, false)
@@ -3316,7 +3382,7 @@ function ProfileService.init(r)
 				end
 			end
 		end
-		if report and reg.LeaderboardService then
+		if report and reg.LeaderboardService and not profile.trialEnds then
 			reg.LeaderboardService.track(plr, profile)
 		end
 	end
@@ -3327,6 +3393,12 @@ function ProfileService.init(r)
 			n = n + 1
 			for _, plr in ipairs(Players:GetPlayers()) do
 				tickPlayTime(plr, n % 20 == 0)
+				-- a tester's trial that ran out: off they go (the next join wipes the save)
+				local profile = profiles[plr]
+				if profile and profile.trialEnds and os.time() >= profile.trialEnds then
+					profile.trialEnds = nil
+					plr:Kick("Your 12-hour tester trial is over. Rejoin to start fresh. Thanks for testing!")
+				end
 			end
 		end
 	end)

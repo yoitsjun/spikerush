@@ -596,4 +596,28 @@ function Economy.passById(passId)
 	return nil
 end
 
+-- The testers' trial (Config.Trial). trial: the saved { start, done }; tester: whether they hold a
+-- tester role now. Returns "start" (begin it now), "on" (running), "wipe" (it ran out: wipe the
+-- save, once) or "off". A trial that ran out wipes even if the role was taken away since; one
+-- still running pauses while they don't hold the role.
+function Economy.cleanTrial(trial)
+	trial = type(trial) == "table" and trial or {}
+	local start = tonumber(trial.start)
+	return { start = (start and start > 0) and math.floor(start) or nil, done = trial.done == true or nil }
+end
+
+function Economy.trialState(trial, now, tester)
+	trial = Economy.cleanTrial(trial)
+	if trial.done then
+		return "off"
+	end
+	if not trial.start then
+		return tester and "start" or "off"
+	end
+	if now >= trial.start + Config.Trial.Hours * 3600 then
+		return "wipe"
+	end
+	return tester and "on" or "off"
+end
+
 return Economy

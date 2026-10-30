@@ -283,7 +283,7 @@ end
 -- Developers (Config.Developers), and whoever the owner's whitelist lets in.
 local function isAdmin(plr)
 	local profile = reg.ProfileService.peek(plr)
-	return profile ~= nil and (profile.dev == true or AdminService.whitelisted(plr.UserId))
+	return profile ~= nil and ((profile.dev == true and not profile.trialEnds) or AdminService.whitelisted(plr.UserId))
 end
 
 local function reply(plr, msg, extra)

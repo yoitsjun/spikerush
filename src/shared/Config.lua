@@ -598,6 +598,17 @@ Config.Developers = {
 	Owner = true,
 }
 
+-- The testers' trial (the owner, 2026-10-29: "a 12 hour trial for everyone who has studio tester
+-- access", then "a group role" and "wipe their save"): anyone holding one of Roles in the group that
+-- owns the game gets everything a developer has (every character, cosmetic and pass, free spins
+-- and upgrades), but not the admin panel, for Hours from their first join. When it runs out they're
+-- sent off, and their next join wipes the save (purchases' receipts kept) and drops them from the
+-- leaderboards, once (ProfileService, Economy.trialState).
+Config.Trial = {
+	Hours = 12,
+	Roles = { "tester" }, -- group role names, any case
+}
+
 -- Unlockables. The first item of each list is owned by everyone and equipped by default.
 Config.Cosmetics = {
 	Kinds = { "Style", "Color", "Trail", "Jump", "Effect", "Pose", "Ball" },

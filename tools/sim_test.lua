@@ -2982,6 +2982,21 @@ do
 		n .. " kept of " .. (Config.Admin.WhitelistMax + 12))
 end
 
+print("== the testers' trial ==")
+do
+	-- (the owner, 2026-10-29: "a 12 hour trial for everyone who has studio tester access", a group
+	-- role, "wipe their save"): it starts on a tester's first join, runs Hours, then wipes once
+	local Economy = require("Economy")
+	local H = Config.Trial.Hours * 3600
+	local t0 = 1000000
+	check(Economy.trialState(nil, t0, true) == "start" and Economy.trialState(nil, t0, false) == "off"
+		and Economy.trialState({ start = t0 }, t0 + H - 1, true) == "on" and Economy.trialState({ start = t0 }, t0 + 60, false) == "off"
+		and Economy.trialState({ start = t0 }, t0 + H, true) == "wipe" and Economy.trialState({ start = t0 }, t0 + H + 5, false) == "wipe"
+		and Economy.trialState({ start = t0, done = true }, t0 + H * 3, true) == "off" and Economy.trialState({ start = "x", done = 1 }, t0, true) == "start"
+		and Config.Trial.Hours == 12,
+		"testers' trial: starts on a tester's first join, 12 hours of everything, then one wipe (even if the role's gone), never again")
+end
+
 print("== codes ==")
 do
 	local Economy = require("Economy")
