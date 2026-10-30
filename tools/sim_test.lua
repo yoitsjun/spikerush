@@ -3610,6 +3610,14 @@ do
 		and Economy.passMult(all, "VP") == 3 and Economy.passMult(all, "Gold") == 1.5 and Economy.passMult(all, "Luck") == 1.5
 		and math.abs(three.Mythic - 3 * base.Mythic) < 1e-9 and math.abs(Spins.odds("Char", Spins.luckWeights(1.5)).Mythic - 1.5 * base.Mythic) < 1e-9,
 		"game passes multiply what matches pay and the Characters banner's luck, and stack", string.format("Mythic %.2f%% at 3x", three.Mythic * 100))
+	-- the subscription (the owner, 2026-10-30: "lets make a subscription for more vp and more luck"):
+	-- while it's on it multiplies VP and luck like a pass, stacking with them, and never Gold
+	local SubC = Config.Subscription
+	local withSub = { VIP = true, DoubleVP = true, Lucky = true, Sub = true }
+	check(SubC.VP > 1 and SubC.Luck > 1 and Economy.passMult({ Sub = true }, "VP") == SubC.VP and Economy.passMult({ Sub = true }, "Luck") == SubC.Luck
+		and Economy.passMult({ Sub = true }, "Gold") == 1 and Economy.passMult(withSub, "VP") == 3 * SubC.VP and Economy.passMult(withSub, "Luck") == 1.5 * SubC.Luck
+		and type(SubC.Id) == "string" and (SubC.Id == "" or string.match(SubC.Id, "^EXP%-%d+$") ~= nil),
+		"the subscription doubles earned VP and luck while it's on, stacking with the passes, not Gold")
 end
 
 print("== one swing a jump ==")

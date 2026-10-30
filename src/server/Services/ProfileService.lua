@@ -831,12 +831,17 @@ end
 local ownedPasses = {} -- plr -> { [pass] = true }
 local restoreAt = {} -- plr -> when they last pressed Restore (the original Spike Rush's passes)
 
+local subscribed = {} -- plr -> true while their Config.Subscription is active (checkSub)
+
 local function passesOf(plr, profile)
 	local out = {}
 	for _, key in ipairs(Config.Passes.Order) do
 		if profile.dev == true or (ownedPasses[plr] ~= nil and ownedPasses[plr][key] == true) or (type(profile.giftedPasses) == "table" and profile.giftedPasses[key] == true) then
 			out[key] = true
 		end
+	end
+	if subscribed[plr] then
+		out.Sub = true -- (the subscription multiplies like a pass: Economy.passMult)
 	end
 	return out
 end
@@ -1828,6 +1833,30 @@ function ProfileService.vpMult(plr)
 	local event = reg.AdminService and reg.AdminService.multiplier("VP") or 1
 	local clan = reg.ClanService and reg.ClanService.bonus(plr, "VP") or 1 -- (their clan's V Point gain upgrade)
 	return event * ProfileService.boost(plr, "VP") * ProfileService.passMult(plr, "VP") * clan
+end
+
+-- Whether this player's subscription (Config.Subscription) is active, asked of Roblox as they
+-- join and whenever Roblox says it changed (bought, renewed, lapsed); they're told when it starts
+-- or ends.
+function ProfileService.checkSub(plr)
+	local id = Config.Subscription.Id
+	if id == "" then
+		return
+	end
+	local ok, status = pcall(function()
+		return MarketplaceService:GetUserSubscriptionStatusAsync(plr, id)
+	end)
+	if not ok or type(status) ~= "table" or not plr.Parent then
+		return
+	end
+	local now = status.IsSubscribed == true or nil
+	if now ~= subscribed[plr] then
+		local was = subscribed[plr]
+		subscribed[plr] = now
+		if profiles[plr] then
+			push(plr, now and (Config.Subscription.Name .. " is on: 2x V Points and 2x luck. Thanks for the support!") or (was and (Config.Subscription.Name .. " has ended.") or nil))
+		end
+	end
 end
 
 function ProfileService.award(plr, vp, gold)
@@ -3245,6 +3274,7 @@ function ProfileService.init(r)
 				end
 			end)
 			task.spawn(ProfileService.checkMail, plr)
+			task.spawn(ProfileService.checkSub, plr)
 			if reg.ClanService then
 				task.spawn(reg.ClanService.onLoaded, plr) -- (their clan, its tag in chat)
 			end
@@ -3349,6 +3379,12 @@ function ProfileService.init(r)
 			end
 		end
 	end)
+	-- a subscription bought, renewed or lapsed while they play (ProfileService.checkSub)
+	Players.UserSubscriptionStatusChanged:Connect(function(plr, subscriptionId)
+		if subscriptionId == Config.Subscription.Id then
+			ProfileService.checkSub(plr)
+		end
+	end)
 	Players.PlayerRemoving:Connect(function(plr)
 		local profile = profiles[plr]
 		if profile then
@@ -3370,6 +3406,7 @@ function ProfileService.init(r)
 		tzOffset[plr] = nil
 		passes[plr] = nil
 		ownedPasses[plr] = nil
+		subscribed[plr] = nil
 		lastPerkSet[plr] = nil
 		pendingGift[plr] = nil
 		groupMember[plr] = nil

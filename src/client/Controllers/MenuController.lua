@@ -5420,6 +5420,64 @@ function Extra.refreshDeals(prof)
 			e.price.Text = "Soon"
 		end
 	end
+	Extra.refreshSub(prof)
+end
+
+-- The Specials tab's second row: the subscription (Config.Subscription, the owner, 2026-10-30:
+-- "lets make a subscription for more vp and more luck"), one wide card. Its price is Roblox's
+-- (in the player's own currency, per month); Subscribe opens Roblox's prompt. Hidden until it
+-- has an id.
+function Extra.buildSub(holder, y)
+	local Sub = Config.Subscription
+	if Sub.Id == "" then
+		return
+	end
+	Gui.label(holder, { Text = "Subscription", display = true, weight = Enum.FontWeight.Heavy, TextSize = 32, TextStrokeTransparency = 0.6, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 36), Position = UDim2.fromOffset(0, y) })
+	Gui.label(holder, { Text = "Renews every month, cancel any time", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL, TextStrokeTransparency = 0.6, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(420, 20), Position = UDim2.new(1, 0, 0, y + 12) })
+	Gui.plate(holder, { Size = UDim2.fromOffset(60, 6), Position = UDim2.fromOffset(2, y + 40) }, Gui.SIGNAL)
+	local card = Gui.card(holder, { Size = UDim2.new(1, 0, 0, 224), Position = UDim2.fromOffset(0, y + 56), ClipsDescendants = true })
+	Gui.halftone(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.5, 1), ImageColor3 = Gui.SIGNAL, ImageTransparency = 0.86 })
+	Gui.label(card, { Text = Sub.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, TextColor3 = Gui.SIGNAL, Position = UDim2.fromOffset(20, 14), Size = UDim2.fromOffset(300, 50) })
+	Gui.label(card, { Text = Sub.Blurb, TextSize = 17, weight = Enum.FontWeight.Medium, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(20, 68), Size = UDim2.new(1, -330, 0, 66) })
+	-- the two perks, big, on the right
+	for i, perk in ipairs({ { Sub.VP .. "x", "V Points" }, { Sub.Luck .. "x", "Luck" } }) do
+		local x = -290 + (i - 1) * 140
+		Gui.label(card, { Text = perk[1], display = true, weight = Enum.FontWeight.Heavy, TextSize = 56, TextColor3 = Gui.GOLD, AnchorPoint = Vector2.new(0, 0), Position = UDim2.new(1, x, 0, 22), Size = UDim2.fromOffset(130, 60), TextXAlignment = Enum.TextXAlignment.Center })
+		Gui.label(card, { Text = perk[2], TextSize = 17, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Position = UDim2.new(1, x, 0, 84), Size = UDim2.fromOffset(130, 20), TextXAlignment = Enum.TextXAlignment.Center })
+	end
+	local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 20, 1, -18), Size = UDim2.fromOffset(300, 50) }, "", 22)
+	onClick(buy, function()
+		local prof = profile()
+		if prof.passes and prof.passes.Sub then
+			return
+		end
+		pcall(function()
+			MarketplaceService:PromptSubscriptionPurchase(player, Sub.Id)
+		end)
+	end)
+	Extra.sub = { price = price, display = nil }
+	task.spawn(function()
+		local ok, info = pcall(function()
+			return MarketplaceService:GetSubscriptionProductInfoAsync(Sub.Id)
+		end)
+		if ok and type(info) == "table" and type(info.DisplayPrice) == "string" then
+			Extra.sub.display = info.DisplayPrice
+			MenuController.refresh()
+		end
+	end)
+end
+
+-- The subscription card's button: Subscribed while it's active, else its price a month.
+function Extra.refreshSub(prof)
+	local s = Extra.sub
+	if not s then
+		return
+	end
+	if prof.passes and prof.passes.Sub then
+		s.price.Text = "Subscribed"
+	else
+		s.price.Text = s.display and ("Subscribe  " .. s.display .. " / month") or "Subscribe"
+	end
 end
 
 -- The Lucky tab's second row: lucky spins for V Points (Config.Lucky.VPCost each, the owner:
@@ -5592,6 +5650,7 @@ local function buildShop()
 		end
 	end
 	Extra.buildDeals(tabs.Deals, prices)
+	Extra.buildSub(tabs.Specials, 284)
 	Extra.buildLuckyTrade(tabs.Lucky, 284)
 	Extra.buildGoldTrade(tabs.Trade)
 
