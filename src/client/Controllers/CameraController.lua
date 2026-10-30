@@ -155,15 +155,15 @@ local function wide()
 	dist = dist * (1 - CAM.Zoom * z)
 	local pan = p * CAM.Pan
 	-- a ball flying off the edge of the shot: ease out until it's back in frame (the owner,
-	-- 2026-10-29: "when it flies off screen kind of zoom out so it can be visible"), up to twice
-	-- as far; the camera's own easing smooths the move in and out
+	-- 2026-10-29: "when it flies off screen kind of zoom out so it can be visible"), up to 1.6x as
+	-- far (the courts reach that far: ArenaBuilder's NEAR); the camera's easing smooths it
 	local folder = workspace:FindFirstChild("SpikeRushBall")
 	local ball = folder and folder:FindFirstChild("Ball")
 	if ball and ball.Transparency < 1 then
 		local bp = ball.Position
 		local needZ = (math.abs(bp.Z - pan) + 8) / (tv * aspect)
 		local needY = (bp.Y + 6 - lookY) / (tv * 0.9)
-		dist = math.min(math.max(dist, needZ, needY), dist * 2)
+		dist = math.min(math.max(dist, needZ, needY), dist * 1.6)
 	end
 	return Vector3.new(-dist, lookY + dist * 0.1 + h * CAM.Height, pan), Vector3.new(2, lookY + h * CAM.LookHeight, pan), BASE_FOV
 end

@@ -37,6 +37,11 @@ local HOME = Config.Teams.Home.Color
 local AWAY = Config.Teams.Away.Color
 local INK = Config.UI.Ink
 local CHALK = Config.UI.Chalk
+-- How far toward the camera (x < 0) every court's floor, walls and ceiling reach: the camera can
+-- pull back to about 210 studs (Settings > Camera's zoom, and the ball-following zoom out) and must
+-- never see past a court's edge (the owner, 2026-10-29: "we might have to rework some courts due to
+-- the new camerawork")
+local NEAR = -340
 local DISPLAY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy, Enum.FontStyle.Italic)
 
 local function part(parent, name, size, cf, color, material, props)
@@ -193,7 +198,7 @@ end
 
 local function buildCore(arena)
 	local W, D = C.WallHalfX, C.WallHalfZ
-	part(arena, "Floor", Vector3.new(W * 2 + 40, 2, D * 2 + 4), CFrame.new(-20, -1, 0), Color3.fromRGB(176, 124, 78), Enum.Material.WoodPlanks)
+	part(arena, "Floor", Vector3.new(W - NEAR, 2, D * 2 + 4), CFrame.new((W + NEAR) / 2, -1, 0), Color3.fromRGB(176, 124, 78), Enum.Material.WoodPlanks)
 	buildNet(arena)
 
 	-- the hall's walls as invisible bounds, so every court holds the players in the same box
@@ -497,7 +502,7 @@ local function hall(scene, id, h)
 	local wx = math.max(W, standsBack(id) + 1)
 	deco(part(scene, "WallFar", Vector3.new(2, wallH, D * 2 + 4), CFrame.new(wx + 1, wallH / 2, 0), h.wall))
 	for _, sz in ipairs({ -1, 1 }) do
-		deco(part(scene, "WallEnd", Vector3.new(wx + 60, wallH, 2), CFrame.new(wx / 2 - 30, wallH / 2, sz * (D + 1)), h.wall))
+		deco(part(scene, "WallEnd", Vector3.new(wx - NEAR, wallH, 2), CFrame.new((wx + NEAR) / 2, wallH / 2, sz * (D + 1)), h.wall))
 	end
 	for _, y in ipairs({ 22, 50 }) do
 		deco(part(scene, "Accent", Vector3.new(0.3, 0.35, D), CFrame.new(wx - 0.1, y, -D / 2), h.accentA))
@@ -509,7 +514,7 @@ local function hall(scene, id, h)
 	banner(scene, "BannerAway", Vector3.new(50, 9, 0.4), CFrame.new(10, 40, D - 0.3), Enum.NormalId.Front, h.bannerText, h.bannerColor, h.bannerBack)
 
 	-- ceiling, and a light truss low enough for its lights to reach the floor
-	deco(part(scene, "Ceiling", Vector3.new(wx * 2 + 40, 2, D * 2 + 4), CFrame.new(-20, C.CeilingY + 1, 0), h.ceiling))
+	deco(part(scene, "Ceiling", Vector3.new(wx + 20 - NEAR, 2, D * 2 + 4), CFrame.new((wx + 20 + NEAR) / 2, C.CeilingY + 1, 0), h.ceiling))
 	local lights = folder(scene, "Lights")
 	local n = 0
 	for _, x in ipairs({ -8, 8 }) do
@@ -797,7 +802,7 @@ COURTS.Beach = {
 		deco(part(scene, "Sun", Vector3.new(2, 56, 56), CFrame.new(980, 108, 230), Color3.fromRGB(255, 246, 214), Enum.Material.Neon, { Shape = Enum.PartType.Cylinder }))
 		deco(part(scene, "SunHalo", Vector3.new(1, 130, 130), CFrame.new(990, 108, 230), Color3.fromRGB(255, 230, 170), Enum.Material.Neon, { Shape = Enum.PartType.Cylinder, Transparency = 0.86 }))
 		-- sand beyond the ends and the near side
-		deco(part(scene, "Dunes", Vector3.new(300, 1, 400), CFrame.new(-100, -0.55, 0), Color3.fromRGB(224, 198, 148), Enum.Material.Sand))
+		deco(part(scene, "Dunes", Vector3.new(700, 1, 900), CFrame.new(-250, -0.55, 0), Color3.fromRGB(224, 198, 148), Enum.Material.Sand))
 		stands(scene, id, function(row)
 			return row.index % 2 == 0 and Color3.fromRGB(190, 196, 206) or Color3.fromRGB(170, 176, 188)
 		end, Enum.Material.Metal)
@@ -1023,8 +1028,8 @@ COURTS.Colosseum = {
 		-- end walls
 		local ez = math.max(S.EndStart + S.EndRows * S.RowDepth + 1, C.WallHalfZ + 1) -- (out at the venue's edge: no end stands)
 		for _, sz in ipairs({ -1, 1 }) do
-			deco(part(scene, "EndWall", Vector3.new(wx + 60, archBase + archH + 8, 2), CFrame.new(wx / 2 - 30, (archBase + archH + 8) / 2, sz * ez), stone, Enum.Material.Limestone))
-			deco(part(scene, "EndBand", Vector3.new(wx + 60, 1, 2.4), CFrame.new(wx / 2 - 30, archBase + archH + 0.5, sz * ez), stoneDark, Enum.Material.Limestone))
+			deco(part(scene, "EndWall", Vector3.new(wx - NEAR, archBase + archH + 8, 2), CFrame.new((wx + NEAR) / 2, (archBase + archH + 8) / 2, sz * ez), stone, Enum.Material.Limestone))
+			deco(part(scene, "EndBand", Vector3.new(wx - NEAR, 1, 2.4), CFrame.new((wx + NEAR) / 2, archBase + archH + 0.5, sz * ez), stoneDark, Enum.Material.Limestone))
 		end
 		-- columns and braziers at the corners of the sand
 		for _, sz in ipairs({ -1, 1 }) do
@@ -1056,7 +1061,7 @@ COURTS.Rooftop = {
 		-- the parapet around the roof (the near side stays open)
 		deco(part(scene, "Parapet", Vector3.new(1.6, 3.2, D * 2 + 4), CFrame.new(W + 1, 1.6, 0), concrete, Enum.Material.Concrete))
 		for _, sz in ipairs({ -1, 1 }) do
-			deco(part(scene, "Parapet", Vector3.new(W + 100, 3.2, 1.6), CFrame.new(W / 2 - 50, 1.6, sz * (D + 1)), concrete, Enum.Material.Concrete))
+			deco(part(scene, "Parapet", Vector3.new(W - NEAR, 3.2, 1.6), CFrame.new((W + NEAR) / 2, 1.6, sz * (D + 1)), concrete, Enum.Material.Concrete))
 		end
 		banner(scene, "Tag", Vector3.new(0.3, 2.6, 30), CFrame.new(W - 0.1, 1.6, -58), Enum.NormalId.Left, "VOLLEYBALL RUSH", Color3.fromRGB(255, 90, 170), Color3.fromRGB(128, 130, 138))
 		stands(scene, id, function(row)
@@ -1176,7 +1181,7 @@ COURTS.Rooftop = {
 				z = z + w + 4 + rng:NextNumber() * 8
 			end
 		end
-		deco(part(city, "Street", Vector3.new(900, 1, 1400), CFrame.new(W + 450, -120, 0), Color3.fromRGB(20, 22, 30), Enum.Material.Asphalt))
+		deco(part(city, "Street", Vector3.new(900 + 200 - NEAR, 1, 1400), CFrame.new((W + 900 + NEAR - 200) / 2, -120, 0), Color3.fromRGB(20, 22, 30), Enum.Material.Asphalt))
 		banner(city, "Sign", Vector3.new(0.4, 10, 44), CFrame.new(W + 88, 62, -120), Enum.NormalId.Left, "VOLLEYBALL RUSH", Color3.fromRGB(255, 80, 170), Color3.fromRGB(20, 18, 30))
 		-- a billboard on the block across the street, in view over the bleachers: the name in the
 		-- brand's orange, a neon frame
@@ -1217,7 +1222,7 @@ COURTS.Haunted = {
 		local D = C.WallHalfZ
 		local wood = Color3.fromRGB(30, 24, 22)
 		-- forest floor all round (short of the menu rooms 1600 out)
-		deco(part(scene, "Ground", Vector3.new(900, 1, 1000), CFrame.new(230, -0.56, 0), Color3.fromRGB(34, 32, 28), Enum.Material.Ground))
+		deco(part(scene, "Ground", Vector3.new(1100, 1, 1000), CFrame.new(130, -0.56, 0), Color3.fromRGB(34, 32, 28), Enum.Material.Ground))
 		stands(scene, id, function(row)
 			return row.index % 2 == 0 and Color3.fromRGB(66, 48, 36) or Color3.fromRGB(54, 40, 30)
 		end, Enum.Material.WoodPlanks)
