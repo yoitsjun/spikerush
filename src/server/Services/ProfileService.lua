@@ -810,6 +810,7 @@ end
 
 -- Game passes (Config.Passes): owned when Roblox says so, or for a developer.
 local ownedPasses = {} -- plr -> { [pass] = true }
+local restoreAt = {} -- plr -> when they last pressed Restore (the original Spike Rush's passes)
 
 local function passesOf(plr, profile)
 	local out = {}
@@ -2522,6 +2523,53 @@ local function onRequest(plr, kind, a, b, c)
 		snap.notice = string.format("%s broke through: +%d!", c.Name, level + 1)
 		snap.breakReveal = { id = a, level = level + 1 }
 		Net.get("Profile"):FireClient(plr, snap)
+	elseif kind == "restorePasses" then
+		-- the original Spike Rush's passes on this account carry over (Config.Passes.Old, OldPerks;
+		-- the Clan Founder's is ClanService's): Roblox is asked about each, once a minute at most
+		if restoreAt[plr] and now - restoreAt[plr] < 60 then
+			push(plr, "Checked a moment ago. Try again in a minute.")
+			return
+		end
+		restoreAt[plr] = now
+		task.spawn(function()
+			local found = {}
+			local function owns(id)
+				local ok, yes = pcall(function()
+					return MarketplaceService:UserOwnsGamePassAsync(plr.UserId, id)
+				end)
+				return ok and yes == true
+			end
+			for _, key in ipairs(Config.Passes.Order) do
+				local id = Config.Passes.Old[key]
+				if id and owns(id) then
+					if not profile.giftedPasses[key] then
+						profile.giftedPasses[key] = true
+						table.insert(found, Config.Passes[key].Name)
+					end
+				end
+			end
+			for _, key in ipairs(Config.Perks.Order) do
+				local id = Config.Passes.OldPerks[key]
+				if id and owns(id) and not profile.perks[key] then
+					profile.perks[key] = true
+					table.insert(found, Config.Perks[key].Name or key)
+				end
+			end
+			if Config.Clans.OldPassId and owns(Config.Clans.OldPassId) then
+				table.insert(found, "Clan Founder")
+			end
+			if not plr.Parent or profiles[plr] ~= profile then
+				return
+			end
+			if #found > 0 then
+				dirty[plr] = true
+				applyPasses(plr, profile)
+				applyPerks(plr, profile)
+				push(plr, "Restored from Spike Rush: " .. table.concat(found, ", ") .. ".")
+			else
+				push(plr, "No new Spike Rush passes found on this account.")
+			end
+		end)
 	elseif kind == "adminMaxAll" then
 		-- admins: every stat of every player they own to its ceiling, free (the owner, 2026-10-29:
 		-- "give me a max every character button", "admin only"); breakthroughs stay as they are
@@ -3309,6 +3357,7 @@ function ProfileService.init(r)
 		lastLook[plr] = nil
 		lastClaim[plr] = nil
 		mailBusy[plr] = nil
+		restoreAt[plr] = nil
 	end)
 	game:BindToClose(function()
 		for _, plr in ipairs(Players:GetPlayers()) do

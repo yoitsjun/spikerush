@@ -5486,6 +5486,13 @@ local function buildShop()
 		Extra.shopTab = key
 		MenuController.refresh()
 	end)
+	-- the original Spike Rush's passes carry over (the owner, 2026-10-29: "add a gamepass check
+	-- button ... to transfer over old spike:rush purchases"): the server checks the account
+	local restore = hairButton(p, { Name = "RestorePasses", Position = UDim2.fromOffset(M + 842 + 14, 150), Size = UDim2.fromOffset(300, 46) }, "Restore Spike Rush passes", 18)
+	onClick(restore, function()
+		toast("Checking your account for Spike Rush passes...")
+		sendProfile("restorePasses")
+	end)
 	local packs = make("Frame", { Name = "Packs", Position = UDim2.fromOffset(M, 210), Size = UDim2.fromOffset(4 * 200 + 3 * 14, 560), BackgroundTransparency = 1 }, p)
 	local tabs = {}
 	for _, key in ipairs({ "Deals", "Currency", "Lucky", "Boosts", "Trade" }) do

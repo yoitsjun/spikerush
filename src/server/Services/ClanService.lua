@@ -243,6 +243,13 @@ function ClanService.ownsPass(plr)
 		local ok, owns = pcall(function()
 			return MarketplaceService:UserOwnsGamePassAsync(plr.UserId, C.PassId)
 		end)
+		-- (or the original Spike Rush's: Config.Clans.OldPassId)
+		if not (ok and owns == true) and C.OldPassId then
+			local okOld, ownsOld = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(plr.UserId, C.OldPassId)
+			end)
+			ok, owns = okOld, ownsOld
+		end
 		passOwned[plr] = ok and owns == true
 	end
 	return passOwned[plr]

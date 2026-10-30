@@ -1075,6 +1075,11 @@ Config.Bundles = {
 -- gives (a Grant card); Tag: the chat tag its owners get. Developers own every pass.
 Config.Passes = {
 	Order = { "VIP", "DoubleVP", "Lucky" },
+	-- the original Spike Rush's passes (the stolen game's, 2026-10-26): owning one counts as owning
+	-- its pass here once its player presses Restore in the Shop (ProfileService "restorePasses";
+	-- the owner, 2026-10-29: "transfer over old spike:rush purchases to here")
+	Old = { VIP = 2021828280, DoubleVP = 2021552278, Lucky = 2022146273 },
+	OldPerks = { ScoreSound = 1998447396, ScoreImage = 2001902276 },
 	VIP = { PassId = 2061244340, Name = "VIP", Blurb = "1.5x the V Points you earn and the Gold matches pay, a gold VIP chat tag and the VIP player card.", VP = 1.5, Gold = 1.5, Card = "VIP", Tag = "VIP" }, -- 349 Robux
 	DoubleVP = { PassId = 2061928252, Name = "2x V Points", Blurb = "Matches, tournaments and daily rewards pay double V Points, for good. Stacks with VIP, boosts and events.", VP = 2 }, -- 499
 	Lucky = { PassId = 2061598293, Name = "Lucky", Blurb = "Your Characters recruits are 1.5x luckier, for good. Stacks with 2x Luck.", Luck = 1.5 }, -- 399
@@ -2264,7 +2269,10 @@ Config.Halloween = {
 		Name = "Halloween Night",
 		Blurb = "Limited Halloween cosmetics, and two Mythic skins: the Reaper and the Fallen Angel. Every recruit is 1 scout point: spend them to pick an item outright.",
 		Costs = { VP = { [1] = 80, [10] = 800 }, Candy = { [1] = 25, [10] = 250 } }, -- (VP 80 a recruit, 800 for ten: the owner, 2026-10-17; was 60 and 600)
-		Weights = { Rare = 60.4, Epic = 28, Legendary = 11.4, Mythic = 0.2 }, -- (each skin 0.1%: the owner, 2026-10-17, "lower the halloween recruitment skin rates to around 0.1%"; was 0.3% each)
+		-- (the owner, 2026-10-29, the rerelease resetting everyone's progress: "buff the halloween
+		-- rates": each skin 0.3% again, Legendary 15%; were Rare 60.4, Epic 28, Legendary 11.4 and
+		-- Mythic 0.2, each skin 0.1%, the owner's 2026-10-17 cut)
+		Weights = { Rare = 52.4, Epic = 32, Legendary = 15, Mythic = 0.6 },
 		ScoutPerPull = 1,
 		DupCandy = { Rare = 4, Epic = 8, Legendary = 20, Mythic = 40 },
 		-- what's on it ({ kind, key, scout cost }); the Reaper's rarity is in Skins
@@ -2534,6 +2542,7 @@ Config.Clans = {
 	Topic = "SpikeRushClans", -- MessagingService: a clan changed (its tag), every server re-reads it
 	CostVP = 1000,
 	PassId = 2061856257, -- the Clan Founder game pass (249 Robux, tools/monetization_manifest.json): founds a clan without VP
+	OldPassId = 2044226785, -- the original Spike Rush's Clan Founder pass counts too (Config.Passes.Old)
 	TagMin = 2,
 	TagMax = 5,
 	NameMax = 24,
