@@ -87,7 +87,7 @@ Extra.profileAt = os.clock() -- when the last profile arrived (its countdowns co
 Extra.shopTab = "Deals" -- the Shop's tab: "Deals" (bundles and game passes), "Currency" (VP and Gold), "Lucky", "Boosts" or "Trade"
 Extra.Cards = require(Shared.Cards) -- player cards (the Locker's Cards tab)
 Extra.SoundCrop = require(Shared.SoundCrop) -- the part of a custom sound that plays (the cropper)
-local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, LuckBoost4 = {}, LuckBoost6 = {}, LuckBoost8 = {}, LuckBoost16 = {}, Bundle = {} } -- product prices in Robux, looked up once per pack
+local packPrices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, LuckBoost4 = {}, LuckBoost6 = {}, LuckBoost8 = {}, LuckBoost16 = {}, Bundle = {}, Special = {} } -- product prices in Robux, looked up once per pack
 
 local TIPS = {
 	"Hold toward the net as you let go of a jump-serve toss to throw it forward, then run into it.",
@@ -5504,7 +5504,7 @@ local function buildShop()
 	for _, key in ipairs({ "Deals", "Specials", "Currency", "Lucky", "Boosts", "Trade" }) do
 		tabs[key] = make("Frame", { Name = key, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, packs)
 	end
-	local prices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, Bundle = {} }
+	local prices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, Bundle = {}, Special = {} }
 	local notes = {}
 	local rowsIn = { Currency = 0, Lucky = 0, Boosts = 0, Specials = 0 }
 	for _, row in ipairs(SHOP_ROWS) do
