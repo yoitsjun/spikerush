@@ -1135,36 +1135,8 @@ Config.Discord = {
 }
 
 Config.Codes = {
-	-- a code posted in the Discord (see Config.Discord; verifying there pays more, and the card)
-	spikesquad = { VP = 500, Gold = 5000, Lucky = 2 },
-	-- the owner: 300 members in the Discord, "a big code... 300squad... 1.5k vpoints and 16.7k
-	-- gold" (with 5 lucky spins and 30 minutes of 2x Luck to spend them in)
-	["300squad"] = { VP = 1500, Gold = 16700, Lucky = 5, BoostLuck = 30 * 60 },
-	-- the owner: "make a new code. HolyS+" (for the S+ Update; the "+" is dropped when a code is
-	-- read, so "HolyS+" and "holys" both work)
-	holys = { VP = 600, Gold = 7500, Lucky = 3 },
-	-- the owner: "new code 1000members make it 1k vpoints 5 lucky spins 10,000 gold"
-	["1000members"] = { VP = 1000, Gold = 10000, Lucky = 5 },
-	-- (the owner retired the old game's "release" and moved its rewards to "Update2"; Volleyball Rush
-	-- has its own "release" below)
-	update2 = { VP = 500, Gold = 5000, Lucky = 1 },
-	-- the owner: "new code Update1", then "go with 6000 gold, 3 lucky spins, and 350 vpoints"
-	update1 = { VP = 350, Gold = 6000, Lucky = 3 },
-	-- the owner, 2026-10-17: three codes for about 3k V Points, 50k Gold, 12 lucky spins and an hour
-	-- of 2x Luck between them: the Halloween update, 1k members in the Discord, the release to all ages
-	halloween = { VP = 1000, Gold = 20000, Lucky = 5, BoostLuck = 30 * 60 },
-	["1kdiscord"] = { VP = 1000, Gold = 15000, Lucky = 4, BoostLuck = 15 * 60 },
-	allages = { VP = 1000, Gold = 15000, Lucky = 3, BoostLuck = 15 * 60 },
-	-- the owner, 2026-10-21: "add some new codes for ranked, clans, and 1500 members in the discord"
-	-- then "not as big": about the size of update1 and HolyS+
-	ranked = { VP = 400, Gold = 5000, Lucky = 2 },
-	clans = { VP = 300, Gold = 5000, Lucky = 1 },
-	["1500discord"] = { VP = 500, Gold = 7500, Lucky = 2 },
-	-- the owner, 2026-10-25: "add 2 new codes... 2000discord and 10kgroup"
-	["2000discord"] = { VP = 750, Gold = 15000, Lucky = 5 },
-	["10kgroup"] = { VP = 750, Gold = 15000, Lucky = 3 },
-	-- the owner, 2026-10-29, for Volleyball Rush's release (everyone starting fresh): "lets make new
-	-- codes. Release and VolleyballRush" (typed any case)
+	-- the owner, 2026-10-29, for Volleyball Rush's release: "lets make new codes. Release and
+	-- VolleyballRush" (typed any case), then "remove all other codes we'll start from scratch on those"
 	release = { VP = 1500, Gold = 20000, Lucky = 5, BoostLuck = 30 * 60 },
 	volleyballrush = { VP = 1000, Gold = 15000, Lucky = 3 },
 }

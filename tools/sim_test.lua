@@ -765,13 +765,13 @@ do
 		"admin gifts: breakthrough fragments by letter, checked and capped, added to the purse", fsaid)
 end
 
-print("== the HolyS+ code ==")
+print("== the Release code ==")
 do
 	local Economy = require("Economy")
-	local g1, why1 = Economy.code("HolyS+", os.time())
-	local g2 = Economy.code("  holys ", os.time())
-	check(g1 ~= nil and why1 == nil and g2 ~= nil and g1.VP == 600 and g1.Gold == 7500 and g1.Lucky == 3,
-		"the HolyS+ code reads as typed (the + dropped) and gives 600 VP, 7,500 Gold and 3 lucky spins", g1 and Economy.describe(g1) or tostring(why1))
+	local g1, why1 = Economy.code("Release", os.time())
+	local g2 = Economy.code("  RELEASE ", os.time())
+	check(g1 ~= nil and why1 == nil and g2 ~= nil and g1.VP == 1500 and g1.Gold == 20000 and g1.Lucky == 5 and g1.BoostLuck == 30 * 60,
+		"the Release code reads as typed and gives 1,500 VP, 20,000 Gold, 5 lucky spins and 30 minutes of 2x Luck", g1 and Economy.describe(g1) or tostring(why1))
 end
 
 print("== auto-sell per banner ==")
@@ -787,12 +787,12 @@ do
 		"auto-sell: per banner; an old save's setting stays on Characters only; only sellable rarities")
 end
 
-print("== the 1000members code ==")
+print("== the VolleyballRush code ==")
 do
 	local Economy = require("Economy")
-	local g, why = Economy.code("1000Members", os.time())
-	check(g ~= nil and g.VP == 1000 and g.Gold == 10000 and g.Lucky == 5,
-		"the 1000members code gives 1,000 VP, 10,000 Gold and 5 lucky spins", g and Economy.describe(g) or tostring(why))
+	local g, why = Economy.code("VolleyballRush", os.time())
+	check(g ~= nil and g.VP == 1000 and g.Gold == 15000 and g.Lucky == 3,
+		"the VolleyballRush code gives 1,000 VP, 15,000 Gold and 3 lucky spins", g and Economy.describe(g) or tostring(why))
 end
 
 print("== catching up to someone else's hit ==")
@@ -836,7 +836,7 @@ do
 	end
 	local g = Economy.cleanGrant(Config.Discord.Reward)
 	check(okAll and not Economy.isDiscordCode("ABC") and not Economy.isDiscordCode("abcdefg") and not Economy.isDiscordCode("ABCDEF0")
-		and g.Cards[1] == "Discord" and others == 0 and Economy.code("SpikeSquad", os.time()) ~= nil,
+		and g.Cards[1] == "Discord" and others == 0 and Economy.code("Release", os.time()) ~= nil,
 		"Discord: verification codes are clean, verifying gives the Discord Squad card, and no code does", Economy.describe(g))
 end
 
@@ -2479,12 +2479,12 @@ end
 print("== codes, lucky spins, daily rewards, gifts and events ==")
 do
 	local Economy = require("Economy")
-	-- codes: any case and spacing, UPDATE2 pays, a retired one (RELEASE) and unknown ones don't
-	local g, why, key = Economy.code("  UpDaTe 2 ", 100)
+	-- codes: any case and spacing, VOLLEYBALLRUSH pays, Spike Rush's old ones (UPDATE2) and unknown ones don't
+	local g, why, key = Economy.code("  VolleyBall Rush ", 100)
 	local none, noneWhy = Economy.code("nope", 100)
-	local old = Economy.code("release", 100)
-	check(g ~= nil and key == "update2" and g.VP > 0 and g.Gold > 0 and g.Lucky >= 1 and none == nil and noneWhy == "unknown" and old == nil,
-		"the UPDATE2 code works typed any way and pays VP, Gold and a lucky spin; RELEASE and unknown codes pay nothing", g and Economy.describe(g) or tostring(why))
+	local old = Economy.code("update2", 100)
+	check(g ~= nil and key == "volleyballrush" and g.VP > 0 and g.Gold > 0 and g.Lucky >= 1 and none == nil and noneWhy == "unknown" and old == nil,
+		"the VOLLEYBALLRUSH code works typed any way and pays VP, Gold and a lucky spin; old Spike Rush codes and unknown ones pay nothing", g and Economy.describe(g) or tostring(why))
 	-- a grant is made safe: no negatives, caps, real characters only, each once
 	local clean = Economy.cleanGrant({ VP = -50, Gold = 1e12, Lucky = 2.7, Chars = { "dante", "dante", "nobody", 5 } })
 	check(clean.VP == 0 and clean.Gold == Config.Admin.GiveMax.Gold and clean.Lucky == 2 and #clean.Chars == 1 and clean.Chars[1] == "dante",
@@ -2985,10 +2985,14 @@ end
 print("== codes ==")
 do
 	local Economy = require("Economy")
-	local g1 = Economy.code(" Update1 ")
-	local g0 = Economy.code("UPDATE2")
-	check(g1 and g1.VP == 350 and g1.Gold == 6000 and g1.Lucky == 3 and g0 and g0.VP == 500 and g0.Gold == 5000 and g0.Lucky == 1 and Economy.code("update 1") ~= nil and Economy.code("RELEASE") == nil,
-		"the codes UPDATE1 and UPDATE2 (RELEASE's rewards) work in any case, spaces ignored; RELEASE is retired")
+	local g1 = Economy.code(" Release ")
+	local g0 = Economy.code("VOLLEYBALLRUSH")
+	local n = 0
+	for _ in pairs(Config.Codes) do
+		n = n + 1
+	end
+	check(g1 and g1.VP == 1500 and g0 and g0.VP == 1000 and Economy.code("volleyball rush") ~= nil and Economy.code("HolyS+") == nil and Economy.code("spikesquad") == nil and n == 2,
+		"only RELEASE and VOLLEYBALLRUSH are live, in any case, spaces ignored; every Spike Rush code is gone")
 end
 
 print("== feints get past blocks and break a low guard ==")
