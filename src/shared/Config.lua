@@ -1172,12 +1172,12 @@ Config.Admin = {
 	-- odds of getting better characters. from A- to above") changes recruits on the Characters
 	-- banner: Config.Spins.LuckEvent
 	Events = { "VP", "Gold", "Luck" },
-	-- the Luck event's strength, picked as it starts (the owner, 2026-10-16: "Add 4x 6x 8x and 16x
-	-- luck to admin panel"); VP and Gold stay at Multiplier
-	LuckMuls = { 2, 4, 6, 8, 16 },
+	-- each event's strength, picked as it starts (the owner, 2026-10-16: "Add 4x 6x 8x and 16x
+	-- luck to admin panel"; 2026-10-30: "make gold and vp gain also go up to 16x same as the luck")
+	EventMuls = { 2, 4, 6, 8, 16 },
 	EventNames = { VP = "V Points", Gold = "Gold", Luck = "Luck" },
-	EventLines = { VP = "Matches, tournaments and daily rewards pay double.", Gold = "Every match pays double.", Luck = "Recruits are that many times as likely to be A- or better, and it multiplies with your own Luck." },
-	Multiplier = 2,
+	EventLines = { VP = "Matches, tournaments and daily rewards pay that many times the V Points.", Gold = "Every match pays that many times the Gold.", Luck = "Recruits are that many times as likely to be A- or better, and it multiplies with your own Luck." },
+	Multiplier = 2, -- an event's strength when none was picked
 	AnnounceMax = 200, -- characters
 	AnnounceSeconds = 10, -- how long an announcement shows
 	GiveMax = { VP = 1000000, Gold = 10000000, Lucky = 1000, Fragments = 1000, STickets = 20 },

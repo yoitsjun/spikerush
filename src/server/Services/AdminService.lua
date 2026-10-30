@@ -1,7 +1,8 @@
 -- The admin panel's server side (Home's Admin button; developers only, Config.Developers). Its
 -- requests arrive on the "Admin" remote and every one is answered there ({ msg, events }):
 --   ("state")                  -> the running events
---   ("event", kind, minutes)   -> 2x VP or 2x Gold (Config.Admin) in every server for that long
+--   ("event", kind, minutes, mul) -> VP, Gold or Luck at 2x to 16x (Config.Admin.EventMuls) in every
+--                                 server for that long
 --   ("stop", kind)             -> end it everywhere
 --   ("announce", text)         -> through Roblox's text filter, then to every player in every server
 --   ("give", username, grant)  -> VP, Gold, lucky spins, characters and cosmetics to anyone by
@@ -22,7 +23,8 @@
 -- Events are kept in a DataStore (a server that starts later reads them, and every server reads
 -- them again each PollInterval) and pushed at once over MessagingService, as are announcements
 -- and the "open your mail" pings for gifts. The running ones are ReplicatedStorage attributes
--- (Event_VP, Event_Gold: the unix time each ends, 0 when off) for the menus.
+-- (Event_VP, Event_Gold, Event_Luck: the unix time each ends, 0 when off; EventMul_<kind>: its
+-- strength) for the menus.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -64,12 +66,12 @@ local function publish(topic, data)
 	end)
 end
 
--- the Luck event's strength while it runs (Config.Admin.LuckMuls; VP and Gold are always Multiplier)
-local luckMul = A.Multiplier
+-- each event's strength while it runs (Config.Admin.EventMuls: 2x to 16x), by kind
+local muls = {}
 
-local function cleanLuckMul(m)
+local function cleanMul(m)
 	m = tonumber(m)
-	for _, v in ipairs(A.LuckMuls) do
+	for _, v in ipairs(A.EventMuls) do
 		if v == m then
 			return v
 		end
@@ -77,21 +79,21 @@ local function cleanLuckMul(m)
 	return A.Multiplier
 end
 
--- The running events as attributes, for every client (and the Luck event's strength).
+-- The running events as attributes, for every client, with each one's strength.
 local function writeEvents()
 	events = Economy.running(events, os.time())
 	for _, kind in ipairs(A.Events) do
 		ReplicatedStorage:SetAttribute("Event_" .. kind, events[kind] or 0)
+		ReplicatedStorage:SetAttribute("EventMul_" .. kind, muls[kind] or A.Multiplier)
 	end
-	ReplicatedStorage:SetAttribute("EventMul_Luck", luckMul)
 end
 
 -- What the running events multiply `kind` ("VP", "Gold" or "Luck") by right now (MatchService's
--- rewards, ProfileService's recruits): the Luck event at its own strength.
+-- rewards, ProfileService's VP and recruits): each event at the strength it was started at.
 function AdminService.multiplier(kind)
 	local m = Economy.multiplier(events, kind, os.time())
-	if kind == "Luck" and m > 1 then
-		return luckMul
+	if m > 1 then
+		return muls[kind] or A.Multiplier
 	end
 	return m
 end
@@ -110,8 +112,10 @@ local function takeEvents(data, whole)
 			events[kind] = nil
 		end
 	end
-	if data.LuckMul ~= nil then
-		luckMul = cleanLuckMul(data.LuckMul)
+	for _, kind in ipairs(A.Events) do
+		if data[kind .. "Mul"] ~= nil then
+			muls[kind] = cleanMul(data[kind .. "Mul"]) -- (VPMul, GoldMul, LuckMul)
+		end
 	end
 	writeEvents()
 end
@@ -120,9 +124,10 @@ local function storeEvents()
 	if not liveStore then
 		return
 	end
-	local all = { LuckMul = luckMul }
+	local all = {}
 	for _, kind in ipairs(A.Events) do
 		all[kind] = events[kind] or 0
+		all[kind .. "Mul"] = muls[kind] or A.Multiplier
 	end
 	task.spawn(function()
 		pcall(function()
@@ -445,23 +450,20 @@ local function onAdmin(plr, op, a, b, c)
 		if not Economy.isEvent(a) or not Economy.isDuration(minutes) then
 			return
 		end
-		-- (Luck at the strength picked: `c`, 2x to 16x)
-		local mul = A.Multiplier
-		if a == "Luck" then
-			luckMul = cleanLuckMul(c)
-			mul = luckMul
-		end
+		-- (at the strength picked: `c`, 2x to 16x)
+		local mul = cleanMul(c)
+		muls[a] = mul
 		events[a] = os.time() + minutes * 60
 		writeEvents()
 		storeEvents()
-		publish(TOPIC_LIVE, { [a] = events[a], LuckMul = a == "Luck" and luckMul or nil })
+		publish(TOPIC_LIVE, { [a] = events[a], [a .. "Mul"] = mul })
 		notify({ kind = "event", text = string.format("%dx %s for the next %d minutes! %s", mul, eventName(a), minutes, A.EventLines[a] or "") })
 		reply(plr, string.format("%dx %s is on in every server for %d minutes.", mul, a, minutes))
 	elseif op == "stop" then
 		if not Economy.isEvent(a) then
 			return
 		end
-		local mul = a == "Luck" and luckMul or A.Multiplier
+		local mul = muls[a] or A.Multiplier
 		events[a] = nil
 		writeEvents()
 		storeEvents()

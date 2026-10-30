@@ -2524,6 +2524,19 @@ do
 	check(Economy.multiplier(ev, "VP", 4999) == Config.Admin.Multiplier and Economy.multiplier(ev, "VP", 5001) == 1 and Economy.multiplier(ev, "Gold", 4999) == 1
 		and Economy.isDuration(15) and not Economy.isDuration(7) and Economy.isEvent("Gold") and not Economy.isEvent("XP"),
 		"2x VP pays double while it runs and not after; only the panel's durations and events are accepted")
+	-- every event (VP and Gold too, not only Luck) can run at 2x up to 16x (the owner, 2026-10-30:
+	-- "make gold and vp gain also go up to 16x same as the luck"); unpicked, it's Multiplier
+	local muls, hasDefault = {}, false
+	for _, m in ipairs(Config.Admin.EventMuls) do
+		muls[m] = true
+		hasDefault = hasDefault or m == Config.Admin.Multiplier
+	end
+	local named = true
+	for _, kind in ipairs(Config.Admin.Events) do
+		named = named and type(Config.Admin.EventNames[kind]) == "string" and type(Config.Admin.EventLines[kind]) == "string"
+	end
+	check(muls[2] and muls[4] and muls[6] and muls[8] and muls[16] and hasDefault and named and Economy.isEvent("VP") and Economy.isEvent("Gold") and Economy.isEvent("Luck"),
+		"the admin panel's VP, Gold and Luck events each pick 2x, 4x, 6x, 8x or 16x")
 	-- every pack sold for Robux can be looked up by its product and gifted as what it sells
 	local vp1, gold4, lucky2 = Economy.pack("VP", 1), Economy.pack("Gold", 4), Economy.pack("Lucky", 2)
 	local byId = Economy.packByProduct(Config.Shop.Packs[1].Id)

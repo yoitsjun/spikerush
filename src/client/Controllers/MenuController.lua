@@ -236,7 +236,7 @@ end
 -- the player's own 2x VP boost and their passes.
 function Extra.vpMult()
 	local prof = profile()
-	local event = Extra.eventLeft("VP") > 0 and Config.Admin.Multiplier or 1
+	local event = Extra.eventLeft("VP") > 0 and (ReplicatedStorage:GetAttribute("EventMul_VP") or Config.Admin.Multiplier) or 1
 	local mine = (prof.boostVP or 0) - (os.clock() - (Extra.profileAt or 0)) > 0 and Config.Boosts.Multiplier or 1
 	return event * mine * Economy.passMult(prof.passes, "VP")
 end
@@ -993,7 +993,7 @@ function Extra.refreshHome(prof)
 		local left = Extra.eventLeft(kind)
 		chip.plate.Visible = left > 0
 		if left > 0 then
-			chip.label.Text = string.format("%dx %s  %s", kind == "Luck" and (ReplicatedStorage:GetAttribute("EventMul_Luck") or Config.Admin.Multiplier) or Config.Admin.Multiplier, kind, Extra.clockText(left))
+			chip.label.Text = string.format("%dx %s  %s", ReplicatedStorage:GetAttribute("EventMul_" .. kind) or Config.Admin.Multiplier, kind, Extra.clockText(left))
 		end
 	end
 	local boostLeft = (prof.boostVP or 0) - (os.clock() - Extra.profileAt)
@@ -3187,14 +3187,17 @@ local function playSequence(reveal)
 	if not hold(seq, 1.15) then
 		return
 	end
-	-- 2. the balls fly under the gym ceiling
+	-- 2. the balls fall out of the sky into the ball cart (the owner, 2026-10-30: "maybe we can do a
+	-- ball cart and the balls fall from the sky inside of it"): up the shaft of light, then down
+	-- with them as they land
 	mods.SceneController.show("gym")
-	mods.SceneController.shot("ceiling")
-	mods.SceneController.flyBalls(colors, strength, 1.5)
+	mods.SceneController.shot("cartSky")
+	local dropTime = mods.SceneController.dropBalls(colors, strength)
+	mods.SceneController.shot("cart", 1.1)
 	local flySound = mods.AudioController and mods.AudioController.play("RecruitFly")
 	tween(S.black, 0.35, { BackgroundTransparency = 1 })
 	S.sparks:ClearAllChildren()
-	local flew = hold(seq, 1.75)
+	local flew = hold(seq, dropTime)
 	-- a skip, or the recruit closing, cuts the flight's sound short
 	if flySound and (not flew or seq.skipping) then
 		flySound:Destroy()
@@ -3202,10 +3205,14 @@ local function playSequence(reveal)
 	if not flew then
 		return
 	end
-	-- 3. lined up over the stage
+	-- 3. up out of the cart, lined up over the stage (in place at once after a skip)
 	S.black.BackgroundTransparency = 1
-	mods.SceneController.shot("lineup")
-	mods.SceneController.lineUp(colors, strength)
+	local rise = seq.skipping and 0 or 0.8
+	mods.SceneController.shot("lineup", rise)
+	mods.SceneController.lineUp(colors, strength, rise)
+	if rise > 0 and not hold(seq, rise + 0.1) then
+		return
+	end
 	S.cont.Text = mods.PadNav.usingPad() and "Press A to continue   (Y to skip)" or "Click to Continue"
 	S.cont.Visible = true
 	if not waitClick(seq, true) then
@@ -8422,28 +8429,26 @@ function Extra.buildAdmin()
 		MenuController.refresh()
 	end)
 	local evRows = {}
-	Extra.adminLuckMul = Extra.adminLuckMul or Config.Admin.Multiplier
+	Extra.adminMuls = Extra.adminMuls or {}
 	for i, kind in ipairs(Config.Admin.Events) do
 		local r = make("Frame", { Position = UDim2.fromOffset(0, 106 + (i - 1) * 64), Size = UDim2.new(1, 0, 0, 56), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 22 }, left)
 		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
-		local title = Gui.label(r, { Text = Config.Admin.Multiplier .. "x " .. kind, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(100, 56), ZIndex = 23 })
-		if kind == "Luck" then
-			-- its strength (the owner, 2026-10-16: "Add 4x 6x 8x and 16x luck to admin panel"): a press
-			-- steps 2x, 4x, 6x, 8x, 16x
-			title.Visible = false
-			local mulB, mulL = hairButton(r, { Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(104, 40), ZIndex = 23 }, Extra.adminLuckMul .. "x Luck", 18)
-			onClick(mulB, function()
-				local list = Config.Admin.LuckMuls
-				local at = table.find(list, Extra.adminLuckMul) or 1
-				Extra.adminLuckMul = list[at % #list + 1]
-				mulL.Text = Extra.adminLuckMul .. "x Luck"
-			end)
-		end
+		-- its strength (the owner, 2026-10-16: "Add 4x 6x 8x and 16x luck to admin panel", then
+		-- 2026-10-30: "make gold and vp gain also go up to 16x same as the luck"): a press steps 2x,
+		-- 4x, 6x, 8x, 16x
+		Extra.adminMuls[kind] = Extra.adminMuls[kind] or Config.Admin.Multiplier
+		local mulB, mulL = hairButton(r, { Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(104, 40), ZIndex = 23 }, Extra.adminMuls[kind] .. "x " .. kind, 18)
+		onClick(mulB, function()
+			local list = Config.Admin.EventMuls
+			local at = table.find(list, Extra.adminMuls[kind]) or 1
+			Extra.adminMuls[kind] = list[at % #list + 1]
+			mulL.Text = Extra.adminMuls[kind] .. "x " .. kind
+		end)
 		local status = Gui.label(r, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(112, 0), Size = UDim2.fromOffset(160, 56), ZIndex = 23 })
 		local start, startL = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -96, 0.5, 0), Size = UDim2.fromOffset(108, 40), ZIndex = 23 }, "Start", 18)
 		local stop = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(80, 40), ZIndex = 23 }, "Stop", 18)
 		onClick(start, function()
-			Net.get("Admin"):FireServer("event", kind, Extra.adminMinutes, kind == "Luck" and Extra.adminLuckMul or nil)
+			Net.get("Admin"):FireServer("event", kind, Extra.adminMinutes, Extra.adminMuls[kind])
 		end)
 		onClick(stop, function()
 			Net.get("Admin"):FireServer("stop", kind)

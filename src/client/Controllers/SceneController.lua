@@ -7,7 +7,8 @@
 --   * Gym: a school gym (vaulted ceiling with timber arches, tall windows throwing light shafts,
 --     a stage with a red curtain, a ball cart) where recruiting happens: three silhouettes of
 --     your avatar stand in for the players you can recruit, and the recruit sequence plays
---     (volleyballs flying under the ceiling, then lined up over the stage).
+--     (volleyballs falling out of the sky into the ball cart, then rising to line up over the
+--     stage).
 -- The Locker previews unlockables in the gym: your avatar spikes on a loop with the spike style,
 -- colour, trail and score effect you're looking at.
 -- The bench, the ball carts and every ball are Toolbox models when their slots in
@@ -35,6 +36,11 @@ local mods
 local player = Players.LocalPlayer
 local HOME = Vector3.new(1600, 0, -400)
 local GYM = Vector3.new(1600, 0, 400)
+-- the recruit's ball cart (the owner, 2026-10-30: "maybe we can do a ball cart and the balls fall
+-- from the sky inside of it"): a wire basket on casters on the court, the pulls dropping into it
+local CART = GYM + Vector3.new(0, 0, 38)
+local CART_FLOOR, CART_RIM = 2.4, 6.4 -- the basket's floor and top rim above the boards
+local CART_HX, CART_HZ = 4.4, 2.9 -- half the basket, across and deep
 
 local folder
 local homeBuilt, gymBuilt = false, false
@@ -49,7 +55,11 @@ local homeBits = {} -- the arena (a room in its place hides it)
 local roomState = { key = nil, decor = nil, flicker = {} } -- the room shown (setRoom) and its decor
 local practice = nil -- the Locker's practice spike (see below)
 local balls = {}
-local flying = {}
+local dropping = {} -- the pulls falling into the cart (SceneController.dropBalls)
+local rising = {} -- and rising out of it to the line-up (SceneController.lineUp)
+local cartBeam -- the shaft of light they fall down (buildCart)
+local beamFx = nil -- { t0, t1, color }: the shaft shows over that time
+local shake = { t0 = 0, t1 = 0, amp = 0 } -- the camera's jolt as a rare pull lands
 
 ------------------------------------------------------------------------------------------
 -- building blocks
@@ -1365,28 +1375,97 @@ end
 -- gym: the recruit hall
 ------------------------------------------------------------------------------------------
 
--- The recruit hall's ball cart, into gymProps: the Toolbox cart full of volleyballs, else a
--- built one. Runs again whenever a Toolbox model lands.
+-- The recruit cart (CART): an open wire basket on four casters, an orange rim, a push handle,
+-- a few volleyballs in the bottom and, over it, the shaft of light the pulls fall down (hidden
+-- until a recruit). Every rod lies along an axis, so each is one box between two corners.
+local function buildCart(parent)
+	local frame = Color3.fromRGB(34, 38, 56)
+	local wire = Color3.fromRGB(198, 202, 212)
+	local function rod(a, b, th, color, material)
+		local d = b - a
+		local size = Vector3.new(math.max(math.abs(d.X), th), math.max(math.abs(d.Y), th), math.max(math.abs(d.Z), th))
+		return box(parent, size, CFrame.new(CART + (a + b) / 2), color, material or Enum.Material.Metal)
+	end
+	local X, Z, F, R = CART_HX, CART_HZ, CART_FLOOR, CART_RIM
+	local function ring(y, th, color, material)
+		rod(Vector3.new(-X, y, -Z), Vector3.new(X, y, -Z), th, color, material)
+		rod(Vector3.new(-X, y, Z), Vector3.new(X, y, Z), th, color, material)
+		rod(Vector3.new(-X, y, -Z), Vector3.new(-X, y, Z), th, color, material)
+		rod(Vector3.new(X, y, -Z), Vector3.new(X, y, Z), th, color, material)
+	end
+	ring(R, 0.34, ORANGE, Enum.Material.SmoothPlastic)
+	ring(F, 0.26, frame)
+	ring((F + R) / 2, 0.14, frame)
+	for _, y in ipairs({ F + 1, F + 3 }) do
+		ring(y, 0.08, wire)
+	end
+	-- the corner posts down to the casters, and the rails under the basket
+	for _, sx in ipairs({ -1, 1 }) do
+		for _, sz in ipairs({ -1, 1 }) do
+			rod(Vector3.new(sx * X, 1.05, sz * Z), Vector3.new(sx * X, R, sz * Z), 0.34, frame)
+			local at = CART + Vector3.new(sx * (X - 0.15), 0, sz * (Z - 0.15))
+			box(parent, Vector3.new(0.34, 0.5, 0.34), CFrame.new(at + Vector3.new(0, 0.95, 0)), frame, Enum.Material.Metal)
+			part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.42, 0.9, 0.9), CFrame = CFrame.new(at + Vector3.new(0, 0.45, 0)), Color = Color3.fromRGB(30, 30, 34) }, parent)
+		end
+		rod(Vector3.new(-X, 1.05, sx * Z), Vector3.new(X, 1.05, sx * Z), 0.22, frame)
+	end
+	-- the wire walls and floor
+	local nx = math.floor(2 * X / 0.62)
+	for i = 1, nx - 1 do
+		local x = -X + i * 2 * X / nx
+		rod(Vector3.new(x, F, -Z), Vector3.new(x, R, -Z), 0.09, wire)
+		rod(Vector3.new(x, F, Z), Vector3.new(x, R, Z), 0.09, wire)
+		rod(Vector3.new(x, F, -Z), Vector3.new(x, F, Z), 0.09, wire)
+	end
+	local nz = math.floor(2 * Z / 0.62)
+	for i = 1, nz - 1 do
+		local z = -Z + i * 2 * Z / nz
+		rod(Vector3.new(-X, F, z), Vector3.new(-X, R, z), 0.09, wire)
+		rod(Vector3.new(X, F, z), Vector3.new(X, R, z), 0.09, wire)
+		rod(Vector3.new(-X, F, z), Vector3.new(X, F, z), 0.09, wire)
+	end
+	box(parent, Vector3.new(2 * X, 0.08, 2 * Z), CFrame.new(CART + Vector3.new(0, F - 0.12, 0)), NIGHT, Enum.Material.Fabric)
+	-- the push handle at the right-hand end (the screen's right is -X)
+	for _, sz in ipairs({ -1.5, 1.5 }) do
+		rod(Vector3.new(-X, R, sz), Vector3.new(-X, R + 0.9, sz), 0.2, frame)
+		rod(Vector3.new(-X, R + 0.9, sz), Vector3.new(-X - 1, R + 0.9, sz), 0.2, frame)
+	end
+	rod(Vector3.new(-X - 1, R + 0.9, -1.6), Vector3.new(-X - 1, R + 0.9, 1.6), 0.3, Color3.fromRGB(26, 26, 30), Enum.Material.Fabric)
+	-- its name on the front, toward the camera
+	local plate = box(parent, Vector3.new(4.4, 0.95, 0.12), CFrame.new(CART + Vector3.new(0, (F + R) / 2 + 0.75, -Z - 0.12)), NIGHT, Enum.Material.SmoothPlastic)
+	surfaceText(plate, Enum.NormalId.Front, "VOLLEYBALL RUSH", ORANGE, Enum.Font.FredokaOne)
+	-- a few balls already in it
+	for _, p in ipairs({ { -3.2, -1.5 }, { -1.1, -1.6 }, { 1.0, -1.4 }, { 3.1, -1.5 }, { -2.2, 1.4 }, { 0.1, 1.5 }, { 2.3, 1.4 } }) do
+		makeBall(parent, 1, CART + Vector3.new(p[1], F + 1, p[2]), true)
+	end
+	-- the shaft of light from the roof (shown while the pulls fall: beamFx)
+	cartBeam = part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(46, 7.5, 7.5), CFrame = CFrame.new(CART + Vector3.new(0, R + 23, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(255, 232, 190), Material = Enum.Material.Neon, Transparency = 1, CastShadow = false }, parent)
+end
+
+-- The recruit hall's furniture, into gymProps: the recruit cart (buildCart) on the court and the
+-- Toolbox ball rack beside the stage, else a built stand-in for it. Runs again whenever a Toolbox
+-- model lands.
 local function furnishGym()
 	if not gymProps then
 		return
 	end
 	gymProps:ClearAllChildren()
-	local at = GYM + Vector3.new(0, 0, 40)
-	local cart = toolboxModel("BallCart")
-	if cart then
-		cart.Parent = gymProps
-		local size = standProp(cart, CFrame.new(at), Vector3.new(12, 0, 0))
-		stockWithBalls(cart, size.Y * 0.15)
+	buildCart(gymProps)
+	local at = CFrame.new(GYM + Vector3.new(30, 0, 76)) * CFrame.Angles(0, math.rad(25), 0)
+	local rack = toolboxModel("BallCart")
+	if rack then
+		rack.Parent = gymProps
+		local size = standProp(rack, at, Vector3.new(10, 0, 0))
+		stockWithBalls(rack, size.Y * 0.15)
 		return
 	end
-	local body = box(gymProps, Vector3.new(9, 5, 6), CFrame.new(at + Vector3.new(0, 6, 0)), Color3.fromRGB(34, 74, 190), Enum.Material.Fabric)
-	surfaceText(body, Enum.NormalId.Back, "VOLLEYBALL RUSH", Color3.fromRGB(245, 245, 250), Enum.Font.FredokaOne)
-	box(gymProps, Vector3.new(9.2, 0.4, 6.2), CFrame.new(at + Vector3.new(0, 8.6, 0)), Color3.fromRGB(24, 54, 150), Enum.Material.Fabric)
+	local body = box(gymProps, Vector3.new(9, 5, 6), at * CFrame.new(0, 6, 0), Color3.fromRGB(34, 74, 190), Enum.Material.Fabric)
+	surfaceText(body, Enum.NormalId.Front, "VOLLEYBALL RUSH", Color3.fromRGB(245, 245, 250), Enum.Font.FredokaOne)
+	box(gymProps, Vector3.new(9.2, 0.4, 6.2), at * CFrame.new(0, 8.6, 0), Color3.fromRGB(24, 54, 150), Enum.Material.Fabric)
 	for _, dx in ipairs({ -4.2, 4.2 }) do
 		for _, dz in ipairs({ -2.7, 2.7 }) do
-			box(gymProps, Vector3.new(0.3, 3.5, 0.3), CFrame.new(at + Vector3.new(dx, 1.9, dz)), Color3.fromRGB(190, 194, 200), Enum.Material.Metal)
-			part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 0.8, 0.8), CFrame = CFrame.new(at + Vector3.new(dx, 0.4, dz)), Color = Color3.fromRGB(40, 40, 44) }, gymProps)
+			box(gymProps, Vector3.new(0.3, 3.5, 0.3), at * CFrame.new(dx, 1.9, dz), Color3.fromRGB(190, 194, 200), Enum.Material.Metal)
+			part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 0.8, 0.8), CFrame = at * CFrame.new(dx, 0.4, dz), Color = Color3.fromRGB(40, 40, 44) }, gymProps)
 		end
 	end
 end
@@ -1419,7 +1498,8 @@ local function buildGym()
 	-- walls: wood panelling below, cream above, tall windows
 	for _, sx in ipairs({ -1, 1 }) do
 		box(hall, Vector3.new(1, 9, 150), CFrame.new(G + Vector3.new(sx * 52, 4.5, 20)), panel, Enum.Material.WoodPlanks)
-		box(hall, Vector3.new(1, 28, 150), CFrame.new(G + Vector3.new(sx * 52, 23, 20)), cream)
+		-- (up to 41, past where the vault starts at 37: the roof once showed the sky along its foot)
+		box(hall, Vector3.new(1, 32, 150), CFrame.new(G + Vector3.new(sx * 52, 25, 20)), cream)
 		for i = 0, 4 do
 			local z = -30 + i * 24
 			local w = box(hall, Vector3.new(0.2, 12, 14), CFrame.new(G + Vector3.new(sx * 51.4, 21, z)), Color3.fromRGB(255, 246, 220), Enum.Material.Neon)
@@ -1438,11 +1518,12 @@ local function buildGym()
 			end
 		end
 	end
-	box(hall, Vector3.new(104, 50, 1), CFrame.new(G + Vector3.new(0, 25, -56)), cream)
+	-- the end walls rise past the vault's ridge (53), so no sky shows over them
+	box(hall, Vector3.new(106, 58, 1), CFrame.new(G + Vector3.new(0, 29, -56)), cream)
 
 	-- the stage and its curtain
 	local S = G + Vector3.new(0, 0, 90)
-	box(hall, Vector3.new(104, 50, 1), CFrame.new(S + Vector3.new(0, 25, 4)), cream)
+	box(hall, Vector3.new(106, 58, 1), CFrame.new(S + Vector3.new(0, 29, 4)), cream)
 	box(hall, Vector3.new(50, 5, 12), CFrame.new(S + Vector3.new(0, 2.5, -3)), Color3.fromRGB(176, 126, 80), Enum.Material.WoodPlanks)
 	box(hall, Vector3.new(50, 0.6, 0.4), CFrame.new(S + Vector3.new(0, 5, -9)), Color3.fromRGB(120, 84, 56))
 	box(hall, Vector3.new(40, 20, 1), CFrame.new(S + Vector3.new(0, 15, 2.5)), Color3.fromRGB(128, 24, 30), Enum.Material.Fabric)
@@ -1641,7 +1722,9 @@ local SHOTS = {
 	-- the Players screens: the same room, turned so your avatar stands in the left third
 	roster = { from = HOME + Vector3.new(-1.6, 4.2, -8.5), to = HOME + Vector3.new(-1.2, 3.7, 7), fov = 42 },
 	recruit = { from = GYM + Vector3.new(1, 5.2, -30), to = GYM + Vector3.new(9.5, 4.8, -11), fov = 40 },
-	ceiling = { from = GYM + Vector3.new(0, 8, 8), to = GYM + Vector3.new(0, 50, 34), fov = 62 },
+	-- the recruit's drop: up the shaft of light over the cart, then down into the cart
+	cartSky = { from = CART + Vector3.new(0, 4, -20), to = CART + Vector3.new(0, 30, 2), fov = 64 },
+	cart = { from = CART + Vector3.new(0, 10.5, -17.5), to = CART + Vector3.new(0, 4.2, 0), fov = 54 },
 	lineup = { from = GYM + Vector3.new(0, 9.5, 12), to = GYM + Vector3.new(0, 18, 88), fov = 58 },
 	-- the Locker's practice spike, side on like the match camera, wide enough that the spiker and
 	-- the score effect where the ball lands both play left of the Locker's panel (the owner: "have
@@ -1773,43 +1856,158 @@ function SceneController.clearBalls()
 		m:Destroy()
 	end
 	balls = {}
-	for _, f in ipairs(flying) do
-		f.model:Destroy()
+	for _, d in ipairs(dropping) do
+		d.model:Destroy()
 	end
-	flying = {}
+	dropping = {}
+	rising = {}
+	beamFx = nil
+	if cartBeam then
+		cartBeam.Transparency = 1
+	end
 end
 
--- Volleyballs sweep across under the ceiling in a few clusters. colors[i] = rarity colour,
--- strength[i] = how much they glow (gold S pulls glow hardest).
-function SceneController.flyBalls(colors, strength, duration)
+-- A comet's tail on a falling pull, in its colour (off until it starts to fall).
+local function cometTrail(m, color)
+	local core = m.PrimaryPart
+	local a0 = Instance.new("Attachment")
+	a0.Position = Vector3.new(-0.7, 0, 0)
+	a0.Parent = core
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0.7, 0, 0)
+	a1.Parent = core
+	local t = Instance.new("Trail")
+	t.Attachment0, t.Attachment1 = a0, a1
+	t.FaceCamera = true
+	t.Lifetime = 0.22
+	t.LightEmission = 1
+	t.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
+	t.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 1) })
+	t.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
+	t.Enabled = false
+	t.Parent = core
+	return t
+end
+
+-- Where each of n pulls comes to rest in the cart: a row of up to five on the cart's own balls,
+-- the rest in a row behind, a little higher, so the heap tops the rim.
+local function cartSlots(n)
+	local out = {}
+	for i = 1, n do
+		local row = math.floor((i - 1) / 5)
+		local inRow = row == 0 and math.min(n, 5) or (n - 5)
+		local k = (i - 1) % 5
+		local x = (k - (inRow - 1) / 2) * 1.95 + rng:NextNumber(-0.15, 0.15)
+		local z = (n <= 5 and 0 or (row == 0 and -1.05 or 1.05)) + rng:NextNumber(-0.15, 0.15)
+		out[i] = CART + Vector3.new(x, CART_FLOOR + (row == 0 and 2.5 or 3), z)
+	end
+	return out
+end
+
+local DROP_HEIGHT, DROP_FALL, DROP_GAP, DROP_PAUSE = 32, 0.72, 0.1, 0.35
+
+-- The pulls fall out of the sky into the recruit cart (the owner, 2026-10-30: "maybe we can do a
+-- ball cart and the balls fall from the sky inside of it"): down the shaft of light one after
+-- another, the rarest last (after a beat when it's a Legendary or better), each a comet in its
+-- rarity's colour that lands on the heap with a bump; a rare one lands with a burst and a jolt.
+-- colors[i] = rarity colour, strength[i] = how much it glows. Returns how long the drop takes.
+function SceneController.dropBalls(colors, strength)
 	SceneController.clearBalls()
 	local n = #colors
+	local order = {}
 	for i = 1, n do
-		local cluster = (i - 1) % 3
-		local m = makeBall(folder, 1.3, GYM + Vector3.new(-70, 44, 30))
-		if strength[i] > 0.3 then
-			glowBall(m, colors[i], strength[i])
+		order[i] = i
+	end
+	table.sort(order, function(a, b)
+		if strength[a] ~= strength[b] then
+			return strength[a] < strength[b]
 		end
-		table.insert(flying, {
+		return a < b
+	end)
+	local slots = cartSlots(n)
+	local now = os.clock()
+	local last, best = 0, 0
+	for p, i in ipairs(order) do
+		local delay = 0.25 + (p - 1) * DROP_GAP
+		if p == n and n > 1 and strength[i] >= 1 then
+			delay = delay + DROP_PAUSE
+		end
+		local to = slots[p]
+		local from = to + Vector3.new(rng:NextNumber(-1.5, 1.5), DROP_HEIGHT, rng:NextNumber(-1.5, 1.5))
+		local m = makeBall(folder, 1, CART - Vector3.new(0, 400, 0))
+		glowBall(m, colors[i], strength[i])
+		dropping[i] = {
 			model = m,
-			delay = cluster * 0.12 + math.floor((i - 1) / 3) * 0.05,
-			y = 40 + cluster * 3 + (i % 2) * 1.2,
-			z = 26 + cluster * 7 + (i % 3) * 1.6,
-			dur = duration * (0.8 + 0.1 * cluster),
-			t0 = os.clock(),
-		})
+			trail = cometTrail(m, colors[i]),
+			from = from,
+			to = to,
+			t0 = now,
+			delay = delay,
+			axis = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-0.3, 0.3), rng:NextNumber(-1, 1)).Unit,
+			strength = strength[i],
+			color = colors[i],
+		}
+		last = math.max(last, delay + DROP_FALL)
+		best = math.max(best, strength[i])
+	end
+	beamFx = { t0 = now, t1 = now + last + 0.6, color = best >= 1 and colors[order[n]] or Color3.fromRGB(255, 232, 190) }
+	return last + 0.45
+end
+
+-- A pull lands in the cart: a bump, a puff, and for a rare one a ring, a burst and a jolt.
+local function landed(d)
+	if mods and mods.AudioController then
+		mods.AudioController.play("Bump", { volume = 0.25, minGap = 0.04 })
+	end
+	Fx.play("Dust", d.to - Vector3.new(0, 0.6, 0), { scale = 0.35 })
+	if d.strength >= 0.65 then
+		Fx.play("Ring", d.to, { color = d.color, scale = 0.55 })
+	end
+	if d.strength >= 1 then
+		Fx.play("Burst", d.to, { color = d.color, scale = 0.9 })
+		Fx.play("Sparks", d.to, { color = d.color, n = 14, scale = 0.8 })
+		local now = os.clock()
+		shake.t0, shake.t1, shake.amp = now, now + 0.35, d.strength > 1 and 0.45 or 0.3
 	end
 end
 
--- The pulls lined up over the stage, each glowing in its rarity colour.
-function SceneController.lineUp(colors, strength)
-	SceneController.clearBalls()
+-- The pulls lined up over the stage, each glowing in its rarity colour. After dropBalls, with
+-- `rise` (seconds), they lift out of the cart and arc up to the line, growing as they go;
+-- otherwise (or after a skip) they're simply there.
+function SceneController.lineUp(colors, strength, rise)
 	local n = #colors
 	local spacing = n > 1 and math.min(4.2, 38 / (n - 1)) or 0
+	local from = {}
+	if rise and rise > 0 then
+		for i = 1, n do
+			local d = dropping[i]
+			if not d or not d.model.Parent then
+				from = nil
+				break
+			end
+			from[i] = d
+		end
+	else
+		from = nil
+	end
+	if not from then
+		SceneController.clearBalls()
+	end
+	local now = os.clock()
+	dropping = {}
+	rising = {}
 	for i = 1, n do
-		local x = (i - (n + 1) / 2) * spacing
-		local m = makeBall(folder, 1.35, GYM + Vector3.new(x, 30, 84))
-		glowBall(m, colors[i], strength[i])
+		local to = GYM + Vector3.new((i - (n + 1) / 2) * spacing, 30, 84)
+		local m
+		if from then
+			local d = from[i]
+			m = d.model
+			d.trail.Enabled = false
+			table.insert(rising, { model = m, from = m:GetPivot().Position, to = to, t0 = now, delay = (i - 1) * 0.035, dur = rise, base = m:GetScale() })
+		else
+			m = makeBall(folder, 1.35, to)
+			glowBall(m, colors[i], strength[i])
+		end
 		table.insert(balls, m)
 	end
 	return balls
@@ -2164,15 +2362,54 @@ end
 -- per frame
 ------------------------------------------------------------------------------------------
 
+-- The recruit's balls: falling into the cart (a comet, then a hop on the heap), rising to the
+-- line-up (an arc, growing to the line's size), and the shaft of light over the cart.
+local function updateRecruit(now)
+	for _, d in pairs(dropping) do
+		local t = now - d.t0 - d.delay
+		if t < 0 then
+			d.model:PivotTo(CFrame.new(CART - Vector3.new(0, 400, 0))) -- (waiting, out of sight under the floor)
+		elseif t < DROP_FALL then
+			local a = t / DROP_FALL
+			d.model:PivotTo(CFrame.new(d.from:Lerp(d.to, a * a)) * CFrame.fromAxisAngle(d.axis, t * 11))
+			d.trail.Enabled = t > 0.03 -- (a frame in, so no streak from the waiting spot)
+		else
+			if not d.landed then
+				d.landed = true
+				landed(d)
+			end
+			local u = t - DROP_FALL
+			local hop = u < 0.32 and math.sin(u / 0.32 * math.pi) * 0.75 or 0
+			d.model:PivotTo(CFrame.new(d.to + Vector3.new(0, hop, 0)) * CFrame.fromAxisAngle(d.axis, DROP_FALL * 11 + math.min(u, 0.32) * 5))
+			d.trail.Enabled = u < 0.08
+		end
+	end
+	for i = #rising, 1, -1 do
+		local r = rising[i]
+		local a = math.clamp((now - r.t0 - r.delay) / r.dur, 0, 1)
+		local e = a * a * (3 - 2 * a)
+		if r.model.Parent then
+			r.model:ScaleTo(r.base * (1 + 0.35 * e))
+			r.model:PivotTo(CFrame.new(r.from:Lerp(r.to, e) + Vector3.new(0, math.sin(a * math.pi) * 5, 0)))
+		end
+		if a >= 1 then
+			table.remove(rising, i)
+		end
+	end
+	if beamFx and cartBeam then
+		local a = math.clamp((now - beamFx.t0) / 0.3, 0, 1) * math.clamp((beamFx.t1 - now) / 0.5, 0, 1)
+		cartBeam.Color = beamFx.color
+		cartBeam.Transparency = 1 - 0.16 * a
+		if now > beamFx.t1 then
+			beamFx = nil
+			cartBeam.Transparency = 1
+		end
+	end
+end
+
 local function update()
 	local now = os.clock()
-	for _, f in ipairs(flying) do
-		local a = math.clamp((now - f.t0 - f.delay) / f.dur, 0, 1)
-		local e = a * a * (3 - 2 * a)
-		local x = -70 + 140 * e
-		local p = GYM + Vector3.new(x, f.y + math.sin(a * math.pi) * 3, f.z)
-		f.model:PivotTo(CFrame.new(p) * CFrame.Angles(0, 0, -a * 12))
-	end
+	updateRecruit(now)
 	if not current or (mods and mods.State and mods.State.camPreview) then
 		return -- (Settings > Camera's preview has the camera: CameraController)
 	end
@@ -2189,8 +2426,12 @@ local function update()
 			shotFrom = nil
 		end
 	end
-	-- a gentle handheld drift keeps the shot alive
+	-- a gentle handheld drift keeps the shot alive (and a rare pull landing jolts it)
 	local drift = CFrame.Angles(math.sin(now * 0.4) * 0.004, math.sin(now * 0.31) * 0.006, 0)
+	if now < shake.t1 then
+		local k = shake.amp * (shake.t1 - now) / (shake.t1 - shake.t0)
+		drift = drift * CFrame.new(rng:NextNumber(-k, k), rng:NextNumber(-k, k), 0)
+	end
 	cam.CameraType = Enum.CameraType.Scriptable
 	cam.CFrame = camCF * drift
 	cam.FieldOfView = camFov
