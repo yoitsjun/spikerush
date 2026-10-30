@@ -581,9 +581,12 @@ function Economy.passMult(owned, kind)
 				m = m * def[kind]
 			end
 		end
-		-- the subscription while it's active (Config.Subscription, as the "Sub" pass)
-		if owned.Sub and tonumber(Config.Subscription[kind]) then
-			m = m * Config.Subscription[kind]
+		-- the subscriptions while they're active (Config.Subscriptions, as the "Sub" .. key passes)
+		for _, key in ipairs(Config.Subscriptions.Order) do
+			local def = Config.Subscriptions[key]
+			if owned["Sub" .. key] and tonumber(def[kind]) then
+				m = m * def[kind]
+			end
 		end
 	end
 	return m

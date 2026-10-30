@@ -1112,18 +1112,17 @@ Config.Passes = {
 	},
 }
 
--- The subscription (the owner, 2026-10-30: "lets make a subscription for more vp and more luck"):
--- a Roblox experience subscription, paid monthly in real money and made in Creator Hub
--- (Monetization > Subscriptions; no Open Cloud API makes one). While a player's is active it
--- multiplies like a game pass (Economy.passMult, as the "Sub" pass), stacking with the passes,
--- boosts and events: VP what earned V Points pay (ProfileService.vpMult), Luck the Characters
--- banner's luck. Id: the subscription's id from Creator Hub ("EXP-..."); "" hides it in the Shop.
-Config.Subscription = {
-	Id = "",
-	Name = "Rush+",
-	Blurb = "2x the V Points you earn and 2x luck on every Characters recruit, every month. Stacks with your passes, boosts and events.",
-	VP = 2,
-	Luck = 2,
+-- The subscriptions (the owner, 2026-10-30: "lets make a subscription for more vp and more luck",
+-- then made two: "first one is 2x luck 2nd is 2x vp"): Roblox experience subscriptions, monthly,
+-- made in Creator Hub (Monetization > Subscriptions; no Open Cloud API makes one). While a
+-- player's is active it multiplies like a game pass (Economy.passMult, as the pass "Sub" .. key),
+-- stacking with the other, the passes, boosts and events: VP what earned V Points pay
+-- (ProfileService.vpMult), Luck the Characters banner's luck. Id: the subscription's id from
+-- Creator Hub ("EXP-..."); "" hides its card in the Shop.
+Config.Subscriptions = {
+	Order = { "Luck", "VP" },
+	Luck = { Id = "EXP-2412803354733445712", Name = "2x Luck", Blurb = "2x luck on every Characters recruit while you're subscribed. Stacks with your passes, boosts and events.", Luck = 2 },
+	VP = { Id = "EXP-5104546357994193480", Name = "2x V Points", Blurb = "2x the V Points matches, tournaments and daily rewards pay while you're subscribed. Stacks with the rest.", VP = 2 },
 }
 
 -- Codes (the owner: "add a codes system... first code should be release, you decide the value

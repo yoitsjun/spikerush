@@ -831,7 +831,7 @@ end
 local ownedPasses = {} -- plr -> { [pass] = true }
 local restoreAt = {} -- plr -> when they last pressed Restore (the original Spike Rush's passes)
 
-local subscribed = {} -- plr -> true while their Config.Subscription is active (checkSub)
+local subscribed = {} -- plr -> { [key] = true } for their active Config.Subscriptions (checkSub)
 
 local function passesOf(plr, profile)
 	local out = {}
@@ -840,8 +840,8 @@ local function passesOf(plr, profile)
 			out[key] = true
 		end
 	end
-	if subscribed[plr] then
-		out.Sub = true -- (the subscription multiplies like a pass: Economy.passMult)
+	for key in pairs(subscribed[plr] or {}) do
+		out["Sub" .. key] = true -- (a subscription multiplies like a pass: Economy.passMult)
 	end
 	return out
 end
@@ -1835,26 +1835,31 @@ function ProfileService.vpMult(plr)
 	return event * ProfileService.boost(plr, "VP") * ProfileService.passMult(plr, "VP") * clan
 end
 
--- Whether this player's subscription (Config.Subscription) is active, asked of Roblox as they
--- join and whenever Roblox says it changed (bought, renewed, lapsed); they're told when it starts
+-- Which of this player's subscriptions (Config.Subscriptions) are active, asked of Roblox as they
+-- join and whenever Roblox says one changed (bought, renewed, lapsed); they're told as one starts
 -- or ends.
 function ProfileService.checkSub(plr)
-	local id = Config.Subscription.Id
-	if id == "" then
-		return
-	end
-	local ok, status = pcall(function()
-		return MarketplaceService:GetUserSubscriptionStatusAsync(plr, id)
-	end)
-	if not ok or type(status) ~= "table" or not plr.Parent then
-		return
-	end
-	local now = status.IsSubscribed == true or nil
-	if now ~= subscribed[plr] then
-		local was = subscribed[plr]
-		subscribed[plr] = now
-		if profiles[plr] then
-			push(plr, now and (Config.Subscription.Name .. " is on: 2x V Points and 2x luck. Thanks for the support!") or (was and (Config.Subscription.Name .. " has ended.") or nil))
+	local mine = subscribed[plr] or {}
+	subscribed[plr] = mine
+	for _, key in ipairs(Config.Subscriptions.Order) do
+		local def = Config.Subscriptions[key]
+		if def.Id ~= "" then
+			local ok, status = pcall(function()
+				return MarketplaceService:GetUserSubscriptionStatusAsync(plr, def.Id)
+			end)
+			if not plr.Parent then
+				return
+			end
+			if ok and type(status) == "table" then
+				local now = status.IsSubscribed == true or nil
+				if now ~= mine[key] then
+					local was = mine[key]
+					mine[key] = now
+					if profiles[plr] and (now or was) then
+						push(plr, now and (def.Name .. " is on. Thanks for the support!") or (def.Name .. " has ended."))
+					end
+				end
+			end
 		end
 	end
 end
@@ -3381,8 +3386,11 @@ function ProfileService.init(r)
 	end)
 	-- a subscription bought, renewed or lapsed while they play (ProfileService.checkSub)
 	Players.UserSubscriptionStatusChanged:Connect(function(plr, subscriptionId)
-		if subscriptionId == Config.Subscription.Id then
-			ProfileService.checkSub(plr)
+		for _, key in ipairs(Config.Subscriptions.Order) do
+			if subscriptionId == Config.Subscriptions[key].Id then
+				ProfileService.checkSub(plr)
+				return
+			end
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(plr)
