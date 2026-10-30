@@ -5494,7 +5494,8 @@ local function buildShop()
 	end)
 	-- the original Spike Rush's passes carry over (the owner, 2026-10-29: "add a gamepass check
 	-- button ... to transfer over old spike:rush purchases"): the server checks the account
-	local restore = hairButton(p, { Name = "RestorePasses", Position = UDim2.fromOffset(M + 842 + 14, 150), Size = UDim2.fromOffset(300, 46) }, "Restore Spike Rush passes", 18)
+	-- (at the right end of the Perks heading's row: on its title it covered "Perks")
+	local restore = hairButton(p, { Name = "RestorePasses", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M, 0, 132), Size = UDim2.fromOffset(280, 40) }, "Restore Spike Rush passes", 17)
 	onClick(restore, function()
 		toast("Checking your account for Spike Rush passes...")
 		sendProfile("restorePasses")
@@ -5537,6 +5538,14 @@ local function buildShop()
 			icon.Position = UDim2.new(0.5, 0, 0, 16)
 			local amountL = Gui.label(card, { Text = row.amount and row.amount(pack) or Gui.num(pack[row.key]), display = true, weight = Enum.FontWeight.Heavy, TextSize = 42, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center })
 			local nameL = Gui.label(card, { Text = pack.Name, TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 128), TextXAlignment = Enum.TextXAlignment.Center })
+			if row.key == "Special" then
+				-- what's in it, in small type under the name (a Special is several things at once)
+				nameL.Text = Economy.describe(Economy.packGrant(Economy.pack("Special", i)))
+				nameL.TextSize = 12
+				nameL.TextWrapped = true
+				nameL.Size = UDim2.new(1, -16, 0, 36)
+				nameL.Position = UDim2.fromOffset(8, 124)
+			end
 			local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(172, 44) }, "", 20)
 			-- the luck row sells its picked tier's pack in this slot (Extra.luckKind)
 			local function current()
