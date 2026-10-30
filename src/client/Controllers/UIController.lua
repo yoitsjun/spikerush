@@ -1081,6 +1081,12 @@ local function badgeState(ability, id, model, team, mine)
 		else
 			p, hot, sub = 1, true, "READY"
 		end
+		if ability == "Fever" then
+			-- the charge Q would give the team
+			local f = (inst and inst:GetAttribute("Fever")) or 0
+			local tag = string.format("FEVER %d%%", math.floor(f * 100 + 0.5))
+			sub = sub == "" and tag or (sub .. "  " .. tag)
+		end
 		if ability == "Thunder" then
 			-- Static Charge this rally
 			local st = (mine and player:GetAttribute("Static")) or (model and model:GetAttribute("Static")) or 0

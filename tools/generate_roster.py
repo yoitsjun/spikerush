@@ -8,8 +8,8 @@ four stats and possibly an ability:
   * SE: Speed and Defense (160 to 180 at the top), light on Attack and Jump.
 Abilities come with the character: S+ wing spikers have Thunder Spiker, Azure Dragon, Feral Leap, Zero Point or Corona
 (the S+ middle Ironclad, the S+ setter The Tyrant);
-S characters have one of their role's abilities (WS Adrenaline, Rising Sun, Counter Edge, Plunge Spin or Skyward;
-MB Iron Wall, Rally Cry or Sunshine; SE Chain Reaction, Vector Set or Turnabout); everyone else has none.
+S characters have one of their role's abilities (WS Adrenaline, Rising Sun, Counter Edge, Plunge Spin, Skyward or Tiger Claw;
+MB Iron Wall, Rally Cry, Sunshine or Fever; SE Chain Reaction, Vector Set or Turnabout); everyone else has none.
 
 The top characters are hand-set (the owner named YeJun: Thunder, 190 Jump and 210 Attack; he
 is the only Thunder Spiker. Dante, Feral Leap, has the top Attack, 222); the rest are generated from role templates scaled by
@@ -98,6 +98,12 @@ FIXED = [
     # Sunshine (the owner, 2026-10-21: an S middle blocker, "170 Attack 150 Jump 190 Defense 180
     # Speed"): a digging middle, shorter than the rest of them
     {"Name": "Haesol", "Role": "MB", "Tier": "S", "Height": 191, "Attack": 170, "Defense": 190, "Speed": 180, "Jump": 150, "Ability": "Sunshine"},
+    # Hongshi (the owner, 2026-10-29: from The Spike Cross, an S wing spiker with one ability,
+    # Tiger Claw): a quick, springy hitter, a little under Seora's spike
+    {"Name": "Hongshi", "Role": "WS", "Tier": "S", "Height": 172, "Attack": 196, "Defense": 126, "Speed": 160, "Jump": 186, "Ability": "TigerClaw"},
+    # Alexis (a fan's S middle blocker with Fever; "buff or nerf accordingly"): the fan's 170 / 200 /
+    # 175 / 170 trimmed to Dasol's level, still the best Defense of any S middle
+    {"Name": "Alexis", "Role": "MB", "Tier": "S", "Height": 190, "Attack": 166, "Defense": 192, "Speed": 165, "Jump": 170, "Ability": "Fever"},
 ]
 
 # free for everyone: a D-tier character in each role

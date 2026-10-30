@@ -171,6 +171,8 @@ local function buildCtx(info, action, t)
 		firstStrike = has.Feral and not player:GetAttribute("FirstStrikeUsed") or nil,
 		chain = ReplicatedStorage:GetAttribute("Chain_" .. tostring(State.myTeam)) or 0,
 		coronaOn = has.Corona and AC.abilityActive("Corona") or nil,
+		feverOn = has.Fever and AC.abilityActive("Fever") or nil,
+		clawedBy = player:GetAttribute("Clawed"), -- (Tiger Claw: marked, your next dig of her attack fails)
 		coronaStacks = has.Corona and (player:GetAttribute("CoronaStacks") or 0) or nil,
 		squallOn = has.Squall and AC.abilityActive("Squall") or nil,
 		stormOn = has.Thunder and AC.abilityActive("Thunder") or nil,

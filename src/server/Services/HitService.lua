@@ -112,6 +112,8 @@ end
 
 -- Ability state on the character and the player (every client's HUD and effects, and the
 -- player's own prediction).
+local coldRng = Random.new() -- ("Too cold there")
+
 local function writeAbility(entity, name, value)
 	local model = reg.TeamService.getModel(entity)
 	if model then
@@ -271,6 +273,8 @@ function HitService.process(entity, input, opts)
 		coronaStacks = TS.has(entity, "Corona") and (entity.coronaStacks or 0) or nil,
 		squallOn = armed("Squall"),
 		stormOn = armed("Thunder"),
+		feverOn = armed("Fever"), -- (Alexis: her stats on top while it's up)
+		clawedBy = entity.clawedBy, -- (Tiger Claw: the Hongshi whose next spike this one can't dig)
 		bloodlust = armed("Feral"), -- (Feral Leap's Bloodlust: the gauge may go past full)
 		static = TS.has(entity, "Thunder") and (entity.static or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
@@ -284,6 +288,27 @@ function HitService.process(entity, input, opts)
 	end
 
 	local previous = BS.lastHit
+	-- "Too cold there" (Alexis's Fever): an attack of theirs may be frozen at the hand and dropped
+	-- at the hitter's feet as her block, before it ever leaves
+	if action == "Spike" then
+		for _, other in ipairs(TS.members(Court.other(team))) do
+			if TS.has(other, "Fever") then
+				local lvl = other.ability == "Fever" and other.breakLevel or 0
+				local feverOn = TS.windowOf(other, "Fever") >= input.t - 0.05
+				if coldRng:NextNumber() < HitLogic.coldChance(feverOn, lvl) then
+					local _, frozen = HitLogic.coldStuff(input.ball, Court.sideOf(team), input.t)
+					local cm = frozen.meta
+					cm.id, cm.name, cm.team, cm.t = other.id, other.name, other.team, input.t
+					cm.frozeId = entity.id
+					BS.launch(frozen.launch, cm, HitLogic.nextTouch(BS.touch, other.team, other.id, "Block"))
+					other.fever = HitLogic.feverGain(other.fever, lvl)
+					writeAbility(other, "Fever", other.fever)
+					MS.onHit(other, cm, previous)
+					return true
+				end
+			end
+		end
+	end
 	local meta = result.meta
 	meta.id = entity.id
 	meta.name = entity.name
@@ -303,6 +328,23 @@ function HitService.process(entity, input, opts)
 		entity.stats.topKmh = math.max(entity.stats.topKmh or 0, meta.kmh)
 	end
 	-- abilities the touch used up or charged
+	if meta.hitType == "Block" and TS.has(entity, "Fever") then
+		-- Fever: every block of hers charges it (Q spends it)
+		entity.fever = HitLogic.feverGain(entity.fever, entity.ability == "Fever" and entity.breakLevel or 0)
+		writeAbility(entity, "Fever", entity.fever)
+	end
+	if meta.clawed then
+		-- Tiger Claw: the mark is spent on this failed dig
+		entity.clawedBy = nil
+		writeAbility(entity, "Clawed", nil)
+	elseif meta.hitType == "Bump" and not meta.fail and not meta.shank and not meta.breaks and previous and previous.team ~= team and (previous.hitType == "Spike" or previous.hitType == "JumpServe") then
+		-- a clean dig of Hongshi's attack: her claw marks the digger
+		local hitter = TS.entities[previous.id]
+		if hitter and TS.has(hitter, "TigerClaw") then
+			entity.clawedBy = previous.id
+			writeAbility(entity, "Clawed", previous.id)
+		end
+	end
 	if meta.turnabout then
 		HitService.setAbilityWindow(entity, "Turnabout", -1) -- spent: the next set is a set again (its window only)
 	end
@@ -631,6 +673,14 @@ local function startAbility(entity, name, def, now)
 		TS.setCorona(entity, untilT, math.min(def.MaxStacks, (entity.coronaStacks or 0) + 1))
 	elseif name == "Squall" then
 		TS.boostWindow(entity, untilT, "Squall") -- faster, and Attack with it
+	elseif name == "Fever" then
+		-- the charge goes to the whole team (Rally Cry's boost), her own stats on top, and it's spent
+		if (entity.fever or 0) > 0 then
+			TS.rally(entity.team, untilT, entity.fever)
+		end
+		entity.fever = 0
+		writeAbility(entity, "Fever", 0)
+		TS.boostWindow(entity, untilT, "Fever")
 	end
 	HitService.fx(entity.id, "Ability", name, entity.player) -- the player already shows it
 end

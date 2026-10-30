@@ -335,6 +335,13 @@ function TeamService.applyToModel(e)
 	-- ability a player plays (the client predicts its own touches from the player's Ability, its own,
 	-- and Abilities, the cards' too)
 	model:SetAttribute("Hex", e.hex ~= nil and e.hex ~= "" and e.hex or nil)
+	-- Tiger Claw's mark and Fever's charge are this match's (a player's carry over otherwise)
+	model:SetAttribute("Clawed", e.clawedBy)
+	model:SetAttribute("Fever", e.fever)
+	if e.player then
+		e.player:SetAttribute("Clawed", e.clawedBy)
+		e.player:SetAttribute("Fever", e.fever)
+	end
 	if e.player then
 		e.player:SetAttribute("Hex", e.hex ~= nil and e.hex ~= "" and e.hex or nil)
 		e.player:SetAttribute("Ability", e.ability or "")
@@ -412,6 +419,7 @@ function TeamService.boostCtx(e, t)
 		coronaOn = TeamService.has(e, "Corona") and TeamService.windowOf(e, "Corona") >= now or nil,
 		coronaStacks = TeamService.has(e, "Corona") and (e.coronaStacks or 0) or nil,
 		squallOn = TeamService.has(e, "Squall") and TeamService.windowOf(e, "Squall") >= now or nil,
+		feverOn = TeamService.has(e, "Fever") and TeamService.windowOf(e, "Fever") >= now or nil,
 		bloodlust = TeamService.has(e, "Feral") and TeamService.windowOf(e, "Feral") >= now or nil,
 		breakLevel = e.breakLevel, -- (its own ability's)
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers

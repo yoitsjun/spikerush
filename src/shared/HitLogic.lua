@@ -58,6 +58,7 @@ local CORONA = Config.Abilities.Corona
 local SQUALL = Config.Abilities.Squall
 local TYRANT = Config.Abilities.Tyrant
 local SUNSHINE = Config.Abilities.Sunshine
+local FEVER = Config.Abilities.Fever
 local BEGIN = Config.Beginner
 
 -- An ability's setting grown by breakthroughs (Config.Breakthrough): `level` is the character's
@@ -895,6 +896,13 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		end
 		any = true
 	end
+	if on("Fever") and extra and extra.feverOn then
+		-- Fever popped: her own stats on top of the team's boost
+		for k, v in pairs(ab("Fever", "StatAdd", lv("Fever"))) do
+			add[k] = (add[k] or 0) + math.floor(v + 0.5)
+		end
+		any = true
+	end
 	if on("Sunshine") and extra and extra.digging then
 		-- her digs are played with DigAdd on top
 		for k, v in pairs(SUNSHINE.DigAdd) do
@@ -1000,6 +1008,29 @@ local function blastOut(meta, ball, side, rng, t)
 	local apex = ball.Y + SPM * (1.2 + rng:NextNumber() * 2.3)
 	local v = HitLogic.solveArc(ball, target, apex, G)
 	return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
+end
+
+-- Fever (Alexis): her charge after a block (PerBlock, up to Max; both grow with breakthroughs).
+function HitLogic.feverGain(fever, level)
+	return math.min(ab("Fever", "Max", level), (fever or 0) + ab("Fever", "PerBlock", level))
+end
+
+-- "Too cold there": the chance an opposing spike is frozen at the hand (higher while Fever's on).
+function HitLogic.coldChance(feverOn, level)
+	return feverOn and ab("Fever", "ColdFever", level) or ab("Fever", "ColdChance", level)
+end
+
+-- A spike frozen at the hand ("Too cold there"): it drops straight down at the hitter's feet as
+-- the blocker's stuff. `side` is the hitter's side (+1 / -1).
+function HitLogic.coldStuff(ball, side, t)
+	local meta = meta0("Block", 1)
+	meta.outcome = "Stuff"
+	meta.cold = true
+	meta.noDrain = true
+	-- (a touch on their side of the net, so it can't sneak over)
+	local p = Vector3.new(0, ball.Y, side * math.max(math.abs(ball.Z), R + 0.1))
+	local v = Vector3.new(0, -HitLogic.studs(FEVER.ColdKmh), side * SPM * 0.4)
+	return launchResult(meta, p, v, Vector3.new(0, -G * 1.3, 0), t, H.HitStopGreat)
 end
 
 ------------------------------------------------------------------------------------------
@@ -2067,6 +2098,17 @@ function HitLogic.compute(input, ctx)
 			meta.knock = knock > 0 and knock or nil
 		end
 
+		-- Tiger Claw: marked by her (one of her spikes dug cleanly), this receive of her attack fails:
+		-- off the arms and out (HitService spends the mark)
+		if ctx.clawedBy and last and last.id == ctx.clawedBy and (last.hitType == "Spike" or last.hitType == "JumpServe") then
+			meta.fail = true
+			meta.clawed = true
+			meta.grade = "CLAWED"
+			meta.quality = 0
+			meta.score = 0
+			meta.knock = 1
+			return blastOut(meta, ball, side, rng, t)
+		end
 		if heavy and stam.value <= 0 and (incomingKmh >= ST.BreakFailKmh or last.reaction) then
 			-- guard broken: the spike blasts straight off the arms and out behind
 			meta.fail = true

@@ -398,7 +398,7 @@ Config.Breakthrough = {
 	-- increased buff power not cooldown reduction"): a smaller cut, none at all where the ability's
 	-- own effect grows instead (CooldownCuts), and each active's effect grows below
 	CooldownCut = 0.15,
-	CooldownCuts = { RallyCry = 0, Tyrant = 0, Turnabout = 0 },
+	CooldownCuts = { RallyCry = 0, Tyrant = 0, Turnabout = 0, Fever = 0 },
 	-- per ability: the settings that grow, and how each shows in the Breakthrough table (Show: "pct"
 	-- a share as %, "excess" a multiplier's part over 1 as %, "num" points, "s" seconds, "kmh";
 	-- Field: the entry of a table setting to show)
@@ -425,6 +425,9 @@ Config.Breakthrough = {
 		Skyward = { MaxLift = { Grow = 0.6, Label = "Highest lift", Show = "m" } },
 		Tyrant = { Steal = { Grow = 0.4, Label = "Lock takes", Show = "pct" }, Duration = { Grow = 0.25, Label = "Emperor's Dictate lasts", Show = "s" }, SetMul = { Grow = 0.3, Kind = "excess", Label = "Tyrant's Set", Show = "excess" } },
 		Sunshine = { SunDuration = { Grow = 0.3, Label = "Sunshine lasts", Show = "s" }, VertBoost = { Grow = 0.3, Label = "Sharpest spike", Show = "pct" } },
+		-- (the fan's breakthroughs: "more buffs per fever charge and duration, higher too cold
+		-- chance"; at +5 "fever maxed gives +8%", "+10 to everything", "too cold 5%, with fever 7%")
+		Fever = { PerBlock = { Grow = 0.5, Label = "Fever a block", Show = "pct" }, Max = { Grow = 0.5, Label = "Fever's most", Show = "pct" }, Duration = { Grow = 0.25, Label = "Fever lasts", Show = "s" }, StatAdd = { Grow = 0.6, Label = "Fever: Defense", Show = "num", Field = "Defense" }, ColdChance = { Grow = 4, Label = "Too cold", Show = "pct" }, ColdFever = { Grow = 2.5, Label = "Too cold in Fever", Show = "pct" } },
 	},
 	SellLucky = { ["S+"] = 1 },
 }
@@ -1780,6 +1783,44 @@ Config.Abilities = {
 			{ Name = "Vert Spikes", Blurb = "Your spikes cross the net and drive straight down at a sharp angle: the steeper, the harder (up to +20%), and the steepest slip under the block." },
 		},
 	},
+	-- Hongshi (the owner, 2026-10-29: from The Spike Cross, "Tiger Claw, marks any opposing player
+	-- who successfully defends one of her spikes. A marked player is guaranteed to fail the next defend
+	-- against another spike from Hongshi"; "hongshi only has one ability"; "hongshi marks enemies with
+	-- a tiger claw over them"). Passive: a clean dig of her spike puts a claw mark over the digger
+	-- (the "Clawed" attribute: HitService, VFXController); their next receive of her spike blasts off
+	-- the arms and out (HitLogic: meta.clawed), and the mark is spent.
+	TigerClaw = {
+		Name = "Tiger Claw",
+		Tier = "S",
+		Role = "WS",
+		Kind = "Passive: marks diggers",
+		Blurb = "Dig one of her spikes cleanly and a tiger claw marks you. Marked, your next dig of her spike fails: it blasts off your arms and out.",
+		Color = Color3.fromRGB(255, 132, 30),
+	},
+	-- Alexis (a fan's middle blocker, the owner, 2026-10-29, "buff or nerf accordingly"): Fever
+	-- charges PerBlock a block up to Max; Q spends it: the whole team gets that much (Rally Cry's
+	-- boost, HitService) for Duration and she gets StatAdd on top. "Too cold there": a ColdChance
+	-- (ColdFever while Fever is on) that an opposing spike is frozen at the hand and dropped as her
+	-- block (HitLogic.coldStuff). The fan's +15/+30/+20/+30 Fever stats were trimmed for an S.
+	Fever = {
+		Name = "Fever",
+		Tier = "S",
+		Role = "MB",
+		Active = true,
+		Blurb = "Every block charges Fever (2% a block, up to 16%). Press Q: your whole team gets that boost for 8 s and you get +12 Attack, +22 Defense, +12 Speed and +22 Jump. Too cold there: a 1% chance (2% in Fever) to freeze an enemy spike at the hand.",
+		Color = Color3.fromRGB(120, 210, 255),
+		Duration = 8,
+		Cooldown = 24,
+		PerBlock = 0.02,
+		Max = 0.16,
+		StatAdd = { Attack = 12, Defense = 22, Speed = 12, Jump = 22 },
+		ColdChance = 0.01,
+		ColdFever = 0.02,
+		ColdKmh = 40, -- the frozen spike drops this fast at the hitter's feet
+		Passives = {
+			{ Name = "Too cold there", Blurb = "A 1% chance (2% in Fever) that an enemy spike is frozen at the hand and dropped as your block." },
+		},
+	},
 	Counter = {
 		Name = "Counter Edge",
 		Tier = "S",
@@ -2791,6 +2832,7 @@ Config.Bots = {
 	JumpSetSlack = 1.2, -- studs: a setter this far off its spot at takeoff sets from the ground
 	TurnaboutChance = { 0.3, 0.65 }, -- a Turnabout setter arms it off a pass it can jump for
 	RallyCryChance = 0.5, -- a Rally Cry bot pops it at a serve this often once it's ready
+	FeverChance = 0.6, -- a Fever bot pops it at a serve this often once it's ready and half charged
 	CoronaChance = 0.3, -- and a Corona bot (Laith) his
 	SquallChance = 0.4, -- and a Squall bot (Hayul) hers
 	ThunderChance = 0.4, -- and a Thunder bot (YeJun) Storm Call

@@ -950,7 +950,7 @@ end
 -- the rally; Corona's penalty after makes it pop his less often). Each one it plays (its own, then
 -- its cards in hand order) rolls its own chance once a serve, on its own cooldown, so two can be
 -- on at once.
-local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance", Thunder = "ThunderChance", Feral = "FeralChance", Tyrant = "TyrantChance" }
+local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance", Thunder = "ThunderChance", Feral = "FeralChance", Tyrant = "TyrantChance", Fever = "FeverChance" }
 local function rallyCry(b, now)
 	local e = b.entity
 	if playerLed(e.team) then
@@ -959,7 +959,9 @@ local function rallyCry(b, now)
 	b.rallyRolled = b.rallyRolled or {}
 	for _, name in ipairs(e.abilities or { e.ability }) do
 		local key = POP_CHANCE[name]
-		if key and not b.rallyRolled[name] and ready(e, name, now) then
+		-- (Fever waits until it's half charged: an empty one only boosts her)
+		local charged = name ~= "Fever" or (e.fever or 0) >= Config.Abilities.Fever.Max * 0.5
+		if key and charged and not b.rallyRolled[name] and ready(e, name, now) then
 			b.rallyRolled[name] = true
 			if b.rng:NextNumber() < B[key] then
 				reg.HitService.activateAbility(e, name)

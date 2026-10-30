@@ -2536,6 +2536,24 @@ function VFXController.ability(entityId, ability, index)
 			mods.AudioController.play("TyrantSnap", { volume = 0.9 })
 			mods.AudioController.play("Boom", { volume = 0.4, speed = 0.8 })
 		end
+	elseif ability == "Fever" then
+		-- Fever: an icy shockwave off her, frost at every teammate's feet (the boost is the team's)
+		local pos = hrp.Position
+		floorRing(pos, def.Color, 14, 0.6)
+		ringFx(pos + Vector3.new(0, 3, 0), Color3.fromRGB(220, 245, 255), 2, 16, 0.45, 10)
+		starburst(pos + Vector3.new(0, 3, 0), def.Color, 9, 12, 0.3)
+		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Fever!", def.Color, 1.3)
+		local team = State.teamOf(entityId)
+		for _, e in ipairs(team and State.roster(team) or {}) do
+			local r = Util.rootOf(e.id)
+			if r and e.id ~= entityId then
+				floorRing(r.Position, def.Color, 5, 0.5)
+				burst(r.Position + Vector3.new(0, 1.5, 0), Color3.fromRGB(220, 245, 255), 2.2, 0.3)
+			end
+		end
+		if mods and mods.AudioController.hearsMatch() then
+			mods.AudioController.play("RallyCry", { volume = 0.7, speed = 1.25 })
+		end
 	elseif ability == "RallyCry" then
 		-- a golden shockwave from the middle, and a flare at every teammate's feet
 		local pos = hrp.Position
@@ -4575,6 +4593,30 @@ local function onHit(snap)
 	local function tag(text, color, size)
 		VFXController.popup(pos + Vector3.new(0, 2.6 + 1.3 * tagRow, 0), text, color, size)
 		tagRow = tagRow + 1
+	end
+	if meta.clawed then
+		-- Tiger Claw: the marked digger's arms are torn open, three orange claw slashes across them
+		local col = Config.Abilities.TigerClaw.Color
+		for i = -1, 1 do
+			meshFx("FX_Slash", CFrame.new(pos + Vector3.new(0, i * 0.7, 0)) * FACE_CAMERA * CFrame.Angles(0, 0, math.rad(-35)), col, 0.4, 1.2, 0.3, { alpha = 0.05 })
+		end
+		shards(pos, col, 14, 40)
+		if close then
+			tag("Tiger Claw!", col, 1.3)
+			if shaker then
+				shaker.kick(-6)
+			end
+		end
+	end
+	if meta.cold then
+		-- "Too cold there": the spike freezes at the hand, frost bursting off it as it drops
+		local col = Config.Abilities.Fever.Color
+		starburst(pos, Color3.fromRGB(230, 248, 255), 9)
+		burst(pos, col, 6)
+		shards(pos, Color3.fromRGB(210, 240, 255), 18, 30)
+		if close then
+			tag("Too cold there!", col, 1.3)
+		end
 	end
 	if reaper and not meta.zero then
 		HW.reap(model, pos, dirZ, kmh)
@@ -8504,6 +8546,55 @@ function VFXController.init(m)
 	end
 
 	task.spawn(Fx.preload)
+
+	-- Tiger Claw's marks (the owner, 2026-10-29: "hongshi marks enemies with a tiger claw over
+	-- them"): an orange claw over every marked player's head, scratched in as the mark lands
+	local marks = {}
+	task.spawn(function()
+		while true do
+			task.wait(0.2)
+			local seen = {}
+			for _, team in ipairs(Config.TeamOrder) do
+				for _, e in ipairs(State.roster(team) or {}) do
+					local model = Util.modelOf(e.id)
+					local head = model and (model:FindFirstChild("Head") or model:FindFirstChild("HumanoidRootPart"))
+					if head and model:GetAttribute("Clawed") then
+						seen[model] = true
+						if not marks[model] or not marks[model].Parent then
+							local bb = Instance.new("BillboardGui")
+							bb.Name = "TigerClawMark"
+							bb.Size = UDim2.fromScale(3, 3)
+							bb.StudsOffset = Vector3.new(0, 3.4, 0)
+							bb.AlwaysOnTop = true
+							bb.LightInfluence = 0
+							bb.Adornee = head
+							local img = Instance.new("ImageLabel")
+							img.BackgroundTransparency = 1
+							img.Size = UDim2.fromScale(1, 1)
+							img.Image = Assets.id(Assets.Images.AbilityFeral) or ""
+							img.ImageColor3 = Config.Abilities.TigerClaw.Color
+							img.Parent = bb
+							local scale = Instance.new("UIScale")
+							scale.Scale = 2.2
+							scale.Parent = img
+							bb.Parent = player:FindFirstChildOfClass("PlayerGui")
+							TweenService:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+							marks[model] = bb
+							if near(head.Position) then
+								VFXController.popup(head.Position + Vector3.new(0, 4.5, 0), "Marked!", Config.Abilities.TigerClaw.Color, 1)
+							end
+						end
+					end
+				end
+			end
+			for model, bb in pairs(marks) do
+				if not seen[model] then
+					bb:Destroy()
+					marks[model] = nil
+				end
+			end
+		end
+	end)
 
 	buildScreen()
 

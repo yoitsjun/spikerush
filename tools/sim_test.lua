@@ -1186,8 +1186,8 @@ do
 	local ids, okShape, okAbility, okLimits = {}, true, true, true
 	local tallestSE, shortestMB, notes = 0, 999, {}
 	local want = {
-		WS = { Adrenaline = true, RisingSun = true, Counter = true, Plunge = true, Skyward = true },
-		MB = { IronWall = true, RallyCry = true, Sunshine = true },
+		WS = { Adrenaline = true, RisingSun = true, Counter = true, Plunge = true, Skyward = true, TigerClaw = true },
+		MB = { IronWall = true, RallyCry = true, Sunshine = true, Fever = true },
 		SE = { ChainReaction = true, Vector = true, Turnabout = true, Featherfall = true },
 	}
 	for _, c in ipairs(Roster) do
@@ -4658,6 +4658,52 @@ do
 	check(short > 0 and short < Config.Hits.FeintMaxDepth + 1.5 * K and half > short + 2 * K and full > half and math.abs(full - Config.Hits.FeintDeepDepth) < 1.5 * K,
 		"deep tip: a tap tips short, holding the tip button pushes it to the back of the court",
 		string.format("%.1f / %.1f / %.1f m from the net", short / SPM, half / SPM, full / SPM))
+end
+
+print("== Hongshi and Alexis ==")
+do
+	-- Tiger Claw (the owner, 2026-10-29): marked by her, your next receive of her spike fails, off
+	-- the arms and out behind you; anyone else's spike, or unmarked, is a usual dig
+	local root = vec(0, GROUND, side * 18 * K)
+	local ball = vec(0, root.Y + Z.ReceiveIdealY, root.Z - side * Z.ReceiveForward)
+	local herSpike = { team = "Home", hitType = "Spike", kmh = 140, id = "B_7" }
+	local okA, plain = receive(root, ball, { value = 120, max = 120 }, nil, { lastHit = herSpike })
+	local okB, clawed = receive(root, ball, { value = 120, max = 120 }, nil, { lastHit = herSpike, clawedBy = "B_7" })
+	local okC, other = receive(root, ball, { value = 120, max = 120 }, nil, { lastHit = herSpike, clawedBy = "B_9" })
+	local cp = BallPhysics.buildPath(clawed.launch)
+	check(okA and okB and okC and not plain.meta.fail and clawed.meta.clawed and clawed.meta.fail and cp.landing.pos.Z * side > C.SideDepth and not cp.flags.crossings and not other.meta.clawed,
+		"Tiger Claw: a marked player's next dig of her spike blasts out behind them; another Hongshi's mark doesn't count",
+		string.format("%s, %s", clawed.meta.grade, describe(cp)))
+	-- Fever (a fan's middle, Alexis): 2% a block up to 16% (24% at +5), her stats while it's up,
+	-- "Too cold there" at 1% (2% in Fever; 5% and 7% at +5), the frozen spike dropping at the
+	-- hitter's feet as her block
+	local f = 0
+	for _ = 1, 12 do
+		f = HitLogic.feverGain(f, 0)
+	end
+	local f5 = 0
+	for _ = 1, 12 do
+		f5 = HitLogic.feverGain(f5, 5)
+	end
+	local alexis = Characters.derive(Characters.fromRoster(Roster.get("alexis"), "max"))
+	local base = HitLogic.effectiveStats(alexis, "Fever", { value = 100, max = 100 }, { abilities = { Fever = true } })
+	local hot = HitLogic.effectiveStats(alexis, "Fever", { value = 100, max = 100 }, { abilities = { Fever = true }, feverOn = true })
+	local FV = Config.Abilities.Fever
+	check(math.abs(HitLogic.feverGain(0, 0) - FV.PerBlock) < 1e-9 and math.abs(f - FV.Max) < 1e-9 and math.abs(f5 - FV.Max * 1.5) < 1e-9
+		and hot.Defense - base.Defense == FV.StatAdd.Defense and hot.Attack - base.Attack == FV.StatAdd.Attack
+		and math.abs(HitLogic.coldChance(false, 0) - 0.01) < 1e-9 and math.abs(HitLogic.coldChance(true, 0) - 0.02) < 1e-9
+		and math.abs(HitLogic.coldChance(false, 5) - 0.05) < 1e-9 and math.abs(HitLogic.coldChance(true, 5) - 0.07) < 1e-9,
+		"Fever: 2% a block up to 16% (24% at +5), her stats while it's on, Too cold 1% / 2% (5% / 7% at +5)",
+		string.format("max %.0f%% (+5: %.0f%%), +%d Defense in Fever", f * 100, f5 * 100, hot.Defense - base.Defense))
+	local sr = apexRoot(SP, 3.5 * K)
+	local hand = ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local okD, frozen = HitLogic.coldStuff(hand, side, 0)
+	local fp = BallPhysics.buildPath(frozen.launch)
+	check(okD and frozen.meta.hitType == "Block" and frozen.meta.outcome == "Stuff" and frozen.meta.cold and fp.landing.pos.Z * side > 0 and not fp.flags.crossings,
+		"Too cold there: the frozen spike drops on the hitter's own side as a stuff", describe(fp))
+	local hong = Roster.get("hongshi")
+	check(hong and hong.Ability == "TigerClaw" and hong.Tier == "S" and hong.Role == "WS" and Roster.get("alexis").Ability == "Fever" and Roster.get("alexis").Role == "MB" and Roster.get("alexis").Tier == "S",
+		"Hongshi (S wing spiker, Tiger Claw) and Alexis (S middle, Fever) are on the roster")
 end
 
 print("== determinism ==")
