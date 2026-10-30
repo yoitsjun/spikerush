@@ -59,6 +59,7 @@ local SQUALL = Config.Abilities.Squall
 local TYRANT = Config.Abilities.Tyrant
 local SUNSHINE = Config.Abilities.Sunshine
 local FEVER = Config.Abilities.Fever
+local TIGER = Config.Abilities.TigerClaw
 local BEGIN = Config.Beginner
 
 -- An ability's setting grown by breakthroughs (Config.Breakthrough): `level` is the character's
@@ -896,6 +897,25 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		end
 		any = true
 	end
+	if extra and extra.clawedBy then
+		-- marked by Tiger Claw: a lower jump
+		add.Jump = (add.Jump or 0) - TIGER.JumpCut
+		any = true
+	end
+	if extra and extra.discouraged then
+		-- Discouraged (Tiger Claw, RAWR!): every stat down a little for a while
+		for _, k in ipairs({ "Attack", "Defense", "Speed", "Jump" }) do
+			add[k] = (add[k] or 0) - TIGER.DiscouragedCut
+		end
+		any = true
+	end
+	if on("TigerClaw") and extra and extra.fierce then
+		-- Fierce Tiger: their weakest back-row defender carries her mark
+		for k, v in pairs(ab("TigerClaw", "FierceAdd", lv("TigerClaw"))) do
+			add[k] = (add[k] or 0) + math.floor(v + 0.5)
+		end
+		any = true
+	end
 	if on("Fever") and extra and extra.feverOn then
 		-- Fever popped: her own stats on top of the team's boost
 		for k, v in pairs(ab("Fever", "StatAdd", lv("Fever"))) do
@@ -1008,6 +1028,18 @@ local function blastOut(meta, ball, side, rng, t)
 	local apex = ball.Y + SPM * (1.2 + rng:NextNumber() * 2.3)
 	local v = HitLogic.solveArc(ball, target, apex, G)
 	return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
+end
+
+-- Hunt (Tiger Claw): of `members` ({ id, defense, z }), the lowest Defense in the back court
+-- (past the attack line), or nil when nobody's back there.
+function HitLogic.huntTarget(members)
+	local best, bestD = nil, math.huge
+	for _, m in ipairs(members or {}) do
+		if math.abs(m.z or 0) > Config.Court.AttackLine and (m.defense or 0) < bestD then
+			best, bestD = m.id, m.defense or 0
+		end
+	end
+	return best
 end
 
 -- Fever (Alexis): her charge after a block (PerBlock, up to Max; both grow with breakthroughs).

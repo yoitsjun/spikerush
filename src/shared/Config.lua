@@ -427,6 +427,7 @@ Config.Breakthrough = {
 		Sunshine = { SunDuration = { Grow = 0.3, Label = "Sunshine lasts", Show = "s" }, VertBoost = { Grow = 0.3, Label = "Sharpest spike", Show = "pct" } },
 		-- (the fan's breakthroughs: "more buffs per fever charge and duration, higher too cold
 		-- chance"; at +5 "fever maxed gives +8%", "+10 to everything", "too cold 5%, with fever 7%")
+		TigerClaw = { FierceAdd = { Grow = 0.8, Label = "Fierce Tiger: Attack", Show = "num", Field = "Attack" } },
 		Fever = { PerBlock = { Grow = 0.5, Label = "Fever a block", Show = "pct" }, Max = { Grow = 0.5, Label = "Fever's most", Show = "pct" }, Duration = { Grow = 0.25, Label = "Fever lasts", Show = "s" }, StatAdd = { Grow = 0.6, Label = "Fever: Defense", Show = "num", Field = "Defense" }, ColdChance = { Grow = 4, Label = "Too cold", Show = "pct" }, ColdFever = { Grow = 2.5, Label = "Too cold in Fever", Show = "pct" } },
 	},
 	SellLucky = { ["S+"] = 1 },
@@ -1796,19 +1797,33 @@ Config.Abilities = {
 			{ Name = "Vert Spikes", Blurb = "Your spikes cross the net and drive straight down at a sharp angle: the steeper, the harder (up to +20%), and the steepest slip under the block." },
 		},
 	},
-	-- Hongshi (the owner, 2026-10-29: from The Spike Cross, "Tiger Claw, marks any opposing player
-	-- who successfully defends one of her spikes. A marked player is guaranteed to fail the next defend
-	-- against another spike from Hongshi"; "hongshi only has one ability"; "hongshi marks enemies with
-	-- a tiger claw over them"). Passive: a clean dig of her spike puts a claw mark over the digger
-	-- (the "Clawed" attribute: HitService, VFXController); their next receive of her spike blasts off
-	-- the arms and out (HitLogic: meta.clawed), and the mark is spent.
+	-- Horang (the owner, 2026-10-29: The Spike Cross's Hongshi, with her whole kit, "buff or nerf
+	-- accordingly"). Tiger Claw: receiving or diving her attack marks you (only receives: "you only
+	-- get it when u rec"; the "Clawed" attribute, HitService, VFXController), -JumpCut Jump while
+	-- marked; marked, your next receive of hers fails (off the arms and out: HitLogic meta.clawed) and
+	-- the mark is spent; a failed receive of hers Discourages you FailDiscourage of the time.
+	-- Fierce Tiger: while the lowest-Defense player in their back court (HitLogic.huntTarget) carries
+	-- her mark, FierceAdd (grown by breakthroughs to about +18 Attack, +4 Jump). RAWR!: the match's
+	-- first serve Discourages each of them RawrChance of the time. Hunt: that player is outlined.
+	-- Discouraged: every stat -DiscouragedCut for DiscouragedSecs.
 	TigerClaw = {
 		Name = "Tiger Claw",
 		Tier = "S",
 		Role = "WS",
-		Kind = "Passive: marks diggers",
-		Blurb = "Dig one of her spikes cleanly and a tiger claw marks you. Marked, your next dig of her spike fails: it blasts off your arms and out.",
+		Kind = "Passive: marks receivers",
+		Blurb = "Receive or dive her attack and a tiger claw marks you (-9 Jump). Marked, your next receive of hers fails, and that can leave you Discouraged. Fierce Tiger: while their weakest back-row defender is marked she hits harder and jumps higher.",
 		Color = Color3.fromRGB(255, 132, 30),
+		JumpCut = 9,
+		FierceAdd = { Attack = 10, Jump = 2 },
+		RawrChance = 0.8,
+		FailDiscourage = 0.2,
+		DiscouragedSecs = 15,
+		DiscouragedCut = 8,
+		Passives = {
+			{ Name = "Fierce Tiger", Blurb = "While the weakest defender in their back row carries your mark: +10 Attack, +2 Jump." },
+			{ Name = "RAWR!", Blurb = "The match's first serve very likely Discourages their whole team (-8 to every stat for 15 s)." },
+			{ Name = "Hunt", Blurb = "The weakest defender in their back row is outlined in red." },
+		},
 	},
 	-- Alexis (a fan's middle blocker, the owner, 2026-10-29, "buff or nerf accordingly"): Fever
 	-- charges PerBlock a block up to Max; Q spends it: the whole team gets that much (Rally Cry's

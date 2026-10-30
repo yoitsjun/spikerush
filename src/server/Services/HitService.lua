@@ -113,6 +113,7 @@ end
 -- Ability state on the character and the player (every client's HUD and effects, and the
 -- player's own prediction).
 local coldRng = Random.new() -- ("Too cold there")
+local clawRng = Random.new() -- (Tiger Claw's Discouraged)
 
 local function writeAbility(entity, name, value)
 	local model = reg.TeamService.getModel(entity)
@@ -274,7 +275,9 @@ function HitService.process(entity, input, opts)
 		squallOn = armed("Squall"),
 		stormOn = armed("Thunder"),
 		feverOn = armed("Fever"), -- (Alexis: her stats on top while it's up)
-		clawedBy = entity.clawedBy, -- (Tiger Claw: the Hongshi whose next spike this one can't dig)
+		clawedBy = entity.clawedBy, -- (Tiger Claw: the Horang whose next attack this one can't receive)
+		discouraged = (entity.discouragedUntil or -1) >= input.t - 0.05 or nil,
+		fierce = TS.has(entity, "TigerClaw") and TS.fierceOn(entity) or nil,
 		bloodlust = armed("Feral"), -- (Feral Leap's Bloodlust: the gauge may go past full)
 		static = TS.has(entity, "Thunder") and (entity.static or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
@@ -333,16 +336,18 @@ function HitService.process(entity, input, opts)
 		entity.fever = HitLogic.feverGain(entity.fever, entity.ability == "Fever" and entity.breakLevel or 0)
 		writeAbility(entity, "Fever", entity.fever)
 	end
-	if meta.clawed then
-		-- Tiger Claw: the mark is spent on this failed dig
-		entity.clawedBy = nil
-		writeAbility(entity, "Clawed", nil)
-	elseif meta.hitType == "Bump" and not meta.fail and not meta.shank and not meta.breaks and previous and previous.team ~= team and (previous.hitType == "Spike" or previous.hitType == "JumpServe") then
-		-- a clean dig of Hongshi's attack: her claw marks the digger
-		local hitter = TS.entities[previous.id]
-		if hitter and TS.has(hitter, "TigerClaw") then
-			entity.clawedBy = previous.id
-			writeAbility(entity, "Clawed", previous.id)
+	-- Tiger Claw: a receive or dive (never a block) of Horang's attack marks the receiver; marked,
+	-- that receive failed (meta.clawed) and the mark is spent; a failed receive of hers may
+	-- Discourage
+	local clawer = meta.hitType == "Bump" and previous and previous.team ~= team and (previous.hitType == "Spike" or previous.hitType == "JumpServe") and TS.entities[previous.id] or nil
+	if clawer and TS.has(clawer, "TigerClaw") then
+		if meta.clawed then
+			TS.setClaw(entity, nil)
+		else
+			TS.setClaw(entity, previous.id)
+		end
+		if (meta.clawed or meta.fail or meta.breaks) and clawRng:NextNumber() < Config.Abilities.TigerClaw.FailDiscourage then
+			TS.discourage(entity)
 		end
 	end
 	if meta.turnabout then
@@ -444,6 +449,7 @@ function HitService.process(entity, input, opts)
 	end
 	if action == "Serve" or action == "Underhand" then
 		MS.onServeHit(entity)
+		TS.rawr() -- (Tiger Claw's RAWR!: the match's first serve only)
 	end
 	MS.onHit(entity, meta, previous)
 	return true

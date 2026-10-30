@@ -13,7 +13,7 @@ local Roster = {
 	{ Id = "taesan", Name = "Dongha", Role = "MB", Tier = "S+", Height = 203, Attack = 186, Defense = 162, Speed = 112, Jump = 182, Ability = "Ironclad" },
 	{ Id = "dohwan", Name = "Gunwoo", Role = "SE", Tier = "S+", Height = 180, Attack = 170, Defense = 194, Speed = 190, Jump = 162, Ability = "Tyrant" },
 	{ Id = "daon", Name = "Hwan", Role = "WS", Tier = "S", Height = 186, Attack = 188, Defense = 122, Speed = 134, Jump = 170, Ability = "RisingSun" },
-	{ Id = "hongshi", Name = "Hongshi", Role = "WS", Tier = "S", Height = 172, Attack = 196, Defense = 126, Speed = 160, Jump = 186, Ability = "TigerClaw" },
+	{ Id = "horang", Name = "Horang", Role = "WS", Tier = "S", Height = 172, Attack = 196, Defense = 126, Speed = 160, Jump = 186, Ability = "TigerClaw" },
 	{ Id = "ines", Name = "Lucia", Role = "WS", Tier = "S", Height = 184, Attack = 170, Defense = 130, Speed = 138, Jump = 180, Ability = "Counter" },
 	{ Id = "seora", Name = "Yeseul", Role = "WS", Tier = "S", Height = 178, Attack = 204, Defense = 124, Speed = 158, Jump = 196, Ability = "Skyward" },
 	{ Id = "shoyo", Name = "Riki", Role = "WS", Tier = "S", Height = 181, Attack = 197, Defense = 124, Speed = 157, Jump = 189, Ability = "Adrenaline" },

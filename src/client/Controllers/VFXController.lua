@@ -2536,6 +2536,19 @@ function VFXController.ability(entityId, ability, index)
 			mods.AudioController.play("TyrantSnap", { volume = 0.9 })
 			mods.AudioController.play("Boom", { volume = 0.4, speed = 0.8 })
 		end
+	elseif ability == "TigerClaw" then
+		-- RAWR! (the match's first serve): an orange roar off her, their whole team shaken
+		local pos = hrp.Position
+		floorRing(pos, def.Color, 18, 0.7)
+		ringFx(pos + Vector3.new(0, 3, 0), def.Color, 2, 20, 0.5, 9)
+		starburst(pos + Vector3.new(0, 3, 0), def.Color, 12, 16, 0.35)
+		VFXController.popup(pos + Vector3.new(0, 8, 0) + up, "RAWR!", def.Color, 1.8)
+		if mods and mods.AudioController.hearsMatch() then
+			mods.AudioController.play("Bloodlust", { volume = 0.9 })
+		end
+		if mods and mods.CameraController then
+			mods.CameraController.shake(0.6)
+		end
 	elseif ability == "Fever" then
 		-- Fever: an icy shockwave off her, frost at every teammate's feet (the boost is the team's)
 		local pos = hrp.Position
@@ -8548,49 +8561,152 @@ function VFXController.init(m)
 	task.spawn(Fx.preload)
 
 	-- Tiger Claw's marks (the owner, 2026-10-29: "hongshi marks enemies with a tiger claw over
-	-- them"): an orange claw over every marked player's head, scratched in as the mark lands
-	local marks = {}
+	-- them", "make the claw way easier to see"): a big pulsing orange claw over every marked
+	-- player's head and an orange outline round them; Hunt's target (their weakest back-row
+	-- defender, HitLogic.huntTarget) outlined red; Discouraged players tagged in grey
+	local marks, outlines, glooms = {}, {}, {}
+	local CLAW = Config.Abilities.TigerClaw.Color
+	local HUNT = Color3.fromRGB(255, 40, 40)
+	local function outline(model, color)
+		local h = outlines[model]
+		if not h or not h.Parent then
+			h = Instance.new("Highlight")
+			h.Name = "TigerClawOutline"
+			h.FillTransparency = 0.85
+			h.OutlineTransparency = 0
+			h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			h.Adornee = model
+			h.Parent = model
+			outlines[model] = h
+		end
+		h.OutlineColor = color
+		h.FillColor = color
+	end
+	local function newMark(head)
+		local bb = Instance.new("BillboardGui")
+		bb.Name = "TigerClawMark"
+		bb.Size = UDim2.fromScale(5, 5)
+		bb.StudsOffset = Vector3.new(0, 4.2, 0)
+		bb.AlwaysOnTop = true
+		bb.LightInfluence = 0
+		bb.Adornee = head
+		-- a dark copy behind, a little bigger, so the claw reads on any background
+		local back = Instance.new("ImageLabel")
+		back.BackgroundTransparency = 1
+		back.AnchorPoint = Vector2.new(0.5, 0.5)
+		back.Position = UDim2.fromScale(0.5, 0.5)
+		back.Size = UDim2.fromScale(1.12, 1.12)
+		back.Image = Assets.id(Assets.Images.AbilityFeral) or ""
+		back.ImageColor3 = Color3.fromRGB(20, 8, 0)
+		back.Parent = bb
+		local img = back:Clone()
+		img.Size = UDim2.fromScale(1, 1)
+		img.ImageColor3 = CLAW
+		img.Parent = bb
+		local scale = Instance.new("UIScale")
+		scale.Scale = 2.4
+		scale.Parent = bb
+		bb.Parent = player:FindFirstChildOfClass("PlayerGui")
+		TweenService:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		-- (a slow pulse, so it catches the eye)
+		task.delay(0.3, function()
+			if bb.Parent then
+				TweenService:Create(scale, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Scale = 1.15 }):Play()
+			end
+		end)
+		return bb
+	end
+	local function newGloom(head)
+		local bb = Instance.new("BillboardGui")
+		bb.Name = "Discouraged"
+		bb.Size = UDim2.fromOffset(150, 26)
+		bb.StudsOffset = Vector3.new(0, 2.6, 0)
+		bb.AlwaysOnTop = true
+		bb.LightInfluence = 0
+		bb.Adornee = head
+		local l = Instance.new("TextLabel")
+		l.BackgroundTransparency = 1
+		l.Size = UDim2.fromScale(1, 1)
+		l.Text = "DISCOURAGED"
+		l.TextScaled = true
+		l.Font = Enum.Font.GothamBlack
+		l.TextColor3 = Color3.fromRGB(170, 176, 196)
+		l.TextStrokeTransparency = 0.2
+		l.Parent = bb
+		bb.Parent = player:FindFirstChildOfClass("PlayerGui")
+		return bb
+	end
 	task.spawn(function()
 		while true do
 			task.wait(0.2)
-			local seen = {}
+			local seenMark, seenOutline, seenGloom = {}, {}, {}
+			local now = Util.now()
 			for _, team in ipairs(Config.TeamOrder) do
+				local hunting = false
+				local other = team == "Home" and "Away" or "Home"
+				for _, e in ipairs(State.roster(other) or {}) do
+					local m = Util.modelOf(e.id)
+					if m and (m:GetAttribute("Ability") == "TigerClaw" or string.find(m:GetAttribute("Abilities") or "", "TigerClaw", 1, true)) then
+						hunting = true
+					end
+				end
+				local list = {}
 				for _, e in ipairs(State.roster(team) or {}) do
 					local model = Util.modelOf(e.id)
 					local head = model and (model:FindFirstChild("Head") or model:FindFirstChild("HumanoidRootPart"))
-					if head and model:GetAttribute("Clawed") then
-						seen[model] = true
-						if not marks[model] or not marks[model].Parent then
-							local bb = Instance.new("BillboardGui")
-							bb.Name = "TigerClawMark"
-							bb.Size = UDim2.fromScale(3, 3)
-							bb.StudsOffset = Vector3.new(0, 3.4, 0)
-							bb.AlwaysOnTop = true
-							bb.LightInfluence = 0
-							bb.Adornee = head
-							local img = Instance.new("ImageLabel")
-							img.BackgroundTransparency = 1
-							img.Size = UDim2.fromScale(1, 1)
-							img.Image = Assets.id(Assets.Images.AbilityFeral) or ""
-							img.ImageColor3 = Config.Abilities.TigerClaw.Color
-							img.Parent = bb
-							local scale = Instance.new("UIScale")
-							scale.Scale = 2.2
-							scale.Parent = img
-							bb.Parent = player:FindFirstChildOfClass("PlayerGui")
-							TweenService:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-							marks[model] = bb
-							if near(head.Position) then
-								VFXController.popup(head.Position + Vector3.new(0, 4.5, 0), "Marked!", Config.Abilities.TigerClaw.Color, 1)
+					local root = model and model:FindFirstChild("HumanoidRootPart")
+					if head and root then
+						table.insert(list, { id = e.id, defense = model:GetAttribute("Defense") or 0, z = root.Position.Z, model = model })
+						if model:GetAttribute("Clawed") then
+							seenMark[model] = true
+							seenOutline[model] = CLAW
+							if not marks[model] or not marks[model].Parent then
+								marks[model] = newMark(head)
+								if near(head.Position) then
+									VFXController.popup(head.Position + Vector3.new(0, 6, 0), "Marked!", CLAW, 1.2)
+								end
+							end
+						end
+						if (model:GetAttribute("DiscouragedUntil") or -1) >= now then
+							seenGloom[model] = true
+							if not glooms[model] or not glooms[model].Parent then
+								glooms[model] = newGloom(head)
+								if near(head.Position) then
+									VFXController.popup(head.Position + Vector3.new(0, 5, 0), "Discouraged", Color3.fromRGB(170, 176, 196), 1)
+								end
 							end
 						end
 					end
 				end
+				-- Hunt: their weakest back-row defender, outlined red (orange once marked)
+				if hunting then
+					local id = HitLogic.huntTarget(list)
+					for _, it in ipairs(list) do
+						if it.id == id and not seenOutline[it.model] then
+							seenOutline[it.model] = HUNT
+						end
+					end
+				end
+			end
+			for model, color in pairs(seenOutline) do
+				outline(model, color)
+			end
+			for model, h in pairs(outlines) do
+				if not seenOutline[model] then
+					h:Destroy()
+					outlines[model] = nil
+				end
 			end
 			for model, bb in pairs(marks) do
-				if not seen[model] then
+				if not seenMark[model] then
 					bb:Destroy()
 					marks[model] = nil
+				end
+			end
+			for model, bb in pairs(glooms) do
+				if not seenGloom[model] then
+					bb:Destroy()
+					glooms[model] = nil
 				end
 			end
 		end

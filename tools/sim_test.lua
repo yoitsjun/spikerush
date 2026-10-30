@@ -4660,7 +4660,7 @@ do
 		string.format("%.1f / %.1f / %.1f m from the net", short / SPM, half / SPM, full / SPM))
 end
 
-print("== Hongshi and Alexis ==")
+print("== Horang and Alexis ==")
 do
 	-- Tiger Claw (the owner, 2026-10-29): marked by her, your next receive of her spike fails, off
 	-- the arms and out behind you; anyone else's spike, or unmarked, is a usual dig
@@ -4672,7 +4672,7 @@ do
 	local okC, other = receive(root, ball, { value = 120, max = 120 }, nil, { lastHit = herSpike, clawedBy = "B_9" })
 	local cp = BallPhysics.buildPath(clawed.launch)
 	check(okA and okB and okC and not plain.meta.fail and clawed.meta.clawed and clawed.meta.fail and cp.landing.pos.Z * side > C.SideDepth and not cp.flags.crossings and not other.meta.clawed,
-		"Tiger Claw: a marked player's next dig of her spike blasts out behind them; another Hongshi's mark doesn't count",
+		"Tiger Claw: a marked player's next receive of her spike blasts out behind them; another Horang's mark doesn't count",
 		string.format("%s, %s", clawed.meta.grade, describe(cp)))
 	-- Fever (a fan's middle, Alexis): 2% a block up to 16% (24% at +5), her stats while it's up,
 	-- "Too cold there" at 1% (2% in Fever; 5% and 7% at +5), the frozen spike dropping at the
@@ -4701,9 +4701,25 @@ do
 	local fp = BallPhysics.buildPath(frozen.launch)
 	check(okD and frozen.meta.hitType == "Block" and frozen.meta.outcome == "Stuff" and frozen.meta.cold and fp.landing.pos.Z * side > 0 and not fp.flags.crossings,
 		"Too cold there: the frozen spike drops on the hitter's own side as a stuff", describe(fp))
-	local hong = Roster.get("hongshi")
+	local hong = Roster.get("horang")
 	check(hong and hong.Ability == "TigerClaw" and hong.Tier == "S" and hong.Role == "WS" and Roster.get("alexis").Ability == "Fever" and Roster.get("alexis").Role == "MB" and Roster.get("alexis").Tier == "S",
-		"Hongshi (S wing spiker, Tiger Claw) and Alexis (S middle, Fever) are on the roster")
+		"Horang (S wing spiker, Tiger Claw) and Alexis (S middle, Fever) are on the roster")
+	-- Tiger Claw's kit: marked, -9 Jump; Discouraged, -8 everywhere; Fierce Tiger +10 Attack / +2
+	-- Jump (about +18 / +4 at +5); Hunt picks the lowest Defense past the attack line
+	local TG = Config.Abilities.TigerClaw
+	local hs = Characters.derive(Characters.fromRoster(hong, "max"))
+	local plainS = HitLogic.effectiveStats(hs, "TigerClaw", { value = 100, max = 100 }, { abilities = { TigerClaw = true } })
+	local markedS = HitLogic.effectiveStats(hs, "TigerClaw", { value = 100, max = 100 }, { abilities = { TigerClaw = true }, clawedBy = "B_1" })
+	local glumS = HitLogic.effectiveStats(hs, "TigerClaw", { value = 100, max = 100 }, { abilities = { TigerClaw = true }, discouraged = true })
+	local fierceS = HitLogic.effectiveStats(hs, "TigerClaw", { value = 100, max = 100 }, { abilities = { TigerClaw = true }, fierce = true })
+	local fierce5 = HitLogic.effectiveStats(hs, "TigerClaw", { value = 100, max = 100 }, { abilities = { TigerClaw = true }, fierce = true, breakLevel = 5 })
+	local AL = Config.Court.AttackLine
+	local target = HitLogic.huntTarget({ { id = "front", defense = 50, z = AL * 0.5 }, { id = "a", defense = 140, z = AL * 2 }, { id = "b", defense = 120, z = -AL * 2.5 } })
+	check(plainS.Jump - markedS.Jump == TG.JumpCut and plainS.Attack - glumS.Attack == TG.DiscouragedCut and plainS.Defense - glumS.Defense == TG.DiscouragedCut
+		and fierceS.Attack - plainS.Attack == TG.FierceAdd.Attack and fierceS.Jump - plainS.Jump == TG.FierceAdd.Jump and fierce5.Attack - plainS.Attack >= 17
+		and target == "b" and HitLogic.huntTarget({ { id = "front", defense = 50, z = 1 } }) == nil,
+		"Tiger Claw: marked -9 Jump, Discouraged -8 every stat, Fierce Tiger +10 Attack (+18 at +5), Hunt finds the weakest back-row defender",
+		string.format("Fierce +%d Attack (+%d at +5), hunt %s", fierceS.Attack - plainS.Attack, fierce5.Attack - plainS.Attack, tostring(target)))
 end
 
 print("== determinism ==")

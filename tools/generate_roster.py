@@ -98,9 +98,10 @@ FIXED = [
     # Sunshine (the owner, 2026-10-21: an S middle blocker, "170 Attack 150 Jump 190 Defense 180
     # Speed"): a digging middle, shorter than the rest of them
     {"Name": "Haesol", "Role": "MB", "Tier": "S", "Height": 191, "Attack": 170, "Defense": 190, "Speed": 180, "Jump": 150, "Ability": "Sunshine"},
-    # Hongshi (the owner, 2026-10-29: from The Spike Cross, an S wing spiker with one ability,
-    # Tiger Claw): a quick, springy hitter, a little under Seora's spike
-    {"Name": "Hongshi", "Role": "WS", "Tier": "S", "Height": 172, "Attack": 196, "Defense": 126, "Speed": 160, "Jump": 186, "Ability": "TigerClaw"},
+    # Horang (the owner, 2026-10-29: The Spike Cross's Hongshi, an S wing spiker with Tiger Claw;
+    # "not hongshi name thats just the spike rush name": Horang, Korean for tiger): a quick,
+    # springy hitter, a little under Seora's spike
+    {"Name": "Horang", "Role": "WS", "Tier": "S", "Height": 172, "Attack": 196, "Defense": 126, "Speed": 160, "Jump": 186, "Ability": "TigerClaw"},
     # Alexis (a fan's S middle blocker with Fever; "buff or nerf accordingly"): the fan's 170 / 200 /
     # 175 / 170 trimmed to Dasol's level, still the best Defense of any S middle
     {"Name": "Alexis", "Role": "MB", "Tier": "S", "Height": 190, "Attack": 166, "Defense": 192, "Speed": 165, "Jump": 170, "Ability": "Fever"},

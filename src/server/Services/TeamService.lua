@@ -33,6 +33,7 @@ TeamService.botTier = Config.Match.DefaultBotTier
 TeamService.stamina = { Home = { value = 100, max = 100 }, Away = { value = 100, max = 100 } }
 TeamService.timeouts = { Home = Config.Timeout.PerSet, Away = Config.Timeout.PerSet }
 TeamService.benched = {} -- userId -> id of the AI standing in for them
+local rawrRng = Random.new() -- (Tiger Claw's RAWR!)
 TeamService.idle = {} -- userId -> seconds without input while the ball was live
 TeamService.rallyUntil = { Home = -1, Away = -1 } -- Rally Cry: the team's boost lasts until then
 TeamService.dictateUntil = { Home = -1, Away = -1 } -- the Tyrant's Emperor's Dictate (his team's), until then
@@ -338,9 +339,11 @@ function TeamService.applyToModel(e)
 	-- Tiger Claw's mark and Fever's charge are this match's (a player's carry over otherwise)
 	model:SetAttribute("Clawed", e.clawedBy)
 	model:SetAttribute("Fever", e.fever)
+	model:SetAttribute("DiscouragedUntil", e.discouragedUntil)
 	if e.player then
 		e.player:SetAttribute("Clawed", e.clawedBy)
 		e.player:SetAttribute("Fever", e.fever)
+		e.player:SetAttribute("DiscouragedUntil", e.discouragedUntil)
 	end
 	if e.player then
 		e.player:SetAttribute("Hex", e.hex ~= nil and e.hex ~= "" and e.hex or nil)
@@ -420,6 +423,9 @@ function TeamService.boostCtx(e, t)
 		coronaStacks = TeamService.has(e, "Corona") and (e.coronaStacks or 0) or nil,
 		squallOn = TeamService.has(e, "Squall") and TeamService.windowOf(e, "Squall") >= now or nil,
 		feverOn = TeamService.has(e, "Fever") and TeamService.windowOf(e, "Fever") >= now or nil,
+		clawedBy = e.clawedBy, -- (Tiger Claw's mark: a lower jump)
+		discouraged = (e.discouragedUntil or -1) >= now or nil,
+		fierce = TeamService.has(e, "TigerClaw") and TeamService.fierceOn(e) or nil,
 		bloodlust = TeamService.has(e, "Feral") and TeamService.windowOf(e, "Feral") >= now or nil,
 		breakLevel = e.breakLevel, -- (its own ability's)
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")), -- a tournament's modifiers
@@ -549,6 +555,74 @@ function TeamService.boostWindow(e, untilT, name)
 			refreshBoosts(e.team)
 		end
 	end)
+end
+
+-- Fierce Tiger: the lowest-Defense player in the other team's back court carries this Horang's
+-- mark (HitLogic.huntTarget).
+function TeamService.fierceOn(e)
+	local list = {}
+	for _, m in ipairs(TeamService.members(Court.other(e.team))) do
+		local root = TeamService.getRoot(m)
+		if root then
+			table.insert(list, { id = m.id, defense = (m.charStats or {}).Defense or 0, z = root.Position.Z })
+		end
+	end
+	local id = HitLogic.huntTarget(list)
+	local t = id and TeamService.entities[id]
+	return t ~= nil and t.clawedBy == e.id
+end
+
+-- Tiger Claw's mark on `e` by Horang `byId` (nil takes it off); both teams' boosts follow (the
+-- marked player's jump, her Fierce Tiger).
+function TeamService.setClaw(e, byId)
+	e.clawedBy = byId
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("Clawed", byId)
+		end
+	end
+	refreshBoosts(e.team)
+	refreshBoosts(Court.other(e.team))
+end
+
+-- Discouraged (Tiger Claw, RAWR!): every stat down for a while.
+function TeamService.discourage(e)
+	local T = Config.Abilities.TigerClaw
+	local untilT = Util.now() + T.DiscouragedSecs
+	e.discouragedUntil = untilT
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("DiscouragedUntil", untilT)
+		end
+	end
+	refreshBoosts(e.team)
+	task.delay(T.DiscouragedSecs + 0.05, function()
+		if e.discouragedUntil == untilT then
+			refreshBoosts(e.team)
+		end
+	end)
+end
+
+-- RAWR! (Tiger Claw): at the match's first serve, each Horang on court may Discourage every one
+-- of the other team. Once a match (assign resets it).
+function TeamService.rawr()
+	if TeamService.rawrDone then
+		return {}
+	end
+	TeamService.rawrDone = true
+	local hit = {}
+	for _, e in pairs(TeamService.entities) do
+		if TeamService.has(e, "TigerClaw") then
+			for _, o in ipairs(TeamService.members(Court.other(e.team))) do
+				if rawrRng:NextNumber() < Config.Abilities.TigerClaw.RawrChance then
+					TeamService.discourage(o)
+					table.insert(hit, o.id)
+				end
+			end
+			reg.HitService.fx(e.id, "Ability", "TigerClaw")
+		end
+	end
+	return hit
 end
 
 -- Thunder's Static Charge: his thunder spikes this rally (0..StaticMax), for every client's HUD.
@@ -889,6 +963,7 @@ end
 -- lobby without "fill with bots" only starts full, so bots there only cover someone who left.
 function TeamService.assign(size, plan, picks)
 	TeamService.clear()
+	TeamService.rawrDone = false -- (RAWR!: once a match)
 	-- the host's picks for the bot spots: no other bot takes these characters first
 	reservedChars = { Home = {}, Away = {} }
 	for _, team in ipairs(Config.TeamOrder) do

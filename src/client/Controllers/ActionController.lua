@@ -172,7 +172,9 @@ local function buildCtx(info, action, t)
 		chain = ReplicatedStorage:GetAttribute("Chain_" .. tostring(State.myTeam)) or 0,
 		coronaOn = has.Corona and AC.abilityActive("Corona") or nil,
 		feverOn = has.Fever and AC.abilityActive("Fever") or nil,
-		clawedBy = player:GetAttribute("Clawed"), -- (Tiger Claw: marked, your next dig of her attack fails)
+		clawedBy = player:GetAttribute("Clawed"), -- (Tiger Claw: marked, your next receive of her attack fails)
+		discouraged = (player:GetAttribute("DiscouragedUntil") or -1) >= t - 0.05 or nil,
+		fierce = has.TigerClaw and ActionController.fierceOn() or nil,
 		coronaStacks = has.Corona and (player:GetAttribute("CoronaStacks") or 0) or nil,
 		squallOn = has.Squall and AC.abilityActive("Squall") or nil,
 		stormOn = has.Thunder and AC.abilityActive("Thunder") or nil,
@@ -475,6 +477,22 @@ end
 ------------------------------------------------------------------------------------------
 -- executing touches
 ------------------------------------------------------------------------------------------
+
+-- Fierce Tiger (my Horang): their weakest back-row defender carries my mark.
+function ActionController.fierceOn()
+	local opp = State.myTeam == "Home" and "Away" or "Home"
+	local list, models = {}, {}
+	for _, e in ipairs(State.roster(opp) or {}) do
+		local m = Util.modelOf(e.id)
+		local r = m and m:FindFirstChild("HumanoidRootPart")
+		if r then
+			table.insert(list, { id = e.id, defense = m:GetAttribute("Defense") or 0, z = r.Position.Z })
+			models[e.id] = m
+		end
+	end
+	local id = HitLogic.huntTarget(list)
+	return id ~= nil and models[id]:GetAttribute("Clawed") == State.myId
+end
 
 local function execute(action, info, opts, t, ballPos)
 	local ctx, allowed, why = buildCtx(info, action, t)
