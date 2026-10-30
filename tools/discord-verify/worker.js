@@ -1,4 +1,4 @@
-// Spike Rush Discord verification: a Cloudflare Worker that answers the /discordverify slash command
+// Volleyball Rush Discord verification: a Cloudflare Worker that answers the /discordverify slash command
 // (named that, not /verify, so it isn't mixed up with other bots' verify commands).
 //
 // The game gives each player a code (Config.Discord) and saves "code_<CODE>" -> { userId, name }
@@ -21,7 +21,7 @@ export default {
 			return register(url, env);
 		}
 		if (request.method !== "POST") {
-			return new Response("Spike Rush verification bot is running.", { status: 200 });
+			return new Response("Volleyball Rush verification bot is running.", { status: 200 });
 		}
 		const body = await request.text();
 		const ok = await verifySignature(request, body, env.DISCORD_PUBLIC_KEY);
@@ -49,21 +49,21 @@ export default {
 async function handleVerify(interaction, env) {
 	const user = interaction.member && interaction.member.user;
 	if (!user) {
-		return "Use /discordverify in the Spike Rush server, not in DMs.";
+		return "Use /discordverify in the Volleyball Rush server, not in DMs.";
 	}
 	const opt = (interaction.data.options || []).find((o) => o.name === "code");
 	const code = String(opt ? opt.value : "").trim().toUpperCase().replace(/^CODE\s*:?/, "").replace(/[^A-Z0-9]/g, "");
 	if (!CODE_RE.test(code)) {
-		return "That isn't a code. Open **Codes** in Spike Rush and copy yours (7 letters and numbers).";
+		return "That isn't a code. Open **Codes** in Volleyball Rush and copy yours (7 letters and numbers).";
 	}
 	const owner = await getEntry(env, "code_" + code);
 	if (!owner || !owner.userId) {
-		return "That code doesn't exist. Open **Codes** in Spike Rush and copy yours.";
+		return "That code doesn't exist. Open **Codes** in Volleyball Rush and copy yours.";
 	}
 	const done = await getEntry(env, "done_" + code);
 	if (done) {
 		return String(done.discordId) === String(user.id)
-			? "You're already verified as **" + owner.name + "**. In Spike Rush, open **Codes** and click **Verify**."
+			? "You're already verified as **" + owner.name + "**. In Volleyball Rush, open **Codes** and click **Verify**."
 			: "That code was already used by another Discord account.";
 	}
 	const linked = await getEntry(env, "discord_" + user.id);
@@ -77,13 +77,13 @@ async function handleVerify(interaction, env) {
 	if (env.VERIFIED_ROLE_ID) {
 		const r = await fetch(
 			"https://discord.com/api/v10/guilds/" + env.DISCORD_GUILD_ID + "/members/" + user.id + "/roles/" + env.VERIFIED_ROLE_ID,
-			{ method: "PUT", headers: { Authorization: "Bot " + env.DISCORD_BOT_TOKEN, "X-Audit-Log-Reason": "Spike Rush verify" } }
+			{ method: "PUT", headers: { Authorization: "Bot " + env.DISCORD_BOT_TOKEN, "X-Audit-Log-Reason": "Volleyball Rush verify" } }
 		);
 		if (!r.ok) {
 			roleNote = "\n(I couldn't give you the Verified role. A mod can sort it out.)";
 		}
 	}
-	return "Verified as **" + owner.name + "**! Go back to Spike Rush, open **Codes** and click **Verify** for your reward." + roleNote;
+	return "Verified as **" + owner.name + "**! Go back to Volleyball Rush, open **Codes** and click **Verify** for your reward." + roleNote;
 }
 
 // ------------------------------------------------------------------------------------------
@@ -148,8 +148,8 @@ async function register(url, env) {
 		body: JSON.stringify([
 			{
 				name: "discordverify",
-				description: "Link your Roblox account and get your Spike Rush reward",
-				options: [{ type: 3, name: "code", description: "Your code from the Codes window in Spike Rush", required: true }],
+				description: "Link your Roblox account and get your Volleyball Rush reward",
+				options: [{ type: 3, name: "code", description: "Your code from the Codes window in Volleyball Rush", required: true }],
 			},
 		]),
 	});

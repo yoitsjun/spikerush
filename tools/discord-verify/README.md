@@ -1,6 +1,6 @@
 # Discord verification bot
 
-Players open **Codes** in Spike Rush and copy their own 7-character code. In the Discord they type `/discordverify CODE`. This bot checks the code and marks it done. Back in the game they click **Verify** and get `Config.Discord.Reward`, which includes the Community Squad card.
+Players open **Codes** in Volleyball Rush and copy their own 7-character code. In the Discord they type `/discordverify CODE`. This bot checks the code and marks it done. Back in the game they click **Verify** and get `Config.Discord.Reward`, which includes the Community Squad card.
 
 How it works:
 
@@ -22,7 +22,7 @@ The bot is `worker.js`, a single file with no installs. It runs free on Cloudfla
 4. Click **Save & Generate Key** and copy the key. You only see it once.
 
 ### 2. Discord: the bot
-1. Go to https://discord.com/developers/applications > **New Application**. Name it "Spike Rush".
+1. Go to https://discord.com/developers/applications > **New Application**. Name it "Volleyball Rush".
 2. On **General Information**, copy the **Application ID** and the **Public Key**.
 3. On **Bot**, click **Reset Token** and copy the token.
 4. On **OAuth2** > **URL Generator**:
@@ -36,7 +36,7 @@ The bot is `worker.js`, a single file with no installs. It runs free on Cloudfla
 
 ### 3. Cloudflare: the Worker
 1. Sign up at https://dash.cloudflare.com (free).
-2. Go to **Workers & Pages** > **Create** > **Create Worker**. Name it `spike-rush-verify` > **Deploy**.
+2. Go to **Workers & Pages** > **Create** > **Create Worker**. Name it `volleyball-rush-verify` > **Deploy**.
 3. Click **Edit code**. Delete what's there, paste all of `worker.js`, then **Deploy**.
 4. Go to the Worker's **Settings** > **Variables and Secrets** and add each of these. Use **Secret** for the ones marked secret.
 
@@ -51,15 +51,15 @@ The bot is `worker.js`, a single file with no installs. It runs free on Cloudfla
    | `SETUP_SECRET` (secret) | any made-up password |
    | `VERIFIED_ROLE_ID` | the role ID (step 2.6), or leave it out |
 
-5. Copy the Worker's URL, something like `https://spike-rush-verify.<you>.workers.dev`.
+5. Copy the Worker's URL, something like `https://volleyball-rush-verify.<you>.workers.dev`.
 
 ### 4. Connect them
 1. In the Discord Developer Portal > **General Information**, paste the Worker URL into **Interactions Endpoint URL** and save. Discord checks it right away; if it won't save, the Public Key variable is wrong.
-2. Open `https://spike-rush-verify.<you>.workers.dev/register?secret=<your SETUP_SECRET>` in a browser. It should say "/discordverify is registered".
+2. Open `https://volleyball-rush-verify.<you>.workers.dev/register?secret=<your SETUP_SECRET>` in a browser. It should say "/discordverify is registered".
 3. In Discord, `/discordverify` now shows up in your server.
 
 ### 5. The game page's Community link
-Roblox shows Discord by name, with the invite, only to players it allows. Everyone else sees the BedWars wording: "Open the Spike Rush game page and join from the Community link". So put the invite on the game page too:
+Roblox shows Discord by name, with the invite, only to players it allows. Everyone else sees the BedWars wording: "Open the Volleyball Rush game page and join from the Community link". So put the invite on the game page too:
 
 1. Go to Creator Hub > your experience > **Configure** > **Social Links** (or **Links**).
 2. Add a **Discord** link with your invite (`https://discord.gg/T6N3uw5ghA`), titled **Community Server**.
@@ -67,7 +67,7 @@ Roblox shows Discord by name, with the invite, only to players it allows. Everyo
 Roblox shows that link only to players allowed to see it.
 
 ## Try it
-1. In Spike Rush, open **Codes** and copy your code.
+1. In Volleyball Rush, open **Codes** and copy your code.
 2. In Discord, type `/discordverify` and paste the code. The bot answers "Verified as ..." (only you see it).
 3. In the game, click **Verify**. You get the reward and the Community Squad card.
 
