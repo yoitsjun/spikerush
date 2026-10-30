@@ -1939,8 +1939,16 @@ function SceneController.dropBalls(colors, strength)
 		local from = to + Vector3.new(rng:NextNumber(-1.5, 1.5), DROP_HEIGHT, rng:NextNumber(-1.5, 1.5))
 		local m = makeBall(folder, 1, CART - Vector3.new(0, 400, 0))
 		glowBall(m, colors[i], strength[i])
+		-- (ten lights in a heap on the floor wash the shot out: dimmed in the cart, back up in the line)
+		local pl = m.PrimaryPart:FindFirstChildOfClass("PointLight")
+		local lit = pl and pl.Brightness
+		if pl and strength[i] <= 1 then
+			pl.Brightness = lit * 0.3
+		end
 		dropping[i] = {
 			model = m,
+			light = pl,
+			lit = lit,
 			trail = cometTrail(m, colors[i]),
 			from = from,
 			to = to,
@@ -2006,6 +2014,9 @@ function SceneController.lineUp(colors, strength, rise)
 			local d = from[i]
 			m = d.model
 			d.trail.Enabled = false
+			if d.light and d.strength <= 1 then
+				d.light.Brightness = d.lit
+			end
 			table.insert(rising, { model = m, from = m:GetPivot().Position, to = to, t0 = now, delay = (i - 1) * 0.035, dur = rise, base = m:GetScale() })
 		else
 			m = makeBall(folder, 1.35, to)
