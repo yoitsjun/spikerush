@@ -163,20 +163,12 @@ function AdminService.pingMail(userId)
 	publish(TOPIC_MAIL, userId)
 end
 
--- The game's owner: the account that owns it, or the owner (rank 255) of the group that does,
--- looked up as they join (it asks Roblox). The only one who sees and changes the admin whitelist
+-- The game's owner: the account that owns it, or the owner (or Owner role) of the group that does
+-- (ProfileService.ownsGame), looked up as they join (it asks Roblox). The only one who sees and changes the admin whitelist
 -- (the owner, 2026-10-16: "add a whitelist to the admin panel that only i can access"). Studio's
 -- every-session developer doesn't count here: a collaborator's playtest writes the live list.
 local function lookUpOwner(plr)
-	local yes = false
-	if game.CreatorType == Enum.CreatorType.User then
-		yes = plr.UserId == game.CreatorId
-	else
-		local ok, rank = pcall(function()
-			return plr:GetRankInGroup(game.CreatorId)
-		end)
-		yes = ok and rank == 255
-	end
+	local yes = reg.ProfileService.ownsGame(plr)
 	if yes and plr.Parent then
 		ownerOf[plr] = true
 		reg.ProfileService.pushTo(plr) -- (their admin panel shows the whitelist)

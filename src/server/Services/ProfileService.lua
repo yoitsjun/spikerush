@@ -114,6 +114,31 @@ end
 -- developers
 ------------------------------------------------------------------------------------------
 
+-- Whether this player owns the game: the account that owns it, or, for a group game, the group's
+-- owner or anyone holding its Owner role. Not by rank alone: Jun Games Production's Owner role
+-- sits at rank 1 (the owner, 2026-10-30: "give owner role in my group admin panel access").
+function ProfileService.ownsGame(plr)
+	if game.CreatorType == Enum.CreatorType.User then
+		return plr.UserId == game.CreatorId
+	end
+	local ok, rank = pcall(function()
+		return plr:GetRankInGroup(game.CreatorId)
+	end)
+	if ok and rank == 255 then
+		return true
+	end
+	local okRole, role = pcall(function()
+		return plr:GetRoleInGroup(game.CreatorId)
+	end)
+	if okRole and type(role) == "string" and string.lower(role) == "owner" then
+		return true
+	end
+	local okInfo, info = pcall(function()
+		return GroupService:GetGroupInfoAsync(game.CreatorId)
+	end)
+	return okInfo and type(info) == "table" and type(info.Owner) == "table" and info.Owner.Id == plr.UserId
+end
+
 local function isDeveloper(plr)
 	local D = Config.Developers
 	if D.Studio and RunService:IsStudio() then
@@ -125,13 +150,7 @@ local function isDeveloper(plr)
 		end
 	end
 	if D.Owner then
-		if game.CreatorType == Enum.CreatorType.User then
-			return plr.UserId == game.CreatorId
-		end
-		local ok, rank = pcall(function()
-			return plr:GetRankInGroup(game.CreatorId)
-		end)
-		return ok and rank == 255
+		return ProfileService.ownsGame(plr)
 	end
 	return false
 end
