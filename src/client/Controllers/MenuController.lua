@@ -5209,6 +5209,12 @@ local SHOP_ROWS = {
 	end, amount = function(pack)
 		return Extra.boostLength(pack.BoostLuck)
 	end },
+	-- (the owner, 2026-10-29: "make some more robux options too. new game, new revenue")
+	{ key = "Special", tab = "Specials", title = "Specials", note = "Fragments, a pick of any S player, big bundles", icon = function(parent, size)
+		return Gui.sparkle(parent, size, Gui.SIGNAL)
+	end, amount = function(pack)
+		return pack.Label or pack.Name
+	end },
 }
 
 -- 900 -> "15 min", 3600 -> "1 hr", 5400 -> "1.5 hr"
@@ -5221,7 +5227,7 @@ function Extra.boostLength(seconds)
 end
 
 local function shopPacks(key)
-	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs, LuckBoost = Config.Boosts.LuckPacks, LuckBoost4 = Config.Boosts.LuckPacks4, LuckBoost6 = Config.Boosts.LuckPacks6, LuckBoost8 = Config.Boosts.LuckPacks8, LuckBoost16 = Config.Boosts.LuckPacks16, Bundle = Config.Bundles.Packs, PassGift = Config.Passes.GiftPacks }
+	local lists = { VP = Config.Shop.Packs, Gold = Config.Shop.GoldPacks, Lucky = Config.Lucky.Packs, Boost = Config.Boosts.Packs, LuckBoost = Config.Boosts.LuckPacks, LuckBoost4 = Config.Boosts.LuckPacks4, LuckBoost6 = Config.Boosts.LuckPacks6, LuckBoost8 = Config.Boosts.LuckPacks8, LuckBoost16 = Config.Boosts.LuckPacks16, Bundle = Config.Bundles.Packs, PassGift = Config.Passes.GiftPacks, Special = Config.Specials.Packs }
 	return lists[key] or {}
 end
 
@@ -5482,7 +5488,7 @@ local function buildShop()
 	local p = page("shop")
 	mainChrome(p, "shop")
 	-- two tabs (the owner added lucky spins and 2x VP boosts to sell), two rows each
-	local _, setTab = segmented(p, { { key = "Deals", text = "Deals" }, { key = "Currency", text = "V Points & Gold" }, { key = "Lucky", text = "Lucky spins" }, { key = "Boosts", text = "Boosts" }, { key = "Trade", text = "Trade Gold" } }, { Name = "ShopTabs", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(842, 46) }, function(key)
+	local _, setTab = segmented(p, { { key = "Deals", text = "Deals" }, { key = "Specials", text = "Specials" }, { key = "Currency", text = "V Points & Gold" }, { key = "Lucky", text = "Lucky spins" }, { key = "Boosts", text = "Boosts" }, { key = "Trade", text = "Trade Gold" } }, { Name = "ShopTabs", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(842, 46) }, function(key)
 		Extra.shopTab = key
 		MenuController.refresh()
 	end)
@@ -5495,12 +5501,12 @@ local function buildShop()
 	end)
 	local packs = make("Frame", { Name = "Packs", Position = UDim2.fromOffset(M, 210), Size = UDim2.fromOffset(4 * 200 + 3 * 14, 560), BackgroundTransparency = 1 }, p)
 	local tabs = {}
-	for _, key in ipairs({ "Deals", "Currency", "Lucky", "Boosts", "Trade" }) do
+	for _, key in ipairs({ "Deals", "Specials", "Currency", "Lucky", "Boosts", "Trade" }) do
 		tabs[key] = make("Frame", { Name = key, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, packs)
 	end
 	local prices = { VP = {}, Gold = {}, Lucky = {}, Boost = {}, LuckBoost = {}, Bundle = {} }
 	local notes = {}
-	local rowsIn = { Currency = 0, Lucky = 0, Boosts = 0 }
+	local rowsIn = { Currency = 0, Lucky = 0, Boosts = 0, Specials = 0 }
 	for _, row in ipairs(SHOP_ROWS) do
 		rowsIn[row.tab] = rowsIn[row.tab] + 1
 		local y = (rowsIn[row.tab] - 1) * 284

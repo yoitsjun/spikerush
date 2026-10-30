@@ -1070,6 +1070,19 @@ Config.Bundles = {
 	},
 }
 
+-- The Shop's Specials (the owner, 2026-10-29: "make some more robux options too. new game, new
+-- revenue"): Developer Products like the packs (made through Open Cloud, tools/specials.results.json), with
+-- breakthrough Fragments (a group -> count) and STickets (selection tickets: any S player you don't
+-- own, Config.Retired.TicketTier). Label: the card's big word.
+Config.Specials = {
+	Packs = {
+		{ Id = 3723772259, Name = "Relaunch Pack", Label = "Relaunch", VP = 2500, Gold = 25000, Lucky = 5, Fragments = { S = 1 } }, -- 399 Robux: the fresh start's welcome deal
+		{ Id = 3723772262, Name = "Selection Ticket", Label = "S Pick", STickets = 1 }, -- 599: any S player you don't own
+		{ Id = 3723772323, Name = "Breakthrough Pack", Label = "Fragments", VP = 500, Fragments = { ["S+"] = 2, S = 3 } }, -- 499
+		{ Id = 3723772327, Name = "Mega Bundle", Label = "Mega", VP = 12000, Gold = 120000, Lucky = 20, BoostVP = 2 * 60 * 60, Fragments = { ["S+"] = 2 } }, -- 1,999
+	},
+}
+
 -- Game passes, owned for good (Creator Hub > your experience > Monetization > Passes; 0 while
 -- there isn't one). VP multiplies the VP you earn (ProfileService.vpMult: matches and their MVP
 -- bonus, tournament prizes, daily rewards) and Gold what matches pay, and they multiply with
@@ -1189,7 +1202,7 @@ Config.Admin = {
 	Multiplier = 2,
 	AnnounceMax = 200, -- characters
 	AnnounceSeconds = 10, -- how long an announcement shows
-	GiveMax = { VP = 1000000, Gold = 10000000, Lucky = 1000, Fragments = 1000 },
+	GiveMax = { VP = 1000000, Gold = 10000000, Lucky = 1000, Fragments = 1000, STickets = 20 },
 	LiveStore = "SpikeRushLive_v1", -- the running events (DataStore), for servers that start later
 	MailStore = "SpikeRushMail_v1", -- gifts waiting for their player (DataStore)
 	-- who was given each give-only card from the admin panel (DataStore, a key per card): the

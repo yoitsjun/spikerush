@@ -46,7 +46,7 @@ function Economy.cleanGrant(g)
 	local function amount(v, max)
 		return math.max(0, math.min(whole(v), max))
 	end
-	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), Chars = {}, Cards = {}, Items = {}, Fragments = {}, Skins = {}, Passes = {}, Perks = {} }
+	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), STickets = amount(g.STickets, cap.STickets or 20), Chars = {}, Cards = {}, Items = {}, Fragments = {}, Skins = {}, Passes = {}, Perks = {} }
 	-- game passes and perks given (a gifted pass: Config.Passes.GiftPacks)
 	for _, field in ipairs({ { "Passes", Config.Passes.Order }, { "Perks", Config.Perks.Order } }) do
 		if type(g[field[1]]) == "table" then
@@ -119,7 +119,7 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0 and #(g.Passes or {}) == 0 and #(g.Perks or {}) == 0
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and (g.STickets or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0 and #(g.Passes or {}) == 0 and #(g.Perks or {}) == 0
 end
 
 -- A luck boost's strength: one of Config.Boosts.LuckTiers, else 2.
@@ -217,6 +217,9 @@ function Economy.apply(profile, g, now)
 	profile.vp = whole(profile.vp) + g.VP
 	profile.gold = whole(profile.gold) + g.Gold
 	profile.lucky = whole(profile.lucky) + g.Lucky
+	if (g.STickets or 0) > 0 then
+		profile.sTickets = math.min(100, whole(profile.sTickets) + g.STickets) -- (selection tickets: Config.Retired)
+	end
 	if g.BoostVP > 0 then
 		profile.boosts = type(profile.boosts) == "table" and profile.boosts or {}
 		profile.boosts.VP = Economy.extendBoost(profile.boosts.VP, g.BoostVP, now or 0)
@@ -321,6 +324,9 @@ function Economy.describe(g, chars)
 	for _, key in ipairs(g.Skins or {}) do
 		local s = Config.Halloween.Skins[key]
 		table.insert(parts, "the " .. (s and s.Name or key) .. " skin")
+	end
+	if (g.STickets or 0) > 0 then
+		table.insert(parts, g.STickets == 1 and "1 S selection ticket" or (Economy.commas(g.STickets) .. " S selection tickets"))
 	end
 	for _, grp in ipairs(Config.Breakthrough.Groups) do
 		local n = g.Fragments and g.Fragments[grp] or 0
@@ -522,6 +528,7 @@ local PACK_LISTS = {
 	{ kind = "LuckBoost8", list = Config.Boosts.LuckPacks8 },
 	{ kind = "LuckBoost16", list = Config.Boosts.LuckPacks16 },
 	{ kind = "Bundle", list = Config.Bundles.Packs },
+	{ kind = "Special", list = Config.Specials.Packs },
 	{ kind = "PassGift", list = Config.Passes.GiftPacks },
 }
 
@@ -551,7 +558,7 @@ end
 -- What a pack gives.
 function Economy.packGrant(entry)
 	local p = entry.pack
-	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky, BoostVP = p.BoostVP, BoostLuck = p.BoostLuck, LuckMul = p.LuckMul, Passes = p.Passes, Perks = p.Perks })
+	return Economy.cleanGrant({ VP = p.VP, Gold = p.Gold, Lucky = p.Lucky, BoostVP = p.BoostVP, BoostLuck = p.BoostLuck, LuckMul = p.LuckMul, Passes = p.Passes, Perks = p.Perks, Fragments = p.Fragments, STickets = p.STickets })
 end
 
 -- Whether a pack is a bundle sold once per player that `bought` (a profile's bundles: name ->
