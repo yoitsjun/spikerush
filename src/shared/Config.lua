@@ -1145,7 +1145,8 @@ Config.Codes = {
 	holys = { VP = 600, Gold = 7500, Lucky = 3 },
 	-- the owner: "new code 1000members make it 1k vpoints 5 lucky spins 10,000 gold"
 	["1000members"] = { VP = 1000, Gold = 10000, Lucky = 5 },
-	-- (the owner retired "release" and moved its rewards to "Update2")
+	-- (the owner retired the old game's "release" and moved its rewards to "Update2"; Volleyball Rush
+	-- has its own "release" below)
 	update2 = { VP = 500, Gold = 5000, Lucky = 1 },
 	-- the owner: "new code Update1", then "go with 6000 gold, 3 lucky spins, and 350 vpoints"
 	update1 = { VP = 350, Gold = 6000, Lucky = 3 },
@@ -1162,6 +1163,10 @@ Config.Codes = {
 	-- the owner, 2026-10-25: "add 2 new codes... 2000discord and 10kgroup"
 	["2000discord"] = { VP = 750, Gold = 15000, Lucky = 5 },
 	["10kgroup"] = { VP = 750, Gold = 15000, Lucky = 3 },
+	-- the owner, 2026-10-29, for Volleyball Rush's release (everyone starting fresh): "lets make new
+	-- codes. Release and VolleyballRush" (typed any case)
+	release = { VP = 1500, Gold = 20000, Lucky = 5, BoostLuck = 30 * 60 },
+	volleyballrush = { VP = 1000, Gold = 15000, Lucky = 3 },
 }
 
 -- Daily rewards (the owner: "daily rewards for group members only"): members of the group that
