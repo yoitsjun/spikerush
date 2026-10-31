@@ -8500,8 +8500,8 @@ function Extra.buildAdminList(m)
 		end
 		return string.format('<b>%d gift%s</b>  ·  last %s\n<font color="#9aa3b5">%s</font>', g.c, g.c == 1 and "" or "s", ago(g.t), #bits > 0 and table.concat(bits, "  ·  ") or "items only")
 	end
-	-- one admin's latest gifts, over the list
-	local detail = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Visible = false, ZIndex = 5 }, wl)
+	-- one admin's latest gifts, over the list (above the add box and its button: ZIndex 22, Sibling)
+	local detail = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Visible = false, ZIndex = 50 }, wl)
 	make("UICorner", { CornerRadius = UDim.new(0, 10) }, detail)
 	local dTitle = Gui.label(detail, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Position = UDim2.fromOffset(28, 18), Size = UDim2.new(1, -56, 0, 36), ZIndex = 6 })
 	Gui.plate(detail, { Size = UDim2.fromOffset(46, 5), Position = UDim2.fromOffset(30, 56), ZIndex = 6 }, Gui.SIGNAL)
