@@ -147,8 +147,9 @@ local function wide()
 	local tv = math.tan(math.rad(BASE_FOV / 2))
 	local halfH = (WIDE_TOP - WIDE_BOTTOM) / 2
 	local dist = math.max(WIDE_HALF_Z / (tv * aspect), halfH / tv) + 2
-	-- a wide screen leaves spare height: keep the floor near the bottom edge
-	local lookY = math.max((WIDE_TOP + WIDE_BOTTOM) / 2, WIDE_BOTTOM + dist * tv * 0.85)
+	-- a wide screen leaves spare height: keep the floor near the bottom edge, the court's near
+	-- sideline still in (it's 9 m deep: Config.Court.HalfWidth)
+	local lookY = math.max((WIDE_TOP + WIDE_BOTTOM) / 2, WIDE_BOTTOM + dist * tv * 0.75)
 	-- your own adjustments (Settings > Camera): higher or lower, closer or wider, left or right
 	local S, CAM = State.settings, Config.Settings.Cam
 	local h, z, p = S.camHeight or 0, S.camZoom or 0, S.camPan or 0
