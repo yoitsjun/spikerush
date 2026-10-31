@@ -567,8 +567,9 @@ Config.Spins = {
 	-- Pity, on the Characters banner (the owner: "normal pity is 200 for a random s tier... lucky
 	-- spins... 50... first pity hit is a random s+, next one is a chosen s+"). Recruits count up
 	-- until one of ResetTiers comes (by luck or by pity) and start again; the recruit that
-	-- reaches Every gives one of Tiers. Lucky spins count on their own: their first pity is a
-	-- random S+, and when that wasn't the one you picked, the next is the one you picked. Normal
+	-- reaches Every gives one of Tiers. Lucky spins count on their own: every lucky pity is the S+
+	-- you picked (the owner, 2026-10-30: "make lucky pity 100% give u the one u pick now"; it was a
+	-- random S+ first, then your pick), a random S+ until you pick one. Normal
 	-- recruits also count toward an S+ (Top, the owner: "add a normal spin S+ pity but it has to be
 	-- 350 pulls", then 250): an S+ is a 0.01% pull (since 2026-10-17), so nearly every S+ from normal
 	-- recruits comes from this pity. When Top and Normal land on the same recruit, Top wins.
@@ -2865,7 +2866,7 @@ Config.Bots = {
 -- Settings saved in each player's profile (the Settings module cleans them; the client's
 -- State.settings holds the defaults and the live values).
 Config.Settings = {
-	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach", "setterAim", "beginner" },
+	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach", "setterAim", "beginner", "skipS" },
 	-- tour: the menu tour's step after the tutorial (MenuController; 4 is done)
 	-- camHeight, camZoom, camPan: your own match camera (the owner, 2026-10-29: "a dynamic fov
 	-- setter... how high or low it is, and how zoomed in or zoomed out you are. also left or

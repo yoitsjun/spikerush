@@ -405,8 +405,8 @@ end
 local resetSets = { Normal = tierSet(PITY.Normal.ResetTiers), Top = tierSet(PITY.Top.ResetTiers), Lucky = tierSet(PITY.Lucky.ResetTiers) }
 
 -- A fresh pity state: { normal, top, lucky } recruits counted since the last reset (normal
--- recruits count toward both normal and top), owed (the next lucky pity is your pick) and pick
--- (the S+ you chose).
+-- recruits count toward both normal and top), owed (no longer used) and pick (the S+ you chose:
+-- every lucky pity gives it).
 function Spins.newPity()
 	return { normal = 0, top = 0, lucky = 0, owed = false, pick = nil }
 end
@@ -473,16 +473,15 @@ function Spins.pityRoll(pity, rng, lucky, favor, weights)
 	local key, how = nil, nil
 	if lucky then
 		if pity.lucky + 1 >= PITY.Lucky.Every then
+			-- every lucky pity is your pick (the owner, 2026-10-30: "make lucky pity 100% give u the
+			-- one u pick now"); with none picked yet, a random S+
 			local pool = pityPools.Lucky
-			if pity.owed and Spins.isPityPick(pity.pick) then
+			if Spins.isPityPick(pity.pick) then
 				key, how = pity.pick, "pick"
-				pity.owed = false
 			elseif #pool > 0 then
 				key, how = pityPoolPick(pool, rng, favor), "pity"
-				-- the next lucky pity is your pick, unless this one already was (with no pick
-				-- chosen yet, it's owed until you choose)
-				pity.owed = key ~= pity.pick
 			end
+			pity.owed = false -- (no longer used: it was the first-random-then-your-pick rule)
 		end
 	elseif pity.top + 1 >= PITY.Top.Every and #pityPools.Top > 0 then
 		key, how = pityPoolPick(pityPools.Top, rng, favor), "pity" -- the S+ one comes first

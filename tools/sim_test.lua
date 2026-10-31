@@ -2269,6 +2269,9 @@ do
 		"saved settings keep only known keys and sane values (no NaN; places and sizes clamped and rounded)")
 	check(next(Settings.clean(nil)) == nil and next(Settings.clean({ touchLayout = {} }).touchLayout) == nil and Settings.clean({ touchLayout = 5 }).touchLayout == nil,
 		"no settings, an empty layout (every button in its usual place) and junk all clean safely")
+	-- Skip S & S- (the owner, 2026-10-30: "add a skip s and s- recruit feature"): a saved switch
+	check(Settings.clean({ skipS = true }).skipS == true and Settings.clean({ skipS = "yes" }).skipS == nil,
+		"Skip S & S- reveals is saved with the settings (a switch: true or false only)")
 	-- double approach: no run-up any more (the owner: "shouldn't make you move"); the first press
 	-- readies the jump and the second has a moment to come
 	check(P.ApproachRun == nil and P.ApproachRunMax == nil and P.ApproachArmTime >= 0.5 and P.ApproachArmTime <= 2,
@@ -2808,29 +2811,23 @@ do
 		end
 	end
 	check(longS <= PT.Normal.Every and longTop <= PT.Top.Every, "20,000 recruits: never more than 200 between S tiers, nor 350 between S+", string.format("longest waits %d and %d", longS, longTop))
-	-- lucky: the first pity is a random S+; when it isn't your pick, the next one is your pick
+	-- lucky (the owner, 2026-10-30: "make lucky pity 100% give u the one u pick now"): every lucky
+	-- pity is your pick, the first one too; with none picked, a random S+
 	local lp = Spins.newPity()
-	lp.pick = Spins.pityPool("Lucky")[1]
-	local picks = {}
-	for i = 1, 6 do
+	lp.pick = Spins.pityPool("Lucky")[#Spins.pityPool("Lucky")]
+	local ok = true
+	for i = 1, 8 do
 		lp.lucky = PT.Lucky.Every - 1
 		local key, h = Spins.pityRoll(lp, rng, true)
-		picks[i] = { key = key, how = h }
+		ok = ok and key == lp.pick and h == "pick" and lp.lucky == 0
 	end
-	local ok = true
-	for i, pk in ipairs(picks) do
-		ok = ok and tierOf(pk.key) == "S+" and (pk.how == "pity" or pk.how == "pick")
-		if pk.how == "pity" and pk.key ~= lp.pick then
-			ok = ok and (picks[i + 1] == nil or (picks[i + 1].how == "pick" and picks[i + 1].key == lp.pick))
-		end
-	end
-	check(ok and lp.lucky == 0 and picks[1].how == "pity", "lucky pity: the 50th lucky spin is an S+, random first, then your pick after a random one that wasn't it")
-	local owedNoPick = Spins.newPity()
-	owedNoPick.lucky = PT.Lucky.Every - 1
-	Spins.pityRoll(owedNoPick, rng, true)
+	check(ok, "lucky pity: the 50th lucky spin is the S+ you picked, every time (the first one too)")
+	local noPick = Spins.newPity()
+	noPick.lucky = PT.Lucky.Every - 1
+	local nk, nh = Spins.pityRoll(noPick, rng, true)
 	local clean = Spins.cleanPity({ normal = 9999, lucky = -3, owed = true, pick = "riku" })
-	check(owedNoPick.owed == true and clean.normal == PT.Normal.Every - 1 and clean.lucky == 0 and clean.owed and clean.pick == nil and Spins.isPityPick("yejun") and not Spins.isPityPick("hayun"),
-		"with no pick chosen the pick stays owed; saved pity is made safe (only an S+ can be the pick)")
+	check(tierOf(nk) == "S+" and nh == "pity" and clean.normal == PT.Normal.Every - 1 and clean.lucky == 0 and clean.pick == nil and Spins.isPityPick("yejun") and not Spins.isPityPick("hayun"),
+		"with no pick chosen a lucky pity is a random S+; saved pity is made safe (only an S+ can be the pick)")
 end
 
 print("== recruits land on a tier first ==")

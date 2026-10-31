@@ -1437,7 +1437,14 @@ local function buildRecruit()
 		end)
 		sells[r] = { button = b, label = l }
 	end
-	local status = Gui.label(info, { Text = "", TextSize = 17, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, TextStrokeTransparency = 0.5, Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(4, 356) })
+	-- Skip S & S- (the owner, 2026-10-30: "add a skip s and s- recruit feature"): an S or S- character
+	-- opens like the rest of the recruit, no cinematic, quote or card; an S+ still stops it
+	local skipBtn, skipL = hairButton(info, { Name = "SkipS", Size = UDim2.fromOffset(330, 42), Position = UDim2.fromOffset(0, 352) }, "", 19)
+	onClick(skipBtn, function()
+		State.setSetting("skipS", not State.settings.skipS)
+		MenuController.refresh()
+	end)
+	local status = Gui.label(info, { Text = "", TextSize = 17, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, TextStrokeTransparency = 0.5, Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(4, 402) })
 
 
 	-- bottom right: Recruit x1 and x10
@@ -1534,8 +1541,8 @@ local function buildRecruit()
 		end)
 		luckyButtons[i] = { button = b, sub = sub, n = n, packIndex = packIndex }
 	end
-	-- pity (Config.Spins.Pity), on the Characters banner: how far along each is, and the S+ your
-	-- lucky pity owes you
+	-- pity (Config.Spins.Pity), on the Characters banner: how far along each is, and the S+ every
+	-- lucky pity gives you
 	local pityCard = Gui.card(p, { Name = "Pity", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 290), Size = UDim2.fromOffset(582, 62) }, Color3.fromRGB(70, 20, 70))
 	local pityL = Gui.label(pityCard, { Text = "", display = true, TextSize = 17, RichText = true, TextWrapped = true, TextStrokeTransparency = 0.6, Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -170, 1, 0) })
 	local pityBtn = hairButton(pityCard, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(140, 32) }, "Pick S+", 15)
@@ -1565,7 +1572,7 @@ local function buildRecruit()
 		end
 	end
 
-	ui.recruit = { setTab = setTab, rows = rows, title = title, desc = desc, odds = odds, autoL = autoL, sells = sells, status = status, x1 = x1, x10 = x10, x1Cost = x1Cost, x10Cost = x10Cost, x10Plate = x10Plate, freeTag = freeTag, freeL = freeL, luckyHave = luckyHave, luckyOdds = luckyOdds, luckyButtons = luckyButtons, pityCard = pityCard, pityL = pityL }
+	ui.recruit = { setTab = setTab, rows = rows, title = title, desc = desc, odds = odds, autoL = autoL, sells = sells, status = status, x1 = x1, x10 = x10, x1Cost = x1Cost, x10Cost = x10Cost, x10Plate = x10Plate, freeTag = freeTag, freeL = freeL, luckyHave = luckyHave, luckyOdds = luckyOdds, luckyButtons = luckyButtons, pityCard = pityCard, pityL = pityL, skipS = skipBtn, skipSL = skipL }
 end
 
 local function refreshRecruit(prof)
@@ -1633,6 +1640,9 @@ local function refreshRecruit(prof)
 		s.label.Text = string.format("%s: %s", r, on and "on" or "off")
 		s.label.TextColor3 = on and Spins.rarityColor(r) or Gui.DIM
 	end
+	R.skipS.Visible = banner == "Char"
+	R.skipSL.Text = "Skip S & S- reveals: " .. (State.settings.skipS and "on" or "off")
+	R.skipSL.TextColor3 = State.settings.skipS and Config.Rarity.Colors.Legendary or Gui.DIM
 	local free = prof.dev == true
 	local freeSpins = prof.freeSpins or 0
 	R.x1Cost.Text = (free and "Free") or (freeSpins > 0 and "Free") or Gui.num(SP.Costs[1])
@@ -1657,7 +1667,7 @@ local function refreshRecruit(prof)
 	local pity = prof.pity or {}
 	local PT = Config.Spins.Pity
 	local pick = pity.pick and Roster.get(pity.pick)
-	local nextLucky = pity.owed and (pick and pick.Name or "your pick") or "a random one"
+	local nextLucky = pick and pick.Name or "a random one: pick yours"
 	local gold, red = Spins.rarityColor("Legendary"):ToHex(), Spins.rarityColor("Mythic"):ToHex()
 	R.pityL.Text = string.format('Pity: S tier <font color="#%s">%d/%d</font>   S+ <font color="#%s">%d/%d</font>\nLucky pity: S+ <font color="#%s">%d/%d</font> (%s)',
 		gold, pity.normal or 0, PT.Normal.Every, red, pity.top or 0, PT.Top.Every, red, pity.lucky or 0, PT.Lucky.Every, nextLucky)
@@ -1680,8 +1690,8 @@ end
 -- Probability table
 ------------------------------------------------------------------------------------------
 
--- The lucky pity pick (Config.Spins.Pity): the S+ characters, and the one your lucky pity gives
--- you when it's owed (your first lucky pity is a random S+; when it isn't your pick, the next is).
+-- The lucky pity pick (Config.Spins.Pity): the S+ characters, and the one every lucky pity gives
+-- you (a random S+ until you pick).
 function Extra.buildPityPick()
 	local pool = Spins.pityPool("Lucky")
 	local cols = math.min(math.max(#pool, 1), 3)
@@ -1714,8 +1724,7 @@ function Extra.refreshPityPick(prof)
 	end
 	local pity = prof.pity or {}
 	local pickName = pity.pick and Roster.get(pity.pick) and Roster.get(pity.pick).Name
-	PP.sub.Text = (pity.owed and "Your next lucky pity is your pick" or "Your next lucky pity is a random S+; when it isn't your pick, the one after is")
-		.. (pickName and (". Picked: " .. pickName .. ".") or ". Pick one below.")
+	PP.sub.Text = pickName and ("Every lucky pity gives your pick. Picked: " .. pickName .. ".") or "Every lucky pity gives your pick. Pick one below (until then it's a random S+)."
 	for key, c in pairs(PP.cards) do
 		local picked = pity.pick == key
 		c.edge.Transparency = picked and 0 or 1
@@ -3223,7 +3232,9 @@ local function playSequence(reveal)
 	for i, it in ipairs(items) do
 		local _, _, rank, color = pullInfo(kind, it)
 		mods.SceneController.popBall(i, color)
-		if rank >= 4 then
+		-- (Skip S & S- on: an S or S- character opens like the rest)
+		local big = rank >= 5 or (rank == 4 and not (State.settings.skipS and kind == "Char" and not it.hw))
+		if big then
 			seq.skipping = false -- a skip lands here
 			local ok
 			if theme == "Halloween" and it.kind == "Skin" then
@@ -3246,7 +3257,7 @@ local function playSequence(reveal)
 			end
 		end
 		fillTray(i, kind, it)
-		if rank >= 4 or #items == 1 then
+		if big or #items == 1 then
 			showCard(kind, it)
 			if not waitClick(seq, true) then
 				return

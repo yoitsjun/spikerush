@@ -32,7 +32,7 @@
 -- count, the best leaderboard place, the players recruited); checkCards runs after every match,
 -- recruit and leaderboard read.
 --   ("gift", kind, index, username)  -> buy a pack for someone else
---   ("pityPick", charId)             -> the S+ your lucky pity owes you (Config.Spins.Pity)
+--   ("pityPick", charId)             -> the S+ every lucky pity gives you (Config.Spins.Pity)
 --   ("sTicket", charId)              -> spend a selection ticket on a Config.Retired.TicketTier
 --                                       character you don't own (tickets: retired characters)
 --   ("favor", charId, "up"|"down"|nil) -> boost, lower or reset a character's odds (Config.Spins.Favor)
@@ -2870,7 +2870,7 @@ local function onRequest(plr, kind, a, b, c)
 			push(plr, "Tutorial skipped. Play it any time from How to play.")
 		end
 	elseif kind == "pityPick" then
-		-- the S+ the lucky pity gives you when it's owed
+		-- the S+ every lucky pity gives you
 		if Spins.isPityPick(a) then
 			profile.pity.pick = a
 			dirty[plr] = true
