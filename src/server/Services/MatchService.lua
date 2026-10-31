@@ -639,7 +639,7 @@ local function results(winner, forfeitTeam)
 					-- and the player's own 2x VP boost (Config.Boosts) and game passes (Config.Passes):
 					-- they multiply (ProfileService.vpMult: tournament prizes and daily rewards pay it too)
 					boostVP = reg.ProfileService.vpMult(e.player)
-					boostGold = reg.AdminService.multiplier("Gold") * reg.ProfileService.passMult(e.player, "Gold") * (reg.ClanService and reg.ClanService.bonus(e.player, "Gold") or 1)
+					boostGold = reg.AdminService.multiplier("Gold") * reg.ProfileService.boost(e.player, "Gold") * reg.ProfileService.passMult(e.player, "Gold") * (reg.ClanService and reg.ClanService.bonus(e.player, "Gold") or 1)
 					reward, gold = math.floor(reward * boostVP + 0.5), math.floor(gold * boostGold + 0.5)
 					reg.ProfileService.award(e.player, reward, gold)
 				end

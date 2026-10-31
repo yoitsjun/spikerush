@@ -996,10 +996,21 @@ function Extra.refreshHome(prof)
 			chip.label.Text = string.format("%dx %s  %s", ReplicatedStorage:GetAttribute("EventMul_" .. kind) or Config.Admin.Multiplier, Economy.eventLabel(kind), Extra.clockText(left))
 		end
 	end
-	local boostLeft = (prof.boostVP or 0) - (os.clock() - Extra.profileAt)
+	-- your own 2x VP, 2x Gold and 2x event currency (the adminabuse code), on one chip: the ones
+	-- running, and the soonest to end
+	local since = os.clock() - Extra.profileAt
+	local names, boostLeft = {}, 0
+	for _, b in ipairs({ { prof.boostVP, "VP" }, { prof.boostGold, "Gold" }, { prof.boostCur, Economy.eventLabel("Cur") } }) do
+		local left = (b[1] or 0) - since
+		if left > 0 then
+			table.insert(names, b[2])
+			boostLeft = boostLeft > 0 and math.min(boostLeft, left) or left
+		end
+	end
 	hm.boostChip.plate.Visible = boostLeft > 0
 	if boostLeft > 0 then
-		hm.boostChip.label.Text = string.format("Your %dx VP  %s", Config.Boosts.Multiplier, Extra.clockText(boostLeft))
+		hm.boostChip.label.Text = string.format("Your %dx %s  %s", Config.Boosts.Multiplier, table.concat(names, ", "), Extra.clockText(boostLeft))
+		hm.boostChip.plate.Size = UDim2.fromOffset(math.max(260, hm.boostChip.label.TextBounds.X + 36), 38)
 	end
 	local luckLeft = (prof.boostLuck or 0) - (os.clock() - Extra.profileAt)
 	Extra.luckChip.plate.Visible = luckLeft > 0

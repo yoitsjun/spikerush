@@ -46,7 +46,7 @@ function Economy.cleanGrant(g)
 	local function amount(v, max)
 		return math.max(0, math.min(whole(v), max))
 	end
-	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), STickets = amount(g.STickets, cap.STickets or 20), Chars = {}, Cards = {}, Items = {}, Fragments = {}, Skins = {}, Passes = {}, Perks = {} }
+	local out = { VP = amount(g.VP, cap.VP), Gold = amount(g.Gold, cap.Gold), Lucky = amount(g.Lucky, cap.Lucky), BoostVP = amount(g.BoostVP, Config.Boosts.MaxHold), BoostLuck = amount(g.BoostLuck, Config.Boosts.MaxHold), BoostGold = amount(g.BoostGold, Config.Boosts.MaxHold), BoostCur = amount(g.BoostCur, Config.Boosts.MaxHold), STickets = amount(g.STickets, cap.STickets or 20), Chars = {}, Cards = {}, Items = {}, Fragments = {}, Skins = {}, Passes = {}, Perks = {} }
 	-- game passes and perks given (a gifted pass: Config.Passes.GiftPacks)
 	for _, field in ipairs({ { "Passes", Config.Passes.Order }, { "Perks", Config.Perks.Order } }) do
 		if type(g[field[1]]) == "table" then
@@ -130,7 +130,7 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and (g.STickets or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0 and #(g.Passes or {}) == 0 and #(g.Perks or {}) == 0 and next(g.EventCur or {}) == nil
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and (g.BoostGold or 0) == 0 and (g.BoostCur or 0) == 0 and (g.STickets or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0 and #(g.Passes or {}) == 0 and #(g.Perks or {}) == 0 and next(g.EventCur or {}) == nil
 end
 
 ------------------------------------------------------------------------------------------
@@ -366,6 +366,13 @@ function Economy.apply(profile, g, now)
 		local key = Economy.luckKey(g.LuckMul)
 		profile.boosts[key] = Economy.extendBoost(profile.boosts[key], g.BoostLuck, now or 0)
 	end
+	-- 2x Gold (what matches pay) and 2x event currency (what event matches pay), each on its own clock
+	for _, f in ipairs({ { "BoostGold", "Gold" }, { "BoostCur", "Cur" } }) do
+		if (g[f[1]] or 0) > 0 then
+			profile.boosts = type(profile.boosts) == "table" and profile.boosts or {}
+			profile.boosts[f[2]] = Economy.extendBoost(profile.boosts[f[2]], g[f[1]], now or 0)
+		end
+	end
 	profile.owned = profile.owned or {}
 	profile.owned.Char = profile.owned.Char or {}
 	local added = {}
@@ -441,6 +448,12 @@ function Economy.describe(g, chars)
 	end
 	if (g.BoostLuck or 0) > 0 then
 		table.insert(parts, string.format("%dx Luck for %s", Economy.luckTier(g.LuckMul), Economy.duration(g.BoostLuck)))
+	end
+	if (g.BoostGold or 0) > 0 then
+		table.insert(parts, string.format("%dx Gold for %s", Config.Boosts.Multiplier, Economy.duration(g.BoostGold)))
+	end
+	if (g.BoostCur or 0) > 0 then
+		table.insert(parts, string.format("%dx %s for %s", Config.Boosts.Multiplier, Economy.eventLabel("Cur"), Economy.duration(g.BoostCur)))
 	end
 	for _, id in ipairs(chars or g.Chars) do
 		local c = Roster.get(id)

@@ -525,6 +525,12 @@ local function sanitizeProfile(data)
 	if type(data.boosts) == "table" and tonumber(data.boosts.Luck) then
 		out.boosts.Luck = math.max(0, math.floor(tonumber(data.boosts.Luck)))
 	end
+	-- (2x Gold and 2x event currency: the adminabuse code)
+	for _, k in ipairs({ "Gold", "Cur" }) do
+		if type(data.boosts) == "table" and tonumber(data.boosts[k]) then
+			out.boosts[k] = math.max(0, math.floor(tonumber(data.boosts[k])))
+		end
+	end
 	-- the bundles sold once (Config.Bundles) this player has bought, by name
 	if type(data.bundles) == "table" then
 		for _, b in ipairs(Config.Bundles.Packs) do
@@ -1148,6 +1154,8 @@ function ProfileService.snapshot(plr)
 		favorited = profile.favorited == true or RunService:IsStudio(), -- codes and daily rewards need it
 		liked = profile.liked == true or RunService:IsStudio(), -- and the like (their word)
 		boostVP = math.max(0, (profile.boosts.VP or 0) - os.time()), -- seconds left on their 2x VP
+		boostGold = math.max(0, (profile.boosts.Gold or 0) - os.time()), -- and 2x Gold
+		boostCur = math.max(0, (profile.boosts.Cur or 0) - os.time()), -- and 2x event currency
 		-- and on their strongest Luck boost, and its strength (2x to 16x)
 		boostLuck = (function()
 			local m, untilT = Economy.luckBoost(profile, os.time())
@@ -1847,11 +1855,11 @@ function ProfileService.vpMult(plr)
 end
 
 -- What this player's earned event currency (Config.EventCurrency) is multiplied by right now: the
--- admin panel's Cur event and the 2x Event Currency pass. Event matches pay it; gifts, refunds
+-- admin panel's Cur event, their own 2x boost and the 2x Event Currency pass. Event matches pay it; gifts, refunds
 -- (duplicates) and shop buys don't.
 function ProfileService.curMult(plr)
 	local event = reg.AdminService and reg.AdminService.multiplier("Cur") or 1
-	return event * ProfileService.passMult(plr, "Cur")
+	return event * ProfileService.boost(plr, "Cur") * ProfileService.passMult(plr, "Cur")
 end
 
 -- Which of this player's subscriptions (Config.Subscriptions) are active, asked of Roblox as they

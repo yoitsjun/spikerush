@@ -1159,6 +1159,9 @@ Config.Codes = {
 	-- the owner, 2026-10-29, for Volleyball Rush's release: "lets make new codes. Release and
 	-- VolleyballRush" (typed any case), then "remove all other codes we'll start from scratch on those"
 	release = { VP = 1500, Gold = 20000, Lucky = 5, BoostLuck = 30 * 60 },
+	-- the owner, 2026-10-31: "make a code called adminabuse where it just gives 2x buffs for
+	-- everything": 2x VP, Gold, Luck and the event currency, 30 minutes each
+	adminabuse = { BoostVP = 30 * 60, BoostGold = 30 * 60, BoostLuck = 30 * 60, BoostCur = 30 * 60 },
 	volleyballrush = { VP = 1000, Gold = 15000, Lucky = 3 },
 }
 

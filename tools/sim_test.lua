@@ -3044,6 +3044,20 @@ do
 		"the gift tracker counts each admin's gifts and totals, keeps their latest, and drops junk", amy.c .. " gifts")
 end
 
+print("== the adminabuse code ==")
+do
+	-- the owner (2026-10-31): "make a code called adminabuse where it just gives 2x buffs for
+	-- everything": 2x VP, Gold, Luck and the event currency, each on its own clock
+	local Economy = require("Economy")
+	local g = Economy.code("Admin Abuse", 1000)
+	local prof = { boosts = {} }
+	Economy.apply(prof, g, 1000)
+	local said = Economy.describe(g)
+	check(g ~= nil and not Economy.isEmpty(g) and Economy.boost(prof, "VP", 1001) == 2 and Economy.boost(prof, "Gold", 1001) == 2 and Economy.boost(prof, "Cur", 1001) == 2
+		and Economy.luckBoost(prof, 1001) == 2 and Economy.boost(prof, "Gold", 1000 + 30 * 60 + 1) == 1 and string.find(said, "2x Gold", 1, true) and string.find(said, "2x Candy", 1, true),
+		"adminabuse: 2x VP, Gold, Luck and the event currency for 30 minutes", said)
+end
+
 print("== codes ==")
 do
 	local Economy = require("Economy")
@@ -3053,8 +3067,8 @@ do
 	for _ in pairs(Config.Codes) do
 		n = n + 1
 	end
-	check(g1 and g1.VP == 1500 and g0 and g0.VP == 1000 and Economy.code("volleyball rush") ~= nil and Economy.code("HolyS+") == nil and Economy.code("spikesquad") == nil and n == 2,
-		"only RELEASE and VOLLEYBALLRUSH are live, in any case, spaces ignored; every Spike Rush code is gone")
+	check(g1 and g1.VP == 1500 and g0 and g0.VP == 1000 and Economy.code("volleyball rush") ~= nil and Economy.code("HolyS+") == nil and Economy.code("spikesquad") == nil and n == 3 and Economy.code("adminabuse") ~= nil,
+		"only RELEASE, VOLLEYBALLRUSH and ADMINABUSE are live, in any case, spaces ignored; every Spike Rush code is gone")
 end
 
 print("== feints get past blocks and break a low guard ==")
