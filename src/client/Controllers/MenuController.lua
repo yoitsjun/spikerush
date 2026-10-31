@@ -1437,14 +1437,21 @@ local function buildRecruit()
 		end)
 		sells[r] = { button = b, label = l }
 	end
-	-- Skip S & S- (the owner, 2026-10-30: "add a skip s and s- recruit feature"): an S or S- character
-	-- opens like the rest of the recruit, no cinematic, quote or card; an S+ still stops it
-	local skipBtn, skipL = hairButton(info, { Name = "SkipS", Size = UDim2.fromOffset(330, 42), Position = UDim2.fromOffset(0, 352) }, "", 19)
-	onClick(skipBtn, function()
-		State.setSetting("skipS", not State.settings.skipS)
-		MenuController.refresh()
-	end)
-	local status = Gui.label(info, { Text = "", TextSize = 17, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, TextStrokeTransparency = 0.5, Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(4, 402) })
+	-- Skip S and Skip S- (the owner, 2026-10-30: "add a skip s and s- recruit feature", then "make s-
+	-- and s toggle seperate"): with one on, a character of that tier opens like the rest of the
+	-- recruit, no cinematic, quote or card; an S+ always stops it
+	local skipCap = Gui.label(info, { Text = "Skip the reveal of new pulls", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, TextStrokeTransparency = 0.6, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(4, 350) })
+	local skips = {}
+	for i, tier in ipairs({ "S-", "S" }) do
+		local key = tier == "S" and "skipS" or "skipSMinus"
+		local b, l = hairButton(info, { Name = "Skip" .. (tier == "S" and "S" or "SMinus"), Size = UDim2.fromOffset(160, 42), Position = UDim2.fromOffset((i - 1) * 170, 376) }, "", 19)
+		onClick(b, function()
+			State.setSetting(key, not State.settings[key])
+			MenuController.refresh()
+		end)
+		skips[i] = { button = b, label = l, tier = tier, key = key }
+	end
+	local status = Gui.label(info, { Text = "", TextSize = 17, weight = Enum.FontWeight.Medium, TextColor3 = Gui.SIGNAL_HOT, TextWrapped = true, TextStrokeTransparency = 0.5, Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(4, 426) })
 
 
 	-- bottom right: Recruit x1 and x10
@@ -1572,7 +1579,7 @@ local function buildRecruit()
 		end
 	end
 
-	ui.recruit = { setTab = setTab, rows = rows, title = title, desc = desc, odds = odds, autoL = autoL, sells = sells, status = status, x1 = x1, x10 = x10, x1Cost = x1Cost, x10Cost = x10Cost, x10Plate = x10Plate, freeTag = freeTag, freeL = freeL, luckyHave = luckyHave, luckyOdds = luckyOdds, luckyButtons = luckyButtons, pityCard = pityCard, pityL = pityL, skipS = skipBtn, skipSL = skipL }
+	ui.recruit = { setTab = setTab, rows = rows, title = title, desc = desc, odds = odds, autoL = autoL, sells = sells, status = status, x1 = x1, x10 = x10, x1Cost = x1Cost, x10Cost = x10Cost, x10Plate = x10Plate, freeTag = freeTag, freeL = freeL, luckyHave = luckyHave, luckyOdds = luckyOdds, luckyButtons = luckyButtons, pityCard = pityCard, pityL = pityL, skipCap = skipCap, skips = skips }
 end
 
 local function refreshRecruit(prof)
@@ -1640,9 +1647,13 @@ local function refreshRecruit(prof)
 		s.label.Text = string.format("%s: %s", r, on and "on" or "off")
 		s.label.TextColor3 = on and Spins.rarityColor(r) or Gui.DIM
 	end
-	R.skipS.Visible = banner == "Char"
-	R.skipSL.Text = "Skip S & S- reveals: " .. (State.settings.skipS and "on" or "off")
-	R.skipSL.TextColor3 = State.settings.skipS and Config.Rarity.Colors.Legendary or Gui.DIM
+	R.skipCap.Visible = banner == "Char"
+	for _, s in ipairs(R.skips) do
+		local on = State.settings[s.key] == true
+		s.button.Visible = banner == "Char"
+		s.label.Text = string.format("Skip %s: %s", s.tier, on and "on" or "off")
+		s.label.TextColor3 = on and Config.TierColors[s.tier] or Gui.DIM
+	end
 	local free = prof.dev == true
 	local freeSpins = prof.freeSpins or 0
 	R.x1Cost.Text = (free and "Free") or (freeSpins > 0 and "Free") or Gui.num(SP.Costs[1])
@@ -3232,8 +3243,10 @@ local function playSequence(reveal)
 	for i, it in ipairs(items) do
 		local _, _, rank, color = pullInfo(kind, it)
 		mods.SceneController.popBall(i, color)
-		-- (Skip S & S- on: an S or S- character opens like the rest)
-		local big = rank >= 5 or (rank == 4 and not (State.settings.skipS and kind == "Char" and not it.hw))
+		-- (Skip S, Skip S-: a character of that tier opens like the rest)
+		local tier = kind == "Char" and not it.hw and Roster.get(it.key) and Roster.get(it.key).Tier
+		local skipped = (tier == "S" and State.settings.skipS) or (tier == "S-" and State.settings.skipSMinus)
+		local big = rank >= 5 or (rank == 4 and not skipped)
 		if big then
 			seq.skipping = false -- a skip lands here
 			local ok

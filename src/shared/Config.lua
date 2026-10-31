@@ -2866,7 +2866,7 @@ Config.Bots = {
 -- Settings saved in each player's profile (the Settings module cleans them; the client's
 -- State.settings holds the defaults and the live values).
 Config.Settings = {
-	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach", "setterAim", "beginner", "skipS" },
+	Switches = { "landingMarker", "dramatic", "assist", "followCam", "doubleApproach", "setterAim", "beginner", "skipS", "skipSMinus" },
 	-- tour: the menu tour's step after the tutorial (MenuController; 4 is done)
 	-- camHeight, camZoom, camPan: your own match camera (the owner, 2026-10-29: "a dynamic fov
 	-- setter... how high or low it is, and how zoomed in or zoomed out you are. also left or

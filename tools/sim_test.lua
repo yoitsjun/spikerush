@@ -2269,9 +2269,11 @@ do
 		"saved settings keep only known keys and sane values (no NaN; places and sizes clamped and rounded)")
 	check(next(Settings.clean(nil)) == nil and next(Settings.clean({ touchLayout = {} }).touchLayout) == nil and Settings.clean({ touchLayout = 5 }).touchLayout == nil,
 		"no settings, an empty layout (every button in its usual place) and junk all clean safely")
-	-- Skip S & S- (the owner, 2026-10-30: "add a skip s and s- recruit feature"): a saved switch
-	check(Settings.clean({ skipS = true }).skipS == true and Settings.clean({ skipS = "yes" }).skipS == nil,
-		"Skip S & S- reveals is saved with the settings (a switch: true or false only)")
+	-- Skip S and Skip S- (the owner, 2026-10-30: "add a skip s and s- recruit feature", then "make
+	-- s- and s toggle seperate"): two saved switches
+	local sk = Settings.clean({ skipS = true, skipSMinus = false })
+	check(sk.skipS == true and sk.skipSMinus == false and Settings.clean({ skipS = "yes" }).skipS == nil,
+		"Skip S and Skip S- reveals are saved with the settings, each its own switch (true or false only)")
 	-- double approach: no run-up any more (the owner: "shouldn't make you move"); the first press
 	-- readies the jump and the second has a moment to come
 	check(P.ApproachRun == nil and P.ApproachRunMax == nil and P.ApproachArmTime >= 0.5 and P.ApproachArmTime <= 2,
