@@ -1,8 +1,8 @@
 -- The admin panel's server side (Home's Admin button; developers only, Config.Developers). Its
 -- requests arrive on the "Admin" remote and every one is answered there ({ msg, events }):
 --   ("state")                  -> the running events
---   ("event", kind, minutes, mul) -> VP, Gold or Luck at 2x to 16x (Config.Admin.EventMuls) in every
---                                 server for that long
+--   ("event", kind, minutes, mul) -> VP, Gold, Luck or the event currency (Cur: Config.EventCurrency)
+--                                 at 2x to 16x (Config.Admin.EventMuls) in every server for that long
 --   ("stop", kind)             -> end it everywhere
 --   ("announce", text)         -> through Roblox's text filter, then to every player in every server
 --   ("give", username, grant)  -> VP, Gold, lucky spins, characters and cosmetics to anyone by
@@ -15,7 +15,8 @@
 --   ("wipe", username)         -> reset someone's match stats (off those leaderboards)
 --   ("rankReset", username)    -> reset someone's ranked RP, record and best rank (an alt
 --                                 farmer's), off the ranked board
---   ("admins")                 -> the whitelist: who the game's owner lets into the panel
+--   ("admins")                 -> the whitelist: who the game's owner lets into the panel, with the
+--                                 gift tracker (every Give from the panel, by who sent it)
 --   ("adminAdd", username)     -> let someone in (by username or user id)
 --   ("adminRemove", userId)    -> and out again
 --                                 (the whitelist's three: the game's owner alone, never Studio's
@@ -54,6 +55,7 @@ local shownNotice = {} -- ids of the notices this server has shown (its own come
 local admins = {} -- tostring(userId) -> { n = username, t = when added }
 local adminStore = nil
 local ownerOf = {} -- player -> true when they own the game (looked up as they join)
+local giftStore = nil -- the gift tracker (Config.Admin.GiftLogStore: one key, "log")
 
 local function publish(topic, data)
 	task.spawn(function()
@@ -394,6 +396,31 @@ local function eventName(kind)
 	return A.EventNames[kind] or kind
 end
 
+-- The gift tracker (the owner, 2026-10-31: "add gift tracker next to admin names"): a gift from the
+-- panel is noted under whoever sent it (Economy.logGift). Give everyone online counts once.
+local function logGift(plr, to, g)
+	if not giftStore then
+		return
+	end
+	task.spawn(function()
+		local ok, err = pcall(function()
+			giftStore:UpdateAsync("log", function(old)
+				return Economy.logGift(old, plr.UserId, plr.Name, to, g, os.time(), 1)
+			end)
+		end)
+		if not ok then
+			warn("[SpikeRush] gift log: " .. tostring(err))
+		end
+	end)
+end
+
+local function readGiftLog()
+	local ok, data = pcall(function()
+		return giftStore and giftStore:GetAsync("log")
+	end)
+	return Economy.cleanGiftLog(ok and data or nil)
+end
+
 local function onAdmin(plr, op, a, b, c)
 	if not isAdmin(plr) then
 		return
@@ -412,7 +439,9 @@ local function onAdmin(plr, op, a, b, c)
 			return
 		end
 		if op == "admins" then
-			reply(plr, nil, { admins = Economy.adminList(admins) })
+			task.spawn(function()
+				reply(plr, nil, { admins = Economy.adminList(admins), gifts = readGiftLog() })
+			end)
 			return
 		end
 		task.spawn(function()
@@ -458,7 +487,7 @@ local function onAdmin(plr, op, a, b, c)
 		storeEvents()
 		publish(TOPIC_LIVE, { [a] = events[a], [a .. "Mul"] = mul })
 		notify({ kind = "event", text = string.format("%dx %s for the next %d minutes! %s", mul, eventName(a), minutes, A.EventLines[a] or "") })
-		reply(plr, string.format("%dx %s is on in every server for %d minutes.", mul, a, minutes))
+		reply(plr, string.format("%dx %s is on in every server for %d minutes.", mul, Economy.eventLabel(a), minutes))
 	elseif op == "stop" then
 		if not Economy.isEvent(a) then
 			return
@@ -468,7 +497,7 @@ local function onAdmin(plr, op, a, b, c)
 		writeEvents()
 		storeEvents()
 		publish(TOPIC_LIVE, { [a] = 0 })
-		reply(plr, string.format("%dx %s stopped.", mul, a))
+		reply(plr, string.format("%dx %s stopped.", mul, Economy.eventLabel(a)))
 	elseif op == "announce" then
 		if type(a) ~= "string" then
 			return
@@ -511,6 +540,7 @@ local function onAdmin(plr, op, a, b, c)
 						noteOwner(key, userId, name, true)
 					end
 				end
+				logGift(plr, name, g)
 				local where = Players:GetPlayerByUserId(userId) and "now" or "when they're next in the game (at once if they're online)"
 				reply(plr, string.format("Gave %s %s: they get it %s.", name, Economy.describe(g), where))
 			else
@@ -526,6 +556,7 @@ local function onAdmin(plr, op, a, b, c)
 		local data = { id = HttpService:GenerateGUID(false), g = g }
 		local here = takeGiftAll(data) -- this server at once; the rest hear it
 		publish(TOPIC_GIFTALL, data)
+		logGift(plr, "everyone online", g)
 		reply(plr, string.format("Gave everyone online %s (%d in this server, and every other server's players now).", Economy.describe(g), here))
 	elseif op == "takeCard" then
 		-- take a given card back (b: its key) from a username or user id
@@ -623,6 +654,10 @@ function AdminService.init(r)
 		return DataStoreService:GetDataStore(A.WhitelistStore)
 	end)
 	adminStore = okW and ws or nil
+	local okG, gs = pcall(function()
+		return DataStoreService:GetDataStore(A.GiftLogStore)
+	end)
+	giftStore = okG and gs or nil
 	writeEvents()
 	Net.get("Admin").OnServerEvent:Connect(onAdmin)
 	Players.PlayerAdded:Connect(function(plr)

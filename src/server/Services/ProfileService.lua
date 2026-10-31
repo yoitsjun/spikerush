@@ -229,7 +229,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {}, clanColors = {}, clanColor = "White", ranked = Ranked.clean(nil, Ranked.season(os.time())), almightyMoved = true, lounge = Lounge.clean(nil, Lounge.day(os.time())) }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), eventCur = {}, skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {}, clanColors = {}, clanColor = "White", ranked = Ranked.clean(nil, Ranked.season(os.time())), almightyMoved = true, lounge = Lounge.clean(nil, Lounge.day(os.time())) }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -320,6 +320,8 @@ local function sanitizeProfile(data)
 	-- the Halloween event: Candy, scout points, today's first clears, the Candy shop's buys; and the
 	-- skins (the Reaper's copies and the characters they're on)
 	out.halloween = Halloween.clean(data.halloween)
+	-- the other events' currencies (Config.EventCurrency; Candy is the halloween table's)
+	out.eventCur = Economy.cleanCurrencies(data.eventCur)
 	out.skins = Halloween.cleanSkins(data.skins, function(id)
 		return Roster.get(id) ~= nil
 	end)
@@ -679,6 +681,7 @@ local function save(plr, force)
 		-- the Halloween event (Candy, scout points, today's first clears, the shop's buys) and the
 		-- skins (the Reaper's copies and the characters they're on)
 		halloween = profile.halloween,
+		eventCur = profile.eventCur,
 		skins = profile.skins,
 		rooms = profile.rooms,
 		grave = profile.grave,
@@ -1180,6 +1183,14 @@ function ProfileService.snapshot(plr)
 			local ev = profile.halloween
 			local today = ev.day == Halloween.day(os.time())
 			return { candy = ev.candy, scout = ev.scout, cleared = today and table.clone(ev.cleared) or {}, bought = table.clone(ev.bought), endsIn = Halloween.secondsLeft(os.time()) }
+		end)(),
+		-- every event currency held (Config.EventCurrency)
+		eventCur = (function()
+			local out = {}
+			for _, key in ipairs(Config.EventCurrency.Order) do
+				out[key] = Economy.currency(profile, key)
+			end
+			return out
 		end)(),
 		skins = (function()
 			local out = {}
@@ -1835,6 +1846,14 @@ function ProfileService.vpMult(plr)
 	return event * ProfileService.boost(plr, "VP") * ProfileService.passMult(plr, "VP") * clan
 end
 
+-- What this player's earned event currency (Config.EventCurrency) is multiplied by right now: the
+-- admin panel's Cur event and the 2x Event Currency pass. Event matches pay it; gifts, refunds
+-- (duplicates) and shop buys don't.
+function ProfileService.curMult(plr)
+	local event = reg.AdminService and reg.AdminService.multiplier("Cur") or 1
+	return event * ProfileService.passMult(plr, "Cur")
+end
+
 -- Which of this player's subscriptions (Config.Subscriptions) are active, asked of Roblox as they
 -- join and whenever Roblox says one changed (bought, renewed, lapsed); they're told as one starts
 -- or ends.
@@ -1895,8 +1914,9 @@ function ProfileService.eventPayout(plr, diff, stage, won)
 	local ev = profile.halloween
 	local cleared = won and stage >= Config.Halloween.Stages
 	local first = Halloween.firstClear(ev, diff, Halloween.day(os.time()), cleared)
-	local candy = Halloween.payout(diff, stage, won, first)
-	ev.candy = ev.candy + candy
+	-- (earned: the Cur event and the 2x Event Currency pass multiply it, ProfileService.curMult)
+	local candy = Economy.earnedCurrency(Halloween.payout(diff, stage, won, first), ProfileService.curMult(plr))
+	Economy.addCurrency(profile, "Candy", candy)
 	dirty[plr] = true
 	push(plr)
 	return candy, first and cleared

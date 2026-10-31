@@ -993,7 +993,7 @@ function Extra.refreshHome(prof)
 		local left = Extra.eventLeft(kind)
 		chip.plate.Visible = left > 0
 		if left > 0 then
-			chip.label.Text = string.format("%dx %s  %s", ReplicatedStorage:GetAttribute("EventMul_" .. kind) or Config.Admin.Multiplier, kind, Extra.clockText(left))
+			chip.label.Text = string.format("%dx %s  %s", ReplicatedStorage:GetAttribute("EventMul_" .. kind) or Config.Admin.Multiplier, Economy.eventLabel(kind), Extra.clockText(left))
 		end
 	end
 	local boostLeft = (prof.boostVP or 0) - (os.clock() - Extra.profileAt)
@@ -5361,14 +5361,16 @@ function Extra.buildDeals(holder, prices)
 		local def = Config.Passes[key]
 		local card = Gui.card(holder, { Size = UDim2.fromOffset(w, 224), Position = UDim2.fromOffset((i - 1) * (w + 14), 340), ClipsDescendants = true })
 		Gui.halftone(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.7, 1), ImageColor3 = Gui.CHALK, ImageTransparency = 0.94 })
-		Gui.label(card, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, TextColor3 = key == "VIP" and Gui.GOLD or Gui.CHALK, Position = UDim2.fromOffset(16, 14), Size = UDim2.new(1, -96, 0, 34) })
-		Gui.label(card, { Text = def.Blurb, TextSize = 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, 54), Size = UDim2.new(1, -96, 0, 80) })
-		local icon = Extra.passIcon(card, 64)
-		local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -16), Size = UDim2.new(1, -120, 0, 46) }, "", 22)
+		-- (four or more to a row: a smaller name over two lines, the blurb the card's whole width)
+		local tight = n >= 4
+		Gui.label(card, { Text = def.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = tight and 22 or 30, TextWrapped = tight, TextYAlignment = Enum.TextYAlignment.Top, TextColor3 = key == "VIP" and Gui.GOLD or Gui.CHALK, Position = UDim2.fromOffset(16, 14), Size = UDim2.new(1, tight and -76 or -96, 0, tight and 52 or 34) })
+		Gui.label(card, { Text = def.Blurb, TextSize = tight and 14 or 15, TextColor3 = Gui.DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(16, tight and 70 or 54), Size = UDim2.new(1, tight and -32 or -96, 0, tight and 88 or 80) })
+		local icon = Extra.passIcon(card, tight and 52 or 64)
+		local buy, price = actionPlate(card, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 16, 1, -16), Size = UDim2.new(1, tight and -108 or -120, 0, 46) }, "", tight and 20 or 22)
 		-- buy it for someone else (the owner, 2026-10-21: "Make all the gamepasses giftable")
 		local giftAt = Extra.passGiftIndex("Passes", key)
 		if giftAt then
-			local giftB = hairButton(card, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -16, 1, -16), Size = UDim2.fromOffset(88, 46) }, "Gift", 18)
+			local giftB = hairButton(card, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -16, 1, -16), Size = UDim2.fromOffset(tight and 72 or 88, 46) }, "Gift", 18)
 			onClick(giftB, function()
 				MenuController.openGift("PassGift", giftAt)
 			end)
@@ -8451,6 +8453,7 @@ end
 -- access"), over the admin panel, for the game's owner alone: the players they let into the panel.
 -- Add by username or user id; Remove (pressed twice) takes them off.
 function Extra.buildAdminList(m)
+	Extra.adminGifts = Extra.adminGifts or {}
 	local wl = make("TextButton", { Position = UDim2.fromOffset(16, 84), Size = UDim2.new(1, -32, 1, -160), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Visible = false, ZIndex = 60 }, m.panel)
 	make("UICorner", { CornerRadius = UDim.new(0, 10) }, wl)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, wl)
@@ -8470,6 +8473,78 @@ function Extra.buildAdminList(m)
 	onClick(back, function()
 		wl.Visible = false
 	end)
+	-- the gift tracker (the owner, 2026-10-31: "add gift tracker next to admin names"): beside each
+	-- name, how many gifts they've sent from the panel and what in all; Gifts opens their latest
+	-- (AdminService's log, read as this list opens)
+	local function ago(at)
+		local s = math.max(0, workspace:GetServerTimeNow() - (at or 0))
+		if s < 60 then
+			return "just now"
+		elseif s < 3600 then
+			return math.floor(s / 60) .. "m ago"
+		elseif s < 86400 then
+			return math.floor(s / 3600) .. "h ago"
+		end
+		return math.floor(s / 86400) .. "d ago"
+	end
+	local function giftSummary(g)
+		if not g or g.c == 0 then
+			return '<font color="#9aa3b5">No gifts sent yet</font>'
+		end
+		local bits = {}
+		for _, f in ipairs({ { "VP", "VP" }, { "Gold", "Gold" }, { "Lucky", "spins" }, { "Cur", "event currency" } }) do
+			local v = g.tot and g.tot[f[1]] or 0
+			if v > 0 then
+				table.insert(bits, Gui.num(v) .. " " .. f[2])
+			end
+		end
+		return string.format('<b>%d gift%s</b>  ·  last %s\n<font color="#9aa3b5">%s</font>', g.c, g.c == 1 and "" or "s", ago(g.t), #bits > 0 and table.concat(bits, "  ·  ") or "items only")
+	end
+	-- one admin's latest gifts, over the list
+	local detail = make("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Visible = false, ZIndex = 5 }, wl)
+	make("UICorner", { CornerRadius = UDim.new(0, 10) }, detail)
+	local dTitle = Gui.label(detail, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 30, Position = UDim2.fromOffset(28, 18), Size = UDim2.new(1, -56, 0, 36), ZIndex = 6 })
+	Gui.plate(detail, { Size = UDim2.fromOffset(46, 5), Position = UDim2.fromOffset(30, 56), ZIndex = 6 }, Gui.SIGNAL)
+	local dSum = Gui.label(detail, { Text = "", RichText = true, TextSize = 16, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(28, 70), Size = UDim2.new(1, -56, 0, 44), ZIndex = 6 })
+	local dList = make("ScrollingFrame", { Position = UDim2.fromOffset(28, 122), Size = UDim2.new(1, -56, 1, -200), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Gui.DIM, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 6 }, detail)
+	make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, dList)
+	local dBack = hairButton(detail, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -18), Size = UDim2.fromOffset(160, 48), ZIndex = 6 }, "Back", 18)
+	onClick(dBack, function()
+		detail.Visible = false
+	end)
+	local function showGifts(name, g)
+		for _, c in ipairs(dList:GetChildren()) do
+			if c:IsA("GuiObject") then
+				c:Destroy()
+			end
+		end
+		dTitle.Text = name .. "'s gifts"
+		dSum.Text = giftSummary(g)
+		local entries = g and g.list or {}
+		if #entries == 0 then
+			Gui.label(dList, { Text = "Nothing sent from the panel yet.", TextSize = 17, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 0, ZIndex = 7 })
+		end
+		for i, e in ipairs(entries) do
+			local r = make("Frame", { Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 7 }, dList)
+			make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
+			make("UIPadding", { PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, r)
+			Gui.label(r, { Text = string.format('<b>To %s</b>  <font color="#9aa3b5">%s</font>\n%s', e.to, ago(e.t), e.w), RichText = true, TextSize = 16, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 8 })
+		end
+		detail.Visible = true
+	end
+	-- one row: the name, its gift tracker, Gifts, and (on the list) Remove
+	local function giftRow(row, order, removable)
+		local g = Extra.adminGifts[tostring(row.id)]
+		local r = make("Frame", { Size = UDim2.new(1, -8, 0, 56), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, LayoutOrder = order }, list)
+		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
+		Gui.label(r, { Text = string.format('%s  <font color="#9aa3b5">%s</font>', tostring(row.name), tostring(row.id)), RichText = true, display = true, TextSize = 19, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(16, 0), Size = UDim2.fromOffset(300, 56) })
+		Gui.label(r, { Text = giftSummary(g), RichText = true, TextSize = 15, TextWrapped = true, Position = UDim2.fromOffset(326, 0), Size = UDim2.new(1, -652, 1, 0) })
+		local gb = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, removable and -166 or -8, 0.5, 0), Size = UDim2.fromOffset(150, 38) }, "Gifts", 17)
+		onClick(gb, function()
+			showGifts(tostring(row.name), g)
+		end)
+		return r
+	end
 	function Extra.showAdmins(admins)
 		for _, c in ipairs(list:GetChildren()) do
 			if c:IsA("GuiObject") then
@@ -8479,10 +8554,10 @@ function Extra.buildAdminList(m)
 		if #admins == 0 then
 			Gui.label(list, { Text = "Nobody yet: the panel is yours alone.", TextSize = 17, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 0 })
 		end
+		local listed = {}
 		for i, row in ipairs(admins) do
-			local r = make("Frame", { Size = UDim2.new(1, -8, 0, 52), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, LayoutOrder = i }, list)
-			make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
-			Gui.label(r, { Text = string.format('%s  <font color="#9aa3b5">%s</font>', tostring(row.name), tostring(row.id)), RichText = true, display = true, TextSize = 19, Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -200, 1, 0) })
+			listed[tostring(row.id)] = true
+			local r = giftRow(row, i, true)
 			local rm, rmL = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(150, 38) }, "Remove", 17)
 			onClick(rm, function()
 				if Extra.adminRmArmed == row.id and os.clock() - (Extra.adminRmAt or 0) < 4 then
@@ -8499,6 +8574,22 @@ function Extra.buildAdminList(m)
 					end)
 				end
 			end)
+		end
+		-- who else has given from the panel: you, the developers, admins taken off the list
+		local others = {}
+		for id, g in pairs(Extra.adminGifts) do
+			if not listed[id] then
+				table.insert(others, { id = tonumber(id), name = g.n, t = g.t })
+			end
+		end
+		table.sort(others, function(a, b)
+			return (a.t or 0) > (b.t or 0)
+		end)
+		if #others > 0 then
+			Gui.label(list, { Text = "Also gave (not on the list)", display = true, TextSize = 17, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 34), TextYAlignment = Enum.TextYAlignment.Bottom, LayoutOrder = 1000 })
+		end
+		for i, row in ipairs(others) do
+			giftRow(row, 1000 + i, false)
 		end
 	end
 	Extra.showAdmins({})
@@ -8525,20 +8616,20 @@ function Extra.buildAdmin()
 	local evRows = {}
 	Extra.adminMuls = Extra.adminMuls or {}
 	for i, kind in ipairs(Config.Admin.Events) do
-		local r = make("Frame", { Position = UDim2.fromOffset(0, 106 + (i - 1) * 64), Size = UDim2.new(1, 0, 0, 56), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 22 }, left)
+		local r = make("Frame", { Position = UDim2.fromOffset(0, 106 + (i - 1) * 58), Size = UDim2.new(1, 0, 0, 52), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 22 }, left)
 		make("UICorner", { CornerRadius = UDim.new(0, 6) }, r)
 		-- its strength (the owner, 2026-10-16: "Add 4x 6x 8x and 16x luck to admin panel", then
 		-- 2026-10-30: "make gold and vp gain also go up to 16x same as the luck"): a press steps 2x,
 		-- 4x, 6x, 8x, 16x
 		Extra.adminMuls[kind] = Extra.adminMuls[kind] or Config.Admin.Multiplier
-		local mulB, mulL = hairButton(r, { Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(104, 40), ZIndex = 23 }, Extra.adminMuls[kind] .. "x " .. kind, 18)
+		local mulB, mulL = hairButton(r, { Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(104, 40), ZIndex = 23 }, Extra.adminMuls[kind] .. "x " .. Economy.eventLabel(kind), 18)
 		onClick(mulB, function()
 			local list = Config.Admin.EventMuls
 			local at = table.find(list, Extra.adminMuls[kind]) or 1
 			Extra.adminMuls[kind] = list[at % #list + 1]
-			mulL.Text = Extra.adminMuls[kind] .. "x " .. kind
+			mulL.Text = Extra.adminMuls[kind] .. "x " .. Economy.eventLabel(kind)
 		end)
-		local status = Gui.label(r, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(112, 0), Size = UDim2.fromOffset(160, 56), ZIndex = 23 })
+		local status = Gui.label(r, { Text = "", TextSize = 16, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(122, 0), Size = UDim2.fromOffset(150, 52), ZIndex = 23 })
 		local start, startL = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -96, 0.5, 0), Size = UDim2.fromOffset(108, 40), ZIndex = 23 }, "Start", 18)
 		local stop = hairButton(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(80, 40), ZIndex = 23 }, "Stop", 18)
 		onClick(start, function()
@@ -8549,28 +8640,28 @@ function Extra.buildAdmin()
 		end)
 		evRows[kind] = { status = status, startL = startL, stop = stop }
 	end
-	heading(left, "Announcement", 314)
-	local ann = Extra.inputBox(left, { Position = UDim2.fromOffset(0, 360), Size = UDim2.new(1, 0, 0, 112), TextWrapped = true, MultiLine = true, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 18 }, "Shown to every player in every server")
-	local annCount = Gui.label(left, { Text = "0 / " .. Config.Admin.AnnounceMax, TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 482), Size = UDim2.fromOffset(200, 18), ZIndex = 22 })
+	heading(left, "Announcement", 342)
+	local ann = Extra.inputBox(left, { Position = UDim2.fromOffset(0, 388), Size = UDim2.new(1, 0, 0, 100), TextWrapped = true, MultiLine = true, TextYAlignment = Enum.TextYAlignment.Top, TextSize = 18 }, "Shown to every player in every server")
+	local annCount = Gui.label(left, { Text = "0 / " .. Config.Admin.AnnounceMax, TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(0, 498), Size = UDim2.fromOffset(200, 18), ZIndex = 22 })
 	ann:GetPropertyChangedSignal("Text"):Connect(function()
 		if #ann.Text > Config.Admin.AnnounceMax then
 			ann.Text = string.sub(ann.Text, 1, Config.Admin.AnnounceMax)
 		end
 		annCount.Text = #ann.Text .. " / " .. Config.Admin.AnnounceMax
 	end)
-	local send = actionPlate(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 480), Size = UDim2.fromOffset(240, 48) }, "Send to everyone", 20)
+	local send = actionPlate(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 496), Size = UDim2.fromOffset(240, 48) }, "Send to everyone", 20)
 	onClick(send, function()
 		if string.match(ann.Text, "%S") then
 			Net.get("Admin"):FireServer("announce", ann.Text)
 		end
 	end)
 	-- testing lobbies across servers: you alone into a new server, whoever's with you stays here
-	local newServer, newServerL = hairButton(left, { Position = UDim2.fromOffset(0, 548), Size = UDim2.fromOffset(480, 44), ZIndex = 22 }, "New server: test lobbies across servers", 17)
+	local newServer, newServerL = hairButton(left, { Position = UDim2.fromOffset(0, 556), Size = UDim2.fromOffset(480, 44), ZIndex = 22 }, "New server: test lobbies across servers", 17)
 	onClick(newServer, function()
 		Net.get("Admin"):FireServer("server")
 	end)
 	-- the whitelist (the game's owner alone): who else may use this panel (Extra.buildAdminList)
-	local adminsBtn = hairButton(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 548), Size = UDim2.fromOffset(150, 44), Visible = false, ZIndex = 22 }, "Admins", 17)
+	local adminsBtn = hairButton(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 556), Size = UDim2.fromOffset(150, 44), Visible = false, ZIndex = 22 }, "Admins", 17)
 	local adminList = Extra.buildAdminList(m)
 	onClick(adminsBtn, function()
 		adminList.Visible = true
@@ -8581,10 +8672,12 @@ function Extra.buildAdmin()
 	heading(right, "Give a player", 0)
 	local user = Extra.inputBox(right, { Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 46) }, "Username")
 	local amounts = {}
-	for i, def in ipairs({ { "VP", "VP" }, { "Gold", "Gold" }, { "Lucky", "Lucky spins" } }) do
-		local x = (i - 1) * 172
-		Gui.label(right, { Text = def[2], TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(x, 104), Size = UDim2.fromOffset(160, 16), ZIndex = 22 })
-		amounts[def[1]] = Extra.inputBox(right, { Position = UDim2.fromOffset(x, 122), Size = UDim2.fromOffset(164, 44) }, "0")
+	-- (Cur: the running event's currency, Config.EventCurrency.Active: Candy for Halloween)
+	local _, curRow = Economy.activeCurrency()
+	for i, def in ipairs({ { "VP", "VP" }, { "Gold", "Gold" }, { "Lucky", "Lucky spins" }, { "Cur", curRow.Name } }) do
+		local x = (i - 1) * 129
+		Gui.label(right, { Text = def[2], TextSize = 14, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(x, 104), Size = UDim2.fromOffset(121, 16), ZIndex = 22 })
+		amounts[def[1]] = Extra.inputBox(right, { Position = UDim2.fromOffset(x, 122), Size = UDim2.fromOffset(121, 44) }, "0")
 	end
 	-- the grid's tab: Characters, or a cosmetic kind, picked from a dropdown (the owner: "instead of
 	-- a clickthrough make it a dropdown menu")
@@ -8771,6 +8864,7 @@ function Extra.buildAdmin()
 			VP = tonumber(amounts.VP.Text) or 0,
 			Gold = tonumber(amounts.Gold.Text) or 0,
 			Lucky = tonumber(amounts.Lucky.Text) or 0,
+			EventCur = { [Config.EventCurrency.Active] = tonumber(amounts.Cur.Text) or 0 },
 			Chars = chars,
 			Items = items,
 			Cards = Extra.adminCard and { Extra.adminCard } or nil,
@@ -8805,6 +8899,7 @@ function Extra.buildAdmin()
 				VP = tonumber(amounts.VP.Text) or 0,
 				Gold = tonumber(amounts.Gold.Text) or 0,
 				Lucky = tonumber(amounts.Lucky.Text) or 0,
+				EventCur = { [Config.EventCurrency.Active] = tonumber(amounts.Cur.Text) or 0 },
 				Chars = chars,
 				Fragments = frags,
 			})
@@ -9721,6 +9816,9 @@ function MenuController.init(m)
 	Net.get("Admin").OnClientEvent:Connect(function(data)
 		if type(data) == "table" and type(data.owners) == "table" and type(data.owners.list) == "table" and Extra.showOwners then
 			Extra.showOwners(data.owners)
+		end
+		if type(data) == "table" and type(data.gifts) == "table" then
+			Extra.adminGifts = data.gifts -- (the gift tracker: AdminService's log, by sender)
 		end
 		if type(data) == "table" and type(data.admins) == "table" and Extra.showAdmins then
 			Extra.showAdmins(data.admins)

@@ -368,5 +368,21 @@
   "description": "Gift this pass to another player.",
   "price": 199,
   "image": "assets/passes/ScoreImage.png"
+ },
+ {
+  "old": "new-DoubleEvent-pass",
+  "kind": "pass",
+  "name": "2x Event Currency",
+  "description": "Event matches pay double the event currency, for good: Candy now, and every event after. Stacks with events.",
+  "price": 399,
+  "image": "assets/passes/DoubleEvent.png"
+ },
+ {
+  "old": "new-DoubleEvent-gift",
+  "kind": "product",
+  "name": "Gift: 2x Event Currency",
+  "description": "Gift this pass to another player.",
+  "price": 399,
+  "image": "assets/passes/DoubleEvent.png"
  }
 ]

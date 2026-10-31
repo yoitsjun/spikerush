@@ -3008,6 +3008,42 @@ do
 		n .. " kept of " .. (Config.Admin.WhitelistMax + 12))
 end
 
+print("== the event currency and the gift tracker ==")
+do
+	-- the owner (2026-10-31): "add an event currency to the admin panel. this can also be boosted,
+	-- and can be gifted. dont restrict it to just candy": a grant carries any known currency by key
+	-- (capped), Candy lands in the Halloween purse and any other in eventCur; the Cur event and
+	-- the 2x Event Currency pass multiply what's earned
+	local Economy = require("Economy")
+	local E = Config.EventCurrency
+	local g = Economy.cleanGrant({ EventCur = { Candy = 250.7, Nope = 99 } })
+	local big = Economy.cleanGrant({ EventCur = { Candy = 1e12 } })
+	local prof = { halloween = { candy = 10 } }
+	Economy.apply(prof, g, 0)
+	local said = Economy.describe(g)
+	local fresh = {}
+	Economy.addCurrency(fresh, "Candy", 5)
+	check(E[E.Active] ~= nil and g.EventCur.Candy == 250 and g.EventCur.Nope == nil and not Economy.isEmpty(g) and big.EventCur.Candy == Config.Admin.GiveMax.Cur
+		and prof.halloween.candy == 260 and Economy.currency(prof, "Candy") == 260 and fresh.halloween.candy == 5 and string.find(said, "250 Candy", 1, true)
+		and Economy.isEmpty(Economy.cleanGrant({ EventCur = { Candy = 0 } })) and next(Economy.cleanCurrencies({ Candy = 9, Nope = 4 })) == nil,
+		"event currency gifts: known currencies only, capped, into the right purse, and named", said)
+	local passMul = Economy.passMult({ DoubleEvent = true }, "Cur")
+	check(Economy.isEvent("Cur") and Config.Admin.EventNames.Cur == E[E.Active].Name and Economy.eventLabel("Cur") == E[E.Active].Name and Economy.eventLabel("VP") == "VP"
+		and passMul == 2 and Economy.passMult({ DoubleEvent = true }, "VP") == 1 and Economy.earnedCurrency(30, passMul * 4) == 240 and Economy.earnedCurrency(30, 1) == 30,
+		"the event currency boosts: an admin Cur event named after the running currency, the pass doubles it alone")
+	-- the gift tracker (the owner, 2026-10-31: "add gift tracker next to admin names")
+	local log = nil
+	for i = 1, Config.Admin.GiftLogKeep + 3 do
+		log = Economy.logGift(log, 45, "amy_b", "kid" .. i, Economy.cleanGrant({ VP = 100, EventCur = { Candy = 20 } }), 1000 + i, 1)
+	end
+	log = Economy.logGift(log, 9, "zed", "everyone online", Economy.cleanGrant({ Gold = 500 }), 5000, 1)
+	local amy, zed = log["45"], log["9"]
+	check(amy.c == Config.Admin.GiftLogKeep + 3 and amy.tot.VP == 100 * amy.c and amy.tot.Cur == 20 * amy.c and #amy.list == Config.Admin.GiftLogKeep
+		and amy.list[1].to == "kid" .. amy.c and amy.t == 1000 + amy.c and zed.c == 1 and zed.tot.Gold == 500 and zed.list[1].to == "everyone online"
+		and next(Economy.cleanGiftLog({ abc = {}, ["-1"] = {}, ["7"] = "junk" })) == nil,
+		"the gift tracker counts each admin's gifts and totals, keeps their latest, and drops junk", amy.c .. " gifts")
+end
+
 print("== codes ==")
 do
 	local Economy = require("Economy")

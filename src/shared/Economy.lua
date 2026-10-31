@@ -70,6 +70,17 @@ function Economy.cleanGrant(g)
 			end
 		end
 	end
+	-- event currency by key ({ Candy = 500 }: Config.EventCurrency), so a gift sent during one
+	-- event still pays that event's currency when it's opened later
+	out.EventCur = {}
+	if type(g.EventCur) == "table" then
+		for _, key in ipairs(Config.EventCurrency.Order) do
+			local n = amount(g.EventCur[key], cap.Cur)
+			if n > 0 then
+				out.EventCur[key] = n
+			end
+		end
+	end
 	-- a luck boost's strength (Config.Boosts.LuckTiers; 2 when it says none)
 	out.LuckMul = Economy.luckTier(g.LuckMul)
 	-- breakthrough fragments by letter ({ ["S+"] = 5 }; the owner: "add breakthrough fragments to the
@@ -119,7 +130,129 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and (g.STickets or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0 and #(g.Passes or {}) == 0 and #(g.Perks or {}) == 0
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and (g.STickets or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0 and #(g.Passes or {}) == 0 and #(g.Perks or {}) == 0 and next(g.EventCur or {}) == nil
+end
+
+------------------------------------------------------------------------------------------
+-- the event currency (Config.EventCurrency)
+------------------------------------------------------------------------------------------
+
+-- The running event's currency: its key and row.
+function Economy.activeCurrency()
+	local E = Config.EventCurrency
+	return E.Active, E[E.Active]
+end
+
+-- How much of currency `key` a profile holds (Candy in its halloween table, the rest in eventCur).
+function Economy.currency(profile, key)
+	if type(profile) ~= "table" then
+		return 0
+	end
+	if key == "Candy" then
+		return type(profile.halloween) == "table" and whole(profile.halloween.candy) or 0
+	end
+	return type(profile.eventCur) == "table" and whole(profile.eventCur[key]) or 0
+end
+
+-- Adds `n` of currency `key` to a profile (never past Config.EventCurrency.Max). Returns the new
+-- balance.
+function Economy.addCurrency(profile, key, n)
+	local E = Config.EventCurrency
+	if not E[key] then
+		return 0
+	end
+	local now = math.clamp(Economy.currency(profile, key) + whole(n), 0, E.Max)
+	if key == "Candy" then
+		profile.halloween = type(profile.halloween) == "table" and profile.halloween or Halloween.clean(nil)
+		profile.halloween.candy = now
+	else
+		profile.eventCur = type(profile.eventCur) == "table" and profile.eventCur or {}
+		profile.eventCur[key] = now
+	end
+	return now
+end
+
+-- A saved eventCur made safe: known currencies only (Candy isn't kept here), whole and capped.
+function Economy.cleanCurrencies(data)
+	local out = {}
+	for _, key in ipairs(Config.EventCurrency.Order) do
+		if key ~= "Candy" and type(data) == "table" then
+			local n = math.clamp(whole(data[key]), 0, Config.EventCurrency.Max)
+			if n > 0 then
+				out[key] = n
+			end
+		end
+	end
+	return out
+end
+
+-- Earned event currency times `mult` (the "Cur" event and the 2x Event Currency pass): whole.
+function Economy.earnedCurrency(n, mult)
+	return math.floor(math.max(0, tonumber(n) or 0) * math.max(1, tonumber(mult) or 1) + 0.5)
+end
+
+-- An admin event's short name for buttons and chips: "VP", "Gold", "Luck", or the currency's.
+function Economy.eventLabel(kind)
+	if kind == "Cur" then
+		local _, row = Economy.activeCurrency()
+		return row.Name
+	end
+	return kind
+end
+
+------------------------------------------------------------------------------------------
+-- the admin panel's gift tracker (Config.Admin.GiftLogStore)
+------------------------------------------------------------------------------------------
+
+local GIFT_TOTALS = { "VP", "Gold", "Lucky", "Cur" }
+
+-- The stored gift log made safe: { [userId] = { n = name, c = gifts, t = last, tot = { VP, Gold,
+-- Lucky, Cur }, list = { { t, to, w } } (newest first, at most GiftLogKeep) } }.
+function Economy.cleanGiftLog(data)
+	local out = {}
+	if type(data) ~= "table" then
+		return out
+	end
+	for k, v in pairs(data) do
+		local id = tonumber(k)
+		if id and id > 0 and id == math.floor(id) and type(v) == "table" then
+			local row = { n = type(v.n) == "string" and string.match(v.n, "^[%w_]+$") and string.sub(v.n, 1, 20) or tostring(id), c = whole(v.c), t = whole(v.t), tot = {}, list = {} }
+			for _, f in ipairs(GIFT_TOTALS) do
+				row.tot[f] = type(v.tot) == "table" and whole(v.tot[f]) or 0
+			end
+			for _, e in ipairs(type(v.list) == "table" and v.list or {}) do
+				if #row.list < Config.Admin.GiftLogKeep and type(e) == "table" and type(e.to) == "string" and type(e.w) == "string" then
+					table.insert(row.list, { t = whole(e.t), to = string.sub(e.to, 1, 40), w = string.sub(e.w, 1, 160) })
+				end
+			end
+			out[tostring(id)] = row
+		end
+	end
+	return out
+end
+
+-- The log after admin `userId` (`name`) sent grant `g` to `to` ("amy_b", or "everyone online
+-- (12)") at `now`, `count` times (everyone online: once each). A clean copy.
+function Economy.logGift(data, userId, name, to, g, now, count)
+	local log = Economy.cleanGiftLog(data)
+	local key = tostring(userId)
+	local row = log[key] or { n = name, c = 0, t = 0, tot = { VP = 0, Gold = 0, Lucky = 0, Cur = 0 }, list = {} }
+	count = math.max(1, whole(count))
+	row.n = name
+	row.c = row.c + 1
+	row.t = now
+	row.tot.VP = row.tot.VP + g.VP * count
+	row.tot.Gold = row.tot.Gold + g.Gold * count
+	row.tot.Lucky = row.tot.Lucky + g.Lucky * count
+	for _, n in pairs(g.EventCur or {}) do
+		row.tot.Cur = row.tot.Cur + n * count
+	end
+	table.insert(row.list, 1, { t = now, to = to, w = Economy.describe(g) })
+	while #row.list > Config.Admin.GiftLogKeep do
+		table.remove(row.list)
+	end
+	log[key] = row
+	return Economy.cleanGiftLog(log)
 end
 
 -- A luck boost's strength: one of Config.Boosts.LuckTiers, else 2.
@@ -220,6 +353,9 @@ function Economy.apply(profile, g, now)
 	if (g.STickets or 0) > 0 then
 		profile.sTickets = math.min(100, whole(profile.sTickets) + g.STickets) -- (selection tickets: Config.Retired)
 	end
+	for key, n in pairs(g.EventCur or {}) do
+		Economy.addCurrency(profile, key, n)
+	end
 	if g.BoostVP > 0 then
 		profile.boosts = type(profile.boosts) == "table" and profile.boosts or {}
 		profile.boosts.VP = Economy.extendBoost(profile.boosts.VP, g.BoostVP, now or 0)
@@ -293,6 +429,12 @@ function Economy.describe(g, chars)
 	end
 	if g.Lucky > 0 then
 		table.insert(parts, g.Lucky == 1 and "1 lucky spin" or (Economy.commas(g.Lucky) .. " lucky spins"))
+	end
+	for _, key in ipairs(Config.EventCurrency.Order) do
+		local n = (g.EventCur or {})[key]
+		if n and n > 0 then
+			table.insert(parts, "+" .. Economy.commas(n) .. " " .. Config.EventCurrency[key].Name)
+		end
 	end
 	if g.BoostVP > 0 then
 		table.insert(parts, string.format("%dx VP for %s", Config.Boosts.Multiplier, Economy.duration(g.BoostVP)))

@@ -1095,7 +1095,7 @@ Config.Specials = {
 -- luck like 2x Luck does (Spins.luckWeights), stacking with both. Card: the player card the pass
 -- gives (a Grant card); Tag: the chat tag its owners get. Developers own every pass.
 Config.Passes = {
-	Order = { "VIP", "DoubleVP", "Lucky" },
+	Order = { "VIP", "DoubleVP", "Lucky", "DoubleEvent" },
 	-- the original Spike Rush's passes (the stolen game's, 2026-10-26): owning one counts as owning
 	-- its pass here once its player presses Restore in the Shop (ProfileService "restorePasses";
 	-- the owner, 2026-10-29: "transfer over old spike:rush purchases to here")
@@ -1104,6 +1104,9 @@ Config.Passes = {
 	VIP = { PassId = 2061244340, Name = "VIP", Blurb = "1.5x the V Points you earn and the Gold matches pay, a gold VIP chat tag and the VIP player card.", VP = 1.5, Gold = 1.5, Card = "VIP", Tag = "VIP" }, -- 349 Robux
 	DoubleVP = { PassId = 2061928252, Name = "2x V Points", Blurb = "Matches, tournaments and daily rewards pay double V Points, for good. Stacks with VIP, boosts and events.", VP = 2 }, -- 499
 	Lucky = { PassId = 2061598293, Name = "Lucky", Blurb = "Your Characters recruits are 1.5x luckier, for good. Stacks with 2x Luck.", Luck = 1.5 }, -- 399
+	-- the event currency's (Config.EventCurrency, the owner, 2026-10-31: "make gamepasses for this
+	-- as well"): every event's, not only Halloween's Candy
+	DoubleEvent = { PassId = 2062597271, Name = "2x Event Currency", Blurb = "Event matches pay double the event currency, for good: Candy now, and every event after. Stacks with events.", Cur = 2 }, -- 399
 	-- every pass giftable (the owner, 2026-10-21: "Make all the gamepasses giftable"): Roblox can't
 	-- gift a game pass, so each has a gift Developer Product at the pass's price (made through Open
 	-- Cloud) that gives it inside the game (a profile's giftedPasses, or perks for the perk passes)
@@ -1113,6 +1116,7 @@ Config.Passes = {
 		{ Id = 3723421348, Passes = { "Lucky" }, Name = "Lucky" }, -- 399
 		{ Id = 3723421354, Perks = { "ScoreSound" }, Name = "Custom sound effects" }, -- 199
 		{ Id = 3723421361, Perks = { "ScoreImage" }, Name = "Custom score effect" }, -- 199
+		{ Id = 3725008909, Passes = { "DoubleEvent" }, Name = "2x Event Currency" }, -- 399
 	},
 }
 
@@ -1182,22 +1186,37 @@ Config.Daily = {
 -- (Multiplier) for one of Durations (minutes), in every server; an
 -- announcement shows to every player in every server; and Give sends VP, Gold, lucky spins and
 -- characters to anyone by username (online in any server at once, otherwise on their next join).
+-- The event currency (the owner, 2026-10-31: "add an event currency to the admin panel. this can
+-- also be boosted, and can be gifted. dont restrict it to just candy, as christmas update will
+-- also have an event currency"): whichever event is on pays its own currency, and Active names
+-- it. That one is what the admin panel gives and boosts (the "Cur" event), and what the 2x Event
+-- Currency pass doubles. Earned currency (event matches) is multiplied; gifts, refunds and shop
+-- buys aren't. Candy is kept where Halloween keeps it (the profile's halloween.candy); any other
+-- currency in the profile's eventCur, by key. For Christmas: add its row and set Active to it.
+Config.EventCurrency = {
+	Active = "Candy",
+	Order = { "Candy" },
+	Candy = { Name = "Candy", Event = "Halloween", Color = Color3.fromRGB(255, 130, 30) },
+	Max = 10000000, -- the most anyone holds of one
+}
+
 Config.Admin = {
 	Durations = { 5, 10, 15, 20, 30 },
 	-- 2x VP doubles earned VP and 2x Gold what matches pay; 2x Luck (the owner: "add 2x luck, similar to the
 	-- 2x gold and vp... this should lower the odds of getting the d's and the c's and double the
 	-- odds of getting better characters. from A- to above") changes recruits on the Characters
 	-- banner: Config.Spins.LuckEvent
-	Events = { "VP", "Gold", "Luck" },
+	-- Cur: the event currency (Config.EventCurrency.Active), what event matches pay
+	Events = { "VP", "Gold", "Luck", "Cur" },
 	-- each event's strength, picked as it starts (the owner, 2026-10-16: "Add 4x 6x 8x and 16x
 	-- luck to admin panel"; 2026-10-30: "make gold and vp gain also go up to 16x same as the luck")
 	EventMuls = { 2, 4, 6, 8, 16 },
-	EventNames = { VP = "V Points", Gold = "Gold", Luck = "Luck" },
-	EventLines = { VP = "Matches, tournaments and daily rewards pay that many times the V Points.", Gold = "Every match pays that many times the Gold.", Luck = "Recruits are that many times as likely to be A- or better, and it multiplies with your own Luck." },
+	EventNames = { VP = "V Points", Gold = "Gold", Luck = "Luck", Cur = Config.EventCurrency[Config.EventCurrency.Active].Name },
+	EventLines = { VP = "Matches, tournaments and daily rewards pay that many times the V Points.", Gold = "Every match pays that many times the Gold.", Luck = "Recruits are that many times as likely to be A- or better, and it multiplies with your own Luck.", Cur = "Event matches pay that many times the " .. Config.EventCurrency[Config.EventCurrency.Active].Name .. "." },
 	Multiplier = 2, -- an event's strength when none was picked
 	AnnounceMax = 200, -- characters
 	AnnounceSeconds = 10, -- how long an announcement shows
-	GiveMax = { VP = 1000000, Gold = 10000000, Lucky = 1000, Fragments = 1000, STickets = 20 },
+	GiveMax = { VP = 1000000, Gold = 10000000, Lucky = 1000, Fragments = 1000, STickets = 20, Cur = 1000000 },
 	LiveStore = "SpikeRushLive_v1", -- the running events (DataStore), for servers that start later
 	MailStore = "SpikeRushMail_v1", -- gifts waiting for their player (DataStore)
 	-- who was given each give-only card from the admin panel (DataStore, a key per card): the
@@ -1209,6 +1228,11 @@ Config.Admin = {
 	-- only the owner sees and changes); one DataStore key, read again each PollInterval
 	WhitelistStore = "SpikeRushAdmins_v1",
 	WhitelistMax = 50,
+	-- the gift tracker (the owner, 2026-10-31: "add gift tracker next to admin names"): every Give
+	-- and Give everyone online from the panel, by who sent it (one DataStore key, written once a
+	-- gift, read when the owner opens the whitelist): a count, totals, and the latest GiftLogKeep
+	GiftLogStore = "SpikeRushAdminGifts_v1",
+	GiftLogKeep = 25,
 }
 
 -- Gifting (the owner: "add a gifting system"): any pack (VP, Gold or lucky spins) can be bought

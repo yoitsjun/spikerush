@@ -211,6 +211,56 @@ def burst(img, cx, cy, r):
         img.paste(ball, (int(cx - size / 2), int(cy - size / 2)), bm)
 
 
+def snowflake(img, cx, cy, r):
+    # six arms with two pairs of barbs each, white over a dark outline
+    m = Image.new("L", (S, S), 0)
+    md = ImageDraw.Draw(m)
+    for k in range(6):
+        a = math.radians(k * 60 - 90)
+        ex, ey = cx + math.cos(a) * r, cy + math.sin(a) * r
+        md.line([(cx, cy), (ex, ey)], fill=255, width=int(r * 0.16))
+        for t, l in ((0.5, 0.3), (0.75, 0.22)):
+            bx, by = cx + math.cos(a) * r * t, cy + math.sin(a) * r * t
+            for s in (-1, 1):
+                b = a + s * math.radians(50)
+                md.line([(bx, by), (bx + math.cos(b) * r * l, by + math.sin(b) * r * l)], fill=255, width=int(r * 0.12))
+    md.ellipse((cx - r * 0.18, cy - r * 0.18, cx + r * 0.18, cy + r * 0.18), fill=255)
+    outlined(img, m, linear([(255, 255, 255), (200, 235, 255), (120, 190, 255)], 90), 14)
+
+
+def candy(img, cx, cy, r):
+    # a wrapped sweet: the round middle in orange and white swirls, a twisted wrapper either side
+    m = Image.new("L", (S, S), 0)
+    md = ImageDraw.Draw(m)
+    md.ellipse((cx - r * 0.62, cy - r * 0.62, cx + r * 0.62, cy + r * 0.62), fill=255)
+    for s in (-1, 1):
+        md.polygon([(cx + s * r * 0.5, cy), (cx + s * r * 1.12, cy - r * 0.52), (cx + s * r * 1.02, cy), (cx + s * r * 1.12, cy + r * 0.52)], fill=255)
+    fill = Image.new("RGBA", (S, S))
+    px = fill.load()
+    for y in range(int(cy - r * 0.7), int(cy + r * 0.7)):
+        for x in range(int(cx - r * 1.2), int(cx + r * 1.2)):
+            dx, dy = x - cx, y - cy
+            d = math.hypot(dx, dy)
+            if d < r * 0.63:
+                # swirl bands in the middle
+                t = (math.atan2(dy, dx) / (2 * math.pi) + d / (r * 1.1)) * 5
+                px[x, y] = (255, 128, 24, 255) if int(math.floor(t)) % 2 == 0 else (255, 246, 230, 255)
+            else:
+                px[x, y] = (255, 46, 170, 255)  # the wrapper, the game's magenta
+    outlined(img, m, fill, 16)
+    d = ImageDraw.Draw(img)
+    d.ellipse((cx - r * 0.63, cy - r * 0.63, cx + r * 0.63, cy + r * 0.63), outline=INK, width=12)
+    for s in (-1, 1):
+        d.line([(cx + s * r * 0.66, cy - r * 0.16), (cx + s * r * 0.66, cy + r * 0.16)], fill=INK, width=12)
+    gloss(img, (cx - r * 0.62, cy - r * 0.62, cx + r * 0.62, cy + r * 0.62))
+
+
+def event_currency(img):
+    # every event's currency, not only Halloween's: a snowflake behind the candy
+    snowflake(img, 690, 300, 170)
+    candy(img, 470, 410, 240)
+
+
 ICONS = {
     "VIP": dict(bg=((150, 70, 230), (30, 8, 70)), draw=lambda im: crown(im, 512, 420, 560), text="VIP", size=230, y=600),
     "DoubleVP": dict(bg=((60, 150, 255), (8, 26, 90)), draw=lambda im: vp_coin(im, 470, 400, 230), text="V POINTS", size=150, y=650, extra="2x"),
@@ -219,6 +269,8 @@ ICONS = {
     "ScoreImage": dict(bg=((255, 150, 40), (110, 20, 10)), draw=lambda im: burst(im, 512, 400, 270), text="SCORE FX", size=150, y=650),
     # the Clan Founder pass (Config.Clans.PassId): a crown over the word, in the clans' blue
     "ClanFounder": dict(bg=((60, 200, 255), (6, 30, 80)), draw=lambda im: crown(im, 512, 410, 520), text="CLAN", size=220, y=610),
+    # the 2x Event Currency pass (Config.Passes.DoubleEvent): Halloween's candy, Christmas's snowflake
+    "DoubleEvent": dict(bg=((255, 124, 28), (90, 8, 60)), draw=event_currency, text="EVENT", size=200, y=640, extra="2x"),
 }
 
 
