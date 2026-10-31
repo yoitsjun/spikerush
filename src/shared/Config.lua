@@ -37,17 +37,20 @@ local function lift(meters)
 end
 
 Config.Court = {
-	HalfWidth = 14, -- court depth toward the camera (visual only in 2.5D)
+	-- court depth toward the camera (visual only in 2.5D): a real court's 9 m across (the owner,
+	-- 2026-10-30: "make the court bigger ... see all the blank spaces"; it was 6 m, a thin strip in
+	-- the side-on shot with floor all round it)
+	HalfWidth = 4.5 * M,
 	SideDepth = 9 * M, -- end lines 9 m from the net
 	AttackLine = 3 * M,
 	FreeZoneEnd = 3.5 * M, -- serving area behind each end line
 	FreeZoneSide = 8,
 	NetTop = 2.43 * M,
 	NetBottom = 1.43 * M,
-	NetHalfWidth = 16,
+	NetHalfWidth = 4.5 * M + 2, -- (the posts stand just outside the court)
 	AntennaHeight = 0.8 * M,
 	CeilingY = 19 * M,
-	WallHalfX = 58, -- far wall (the near side is open for the camera)
+	WallHalfX = 65, -- far wall (the near side is open for the camera)
 	WallHalfZ = 20 * M,
 	LineWidth = 0.1 * M,
 	LobbySpawn = Vector3.new(0, 0.5, -10.5 * M),
