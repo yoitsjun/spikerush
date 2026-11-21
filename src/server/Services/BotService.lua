@@ -19,6 +19,7 @@ local HitLogic = require(Shared.HitLogic)
 local Cups = require(Shared.Cups)
 local Characters = require(Shared.Characters)
 local Spins = require(Shared.Spins)
+local StoryLook = require(Shared.StoryLook)
 
 local BotService = {}
 local reg
@@ -52,6 +53,11 @@ end
 
 local function tierPair(b, pair)
 	return pair[1] + (pair[2] - pair[1]) * skillOf(b.entity)
+end
+
+-- (early or late by a random time in `range`, seconds)
+local function mistime(b, range)
+	return (b.rng:NextNumber() < 0.5 and -1 or 1) * (range[1] + (range[2] - range[1]) * b.rng:NextNumber())
 end
 
 -- Stacked abilities (the owner, 2026-10-15: the Halloween Match's ability cards "stack" with the
@@ -188,6 +194,12 @@ local function jumpTime(jh, cancel)
 		t = t + dt
 	end
 	return t
+end
+
+-- Seconds to the top of a block jump (Config.Player.BlockFullHeight of the full one; from the full
+-- one even while a block jump has it lowered)
+local function blockApex(b)
+	return jumpTime((b.blockJumpWas or b.hum.JumpHeight) * P.BlockFullHeight, P.HangGravityCancel)
 end
 
 -- Landing depth (distance from the net on the far side) that an attacker's dz produces.
@@ -646,6 +658,10 @@ local function planAttack(team, now, exclude)
 		spiker.overcharge = spiker.rng:NextNumber() < 0.03
 	end
 	spiker.jumpAt = cT - lead + (spiker.rng:NextNumber() * 2 - 1) * tierPair(spiker, B.JumpTimingNoise)
+	-- now and then properly mistimed (Config.Bots.SpikeMistimeChance)
+	if spiker.rng:NextNumber() < tierPair(spiker, B.SpikeMistimeChance) then
+		spiker.jumpAt = spiker.jumpAt + mistime(spiker, B.SpikeMistime)
+	end
 	spiker.contactAt = cT -- (its jump steers in the air to be at targetZ by then)
 	if spiker.entity.role == "WS" and last and last.hitType == "Set" and last.team == team then
 		planBackup(team, now, spiker.entity, exclude)
@@ -727,7 +743,29 @@ local function planBlock(team, now)
 	if blocker then
 		blocker.task = "Block"
 		blocker.targetZ = side * 0.4 * SPM
-		blocker.jumpAt = cT - blocker.tApex + 0.08 + (blocker.rng:NextNumber() * 2 - 1) * tierPair(blocker, B.JumpTimingNoise)
+		blocker.jumpAt = cT - blockApex(blocker) + 0.08 + (blocker.rng:NextNumber() * 2 - 1) * tierPair(blocker, B.JumpTimingNoise)
+		-- a story's other team mistimes a share of its block jumps (e.blockOk: Config.Story's FoeBlock;
+		-- a tester, 2026-11-15: "basically impossible for a d-b tier to hit over" its blockers, "maybe
+		-- reinstate the intentionally bad timing you had. keep the good block timing for our side"):
+		-- it still goes up every time, early or late by BlockMistime
+		-- (outside a story every AI blocker does now, by its level: Config.Bots.BlockTimed)
+		blocker.blockLate = nil
+		local ok, m = blocker.entity.blockOk, Config.Story.BlockMistime
+		if ok == nil and not reg.TeamService.story then
+			-- (by the higher of its character's tier and the lobby's bot level: an S middle on an
+			-- S+ team plays as S+, Config.Bots.TopTierSpread)
+			local t = blocker.entity.tier
+			local lobby = reg.TeamService.botTier
+			if lobby and (Characters.tierIndex(lobby) or 0) > (Characters.tierIndex(t) or 0) then
+				t = lobby
+			end
+			ok, m = (B.BlockTimedTier and B.BlockTimedTier[t]) or tierPair(blocker, B.BlockTimed), B.BlockMistime
+		end
+		if ok and blocker.rng:NextNumber() >= ok then
+			local off = mistime(blocker, m)
+			blocker.jumpAt = blocker.jumpAt + off
+			blocker.blockLate = off > 0 and off or nil -- (kept when the spike re-times it, below)
+		end
 	end
 end
 
@@ -740,7 +778,7 @@ local function plan(now)
 	local blocking = {}
 	for _, b in pairs(bots) do
 		if b.task == "Block" then
-			blocking[b] = { jumpAt = b.jumpAt, targetZ = b.targetZ }
+			blocking[b] = { jumpAt = b.jumpAt, targetZ = b.targetZ, late = b.blockLate }
 		end
 		resetTask(b)
 	end
@@ -782,7 +820,12 @@ local function plan(now)
 					local tC = BallPhysics.findTime(BS.path, now, function(pos)
 						return pos.Z * side >= -0.2
 					end)
-					b.jumpAt = tC and math.min(was.jumpAt, tC - b.tApex) or was.jumpAt
+					b.jumpAt = tC and math.min(was.jumpAt, tC - blockApex(b)) or was.jumpAt
+					-- a mistimed late jump stays late
+					if tC and was.late then
+						b.jumpAt = tC - blockApex(b) + was.late
+					end
+					b.blockLate = was.late
 				end
 			end
 		end
@@ -932,6 +975,12 @@ local function serveLogic(b, now, grounded, side)
 				extra.gauge = HitLogic.feralGauge(now - b.leapFrom, FERAL.AutoChargeTime, on(e, "Feral", now)) -- (past full in Bloodlust)
 				extra.toward = true
 			end
+			if reg.TeamService.has(e, "Enflamed") then
+				-- Enflamed Dragon: its jump serves too, as its spikes
+				local ENFL = Config.Abilities.Enflamed
+				local roll = b.rng:NextNumber()
+				extra.gauge = roll < ENFL.AutoGold and (ENFL.GoldFrom + ENFL.GoldTo) / 2 or (roll < ENFL.AutoGold + ENFL.AutoSilver and ENFL.SilverFrom or 0)
+			end
 			if act(b, "Serve", ball, extra) and b.leapFrom then
 				b.leapFrom = nil
 				reg.HitService.fx(e.id, "ProwlEnd")
@@ -953,8 +1002,8 @@ end
 local POP_CHANCE = { RallyCry = "RallyCryChance", Corona = "CoronaChance", Squall = "SquallChance", Thunder = "ThunderChance", Feral = "FeralChance", Tyrant = "TyrantChance", Fever = "FeverChance" }
 local function rallyCry(b, now)
 	local e = b.entity
-	if playerLed(e.team) then
-		return
+	if playerLed(e.team) or e.noActive then
+		return -- (e.noActive: a story rival held back, Config.Story's FoeHold)
 	end
 	b.rallyRolled = b.rallyRolled or {}
 	for _, name in ipairs(e.abilities or { e.ability }) do
@@ -967,6 +1016,14 @@ local function rallyCry(b, now)
 				reg.HitService.activateAbility(e, name)
 			end
 		end
+	end
+end
+
+-- Falling Star: a setter calls it on the set itself (popped at the serve it could run out first).
+local function starCall(b, now)
+	local e = b.entity
+	if b.setType ~= "Quick" and reg.TeamService.has(e, "FallingStar") and not playerLed(e.team) and ready(e, "FallingStar", now) and b.rng:NextNumber() < B.FallingStarChance then
+		reg.HitService.activateAbility(e, "FallingStar")
 	end
 end
 
@@ -1107,6 +1164,14 @@ local function updateBot(b, now)
 		return
 	end
 
+	-- back on the floor after a block jump: its full jump again (unless something changed it since)
+	if b.blockJumpWas and grounded and now - (b.blockJumpAt or 0) > 0.3 then
+		if math.abs(hum.JumpHeight - (b.blockJumpLow or -1)) < 1e-3 then
+			hum.JumpHeight = b.blockJumpWas
+		end
+		b.blockJumpWas, b.blockJumpLow = nil, nil
+	end
+
 	-- weaker bots take a moment to read a new ball before they move
 	if b.planSeq ~= BS.seq then
 		b.planSeq = BS.seq
@@ -1135,6 +1200,12 @@ local function updateBot(b, now)
 			elseif b.task == "Set" then
 				reg.HitService.fx(e.id, "Jump", "Set")
 			elseif b.task == "Block" then
+				-- a block jump tops out lower than a spike's (Config.Player.BlockFullHeight), as a player's
+				if not b.blockJumpWas then
+					b.blockJumpWas = hum.JumpHeight
+					hum.JumpHeight = hum.JumpHeight * P.BlockFullHeight
+					b.blockJumpLow, b.blockJumpAt = hum.JumpHeight, now
+				end
 				reg.HitService.fx(e.id, "Jump", "Block")
 				reg.HitService.fx(e.id, "Block")
 				if has(e, "IronWall") and not playerLed(e.team) then
@@ -1194,12 +1265,14 @@ local function updateBot(b, now)
 			return vel.Y < 0 and (HitLogic.setZone(root, pos, side, e.charStats)) and pos.Y - root.Y <= Z.SetIdealY + 0.4
 		end)
 		if t then
+			starCall(b, now)
 			act(b, "Set", p, { t = t, setType = b.setType, targetId = b.targetId })
 		else
 			local t2, p2 = sweep(b, path, now, function(pos, vel)
 				return vel.Y < 0 and (HitLogic.receiveZone(root, pos, side, e.charStats, false)) and pos.Y - root.Y <= Z.ReceiveIdealY + 0.6
 			end)
 			if t2 then
+				starCall(b, now)
 				act(b, "Set", p2, { t = t2, setType = b.setType, targetId = b.targetId })
 			end
 		end
@@ -1225,6 +1298,12 @@ local function updateBot(b, now)
 				if b.leapFrom then
 					extra.gauge = HitLogic.feralGauge(t - b.leapFrom, FERAL.AutoChargeTime, on(e, "Feral", t)) -- (past full in Bloodlust)
 					extra.toward = true
+				end
+				if reg.TeamService.has(e, "Enflamed") then
+					-- Enflamed Dragon: the AI hits a gold or silver jump some of the time
+					local ENFL = Config.Abilities.Enflamed
+					local roll = b.rng:NextNumber()
+					extra.gauge = roll < ENFL.AutoGold and (ENFL.GoldFrom + ENFL.GoldTo) / 2 or (roll < ENFL.AutoGold + ENFL.AutoSilver and ENFL.SilverFrom or 0)
 				end
 				if b.rng:NextNumber() < tierPair(b, B.SpikeMishitChance) then
 					extra.quality = 0.2 + 0.3 * b.rng:NextNumber() -- framed it
@@ -1273,6 +1352,9 @@ function BotService.spawn(e)
 	-- a stand-in wears its player's avatar; other bots a friend's when there is one
 	-- (FriendService), else a plain rig in team colours
 	local desc = e.description and e.description:Clone()
+	if not desc and e.storyLook then
+		desc = StoryLook.describe(e.storyLook, teamCfg.Color, teamCfg.Dark) -- a story character's own look
+	end
 	local avatarId = e.avatarId or e.friendId
 	if not desc and avatarId then
 		desc = reg.FriendService.description(avatarId)

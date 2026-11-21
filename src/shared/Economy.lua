@@ -8,6 +8,7 @@ local Roster = require(script.Parent.Roster)
 local Spins = require(script.Parent.Spins)
 local Breakthrough = require(script.Parent.Breakthrough)
 local Halloween = require(script.Parent.Halloween)
+local Winter = require(script.Parent.Winter)
 
 local Economy = {}
 
@@ -81,6 +82,9 @@ function Economy.cleanGrant(g)
 			end
 		end
 	end
+	-- the Winter Pass bought as a gift (its premium track) and tier skips (that many tiers of XP)
+	out.WinterPass = g.WinterPass == true or nil
+	out.PassTiers = amount(g.PassTiers, Config.Winter.Pass.Tiers)
 	-- a luck boost's strength (Config.Boosts.LuckTiers; 2 when it says none)
 	out.LuckMul = Economy.luckTier(g.LuckMul)
 	-- breakthrough fragments by letter ({ ["S+"] = 5 }; the owner: "add breakthrough fragments to the
@@ -130,7 +134,7 @@ function Economy.cleanGrant(g)
 end
 
 function Economy.isEmpty(g)
-	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and (g.BoostGold or 0) == 0 and (g.BoostCur or 0) == 0 and (g.STickets or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0 and #(g.Passes or {}) == 0 and #(g.Perks or {}) == 0 and next(g.EventCur or {}) == nil
+	return g.VP == 0 and g.Gold == 0 and g.Lucky == 0 and g.BoostVP == 0 and (g.BoostLuck or 0) == 0 and (g.BoostGold or 0) == 0 and (g.BoostCur or 0) == 0 and (g.STickets or 0) == 0 and #g.Chars == 0 and #(g.Cards or {}) == 0 and #(g.Items or {}) == 0 and next(g.Fragments or {}) == nil and #(g.Skins or {}) == 0 and #(g.Passes or {}) == 0 and #(g.Perks or {}) == 0 and next(g.EventCur or {}) == nil and not g.WinterPass and (g.PassTiers or 0) == 0
 end
 
 ------------------------------------------------------------------------------------------
@@ -151,6 +155,10 @@ function Economy.currency(profile, key)
 	if key == "Candy" then
 		return type(profile.halloween) == "table" and whole(profile.halloween.candy) or 0
 	end
+	if key == "Snow" then
+		-- (Snowflakes: the Winter event's save holds them, the Winter module)
+		return type(profile.winter) == "table" and whole(profile.winter.snow) or 0
+	end
 	return type(profile.eventCur) == "table" and whole(profile.eventCur[key]) or 0
 end
 
@@ -165,6 +173,9 @@ function Economy.addCurrency(profile, key, n)
 	if key == "Candy" then
 		profile.halloween = type(profile.halloween) == "table" and profile.halloween or Halloween.clean(nil)
 		profile.halloween.candy = now
+	elseif key == "Snow" then
+		profile.winter = type(profile.winter) == "table" and profile.winter or {}
+		profile.winter.snow = now
 	else
 		profile.eventCur = type(profile.eventCur) == "table" and profile.eventCur or {}
 		profile.eventCur[key] = now
@@ -172,11 +183,12 @@ function Economy.addCurrency(profile, key, n)
 	return now
 end
 
--- A saved eventCur made safe: known currencies only (Candy isn't kept here), whole and capped.
+-- A saved eventCur made safe: known currencies only (Candy and Snowflakes aren't kept here),
+-- whole and capped.
 function Economy.cleanCurrencies(data)
 	local out = {}
 	for _, key in ipairs(Config.EventCurrency.Order) do
-		if key ~= "Candy" and type(data) == "table" then
+		if key ~= "Candy" and key ~= "Snow" and type(data) == "table" then
 			local n = math.clamp(whole(data[key]), 0, Config.EventCurrency.Max)
 			if n > 0 then
 				out[key] = n
@@ -409,6 +421,23 @@ function Economy.apply(profile, g, now)
 			profile.perks[key] = true
 		end
 	end
+	-- the Winter Pass's premium track (a gift: someone who has it already gets GiftDupSnow
+	-- Snowflakes instead), and tier skips
+	if g.WinterPass or (g.PassTiers or 0) > 0 then
+		if type(profile.winter) ~= "table" or type(profile.winter.quests) ~= "table" then
+			profile.winter = Winter.clean(profile.winter)
+		end
+		local P = profile.winter.pass
+		if g.WinterPass then
+			if P.premium then
+				Winter.addSnow(profile.winter, Config.Winter.Pass.GiftDupSnow)
+			end
+			P.premium = true
+		end
+		if (g.PassTiers or 0) > 0 then
+			Winter.addPassXP(profile.winter, g.PassTiers * Config.Winter.Pass.TierXP)
+		end
+	end
 	-- a skin: a copy unless every character it fits already has one, and its characters join
 	if g.Skins and #g.Skins > 0 then
 		profile.skins = type(profile.skins) == "table" and profile.skins or {}
@@ -472,6 +501,12 @@ function Economy.describe(g, chars)
 	end
 	for _, key in ipairs(g.Passes or {}) do
 		table.insert(parts, "the " .. Config.Passes[key].Name .. " pass")
+	end
+	if g.WinterPass then
+		table.insert(parts, "the " .. Config.Winter.Pass.Name .. "'s premium track")
+	end
+	if (g.PassTiers or 0) > 0 then
+		table.insert(parts, string.format("%d %s tier%s", g.PassTiers, Config.Winter.Pass.Name, g.PassTiers == 1 and "" or "s"))
 	end
 	for _, key in ipairs(g.Perks or {}) do
 		table.insert(parts, Config.Perks[key].Name)
@@ -551,6 +586,10 @@ function Economy.code(text, now)
 	end
 	if def.Until and now and now > def.Until then
 		return nil, "expired", key
+	end
+	-- an event's code works only while that event runs
+	if def.Event == "Winter" and not Winter.active(now) then
+		return nil, Winter.secondsLeft(now) > 0 and "unknown" or "expired", key
 	end
 	return Economy.cleanGrant(def), nil, key
 end
@@ -685,6 +724,10 @@ local PACK_LISTS = {
 	{ kind = "Bundle", list = Config.Bundles.Packs },
 	{ kind = "Special", list = Config.Specials.Packs },
 	{ kind = "PassGift", list = Config.Passes.GiftPacks },
+	{ kind = "AdReward", list = Config.Boosts.AdPacks },
+	{ kind = "WinterPass", list = Config.Winter.Pass.Packs }, -- (its premium track: ProfileService)
+	{ kind = "Snow", list = Config.Winter.SnowPacks }, -- (Snowflakes into the event's save: ProfileService)
+	{ kind = "Advent", list = { Config.Winter.Advent.Product } }, -- (an advent door: ProfileService.packExtras)
 }
 
 -- A pack by its kind ("VP", "Gold", "Lucky") and index: { kind, index, pack, id }.
@@ -708,6 +751,29 @@ function Economy.packByProduct(productId)
 		end
 	end
 	return nil
+end
+
+-- What a pack gives someone it's bought for as a gift: its grant, and what the Winter's packs do
+-- beyond it (ProfileService.packExtras for one bought for yourself): the premium track, tier
+-- skips, Snowflakes.
+function Economy.giftGrant(entry)
+	local p = entry.pack
+	local g = Economy.packGrant(entry)
+	if p.WinterPass then
+		g.WinterPass = true
+	end
+	if tonumber(p.PassTiers) then
+		g.PassTiers = math.min(whole(p.PassTiers), Config.Winter.Pass.Tiers)
+	end
+	if tonumber(p.Snow) then
+		g.EventCur.Snow = math.min(whole(p.Snow), Config.Admin.GiveMax.Cur)
+	end
+	return g
+end
+
+-- Whether a pack can be bought as a gift: anything but a bundle sold once, unless it says Gift.
+function Economy.giftable(entry)
+	return entry ~= nil and not entry.pack.Advent and (entry.pack.Once ~= true or entry.pack.Gift == true)
 end
 
 -- What a pack gives.

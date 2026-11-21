@@ -35,6 +35,10 @@ local camPos, camLook = nil, nil
 local seed = math.random() * 1000
 local pointCam = nil -- { focus, untilT, duration, yaw }
 
+-- A shot someone else directs for a while (EntranceController: a rival's entrance): a function of
+-- os.clock() giving pos, look, fov and whether to cut there at once; nil hands the camera back.
+CameraController.override = nil
+
 function CameraController.shake(amount)
 	trauma = math.min(1, trauma + amount * (State.settings.shake or 1))
 end
@@ -186,7 +190,16 @@ local function update(dt)
 	local now = os.clock()
 	local pos, look, fov
 	local zoomedOut = (State.watching() and not State.settings.followCam) or preview
-	if pointCam and pointCam.target and now < pointCam.untilT and State.watching() then
+	local cut = false
+	if CameraController.override then
+		local ok, p, l, f, c = pcall(CameraController.override, now)
+		if ok and p then
+			pos, look, fov, cut = p, l, f, c
+		end
+	end
+	if pos then
+		fovKick = 0
+	elseif pointCam and pointCam.target and now < pointCam.untilT and State.watching() then
 		if pointCam.landing and now < pointCam.landingUntil then
 			-- the score blast first, where the point landed (VFXController's celebrate)
 			local f = pointCam.landing
@@ -210,7 +223,7 @@ local function update(dt)
 	if pointCam and now < pointCam.untilT then
 		speed = 3.5
 	end
-	if not camPos then
+	if not camPos or cut then
 		camPos, camLook = pos, look
 	else
 		camPos = camPos:Lerp(pos, 1 - math.exp(-speed * dt))

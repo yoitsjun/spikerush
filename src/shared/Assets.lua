@@ -128,6 +128,9 @@ Assets.Sounds = {
 	FeralFull = "", -- Feral Leap: the charge is full (let go now)
 	FeralLeap = "", -- Feral Leap: the leap off the floor (louder the fuller the charge)
 	Bloodlust = "9116292530", -- Valen's Bloodlust (Q): "Lion Roar Beast Snarl 5" (Pro Sound Effects)
+	DragonRoar = "122225901664901", -- Kuro's Dragon Spike: the dragon's roar (Creator Store)
+	DragonFire = "85699884807201", -- Kuro's fire blast off the hand (Creator Store)
+	StarLight = "139330213484352", -- Byeol's Falling Star lights: "SE_DEMO_GET_STAR_3" (antsIZah)
 	-- the court moments' (CourtMoments; Creator Store, 2026-10-29: the owner, "put some sfx on them.
 	-- they feel a bit drab")
 	WhaleCall = "3595240019", -- "Haunting Call of a Humpback Whale"
@@ -183,6 +186,17 @@ Assets.Sounds = {
 	RecruitRevealGold = "", -- a Legendary or Mythic card revealed (borrows CrowdCheer)
 	RecruitCharge = "", -- the S cinematic winding up (borrows Boom)
 	RecruitSpike = "", -- the S cinematic's spike (borrows SpikeHeavy)
+	-- the Winter collab's (the owner, 2026-11-16: "get some proper sound design, like christmas
+	-- themed"; Creator Store audio, measured in a playtest: Assets.SoundFiles)
+	WinterCardFlip = "119528197720595", -- a playing card flipped: a Christmas card turning over (WinterCards)
+	WinterBells = "116968929570638", -- a short bright bell jingle: over the card's flip, the Winter window opening
+	WinterJingle = "9113422418", -- Pro Sound Effects, a jingle-and-ring of bells: a Candy Cane point's +2
+	WinterGift = "9116394876", -- Pro Sound Effects, a soft cluster of chiming hits: Gift Exchange's borrowed abilities
+	WinterHoHo = "121307115107222", -- Santa's "Ho, ho, ho!": a Jackpot! card, Kuro's sleigh
+	WinterWin = "1842093916", -- APM "Jingle Bells (sting)": a Winter Match won
+	WinterSleigh = "8239756322", -- sleigh bells ringing, steady: a sleigh flying across
+	WinterIce = "83585506136398", -- ice cracking and breaking: the sky cracking into icicles
+	WinterSparkle = "1841173603", -- APM "Magical (j)", a rising sparkling figure: a Christmas tree growing
 }
 
 -- Per upload, keyed by asset id (these belong to the file, whichever slot plays it), both
@@ -283,6 +297,16 @@ Assets.SoundFiles = {
 	["102243658312648"] = { gain = 0.5 }, -- SpeedSlam: peak 778
 	["124035544468314"] = { gain = 0.83 }, -- ScoreFire: peak 482
 	-- Parry3, Lightning Bolt and the shockwave boom start at once and peak near 400: as they are
+	-- the Winter collab's (2026-11-16, peak PlaybackLoudness at Volume 0.5 brought to about 300)
+	["119528197720595"] = { start = 0.02, gain = 3.6 }, -- card flip: peak 78
+	["116968929570638"] = { start = 0.0, gain = 0.85 }, -- bell jingle: peak 321
+	["9113422418"] = { start = 0.24, gain = 2.7 }, -- bells jingle and ring: 0.26 s silence, peak 111
+	["9116394876"] = { start = 0.0, gain = 7.5 }, -- chiming hits: peak 35 (a quiet file)
+	["121307115107222"] = { start = 0.04, gain = 1.6 }, -- ho ho ho: peak 190
+	["1842093916"] = { start = 0.18, gain = 1.05 }, -- Jingle Bells sting: 0.21 s in, peak 282
+	["8239756322"] = { start = 0.0, gain = 1.5 }, -- sleigh bells: peak 192
+	["83585506136398"] = { start = 0.27, gain = 1.6 }, -- ice cracking: 0.3 s silence, peak 188
+	["1841173603"] = { start = 0.1, gain = 1.4 }, -- rising sparkle: peak 207
 }
 
 -- The per-upload entry for a sound value (an id in any form, or a Sound's SoundId), or nil.
@@ -349,6 +373,13 @@ Assets.Images = {
 	AbilitySkyward = "124450783350830", -- our own: climbing chevrons (assets/ui, tools/generate_ui_icons.py)
 	AbilityTigerClaw = "10707998279", -- decal 10707998291, a white tiger's head (Creator Store)
 	AbilityFever = "13954029980", -- decal 13954030020, a snowflake (Creator Store)
+	AbilityEnflamed = "74912170368284", -- our own: a roaring dragon's head, a mane of flame (decal 74429107187750; assets/icon, tools/generate_ability_icons.py)
+	-- the Winter collab's own (assets/ui, tools/generate_winter_icons.py; tools/winter_manifest.json)
+	AbilityJoker = "83270353215459", -- our own: a playing card with a jester's cap cut out of it, a second card behind (decal 127397131164566)
+	IconSnowflake = "138369302391625", -- our own: a six-armed snowflake, the Winter event's currency (decal 113672591733367)
+	AbilityFallingStar = "138229616616420", -- our own: a star on three streaks (decal 99761296818435; assets/icon, tools/generate_ability_icons.py)
+	KuroMeterTop = "129356055360995", -- our own: Kuro's meter, the dragon's head and top jaw, hinge at the centre (assets/icon, tools/generate_ability_icons.py)
+	KuroMeterJaw = "89726721637837", -- and its bottom jaw
 	AbilityCorona = "139313716822338", -- our own: a flaring sun (assets/ui, tools/generate_ui_icons.py)
 	AbilitySquall = "113680494267156", -- our own white tornado (assets/icon/AbilitySquall.png)
 	AbilityFeatherfall = "129198567408182", -- our own white feather (assets/icon/AbilityFeatherfall.png)
@@ -423,12 +454,14 @@ Assets.Images = {
 	MatchBeach = "86703389225100", -- Sunset Beach
 	MatchRooftop = "116429204441166", -- Night Rooftop
 	MatchNationals = "109844305626417", -- Nationals
+	MatchWinter = "108611300598976", -- Snowfall Lodge (the Winter Rally card; shot in Studio 2026-11-18)
 	MatchColosseum = "108168199371323", -- Colosseum
 	MatchPractice = "127970476168767", -- the club room's ball cart
 	-- Decorate's tiles: each Home room rendered in Studio (assets/rooms), Room<Config.Rooms key>
 	RoomClubhouse = "118243753679709", -- the Rush Arena (assets/rooms/Clubhouse.png, shot in Studio 2026-10-28)
 	RoomNeon = "115001179141888", -- the Neon Court (assets/rooms/Neon.png)
 	RoomHaunted = "130995790024847",
+	RoomChristmas = "137291335849124", -- Christmas Eve (assets/rooms/Christmas.png, shot in Studio 2026-11-17; uploaded as the group)
 }
 
 -- Effect textures (image ids) for the particle kits in Fx.lua: anime sprites and flipbooks, all
@@ -447,6 +480,10 @@ Assets.Fx = {
 	Slash = "77282827501139", -- a crescent swoosh (our own, tools/generate_fx_own.py)
 	Glow = "110774508883625", -- a soft white glow (our own, tools/generate_fx_own.py)
 	Dot = "125870173557967", -- a soft dot, embers (our own, tools/generate_fx_own.py)
+	-- the Winter collab's particles (our own, tools/generate_winter_icons.py): the event's snowflake
+	-- (the same picture as Images.IconSnowflake) and an icicle, point up
+	Snowflake = "138369302391625",
+	Icicle = "114394888060607",
 	Specks = "74137990865897", -- scattered star specks (our own, tools/generate_fx_own.py)
 	Smoke = "100136475024282", -- 4x4: cel-shaded smoke puffs (our own, tools/generate_fx_own.py)
 	GroundWave = "118536844661487", -- a radial shock disc, laid on the floor (our own, tools/generate_fx_own.py)
@@ -487,6 +524,12 @@ Assets.Fx = {
 	BatFlap = "127489609038048", -- a bat's wingbeat, a 2x2 flipbook played on a loop (Bat Swarm)
 	InkSplat = "110148383136194", -- a splash of ink with flung streaks
 	CandyCorn = "106176482222720", -- a candy corn in its own colours (not tinted)
+	-- the advent calendar's trails (tools/generate_advent_textures.py, the PNGs in assets/fx/winter;
+	-- uploaded as the group, tools/advent_manifest.json), in their own colours (not tinted)
+	HollyLeaf = "70389536169395",
+	CandyCane = "83036405758495",
+	GingerMan = "81088126285468",
+	Bell = "92280382147158",
 }
 
 -- The ball skins' textures (tools/generate_ball_skins.py, the PNGs in assets/balls): equirectangular
@@ -504,6 +547,17 @@ Assets.BallSkins = {
 	-- as Jun Games Production on 2026-10-28
 	Pumpkin = "100236614421455",
 	WitchHat = "135830846515653",
+	-- the Winter collab's (assets/balls, tools/generate_winter_balls.py; uploaded as the group,
+	-- tools/winter_manifest.json)
+	Snowflake = "106436610911989",
+	Ornament = "102032196124731",
+	Snowball = "110019637432951",
+	Peppermint = "127803165318608",
+	Gift = "130157593930503",
+	-- the advent calendar's (tools/generate_advent_textures.py; tools/advent_manifest.json)
+	Gingerbread = "84204022643130",
+	Pudding = "70481855931484",
+	Wreath = "90607083579958",
 }
 
 -- Font families (a FontFace family: rbxasset://fonts/families/<Name>.json, or a Creator Store

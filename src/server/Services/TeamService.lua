@@ -17,6 +17,8 @@ local HitLogic = require(Shared.HitLogic)
 local Cups = require(Shared.Cups)
 local Halloween = require(Shared.Halloween)
 local Roster = require(Shared.Roster)
+local Story = require(Shared.Story)
+local Winter = require(Shared.Winter)
 local Lobbies = require(Shared.Lobbies)
 local Net = require(Shared.Net)
 local Util = require(Shared.Util)
@@ -41,6 +43,8 @@ TeamService.rallyBoost = { Home = 0, Away = 0 } -- Rally Cry's boost (its caller
 TeamService.dictateSteal = { Home = 0, Away = 0 } -- and the Dictate's steal
 TeamService.chain = { Home = 0, Away = 0 } -- Chain Reaction: the team's explosions this rally
 TeamService.event = nil -- the Halloween Match's run while one plays (MatchService): { hands, ai, ... }
+TeamService.story = nil -- the story stage while one plays (MatchService): its bots are the story's own faces
+TeamService.winter = nil -- a Winter Match's difficulty key while one plays (MatchService): Jaja's strength across the net
 
 local botCounter = 0
 local usedNames = {}
@@ -180,19 +184,9 @@ end
 -- A roster character for a bot: that role, the tier nearest the bot level (within two steps),
 -- not already on that team.
 local function rosterFor(tier, role, team)
-	local want = role == "Solo" and "WS" or role
-	local ti = Characters.tierIndex(tier) or 11
-	local best, bestD = {}, 3
-	for _, c in ipairs(Roster) do
-		if c.Role == want and not usedChars[team][c.Id] and not reservedChars[team][c.Id] then
-			local d = math.abs((Characters.tierIndex(c.Tier) or 1) - ti)
-			if d < bestD then
-				best, bestD = { c }, d
-			elseif d == bestD then
-				table.insert(best, c)
-			end
-		end
-	end
+	local best = Characters.botPool(Roster, tier, role, function(c)
+		return usedChars[team][c.Id] or reservedChars[team][c.Id]
+	end)
 	if #best == 0 then
 		return nil
 	end
@@ -340,10 +334,17 @@ function TeamService.applyToModel(e)
 	model:SetAttribute("Clawed", e.clawedBy)
 	model:SetAttribute("Fever", e.fever)
 	model:SetAttribute("DiscouragedUntil", e.discouragedUntil)
+	model:SetAttribute("Mood", e.mood)
+	model:SetAttribute("MoodUntil", e.moodUntil)
+	model:SetAttribute("BurnUntil", e.burnUntil)
+	model:SetAttribute("StarlitUntil", e.starlitUntil)
 	if e.player then
 		e.player:SetAttribute("Clawed", e.clawedBy)
 		e.player:SetAttribute("Fever", e.fever)
 		e.player:SetAttribute("DiscouragedUntil", e.discouragedUntil)
+		e.player:SetAttribute("Mood", e.mood)
+		e.player:SetAttribute("MoodUntil", e.moodUntil)
+		e.player:SetAttribute("StarlitUntil", e.starlitUntil)
 	end
 	if e.player then
 		e.player:SetAttribute("Hex", e.hex ~= nil and e.hex ~= "" and e.hex or nil)
@@ -423,8 +424,11 @@ function TeamService.boostCtx(e, t)
 		coronaStacks = TeamService.has(e, "Corona") and (e.coronaStacks or 0) or nil,
 		squallOn = TeamService.has(e, "Squall") and TeamService.windowOf(e, "Squall") >= now or nil,
 		feverOn = TeamService.has(e, "Fever") and TeamService.windowOf(e, "Fever") >= now or nil,
+		joker = TeamService.has(e, "Joker") and e.joker or nil, -- (his card this rally: Jackpot!'s stats)
 		clawedBy = e.clawedBy, -- (Tiger Claw's mark: a lower jump)
 		discouraged = (e.discouragedUntil or -1) >= now or nil,
+		mood = (e.moodUntil or -1) >= now and e.mood or nil,
+		starlit = (e.starlitUntil or -1) >= now or nil,
 		fierce = TeamService.has(e, "TigerClaw") and TeamService.fierceOn(e) or nil,
 		bloodlust = TeamService.has(e, "Feral") and TeamService.windowOf(e, "Feral") >= now or nil,
 		breakLevel = e.breakLevel, -- (its own ability's)
@@ -586,18 +590,113 @@ function TeamService.setClaw(e, byId)
 end
 
 -- Discouraged (Tiger Claw, RAWR!): every stat down for a while.
-function TeamService.discourage(e)
+-- secs: how long (default Tiger Claw's); burn: Kuro's Inferno, the same stats with flames on them.
+function TeamService.discourage(e, secs, burn)
 	local T = Config.Abilities.TigerClaw
-	local untilT = Util.now() + T.DiscouragedSecs
-	e.discouragedUntil = untilT
+	secs = secs or T.DiscouragedSecs
+	local untilT = Util.now() + secs
+	-- (a shorter one never cuts a longer one short)
+	e.discouragedUntil = math.max(e.discouragedUntil or -1, untilT)
+	untilT = e.discouragedUntil
+	if burn then
+		e.burnUntil = untilT
+	end
+	e.mood, e.moodUntil = nil, nil -- (one mood at a time)
 	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
 		if inst then
+			inst:SetAttribute("Mood", nil)
+			inst:SetAttribute("MoodUntil", nil)
 			inst:SetAttribute("DiscouragedUntil", untilT)
+			if burn then
+				inst:SetAttribute("BurnUntil", untilT)
+			end
 		end
 	end
 	refreshBoosts(e.team)
-	task.delay(T.DiscouragedSecs + 0.05, function()
+	task.delay(math.max(0, untilT - Util.now()) + 0.05, function()
 		if e.discouragedUntil == untilT then
+			refreshBoosts(e.team)
+		end
+	end)
+end
+
+-- Moods (Config.Moods): this one takes over from whatever mood they're in, for Secs. A burn isn't a
+-- mood: it holds until it's out.
+function TeamService.setMood(e, name)
+	local secs = Config.Moods.Secs
+	if (e.burnUntil or -1) >= Util.now() then
+		return
+	end
+	if name == "Discouraged" then
+		TeamService.discourage(e, secs)
+		return
+	end
+	local untilT = Util.now() + secs
+	e.mood, e.moodUntil, e.discouragedUntil = name, untilT, nil
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("Mood", name)
+			inst:SetAttribute("MoodUntil", untilT)
+			inst:SetAttribute("DiscouragedUntil", nil)
+		end
+	end
+	refreshBoosts(e.team)
+	task.delay(secs + 0.05, function()
+		if e.moodUntil == untilT then
+			e.mood, e.moodUntil = nil, nil
+			for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+				if inst then
+					inst:SetAttribute("Mood", nil)
+					inst:SetAttribute("MoodUntil", nil)
+				end
+			end
+			refreshBoosts(e.team)
+		end
+	end)
+end
+
+function TeamService.moodOf(e)
+	local now = Util.now()
+	if (e.moodUntil or -1) >= now then
+		return e.mood
+	end
+	return (e.discouragedUntil or -1) >= now and "Discouraged" or nil
+end
+
+-- A timeout resets everyone's mood (a burn burns on).
+function TeamService.clearMoods()
+	local now = Util.now()
+	for _, e in pairs(TeamService.entities) do
+		e.idlePoints = 0
+		if TeamService.moodOf(e) and (e.burnUntil or -1) < now then
+			e.mood, e.moodUntil, e.discouragedUntil = nil, nil, nil
+			for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+				if inst then
+					inst:SetAttribute("Mood", nil)
+					inst:SetAttribute("MoodUntil", nil)
+					inst:SetAttribute("DiscouragedUntil", nil)
+				end
+			end
+		end
+	end
+	for _, team in ipairs(Config.TeamOrder) do
+		refreshBoosts(team)
+	end
+end
+
+-- Starlit (Falling Star): this hitter met the star.
+function TeamService.starlit(e)
+	local secs = Config.Abilities.FallingStar.StarlitSecs
+	local untilT = Util.now() + secs
+	e.starlitUntil = untilT
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("StarlitUntil", untilT)
+		end
+	end
+	refreshBoosts(e.team)
+	task.delay(secs + 0.05, function()
+		if e.starlitUntil == untilT then
 			refreshBoosts(e.team)
 		end
 	end)
@@ -623,6 +722,83 @@ function TeamService.rawr()
 		end
 	end
 	return hit
+end
+
+-- Joker's card (Config.Abilities.Joker): dealt to every Joker on court as each rally starts, and
+-- kept until the next one (the "Joker" attribute: his own client predicts his spikes from it,
+-- every HUD shows it, and the throw plays off the fx). Jackpot!'s stats come and go with it.
+local jokerRng = Random.new()
+function TeamService.setJoker(e, key)
+	e.joker = key
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("Joker", key)
+		end
+	end
+end
+
+-- Sleight of Hand: the ability he borrows this rally, stacked beside his own like a Colosseum
+-- ability card (e.extraAbilities; the last rally's comes off first). "Abilities" carries it to
+-- every client (his own predicts with it, the HUD and the auras read it), "JokerBorrow" names it.
+function TeamService.setBorrowed(e, name)
+	local extras = {}
+	for _, a in ipairs(e.extraAbilities or {}) do
+		if not (e.borrowed and e.borrowedAdded and a == e.borrowed) then
+			table.insert(extras, a)
+		end
+	end
+	e.borrowed, e.borrowedAdded = name, false
+	if name and not table.find(extras, name) and name ~= e.ability then
+		table.insert(extras, name)
+		e.borrowedAdded = true
+	end
+	TeamService.setAbilities(e, extras)
+	local enc = Characters.encodeAbilities(e.abilities)
+	for _, inst in ipairs({ TeamService.getModel(e) or false, e.player or false }) do
+		if inst then
+			inst:SetAttribute("Abilities", enc)
+			inst:SetAttribute("JokerBorrow", name)
+		end
+	end
+end
+
+function TeamService.dealJoker()
+	local teams = {}
+	for _, e in pairs(TeamService.entities) do
+		if e.ability == "Joker" then
+			TeamService.setBorrowed(e, HitLogic.jokerBorrow(jokerRng:NextNumber()))
+		end
+		if TeamService.has(e, "Joker") then
+			TeamService.setJoker(e, HitLogic.jokerRoll(jokerRng:NextNumber()))
+			reg.HitService.fx(e.id, "Ability", "Joker")
+			teams[e.team] = true
+		elseif e.joker then
+			TeamService.setJoker(e, nil)
+			teams[e.team] = true
+		end
+	end
+	for team in pairs(teams) do
+		TeamService.refreshBoosts(team)
+	end
+end
+
+-- A Winter Match's Gift Exchange (Config.Winter.Cards' Gift): `on`, everyone who isn't a Joker
+-- borrows a random ability for the rally (Sleight of Hand's pool, stacked the same way); off, the
+-- last one's come back. Either way every stat is worked out again for the card's modifiers (its
+-- Jump and Speed: MatchService.dealWinterCard has just set them).
+function TeamService.giftAll(on)
+	for _, e in pairs(TeamService.entities) do
+		if e.ability ~= "Joker" then
+			if on then
+				TeamService.setBorrowed(e, HitLogic.jokerBorrow(jokerRng:NextNumber()))
+			elseif e.borrowed then
+				TeamService.setBorrowed(e, nil)
+			end
+		end
+	end
+	for _, team in ipairs(Config.TeamOrder) do
+		TeamService.refreshBoosts(team)
+	end
 end
 
 -- Thunder's Static Charge: his thunder spikes this rally (0..StaticMax), for every client's HUD.
@@ -865,7 +1041,9 @@ local function addBot(team, index, role, captain, pickId, picker)
 		tier, build = Characters.fromRoster(c, "max")
 	end
 	local fromPick = false
-	if captain and not c then
+	-- (a Winter Match's teammates are bots of its difficulty's tier, not your own saved team: the
+	-- owner, 2026-11-18, "the btier event should probably give b tier characters")
+	if captain and not c and not TeamService.winter then
 		c, tier, build, brk = reg.ProfileService.teamPick(captain, TeamService.teamSize, role)
 		if c and (usedChars[team][c.Id] or reservedChars[team][c.Id]) then
 			c = nil -- already on the court (the captain plays it themselves), or the host's pick
@@ -878,19 +1056,63 @@ local function addBot(team, index, role, captain, pickId, picker)
 			tier, build = Characters.fromRoster(c, "max")
 		end
 	end
+	-- the story's own teammates grow through the chapter (Config.Story's MateBreaks, MateAbilities,
+	-- MateWeak): more stats, and an ability of their own played below its real strength
+	local storyAbility, storyWeak = nil, nil
+	local st = TeamService.story
+	if st and c and c == picked and table.find(st.Mates or {}, c.Id) then
+		if st.MateTier and Characters.isTier(st.MateTier) then
+			-- (a tier of their own: that tier's stats for their role, at their own height)
+			tier = st.MateTier
+			build = Characters.sanitize(tier, Characters.template(tier, c.Role, c.Height))
+		elseif st.MateBreaks then
+			tier, build = Characters.fromRoster(c, "max", st.MateBreaks)
+		end
+		storyAbility = st.MateAbilities and st.MateAbilities[c.Id] or nil
+		storyWeak = st.MateWeak
+	end
+	-- one of the other team held back (Config.Story's FoeHold: YeJun's first match): stats part
+	-- of the way to maxed (Story.heldBuild), and no active popped (e.noActive, BotService)
+	local hold = st and c and c == picked and st.FoeHold and st.FoeHold[c.Id] or nil
+	-- the rest of the other team isn't maxed either: it grows through the chapter (Story.foeLevel),
+	-- and mistimes a share of its block jumps (e.blockOk, BotService; your own side blocks as ever)
+	local foe = st and c and c == picked and table.find(st.Foes or {}, c.Id) ~= nil and not table.find(st.Mates or {}, c.Id)
+	if hold and hold.Level then
+		tier, build = Story.heldBuild(c, hold.Level)
+	elseif foe then
+		tier, build = Story.heldBuild(c, Story.foeLevel(st))
+	end
+	-- a Winter Match's Jaja across the net (TeamService.winter: the difficulty's key): fresh on
+	-- Normal, maxed on Blizzard (Config.Winter's FoeLevel), under his own name
+	local winterFoe = TeamService.winter and c and c == picked and team == "Away" and Winter.foeLevel(TeamService.winter, c.Id) or nil
+	if winterFoe then
+		tier, build = Story.heldBuild(c, winterFoe)
+	end
 	if c then
 		usedChars[team][c.Id] = true
-		e = newEntity(id, c.Name, true, nil, team, tier, c.Ability, build)
+		e = newEntity(id, c.Name, true, nil, team, tier, storyAbility or c.Ability, build)
 		e.charId, e.charName = c.Id, c.Name
-		e.breakLevel = brk or 0 -- (the captain's own build of it, breakthroughs too)
+		e.breakLevel = storyAbility and (storyWeak or 0) or brk or 0 -- (the captain's own build of it, breakthroughs too; a story teammate's ability its weaker level)
 		e.skinOwner = (fromPick and captain) or (c == picked and picker) or nil -- (and the captain's or host's skin on it)
+		e.noActive = hold and hold.NoActive or nil
+		e.blockOk = foe and Story.foeBlock(st) or nil
 	else
 		local build = Characters.template(TeamService.botTier, role, Characters.rollHeight(Random.new()))
 		e = newEntity(id, pickBotName(), true, nil, team, TeamService.botTier, nil, build)
 		e.charName = e.name
 	end
 	-- the bot wears a friend's avatar and name (the character name shows under it)
-	local friend = reg.FriendService.take()
+	-- (not in a story stage: its bots are the story's characters, under their own names and looks)
+	local friend = not TeamService.story and not winterFoe and reg.FriendService.take() or nil
+	-- (only the story's own picks wear its looks: your own team, filling an unlocked stage, plays as itself)
+	if TeamService.story and e.charId and c == picked then
+		e.storyLook = e.charId -- (BotService dresses it: StoryLook)
+		-- and goes by the story's name for it (Config.Story.Cast: Rui, Kanta, Ciciko...)
+		local row = Config.Story.Cast[e.charId]
+		if row and row.Name then
+			e.name, e.charName = row.Name, row.Name
+		end
+	end
 	if friend then
 		e.friendId = friend.id
 		e.name = friend.name
@@ -1260,6 +1482,7 @@ local function standIn(e, index)
 	local plr = e.player
 	local bot = newEntity(id, e.name .. " (AI)", true, nil, e.team, e.tier, e.ability, e.build)
 	TeamService.setAbilities(bot, e.extraAbilities) -- (the Halloween Match's ability cards go with the character)
+	bot.borrowed, bot.borrowedAdded, bot.joker = e.borrowed, e.borrowedAdded, e.joker -- (and Joker's rally: his borrowed ability and card)
 	bot.charId, bot.charName = e.charId, e.charName
 	bot.role = e.role
 	bot.stats = e.stats

@@ -505,11 +505,56 @@ end
 
 -- A fresh piece of a skin for a picture of it (the skin card, the recruit): the Reaper's scythe,
 -- the Fallen Angel's wing (spread).
+-- The Christmas skins' (WinterSkins): Sleigh Ride a little sleigh, Twinkle Lights a string of
+-- bulbs, Star Topper a gold star (the owner, 2026-11-17: "all the skins display the scythe": only
+-- the Reaper's is a scythe).
+local function winterPiece(key)
+	local m = Instance.new("Model")
+	m.Name = "SkinPiece"
+	local function p(props)
+		local part = Instance.new("Part")
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CastShadow = false
+		part.TopSurface = Enum.SurfaceType.Smooth
+		part.BottomSurface = Enum.SurfaceType.Smooth
+		for k, v in pairs(props) do
+			part[k] = v
+		end
+		part.Parent = m
+		return part
+	end
+	if key == "SleighRide" and mods and mods.WinterSkins then
+		local sl = mods.WinterSkins.buildSleigh(0.12, m)
+		return sl and m or nil
+	elseif key == "TwinkleLights" then
+		local colors = { Color3.fromRGB(255, 70, 70), Color3.fromRGB(90, 230, 120), Color3.fromRGB(255, 206, 80), Color3.fromRGB(90, 170, 255) }
+		for i = 0, 6 do
+			local z = (i - 3) * 0.55
+			local y = -math.cos((i - 3) / 3 * 1.2) * 0.35
+			p({ Shape = Enum.PartType.Ball, Size = Vector3.new(0.32, 0.32, 0.32), CFrame = CFrame.new(0, y - 0.22, z), Color = colors[i % #colors + 1], Material = Enum.Material.Neon })
+			if i < 6 then
+				p({ Size = Vector3.new(0.05, 0.05, 0.6), CFrame = CFrame.new(0, y, z + 0.27), Color = Color3.fromRGB(20, 60, 30) })
+			end
+		end
+		return m
+	elseif key == "StarTopper" then
+		p({ Size = Vector3.new(0.15, 1.2, 1.2), CFrame = CFrame.Angles(math.rad(45), 0, 0), Color = Color3.fromRGB(255, 206, 70), Material = Enum.Material.Neon })
+		p({ Size = Vector3.new(0.14, 0.9, 0.9), CFrame = CFrame.new(), Color = Color3.fromRGB(255, 240, 170), Material = Enum.Material.Neon })
+		return m
+	end
+	m:Destroy()
+	return nil
+end
+
 function Skins.newPiece(key)
 	if key == "FallenAngel" then
 		return wing(1)
+	elseif key == "Reaper" or key == nil then
+		return scythe()
 	end
-	return scythe()
+	return winterPiece(key)
 end
 
 -- A fresh scythe (coloured, its pivot at the grip), for a picture of it: the skin card's
@@ -556,7 +601,8 @@ function Skins.prop(model, key)
 		end
 		return
 	end
-	if not key then
+	-- (only the Reaper holds the scythe: every other skin used to get one too)
+	if key ~= "Reaper" then
 		return
 	end
 	local at = Skins.holdAt(model)

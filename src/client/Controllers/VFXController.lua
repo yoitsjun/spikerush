@@ -1683,6 +1683,12 @@ local JUMP_COLORS = {
 	Phoenix = Color3.fromRGB(60, 200, 255),
 	Angel = Color3.fromRGB(255, 236, 190),
 	Underworld = Color3.fromRGB(150, 70, 255),
+	-- the Winter collab's
+	Snowburst = Color3.fromRGB(200, 236, 255),
+	Snowman = Color3.fromRGB(240, 248, 255),
+	Present = Color3.fromRGB(255, 90, 100),
+	Tree = Color3.fromRGB(255, 214, 110),
+	JingleBells = Color3.fromRGB(255, 206, 70),
 }
 local RAINBOW = { Color3.fromRGB(255, 60, 70), Color3.fromRGB(255, 160, 40), Color3.fromRGB(255, 235, 60), Color3.fromRGB(80, 230, 110), Color3.fromRGB(60, 170, 255), Color3.fromRGB(170, 90, 255) }
 
@@ -1836,6 +1842,64 @@ local function jumpMeshes(foot, key, tint, k, model)
 		meshFx("FX_Dome", floor, c, 0.2 * k, 1.0 * k, 0.7, { alpha = 0.4, grow = 0.18, glow = 1.9 })
 		meshFx("FX_Ring", floor, Color3.fromRGB(255, 210, 70), 0.3 * k, 2.0 * k, 0.6, { glow = 2 })
 		task.delay(0.05, meshFx, "FX_Ring", floor, c, 0.2 * k, 1.4 * k, 0.5, { glow = 2 })
+	elseif key == "Snowburst" or key == "Snowman" or key == "Present" or key == "Tree" or key == "JingleBells" then
+		-- the Winter collab's (the owner, 2026-11-15: "christmas cosmetics, a snowflake ball, snow jumps...
+		-- idk make a lot"), each its own shape, modelled in Blender with its colours painted on
+		-- (art/WinterFX.blend, assets/fx/winter/WinterFxMeshes.fbx; FxMeshes' FX_Snowflake, FX_Snowman,
+		-- FX_Gift, FX_GiftLid, FX_Tree). They stand a little behind you (further from the side camera),
+		-- facing it, so you stay in view
+		local WHITE_SNOW = Color3.fromRGB(246, 251, 255)
+		local stand = CFrame.new(foot.X + 1.6 * k, 0.05, foot.Z) * CFrame.Angles(0, math.rad(-90), 0)
+		local painted = { plain = true, base = true, grow = 0.16, hold = 0.85, ease = Enum.EasingStyle.Back }
+		if key == "Snowburst" then
+			-- Snow Burst: a great six-armed snowflake of light opens on the floor under you, turning,
+			-- a second smaller one inside it turning the other way, and the snow flies up
+			meshFx("FX_Snowflake", floor, Color3.fromRGB(190, 232, 255), 0.25 * k, 1.7 * k, 0.9, { base = true, spin = 70, grow = 0.3, hold = 0.35 })
+			task.delay(0.06, meshFx, "FX_Snowflake", floor * CFrame.Angles(0, math.rad(30), 0), WHITE_SNOW, 0.15 * k, 0.95 * k, 0.8, { base = true, spin = -110, grow = 0.25, hold = 0.3 })
+			meshFx("FX_Ring", floor, Color3.fromRGB(214, 240, 255), 0.3 * k, 1.9 * k, 0.5, { alpha = 0.15 })
+			smokePuffs(foot, 5, k, WHITE_SNOW)
+			-- and a ring of ice crystals erupts round you and shatters (WinterSkins.jump)
+			if mods and mods.WinterSkins then
+				mods.WinterSkins.jump("Snowburst", foot, k)
+			end
+		elseif (key == "Snowman" or key == "Present" or key == "Tree" or key == "JingleBells") and mods and mods.WinterSkins and mods.WinterSkins.jump(key, foot, k) then
+			-- (the owner, 2026-11-16: "christmas tree jump and all them seem a little lazy": each is a
+			-- little scene now, WinterSkins.jump; here, the floor under it)
+			meshFx("FX_Ring", floor, (key == "Tree" or key == "JingleBells") and Color3.fromRGB(255, 220, 120) or (key == "Present" and Color3.fromRGB(255, 120, 120) or WHITE_SNOW), 0.3 * k, 1.8 * k, 0.5, { alpha = 0.15, glow = 1.4 })
+			smokePuffs(foot, 4, k, WHITE_SNOW)
+		elseif key == "Snowman" then
+			-- Snowman: he pops up out of the floor behind you (hat, scarf, carrot nose, stick arms),
+			-- stands as you jump, then bursts back into snow
+			meshFx("FX_Snowman", stand, Color3.new(1, 1, 1), 0.08, 1.05 * k, 1.2, painted)
+			meshFx("FX_Ring", floor, WHITE_SNOW, 0.3 * k, 1.5 * k, 0.45, { alpha = 0.2 })
+			smokePuffs(foot, 5, k, WHITE_SNOW)
+			task.delay(1.0, function()
+				smokePuffs(Vector3.new(foot.X + 1.6 * k, 2.4 * k, foot.Z), 7, k, WHITE_SNOW)
+				Fx.play("JumpSnowburst", Vector3.new(foot.X + 1.6 * k, 2.2 * k, foot.Z), { scale = 0.6 * k })
+			end)
+		elseif key == "Present" then
+			-- Present: a wrapped box lands behind you, its lid flies off spinning, and stars, snow and
+			-- red and green sparks shoot out of it
+			meshFx("FX_Gift", stand, Color3.new(1, 1, 1), 0.1, 1.15 * k, 1.1, painted)
+			local top = stand * CFrame.new(0, 1.92 * 1.15 * k, 0)
+			task.delay(0.12, meshFx, "FX_GiftLid", top, Color3.new(1, 1, 1), 1.0 * k, 1.15 * k, 0.9, { plain = true, base = true, rise = 9 * k, spin = 260, grow = 0.55, hold = 0.45 })
+			task.delay(0.14, Fx.play, "JumpPresent", Vector3.new(foot.X + 1.6 * k, 2.4 * k, foot.Z), { scale = k })
+			meshFx("FX_Ring", floor, Color3.fromRGB(255, 120, 120), 0.3 * k, 1.5 * k, 0.45, { alpha = 0.2 })
+		elseif key == "JingleBells" then
+			-- (too far off to be seen: the bells are WinterSkins' alone, nothing here)
+			smokePuffs(foot, 3, k, WHITE_SNOW)
+		else
+			-- Christmas Tree: a tree shoots up behind you, baubles on every tier and a gold star on top
+			-- that flares; a ring of gold on the floor, snow shaken off the branches
+			meshFx("FX_Tree", stand, Color3.new(1, 1, 1), 0.06, 1.25 * k, 1.35, { plain = true, base = true, grow = 0.22, hold = 0.95, ease = Enum.EasingStyle.Back })
+			local starAt = Vector3.new(foot.X + 1.6 * k, 5.25 * 1.25 * k, foot.Z)
+			task.delay(0.2, function()
+				Fx.play("Glints", starAt, { color = Color3.fromRGB(255, 226, 130), scale = 1.4 * k })
+				Fx.play("JumpTree", starAt - Vector3.new(0, 2.5 * k, 0), { scale = k })
+			end)
+			meshFx("FX_Ring", floor, Color3.fromRGB(255, 220, 120), 0.3 * k, 2.0 * k, 0.7, { glow = 2 })
+			task.delay(0.06, meshFx, "FX_Ring", floor, Color3.fromRGB(120, 230, 150), 0.2 * k, 1.3 * k, 0.5, { glow = 1.6 })
+		end
 	elseif key == "GraveMist" then
 		HW.graves(foot, k)
 	elseif key == "BatSwarm" then
@@ -1854,7 +1918,9 @@ function VFXController.jumpEffect(foot, key, tint, big, model)
 	local c = JUMP_COLORS[key]
 	jumpMeshes(foot, key, tint, k, model)
 	-- the volume of toon fire, smoke, sparks and crackle (Fx's Jump kits)
-	Fx.play("Jump" .. key, foot + up, { scale = k })
+	if not (key == "Present" or key == "Tree" or key == "JingleBells") then -- (those play theirs where the box and the tree stand: jumpMeshes)
+		Fx.play("Jump" .. key, foot + up, { scale = k })
+	end
 	if key == "Sparks" then
 		shards(foot + up, tint or WHITE, math.floor(16 * k), 60)
 		Fx.play("Glints", foot + up * 1.5, { color = tint or WHITE, scale = k })
@@ -2397,6 +2463,125 @@ local STATUS = {
 -- and the key fires every ready one): `index` is this one's place among them (1 for the first),
 -- and each popup sits that much higher. Without it (the server's, one message per ability) the
 -- ones heard together for a character count up on their own.
+-- Joker's card (Config.Abilities.Joker): as each rally starts he flicks a card up over his head.
+-- It spins on its way up, face hidden, stops face-on to the court camera and shows the rally's
+-- card (the model's "Joker" attribute, written before the fx is sent), with a ring and its name.
+-- Built from a Part and two SurfaceGuis (our own: no image to load).
+function VFXController.jokerThrow(model, hrp, key, up)
+	local J = Config.Abilities.Joker
+	local card = J.Cards[key or ""]
+	if not card then
+		return
+	end
+	local part = Instance.new("Part")
+	part.Name = "JokerCard"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Material = Enum.Material.SmoothPlastic
+	part.Color = Color3.fromRGB(250, 248, 255)
+	part.Size = Vector3.new(2.3, 3.2, 0.08)
+	local function face(normal, bg, edge)
+		local sg = Instance.new("SurfaceGui")
+		sg.Face = normal
+		sg.CanvasSize = Vector2.new(230, 320)
+		sg.LightInfluence = 0
+		sg.Brightness = 1.4
+		sg.Parent = part
+		local f = Instance.new("Frame")
+		f.Size = UDim2.fromScale(1, 1)
+		f.BackgroundColor3 = bg
+		f.BorderSizePixel = 0
+		f.Parent = sg
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 22)
+		corner.Parent = f
+		local st = Instance.new("UIStroke")
+		st.Color = edge
+		st.Thickness = 10
+		st.Parent = f
+		-- a diamond in the middle
+		local d = Instance.new("Frame")
+		d.AnchorPoint = Vector2.new(0.5, 0.5)
+		d.Position = UDim2.fromScale(0.5, 0.44)
+		d.Size = UDim2.fromOffset(104, 104)
+		d.Rotation = 45
+		d.BackgroundColor3 = edge
+		d.BorderSizePixel = 0
+		d.Parent = f
+		return f, d
+	end
+	-- the back: Joker's purple, a white diamond
+	face(Enum.NormalId.Back, J.Color, Color3.fromRGB(250, 248, 255))
+	-- the front: the card's colour, its name
+	local front, diamond = face(Enum.NormalId.Front, Color3.fromRGB(22, 18, 40), card.Color)
+	diamond.BackgroundColor3 = card.Color
+	local name = Instance.new("TextLabel")
+	name.BackgroundTransparency = 1
+	name.AnchorPoint = Vector2.new(0.5, 1)
+	name.Position = UDim2.new(0.5, 0, 1, -18)
+	name.Size = UDim2.new(1, -24, 0, 64)
+	name.FontFace = DISPLAY
+	name.Text = string.upper(card.Name)
+	name.TextScaled = true
+	name.TextColor3 = card.Color
+	name.Parent = front
+	part.Parent = fxFolder
+	if mods and mods.AudioController.hearsMatch() then
+		mods.AudioController.play("Whoosh", { volume = 0.5, speed = 1.5 })
+	end
+	local t0 = os.clock()
+	local RISE, HOLD, OUT = 0.6, 1.1, 0.25
+	local base = hrp.Position + Vector3.new(0, 3.2, 0) + (up or Vector3.zero)
+	local shown = false
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - t0
+		if t >= RISE + HOLD + OUT or not part.Parent then
+			conn:Disconnect()
+			part:Destroy()
+			return
+		end
+		local k = math.min(t / RISE, 1)
+		local ease = 1 - (1 - k) ^ 3
+		local pos = base + Vector3.new(0, 5.2 * ease, 0)
+		-- (the court camera looks along +X: the front, the part's -Z face, ends up toward -X)
+		local spin = (1 - ease) * math.pi * 7
+		local scale = 1
+		if t > RISE then
+			local h = t - RISE
+			scale = 1 + 0.35 * math.max(0, 1 - h / 0.18) -- the reveal's punch
+			if h > HOLD then
+				scale = math.max(0.05, 1 - (h - HOLD) / OUT)
+			end
+			pos = pos + Vector3.new(0, 0.25 * math.sin(h * 3), 0)
+		end
+		part.Size = Vector3.new(2.3 * scale, 3.2 * scale, 0.08)
+		part.CFrame = CFrame.lookAt(pos, pos + Vector3.new(-1, 0, 0)) * CFrame.Angles(0, spin, 0)
+		if t >= RISE and not shown then
+			shown = true
+			ringFx(pos, card.Color, 1.5, card.Stats and 16 or 9, 0.4, 6)
+			if card.Stats then
+				starburst(pos, card.Color, 14)
+			end
+			VFXController.popup(pos + Vector3.new(0, 1.2, 0), card.Name, card.Color, card.Stats and 1.6 or 1.2)
+			-- Sleight of Hand: the ability he borrowed for the rally, named under the card
+			local lent = Config.Abilities[model:GetAttribute("JokerBorrow") or ""]
+			if lent then
+				VFXController.popup(pos + Vector3.new(0, -2.6, 0), "+ " .. lent.Name, lent.Color, 1)
+			end
+			if mods and mods.AudioController.hearsMatch() then
+				mods.AudioController.play("TyrantSnap", { volume = 0.7, speed = key == "Buffoon" and 0.7 or 1.15 })
+				if card.Stats then
+					mods.AudioController.play("StarLight", { volume = 0.8 })
+				end
+			end
+		end
+	end)
+end
+
 function VFXController.ability(entityId, ability, index)
 	local def = Config.Abilities[ability or ""]
 	local model = Util.modelOf(entityId)
@@ -2458,6 +2643,13 @@ function VFXController.ability(entityId, ability, index)
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("CoronaFlare", { volume = 0.9 })
 			mods.AudioController.play("Boom", { volume = 0.35, speed = 1.3 })
+		end
+		if model:GetAttribute("Skin") == "StarTopper" and mods.WinterSkins then
+			-- Star Topper (the Winter collab's Laith): the flare throws ornaments, bells with it
+			mods.WinterSkins.ornaments(pos + Vector3.new(0, 3, 0), 1)
+			if mods.AudioController.hearsMatch() then
+				mods.AudioController.play("WinterBells", { volume = 0.6 })
+			end
 		end
 	elseif ability == "Thunder" then
 		-- Storm Call: bolts crash down round him, a flash and a thunderclap (in his skin's thunder
@@ -2536,18 +2728,37 @@ function VFXController.ability(entityId, ability, index)
 			mods.AudioController.play("TyrantSnap", { volume = 0.9 })
 			mods.AudioController.play("Boom", { volume = 0.4, speed = 0.8 })
 		end
+	elseif ability == "Joker" then
+		-- the rally's card, thrown up over his head
+		VFXController.jokerThrow(model, hrp, model:GetAttribute("Joker"), up)
 	elseif ability == "TigerClaw" then
-		-- RAWR! (the match's first serve): an orange roar off her, their whole team shaken
+		-- RAWR! (the match's first serve): an orange roar off her, their whole team shaken (Candy
+		-- Claw, her Christmas skin: candy red and white, peppermint swirls and snow: WinterSkins)
 		local pos = hrp.Position
-		floorRing(pos, def.Color, 18, 0.7)
-		ringFx(pos + Vector3.new(0, 3, 0), def.Color, 2, 20, 0.5, 9)
-		starburst(pos + Vector3.new(0, 3, 0), def.Color, 12, 16, 0.35)
-		VFXController.popup(pos + Vector3.new(0, 8, 0) + up, "RAWR!", def.Color, 1.8)
+		local candy = model:GetAttribute("Skin") == "CandyClaw" and mods and mods.WinterSkins
+		local col = candy and mods.WinterSkins.CANDY or def.Color
+		floorRing(pos, col, 18, 0.7)
+		ringFx(pos + Vector3.new(0, 3, 0), candy and Color3.new(1, 1, 1) or col, 2, 20, 0.5, 9)
+		starburst(pos + Vector3.new(0, 3, 0), col, 12, 16, 0.35)
+		VFXController.popup(pos + Vector3.new(0, 8, 0) + up, "RAWR!", col, 1.8)
+		if candy then
+			mods.WinterSkins.candyRoar(pos)
+		end
 		if mods and mods.AudioController.hearsMatch() then
 			mods.AudioController.play("Bloodlust", { volume = 0.9 })
 		end
 		if mods and mods.CameraController then
 			mods.CameraController.shake(0.6)
+		end
+	elseif ability == "FallingStar" then
+		-- Falling Star: a star goes up off the setter's hands, and sparks settle round them
+		local pos = hrp.Position
+		floorRing(pos, def.Color, 12, 0.6)
+		starburst(pos + Vector3.new(0, 4, 0), Color3.fromRGB(235, 248, 255), 8)
+		Fx.play("Glints", pos + Vector3.new(0, 6, 0), { color = def.Color, scale = 2 })
+		VFXController.popup(pos + Vector3.new(0, 7, 0) + up, "Falling Star!", def.Color, 1.3)
+		if mods and mods.AudioController.hearsMatch() then
+			mods.AudioController.play("StarLight", { volume = 0.8, speed = 0.8, pos = pos })
 		end
 	elseif ability == "Fever" then
 		-- Fever: an icy shockwave off her, frost at every teammate's feet (the boost is the team's)
@@ -2690,6 +2901,10 @@ local function updateSunTrails(clock)
 				trail.FaceCamera = true
 				trail.LightEmission = 1
 				trail.Color = ColorSequence.new(Color3.fromRGB(255, 255, 250), Color3.fromRGB(255, 236, 190))
+				if model:GetAttribute("Skin") == "StarTopper" then
+					-- Star Topper: a garland, gold, green and red
+					trail.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 226, 120)), ColorSequenceKeypoint.new(0.35, Color3.fromRGB(60, 200, 100)), ColorSequenceKeypoint.new(0.7, Color3.fromRGB(230, 50, 60)), ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 200, 100)) })
+				end
 				trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.7, 0.4), NumberSequenceKeypoint.new(1, 1) })
 				trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
 				trail.Enabled = false
@@ -2860,8 +3075,15 @@ local function updateSunOrbs(clock)
 			local hrp = model and model:FindFirstChild("HumanoidRootPart")
 			local on = hrp ~= nil and HW.has(model, "Corona") and HW.untilOf(model, "Corona") >= clock
 			if on and not sunOrbs[model] then
-				local g, _, flare = sunGui(hrp, 9, hrp)
+				local g, glow, flare = sunGui(hrp, 9, hrp)
 				g.Name = "CoronaOrb"
+				if model:GetAttribute("Skin") == "StarTopper" then
+					-- Star Topper: the sun is the gold star off the top of the tree
+					flare.Image = Assets.id(Assets.Fx.Sparkle) or flare.Image
+					flare.ImageColor3 = Color3.fromRGB(255, 220, 90)
+					flare.Size = UDim2.fromScale(1, 1)
+					glow.ImageColor3 = Color3.fromRGB(255, 214, 90)
+				end
 				sunOrbs[model] = { gui = g, flare = flare }
 			end
 		end
@@ -3845,6 +4067,407 @@ local function leapBurst(model, gauge)
 	end
 end
 
+-- Enflamed Dragon (Kuro). Orange fire on the jump and the spike. The dragon's our own mesh
+-- (FxMeshes.KuroDragon, tools/generate_kuro_dragon.py), the owner's "like sasuke's lightning dragon",
+-- "with fire not lightning": the sky cracks, a huge hollow dragon of burning lines dives through it,
+-- a white flash, and a blast with a column of smoke. Hollow, so the ball still reads through it.
+-- (on the module, not locals: this file is at Lua's 200 local limit)
+VFXController.kuro = {
+	color = Config.Abilities.Enflamed.Color,
+	gold = Color3.fromRGB(255, 204, 40),
+	hot = Color3.fromRGB(255, 186, 84), -- the core of the lines (Neon blooms it well past this)
+	fire = Color3.fromRGB(255, 52, 8), -- and the fire round them
+	head = 40, -- studs the dragon's head is long at full size
+	dive = 0.5, -- seconds from the cloud to the floor
+	turn = CFrame.Angles(0, math.pi, 0), -- (the mesh's nose is its +Z)
+	nose = 0.4966, -- the nose's distance from the mesh's centre, as a share of its length
+	length = 8.427, -- the mesh's length in head lengths
+}
+
+-- Sleigh Ride (the Winter collab's Kuro skin: WinterSkins): whether `model` wears it, and its
+-- ice palette for his fire (in place of color / gold).
+function VFXController.kuro.iceOf(model)
+	return model ~= nil and model:GetAttribute("Skin") == "SleighRide"
+end
+VFXController.kuro.ice = { color = Color3.fromRGB(120, 210, 255), gold = Color3.fromRGB(235, 248, 255) }
+
+function VFXController.kuro.isModel(model)
+	return model ~= nil and (model:GetAttribute("Ability") == "Enflamed" or string.find(model:GetAttribute("Abilities") or "", "Enflamed", 1, true) ~= nil)
+end
+
+-- The jump: a burst at his feet by where the meter stopped, then he draws more flames the higher he
+-- climbs, till he's down. `gauge`: the meter, 0..1.
+function VFXController.kuroLeap(model, gauge)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not hrp or not near(hrp.Position) then
+		return
+	end
+	local zone = HitLogic.enflamedZone(gauge)
+	local power = (zone == "gold" and 1) or (zone == "silver" and 0.55) or 0.2
+	local ice = VFXController.kuro.iceOf(model)
+	local pal = ice and VFXController.kuro.ice or VFXController.kuro
+	local col = zone == "gold" and pal.gold or pal.color
+	local p = hrp.Position
+	local foot = Vector3.new(p.X, 0.25, p.Z)
+	floorRing(foot, col, 3 + 4 * power)
+	Fx.play("Fire", foot + Vector3.new(0, 1, 0), { color = col, scale = 0.4 + 0.5 * power })
+	if zone then
+		VFXController.popup(p + Vector3.new(0, 7, 0), zone == "gold" and "GOLD" or "SILVER", zone == "gold" and VFXController.kuro.gold or Color3.fromRGB(205, 212, 226), 0.9 + 0.3 * power)
+	end
+	if zone == "gold" and mods and mods.AudioController then
+		mods.AudioController.play("DragonFire", { pos = p, volume = 0.6 })
+	end
+	if zone == "gold" then
+		VFXController.kuro.cracks(p, 1.5, false, ice) -- (the sky gives the spike away)
+		VFXController.kuro.sky(1.5, true, ice)
+	end
+	task.spawn(function()
+		local t0, startY = os.clock(), p.Y
+		local rise = 3 * Config.Scale.StudsPerMeter
+		while os.clock() - t0 < 1.8 and hrp.Parent do
+			task.wait(0.16)
+			local climb = math.clamp((hrp.Position.Y - startY) / rise, 0, 1)
+			if os.clock() - t0 > 0.4 and climb <= 0.03 then
+				break
+			end
+			-- (under his feet, a thin trail: the owner, "its too much and you can't see the character")
+			Fx.play("Fire", hrp.Position - Vector3.new(0, 3.5, 0), { color = col, scale = (0.2 + 0.45 * climb) * (0.5 + 0.5 * power) })
+		end
+	end)
+end
+
+-- The sky goes red for a while: a thick red Atmosphere paints the sky itself (the court stays
+-- readable under it), and a light grade warms the rest. Two close together share one restore.
+-- soft: the gold jump's and the Dragon Spike's, a shade under the Inferno's.
+function VFXController.kuro.sky(secs, soft, ice)
+	local K = VFXController.kuro
+	-- (Lighting is every screen's: only the players on this court, never the menus or a spectator; the
+	-- owner: "i dont want everyone's screen to turn red while they arent playing there")
+	if not State.isPlaying or (mods and mods.SceneController and mods.SceneController.active()) then
+		return
+	end
+	local old = Lighting:FindFirstChild("InfernoSky")
+	if old then
+		old:Destroy()
+	end
+	local cc = Instance.new("ColorCorrectionEffect")
+	cc.Name = "InfernoSky"
+	cc.Parent = Lighting
+	local atm = Lighting:FindFirstChildOfClass("Atmosphere")
+	local made = atm == nil
+	if made then
+		atm = Instance.new("Atmosphere")
+		atm.Density, atm.Offset, atm.Haze, atm.Glare = 0, 0, 0, 0
+		atm.Parent = Lighting
+	end
+	K.skyWas = K.skyWas or { Density = atm.Density, Haze = atm.Haze, Glare = atm.Glare, Color = atm.Color, Decay = atm.Decay }
+	K.skyId = (K.skyId or 0) + 1
+	local id = K.skyId
+	local rise = TweenInfo.new(0.14)
+	-- (never the Atmosphere's Offset: raised, it brings the menu rooms out of the haze behind the court)
+	if ice then
+		-- Sleigh Ride's: a cold white-blue snow sky instead of the red one
+		TweenService:Create(cc, rise, { TintColor = Color3.fromRGB(215, 232, 255), Saturation = -0.1, Contrast = soft and 0.04 or 0.08 }):Play()
+		TweenService:Create(atm, rise, { Density = soft and 0.36 or 0.44, Haze = soft and 5 or 7, Glare = 0.5, Color = Color3.fromRGB(200, 228, 255), Decay = Color3.fromRGB(70, 120, 210) }):Play()
+	else
+		TweenService:Create(cc, rise, { TintColor = soft and Color3.fromRGB(255, 214, 196) or Color3.fromRGB(255, 196, 176), Saturation = soft and 0.1 or 0.2, Contrast = soft and 0.05 or 0.1 }):Play()
+		TweenService:Create(atm, rise, { Density = soft and 0.34 or 0.42, Haze = soft and 6 or 8, Glare = 0.4, Color = soft and Color3.fromRGB(255, 92, 44) or Color3.fromRGB(255, 70, 30), Decay = soft and Color3.fromRGB(176, 34, 16) or Color3.fromRGB(150, 16, 8) }):Play()
+	end
+	task.delay(secs, function()
+		if K.skyId ~= id then
+			return
+		end
+		local was = K.skyWas
+		K.skyWas = nil
+		local fall = TweenInfo.new(0.6)
+		TweenService:Create(atm, fall, was):Play()
+		local out = TweenService:Create(cc, fall, { TintColor = Color3.new(1, 1, 1), Saturation = 0, Contrast = 0 })
+		out:Play()
+		out.Completed:Wait()
+		cc:Destroy()
+		if made then
+			atm:Destroy()
+		end
+	end)
+end
+
+-- Veins of fire crack across the sky over `pos`, flicker, and burn out in `secs`.
+function VFXController.kuro.cracks(pos, secs, inferno, ice)
+	local K = VFXController.kuro
+	local t = meshTemplate("DragonSky")
+	if not t or not near(pos) then
+		return
+	end
+	if ice and mods and mods.WinterSkins then
+		-- Sleigh Ride's: the cracks are frost, and icicles drop out of them
+		mods.WinterSkins.icicles(pos, inferno and 10 or 6)
+	end
+	if K.web and K.web.Parent then
+		K.web:Destroy()
+	end
+	local web = t:Clone()
+	K.web = web
+	-- (a dome standing behind the far stands: the match camera's low, overhead sky never shows)
+	web.Size = Vector3.new(760, 70, 820)
+	web.CFrame = CFrame.new(300, 120, pos.Z * 0.2) * CFrame.Angles(0, 0, math.rad(90)) * CFrame.Angles(0, math.random() * 6.28, 0)
+	web.Color = ice and Color3.fromRGB(225, 244, 255) or (inferno and K.gold or K.color)
+	web.Transparency = 1
+	web.Parent = fxFolder
+	task.spawn(function()
+		local t0 = os.clock()
+		while web.Parent do
+			local u = (os.clock() - t0) / secs
+			if u >= 1 then
+				break
+			end
+			-- in at once, a shiver through it, gone by the end
+			web.Transparency = math.clamp(math.max(1 - u * 14, u ^ 2.5) + 0.22 * math.random(), 0, 1)
+			task.wait(0.04)
+		end
+		web:Destroy()
+	end)
+end
+
+-- What WinterSkins' sleigh dive needs from here (a floor ring, the court's flash and shake).
+function VFXController.kuro.helpers(at)
+	return {
+		floorRing = floorRing,
+		flash = function(a, b)
+			if near(at) then
+				VFXController.flash(a, b)
+			end
+		end,
+		shake = function(a)
+			if mods and mods.CameraController and mods.AudioController.hearsMatch() then
+				mods.CameraController.shake(a)
+			end
+		end,
+	}
+end
+
+-- The dragon's meshes, core and fire, in two shakes of the same lines: { { core, glow }, { core, glow } }.
+function VFXController.kuro.body(tint)
+	local K = VFXController.kuro
+	local set = {}
+	for i, tag in ipairs({ "A", "B" }) do
+		local core, glow = meshTemplate("DragonCore" .. tag), meshTemplate("DragonGlow" .. tag)
+		if not core or not glow then
+			return nil
+		end
+		core, glow = core:Clone(), glow:Clone()
+		core.Color, glow.Color = K.hot, tint or K.fire
+		glow.Transparency = 0.18
+		core.Parent, glow.Parent = fxFolder, fxFolder
+		set[i] = { core, glow }
+	end
+	return set
+end
+
+-- Puts the dragon's nose at `nose`, facing `spin`, `k` times its full size, showing shake `show`
+-- (fade: 0 solid, 1 gone).
+function VFXController.kuro.place(set, nose, spin, k, show, fade)
+	local K = VFXController.kuro
+	local long = K.head * K.length * k
+	local at = CFrame.new(nose) * spin * CFrame.new(0, 0, -long * K.nose)
+	for i, pair in ipairs(set) do
+		for j, part in ipairs(pair) do
+			local t = part.Size
+			part.Size = t * (long / t.Z)
+			part.CFrame = at
+			part.Transparency = i ~= show and 1 or (j == 2 and 0.18 + 0.82 * fade or fade)
+		end
+	end
+end
+
+-- The dragon: out of the cracked sky, head first, down onto `target` in `secs`: it hangs up there a
+-- moment and then it's on you, swelling as it comes. dirZ: which way the spike flies.
+function VFXController.dragonDive(target, dirZ, inferno, secs)
+	local K = VFXController.kuro
+	local set = K.body()
+	if not set then
+		return
+	end
+	secs = secs or K.dive
+	local from = target + Vector3.new(0, 62, -dirZ * 38) -- (just inside the top of the match camera)
+	local to = target + Vector3.new(0, 5, 0)
+	local way = (to - from).Unit
+	local spin = CFrame.lookAt(Vector3.zero, way) * K.turn
+	K.place(set, from, spin, 0.45, 1, 0)
+	Fx.play("Dust", from, { color = Color3.fromRGB(46, 36, 44), scale = 6 })
+	Fx.play("Fire", from, { color = K.color, scale = 3 })
+	task.spawn(function()
+		local t0, nextFire = os.clock(), 0
+		while true do
+			local now = os.clock() - t0
+			local u = math.min(now / secs, 1)
+			local nose = from:Lerp(to, u ^ 2.3)
+			K.place(set, nose, spin, 0.45 + 0.55 * u ^ 1.4, math.floor(now * 24) % 2 + 1, 0)
+			if now >= nextFire then
+				-- fire streams off the head and down the neck
+				nextFire = now + 0.07
+				Fx.play("Fire", nose - way * K.head * 0.5, { color = K.gold, scale = 1.7 })
+				Fx.play("Fire", nose - way * K.head * (1.2 + math.random() * 1.6), { color = K.color, scale = 2.1 })
+			end
+			if u >= 1 then
+				break
+			end
+			RunService.Heartbeat:Wait()
+		end
+		if mods and mods.CameraController and mods.AudioController.hearsMatch() then
+			mods.CameraController.shake(inferno and 1 or 0.7)
+		end
+		if near(target) then
+			VFXController.flash(inferno and 0.9 or 0.7, inferno and 0.4 or 0.28)
+		end
+		local floor = Vector3.new(target.X, 0.3, target.Z)
+		floorRing(floor, K.color, inferno and 30 or 20)
+		Fx.play("ChainExplosion", floor + Vector3.new(0, 2, 0), { color = K.color, scale = inferno and 2.4 or 1.7 })
+		emit("Sparks", floor + Vector3.new(0, 3, 0), inferno and 40 or 24, K.gold)
+		for i = 1, 6 do
+			local a = math.rad(60 * i)
+			Fx.play("Fire", floor + Vector3.new(math.cos(a) * 7, 2, math.sin(a) * 7), { color = i % 2 == 0 and K.gold or K.color, scale = 2 })
+		end
+		-- the head burns off into the floor while the blast climbs
+		local t1 = os.clock()
+		task.spawn(function()
+			for i = 1, 6 do
+				Fx.play("Dust", floor + Vector3.new(0, 3 + 7 * i, 0), { color = Color3.fromRGB(58, 50, 54), scale = 1.6 + 0.5 * i })
+				task.wait(0.09)
+			end
+			floorRing(floor, Color3.fromRGB(30, 22, 24), 11)
+		end)
+		while true do
+			local u = math.min((os.clock() - t1) / 0.3, 1)
+			K.place(set, to + way * 34 * u, spin, 1 + 0.12 * u, math.floor(os.clock() * 24) % 2 + 1, u)
+			if u >= 1 then
+				break
+			end
+			RunService.Heartbeat:Wait()
+		end
+		for _, pair in ipairs(set) do
+			pair[1]:Destroy()
+			pair[2]:Destroy()
+		end
+	end)
+end
+
+-- The Fire Dragon score effect: the floor splits in a ring of fire, the dragon erupts out of it and
+-- climbs, roaring, on a column of flame, then bursts at the top and the embers come down. Kuro's dive
+-- the other way up. k: Config.Match.ScoreFx.Scale.
+function VFXController.kuro.eruption(pos, tint, dirZ, k)
+	local K = VFXController.kuro
+	local set = K.body(tint)
+	if not set then
+		return false
+	end
+	local col = tint or K.color
+	local hot = tint or K.gold
+	local floor = Vector3.new(pos.X, 0.3, pos.Z)
+	local size = 0.5 + 0.17 * k
+	local way = Vector3.new(0, 1, -(dirZ or -1) * 0.45).Unit
+	local spin = CFrame.lookAt(Vector3.zero, way) * K.turn
+	local from = floor - way * 14
+	local to = floor + way * (36 + 12 * k)
+	K.place(set, from, spin, size, 1, 0)
+	floorRing(floor, col, 12 + 7 * k)
+	Fx.play("ChainExplosion", floor + Vector3.new(0, 2, 0), { color = col, scale = 0.9 + 0.45 * k })
+	K.cracks(floor, 2.4, true)
+	K.sky(2.4, true)
+	if mods and mods.AudioController then
+		mods.AudioController.play("DragonRoar", { pos = floor, volume = 1 })
+		mods.AudioController.play("DragonFire", { pos = floor, volume = 0.8 })
+	end
+	if near(floor) then
+		VFXController.flash(0.5, 0.25)
+		if mods and mods.CameraController then
+			mods.CameraController.shake(0.8)
+		end
+	end
+	task.spawn(function()
+		local t0, nextFire = os.clock(), 0
+		local climb, hold = 0.8, 0.3
+		while true do
+			local now = os.clock() - t0
+			local u = math.min(now / climb, 1)
+			local nose = from:Lerp(to, 1 - (1 - u) ^ 2.6) -- (out of the floor at once, slowing at the top)
+			K.place(set, nose, spin, size * (0.8 + 0.2 * u), math.floor(now * 24) % 2 + 1, 0)
+			if now >= nextFire then
+				nextFire = now + 0.06
+				local at = math.random()
+				Fx.play("Fire", floor:Lerp(nose, at), { color = at > 0.6 and hot or col, scale = (1 + 1.2 * size) * (1.3 - 0.6 * at) })
+			end
+			if now >= climb + hold then
+				break
+			end
+			RunService.Heartbeat:Wait()
+		end
+		-- the burst at the top; the fire rains back down on a scorched floor
+		Fx.play("ChainExplosion", to, { color = col, scale = 1.1 + 0.5 * k })
+		emit("Sparks", to, 30, hot)
+		if near(floor) then
+			VFXController.flash(0.45, 0.3)
+		end
+		floorRing(floor, Color3.fromRGB(30, 22, 24), 8 + 4 * k)
+		local t1 = os.clock()
+		while true do
+			local u = math.min((os.clock() - t1) / 0.32, 1)
+			K.place(set, to + way * 12 * u, spin, size * (1 + 0.18 * u), math.floor(os.clock() * 24) % 2 + 1, u)
+			if u >= 1 then
+				break
+			end
+			RunService.Heartbeat:Wait()
+		end
+		for _, pair in ipairs(set) do
+			pair[1]:Destroy()
+			pair[2]:Destroy()
+		end
+		for i = 1, 5 do
+			Fx.play("Dust", floor + Vector3.new(0, 3 + 6 * i, 0), { color = Color3.fromRGB(58, 50, 54), scale = 1.2 + 0.4 * i })
+			task.wait(0.08)
+		end
+	end)
+	return true
+end
+
+-- His spike: a blast of fire off the hand along the ball, more the higher he hit it; a Dragon Spike
+-- brings the dragon down where it's aimed, and an Inferno the red sky with it.
+function VFXController.kuro.strike(snap, meta, pos, seg, dirZ, tag)
+	local f = meta.flame
+	local vdir = seg.v.Magnitude > 0 and seg.v.Unit or Vector3.new(0, -1, dirZ)
+	-- Sleigh Ride (the Winter collab's Kuro): ice-blue fire, the sleigh for the dragon, a snow sky
+	local ice = VFXController.kuro.iceOf(meta.id and Util.modelOf(meta.id) or nil) and mods.WinterSkins ~= nil
+	local pal = ice and VFXController.kuro.ice or VFXController.kuro
+	for i = 1, 3 + math.floor(5 * f) do
+		Fx.play("Fire", pos + vdir * (2.1 * i), { color = i % 2 == 0 and pal.gold or pal.color, scale = 0.7 + 0.14 * i + 0.7 * f })
+	end
+	sonicRing(pos, seg.v, pal.color, 7 + 5 * f, 0.35)
+	if mods.AudioController.hearsMatch() then
+		mods.AudioController.play("DragonFire", { pos = pos, volume = 0.5 + 0.5 * f })
+	end
+	if not meta.dragon then
+		tag(string.format("Flame +%d%%", math.floor(Config.Abilities.Enflamed.MaxBoost * f * 100 + 0.5)), pal.color, 0.9 + 0.3 * f)
+		return
+	end
+	local word = ice and (meta.inferno and "BLIZZARD" or (meta.hitType == "JumpServe" and "SLEIGH SERVE" or "SLEIGH RIDE")) or (meta.inferno and "INFERNO" or (meta.hitType == "JumpServe" and "DRAGON SERVE" or "DRAGON SPIKE"))
+	tag(word, meta.inferno and (ice and Color3.fromRGB(200, 240, 255) or Color3.fromRGB(255, 70, 40)) or pal.color, 1.5)
+	local landing = snap.path.landing and snap.path.landing.pos or (pos + vdir * 30)
+	local lands = snap.path.landing and snap.path.landing.t and snap.path.landing.t - Util.now() or 0
+	VFXController.kuro.cracks(landing, 1.4, meta.inferno, ice)
+	if ice then
+		mods.WinterSkins.sleighDive(landing, dirZ, meta.inferno, math.clamp(lands, 0.42, 0.8), VFXController.kuro.helpers(landing))
+	else
+		VFXController.dragonDive(landing, dirZ, meta.inferno, math.clamp(lands, 0.42, 0.8))
+		if mods.AudioController.hearsMatch() then
+			mods.AudioController.play("DragonRoar", { volume = 1 })
+		end
+	end
+	-- (for whoever's watching the court, spectators too: not over the menu room)
+	if near(pos) then
+		VFXController.flash(0.35, 0.18)
+		VFXController.kuro.sky(meta.inferno and 2.6 or 1.6, not meta.inferno, ice)
+	end
+end
+
 local function updateArcs(dt)
 	local now = os.clock()
 	-- my own charge and leap come straight from ActionController (an Azure charge's arc is its own,
@@ -3854,6 +4477,9 @@ local function updateArcs(dt)
 	if mine and AC then
 		local charging = AC.prowlCharge()
 		local gauge = AC.leapGauge()
+		if State.hasAbility("Enflamed") then
+			charging, gauge = nil, 0 -- (Kuro has his own meter, ActionController's)
+		end
 		local v = charging or (gauge > 0 and gauge) or nil
 		local a = arcs.feral[mine]
 		if v and not a then
@@ -4563,12 +5189,17 @@ local function onHit(snap)
 	if meta.clawed then
 		-- Tiger Claw: the marked digger's arms are torn open, three orange claw slashes across them
 		local col = Config.Abilities.TigerClaw.Color
+		-- (Candy Claw on court: the slashes in candy-cane stripes, red, white, red)
+		local candy = mods and mods.WinterSkins and mods.WinterSkins.candyOn()
 		for i = -1, 1 do
-			meshFx("FX_Slash", CFrame.new(pos + Vector3.new(0, i * 0.7, 0)) * FACE_CAMERA * CFrame.Angles(0, 0, math.rad(-35)), col, 0.4, 1.2, 0.3, { alpha = 0.05 })
+			meshFx("FX_Slash", CFrame.new(pos + Vector3.new(0, i * 0.7, 0)) * FACE_CAMERA * CFrame.Angles(0, 0, math.rad(-35)), candy and (i == 0 and Color3.new(1, 1, 1) or mods.WinterSkins.CANDY) or col, 0.4, 1.2, 0.3, { alpha = 0.05 })
 		end
-		shards(pos, col, 14, 40)
+		shards(pos, candy and mods.WinterSkins.CANDY or col, 14, 40)
+		if candy then
+			Fx.play("JumpSnowburst", pos, { scale = 0.6 })
+		end
 		if close then
-			tag("Tiger Claw!", col, 1.3)
+			tag(candy and "Candy Claw!" or "Tiger Claw!", candy and mods.WinterSkins.CANDY or col, 1.3)
 			if shaker then
 				shaker.kick(-6)
 			end
@@ -4660,8 +5291,30 @@ local function onHit(snap)
 		ringFx(pos, chain, 1, 6, 0.3, 5)
 	end
 	if ht == "Set" and meta.vectorSet then
-		ringFx(pos, VECTOR, 1, 6, 0.35, 5)
-		emit("Sparks", pos, 14, VECTOR)
+		-- (Twinkle Lights: snow blue; WinterSkins strings the lights)
+		local vsk = Config.Halloween.Skins[(model and model:GetAttribute("Skin")) or ""]
+		local vc = (vsk and vsk.VectorColor) or VECTOR
+		ringFx(pos, vc, 1, 6, 0.35, 5)
+		emit("Sparks", pos, 14, vc)
+	end
+	if ht == "Set" and meta.starSet then
+		-- Falling Star: a ring as it climbs, then the star lights at the very top
+		local col = Config.Abilities.FallingStar.Color
+		ringFx(pos, col, 1.5, 8, 0.35, 6)
+		local me = meta
+		task.delay(math.max(0, meta.starFrom - Util.now()), function()
+			local BR = mods.BallRenderer
+			if not BR or BR.getMeta() ~= me then
+				return
+			end
+			local at = BR.renderPosition()
+			starburst(at, Color3.fromRGB(235, 248, 255), 10)
+			Fx.play("Glints", at, { color = col, scale = 2.4 })
+			ringFx(at, col, 2, 16, 0.45, 8)
+			if mods.AudioController.hearsMatch() then
+				mods.AudioController.play("StarLight", { volume = 0.9, pos = at })
+			end
+		end)
 	end
 	if ht == "Set" and meta.featherSet then
 		-- Featherfall: a soft ring (and a twinkle) as it floats up
@@ -4694,6 +5347,22 @@ local function onHit(snap)
 	if ht == "Spike" or ht == "JumpServe" then
 		local heavy = kmh >= 120
 		local vdir = seg.v.Magnitude > 0 and seg.v.Unit or Vector3.new(0, -1, dirZ)
+		if meta.flame then
+			VFXController.kuro.strike(snap, meta, pos, seg, dirZ, tag)
+		end
+		if meta.starHit then
+			-- Falling Star: met while it burned; the star bursts on the hand and rides the spike
+			local col = Config.Abilities.FallingStar.Color
+			starburst(pos, Color3.fromRGB(235, 248, 255), 12)
+			Fx.play("Glints", pos, { color = col, scale = 3 })
+			sonicRing(pos, seg.v, col, 11, 0.4)
+			tag(string.format("Falling Star +%d%%", math.floor(Config.Abilities.FallingStar.StarBoost * 100 + 0.5)), col, 1.25)
+			if mods.AudioController.hearsMatch() then
+				mods.AudioController.play("StarLight", { volume = 1, speed = 1.35, pos = pos, minGap = 0.05 })
+			end
+		elseif meta.starLate then
+			tag("Too late", Color3.fromRGB(170, 176, 196), 1)
+		end
 		if meta.static then
 			-- Static Charge: the stacks this spike carried
 			VFXController.popup(pos + Vector3.new(0, 4, 0), string.format("Static x%d +%d%%", meta.static, math.floor(Config.Abilities.Thunder.StaticPer * meta.static * 100 + 0.5)), Config.Abilities.Thunder.Color, 0.8 + 0.1 * meta.static)
@@ -4707,6 +5376,19 @@ local function onHit(snap)
 			if mods.AudioController.hearsMatch() then
 				mods.AudioController.play("FeatherHit", { volume = 0.6 + 0.4 * f, speed = 1.35, pos = pos, minGap = 0.05 })
 			end
+		end
+		if meta.joker then
+			-- Joker's card on his spike: a ring in its colour, Block Break named, and Surprise!
+			local jc = Config.Abilities.Joker.Cards[meta.joker]
+			if jc then
+				ringFx(pos, jc.Color, 1.5, jc.Break and 12 or 8, 0.35, 6)
+				if jc.Break then
+					tag("Block Break!", jc.Color, 1.1)
+				end
+			end
+		end
+		if meta.surprise then
+			tag("Surprise!", Config.Abilities.Joker.Color, 1.05)
 		end
 		if meta.tyrant then
 			-- off the Tyrant's Set: gold, and Absolute Toss's full power
@@ -4894,6 +5576,9 @@ local function onHit(snap)
 			end
 			if meta.dive and meta.dive >= 0.5 then
 				VFXController.sunBlast(pos, meta.dive)
+				if model and model:GetAttribute("Skin") == "StarTopper" and mods.WinterSkins then
+					mods.WinterSkins.ornaments(pos, 0.8 + meta.dive) -- (Star Topper: it bursts into ornaments)
+				end
 			end
 			if meta.zenith then
 				Fx.play("Burst", pos, { color = Color3.fromRGB(255, 250, 220), scale = 1.5 })
@@ -8193,6 +8878,422 @@ function HW.rankAlmighty(pos, tint, k, model)
 	end
 end
 
+------------------------------------------------------------------------------------------
+-- the Christmas score effects (the owner, 2026-11-16: "make some score effects too", "blade ball
+-- has some great kill effects that we can take inspiration from": the ones that do something to
+-- the players who lost the point). Gift Wrapped: each of them is boxed up in a present that
+-- wobbles, then bursts open. Snow Globe: a giant globe slams down over the spot, snow swirling
+-- inside, shakes and shatters. Special Delivery: Santa's sleigh swoops low across the court and
+-- drops a present on each of them, knocking them flying. In the Locker's preview (no victims)
+-- copies of you stand in for them.
+------------------------------------------------------------------------------------------
+
+-- (in a block of its own: the file is at the 200 locals a chunk may hold)
+do
+	local XM = {} -- (its helpers in one table: the file is at the 200 locals a chunk may hold)
+	XM.Debris = game:GetService("Debris")
+	XM.RED = Color3.fromRGB(214, 30, 44)
+	XM.GREEN = Color3.fromRGB(30, 140, 70)
+	XM.GOLD = Color3.fromRGB(255, 206, 70)
+	XM.WRAPS = { { XM.RED, XM.GOLD }, { XM.GREEN, Color3.fromRGB(240, 240, 250) }, { Color3.fromRGB(60, 120, 230), XM.GOLD } }
+
+	function XM.part(props)
+		local p = Instance.new("Part")
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		p.Material = Enum.Material.SmoothPlastic
+		for key, v in pairs(props) do
+			p[key] = v
+		end
+		p.Parent = props.Parent or fxFolder
+		return p
+	end
+
+	function XM.tween(obj, secs, props, style, dir)
+		local t = TweenService:Create(obj, TweenInfo.new(secs, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), props)
+		t:Play()
+		return t
+	end
+
+	-- where the players who lost the point stand (or, in the Locker, three spots round the hit)
+	function XM.targets(pos, model, victims, k)
+		local list = {}
+		if victims and #victims > 0 then
+			for _, v in ipairs(victims) do
+				local ok, cf = pcall(function()
+					return v:GetPivot()
+				end)
+				if ok and cf then
+					table.insert(list, { model = v, at = Vector3.new(cf.Position.X, 0, cf.Position.Z) })
+				end
+			end
+		else
+			for i = 1, 3 do
+				local a = math.rad(i * 120)
+				table.insert(list, { at = Vector3.new(pos.X + math.cos(a) * 6 * k, 0, pos.Z + math.sin(a) * 6 * k), stand = model })
+			end
+		end
+		return list
+	end
+
+	-- A present, `s` on a side, standing on the floor at `at` (not yet placed): its parts and lid.
+	function XM.box(at, s, wrap)
+		local box = XM.part({ Size = Vector3.new(s, s, s), CFrame = CFrame.new(at + Vector3.new(0, s / 2, 0)), Color = wrap[1] })
+		local bandA = XM.part({ Size = Vector3.new(s + 0.05, s + 0.05, s * 0.18), CFrame = box.CFrame, Color = wrap[2], Material = Enum.Material.Metal })
+		local bandB = XM.part({ Size = Vector3.new(s * 0.18, s + 0.05, s + 0.05), CFrame = box.CFrame, Color = wrap[2], Material = Enum.Material.Metal })
+		local lid = XM.part({ Size = Vector3.new(s * 1.08, s * 0.18, s * 1.08), CFrame = box.CFrame * CFrame.new(0, s / 2 + s * 0.09, 0), Color = wrap[1]:Lerp(Color3.new(1, 1, 1), 0.12) })
+		local bows = {}
+		for _, dz in ipairs({ -1, 1 }) do
+			table.insert(bows, XM.part({ Shape = Enum.PartType.Ball, Size = Vector3.new(s * 0.28, s * 0.28, s * 0.28), CFrame = lid.CFrame * CFrame.new(0, s * 0.18, dz * s * 0.14), Color = wrap[2] }))
+		end
+		return { box, bandA, bandB }, lid, bows
+	end
+
+	-- the bits of a burst present: confetti flung up and out, falling
+	function XM.confetti(at, n, k)
+		for i = 1, n do
+			local col = (i % 4 == 0) and Color3.new(1, 1, 1) or ({ XM.RED, XM.GREEN, XM.GOLD })[i % 3 + 1]
+			local bit = XM.part({ Size = Vector3.new(0.45, 0.1, 0.3) * k, CFrame = CFrame.new(at), Color = col, Material = Enum.Material.Neon })
+			local a = math.random() * math.pi * 2
+			local out = Vector3.new(math.cos(a), 0, math.sin(a)) * (3 + math.random() * 6) * k
+			local peak = at + out * 0.5 + Vector3.new(0, (5 + math.random() * 5) * k, 0)
+			XM.tween(bit, 0.45, { CFrame = CFrame.new(peak) * CFrame.Angles(math.random() * 6, math.random() * 6, 0) })
+			task.delay(0.45, function()
+				if bit.Parent then
+					XM.tween(bit, 0.8, { CFrame = CFrame.new(at + out + Vector3.new(0, -at.Y + 0.2, 0)) * CFrame.Angles(math.random() * 6, 0, math.random() * 6), Transparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+				end
+			end)
+			XM.Debris:AddItem(bit, 1.4)
+		end
+	end
+
+	function HW.giftWrap(pos, tint, k, model, victims)
+		k = k or 1
+		if near(pos) then
+			mods.CameraController.shake(0.2)
+		end
+		floorRing(pos, XM.GOLD, 8 * k)
+		Fx.play("JumpPresent", pos + Vector3.new(0, 1, 0), { scale = 1.2 * k })
+		for i, tg in ipairs(XM.targets(pos, model, victims, k)) do
+			local wrap = XM.WRAPS[(i - 1) % #XM.WRAPS + 1]
+			local s = 5.6 * math.max(k, 0.8)
+			local undo = tg.model and hideLocally(tg.model) or nil
+			local parts, lid, bows = XM.box(tg.at, s, wrap)
+			local all = { lid }
+			for _, p in ipairs(parts) do
+				table.insert(all, p)
+			end
+			for _, b in ipairs(bows) do
+				table.insert(all, b)
+			end
+			-- each dropped from above onto its spot, a little after the last
+			local rests = {}
+			for _, p in ipairs(all) do
+				rests[p] = p.CFrame
+				p.CFrame = p.CFrame + Vector3.new(0, 26, 0)
+			end
+			task.delay((i - 1) * 0.12, function()
+				for _, p in ipairs(all) do
+					if p.Parent then
+						XM.tween(p, 0.4, { CFrame = rests[p] }, Enum.EasingStyle.Bounce)
+					end
+				end
+				-- it wobbles: someone's in there
+				task.delay(0.5, function()
+					for n = 1, 4 do
+						task.delay((n - 1) * 0.12, function()
+							local tilt = CFrame.new(tg.at) * CFrame.Angles(0, 0, math.rad((n % 2 == 0) and 7 or -7)) * CFrame.new(-tg.at)
+							for _, p in ipairs(all) do
+								if p.Parent then
+									XM.tween(p, 0.1, { CFrame = tilt * rests[p] })
+								end
+							end
+						end)
+					end
+				end)
+				-- and bursts open: the lid and bow fly off, confetti everywhere, they're back
+				task.delay(1.2, function()
+					local top = tg.at + Vector3.new(0, s + 0.5, 0)
+					XM.tween(lid, 0.55, { CFrame = CFrame.new(top + Vector3.new(0, 9, 3)) * CFrame.Angles(math.rad(200), 0, math.rad(30)) })
+					task.delay(0.35, function()
+						if lid.Parent then
+							XM.tween(lid, 0.2, { Transparency = 1 })
+						end
+					end)
+					for _, b in ipairs(bows) do
+						XM.tween(b, 0.5, { CFrame = b.CFrame + Vector3.new(0, 7, (math.random() - 0.5) * 6), Transparency = 1 })
+					end
+					for _, p in ipairs(parts) do
+						XM.tween(p, 0.3, { Size = p.Size * Vector3.new(1.15, 0.2, 1.15), CFrame = CFrame.new(tg.at + Vector3.new(0, 0.3, 0)), Transparency = 1 })
+					end
+					XM.confetti(top, 22, k)
+					Fx.play("JumpPresent", top, { scale = k })
+					if undo then
+						undo()
+					end
+				end)
+				for _, p in ipairs(all) do
+					XM.Debris:AddItem(p, 2)
+				end
+			end)
+		end
+	end
+
+	-- The scene inside the globe (the owner, 2026-11-16: "i want a scene in the snow globe... a
+	-- diorama of the court", "a freeze frame of your own character in a preset spike animation"): a
+	-- little court with its lines and net on the globe's base, and a small copy of the scorer frozen
+	-- mid-spike over it, the ball at the hand. Returns its parts.
+	function XM.globeScene(at, k, R, model)
+		local list = {}
+		local floorY = 2.45 * k
+		local CW, CL = R * 0.62, R * 1.3 -- (across, along the court: the court runs along Z, as the real one)
+		local court = XM.part({ Size = Vector3.new(CW, 0.3 * k, CL), CFrame = CFrame.new(at + Vector3.new(0, floorY + 0.15 * k, 0)), Color = Color3.fromRGB(226, 140, 64), Material = Enum.Material.WoodPlanks })
+		table.insert(list, court)
+		local top = floorY + 0.31 * k
+		local LINE = Color3.fromRGB(250, 250, 245)
+		for _, sx in ipairs({ -1, 1 }) do
+			table.insert(list, XM.part({ Size = Vector3.new(0.12 * k, 0.04, CL), CFrame = CFrame.new(at + Vector3.new(sx * (CW / 2 - 0.15 * k), top, 0)), Color = LINE }))
+			table.insert(list, XM.part({ Size = Vector3.new(CW, 0.04, 0.12 * k), CFrame = CFrame.new(at + Vector3.new(0, top, sx * (CL / 2 - 0.15 * k))), Color = LINE }))
+			table.insert(list, XM.part({ Size = Vector3.new(CW, 0.04, 0.1 * k), CFrame = CFrame.new(at + Vector3.new(0, top, sx * CL * 0.17)), Color = LINE }))
+		end
+		-- the net across the middle: posts, the mesh, the white tape
+		local netH = 2.2 * k
+		for _, sx in ipairs({ -1, 1 }) do
+			table.insert(list, XM.part({ Size = Vector3.new(0.15 * k, netH + 0.3 * k, 0.15 * k), CFrame = CFrame.new(at + Vector3.new(sx * (CW / 2 + 0.1 * k), top + (netH + 0.3 * k) / 2, 0)), Color = Color3.fromRGB(60, 60, 70), Material = Enum.Material.Metal }))
+		end
+		table.insert(list, XM.part({ Size = Vector3.new(CW, netH * 0.45, 0.05), CFrame = CFrame.new(at + Vector3.new(0, top + netH * 0.72, 0)), Color = Color3.fromRGB(30, 30, 36), Transparency = 0.35 }))
+		table.insert(list, XM.part({ Size = Vector3.new(CW, 0.14 * k, 0.07), CFrame = CFrame.new(at + Vector3.new(0, top + netH, 0)), Color = LINE }))
+		-- the scorer, small, in the air at the net, frozen at the hit (their own spike pose)
+		local AC = mods and mods.AnimationController
+		local fig = model and puppet(model) or nil
+		if fig and AC then
+			for _, d in ipairs(fig:GetDescendants()) do
+				if d:IsA("BasePart") then
+					d.Anchored = true
+				end
+			end
+			local ok = pcall(function()
+				fig:ScaleTo(0.42 * k)
+			end)
+			local rig = ok and AC.rig(fig) or nil
+			if rig then
+				-- facing the net from one side, seen side on by the camera (a character faces -Z)
+				local rootCF = CFrame.new(at + Vector3.new(0, top + 3.1 * k, -CL * 0.16)) * CFrame.Angles(0, math.rad(180), 0)
+				AC.poseModel(rig, AC.poseJoints(AC.spikePose(model)) or {}, rootCF)
+				fig.Parent = fxFolder
+				for _, d in ipairs(fig:GetDescendants()) do
+					if d:IsA("BasePart") then
+						table.insert(list, d)
+					end
+				end
+				-- the ball, just in front of the hand
+				local ball = XM.part({ Shape = Enum.PartType.Ball, Size = Vector3.new(0.7, 0.7, 0.7) * k, CFrame = rootCF * CFrame.new(0.35 * k, 1.5 * k, -0.7 * k), Color = Color3.fromRGB(255, 214, 60) })
+				table.insert(list, ball)
+			else
+				fig:Destroy()
+			end
+		end
+		return list
+	end
+
+	function HW.snowGlobe(pos, tint, k, model)
+		k = k or 1
+		local close = near(pos)
+		local R = 8 * k -- (was 11: the owner, 2026-11-18, "downscale the globe a bit hard to see the details")
+		local at = Vector3.new(pos.X, 0, pos.Z)
+		local base = XM.part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(2.2 * k, R * 1.6, R * 1.6), CFrame = CFrame.new(at + Vector3.new(0, 1.1 * k + 40, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(120, 70, 40), Material = Enum.Material.Wood })
+		local trim = XM.part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5 * k, R * 1.66, R * 1.66), CFrame = CFrame.new(at + Vector3.new(0, 2.2 * k + 40, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = XM.GOLD, Material = Enum.Material.Metal })
+		local glass = XM.part({ Shape = Enum.PartType.Ball, Size = Vector3.new(R * 2, R * 2, R * 2), CFrame = CFrame.new(at + Vector3.new(0, R * 0.9 + 40, 0)), Color = Color3.fromRGB(210, 235, 255), Material = Enum.Material.Glass, Transparency = 0.72, Reflectance = 0.25 })
+		local snowHold = XM.part({ Size = Vector3.new(R * 1.2, 1, R * 1.2), CFrame = CFrame.new(at + Vector3.new(0, R * 1.4 + 40, 0)), Transparency = 1 })
+		local scene = {}
+		local snow = Instance.new("ParticleEmitter")
+		snow.Texture = Assets.id(Assets.Fx.Dot) or ""
+		snow.Shape = Enum.ParticleEmitterShape.Box
+		snow.EmissionDirection = Enum.NormalId.Bottom
+		snow.Rate = 0
+		snow.Lifetime = NumberRange.new(1.4, 2)
+		snow.Speed = NumberRange.new(2, 5)
+		snow.SpreadAngle = Vector2.new(60, 60)
+		snow.RotSpeed = NumberRange.new(-90, 90)
+		snow.Size = NumberSequence.new(0.5 * k)
+		snow.Color = ColorSequence.new(Color3.new(1, 1, 1))
+		snow.LightEmission = 0.5
+		snow.Parent = snowHold
+		local pieces = { base, trim, glass, snowHold }
+		local rests = {}
+		for _, p in ipairs(pieces) do
+			rests[p] = p.CFrame - Vector3.new(0, 40, 0)
+			XM.tween(p, 0.42, { CFrame = rests[p] }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		end
+		-- it lands: the floor shakes, the snow inside swirls
+		task.delay(0.42, function()
+			if close then
+				mods.CameraController.shake(0.45)
+			end
+			floorRing(pos, Color3.fromRGB(214, 240, 255), 14 * k)
+			smokePuffs(pos, 8, 1.4 * k, Color3.fromRGB(246, 251, 255))
+			snow.Rate = 160
+		scene = XM.globeScene(at, k, R, model)
+			-- and it shakes, side to side, the snow whirling
+			for n = 1, 6 do
+				task.delay(0.3 + n * 0.09, function()
+					local tilt = CFrame.new(at) * CFrame.Angles(math.rad((n % 2 == 0) and 4 or -4), 0, 0) * CFrame.new(-at)
+					for _, p in ipairs(pieces) do
+						if p.Parent then
+							XM.tween(p, 0.08, { CFrame = tilt * rests[p] })
+						end
+					end
+				end)
+			end
+		end)
+		-- it shatters: glass shards and snow everywhere
+		task.delay(2.3, function()
+			if not glass.Parent then
+				return
+			end
+			local mid = glass.Position
+			glass:Destroy()
+			snow.Rate = 0
+			if close then
+				mods.CameraController.shake(0.35)
+			end
+			for i = 1, 22 do
+				local a = math.random() * math.pi * 2
+				local e = math.random() * 1.2
+				local from = mid + Vector3.new(math.cos(a) * R * 0.8, (e - 0.3) * R, math.sin(a) * R * 0.8)
+				local shard = XM.part({ Size = Vector3.new(0.2, 1.4 + math.random() * 1.6, 0.9 + math.random()) * k, CFrame = CFrame.new(from) * CFrame.Angles(math.random() * 6, math.random() * 6, 0), Color = Color3.fromRGB(220, 240, 255), Material = Enum.Material.Glass, Transparency = 0.35 })
+				local out = (from - mid).Unit * (8 + math.random() * 8) * k
+				XM.tween(shard, 0.8, { CFrame = CFrame.new(Vector3.new(from.X + out.X, 0.3, from.Z + out.Z)) * CFrame.Angles(math.random() * 6, math.random() * 6, 0), Transparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+				XM.Debris:AddItem(shard, 0.85)
+			end
+			smokePuffs(pos + Vector3.new(0, R * 0.6, 0), 12, 1.8 * k, Color3.fromRGB(246, 251, 255))
+			Fx.play("JumpSnowburst", pos + Vector3.new(0, R * 0.6, 0), { scale = 1.6 * k })
+			for _, p in ipairs({ base, trim }) do
+				XM.tween(p, 0.5, { CFrame = p.CFrame - Vector3.new(0, 4 * k, 0), Transparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+				XM.Debris:AddItem(p, 0.55)
+			end
+			-- the little scene fades a moment later
+			task.delay(0.5, function()
+				for _, p in ipairs(scene) do
+					if p.Parent then
+						XM.tween(p, 0.4, { Transparency = 1 })
+					end
+				end
+				task.delay(0.45, function()
+					for _, p in ipairs(scene) do
+						local m = p:FindFirstAncestorOfClass("Model")
+						if m and m.Parent then
+							m:Destroy()
+						elseif p.Parent then
+							p:Destroy()
+						end
+					end
+				end)
+			end)
+			XM.Debris:AddItem(snowHold, 2.2)
+		end)
+	end
+
+	function HW.delivery(pos, tint, dirZ, k, model, victims)
+		k = k or 1
+		if not (mods and mods.WinterSkins and mods.WinterSkins.buildSleigh) then
+			return HW.giftWrap(pos, tint, k, model, victims)
+		end
+		local close = near(pos)
+		local targets = XM.targets(pos, model, victims, k)
+		-- the sleigh: in from one end of the court, low over the spot, up and away at the other
+		local sleigh = mods.WinterSkins.buildSleigh(1.3 * k, fxFolder)
+		local dir = (dirZ and dirZ ~= 0) and math.sign(dirZ) or 1
+		local y = 16 * k
+		local from = Vector3.new(pos.X + 6, y + 10, pos.Z - dir * 100)
+		local to = Vector3.new(pos.X + 6, y + 22, pos.Z + dir * 110)
+		local SECS = 2.8
+		local t0 = os.clock()
+		if mods.AudioController then
+			pcall(mods.AudioController.play, "WinterSleigh", { volume = 0.9 })
+		end
+		local dropped = {}
+		local conn
+		conn = RunService.Heartbeat:Connect(function()
+			local t = os.clock() - t0
+			if t > SECS or not sleigh.Parent then
+				conn:Disconnect()
+				sleigh:Destroy()
+				return
+			end
+			local u = t / SECS
+			-- low in the middle, climbing at both ends
+			local p = from:Lerp(to, u) - Vector3.new(0, math.sin(u * math.pi) * 22, 0)
+			local ahead = from:Lerp(to, math.min(u + 0.02, 1)) - Vector3.new(0, math.sin(math.min(u + 0.02, 1) * math.pi) * 22, 0)
+			sleigh:PivotTo(CFrame.lookAt(p, ahead))
+			-- over each of them it drops a present
+			for i, tg in ipairs(targets) do
+				if not dropped[i] and math.abs(p.Z - tg.at.Z) < 8 then
+					dropped[i] = true
+					local wrap = XM.WRAPS[(i - 1) % #XM.WRAPS + 1]
+					local s = 3 * k
+					local parts, lid, bows = XM.box(Vector3.new(tg.at.X, p.Y - s, tg.at.Z), s, wrap)
+					local all = { lid }
+					for _, q in ipairs(parts) do
+						table.insert(all, q)
+					end
+					for _, b in ipairs(bows) do
+						table.insert(all, b)
+					end
+					local fall = p.Y - s
+					for _, q in ipairs(all) do
+						XM.tween(q, 0.35, { CFrame = q.CFrame - Vector3.new(0, fall, 0) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+					end
+					-- it lands on them and bursts: they go flying (copies of them; they're hidden a moment)
+					task.delay(0.35, function()
+						local hit = tg.at + Vector3.new(0, 1.5, 0)
+						for _, q in ipairs(all) do
+							if q.Parent then
+								q:Destroy()
+							end
+						end
+						XM.confetti(hit, 16, k)
+						Fx.play("JumpPresent", hit, { scale = k })
+						floorRing(tg.at, XM.RED, 6 * k)
+						if close then
+							mods.CameraController.shake(0.25)
+						end
+						local who = tg.model or tg.stand
+						if who then
+							local d = puppet(who)
+							if d then
+								d:PivotTo(tg.model and who:GetPivot() or CFrame.new(tg.at + Vector3.new(0, 3, 0)))
+								d.Parent = fxFolder
+								ragdoll(d)
+								local undo = tg.model and hideLocally(tg.model) or nil
+								local root = d:FindFirstChild("HumanoidRootPart") or d.PrimaryPart
+								if root then
+									pcall(function()
+										root:ApplyImpulse(Vector3.new((math.random() - 0.5) * 60, 90, dir * 70) * root.AssemblyMass)
+									end)
+								end
+								task.delay(1.4, function()
+									if d.Parent then
+										d:Destroy()
+									end
+									if undo then
+										undo()
+									end
+								end)
+							end
+						end
+					end)
+				end
+			end
+		end)
+	end
+end
+
 local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
 	effect = Spins.look("Effect", effect) -- (a limited one without its own look yet: its Base)
 	local always = reason == nil -- (the Locker's preview: the screen effects show there too)
@@ -8200,6 +9301,12 @@ local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
 		HW.underworldScore(pos, tint, k or 1, model, victims) -- (the Fallen Angel's own)
 	elseif effect == "PumpkinBurst" then
 		HW.pumpkinBurst(pos, tint, k or 1)
+	elseif effect == "GiftWrap" then
+		HW.giftWrap(pos, tint, k or 1, model, victims) -- (the Christmas ones)
+	elseif effect == "SnowGlobe" then
+		HW.snowGlobe(pos, tint, k or 1, model)
+	elseif effect == "Delivery" then
+		HW.delivery(pos, tint, dirZ, k or 1, model, victims)
 	elseif effect == "GhostSwarm" then
 		HW.ghostSwarm(pos, tint, k or 1)
 	elseif effect == "Grave" then
@@ -8222,6 +9329,8 @@ local function playScore(effect, pos, tint, dirZ, k, reason, model, victims)
 		HW.rankAlmighty(pos, tint, k or 1, model)
 	elseif effect == "WorldSlash" then
 		worldSlash(pos, dirZ, tint, k or 1, model, victims, always)
+	elseif effect == "FireDragon" then
+		return VFXController.kuro.eruption(pos, tint, dirZ, k or 1)
 	elseif effect == "Fireworks" then
 		fireworks(pos, tint, k or 1)
 	elseif effect == "Tesla" then
@@ -8484,6 +9593,22 @@ function VFXController.init(m)
 				VFXController.previewEffect(Vector3.new(0, 0.5, -14), key, nil, -1, 1, m)
 			end
 		end)
+		-- (and TestJump = a jump effect's key, e.g. "Snowman": it plays big on the far court)
+		workspace:GetAttributeChangedSignal("TestJump"):Connect(function()
+			local key = workspace:GetAttribute("TestJump")
+			if type(key) == "string" and key ~= "" then
+				VFXController.jumpEffect(Vector3.new(0, 0.25, -14), key, nil, true, Util.modelOf("P_" .. tostring(player.UserId)))
+			end
+		end)
+		-- (and TestDragon = the seconds the dive takes, e.g. 3: Kuro's dragon on the far court, red sky too)
+		workspace:GetAttributeChangedSignal("TestDragon"):Connect(function()
+			local secs = tonumber(workspace:GetAttribute("TestDragon"))
+			if secs and secs > 0 then
+				VFXController.kuro.cracks(Vector3.new(0, 0.5, -14), secs + 1, true)
+				VFXController.dragonDive(Vector3.new(0, 0.5, -14), -1, true, secs)
+				VFXController.kuro.sky(secs + 1)
+			end
+		end)
 		-- (and TestSwingFrame = "yellow" or "fallen", with seconds after it to hold it longer, e.g.
 		-- "fallen 2": YeJun's second-swing frame on your character)
 		workspace:GetAttributeChangedSignal("TestSwingFrame"):Connect(function()
@@ -8509,7 +9634,8 @@ function VFXController.init(m)
 	-- Tiger Claw's marks (the owner, 2026-10-29: "hongshi marks enemies with a tiger claw over
 	-- them", "make the claw way easier to see"): a big pulsing orange claw over every marked
 	-- player's head and an orange outline round them; Hunt's target (their weakest back-row
-	-- defender, HitLogic.huntTarget) outlined red; Discouraged players tagged in grey
+	-- defender, HitLogic.huntTarget) outlined red; Moods (Config.Moods): a player lit in their mood's
+	-- colour and tagged, worry lines over the Discouraged and stars round the Encouraged
 	local marks, outlines, glooms = {}, {}, {}
 	local CLAW = Config.Abilities.TigerClaw.Color
 	local HUNT = Color3.fromRGB(255, 40, 40)
@@ -8528,7 +9654,7 @@ function VFXController.init(m)
 		h.OutlineColor = color
 		h.FillColor = color
 	end
-	local function newMark(head)
+	local function newMark(head, candy)
 		local bb = Instance.new("BillboardGui")
 		bb.Name = "TigerClawMark"
 		bb.Size = UDim2.fromScale(5, 5)
@@ -8549,6 +9675,12 @@ function VFXController.init(m)
 		img.Size = UDim2.fromScale(1, 1)
 		img.ImageColor3 = CLAW
 		img.Parent = bb
+		if candy and mods and mods.WinterSkins then
+			-- Candy Claw's: the claw in candy-cane stripes on a deep red shadow
+			back.ImageColor3 = Color3.fromRGB(70, 0, 10)
+			img.ImageColor3 = Color3.new(1, 1, 1)
+			mods.WinterSkins.candyStripes(img)
+		end
 		local scale = Instance.new("UIScale")
 		scale.Scale = 2.4
 		scale.Parent = bb
@@ -8562,30 +9694,49 @@ function VFXController.init(m)
 		end)
 		return bb
 	end
-	local function newGloom(head)
+	local function newGloom(head, tag)
+		local def = Config.Moods[tag]
+		local color = def and def.Color or VFXController.kuro.color
 		local bb = Instance.new("BillboardGui")
-		bb.Name = "Discouraged"
-		bb.Size = UDim2.fromOffset(150, 26)
-		bb.StudsOffset = Vector3.new(0, 2.6, 0)
+		bb.Name = "Mood"
+		bb.Size = UDim2.fromOffset(150, 62)
+		bb.StudsOffset = Vector3.new(0, 3.3, 0)
 		bb.AlwaysOnTop = true
 		bb.LightInfluence = 0
 		bb.Adornee = head
+		bb:SetAttribute("Tag", tag)
 		local l = Instance.new("TextLabel")
 		l.BackgroundTransparency = 1
-		l.Size = UDim2.fromScale(1, 1)
-		l.Text = "DISCOURAGED"
+		l.Size = UDim2.new(1, 0, 0, 26)
+		l.Text = string.upper(def and def.Label or "Burned")
 		l.TextScaled = true
 		l.Font = Enum.Font.GothamBlack
-		l.TextColor3 = Color3.fromRGB(170, 176, 196)
+		l.TextColor3 = color
 		l.TextStrokeTransparency = 0.2
 		l.Parent = bb
+		if tag == "Discouraged" then
+			-- worry lines: a curtain of them hanging down over the head, each slowly drawing out
+			for i, long in ipairs({ 20, 30, 24, 33, 18 }) do
+				local line = Instance.new("Frame")
+				line.Size = UDim2.fromOffset(4, long)
+				line.Position = UDim2.new(0.5, -30 + 13 * (i - 1), 0, 28)
+				line.BackgroundColor3 = color
+				line.BorderSizePixel = 0
+				line.Parent = bb
+				local fade = Instance.new("UIGradient")
+				fade.Rotation = 90
+				fade.Transparency = NumberSequence.new(0, 1)
+				fade.Parent = line
+				TweenService:Create(line, TweenInfo.new(0.7 + 0.13 * i, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Size = UDim2.fromOffset(4, long * 0.6) }):Play()
+			end
+		end
 		bb.Parent = player:FindFirstChildOfClass("PlayerGui")
 		return bb
 	end
 	task.spawn(function()
 		while true do
 			task.wait(0.2)
-			local seenMark, seenOutline, seenGloom = {}, {}, {}
+			local seenMark, seenOutline, seenGloom, seenMood = {}, {}, {}, {}
 			local now = Util.now()
 			for _, team in ipairs(Config.TeamOrder) do
 				local hunting = false
@@ -8593,7 +9744,7 @@ function VFXController.init(m)
 				for _, e in ipairs(State.roster(other) or {}) do
 					local m = Util.modelOf(e.id)
 					if m and (m:GetAttribute("Ability") == "TigerClaw" or string.find(m:GetAttribute("Abilities") or "", "TigerClaw", 1, true)) then
-						hunting = true
+						hunting = m:GetAttribute("Skin") == "CandyClaw" and "candy" or (hunting or true)
 					end
 				end
 				local list = {}
@@ -8605,21 +9756,47 @@ function VFXController.init(m)
 						table.insert(list, { id = e.id, defense = model:GetAttribute("Defense") or 0, z = root.Position.Z, model = model })
 						if model:GetAttribute("Clawed") then
 							seenMark[model] = true
-							seenOutline[model] = CLAW
+							seenOutline[model] = hunting == "candy" and Color3.fromRGB(226, 30, 50) or CLAW
 							if not marks[model] or not marks[model].Parent then
-								marks[model] = newMark(head)
+								marks[model] = newMark(head, hunting == "candy")
 								if near(head.Position) then
-									VFXController.popup(head.Position + Vector3.new(0, 6, 0), "Marked!", CLAW, 1.2)
+									VFXController.popup(head.Position + Vector3.new(0, 6, 0), "Marked!", seenOutline[model], 1.2)
 								end
 							end
 						end
-						if (model:GetAttribute("DiscouragedUntil") or -1) >= now then
+						local burning = (model:GetAttribute("BurnUntil") or -1) >= now
+						local mood = nil
+						if (model:GetAttribute("MoodUntil") or -1) >= now then
+							mood = model:GetAttribute("Mood")
+						elseif not burning and (model:GetAttribute("DiscouragedUntil") or -1) >= now then
+							mood = "Discouraged"
+						end
+						if burning or mood then
+							local tag = burning and "Burned" or mood
 							seenGloom[model] = true
-							if not glooms[model] or not glooms[model].Parent then
-								glooms[model] = newGloom(head)
-								if near(head.Position) then
-									VFXController.popup(head.Position + Vector3.new(0, 5, 0), "Discouraged", Color3.fromRGB(170, 176, 196), 1)
+							if not glooms[model] or not glooms[model].Parent or glooms[model]:GetAttribute("Tag") ~= tag then
+								if glooms[model] then
+									glooms[model]:Destroy()
 								end
+								glooms[model] = newGloom(head, tag)
+								if near(head.Position) then
+									VFXController.popup(head.Position + Vector3.new(0, 5, 0), burning and "Burned!" or Config.Moods[mood].Label, burning and VFXController.kuro.color or Config.Moods[mood].Color, 1.1)
+								end
+							end
+						end
+						if mood then
+							seenOutline[model] = Config.Moods[mood].Color
+							seenMood[model] = mood
+							if mood == "Encouraged" and near(root.Position) and math.random() < 0.6 then
+								Fx.play("Star", head.Position + Vector3.new((math.random() - 0.5) * 5, math.random() * 3, (math.random() - 0.5) * 5), { color = Config.Moods.Encouraged.Color, scale = 0.22 })
+							end
+						end
+						if near(root.Position) then
+							if (model:GetAttribute("BurnUntil") or -1) >= now then
+								Fx.play("Fire", root.Position, { color = VFXController.kuro.color, scale = 0.7 })
+							end
+							if (model:GetAttribute("StarlitUntil") or -1) >= now then
+								Fx.play("Glints", root.Position + Vector3.new(0, 1, 0), { color = Config.Abilities.FallingStar.Color, scale = 0.8 })
 							end
 						end
 					end
@@ -8636,6 +9813,9 @@ function VFXController.init(m)
 			end
 			for model, color in pairs(seenOutline) do
 				outline(model, color)
+				-- (a mood lights the whole player; Encouraged glows, up and down)
+				local mood = seenMood[model]
+				outlines[model].FillTransparency = (mood == "Encouraged" and 0.48 + 0.14 * math.sin(os.clock() * 5)) or (mood and 0.6) or 0.85
 			end
 			for model, h in pairs(outlines) do
 				if not seenOutline[model] then
@@ -8705,11 +9885,17 @@ function VFXController.init(m)
 		elseif kind == "Prowl" and model then
 			-- Feral Leap: a player's charge on the ground, or a bot's in the air ("auto")
 			local FL = Config.Abilities.Feral
-			remoteArc(model, "prowl", 0, extra == "auto" and FL.AutoChargeTime or FL.ChargeTime)
+			if not VFXController.kuro.isModel(model) then
+				remoteArc(model, "prowl", 0, extra == "auto" and FL.AutoChargeTime or FL.ChargeTime)
+			end
 		elseif kind == "Leap" and model then
 			local g = tonumber(extra) or 0
-			remoteArc(model, "leap", g)
-			leapBurst(model, g)
+			if VFXController.kuro.isModel(model) then
+				VFXController.kuroLeap(model, g)
+			else
+				remoteArc(model, "leap", g)
+				leapBurst(model, g)
+			end
 		elseif kind == "ProwlEnd" and model then
 			remoteArc(model, "end")
 		elseif kind == "Dive" and model then

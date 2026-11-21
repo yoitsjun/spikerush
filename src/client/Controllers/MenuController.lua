@@ -478,17 +478,33 @@ function MenuController.kit()
 			return shown
 		end,
 		extras = ui.home and ui.home.extras,
+		-- Home's left column and its tutorial card (WinterMenu's event card takes that spot once the
+		-- tutorial is done)
+		homeColumn = ui.home and ui.home.column,
+		homeTut = ui.home and ui.home.tut,
+		homeCorner = Extra.corner, -- (Decorate and Admin's row, bottom left: WinterMenu's Pass button joins it)
 		clockText = Extra.clockText,
 		iconKey = Extra.iconKey,
 		inputBox = Extra.inputBox,
 		openMatch = function()
 			MenuController.openMatch()
 		end,
+		-- the gift window for a pack (WinterMenu's Gift buttons)
+		openGift = function(kind, index)
+			MenuController.openGift(kind, index)
+			if ui.gift and ui.gift.modal then
+				ui.gift.modal.root.ZIndex = 26 -- (over the Winter window, a sibling on the same canvas)
+			end
+		end,
 		-- a character's page (the Reaper tab's "His page")
 		openPlayer = function(id)
 			Extra.openPlayer(id)
 		end,
 		-- a recruit's reveal through the usual sequence (reveal: { banner, items, theme, candy })
+		-- a menu page by name (the Missions window's Go buttons)
+		go = function(name)
+			MenuController.go(name)
+		end,
 		playRecruit = function(reveal)
 			if shown then
 				task.spawn(Extra.playSequence, reveal)
@@ -670,8 +686,10 @@ end
 -- profile chip at the top right, and AFK, Party, Help and Settings as pills at the top left under
 -- Roblox's own buttons (placeHeaders puts them there, with the strips).
 -- `lit` lights another tab than the screen's own (the Match screen lights Home).
--- (Clans opens its window, ClanMenu: the owner, 2026-10-21, "add clans to the top part here")
-local MAIN_TABS = { { "IconHome", "Home", "home" }, { "IconJump", "Practice", "practice" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" }, { "IconRanks", "Ranks", "ranks" }, { "IconDefense", "Clans", "clans" } }
+-- (Missions opens its window, MissionMenu: the owner, 2026-11-11, "missions should be on the top
+-- rack ... move some top bar buttons onto the right side, and fit missions in the top bar". Ranks
+-- and Clans, which were here, are down Home's right edge now.)
+local MAIN_TABS = { { "IconHome", "Home", "home" }, { "IconJump", "Practice", "practice" }, { "IconShop", "Shop", "shop" }, { "IconPlayers", "Players", "players" }, { "IconLocker", "Locker", "locker" }, { Extra.iconKey("IconMission", "IconStar"), "Missions", "missions" } }
 
 local function navBar(p, active, lit)
 	local nav = make("Frame", { Name = "Nav", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 18), Size = UDim2.fromOffset(#MAIN_TABS * 96 + (#MAIN_TABS - 1) * 14, 74), BackgroundTransparency = 1 }, p)
@@ -682,6 +700,10 @@ local function navBar(p, active, lit)
 			if e[3] == "clans" then
 				if mods.ClanMenu then
 					mods.ClanMenu.open()
+				end
+			elseif e[3] == "missions" then
+				if mods.MissionMenu then
+					mods.MissionMenu.open()
 				end
 			elseif e[3] ~= active then
 				MenuController.go(e[3])
@@ -752,6 +774,10 @@ local function buildHome()
 	-- waiting), codes, and the admin panel for developers
 	local extras = make("Frame", { Name = "Extras", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M + 12, 0, NAV_BOTTOM + 22), Size = UDim2.fromOffset(96, 4 * 84), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, extras)
+	-- and a short row at the bottom left, over the tip (the owner, 2026-11-11: "move a few buttons
+	-- over to the bottom left side, like admin and decorate")
+	Extra.corner = make("Frame", { Name = "Corner", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, M - 14, 1, -M - 60), Size = UDim2.fromOffset(2 * 96 + 10, 74), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1 }, p)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, Extra.corner)
 	-- What's New (the owner: "should we start adding a patchnotes feature"): a dot while the newest
 	-- patch is unread or its reading reward is still there
 	local newsBtn = navItem(extras, Extra.iconKey("IconNews", "IconHelp"), "News", { LayoutOrder = 0 })
@@ -773,13 +799,12 @@ local function buildHome()
 		Extra.onRequirementsOpen(profile())
 		MenuController.refresh()
 	end)
-	local adminBtn = navItem(extras, Extra.iconKey("IconAdmin", "IconSettings"), "Admin", { LayoutOrder = 3, Visible = false })
+	local adminBtn = navItem(Extra.corner, Extra.iconKey("IconAdmin", "IconSettings"), "Admin", { LayoutOrder = 2, Visible = false })
 	onClick(adminBtn, function()
 		MenuController.openAdmin()
 	end)
 	-- Decorate (The Spike's: swap Home's background; the owner, 2026-10-15): the room you stand in
-	local decorBtn = navItem(extras, Extra.iconKey("IconDecorate", "IconHome"), "Decorate", { LayoutOrder = 4 })
-	extras.Size = UDim2.fromOffset(extras.Size.X.Offset, extras.Size.Y.Offset + 84)
+	local decorBtn = navItem(Extra.corner, Extra.iconKey("IconDecorate", "IconHome"), "Decorate", { LayoutOrder = 1 })
 	onClick(decorBtn, function()
 		Extra.openDecorate()
 	end)
@@ -791,6 +816,16 @@ local function buildHome()
 		ui.playtime.modal.root.Visible = true
 		MenuController.refresh()
 	end)
+	-- Ranks and Clans, off the top bar (Missions took their room there)
+	onClick(navItem(extras, "IconRanks", "Ranks", { LayoutOrder = 6 }), function()
+		MenuController.go("ranks")
+	end)
+	onClick(navItem(extras, "IconDefense", "Clans", { LayoutOrder = 7 }), function()
+		if mods.ClanMenu then
+			mods.ClanMenu.open()
+		end
+	end)
+	extras.Size = UDim2.fromOffset(extras.Size.X.Offset, extras.Size.Y.Offset + 84)
 
 	-- the admin panel's running events (2x VP, 2x Gold) with their time left, under the nav
 	local chips = make("Frame", { Name = "Events", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 30, 0, 160), Size = UDim2.fromOffset(620, 40), BackgroundTransparency = 1 }, p)
@@ -935,8 +970,9 @@ local function buildHome()
 		end
 	end)
 
-	-- your AI is playing for you: a red-edged card over the buttons
-	local rejoin = Gui.card(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 134), Size = UDim2.fromOffset(524, 64), Visible = false })
+	-- your AI is playing for you: a red-edged card over the buttons, a row above the Story plate (it
+	-- sat on top of it: the owner, 2026-11-14, "move one of these 2 bars")
+	local rejoin = Gui.card(p, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -M, 1, -M - 212), Size = UDim2.fromOffset(524, 64), Visible = false })
 	rejoin.UIStroke.Color = Gui.ALERT
 	rejoin.UIStroke.Thickness = 2
 	Gui.label(rejoin, { Text = "Your AI is playing for you", display = true, TextSize = 22, Size = UDim2.fromOffset(340, 26), Position = UDim2.fromOffset(18, 8) })
@@ -1163,7 +1199,9 @@ end
 
 local FEATURED = {}
 for _, c in ipairs(Roster) do
-	if c.Tier == "S+" then
+	-- (not an event's character: Jaja can't come from the Characters banner the card's Recruit
+	-- opens, so it read "0% per recruit"; the event's own card and window feature him)
+	if c.Tier == "S+" and not c.Limited then
 		table.insert(FEATURED, c)
 	end
 end
@@ -2276,7 +2314,11 @@ end
 
 -- The recruit's glow: red when a Mythic is inside, gold for a Legendary, else pale.
 local MYTHIC = Config.Rarity.PullGlow.Mythic
-local SPARK = { mythic = MYTHIC, gold = Color3.fromRGB(255, 214, 90), green = Config.TierColors["S-"], halloween = Color3.fromRGB(255, 136, 30) }
+local SPARK = { mythic = MYTHIC, gold = Color3.fromRGB(255, 214, 90), green = Config.TierColors["S-"], halloween = Color3.fromRGB(255, 136, 30), winter = Color3.fromRGB(120, 200, 255) }
+-- a Winter recruit's pulls are blue (the owner, 2026-11-15: "a christmas recruit pull, thats blue, with
+-- snow falling from the sky. maybe leave jaja red"), paler to deeper the rarer; Jaja keeps the
+-- Mythic red
+Extra.WIN_GLOW = { Common = Color3.fromRGB(214, 238, 255), Rare = Color3.fromRGB(170, 222, 255), Epic = Color3.fromRGB(104, 180, 255), Legendary = Color3.fromRGB(48, 120, 255) }
 -- a Halloween recruit's pulls are orange (the owner, 2026-10-15: "i want the recruit pull color to be
 -- orange"), hotter and redder the rarer
 Extra.HW_GLOW = { Common = Color3.fromRGB(255, 196, 130), Rare = Color3.fromRGB(255, 176, 92), Epic = Color3.fromRGB(255, 142, 40), Legendary = Color3.fromRGB(255, 112, 14), Mythic = Color3.fromRGB(255, 72, 0) }
@@ -2326,6 +2368,14 @@ end
 -- A pull's item, rarity, rank and the colour it glows in the recruit (Mythic: red; an S-
 -- character: its tier's green, so it reads apart from the S tier's gold).
 local function pullInfo(kind, it)
+	if it.win and it.kind ~= "Char" then
+		-- a Wild Card banner item (WinterMenu passes its name, rarity and kind): the winter's blues
+		local rarity = it.rarity or "Rare"
+		return { Name = it.name or it.key, Rarity = rarity, Kind = it.kind }, rarity, Spins.rarityRank(rarity), Extra.WIN_GLOW[rarity] or SPARK.winter
+	end
+	if it.win then
+		kind = "Char" -- (Jaja: a real character, in the Mythic red)
+	end
 	if it.hw then
 		-- a Halloween banner item (HalloweenMenu passes its name, rarity and kind: a skin isn't a
 		-- Spins item)
@@ -2344,6 +2394,9 @@ end
 
 local function fillTray(i, kind, it)
 	local card = ui.seq.tray[i]
+	if it.win and it.kind == "Char" then
+		kind = "Char"
+	end
 	local item, rarity, rank, color = pullInfo(kind, it)
 	card.frame.Visible = true
 	card.stroke.Color = color
@@ -2363,7 +2416,9 @@ local function fillTray(i, kind, it)
 		card.big.Text = ""
 		card.name.Text = item and item.Name or "?"
 	end
-	if it.hw then
+	if it.win then
+		card.foot.Text = (it.frag and string.format("+1 %s Fragment", it.frag)) or (it.dup and string.format("+%d %s", it.snow or 0, Config.Winter.Snow.Name)) or "NEW"
+	elseif it.hw then
 		card.foot.Text = it.dup and string.format("+%d Candy", it.candy or 0) or (it.kind == "Skin" and "SKIN" or "NEW")
 	elseif it.dup then
 		card.foot.Text = "+" .. Spins.sellValue(rarity) .. " VP"
@@ -2401,6 +2456,9 @@ local function cinematic(seq, mythic, theme, green)
 	tween(C.root, 0.12, { BackgroundTransparency = 0 })
 	local hw = theme == "Halloween"
 	local bats = Extra.cinBats(C.root, hw, mythic)
+	-- a Winter recruit: snow falls through it (Jaja's stays the Mythic red under the snow)
+	local winter = theme == "Winter"
+	local snow = winter and Extra.snowLayer(C.root, 40, 35) or nil
 	-- a Mythic burns red instead of the yellow screen; a Halloween recruit is an orange moon sky (the
 	-- Reaper's: night falling, violet)
 	if hw and mythic then
@@ -2413,6 +2471,12 @@ local function cinematic(seq, mythic, theme, green)
 		C.beam.BackgroundColor3 = Color3.fromRGB(255, 240, 210)
 		S.flash.BackgroundColor3 = Color3.fromRGB(255, 220, 170)
 		C.setGlow(0, Color3.fromRGB(255, 248, 225))
+	elseif winter and not mythic then
+		-- a Winter recruit: a pale blue sky falling to deep blue
+		C.grad.Color = ColorSequence.new(Color3.fromRGB(206, 238, 255), Color3.fromRGB(34, 104, 226))
+		C.beam.BackgroundColor3 = Color3.new(1, 1, 1)
+		S.flash.BackgroundColor3 = Color3.fromRGB(220, 240, 255)
+		C.setGlow(0, Color3.new(1, 1, 1))
 	elseif green then
 		-- an S-: green instead of the yellow screen (the owner, 2026-10-22: "on the s- pulls i want the
 		-- yellow screen flash to be green not yellow")
@@ -2491,6 +2555,7 @@ local function cinematic(seq, mythic, theme, green)
 			end
 		end
 		Extra.flyBats(bats, t)
+		Extra.fallSnow(snow, t)
 		local hand = Vector3.new(0, ground + up + 3.1, -1.4)
 		if t < CONTACT then
 			local a = math.clamp((t - 0.3) / (CONTACT - 0.3), 0, 1)
@@ -2526,6 +2591,9 @@ local function cinematic(seq, mythic, theme, green)
 	end
 	if bats then
 		bats.frame:Destroy()
+	end
+	if snow then
+		snow.frame:Destroy()
 	end
 	if trayFrame then
 		trayFrame.Visible = true
@@ -2698,7 +2766,7 @@ end
 -- wait for a click).
 function Extra.mythicTitle(seq, root, it, def, tint, after)
 	local title = Gui.label(root, { Text = string.upper(def.Name or it.key), display = true, weight = Enum.FontWeight.Heavy, TextSize = 96, TextColor3 = tint:Lerp(Color3.new(1, 1, 1), 0.35), TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromOffset(1400, 110), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 47 })
-	local sub = Gui.label(root, { Text = "MYTHIC SKIN  ·  " .. string.upper(Extra.HW.skinCharNames(it.key)), display = true, TextSize = 26, TextColor3 = MYTHIC, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.56), Size = UDim2.fromOffset(1000, 34), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 47 })
+	local sub = Gui.label(root, { Text = def.Sub or ("MYTHIC SKIN  ·  " .. string.upper(Extra.HW.skinCharNames(it.key))), display = true, TextSize = 26, TextColor3 = MYTHIC, TextTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.56), Size = UDim2.fromOffset(1000, 34), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 47 })
 	task.delay(after, function()
 		if root.Parent then
 			tween(title, 0.5, { TextTransparency = 0 })
@@ -2733,6 +2801,37 @@ function Extra.flurryCut(root, tint, scars, n)
 			cres:Destroy()
 		end)
 	end
+end
+
+-- A Christmas skin's pull (Config.Halloween.Skins' Pull: Lights, Sleigh, Tree), drawn by
+-- WinterSkins over the sequence; it ends on the skin's name like the Halloween ones. Returns false
+-- if the sequence was cancelled.
+function Extra.winterPull(seq, it, def)
+	local S = ui.seq
+	local tint = def.Tint or Color3.fromRGB(70, 150, 255)
+	local skipWas = S.skip.Visible
+	S.skip.Visible = false
+	local root = make("Frame", { Name = "WinterPull", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(2, 4, 12), BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 40 }, S.root)
+	local ctx = {
+		root = root,
+		flash = S.flash,
+		make = make,
+		tween = tween,
+		alive = function()
+			return alive(seq)
+		end,
+		snow = function(parent)
+			return Extra.snowLayer(parent, 50, 48)
+		end,
+		fallSnow = Extra.fallSnow,
+		title = function(after)
+			Extra.mythicTitle(seq, root, it, def, tint, after)
+		end,
+	}
+	local ok = mods.WinterSkins.pull(def.Pull, ctx)
+	root:Destroy()
+	S.skip.Visible = skipWas
+	return ok and alive(seq)
 end
 
 -- The Fallen Angel's pull (the owner, 2026-10-17: "why does yejun have the same recruitment pull
@@ -3005,6 +3104,41 @@ function Extra.flyBats(bats, t)
 	end
 end
 
+-- The Winter recruit's snow (the owner, 2026-11-15: "a christmas recruit pull, thats blue, with snow
+-- falling from the sky"): soft dots drifting down the whole screen, one in five a drawn snowflake
+-- turning as it falls. Returns { frame, list }; Extra.fallSnow moves it.
+function Extra.snowLayer(parent, count, z)
+	local frame = make("Frame", { Name = "Snow", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = z }, parent)
+	local img = Assets.image("IconSnowflake")
+	local rng = Random.new()
+	local list = {}
+	for i = 1, count do
+		local big = img ~= nil and i % 5 == 0
+		local size = big and rng:NextInteger(22, 48) or rng:NextInteger(4, 11)
+		local g
+		if big then
+			g = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(size, size), BackgroundTransparency = 1, Image = img, ImageColor3 = Color3.fromRGB(238, 247, 255), ImageTransparency = 0.1 + rng:NextNumber() * 0.35, ZIndex = z }, frame)
+		else
+			g = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(size, size), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.05 + rng:NextNumber() * 0.4, BorderSizePixel = 0, ZIndex = z }, frame)
+			Gui.round(g)
+		end
+		table.insert(list, { gui = g, x = rng:NextNumber(), y0 = rng:NextNumber(), speed = (big and 0.07 or 0.1) + rng:NextNumber() * 0.13, sway = 0.008 + rng:NextNumber() * 0.02, phase = rng:NextNumber() * 6.28, spin = big and (rng:NextNumber() - 0.5) * 70 or 0 })
+	end
+	return { frame = frame, list = list }
+end
+
+function Extra.fallSnow(snow, t)
+	if not snow then
+		return
+	end
+	for _, s in ipairs(snow.list) do
+		s.gui.Position = UDim2.fromScale(s.x + s.sway * math.sin(t * 1.3 + s.phase), (s.y0 + t * s.speed) % 1.1 - 0.05)
+		if s.spin ~= 0 then
+			s.gui.Rotation = t * s.spin
+		end
+	end
+end
+
 -- The Reaper's crescent: a violet slash sweeping across the screen as the scythe hits.
 function Extra.cinSlash(parent)
 	local slash = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.52, 0.46), Size = UDim2.fromScale(0.9, 0.9), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Slash) or "", ImageColor3 = Color3.fromRGB(150, 90, 255), Rotation = -60, ZIndex = 36 }, parent)
@@ -3024,6 +3158,9 @@ local cardRig = nil
 
 local function showCard(kind, it)
 	local K = ui.seq.card
+	if it.win and it.kind == "Char" then
+		kind = "Char"
+	end
 	local item, rarity, _, color = pullInfo(kind, it)
 	K.root.Visible = true
 	K.scale.Scale = 0.6
@@ -3062,6 +3199,19 @@ local function showCard(kind, it)
 				pose = "Cock_" .. style
 			end
 		end
+	elseif it.win then
+		-- a Wild Card banner item: a grant lands in your profile at once, a winter cosmetic in the Locker
+		local bk = SP.Banners[it.kind]
+		local wskin = it.kind == "Skin" and Config.Halloween.Skins[it.key] or nil
+		K.name.Text = item and item.Name or "?"
+		K.tier.Text = ""
+		K.line.Text = wskin and "Christmas skin" or (bk and bk.Name or (Config.Winter.Banner.Name .. " banner"))
+		K.ability.Text = wskin and (Extra.HW.skinCharNames(it.key) .. "'s skin: swap it on his page") or (bk and "Equip it in the Locker" or "Added to your profile")
+		K.ability.TextColor3 = Extra.WIN_GLOW.Rare
+		K.blurb.Text = (wskin and wskin.Blurb) or (bk and bk.Blurb) or ("From the " .. Config.Winter.Name .. ".")
+		for _, b in pairs(K.bars) do
+			b.label.Visible, b.track.Visible, b.value.Visible = false, false, false
+		end
 	elseif it.hw then
 		local skin = it.kind == "Skin" and Config.Halloween.Skins[it.key]
 		local bk = SP.Banners[it.kind]
@@ -3090,7 +3240,10 @@ local function showCard(kind, it)
 		end
 	end
 	local sell = Spins.sellValue(rarity)
-	if it.hw then
+	if it.win and not it.frag then
+		K.foot.Text = it.dup and string.format("Duplicate: +%d %s", it.snow or 0, Config.Winter.Snow.Name) or "NEW"
+		K.foot.TextColor3 = it.dup and Gui.MUTED or Extra.WIN_GLOW.Rare
+	elseif it.hw then
 		K.foot.Text = it.dup and string.format("Duplicate: +%d Candy", it.candy or 0) or "NEW"
 		K.foot.TextColor3 = it.dup and Gui.MUTED or Color3.fromRGB(255, 160, 60)
 	elseif it.dup and it.frag then
@@ -3125,6 +3278,9 @@ local function showCard(kind, it)
 	end
 	if mods.AudioController then
 		mods.AudioController.play(Spins.rarityRank(rarity) >= 4 and "RecruitRevealGold" or "RecruitReveal", { volume = 0.9 })
+		if MenuController.recruitTheme == "Winter" then
+			mods.AudioController.play("WinterBells", { volume = 0.6 }) -- (a Winter recruit's cards ring in)
+		end
 	end
 end
 
@@ -3160,6 +3316,7 @@ local function playSequence(reveal)
 	if seqActive then
 		endSequence(seqActive)
 	end
+	MenuController.recruitTheme = reveal.theme
 	if reveal.theme == "Halloween" and mods.HalloweenMenu and mods.HalloweenMenu.hideWindow then
 		mods.HalloweenMenu.hideWindow() -- (back when it's over)
 	end
@@ -3187,6 +3344,21 @@ local function playSequence(reveal)
 	if theme == "Halloween" then
 		tone = "halloween"
 	end
+	-- a Winter recruit is blue with snow falling the whole way through; Jaja inside keeps it red
+	if theme == "Winter" then
+		if best < 5 then
+			tone = "winter"
+		end
+		local snow = Extra.snowLayer(S.root, 54, 31)
+		task.spawn(function()
+			local t0 = os.clock()
+			while alive(seq) do -- (until the sequence ends or is cut: endSequence)
+				Extra.fallSnow(snow, os.clock() - t0)
+				RunService.RenderStepped:Wait()
+			end
+			snow.frame:Destroy()
+		end)
+	end
 	-- the recruit has the screen to itself: no menus, panels or buttons behind it
 	for _, f in pairs(ui.pages) do
 		f.Visible = false
@@ -3213,6 +3385,11 @@ local function playSequence(reveal)
 		mods.AudioController.play(gold and "RecruitOpenGold" or "RecruitOpen", { volume = gold and 0.5 or 0.7 })
 		if tone == "mythic" then
 			mods.AudioController.play("RecruitOpenMythic", { volume = 0.8 })
+		end
+		if theme == "Winter" then
+			-- a Winter recruit opens on sleigh bells and a sparkle (the owner: "christmas themed")
+			mods.AudioController.play("WinterSleigh", { volume = 0.7, seconds = 3 })
+			mods.AudioController.play("WinterSparkle", { volume = 0.6, seconds = 3 })
 		end
 	end
 	if not hold(seq, 1.15) then
@@ -3255,14 +3432,20 @@ local function playSequence(reveal)
 		local _, _, rank, color = pullInfo(kind, it)
 		mods.SceneController.popBall(i, color)
 		-- (Skip S, Skip S-: a character of that tier opens like the rest)
-		local tier = kind == "Char" and not it.hw and Roster.get(it.key) and Roster.get(it.key).Tier
+		local isChar = (kind == "Char" and not it.hw) or (it.win and it.kind == "Char")
+		local tier = isChar and Roster.get(it.key) and Roster.get(it.key).Tier
 		local skipped = (tier == "S" and State.settings.skipS) or (tier == "S-" and State.settings.skipSMinus)
-		local big = rank >= 5 or (rank == 4 and not skipped)
+		local big = (rank >= 5 or (rank == 4 and not skipped)) and not (it.win and it.kind == "Grant") -- (a grant of VP or spins opens like the rest)
 		if big then
 			seq.skipping = false -- a skip lands here
 			local ok
-			if theme == "Halloween" and it.kind == "Skin" then
-				local sd = Config.Halloween.Skins[it.key]
+			local sd = it.kind == "Skin" and Config.Halloween.Skins[it.key] or nil
+			if sd and mods.WinterSkins and mods.WinterSkins.hasPull(sd.Pull) then
+				ok = Extra.winterPull(seq, it, sd) -- (a Christmas skin: its own, WinterSkins)
+			elseif isChar and it.key == "jaja" and mods.WinterSkins and mods.WinterSkins.hasPull("Joker") then
+				-- Jaja: cards swirl in, circle the middle, and split open on him (WinterSkins' Joker)
+				ok = Extra.winterPull(seq, it, { Name = "Jaja", Pull = "Joker", Tint = Color3.fromRGB(214, 30, 44), Sub = "S+ WING SPIKER  ·  FROM VOLLEYBALL EVOLVED" })
+			elseif theme == "Halloween" and it.kind == "Skin" then
 				if sd and sd.Pull == "Crack" then
 					ok = Extra.crackPull(seq, it) -- (the Fallen Angel: the screen cracks, the arms crawl out)
 				else
@@ -3275,7 +3458,7 @@ local function playSequence(reveal)
 				return
 			end
 			seq.skipping = false
-			local quote = kind == "Char" and Config.Quotes[it.key]
+			local quote = isChar and Config.Quotes[it.key]
 			if quote and not Extra.quoteScreen(seq, it.key, quote) then
 				return
 			end
@@ -3325,6 +3508,9 @@ local function playSequence(reveal)
 	if theme == "Halloween" then
 		refund = (reveal.candy or 0) > 0 and string.format('   <font color="#FF8A1E">+%d Candy from duplicates</font>', reveal.candy) or ""
 	end
+	if theme == "Winter" then
+		refund = (reveal.snow or 0) > 0 and string.format('   <font color="#96DCFF">+%d %s from duplicates</font>', reveal.snow, Config.Winter.Snow.Name) or ""
+	end
 	S.summary.Text = table.concat(parts, "   ") .. refund
 	S.summary.Visible = true
 	S.confirm.Visible = true
@@ -3332,6 +3518,9 @@ local function playSequence(reveal)
 	endSequence(seq)
 	if theme == "Halloween" and mods.HalloweenMenu and mods.HalloweenMenu.open then
 		mods.HalloweenMenu.open("Banner") -- back to the banner it came from
+	end
+	if type(reveal.after) == "function" then
+		reveal.after() -- (the window it came from: WinterMenu's banner)
 	end
 end
 
@@ -3341,8 +3530,24 @@ Extra.playSequence = playSequence
 if RunService:IsStudio() then
 	workspace:GetAttributeChangedSignal("TestPull"):Connect(function()
 		local key = workspace:GetAttribute("TestPull")
+		if key == "Winter" or key == "WinterJaja" then
+			-- (a sample Wild Card recruit: "Winter" a x10 with a Legendary in it, "WinterJaja" Jaja alone)
+			local sample = { { win = true, kind = "Char", key = "jaja", name = "Jaja", rarity = "Mythic" } }
+			if key == "Winter" then
+				sample = {}
+				for i, def in ipairs({ { "60 VP", "Rare" }, { "1,500 Gold", "Rare" }, { "150 VP", "Epic" }, { "3,000 Gold", "Rare" }, { "Snowflake (sample)", "Legendary", "Ball" }, { "60 VP", "Rare" }, { "150 VP", "Epic" }, { "1 lucky spin", "Legendary" }, { "1,500 Gold", "Rare" }, { "60 VP", "Rare" } }) do
+					sample[i] = { win = true, kind = def[3] or "Grant", key = "Sample" .. i, name = def[1], rarity = def[2] }
+				end
+			end
+			task.spawn(playSequence, { banner = "Winter", theme = "Winter", items = sample, snow = 0 })
+		end
 		if type(key) == "string" and Config.Halloween.Skins[key] then
-			task.spawn(playSequence, { banner = "Halloween", theme = "Halloween", items = { { hw = true, kind = "Skin", key = key, name = Config.Halloween.Skins[key].Name, rarity = "Mythic" } } })
+			if Config.Halloween.Skins[key].Limited == "Winter" then
+				-- (a Christmas skin: as a Wild Card recruit)
+				task.spawn(playSequence, { banner = "Winter", theme = "Winter", items = { { win = true, kind = "Skin", key = key, name = Config.Halloween.Skins[key].Name, rarity = "Mythic" } }, snow = 0 })
+			else
+				task.spawn(playSequence, { banner = "Halloween", theme = "Halloween", items = { { hw = true, kind = "Skin", key = key, name = Config.Halloween.Skins[key].Name, rarity = "Mythic" } } })
+			end
 		end
 	end)
 end
@@ -3980,6 +4185,13 @@ local function buildPlayer()
 			if not c or not apply.Active then
 				return
 			end
+			if row.action == "winter" then
+				-- a Christmas skin: to where it's got (the Pass, the calendar, the shop, the missions)
+				if mods.WinterMenu then
+					mods.WinterMenu.open(row.winterTab)
+				end
+				return
+			end
 			if row.action == "get" then
 				local hwMenu = mods.HalloweenMenu
 				if hwMenu and hwMenu.open then
@@ -4032,7 +4244,7 @@ local function buildPlayer()
 		end
 	end)
 
-	local _, setTab = Gui.tabs(panel, { { key = "Growth", text = "Growth" }, { key = "Break", text = "Breakthrough" }, { key = "Info", text = "Information" }, { key = "Profile", text = "Profile" } }, { Name = "Tabs", Position = UDim2.fromOffset(16, 120), Size = UDim2.new(1, -32, 0, 52) }, function(key)
+	local _, setTab = Gui.tabs(panel, { { key = "Growth", text = "Growth" }, { key = "Break", text = "Breakthrough" }, { key = "Info", text = "Information" }, { key = "Profile", text = "Profile" }, { key = "Mastery", text = "Mastery" } }, { Name = "Tabs", Position = UDim2.fromOffset(16, 120), Size = UDim2.new(1, -32, 0, 52) }, function(key)
 		click("UISelect")
 		playerTab = key
 		MenuController.refresh()
@@ -4219,6 +4431,8 @@ local function buildPlayer()
 	Gui.plate(bioBox, { Size = UDim2.fromOffset(60, 5), Position = UDim2.fromOffset(22, 112) }, Gui.SIGNAL)
 	local bioText = Gui.label(bioBox, { Text = "", TextSize = 20, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, LineHeight = 1.15, Position = UDim2.fromOffset(22, 134), Size = UDim2.new(1, -44, 1, -150) })
 	Extra.bio = { frame = profPage, name = bioName, line = bioLine, text = bioText }
+	-- Mastery: the character's rank and its next rank's challenges (MissionMenu fills it)
+	Extra.masteryPage = make("Frame", { Name = "Mastery", Position = UDim2.fromOffset(0, 184), Size = UDim2.new(1, 0, 1, -184), BackgroundTransparency = 1, Visible = false }, panel)
 
 	ui.player = {
 		setBadge = setBadge,
@@ -4479,7 +4693,14 @@ function Extra.refreshSkins(prof, c, mine)
 			row.action = nil
 			if key then
 				local def = Config.Halloween.Skins[key]
-				row.sub.Text = applied and "On: you spike with it" or (owned and (def.Rarity .. " skin") or (active and "Halloween banner" or "From the Halloween event"))
+				-- (a Christmas skin names its one way: the Winter Pass, an advent door, the shop, a mission)
+				local wway, wtab = nil, nil
+				if def.Limited == "Winter" then
+					local WinterMod = require(game:GetService("ReplicatedStorage").Shared.Winter)
+					wway, wtab = WinterMod.skinWay(key)
+				end
+				row.winterTab = wtab
+				row.sub.Text = applied and "On: you spike with it" or (owned and (def.Rarity .. " skin") or (wway or (active and "Halloween banner" or "From the Halloween event")))
 				row.sub.TextColor3 = applied and row.color or Gui.DIM
 				if row.lock then
 					row.lock.Visible = not owned
@@ -4497,6 +4718,11 @@ function Extra.refreshSkins(prof, c, mine)
 			elseif owned or prof.dev then
 				row.applyL.Text = "Apply"
 				Gui.enable(row.apply, row.applyL, true)
+			elseif row.winterTab then
+				local wlive = require(game:GetService("ReplicatedStorage").Shared.Winter).active()
+				row.applyL.Text = wlive and "Get it" or "Locked"
+				row.action = wlive and "winter" or nil
+				Gui.enable(row.apply, row.applyL, wlive)
 			else
 				row.applyL.Text = active and "Get it" or "Locked"
 				row.action = active and "get" or nil
@@ -4698,6 +4924,10 @@ local function refreshPlayer(prof)
 	Extra.refreshSkins(prof, c, mine)
 	d.info.Visible = playerTab == "Info"
 	Extra.bio.frame.Visible = playerTab == "Profile"
+	Extra.masteryPage.Visible = playerTab == "Mastery"
+	if mods.MissionMenu and mods.MissionMenu.fillMastery then
+		mods.MissionMenu.fillMastery(Extra.masteryPage, c.Id, mine)
+	end
 	d.setStep(statStep)
 
 	-- Growth
@@ -4963,16 +5193,26 @@ local function buildLocker()
 		local bodies, events = {}, {}
 		for i, item in ipairs(COS[kind]) do
 			if not item.Hidden then -- (the Reaper skin's Souls trail comes with the skin)
-				local group = item.Ranked and "Ranked" or (item.Limited or "Normal")
+				-- (the winter's own split by where they come from: the advent calendar's and the Winter
+				-- Pass's apart from the banner's and the shop's; the owner, 2026-11-18, "make sure to
+				-- organize everything again")
+				local group = item.Ranked and "Ranked" or (item.Advent and "Advent") or ((item.Pass and item.Limited) and (item.Limited .. "Pass")) or (item.Limited or "Normal")
 				if not bodies[group] then
 					if group == "Normal" then
 						bodies[group] = section(col, 1, "Normal", "From the banners")
 					elseif group == "Ranked" then
 						bodies[group] = section(col, 2, "Ranked", "Reach the rank in its season and it's yours for good")
-					else
+					elseif group == "Advent" then
 						table.insert(events, group)
-						local ev = Config[group]
-						bodies[group] = section(col, 2 + #events, ev and ev.Name or group, "Event  /  Limited")
+						bodies[group] = section(col, 2 + #events, "Advent calendar", "Winter  /  A door a day, December 1 to 25")
+					elseif group == "WinterPass" then
+						table.insert(events, group)
+						bodies[group] = section(col, 2 + #events, "Winter Pass", "Winter  /  From the Winter Pass's tiers")
+					else
+						-- (titled by the season, "Halloween", "Winter": not the event's current name,
+						-- which for Halloween is now the Colosseum's)
+						table.insert(events, group)
+						bodies[group] = section(col, 2 + #events, group, "Event  /  Limited")
 					end
 				end
 				local card = lockerCard(bodies[group], kind, item)
@@ -5613,6 +5853,22 @@ local function buildShop()
 		toast("Checking your account for Spike Rush passes...")
 		sendProfile("restorePasses")
 	end)
+	-- watch a rewarded video ad for 2x Luck (Config.Boosts.AdPacks): only shown while Roblox has
+	-- one ready for this player (checked when the Shop opens and every half minute)
+	Extra.adButton = hairButton(p, { Name = "WatchAd", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -M - 294, 0, 132), Size = UDim2.fromOffset(330, 40), Visible = false }, "Watch an ad: FREE 2x Luck (10 min)", 17)
+	onClick(Extra.adButton, function()
+		Extra.adButton.Visible = false
+		sendProfile("watchAd")
+	end)
+	task.spawn(function()
+		while Extra.adButton and Extra.adButton.Parent do
+			local ok, res = pcall(function()
+				return game:GetService("AdService"):GetAdAvailabilityNowAsync(Enum.AdFormat.RewardedVideo)
+			end)
+			Extra.adButton.Visible = ok and res ~= nil and res.AdAvailabilityResult == Enum.AdAvailabilityResult.IsAvailable
+			task.wait(30)
+		end
+	end)
 	local packs = make("Frame", { Name = "Packs", Position = UDim2.fromOffset(M, 210), Size = UDim2.fromOffset(4 * 200 + 3 * 14, 560), BackgroundTransparency = 1 }, p)
 	local tabs = {}
 	for _, key in ipairs({ "Deals", "Specials", "Currency", "Lucky", "Boosts", "Trade" }) do
@@ -5950,6 +6206,11 @@ for _, id in ipairs(Config.Courts.Rotation) do
 end
 if Config.Courts.List[Config.Halloween.Court] then
 	table.insert(COURT_CHOICES, Config.Halloween.Court)
+end
+-- and the Winter court (Snowfall Lodge) while the Winter event runs (the owner, 2026-11-18: "add the
+-- christmas courts to the custom lobbies"). (No new local: this file is at Lua's limit.)
+if Config.Courts.List[Config.Winter.Match.Court] and require(game:GetService("ReplicatedStorage").Shared.Winter).active() then
+	table.insert(COURT_CHOICES, Config.Winter.Match.Court)
 end
 
 local function courtName(id)
@@ -6541,7 +6802,7 @@ local function refreshMatch()
 	Mt.lobby.Visible = inLobby
 	if mine then
 		local ev = mine.event
-		Mt.modal.title.Text = (ev and string.format("Halloween Match (%s): stage %d of %d", ev.diff, ev.stage, ev.stages or Config.Halloween.Stages))
+		Mt.modal.title.Text = (ev and string.format("Colosseum (%s): stage %d of %d", (Extra.HW.difficulty(ev.diff) or { Name = ev.diff }).Name, ev.stage, ev.stages or Config.Halloween.Stages))
 			or (mine.cup and string.format("%s: round %d of %d", mine.cup.name, mine.cup.round, Config.Tournament.Rounds))
 			or (mine.ranked and string.format("Ranked %dv%d", mine.mode, mine.mode))
 			or (mine.quick and string.format("Quick Match %dv%d", mine.mode, mine.mode) or (mine.hostName .. "'s Lobby"))
@@ -6720,16 +6981,69 @@ end
 ------------------------------------------------------------------------------------------
 
 local MATCH_CARDS = {
+	-- story mode first, then the Colosseum after the Tournaments (the owner, 2026-11-14: "why cant i
+	-- see story or colloseeum in the play match tab", "story should be first bar in the match play tab")
+	{ key = "Story", title = "Story", icon = "IconRanks", art = "MatchArena", strip = "Your team's road to the top" },
 	{ key = "3", mode = 3, title = "3v3", icon = "IconPlayers", art = "MatchArena" },
 	{ key = "2", mode = 2, title = "2v2", icon = "IconPlayers", art = "MatchBeach" },
 	{ key = "1", mode = 1, title = "1v1", icon = "IconAttack", art = "MatchRooftop" },
 	-- ranked (the owner, 2026-10-21; RankedMenu): real players only, Bronze to Almighty
 	{ key = "Ranked", title = "Ranked", icon = "IconStar", art = "MatchNationals", strip = "Real players: climb the ranks" },
 	{ key = "Cups", title = "Tournaments", icon = "IconStar", art = "MatchColosseum", strip = "Pay in, win big" },
+	{ key = "Colosseum", title = "Colosseum", icon = "IconStar", art = "MatchColosseum", strip = "5 stages, cards, Laurels" },
 	{ key = "Lobbies", title = "Lobbies", icon = "IconHome", art = "MatchNationals", strip = "Public, friends and private" },
 	{ key = "Custom", title = "Custom", icon = "IconSettings", art = "MatchColosseum", strip = "Host your own lobby" },
 	{ key = "Practice", title = "Practice", icon = "IconJump", art = "MatchPractice", strip = "Drills and the tutorial" },
 }
+-- the Winter collab's match, second in the row while the event runs (Config.Winter, WinterMenu)
+if require(Shared.Winter).active(os.time()) then
+	table.insert(MATCH_CARDS, 2, { key = "Winter", title = Config.Winter.Name, icon = "IconSnowflake", art = "MatchWinter", strip = "Beat Jaja for " .. Config.Winter.Snow.Name })
+end
+
+-- The Winter Rally card's own look (the owner, 2026-11-18: "make a winter themed button for this"):
+-- Snowfall Lodge for its art, an icy blue edge, string lights along the top, snow falling over it,
+-- the strip and the foot in deep winter blue.
+function Extra.winterMatchCard(b, e)
+	local ICE = Config.Winter.Snow.Color
+	e.edge.Color = ICE
+	e.edge.Thickness = 2
+	e.edge.Transparency = 0.1
+	e.winterEdge = ICE
+	local strip = b:FindFirstChild("Strip")
+	if strip then
+		strip.BackgroundColor3 = Color3.fromRGB(10, 34, 90)
+		strip.BackgroundTransparency = 0.25
+	end
+	e.foot.BackgroundColor3 = Color3.fromRGB(8, 26, 70)
+	e.foot.BackgroundTransparency = 0.2
+	-- the lights: a wire in three swags, a bulb in each colour along it
+	local LIGHTS = { Color3.fromRGB(255, 92, 92), Color3.fromRGB(255, 216, 112), Color3.fromRGB(104, 228, 136), Color3.fromRGB(120, 196, 255), Color3.fromRGB(255, 255, 255) }
+	local n = 0
+	for sw = 0, 2 do
+		for i = 0, 4 do
+			local t = i / 4
+			local x = (sw + t) / 3
+			local y = 4 + 14 * 4 * t * (1 - t)
+			if i > 0 and i < 4 then
+				n = n + 1
+				local col = LIGHTS[n % #LIGHTS + 1]
+				local bulb = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(x, 0, 0, y), Size = UDim2.fromOffset(9, 13), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = 4 }, b)
+				make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, bulb)
+				make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(40, 40), BackgroundTransparency = 1, Image = Assets.id(Assets.Fx.Glow) or "", ImageColor3 = col, ImageTransparency = 0.45, ZIndex = 3 }, bulb)
+				TweenService:Create(bulb, TweenInfo.new(0.9 + (n % 3) * 0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.5 }):Play()
+			end
+		end
+	end
+	-- snow falling over the court
+	for k = 1, 16 do
+		local flake = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new((k * 0.37) % 1, 0, -0.05, 0), Size = UDim2.fromOffset(3 + k % 3, 3 + k % 3), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = 2 }, b)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, flake)
+		local tween = TweenService:Create(flake, TweenInfo.new(5 + (k % 5), Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Position = UDim2.new((k * 0.37 + 0.08) % 1, 0, 1.05, 0) })
+		task.delay((k % 7) * 0.7, function()
+			tween:Play()
+		end)
+	end
+end
 local CARD_W, CARD_H, CARD_GAP = 290, 490, 18
 
 -- A card's status line: short, for the lobby you're in.
@@ -6758,6 +7072,18 @@ local function pickMatchCard(c)
 	end
 	if c.key == "Practice" then
 		MenuController.go("practice")
+	elseif c.key == "Story" then
+		if mods.StoryMenu then
+			mods.StoryMenu.open(true)
+		end
+	elseif c.key == "Colosseum" then
+		if mods.HalloweenMenu then
+			mods.HalloweenMenu.open("Match")
+		end
+	elseif c.key == "Winter" then
+		if mods.WinterMenu then
+			mods.WinterMenu.open("Match")
+		end
 	elseif c.key == "Ranked" then
 		if mods.RankedMenu then
 			mods.RankedMenu.open()
@@ -6873,10 +7199,13 @@ local function buildMatchScreen()
 		local edge = make("UIStroke", { Color = Gui.HAIRLINE, Thickness = 1, Transparency = 0.45, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
 		local scale = make("UIScale", { Scale = 1 }, b)
 		local e = { button = b, foot = foot, footL = footL, edge = edge, hot = false, over = false }
+		if c.key == "Winter" then
+			Extra.winterMatchCard(b, e)
+		end
 		local function look()
-			edge.Color = (e.hot or e.over) and Gui.SIGNAL or Gui.HAIRLINE
-			edge.Thickness = e.hot and 3 or (e.over and 2 or 1)
-			edge.Transparency = (e.hot or e.over) and 0 or 0.45
+			edge.Color = (e.hot or e.over) and (e.winterEdge and Color3.new(1, 1, 1) or Gui.SIGNAL) or (e.winterEdge or Gui.HAIRLINE)
+			edge.Thickness = e.hot and 3 or ((e.over or e.winterEdge) and 2 or 1)
+			edge.Transparency = (e.hot or e.over or e.winterEdge) and 0 or 0.45
 		end
 		e.look = look
 		b.MouseEnter:Connect(function()
@@ -6980,6 +7309,24 @@ local function refreshMatchScreen(prof)
 				text, hot = string.format("%s: round %d of %d", mine.cup.name, mine.cup.round, Config.Tournament.Rounds), true
 			else
 				text = string.format("%d cups running", #Config.Tournament.Cups)
+			end
+		elseif c.key == "Story" then
+			if mine and mine.story then
+				text, hot = lobbyLine(mine), true
+			else
+				text = "Chapter 1"
+			end
+		elseif c.key == "Colosseum" then
+			if mine and mine.event then
+				text, hot = lobbyLine(mine), true
+			else
+				text = string.format("%d rewarded runs a day", Config.Halloween.RewardedRuns)
+			end
+		elseif c.key == "Winter" then
+			if mine and mine.winter then
+				text, hot = lobbyLine(mine), true
+			else
+				text = "3 difficulties, a first win each a day"
 			end
 		elseif c.key == "Custom" then
 			if mine and not mine.quick and not mine.cup and not mine.event and mine.isHost then
@@ -7135,7 +7482,9 @@ local function buildRanks()
 	local p = page("ranks")
 	mainChrome(p, "ranks")
 	-- the boards down the left, as hairline cards (the one shown edged in gold with a bar)
-	local list = make("Frame", { Name = "Boards", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(310, #Leaderboards.Boards * 64 + (#Leaderboards.Boards - 1) * 8), BackgroundTransparency = 1 }, p)
+	-- (eleven boards while the Winter event's is on: a little shorter each, to stay on the page)
+	Extra.boardH = #Leaderboards.Boards > 10 and 58 or 64
+	local list = make("Frame", { Name = "Boards", Position = UDim2.fromOffset(M, 150), Size = UDim2.fromOffset(310, #Leaderboards.Boards * Extra.boardH + (#Leaderboards.Boards - 1) * 8), BackgroundTransparency = 1 }, p)
 	make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	local tabs = {}
 	-- (a controller: LB and RB step through the boards)
@@ -7152,10 +7501,10 @@ local function buildRanks()
 	markBoard = Gui.navTabs(list, boardItems, pickBoard)
 	markBoard(boardKey)
 	for i, b in ipairs(Leaderboards.Boards) do
-		local t = Gui.cardButton(list, { Name = b.Key, Size = UDim2.new(1, 0, 0, 64), LayoutOrder = i })
-		local bar = Gui.plate(t, { Position = UDim2.fromOffset(-2, 0), Size = UDim2.fromOffset(12, 64) }, Gui.SIGNAL, { flatLeft = true })
-		Gui.label(t, { Text = b.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Size = UDim2.new(1, -40, 0, 28), Position = UDim2.fromOffset(24, 7) })
-		local mine = Gui.label(t, { Text = "", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, -40, 0, 20), Position = UDim2.fromOffset(26, 36) })
+		local t = Gui.cardButton(list, { Name = b.Key, Size = UDim2.new(1, 0, 0, Extra.boardH), LayoutOrder = i })
+		local bar = Gui.plate(t, { Position = UDim2.fromOffset(-2, 0), Size = UDim2.fromOffset(12, Extra.boardH) }, Gui.SIGNAL, { flatLeft = true })
+		Gui.label(t, { Text = b.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Size = UDim2.new(1, -40, 0, 28), Position = UDim2.fromOffset(24, Extra.boardH == 64 and 7 or 4) })
+		local mine = Gui.label(t, { Text = "", TextSize = 15, weight = Enum.FontWeight.Medium, TextColor3 = Gui.DIM, Size = UDim2.new(1, -40, 0, 20), Position = UDim2.fromOffset(26, Extra.boardH == 64 and 36 or 32) })
 		onClick(t, function()
 			pickBoard(b.Key)
 		end)
@@ -8035,8 +8384,8 @@ function MenuController.openGift(kind, index)
 	end
 	Extra.giftPick.kind, Extra.giftPick.index = kind, index
 	local G = ui.gift
-	G.what.Text = string.format("%s: %s", entry.pack.Name, Economy.describe(Economy.packGrant(entry)))
-	local price = packPrices[kind] and packPrices[kind][index]
+	G.what.Text = string.format("%s: %s", entry.pack.Name, Economy.describe(Economy.giftGrant(entry)))
+	local price = (packPrices[kind] and packPrices[kind][index]) or tonumber(entry.pack.Price)
 	if entry.id == 0 then
 		G.sendL.Text = profile().studio and "Send (free in Studio)" or "Soon"
 	else
@@ -8635,7 +8984,7 @@ function Extra.buildAdmin()
 		Extra.adminMuls[kind] = Extra.adminMuls[kind] or Config.Admin.Multiplier
 		local mulB, mulL = hairButton(r, { Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(104, 40), ZIndex = 23 }, Extra.adminMuls[kind] .. "x " .. Economy.eventLabel(kind), 18)
 		onClick(mulB, function()
-			local list = Config.Admin.EventMuls
+			local list = kind == "Luck" and Config.Admin.LuckMuls or Config.Admin.EventMuls -- (Luck: up to 128x)
 			local at = table.find(list, Extra.adminMuls[kind]) or 1
 			Extra.adminMuls[kind] = list[at % #list + 1]
 			mulL.Text = Extra.adminMuls[kind] .. "x " .. Economy.eventLabel(kind)
@@ -8696,7 +9045,7 @@ function Extra.buildAdmin()
 	local tabDrop = make("Frame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.fromOffset(240, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, Visible = false, ZIndex = 40 }, right)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, tabDrop)
 	make("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, tabDrop)
-	local tabOptions = { { "Char", "Characters" }, { "Frag", "Breakthrough fragments" }, { "Skin", "Halloween skins" } }
+	local tabOptions = { { "Char", "Characters" }, { "Frag", "Breakthrough fragments" }, { "Skin", "Halloween skins" }, { "Pass", "Game passes" } }
 	for _, k in ipairs(Config.Cosmetics.Kinds) do
 		table.insert(tabOptions, { k, "Cosmetics: " .. k })
 	end
@@ -8857,11 +9206,15 @@ function Extra.buildAdmin()
 		for id in pairs(Extra.adminChars) do
 			table.insert(chars, id)
 		end
-		local items, skins = {}, {}
+		local items, skins, passes, perks = {}, {}, {}, {}
 		for k in pairs(Extra.adminItems) do
 			local kind, key = string.match(k, "^(%a+):(.+)$")
 			if kind == "Skin" then
 				table.insert(skins, key) -- (a Halloween skin, not a cosmetic)
+			elseif kind == "Pass" then
+				table.insert(passes, key) -- (a game pass, kept on their profile for good)
+			elseif kind == "Perk" then
+				table.insert(perks, key) -- (Custom sound effects, Custom score effect)
 			elseif kind then
 				table.insert(items, { Kind = kind, Key = key })
 			end
@@ -8878,6 +9231,8 @@ function Extra.buildAdmin()
 			EventCur = { [Config.EventCurrency.Active] = tonumber(amounts.Cur.Text) or 0 },
 			Chars = chars,
 			Items = items,
+			Passes = passes,
+			Perks = perks,
 			Cards = Extra.adminCard and { Extra.adminCard } or nil,
 			Fragments = frags,
 		})
@@ -8898,15 +9253,20 @@ function Extra.buildAdmin()
 			for g, box in pairs(fragBoxes) do
 				frags[g] = tonumber(box.Text) or 0
 			end
-			local skins = {}
+			-- skins and cosmetics (the owner, 2026-11-07: "global gifting cosmetics doesnt work": they were never
+			-- sent); game passes and perks stay off this button, so a misclick can't hand paid passes to everyone
+			local skins, items = {}, {}
 			for k in pairs(Extra.adminItems) do
-				local key = string.match(k, "^Skin:(.+)$")
-				if key then
+				local kind, key = string.match(k, "^(%a+):(.+)$")
+				if kind == "Skin" then
 					table.insert(skins, key)
+				elseif kind and kind ~= "Pass" and kind ~= "Perk" then
+					table.insert(items, { Kind = kind, Key = key })
 				end
 			end
 			Net.get("Admin"):FireServer("giveAll", {
 				Skins = skins,
+				Items = items,
 				VP = tonumber(amounts.VP.Text) or 0,
 				Gold = tonumber(amounts.Gold.Text) or 0,
 				Lucky = tonumber(amounts.Lucky.Text) or 0,
@@ -9046,7 +9406,7 @@ function Extra.refreshAdmin()
 	A.grid.Visible = tab == "Char"
 	A.fragGrid.Visible = tab == "Frag"
 	A.cosGrid.Visible = tab ~= "Char" and tab ~= "Frag"
-	A.tabL.Text = (tab == "Char" and "Characters" or (tab == "Frag" and "Breakthrough fragments" or (tab == "Skin" and "Halloween skins" or ("Cosmetics: " .. tab)))) .. "   v"
+	A.tabL.Text = (tab == "Char" and "Characters" or (tab == "Frag" and "Breakthrough fragments" or (tab == "Skin" and "Halloween skins" or (tab == "Pass" and "Game passes" or ("Cosmetics: " .. tab))))) .. "   v"
 	if A.cosGrid.Visible and Extra.adminCosKind ~= tab then
 		Extra.adminCosKind = tab
 		for _, c in ipairs(A.cosGrid:GetChildren()) do
@@ -9055,7 +9415,16 @@ function Extra.refreshAdmin()
 			end
 		end
 		A.cosButtons = {}
-		local list = Spins.items(tab)
+		local list = tab ~= "Pass" and Spins.items(tab) or {}
+		if tab == "Pass" then
+			-- every game pass and perk (the owner: "add gamepass sending, like pick sfx and pick vfx")
+			for _, key in ipairs(Config.Passes.Order) do
+				table.insert(list, { Key = key, Name = Config.Passes[key].Name, Rarity = "Legendary", Pick = "Pass:" .. key })
+			end
+			for _, key in ipairs(Config.Perks.Order) do
+				table.insert(list, { Key = key, Name = Config.Perks[key].Name, Rarity = "Mythic", Pick = "Perk:" .. key })
+			end
+		end
 		if tab == "Skin" then
 			list = {}
 			for _, key in ipairs(Config.Halloween.SkinOrder) do
@@ -9069,7 +9438,7 @@ function Extra.refreshAdmin()
 			make("UICorner", { CornerRadius = UDim.new(0, 6) }, b)
 			make("UIStroke", { Color = color, Thickness = 1, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
 			b:SetAttribute("Sound", "UISelect")
-			local k = tab .. ":" .. item.Key
+			local k = item.Pick or (tab .. ":" .. item.Key)
 			onClick(b, function()
 				Extra.adminItems[k] = not Extra.adminItems[k] or nil
 				MenuController.refresh()
@@ -9077,10 +9446,12 @@ function Extra.refreshAdmin()
 			A.cosButtons[k] = { button = b, color = color }
 		end
 	end
-	local nItems, nSkins = 0, 0
+	local nItems, nSkins, nPasses = 0, 0, 0
 	for k in pairs(Extra.adminItems) do
 		if string.sub(k, 1, 5) == "Skin:" then
 			nSkins = nSkins + 1
+		elseif string.sub(k, 1, 5) == "Pass:" or string.sub(k, 1, 5) == "Perk:" then
+			nPasses = nPasses + 1
 		else
 			nItems = nItems + 1
 		end
@@ -9100,6 +9471,9 @@ function Extra.refreshAdmin()
 	end
 	if nSkins > 0 then
 		table.insert(bits, string.format("%d skin%s", nSkins, nSkins == 1 and "" or "s"))
+	end
+	if nPasses > 0 then
+		table.insert(bits, string.format("%d game pass%s", nPasses, nPasses == 1 and "" or "es"))
 	end
 	local nFrags = 0
 	for _, box in pairs(A.fragBoxes) do
@@ -9264,8 +9638,8 @@ local function setMenuBlur(on)
 end
 
 function MenuController.applyScene()
-	if not shown or seqActive then
-		return
+	if not shown or seqActive or MenuController.covered then
+		return -- (covered: story mode has the screen and the scene, MenuController.cover)
 	end
 	setMenuBlur(screen == "match")
 	local SC = mods.SceneController
@@ -9414,7 +9788,7 @@ local function setShown(on)
 		closeSwap()
 	end
 	shown = on
-	gui.Enabled = on
+	gui.Enabled = on and not MenuController.covered
 	if on then
 		MenuController.applyScene()
 		MenuController.refresh()
@@ -9440,6 +9814,17 @@ end
 
 function MenuController.shown()
 	return shown
+end
+
+-- Story mode takes the screen (StoryMenu's screens, StoryDialogue's scenes): the menus hide
+-- behind it, and come back with their own scene and shot when it lets go.
+function MenuController.cover(on)
+	MenuController.covered = on == true
+	gui.Enabled = shown and not MenuController.covered
+	if shown and not MenuController.covered then
+		MenuController.applyScene()
+		MenuController.refresh()
+	end
 end
 
 -- Spectate the match on this server's court (on), or stop (off): the menus hide and the match

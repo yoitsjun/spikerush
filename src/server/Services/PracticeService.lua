@@ -96,7 +96,7 @@ local function blockTop(me)
 		return nil
 	end
 	local g = TS.groundY(me)
-	return g + Characters.jumpHeight(me.charStats, g) + Characters.hangGain() + Config.Zones.BlockReachUp
+	return g + Characters.jumpHeight(me.charStats, g) * Config.Player.BlockFullHeight + Characters.hangGain() + Config.Zones.BlockReachUp
 end
 
 -- Their attacker's spike: a jump at the net, then the ball off its hand at `kmh` onto `target`

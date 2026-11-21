@@ -41,6 +41,7 @@ local G0 = G
 local SPM = Config.Scale.StudsPerMeter
 local AZURE = Config.Abilities.Azure
 local FERAL = Config.Abilities.Feral
+local ENFL = Config.Abilities.Enflamed
 local ADRENALINE = Config.Abilities.Adrenaline
 local CHAIN = Config.Abilities.ChainReaction
 local VECTOR = Config.Abilities.Vector
@@ -59,7 +60,10 @@ local SQUALL = Config.Abilities.Squall
 local TYRANT = Config.Abilities.Tyrant
 local SUNSHINE = Config.Abilities.Sunshine
 local FEVER = Config.Abilities.Fever
+local STAR = Config.Abilities.FallingStar
 local TIGER = Config.Abilities.TigerClaw
+local JOKER = Config.Abilities.Joker
+local MOODS = Config.Moods
 local BEGIN = Config.Beginner
 
 -- An ability's setting grown by breakthroughs (Config.Breakthrough): `level` is the character's
@@ -93,7 +97,7 @@ end
 -- of that input is off; the rest of it still works). GroundJump: hold Jump on the ground (Feral's
 -- prowl and leap, Squall's Tailwind). AirSpike: hold Spike in the air (Azure's charge, Squall's
 -- Eye of the Storm); a Sundive (Corona) takes the press when the ball is below reach.
-HitLogic.INPUTS = { GroundJump = { "Feral", "Squall" }, AirSpike = { "Azure", "Squall" } }
+HitLogic.INPUTS = { GroundJump = { "Feral", "Enflamed", "Squall" }, AirSpike = { "Azure", "Squall" } }
 
 -- The first of `names` in `list` (an ordered ability list), or nil.
 function HitLogic.firstOf(list, names)
@@ -253,6 +257,9 @@ end
 
 -- The spike zone's size for an ability (x the usual): Feral Leap reaches wider.
 function HitLogic.spikeReach(ability, gauge)
+	if ability == "Enflamed" then
+		return ENFL.ReachMul -- Conditioned Player
+	end
 	if ability == "Feral" then
 		-- (off a charged leap, gauge > 0: wider still)
 		return (gauge or 0) > 0 and FERAL.LeapReachMul or FERAL.ReachMul
@@ -264,6 +271,28 @@ function HitLogic.spikeReach(ability, gauge)
 		return IRON.SpikeReach + IRON.ReachMul * clamp(tonumber(gauge) or 0, 0, 1) -- Steel Reach (gauge: Forge's charge)
 	end
 	return 1
+end
+
+-- Enflamed Dragon's meter after holding `held` seconds, 0..1.
+function HitLogic.enflamedGauge(held)
+	return clamp((tonumber(held) or 0) / ENFL.ChargeTime, 0, 1)
+end
+
+-- Which part of the meter a gauge stopped in: "gold", "silver" or nil.
+function HitLogic.enflamedZone(gauge)
+	local g = tonumber(gauge) or 0
+	if g >= ENFL.GoldFrom and g <= ENFL.GoldTo then
+		return "gold"
+	elseif g >= ENFL.SilverFrom then
+		return "silver"
+	end
+	return nil
+end
+
+-- The metres that jump adds to his hitting point.
+function HitLogic.enflamedLift(gauge)
+	local zone = HitLogic.enflamedZone(gauge)
+	return zone == "gold" and ENFL.GoldLift or (zone == "silver" and ENFL.SilverLift or 0)
 end
 
 -- Feral Leap's gauge after holding the charge `held` seconds (chargeTime fills it: the player's
@@ -459,6 +488,11 @@ function HitLogic.perfectStance(ctx)
 	if has(ctx, "Sunshine") then
 		return SUNSHINE.PerfectStance[1], SUNSHINE.PerfectStance[2]
 	end
+	if has(ctx, "Enflamed") then
+		-- Conditioned Player: a wider perfect receive
+		local pad = (H.PerfectStanceMax - H.PerfectStanceMin) * ENFL.PerfectWiden
+		return H.PerfectStanceMin - pad, H.PerfectStanceMax + pad
+	end
 	return H.PerfectStanceMin, H.PerfectStanceMax
 end
 
@@ -485,7 +519,8 @@ function HitLogic.blockBox(root, ball, side, stats, iron, cut)
 	local qy = clamp((top + R - ball.Y) / 2.4, 0, 1)
 	local qz = falloff(math.abs(zs - 0.1) / (Z.BlockOwnDepth + R), 1.3)
 	local q = clamp((qy * 0.5 + qz * 0.5) * ((stats and stats.BlockPower) or 1), 0, 1.15)
-	return true, q, (top + R - ball.Y) < 0.9
+	-- (4th: how far the hands are over the ball, studs: Config.Zones.BlockStuffCover)
+	return true, q, (top + R - ball.Y) < 0.9, top + R - ball.Y
 end
 
 -- When a ball on `path` first meets a block box (blockBox) between times `from` and `to`, heading
@@ -808,6 +843,29 @@ end
 -- character's own, the one its breakthroughs (extra.breakLevel) grow; extra.abilities is the set of
 -- every ability it plays (a Halloween card's at +0), and each one's boost applies. The server raises
 -- the humanoid's jump and run speed to match (TeamService), so the hitting point is real.
+-- The mood a point leaves a player in (Config.Moods.Events), or nil. event: "Ace", "Block", "Score" or
+-- "Fail"; roll: 0..1; charId: who it is, for how prone they are.
+function HitLogic.moodAfter(event, roll, charId)
+	local prone = MOODS.Prone[charId or ""] or {}
+	local at = 0
+	for _, pair in ipairs(MOODS.Events[event] or {}) do
+		at = at + pair[2] * (prone[pair[1]] or 1)
+		if roll < at then
+			return pair[1]
+		end
+	end
+	return nil
+end
+
+-- Careless, for `idle` points without a touch: the chance of it this point.
+function HitLogic.moodIdle(idle, charId)
+	if idle < MOODS.CarelessFrom then
+		return 0
+	end
+	local prone = MOODS.Prone[charId or ""] or {}
+	return math.min((MOODS.CarelessChance + MOODS.CarelessStep * (idle - MOODS.CarelessFrom)) * (prone.Careless or 1), 0.8)
+end
+
 function HitLogic.effectiveStats(stats, ability, stamina, extra)
 	local add = {}
 	local any = false
@@ -842,6 +900,10 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 			end
 			any = true
 		end
+	end
+	if on("Enflamed") then
+		add.Defense = (add.Defense or 0) + ENFL.GuardDefense -- Conditioned Player: a stronger guard
+		any = true
 	end
 	if on("Skyward") then
 		-- Skyward: her hitting point climbs with her spikes this set (extra.lift, metres), and her
@@ -902,6 +964,20 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		add.Jump = (add.Jump or 0) - TIGER.JumpCut
 		any = true
 	end
+	if extra and extra.starlit then
+		-- Starlit (Falling Star): this hitter met the star
+		for k, v in pairs(STAR.StarlitAdd) do
+			add[k] = (add[k] or 0) + v
+		end
+		any = true
+	end
+	if extra and extra.mood and MOODS[extra.mood] and MOODS[extra.mood].Add then
+		-- Moods (Config.Moods): Encouraged, Anger or Careless
+		for k, v in pairs(MOODS[extra.mood].Add) do
+			add[k] = (add[k] or 0) + v
+		end
+		any = true
+	end
 	if extra and extra.discouraged then
 		-- Discouraged (Tiger Claw, RAWR!): every stat down a little for a while
 		for _, k in ipairs({ "Attack", "Defense", "Speed", "Jump" }) do
@@ -913,6 +989,14 @@ function HitLogic.effectiveStats(stats, ability, stamina, extra)
 		-- Fierce Tiger: their weakest back-row defender carries her mark
 		for k, v in pairs(ab("TigerClaw", "FierceAdd", lv("TigerClaw"))) do
 			add[k] = (add[k] or 0) + math.floor(v + 0.5)
+		end
+		any = true
+	end
+	if on("Joker") and extra and JOKER.Cards[extra.joker or ""] and JOKER.Cards[extra.joker].Stats then
+		-- Joker's Jackpot!: every stat, for the rally
+		local v = math.floor(ab("Joker", "JackpotAdd", lv("Joker")) + 0.5)
+		for _, k in ipairs({ "Attack", "Defense", "Speed", "Jump" }) do
+			add[k] = (add[k] or 0) + v
 		end
 		any = true
 	end
@@ -1013,9 +1097,9 @@ end
 
 -- (sets and the serve's toss fly without air drag: BallPhysics.NO_DRAG)
 local SOFT = { Set = true, Toss = true }
-local function launchResult(meta, p, v, a, t, hold)
+local function launchResult(meta, p, v, a, t, hold, noDrag)
 	return true, {
-		launch = BallPhysics.newLaunch(planar(p), planar(v), planar(a), t, hold, nil, nil, SOFT[meta.hitType] and BallPhysics.NO_DRAG or nil),
+		launch = BallPhysics.newLaunch(planar(p), planar(v), planar(a), t, hold, nil, nil, (noDrag or SOFT[meta.hitType]) and BallPhysics.NO_DRAG or nil),
 		meta = finish(meta, planar(v)),
 	}
 end
@@ -1028,6 +1112,50 @@ local function blastOut(meta, ball, side, rng, t)
 	local apex = ball.Y + SPM * (1.2 + rng:NextNumber() * 2.3)
 	local v = HitLogic.solveArc(ball, target, apex, G)
 	return launchResult(meta, ball, v, Vector3.new(0, -G, 0), t)
+end
+
+-- Joker's card for a rally: `roll` (0..1) against the cards' Weights, in Order.
+function HitLogic.jokerRoll(roll)
+	local total = 0
+	for _, key in ipairs(JOKER.Order) do
+		total = total + JOKER.Cards[key].Weight
+	end
+	local at = clamp(tonumber(roll) or 0, 0, 1) * total
+	for _, key in ipairs(JOKER.Order) do
+		at = at - JOKER.Cards[key].Weight
+		if at < 0 then
+			return key
+		end
+	end
+	return JOKER.Order[#JOKER.Order]
+end
+
+-- Sleight of Hand (Joker): the abilities he can borrow for a rally: the ability of every other
+-- wing spiker and middle blocker on the roster (they're all S or S+; no setter's), by name.
+local JOKER_POOL = {}
+do
+	local seen = {}
+	for _, c in ipairs(require(script.Parent.Roster)) do
+		local name = c.Ability
+		if name and name ~= "Joker" and not seen[name] and Config.Abilities[name] and JOKER.BorrowRoles[c.Role] and not JOKER.NoBorrow[name] then
+			seen[name] = true
+			table.insert(JOKER_POOL, name)
+		end
+	end
+	table.sort(JOKER_POOL)
+end
+
+function HitLogic.jokerPool()
+	return JOKER_POOL
+end
+
+-- The ability he borrows this rally: `roll` (0..1) over the pool, each as likely as the next.
+function HitLogic.jokerBorrow(roll)
+	local n = #JOKER_POOL
+	if n == 0 then
+		return nil
+	end
+	return JOKER_POOL[math.min(n, math.floor(clamp(tonumber(roll) or 0, 0, 1) * n) + 1)]
 end
 
 -- Hunt (Tiger Claw): of `members` ({ id, defense, z }), the lowest Defense in the back court
@@ -1250,6 +1378,15 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	-- the hitting point is the hand: a ball met above it still reads (and counts for Thunder) as
 	-- this character's own top, so a short jumper can't reach 4.00 m off a high ball
 	local heightM = HitLogic.meters(math.min(ball.Y, stats.contactMaxStuds))
+	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Enflamed") then
+		-- a gold or silver jump goes above his usual top (the AI doesn't really jump higher: it's added)
+		local lift = HitLogic.enflamedLift(input.gauge)
+		if ctx.auto then
+			heightM = heightM + lift
+		else
+			heightM = HitLogic.meters(math.min(ball.Y, Characters.studsAt(stats.ContactMaxM + lift)))
+		end
+	end
 	-- Thunder: Storm Call (ctx.stormOn) makes every spike a thunder spike, as if met at the very top
 	-- of the range, and harder still; Static Charge (ctx.static: his thunder spikes this rally) adds
 	-- StaticPer a stack
@@ -1304,11 +1441,22 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		feather = clamp((t - last.featherTop) / FEATHER.FullFall, 0, 1)
 		kmh = kmh * (1 + ab("Featherfall", "MaxBoost", setLevel(last, "Featherfall")) * feather)
 	end
+	-- Falling Star: met while the star burns, harder (the AI's own timing stands); before it lights,
+	-- just a plain spike; after it, nothing (and the hitter's Discouraged)
+	local starHit, starLate = nil, nil
+	if kind == "Spike" and last and last.starSet == true and last.team == ctx.team and last.hitType == "Set" and tonumber(last.starFrom) and tonumber(last.starTo) then
+		if ctx.auto or (t >= last.starFrom - STAR.EarlySlack and t <= last.starTo) then
+			starHit = true
+			kmh = kmh * (1 + ab("FallingStar", "StarBoost", setLevel(last, "FallingStar")))
+		elseif t > last.starTo then
+			starLate = true
+		end
+	end
 	-- Ironclad: Forge's charge (input.metal, 0..1, the time he's been up), all of it off a jump before
 	-- his team's set (input.early), LateShare after; WallBoost with shields, MaxBoost awakened; the
 	-- AI gets AutoCharge
 	local metal = 0
-	if kind == "Spike" and has(ctx, "Ironclad") then
+	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Ironclad") then
 		if ctx.auto then
 			metal = IRON.AutoCharge
 		else
@@ -1351,6 +1499,8 @@ local function attack(kind, input, ctx, rng, stats, scale)
 	if feather > 0 then
 		meta.feather = math.floor(feather * 100 + 0.5) / 100
 	end
+	meta.starHit = starHit
+	meta.starLate = starLate
 	if metal > 0 and not ctx.auto then
 		meta.metal = math.floor(metal * 100 + 0.5) / 100
 		meta.early = input.early == true or nil
@@ -1486,6 +1636,25 @@ local function attack(kind, input, ctx, rng, stats, scale)
 			end
 		end
 	end
+	-- Enflamed Dragon: the higher he hits, the harder; a Dragon Spike from DragonM, and from InfernoM
+	-- (ctx.infernoReady, the server's: once per InfernoCooldown; never a serve, which would break the
+	-- guard before the rally starts) the red sky and the burn
+	if (kind == "Spike" or kind == "JumpServe") and has(ctx, "Enflamed") then
+		local flame = clamp((heightM - ENFL.FlameFromM) / (ENFL.DragonM - ENFL.FlameFromM), 0, 1)
+		if flame > 0 then
+			local bonus = ctx.auto and ENFL.AutoBoostMul or 1
+			kmh = kmh * (1 + ab("Enflamed", "MaxBoost", levelOf(ctx, "Enflamed")) * bonus * flame)
+			meta.flame = math.floor(flame * 100 + 0.5) / 100
+		end
+		if heightM >= ENFL.DragonM then
+			kmh = kmh * (1 + ENFL.DragonBoost)
+			meta.dragon = true
+			if kind == "Spike" and heightM >= ENFL.InfernoM and ctx.infernoReady then
+				kmh = kmh * (1 + ENFL.InfernoBoost)
+				meta.inferno = true
+			end
+		end
+	end
 	-- the Tyrant's Set: the spike off it goes SetMul faster, with Armor Break
 	if tyrantSet then
 		kmh = kmh * ab("Tyrant", "SetMul", setLevel(lastSet, "Tyrant"))
@@ -1502,6 +1671,21 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		meta.decree = true
 		meta.armorBreak = true
 		meta.grade = "PERFECT"
+	end
+	-- Joker's card for the rally (ctx.joker: Config.Abilities.Joker's Cards): his spikes faster or
+	-- slower by it, Bravery's and Jackpot!'s with Block Break (Armor Break). Surprise!: his spike on
+	-- his team's second touch is faster still
+	local jokerCard = kind == "Spike" and has(ctx, "Joker") and JOKER.Cards[ctx.joker or ""] or nil
+	if jokerCard then
+		kmh = kmh * jokerCard.SpikeMul
+		meta.joker = ctx.joker
+		if jokerCard.Break then
+			meta.armorBreak = true
+		end
+	end
+	if kind == "Spike" and has(ctx, "Joker") and ctx.touchNumber == 2 then
+		kmh = kmh * (1 + ab("Joker", "SurpriseBoost", levelOf(ctx, "Joker")))
+		meta.surprise = true
 	end
 	-- a custom match's modifiers: spike power, jump-serve power
 	if ctx.mut then
@@ -1593,6 +1777,38 @@ local function attack(kind, input, ctx, rng, stats, scale)
 		hold = math.max(hold, H.HitStopGreat) -- (never less than a great hit's)
 		meta.turnAt = math.floor(tau * 1000 + 0.5) / 1000
 		local ok, res = launchResult(meta, ball, v1, Vector3.new(0, -g1, 0), t, hold)
+		res.launch.dive = { tau = tau, v = planar(v2), a = planar(Vector3.new(0, -G, 0)) }
+		return ok, res
+	end
+	-- Joker's Trickery and Jackpot!: the spike curves. It leaves the hand on a strange line, climbing
+	-- or nearly flat under little gravity, and past the net it hooks down onto the spot it was
+	-- always going to (the path is whole from the start: landing markers and the AI see the truth)
+	if jokerCard and jokerCard.Curve and not zero and ball.Y >= C.NetTop + JOKER.Curve.MinOverNet then
+		local CV = JOKER.Curve
+		-- (onto where the same spike would land without the curve, never past the back line: it
+		-- aimed at the aim point, which a fast spike can't drop onto, and too many went out: the
+		-- owner, 2026-11-16, "jaja's spike constantly go out")
+		local vPlain = speedWithAssist(ball, target, speed, g, side, steps)
+		local plainLand = math.abs(landingZ(ball, vPlain, g))
+		local land = clamp(math.min(math.abs(target.Z), plainLand), CV.TurnMin + CV.TurnGap, deepest)
+		local turnZ = clamp(land * lerp(CV.TurnAt[1], CV.TurnAt[2], rng:NextNumber()), CV.TurnMin, land - CV.TurnGap)
+		local turnY
+		if rng:NextNumber() < CV.RiseChance then
+			turnY = ball.Y + lerp(CV.Rise[1], CV.Rise[2], rng:NextNumber())
+		else
+			turnY = math.max(ball.Y - lerp(CV.Drop[1], CV.Drop[2], rng:NextNumber()), C.NetTop + CV.TurnOverNet)
+		end
+		local turn = Vector3.new(0, turnY, -side * turnZ)
+		local g1 = G * CV.FlatGravity
+		local v1 = HitLogic.solveSpeed(ball, turn, speed, g1)
+		local tau = math.abs(turn.Z - ball.Z) / math.max(math.abs(v1.Z), 1)
+		local down = Vector3.new(0, R, -side * land) - turn
+		local v2 = down.Unit * speed * CV.DiveSpeed
+		hold = math.max(hold, H.HitStopGreat)
+		meta.curveAt = math.floor(tau * 1000 + 0.5) / 1000
+		-- (no drag: the usual re-aim for it is worked out for the whole flight to the floor, and sped
+		-- this first leg up so it overshot its turn by metres and dived out past the back line)
+		local ok, res = launchResult(meta, ball, v1, Vector3.new(0, -g1, 0), t, hold, true)
 		res.launch.dive = { tau = tau, v = planar(v2), a = planar(Vector3.new(0, -G, 0)) }
 		return ok, res
 	end
@@ -1836,7 +2052,7 @@ function HitLogic.compute(input, ctx)
 		-- (Sunshine lit: a bigger box; the Tyrant's Iron Fortress against this team: a lower one)
 		local box = HitLogic.sunBox(Halloween.blockReach(HitLogic.wallReach(ctx.ironWall, bulwark, last and last.hitType), ctx.hex), has(ctx, "Sunshine") and ctx.sunOn)
 		box = HitLogic.wallsBox(box, ctx.mut) -- (a custom match's Walls: higher hands)
-		local ok, q, fingertips = HitLogic.blockBox(root, ball, side, stats, box, HitLogic.blockCut(ctx.dictated))
+		local ok, q, fingertips, cover = HitLogic.blockBox(root, ball, side, stats, box, HitLogic.blockCut(ctx.dictated))
 		if not ok then
 			return false, "zone"
 		end
@@ -1883,6 +2099,16 @@ function HitLogic.compute(input, ctx)
 		if last.underBlock and not perfect then
 			return false, "under" -- Vert Spikes: the steepest slip under the hands (a perfect block still stops it)
 		end
+		-- (the owner, 2026-11-16: "at a point its just impossible to spike past a blocker. but then
+		-- again, people will complain about it being too weak"): the block jump tops out lower
+		-- (Config.Player.BlockFullHeight), a well-hit spike is harder to stuff (BlockSpikeQuality),
+		-- and hands that aren't well over the ball (under Config.Zones.BlockStuffCover studs) never
+		-- stuff it: they soften it for the blockers' side, or a great spike tools off them and out
+		local spikeQ = last.hitType == "Spike" and tonumber(last.quality) or nil
+		if spikeQ then
+			stuffScore = stuffScore - H.BlockSpikeQuality * clamp((spikeQ - H.GoodAt) / (1 - H.GoodAt), 0, 1)
+		end
+		local shallow = not perfect and not feint and type(cover) == "number" and cover < Z.BlockStuffCover
 		if perfect then
 			-- Iron Wall: a perfect block, whatever reaches the hands (pierce, thunder and a Feral
 			-- smash included), wherever it meets them
@@ -1940,7 +2166,7 @@ function HitLogic.compute(input, ctx)
 			v = HitLogic.solveSpeed(p, Vector3.new(0, R, atk * depth), HitLogic.studs(ab("IronWall", "StuffKmh", levelOf(ctx, "IronWall"))), G * 1.3)
 			a = Vector3.new(0, -G * 1.3, 0)
 			hold = H.HitStopPerfect
-		elseif stuffScore - shearDrop >= 0.45 then
+		elseif stuffScore - shearDrop >= 0.45 and not shallow then
 			meta.outcome = "Stuff"
 			p = Vector3.new(0, ball.Y, atk * (R + 0.1))
 			v = Vector3.new(0, -SPM * (4.4 + 5 * q), atk * SPM * (3.1 + 4.4 * q))
@@ -1979,7 +2205,16 @@ function HitLogic.compute(input, ctx)
 				v = Vector3.new(0, SPM * (4.4 + 1.9 * pw), side * SPM * (8.75 + 4.4 * pw))
 				a = Vector3.new(0, -G, 0)
 			end
-		elseif stuffScore >= 0.18 then
+		elseif shallow and spikeQ and spikeQ >= H.GoodAt and ((fingertips and spikeQ >= H.GreatAt) or rng:NextNumber() < H.BlockShallowTool * clamp((spikeQ - H.GoodAt) / (H.PerfectAt - H.GoodAt), 0, 1)) then
+			-- a good spike over hands that only just reach it: off them and out (the attacker's point),
+			-- more often the better it was hit, always off the fingertips from a Great one
+			meta.outcome = "Tool"
+			meta.noDrain = true
+			local pw = math.max(power, 0.6)
+			p = Vector3.new(0, ball.Y, side * (R + 0.1))
+			v = Vector3.new(0, SPM * (4.4 + 1.9 * pw), side * SPM * (8.75 + 4.4 * pw))
+			a = Vector3.new(0, -G, 0)
+		elseif stuffScore >= 0.18 or shallow then
 			meta.outcome = "Soft"
 			meta.noDrain = true
 			p = Vector3.new(0, ball.Y, side * (R + 0.1))
@@ -2100,6 +2335,10 @@ function HitLogic.compute(input, ctx)
 				-- the explosion itself: no timing saves you from it, and it always breaks the guard
 				-- (the owner: "chain reaction spikes should always break stamina")
 				drain = math.max(drain + (last.flatDrain or 0), stam.value + 1)
+			end
+			if last.inferno then
+				-- Kuro's Inferno: "instant breaks", the same way
+				drain = math.max(drain, stam.value + 1)
 			end
 		end
 		if has(ctx, "Counter") and touchN == 1 and last and last.team ~= ctx.team then
@@ -2268,6 +2507,25 @@ function HitLogic.compute(input, ctx)
 				arriveY = (arriveY or H.SetArriveY) - TYRANT.CrownSetLow
 				lift = 0
 				meta.crowned = true
+			end
+			if has(ctx, "FallingStar") and ctx.starOn and setType ~= "Quick" then
+				-- Falling Star: up to just over the hitter, then hanging on the way down (lighter gravity)
+				-- to the same spot; the star lights at the top and burns the whole slow fall
+				local g = G * H.SetGravityScale
+				local arrive = arriveY or H.SetArriveY
+				local apexY = math.max(arrive + STAR.HangApex + lift, ball.Y + 0.38 * SPM)
+				apexY = math.min(apexY, C.CeilingY - R - 0.5)
+				local vy = math.sqrt(2 * g * math.max(apexY - ball.Y, 0.1))
+				local rise = vy / g
+				local gf = g * STAR.FallGravity
+				local fall = math.sqrt(2 * math.max(apexY - arrive, 0.1) / gf)
+				local vz = (side * math.max(depth, 0.47 * SPM) - ball.Z) / (rise + fall)
+				meta.starSet = true
+				meta.starFrom = math.floor((t + rise) * 1000 + 0.5) / 1000
+				meta.starTo = math.floor((t + rise + fall + STAR.LitGrace) * 1000 + 0.5) / 1000
+				local okS, res = launchResult(meta, ball, Vector3.new(0, vy, vz), Vector3.new(0, -g, 0), t)
+				res.launch.dive = { tau = rise, v = planar(Vector3.new(0, 0, vz)), a = planar(Vector3.new(0, -gf, 0)) }
+				return okS, res
 			end
 			if has(ctx, "Featherfall") and setType ~= "Quick" then
 				-- Featherfall: up higher, then floating down from the top (lighter gravity) to the same

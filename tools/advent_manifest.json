@@ -1,0 +1,44 @@
+[
+ {
+  "old": "AdvGingerbread",
+  "file": "assets/balls/Gingerbread.png",
+  "type": "Decal",
+  "name": "AdventBallGingerbread"
+ },
+ {
+  "old": "AdvPudding",
+  "file": "assets/balls/Pudding.png",
+  "type": "Decal",
+  "name": "AdventBallPudding"
+ },
+ {
+  "old": "AdvWreath",
+  "file": "assets/balls/Wreath.png",
+  "type": "Decal",
+  "name": "AdventBallWreath"
+ },
+ {
+  "old": "AdvHollyLeaf",
+  "file": "assets/fx/winter/HollyLeaf.png",
+  "type": "Decal",
+  "name": "AdventFxHollyLeaf"
+ },
+ {
+  "old": "AdvCandyCane",
+  "file": "assets/fx/winter/CandyCane.png",
+  "type": "Decal",
+  "name": "AdventFxCandyCane"
+ },
+ {
+  "old": "AdvGingerMan",
+  "file": "assets/fx/winter/GingerMan.png",
+  "type": "Decal",
+  "name": "AdventFxGingerMan"
+ },
+ {
+  "old": "AdvBell",
+  "file": "assets/fx/winter/Bell.png",
+  "type": "Decal",
+  "name": "AdventFxBell"
+ }
+]

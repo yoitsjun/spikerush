@@ -1130,6 +1130,14 @@ local function badgeState(ability, id, model, team, mine)
 			p = model and mods.VFXController.chargeOf(model, "azure") or 0
 			hot = p >= 1
 		end
+	elseif ability == "Enflamed" then
+		-- the timing meter on the badge too: GOLD / SILVER while he holds Jump
+		local v = (mine and AC.prowlCharge()) or 0
+		if v > 0 then
+			local zone = HitLogic.enflamedZone(v)
+			p, hot = v, zone == "gold"
+			sub = zone == "gold" and "GOLD" or (zone == "silver" and "SILVER" or "")
+		end
 	elseif ability == "Thunder" then
 		local stats = mine and State.myStats() or (model and Characters.fromAttributes(model))
 		local m = stats and stats.ContactMaxM or 0
@@ -1144,6 +1152,15 @@ local function badgeState(ability, id, model, team, mine)
 		p = (lift - def.StartLift) / (top - def.StartLift)
 		hot = lift >= top - 0.001
 		sub = stats and string.format("%.2f m", stats.ContactMaxM - (stats.Lift or 0) + lift) or ""
+	elseif ability == "Joker" then
+		-- his card this rally (Config.Abilities.Joker's Cards): a Block Break card throbs, the
+		-- Buffoon dims
+		local key = (mine and player:GetAttribute("Joker")) or (model and model:GetAttribute("Joker"))
+		local card = key and def.Cards[key]
+		p = card and 1 or 0
+		hot = card ~= nil and card.Break == true
+		dim = key == "Buffoon"
+		sub = card and string.upper(card.Name) or ""
 	elseif ability == "Adrenaline" then
 		local s = State.stamina(team)
 		local pct = (s and s.max and s.max > 0) and s.value / s.max or 1
@@ -1235,10 +1252,11 @@ end
 
 -- On touch the scoreboard fits between the screen's left edge and the corner buttons (Forfeit,
 -- Timeout, Settings: CORNER_W from the right): a phone held sideways is narrower than it is wide
--- (the owner's phone: the scoreboard ran under your ability badge and the corner buttons), so
+-- (the owner's phone: the scoreboard ran under your ability badge and the corner buttons; touch has
+-- a fourth, Stats, for the Tab scoreboard), so
 -- it shrinks and sits left of centre when it has to, with the attack readout under it. Returns
 -- the y under the scoreboard (its set line) and its centre's x on touch.
-local CORNER_W, TOP_W = 226 + 8, 820
+local CORNER_W, TOP_W = 226 + 8 + (State.isMobile and 72 or 0), 820
 local function fitTop(touch)
 	local t = ui.top
 	if not t.scale then
@@ -2226,6 +2244,15 @@ local function buildCorner()
 	end)
 	ui.forfeit = forfeit
 	ui.forfeitCap = forfeitCap
+	-- Stats: touch's way to the match scoreboard (Tab on a keyboard); a tap anywhere closes it
+	local stats = roundButton("Stats", "IconRanks", -228)
+	stats.Visible = false
+	Gui.pressSound(stats)
+	stats.MouseButton1Click:Connect(function()
+		click()
+		mods.ScoreboardController.toggle()
+	end)
+	ui.stats = stats
 	local gear = roundButton("Settings", "IconSettings", -12)
 
 	-- the settings panel: a dark hairline card, one row per setting
@@ -2374,6 +2401,7 @@ local function updateTimeout()
 	local show = State.isPlaying and State.match.inMatch == true and type(State.match.practice) ~= "table"
 	ui.gear.Visible = State.isPlaying
 	b.Visible = show
+	ui.stats.Visible = State.isMobile and State.watching()
 	local f = ui.forfeit
 	f.Visible = show and State.phase() ~= "MatchEnd"
 	local fv = State.match.forfeitVote and State.match.forfeitVote[State.myTeam or ""]
@@ -2899,6 +2927,7 @@ function UIController.init(m)
 	HudLayout.register("TeamRight", ui.top.Away.frame)
 	HudLayout.register("Score", ui.top.mid)
 	HudLayout.register("Readout", ui.top.readout)
+	HudLayout.register("Stats", ui.stats)
 	HudLayout.register("Forfeit", ui.forfeit)
 	HudLayout.register("Timeout", ui.timeout)
 	HudLayout.register("Settings", ui.gear)

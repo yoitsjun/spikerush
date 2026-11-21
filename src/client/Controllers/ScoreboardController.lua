@@ -439,6 +439,15 @@ end
 ScoreboardController.show = show
 ScoreboardController.hide = hide
 
+-- Touch has no Tab: the Stats button opens it, and a tap anywhere closes it.
+function ScoreboardController.toggle()
+	if visible then
+		hide()
+	else
+		show()
+	end
+end
+
 function ScoreboardController.init(mods)
 	gui = make("ScreenGui", {
 		Name = "SpikeRushScoreboard",
@@ -468,6 +477,9 @@ function ScoreboardController.init(mods)
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
 	}, root)
 	scale = make("UIScale", {}, root)
+	if State.isMobile then
+		make("TextButton", { Name = "Close", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 5 }, gui).Activated:Connect(hide)
+	end
 
 	local cam = workspace.CurrentCamera
 	if cam then
@@ -494,6 +506,8 @@ function ScoreboardController.init(mods)
 			if visible and State.watching() then
 				render()
 				fit()
+			elseif visible then
+				hide() -- (the match ended with it open on touch: no key to let go of)
 			end
 		end
 	end)

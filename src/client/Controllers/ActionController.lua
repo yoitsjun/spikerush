@@ -54,6 +54,9 @@ local player = Players.LocalPlayer
 local P, Z, H = Config.Player, Config.Zones, Config.Hits
 local AZURE = Config.Abilities.Azure
 local FERAL = Config.Abilities.Feral
+local ENFL = Config.Abilities.Enflamed
+local TweenService = game:GetService("TweenService")
+local Assets = require(Shared.Assets)
 local CORONA = Config.Abilities.Corona
 local SQUALL = Config.Abilities.Squall
 local IRON = Config.Abilities.Ironclad
@@ -92,6 +95,7 @@ local hoverUsed = false
 -- Ironclad: when this jump left the floor and whether his team had set yet (Forge's charge)
 local forge = { t0 = nil, early = false }
 local isSquall, startRush, endRush, releaseRush, processRush, startHover, endHover, releaseHover, processHover
+local kuroBite
 
 local REASONS = {
 	count = "Three touches used. Send it over!",
@@ -163,6 +167,8 @@ local function buildCtx(info, action, t)
 		dictate = State.dictateOn(State.myTeam, t) or nil, -- (the Tyrant's Stat Hijack)
 		dictated = State.dictateOn(State.myTeam == "Home" and "Away" or "Home", t) and State.dictateSteal(State.myTeam == "Home" and "Away" or "Home") or nil,
 		tyrantOn = has.Tyrant and AC.abilityActive("Tyrant") or nil, -- (Absolute Toss)
+		starOn = has.FallingStar and AC.abilityActive("FallingStar") or nil, -- (Falling Star)
+		starlit = (player:GetAttribute("StarlitUntil") or -1) >= t - 0.05 or nil,
 		grounded = player:GetAttribute("Grounded") or nil, -- (Sovereign's Guard)
 		sunOn = has.Sunshine and State.sunOn(player, t) or nil,
 		counter = has.Counter and (player:GetAttribute("Counter") or 0) or nil,
@@ -172,8 +178,10 @@ local function buildCtx(info, action, t)
 		chain = ReplicatedStorage:GetAttribute("Chain_" .. tostring(State.myTeam)) or 0,
 		coronaOn = has.Corona and AC.abilityActive("Corona") or nil,
 		feverOn = has.Fever and AC.abilityActive("Fever") or nil,
+		joker = has.Joker and player:GetAttribute("Joker") or nil, -- (his card this rally)
 		clawedBy = player:GetAttribute("Clawed"), -- (Tiger Claw: marked, your next receive of her attack fails)
 		discouraged = (player:GetAttribute("DiscouragedUntil") or -1) >= t - 0.05 or nil,
+		mood = (player:GetAttribute("MoodUntil") or -1) >= t - 0.05 and player:GetAttribute("Mood") or nil,
 		fierce = has.TigerClaw and ActionController.fierceOn() or nil,
 		coronaStacks = has.Corona and (player:GetAttribute("CoronaStacks") or 0) or nil,
 		squallOn = has.Squall and AC.abilityActive("Squall") or nil,
@@ -529,7 +537,7 @@ local function execute(action, info, opts, t, ballPos)
 		metal = nil, -- (Ironclad awakened: Forge's charge, and whether it began before the set)
 		early = nil,
 	}
-	if (action == "Spike" or action == "Serve") and HitLogic.has(ctx, "Feral") and leap.gauge > 0 then
+	if (action == "Spike" or action == "Serve") and (HitLogic.has(ctx, "Feral") or HitLogic.has(ctx, "Enflamed")) and leap.gauge > 0 then
 		input.gauge, input.toward = leap.gauge, leap.toward
 	end
 	if action == "Spike" and HitLogic.has(ctx, "Ironclad") then
@@ -876,11 +884,218 @@ local function isFeral()
 	return State.hasAbility("Feral")
 end
 
+-- Enflamed Dragon (Kuro) charges the same way, but against a timing meter.
+local function isKuro()
+	return State.hasAbility("Enflamed")
+end
+
+-- The meter: a burning bar with a silver stretch and a gold band, run through the open mouth of a
+-- dragon's head (the owner: "a dragon head going through the bar and biting whenever you release").
+-- The two jaws are drawn with the hinge at the centre of their images, so turning them opens it.
+local meter = nil
+local HEAD_LEAD = 40 -- px the hinge sits behind the pin (the teeth close on the pin itself)
+local METER_ORANGE, METER_SILVER, METER_GOLD = Color3.fromRGB(255, 124, 40), Color3.fromRGB(214, 222, 236), Color3.fromRGB(255, 214, 70)
+
+local function buildMeter()
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "EnflamedMeter"
+	gui.ResetOnSpawn = false
+	gui.DisplayOrder = 6
+	local home = UDim2.fromScale(0.5, 0.74)
+	local root = Instance.new("CanvasGroup")
+	root.Size = UDim2.fromOffset(640, 240)
+	root.Position = home
+	root.AnchorPoint = Vector2.new(0.5, 0.5)
+	root.BackgroundTransparency = 1
+	root.Parent = gui
+	local track = Instance.new("Frame")
+	track.Size = UDim2.fromOffset(360, 18)
+	track.Position = UDim2.fromScale(0.5, 0.5)
+	track.AnchorPoint = Vector2.new(0.5, 0.5)
+	track.BackgroundColor3 = Color3.fromRGB(22, 26, 44)
+	track.BorderSizePixel = 0
+	track.Parent = root
+	local edge = Instance.new("UIStroke")
+	edge.Thickness = 3
+	edge.Color = Color3.fromRGB(12, 14, 26)
+	edge.Parent = track
+	local function band(from, to, color, z)
+		local f = Instance.new("Frame")
+		f.Size = UDim2.fromScale(to - from, 1)
+		f.Position = UDim2.fromScale(from, 0)
+		f.BackgroundColor3 = color
+		f.BorderSizePixel = 0
+		f.ZIndex = z
+		f.Parent = track
+		return f
+	end
+	band(ENFL.SilverFrom, ENFL.GoldFrom, Color3.fromRGB(104, 112, 134), 1)
+	band(ENFL.GoldTo, 1, Color3.fromRGB(104, 112, 134), 1)
+	local fill = band(0, 0, Color3.new(1, 1, 1), 2)
+	local burn = Instance.new("UIGradient")
+	burn.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 16, 8)),
+		ColorSequenceKeypoint.new(0.7, Color3.fromRGB(255, 96, 24)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 226, 150)),
+	})
+	burn.Parent = fill
+	local gold = band(ENFL.GoldFrom, ENFL.GoldTo, Color3.fromRGB(255, 204, 40), 3)
+	local shine = Instance.new("UIStroke")
+	shine.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	shine.Thickness = 2
+	shine.Color = Color3.fromRGB(255, 244, 190)
+	shine.Parent = gold
+	band(ENFL.SilverFrom, ENFL.SilverFrom + 0.006, Color3.fromRGB(214, 222, 236), 3)
+	local pin = Instance.new("Frame")
+	pin.Size = UDim2.new(0, 3, 1, 8)
+	pin.AnchorPoint = Vector2.new(0.5, 0.5)
+	pin.BackgroundColor3 = Color3.new(1, 1, 1)
+	pin.BorderSizePixel = 0
+	pin.ZIndex = 4
+	pin.Parent = track
+	local head = Instance.new("Frame")
+	head.Size = UDim2.fromOffset(176, 176)
+	head.AnchorPoint = Vector2.new(0.5, 0.5)
+	head.BackgroundTransparency = 1
+	head.ZIndex = 5
+	head.Parent = track
+	local punch = Instance.new("UIScale")
+	punch.Parent = head
+	local function jaw(key)
+		local img = Instance.new("ImageLabel")
+		img.Size = UDim2.fromScale(1, 1)
+		img.BackgroundTransparency = 1
+		img.Image = Assets.image(key) or ""
+		img.ZIndex = 5
+		img.Parent = head
+		return img
+	end
+	gui.Parent = player:WaitForChild("PlayerGui")
+	meter = { gui = gui, root = root, home = home, track = track, fill = fill, pin = pin, head = head, punch = punch, jawDown = jaw("KuroMeterJaw"), jawUp = jaw("KuroMeterTop"), run = 0, biting = false }
+end
+
+local function meterAt(v)
+	local x = math.clamp(v, 0, 1)
+	meter.pin.Position = UDim2.fromScale(x, 0.5)
+	meter.head.Position = UDim2.new(x, -HEAD_LEAD, 0.5, 0)
+	meter.fill.Size = UDim2.fromScale(x, 1)
+end
+
+local function meterColor(zone)
+	return (zone == "gold" and METER_GOLD) or (zone == "silver" and METER_SILVER) or METER_ORANGE
+end
+
+local function kuroMeter(v)
+	if v == nil then
+		if meter and not meter.biting then
+			meter.gui.Enabled = false
+		end
+		return
+	end
+	if not meter then
+		buildMeter()
+	end
+	-- (a new charge cuts the last bite off)
+	meter.run = meter.run + 1
+	meter.biting = false
+	meter.gui.Enabled = true
+	meter.root.GroupTransparency = 0
+	meter.root.Position = meter.home
+	meter.punch.Scale = 1
+	meterAt(v)
+	local col = meterColor(HitLogic.enflamedZone(v))
+	meter.jawUp.ImageColor3, meter.jawDown.ImageColor3 = col, col
+	-- wider the nearer the gold, with a shiver: it's straining to bite
+	local open = 13 + 15 * math.clamp(v, 0, 1) + math.sin(os.clock() * 34) * 1.2
+	meter.jawUp.Rotation, meter.jawDown.Rotation = -open, open
+end
+
+-- Let go: the jaws snap shut on the bar where it stood. Gold bites hardest, a miss snaps at nothing.
+kuroBite = function(gauge)
+	if not meter then
+		return
+	end
+	local m = meter
+	m.run = m.run + 1
+	local run = m.run
+	m.biting = true
+	meterAt(gauge)
+	local zone = HitLogic.enflamedZone(gauge)
+	local col = meterColor(zone)
+	local power = (zone == "gold" and 1) or (zone == "silver" and 0.55) or 0.15
+	local snap = TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	TweenService:Create(m.jawUp, snap, { Rotation = 0, ImageColor3 = col }):Play()
+	TweenService:Create(m.jawDown, snap, { Rotation = 0, ImageColor3 = col }):Play()
+	task.spawn(function()
+		task.wait(0.05)
+		if run ~= m.run then
+			return
+		end
+		m.punch.Scale = 1 + 0.45 * power
+		TweenService:Create(m.punch, TweenInfo.new(0.18, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+		-- the bite: a white bit of the bar, and a ring off the teeth
+		local chunk = Instance.new("Frame")
+		chunk.Size = UDim2.new(0, 10 + 22 * power, 1, 6 + 14 * power)
+		chunk.Position = UDim2.fromScale(math.clamp(gauge, 0, 1), 0.5)
+		chunk.AnchorPoint = Vector2.new(0.5, 0.5)
+		chunk.BackgroundColor3 = Color3.new(1, 1, 1)
+		chunk.BorderSizePixel = 0
+		chunk.ZIndex = 4
+		chunk.Parent = m.track
+		TweenService:Create(chunk, TweenInfo.new(0.22), { BackgroundTransparency = 1 }):Play()
+		local ring = Instance.new("Frame")
+		ring.Size = UDim2.fromOffset(20, 20)
+		ring.Position = chunk.Position
+		ring.AnchorPoint = Vector2.new(0.5, 0.5)
+		ring.BackgroundTransparency = 1
+		ring.ZIndex = 4
+		ring.Parent = m.track
+		local round = Instance.new("UICorner")
+		round.CornerRadius = UDim.new(1, 0)
+		round.Parent = ring
+		local line = Instance.new("UIStroke")
+		line.Thickness = 2 + 4 * power
+		line.Color = col
+		line.Parent = ring
+		local wide = 40 + 170 * power
+		TweenService:Create(ring, TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(wide, wide) }):Play()
+		TweenService:Create(line, TweenInfo.new(0.26), { Transparency = 1 }):Play()
+		for i = 1, 5 do
+			local k = 9 * power * (1 - i / 6)
+			m.root.Position = m.home + UDim2.fromOffset((i % 2 == 0 and 1 or -1) * k, (i % 3 - 1) * k * 0.6)
+			task.wait(0.025)
+			if run ~= m.run then
+				chunk:Destroy()
+				ring:Destroy()
+				return
+			end
+		end
+		m.root.Position = m.home
+		task.wait(0.22)
+		chunk:Destroy()
+		ring:Destroy()
+		if run ~= m.run then
+			return
+		end
+		local out = TweenService:Create(m.root, TweenInfo.new(0.2), { GroupTransparency = 1 })
+		out:Play()
+		out.Completed:Wait()
+		if run == m.run then
+			m.biting = false
+			m.gui.Enabled = false
+			m.root.GroupTransparency = 0
+		end
+	end)
+end
+
 -- Feral Leap: the charge held on the ground, 0..1, on to OverMax in Bloodlust (nil when not
 -- charging).
 function ActionController.prowlCharge()
 	if not prowl then
 		return nil
+	end
+	if isKuro() then
+		return HitLogic.enflamedGauge(os.clock() - prowl.t0)
 	end
 	return HitLogic.feralGauge(os.clock() - prowl.t0, FERAL.ChargeTime, ActionController.abilityActive("Feral"))
 end
@@ -918,12 +1133,12 @@ end
 
 -- A jump serve's leap goes after his own toss: the carry that has the ball in front of his hand as
 -- it comes down through his hitting point (never more than the charge gives), with no run-in.
-local function serveLeapAim(info, gauge)
+local function serveLeapAim(info, gauge, addHeight)
 	local path = mods.BallRenderer.getPath()
 	if not path or not myToss() then
 		return nil
 	end
-	local contactY = State.myStats().contactMaxStuds - 0.2
+	local contactY = State.myStats().contactMaxStuds - 0.2 + (addHeight or 0)
 	local now = Util.now()
 	local t, p = BallPhysics.findTime(path, now, function(pos, vel)
 		return vel.Y < 0 and pos.Y <= contactY
@@ -960,7 +1175,16 @@ local function releaseProwl(info)
 		return
 	end
 	local gauge = HitLogic.feralGauge(held, FERAL.ChargeTime, ActionController.abilityActive("Feral")) -- (past full in Bloodlust: the spike's, the carry stays a full one's)
-	local dir = MC.leap(gauge, jumpKind, p.serve and serveLeapAim(info, gauge) or nil)
+	local addHeight = nil
+	if isKuro() then
+		-- Enflamed Dragon: gold or silver on the meter is how much higher he goes
+		gauge = HitLogic.enflamedGauge(held)
+		kuroBite(gauge)
+		local my = State.myStats()
+		addHeight = Characters.studsAt(my.ContactMaxM + HitLogic.enflamedLift(gauge)) - my.contactMaxStuds
+		mods.VFXController.kuroLeap(player.Character, gauge)
+	end
+	local dir = MC.leap(gauge, jumpKind, p.serve and serveLeapAim(info, gauge, addHeight) or nil, addHeight)
 	if not dir then
 		mods.AnimationController.clearStance(State.myId)
 		Net.get("ActionFX"):FireServer("ProwlEnd")
@@ -1180,15 +1404,16 @@ local function startCharge(withPose)
 	Net.get("ActionFX"):FireServer("Charge")
 end
 
--- Hold Jump (or Spike) on the ground in a rally: Feral's prowl and Squall's Tailwind both want it
+-- Hold Jump (or Spike) on the ground, whenever (the owner: "you can precharge dante's leap even
+-- before the ball is in play"): Feral's prowl and Squall's Tailwind both want it
 -- (HitLogic.INPUTS.GroundJump). Mine go in order, my own first, and the first that starts takes
 -- the press: a Tailwind with no ball to go under doesn't, so it falls through to the prowl.
 local function startGroundHold(kind, info)
-	if not State.isPlaying or State.phase() ~= "Rally" then
+	if not State.isPlaying then
 		return false
 	end
 	for _, name in ipairs(State.myAbilities()) do
-		if name == "Feral" and startProwl(kind) then
+		if (name == "Feral" or name == "Enflamed") and startProwl(kind) then
 			return true
 		elseif name == "Squall" and startRush(kind, info) then
 			return true
@@ -1243,18 +1468,18 @@ local function pressSpike(info)
 			-- Spike on a held ball: a standard jump-serve toss (Feral Leap: kept held, it charges,
 			-- so his goes up high enough to charge in full and still meet it at the top)
 			local now = Util.now()
-			local height = isFeral() and H.FeralTossHigh or (H.TossHighMin + H.TossHighMax) / 2
+			local height = (isFeral() or isKuro()) and H.FeralTossHigh or (H.TossHighMin + H.TossHighMax) / 2
 			local tossed = execute("Toss", info, { tossHeight = height, tossForward = tossForward() }, now, info.root)
 			autoOverhand = false
-			if tossed and isFeral() then
+			if tossed and (isFeral() or isKuro()) then
 				startProwl("Spike", true, true)
 			end
 			return
 		end
 		if myToss() then
 			if info.grounded then
-				if isFeral() and startProwl("Spike", true) then
-					return -- Feral Leap: charge the jump serve, let go to leap into the toss
+				if (isFeral() or isKuro()) and startProwl("Spike", true) then
+					return -- Feral Leap or Kuro's meter: charge the jump serve, let go to leap into the toss
 				end
 				MC.approach("Serve")
 			elseif sundive(info, Util.now(), "Serve") or not startAirHold("Serve") then
@@ -1266,8 +1491,8 @@ local function pressSpike(info)
 	end
 	if info.grounded then
 		-- a jump whenever you like (the owner: "make it so i can jump whenever"): waiting for the
-		-- serve, between points and out of a match too; Feral Leap charges only in a rally, and
-		-- Squall's Tailwind rushes only in one
+		-- serve, between points and out of a match too; Feral Leap charges whenever too (Squall's
+		-- Tailwind needs a ball to rush under)
 		if startGroundHold("Spike", info) then
 			return
 		end
@@ -1275,7 +1500,11 @@ local function pressSpike(info)
 		return
 	end
 	if not State.isPlaying or State.phase() ~= "Rally" then
-		-- in the air out of a rally: an empty swing whenever you like (still one a jump)
+		-- in the air out of a rally: the air charges still go; or an empty swing whenever you like
+		-- (still one a jump)
+		if State.isPlaying and startAirHold("Spike") then
+			return
+		end
 		if os.clock() >= whiffUntil and takeSwing(info, nil) then -- (always true: swings aren't limited)
 			whiff(info, attackPose("Spike"), nil)
 		end
@@ -1571,14 +1800,14 @@ local function pressJump(info)
 	end
 	if serving() then
 		if myToss() then
-			if isFeral() and startProwl("Jump", true) then
-				return -- Feral Leap: charge the jump serve
+			if (isFeral() or isKuro()) and startProwl("Jump", true) then
+				return -- Feral Leap or Kuro's meter: charge the jump serve
 			end
 			mods.MovementController.approach("Serve")
 		end
 		return
 	end
-	-- straight up whenever you like; Feral Leap charges only in a rally, Squall's Tailwind too
+	-- straight up whenever you like; Feral Leap charges whenever too, Squall's Tailwind needs a ball
 	-- (the first of them that starts, as on Spike)
 	if startGroundHold("Jump", info) then
 		return
@@ -1875,20 +2104,21 @@ local function processCharge(info, dt)
 	State.signals.Charge:Fire(charge.energy, charge.gauge, st)
 end
 
--- Feral Leap: the charge ends if he leaves the ground some other way, or the rally stops (a
--- serve's charge: the toss is gone); a leap's gauge is gone once he lands without hitting.
+-- Feral Leap: the charge ends if he leaves the ground some other way (a serve's charge: the toss
+-- is gone too); a leap's gauge is gone once he lands without hitting.
 local function processProwl(info)
 	if prowl then
 		local live = false
 		if prowl.serve then
 			live = serving() and myToss()
 		else
-			live = State.phase() == "Rally"
+			live = State.isPlaying
 		end
-		if not info.grounded or not isFeral() or not live then
+		if not info.grounded or not (isFeral() or isKuro()) or not live then
 			cancelProwl()
 		end
 	end
+	kuroMeter(prowl and isKuro() and ActionController.prowlCharge() or nil)
 	if leap.gauge > 0 and info.grounded and os.clock() - leap.at > 0.35 and not mods.MovementController.isGathering() then
 		leap.gauge = 0
 		Net.get("ActionFX"):FireServer("ProwlEnd")

@@ -1,0 +1,32 @@
+[
+ {
+  "old": "119261824670460",
+  "file": "assets/icon/AbilityEnflamed.png",
+  "type": "Decal",
+  "name": "AbilityEnflamed"
+ },
+ {
+  "old": "114613556894638",
+  "file": "assets/icon/AbilityFallingStar.png",
+  "type": "Decal",
+  "name": "AbilityFallingStar"
+ },
+ {
+  "old": "KuroDragon",
+  "file": "assets/fx/KuroDragon.fbx",
+  "type": "Model",
+  "name": "KuroDragon"
+ },
+ {
+  "old": "KuroMeterTop",
+  "file": "assets/icon/KuroMeterTop.png",
+  "type": "Decal",
+  "name": "KuroMeterTop"
+ },
+ {
+  "old": "KuroMeterJaw",
+  "file": "assets/icon/KuroMeterJaw.png",
+  "type": "Decal",
+  "name": "KuroMeterJaw"
+ }
+]

@@ -1,4 +1,5 @@
--- The Halloween event's screens (Config.Halloween, the shared Halloween module), drawn with the
+-- The Colosseum's screens (2026-11-14: the Halloween event's, repurposed; Config.Halloween, the
+-- shared Halloween module), drawn with the
 -- menus' kit (MenuController.kit) on the menus' canvas:
 --   * a Halloween button down Home's right edge, with the time left
 --   * the event window: Match (Easy / Normal / Hard: what each pays, today's first clears),
@@ -38,6 +39,7 @@ local ui = {}
 local tab = "Match"
 local ORANGE = HW.Candy.Color
 local PURPLE = Color3.fromRGB(120, 60, 200)
+local refreshMap, mapHint -- (the chain map, further down)
 
 local function make(...)
 	return kit.make(...)
@@ -272,7 +274,7 @@ end
 
 local function buildMatchTab(body)
 	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 21 }, body)
-	Gui.label(f, { Text = string.format("Two stages of %d points against the AI. Before each, the roulette deals 3 cards: pick 1, twice. Win both stages to clear it. The first clear of each difficulty every day pays the most Candy.", HW.Points), TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, 0, 0, 44), ZIndex = 22 })
+	Gui.label(f, { Text = string.format("%d stages of %d points against the AI, %d Life for the whole run: every point they score costs one. Pick %d cards to start and more after every win; before each stage pick a path (a Match, a tougher Elite, or a Rest); the All-Star waits at the end. Each stage and card grows the Final Reward: the first %d runs a day pay all of it.", HW.Stages, HW.Points, HW.Life, HW.StartPicks, HW.RewardedRuns), TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, 0, 0, 44), ZIndex = 22 })
 	local cards = {}
 	local W, GAP = 352, 22
 	for i, d in ipairs(HW.Difficulties) do
@@ -282,11 +284,11 @@ local function buildMatchTab(body)
 		local head = make("Frame", { Size = UDim2.new(1, 0, 0, 66), BackgroundColor3 = d.Color, BorderSizePixel = 0, ZIndex = 23 }, card)
 		Gui.corner(head, 10)
 		Gui.label(head, { Text = string.upper(d.Name), display = true, weight = Enum.FontWeight.Heavy, TextSize = 34, TextColor3 = Gui.LINE, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 24 })
-		Gui.label(card, { Text = string.format("%s bots  ·  %d stages  ·  %dv%d", d.Bots, HW.Stages, HW.Mode, HW.Mode), display = true, TextSize = 19, Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
-		Gui.label(card, { Text = d.AiCards == 0 and "The AI takes no cards." or string.format("The AI takes %d card%s a stage.", d.AiCards, d.AiCards == 1 and "" or "s"), TextSize = 16, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 108), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
-		Gui.label(card, { Text = "FIRST CLEAR TODAY", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 146), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
-		Gui.label(card, { Text = string.format("%d Candy", d.Candy), display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, TextColor3 = ORANGE, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 172), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
-		Gui.label(card, { Text = string.format("Later clears: %d Candy\nOut in stage 2: %d Candy", d.Repeat, d.StageOne), TextSize = 16, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(0, 226), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+		Gui.label(card, { Text = string.format("%s bots  ·  Elite %s  ·  All-Star %s", d.Bots, d.Elite, d.Boss), display = true, TextSize = 19, Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 80), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+		Gui.label(card, { Text = d.AiCards == 0 and "The AI takes cards only at Elites and the All-Star." or string.format("The AI takes %d card%s a stage, more at Elites.", d.AiCards, d.AiCards == 1 and "" or "s"), TextSize = 16, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 108), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+		Gui.label(card, { Text = "A STAGE CLEARED", display = true, weight = Enum.FontWeight.Heavy, TextSize = 20, Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 146), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+		Gui.label(card, { Text = string.format("+%d %s", d.StageReward, HW.Candy.Name), display = true, weight = Enum.FontWeight.Heavy, TextSize = 40, TextColor3 = ORANGE, Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, 172), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
+		Gui.label(card, { Text = string.format("Elite +%d  ·  All-Star +%d\nplus every card you pick", Halloween.stageReward(d, "Elite"), Halloween.stageReward(d, "AllStar")), TextSize = 16, TextColor3 = Gui.DIM, Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(0, 226), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
 		local done = Gui.label(card, { Text = "", display = true, TextSize = 18, TextColor3 = Gui.SIGNAL_HOT, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 290), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23 })
 		local enter = kit.actionPlate(card, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -18), Size = UDim2.new(1, -36, 0, 64) }, "Play", 24)
 		kit.onClick(enter, function()
@@ -342,14 +344,14 @@ end
 
 local function buildShopTab(body)
 	local f = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 21 }, body)
-	Gui.label(f, { Text = "Candy from Halloween Matches buys these until the event ends. Your Candy stays after it.", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, 0, 0, 28), ZIndex = 22 })
+	Gui.label(f, { Text = HW.Candy.Name .. " from Colosseum runs buy these.", TextSize = 17, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, 0, 0, 28), ZIndex = 22 })
 	local rows = {}
 	for i, row in ipairs(HW.Shop) do
 		local r = make("Frame", { Position = UDim2.fromOffset(0, 40 + (i - 1) * 64), Size = UDim2.new(1, 0, 0, 56), BackgroundColor3 = Gui.NAVY, BorderSizePixel = 0, ZIndex = 22 }, f)
 		Gui.corner(r, 6)
 		Gui.label(r, { Text = row.Name, display = true, weight = Enum.FontWeight.Heavy, TextSize = 24, Position = UDim2.fromOffset(18, 0), Size = UDim2.fromOffset(480, 56), ZIndex = 23 })
 		local left = Gui.label(r, { Text = "", TextSize = 16, TextColor3 = Gui.DIM, Position = UDim2.fromOffset(520, 0), Size = UDim2.fromOffset(240, 56), ZIndex = 23 })
-		local buy, buyL = kit.actionPlate(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(240, 44) }, string.format("Buy  ·  %d Candy", row.Price), 19)
+		local buy, buyL = kit.actionPlate(r, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(240, 44) }, string.format("Buy  ·  %d %s", row.Price, HW.Candy.Name), 19)
 		kit.onClick(buy, function()
 			Net.get("Profile"):FireServer("hwShop", row.Key)
 		end)
@@ -374,7 +376,10 @@ local function buildWindow()
 	ui.window = m
 	ui.info = Gui.label(m.panel, { Text = "", display = true, TextSize = 21, TextColor3 = ORANGE, TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -150, 0, 26), Size = UDim2.fromOffset(560, 26), ZIndex = 22 })
 	-- (no Skins tab: the owner, 2026-10-16, "remove this"; a skin swaps on and off on its player's page)
-	local items = { { key = "Match", text = "Match" }, { key = "Banner", text = "Banner" }, { key = "Shop", text = "Candy shop" } }
+	local items = { { key = "Match", text = "Colosseum" }, { key = "Shop", text = "Shop" } }
+	if Halloween.active(Util.now()) then
+		table.insert(items, 2, { key = "Banner", text = "Banner" })
+	end
 	local _, set = kit.segmented(m.panel, items, { Position = UDim2.fromOffset(28, 86), Size = UDim2.fromOffset(480, 46), ZIndex = 22 }, setTab)
 	ui.setSeg = set
 	local body = make("Frame", { Position = UDim2.fromOffset(28, 148), Size = UDim2.new(1, -56, 1, -170), BackgroundTransparency = 1, ZIndex = 21 }, m.panel)
@@ -390,8 +395,8 @@ function HalloweenMenu.hideWindow()
 end
 
 function HalloweenMenu.open(which)
-	if not Halloween.active(Util.now()) then
-		return -- (the match, banner and shop have closed)
+	if which == "Banner" and not Halloween.active(Util.now()) then
+		which = "Match" -- (the Halloween banner has closed; the Colosseum and its shop stay)
 	end
 	if which then
 		setTab(which)
@@ -474,6 +479,22 @@ local function buildPick()
 	ui.mateRow = chipRow(m.panel, 560, "Teammates:")
 	ui.aiRow = chipRow(m.panel, 600, "The AI:")
 	ui.pickWait = Gui.label(m.panel, { Text = "", display = true, TextSize = 26, TextColor3 = Gui.SIGNAL_HOT, Position = UDim2.fromOffset(0, 290), Size = UDim2.new(1, 0, 0, 40), TextXAlignment = Enum.TextXAlignment.Center, Visible = false, ZIndex = 30 })
+	-- the run: Life and the Final Reward
+	ui.runLine = Gui.label(m.panel, { Text = "", RichText = true, display = true, TextSize = 22, Position = UDim2.fromOffset(28, 52), Size = UDim2.fromOffset(700, 28), ZIndex = 22 })
+	-- the path between stages: two nodes, the host picks
+	local path = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 130), Size = UDim2.fromOffset(760, 330), BackgroundTransparency = 1, Visible = false, ZIndex = 30 }, m.panel)
+	ui.path = { frame = path, buttons = {} }
+	for i = 1, 2 do
+		local b = make("TextButton", { Position = UDim2.fromOffset((i - 1) * 390, 0), Size = UDim2.fromOffset(370, 300), BackgroundColor3 = Gui.NAVY, AutoButtonColor = true, Text = "", BorderSizePixel = 0, ZIndex = 31 }, path)
+		Gui.corner(b, 12)
+		local stroke = make("UIStroke", { Color = ORANGE, Thickness = 3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+		local name = Gui.label(b, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, Size = UDim2.new(1, 0, 0, 56), Position = UDim2.fromOffset(0, 50), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 32 })
+		local blurb = Gui.label(b, { Text = "", TextSize = 19, TextColor3 = Gui.DIM, TextWrapped = true, Size = UDim2.new(1, -40, 0, 120), Position = UDim2.fromOffset(20, 130), TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 32 })
+		kit.onClick(b, function()
+			Net.get("Lobby"):FireServer("colosseumPath", i)
+		end)
+		ui.path.buttons[i] = { button = b, name = name, blurb = blurb, stroke = stroke }
+	end
 end
 
 -- The roll: the strip is dealt random cards with the offers in the three slots near its end, then
@@ -561,6 +582,7 @@ local function refreshPick()
 	local ev = mn and mn.event
 	local picking = ev ~= nil and ev.picking == true
 	if not picking then
+		refreshMap(nil)
 		ui.pick.root.Visible = false
 		spin = nil
 		ui.pickId = nil
@@ -578,6 +600,15 @@ local function refreshPick()
 	end
 	setChips(ui.mateRow, mateCards)
 	setChips(ui.aiRow, ev.ai)
+	ui.runLine.Text = string.format('Life <font color="%s"><b>%d / %d</b></font>   ·   Final Reward <font color="%s"><b>%d %s</b></font>',
+		(ev.life or 0) <= 5 and "#FF5050" or "#7CFF6A", ev.life or 0, ev.lifeMax or HW.Life, "#FFC446", ev.reward or 0, HW.Candy.Name)
+	-- the path between stages: the chain map (refreshMap) instead of this window
+	ui.path.frame.Visible = false
+	refreshMap(ev)
+	if ev.path then
+		ui.pick.root.Visible = false
+		return
+	end
 	local d = ev.draft
 	if d and d.offers then
 		ui.pick.title.Text = string.format("Stage %d of %d: card %d of %d", ev.stage, ev.stages, d.pick, d.picks)
@@ -670,7 +701,7 @@ end
 
 local function buildHud()
 	local sg = make("ScreenGui", { Name = "SpikeRushHalloween", ResetOnSpawn = false, DisplayOrder = 6, Enabled = false }, player:WaitForChild("PlayerGui"))
-	local f = make("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 12, 0.32, 0), Size = UDim2.fromOffset(220, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.35, BorderSizePixel = 0 }, sg)
+	local f = make("Frame", { AnchorPoint = Vector2.new(0, 0), Position = UDim2.new(0, 12, 0, 120), Size = UDim2.fromOffset(240, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.35, BorderSizePixel = 0 }, sg)
 	Gui.corner(f, 8)
 	make("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8) }, f)
 	local text = Gui.label(f, { Text = "", RichText = true, TextSize = 14, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), TextYAlignment = Enum.TextYAlignment.Top })
@@ -689,16 +720,20 @@ local function refreshHud()
 	if not on then
 		return
 	end
-	local lines = { string.format('<b><font color="%s">HALLOWEEN · STAGE %d/%d</font></b>', colorTag(ORANGE), ev.stage, ev.stages) }
+	local node = Halloween.node(ev.node)
+	local lines = { string.format('<b><font color="%s">COLOSSEUM · STAGE %d/%d%s</font></b>', colorTag(ORANGE), ev.stage, ev.stages, node and node.Kind == "Match" and node.Name ~= "Match" and (" · " .. string.upper(node.Name)) or ""),
+		string.format("Life %d/%d  ·  Reward %d %s", ev.life or 0, ev.lifeMax or HW.Life, ev.reward or 0, HW.Candy.Name) }
+	-- (the cards on one line each list, so the box stays clear of the ability buttons below it)
 	local function add(title, keys)
 		if keys and #keys > 0 then
-			table.insert(lines, "<b>" .. title .. "</b>")
+			local names = {}
 			for _, k in ipairs(keys) do
 				local card = Halloween.card(k)
 				if card then
-					table.insert(lines, string.format('<font color="%s">%s</font>', colorTag(kindColor(card)), card.Name))
+					table.insert(names, string.format('<font color="%s">%s</font>', colorTag(kindColor(card)), card.Name))
 				end
 			end
+			table.insert(lines, "<b>" .. title .. ":</b> " .. table.concat(names, ", "))
 		end
 	end
 	-- what stacked: your character's own ability and every ability card's, in the order they play
@@ -708,12 +743,322 @@ local function refreshHud()
 		table.insert(names, string.format('<font color="%s">%s</font>', colorTag(def.Color), def.Name))
 	end
 	if #names > 0 then
-		table.insert(lines, "<b>Abilities</b>")
-		table.insert(lines, table.concat(names, " + "))
+		table.insert(lines, "<b>Abilities:</b> " .. table.concat(names, " + "))
 	end
 	add("Your cards", ev.hand)
 	add("The AI's", ev.ai)
 	ui.hud.text.Text = table.concat(lines, "\n")
+end
+
+------------------------------------------------------------------------------------------
+-- the chain map (the owner, 2026-11-14: "i wanted this kind of progressing chain for coloseum",
+-- with The Spike Cross's Volleyball Colosseum as the reference): the run as a chain of hexagon
+-- nodes up the Colosseum, one row a stage, dotted lines between them. The stages behind you
+-- show the node each one took (mine.event.trail); the stage to pick shows the path's two choices,
+-- glowing; the stages ahead are unknown, the All-Star at the top. Final Reward, Remaining Life and
+-- your cards in panels at the top right. Pick a node: its name and stage show at the top, and the
+-- host's button at the bottom right takes it (Prepare for Match, or Take the Rest).
+------------------------------------------------------------------------------------------
+
+local SQ3 = math.sqrt(3)
+local MAP_W, MAP_H = 1600, 900
+local HEX_R = 56
+local NODE_ICONS = { Match = "IconPlayers", Elite = "IconAttack", Rest = "IconHome", AllStar = "IconStar" }
+local REST_GREEN = Color3.fromRGB(120, 220, 140)
+local ELITE_RED = Color3.fromRGB(235, 80, 80)
+
+-- A pointy-top hexagon of circumradius r: three rectangles turned 0, 60 and 120 degrees.
+local function hexShape(parent, r, color, z)
+	local holder = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(SQ3 * r, 2 * r), BackgroundTransparency = 1, ZIndex = z }, parent)
+	local parts = {}
+	for i = 0, 2 do
+		parts[i + 1] = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(math.floor(SQ3 * r + 0.5), r), Rotation = i * 60, BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = z }, holder)
+	end
+	return { holder = holder, parts = parts }
+end
+
+local function hexColor(h, color)
+	for _, p in ipairs(h.parts) do
+		p.BackgroundColor3 = color
+	end
+end
+
+-- One node: a glow (when picked), a rim, a dark face, an inner line, the icon (or "?") and the
+-- name under it.
+local function mapNode(parent, x, y, onClick)
+	local b = make("TextButton", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(HEX_R * 2, HEX_R * 2), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 40 }, parent)
+	local glow = make("CanvasGroup", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(HEX_R * 3, HEX_R * 3), BackgroundTransparency = 1, GroupTransparency = 0.55, Visible = false, ZIndex = 41 }, b)
+	local glowHex = hexShape(glow, HEX_R + 16, Gui.GOLD, 41)
+	local rim = hexShape(b, HEX_R, Gui.CHALK, 42)
+	local face = hexShape(b, HEX_R - 5, Gui.NAVY, 43)
+	local line = hexShape(b, HEX_R - 11, Gui.CHALK, 44)
+	local inner = hexShape(b, HEX_R - 14, Gui.NAVY, 45)
+	local icon = Gui.iconImage(b, "IconStar", 50, Gui.CHALK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 46 })
+	local q = Gui.label(b, { Text = "?", display = true, weight = Enum.FontWeight.Heavy, TextSize = 46, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(60, 60), TextXAlignment = Enum.TextXAlignment.Center, Visible = false, ZIndex = 46 })
+	local name = Gui.label(b, { Text = "", display = true, TextSize = 18, TextStrokeTransparency = 0.4, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 4), Size = UDim2.fromOffset(200, 22), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 46 })
+	local scale = make("UIScale", { Scale = 1 }, b)
+	if onClick then
+		kit.onClick(b, onClick)
+		b.MouseEnter:Connect(function()
+			TweenService:Create(scale, TweenInfo.new(0.12), { Scale = 1.08 }):Play()
+		end)
+		b.MouseLeave:Connect(function()
+			TweenService:Create(scale, TweenInfo.new(0.12), { Scale = 1 }):Play()
+		end)
+	end
+	return { button = b, glow = glow, glowHex = glowHex, rim = rim, face = face, line = line, inner = inner, icon = icon, q = q, name = name }
+end
+
+-- How a node looks: "done" (a stage behind you), "choice" (one of the path's two), "picked" (the
+-- choice you picked), "ahead" (unknown yet), "boss" (the All-Star at the top).
+local function styleNode(n, key, look)
+	local node = key and Halloween.node(key)
+	local tint = Gui.CHALK
+	if node and node.Kind == "Rest" then
+		tint = REST_GREEN
+	elseif node and node.Elite then
+		tint = ELITE_RED
+	elseif node and node.Boss then
+		tint = Gui.GOLD
+	end
+	local rimC, lineC, iconC = tint, tint, tint
+	if look == "done" then
+		rimC, lineC, iconC = Color3.fromRGB(120, 124, 140), Color3.fromRGB(90, 94, 110), Color3.fromRGB(150, 154, 170)
+	elseif look == "ahead" then
+		rimC, lineC, iconC = Color3.fromRGB(80, 84, 100), Color3.fromRGB(60, 64, 80), Color3.fromRGB(110, 114, 130)
+	elseif look == "picked" then
+		rimC = Gui.GOLD
+	end
+	hexColor(n.rim, rimC)
+	hexColor(n.line, lineC)
+	hexColor(n.glowHex, look == "picked" and Gui.GOLD or tint)
+	n.glow.Visible = look == "picked" or look == "choice"
+	n.glow.GroupTransparency = look == "picked" and 0.35 or 0.75
+	n.icon.Visible = node ~= nil and look ~= "ahead"
+	n.icon.Image = Assets.image(NODE_ICONS[key or ""] or "IconStar") or ""
+	n.icon.ImageColor3 = iconC
+	n.q.Visible = not n.icon.Visible
+	n.q.TextColor3 = iconC
+	n.name.Text = (node and look ~= "ahead") and string.upper(node.Name) or ""
+	n.name.TextColor3 = look == "done" and Gui.DIM or Gui.CHALK
+	n.button.Active = look == "choice" or look == "picked"
+end
+
+-- A dotted line between two points on the map.
+local function dots(parent, a, b)
+	local d = b - a
+	local n = math.max(1, math.floor(d.Magnitude / 15))
+	for i = 1, n - 1 do
+		local p = a + d * (i / n)
+		make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(p.X, p.Y), Size = UDim2.fromOffset(4, 4), BackgroundColor3 = Gui.CHALK, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 39 }, parent)
+	end
+end
+
+local function mapPanel(parent, x, w, title)
+	local f = make("Frame", { Position = UDim2.fromOffset(x, 24), Size = UDim2.fromOffset(w, 92), BackgroundColor3 = Gui.NAVY, BackgroundTransparency = 0.15, BorderSizePixel = 0, ZIndex = 50 }, parent)
+	Gui.corner(f, 6)
+	make("UIStroke", { Color = Gui.GOLD_LIGHT, Thickness = 1.5, Transparency = 0.35, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, f)
+	Gui.label(f, { Text = title, TextSize = 15, weight = Enum.FontWeight.Bold, TextColor3 = Gui.GOLD_LIGHT, Position = UDim2.fromOffset(0, 6), Size = UDim2.new(1, 0, 0, 18), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 51 })
+	return f
+end
+
+local function buildMap()
+	local sg = make("ScreenGui", { Name = "ColosseumMap", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 25, Enabled = false }, player:WaitForChild("PlayerGui"))
+	make("ImageLabel", { Name = "Court", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = Assets.image("MatchColosseum") or "", ScaleType = Enum.ScaleType.Crop, ZIndex = 1 }, sg)
+	local shade = make("Frame", { Name = "Shade", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = 2 }, sg)
+	make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.35, 0.45), NumberSequenceKeypoint.new(0.7, 0.45), NumberSequenceKeypoint.new(1, 0) }) }, shade)
+	local canvas = make("Frame", { Name = "Canvas", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(MAP_W, MAP_H), BackgroundTransparency = 1, ZIndex = 3 }, sg)
+	local uiScale = make("UIScale", { Scale = 1 }, canvas)
+	local function fit()
+		local cam = workspace.CurrentCamera
+		local v = cam and cam.ViewportSize or Vector2.new(MAP_W, MAP_H)
+		uiScale.Scale = math.min(v.X / MAP_W, v.Y / MAP_H)
+	end
+	fit()
+	if workspace.CurrentCamera then
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+	end
+	local chain = make("Frame", { Name = "Chain", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 39 }, canvas)
+	-- the panels, top right: Final Reward, Remaining Life, your cards
+	local cardsW, lifeW, rewardW = 260, 130, 150
+	local xCards = MAP_W - 24 - cardsW
+	local xLife = xCards - 10 - lifeW
+	local xReward = xLife - 10 - rewardW
+	local reward = mapPanel(canvas, xReward, rewardW, "Final Reward")
+	local rewardText = Gui.label(reward, { Text = "0", RichText = true, display = true, weight = Enum.FontWeight.Heavy, TextSize = 36, Position = UDim2.fromOffset(0, 30), Size = UDim2.new(1, 0, 0, 52), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 51 })
+	local life = mapPanel(canvas, xLife, lifeW, "Remaining Life")
+	local lifeText = Gui.label(life, { Text = "0", display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, 0, 0, 56), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 51 })
+	local cards = mapPanel(canvas, xCards, cardsW, "Selected Cards")
+	local dotRow = make("Frame", { Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1, ZIndex = 51 }, cards)
+	make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 12) }, dotRow)
+	local cardDots = {}
+	for i = 1, HW.MaxHand do
+		local d = make("Frame", { Size = UDim2.fromOffset(14, 14), BackgroundColor3 = Gui.CHALK, BackgroundTransparency = 0.6, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 52 }, dotRow) -- (8 of them fit the panel)
+		Gui.corner(d, 7)
+		cardDots[i] = d
+	end
+	local cardsLine = Gui.label(cards, { Text = "", TextSize = 13, TextColor3 = Gui.DIM, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(10, 62), Size = UDim2.new(1, -20, 0, 18), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 51 })
+	-- the banner, top centre: the picked node's name and stage
+	local banner = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(MAP_W / 2, 10), Size = UDim2.fromOffset(420, 150), BackgroundTransparency = 1, Visible = false, ZIndex = 50 }, canvas)
+	local bIcon = Gui.iconImage(banner, "IconStar", 34, Gui.CHALK, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), ZIndex = 51 })
+	local bName = Gui.label(banner, { Text = "", display = true, weight = Enum.FontWeight.Heavy, TextSize = 44, TextColor3 = Gui.GOLD_LIGHT, TextStrokeTransparency = 0.5, Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 50), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 51 })
+	local bar = make("Frame", { Position = UDim2.fromOffset(0, 88), Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 50 }, banner)
+	make("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0), NumberSequenceKeypoint.new(0.8, 0), NumberSequenceKeypoint.new(1, 1) }) }, bar)
+	local bStage = Gui.label(bar, { Text = "", TextSize = 16, weight = Enum.FontWeight.Bold, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 51 })
+	local bBlurb = Gui.label(banner, { Text = "", TextSize = 16, TextColor3 = Gui.DIM, TextWrapped = true, Position = UDim2.fromOffset(20, 122), Size = UDim2.new(1, -40, 0, 22), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 51 })
+	-- the button, bottom right (the host's)
+	local go = make("TextButton", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromOffset(MAP_W - 24, MAP_H - 24), Size = UDim2.fromOffset(250, 120), BackgroundColor3 = Gui.NAVY, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = true, BorderSizePixel = 0, Visible = false, ZIndex = 50 }, canvas)
+	Gui.corner(go, 6)
+	make("UIStroke", { Color = Gui.GOLD_LIGHT, Thickness = 2, Transparency = 0.2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, go)
+	local goIcon = Gui.iconImage(go, "IconAttack", 50, Gui.CHALK, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 14), ZIndex = 51 })
+	local goStrip = make("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.4, BorderSizePixel = 0, ZIndex = 51 }, go)
+	local goText = Gui.label(goStrip, { Text = "Prepare for Match", display = true, TextSize = 20, TextColor3 = Gui.GOLD_LIGHT, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 52 })
+	-- the line along the bottom: who picks, and the time left
+	local hint = Gui.label(canvas, { Text = "", display = true, TextSize = 22, TextStrokeTransparency = 0.5, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromOffset(MAP_W / 2, MAP_H - 6), Size = UDim2.fromOffset(800, 30), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 50 })
+	ui.map = { gui = sg, chain = chain, rewardText = rewardText, lifeText = lifeText, cardDots = cardDots, cardsLine = cardsLine, banner = banner, bIcon = bIcon, bName = bName, bStage = bStage, bBlurb = bBlurb, go = go, goIcon = goIcon, goText = goText, hint = hint, sel = nil, id = nil, nodes = {} }
+	kit.onClick(go, function()
+		local mp = ui.map
+		if mp.sel and mp.host then
+			Net.get("Lobby"):FireServer("colosseumPath", mp.sel)
+			go.Visible = false
+		end
+	end)
+end
+
+-- Where stage s's row stands (stage 1 at the bottom, the All-Star at the top).
+local function rowY(s)
+	return MAP_H - 135 - (s - 1) * ((MAP_H - 360) / math.max(1, HW.Stages - 1))
+end
+
+function mapHint()
+	local mp = ui.map
+	local ev = mp and mp.ev
+	if not ev or not ev.path or not mp.gui.Enabled then
+		return
+	end
+	local left = math.max(0, math.ceil((ev.path.endsAt or 0) - Util.now()))
+	local what
+	if not ev.path.host then
+		what = "The host picks the path."
+	elseif mp.sel then
+		what = "Ready? Take it at the bottom right."
+	else
+		what = "Pick the next node on the chain."
+	end
+	mp.hint.Text = string.format("%s  ·  %ds", what, left)
+end
+
+function refreshMap(ev)
+	local mp = ui.map
+	if not mp then
+		return
+	end
+	local on = ev ~= nil and ev.path ~= nil and kit.shown()
+	mp.gui.Enabled = on == true
+	mp.ev = ev
+	if not on then
+		mp.sel, mp.id = nil, nil
+		return
+	end
+	local path = ev.path
+	local id = ev.stage .. ":" .. table.concat(path.choices, ",")
+	if mp.id ~= id then
+		-- a new path: the chain again, nothing picked
+		mp.id, mp.sel = id, nil
+		mp.chain:ClearAllChildren()
+		mp.nodes = {}
+		local trail = ev.trail or {}
+		local rows = {}
+		for s = 1, ev.stages do
+			local keys
+			if s < ev.stage then
+				keys = { trail[s] or "Match" }
+			elseif s == ev.stage then
+				keys = path.choices
+			elseif s == ev.stages then
+				keys = { "AllStar" }
+			else
+				keys = { false }
+			end
+			local row = {}
+			for i, key in ipairs(keys) do
+				local x = MAP_W / 2 + (i - (#keys + 1) / 2) * 290
+				row[i] = { key = key or nil, pos = Vector2.new(x, rowY(s)) }
+			end
+			rows[s] = row
+		end
+		for s = 1, ev.stages - 1 do
+			for _, a in ipairs(rows[s]) do
+				for _, b in ipairs(rows[s + 1]) do
+					dots(mp.chain, a.pos, b.pos)
+				end
+			end
+		end
+		for s, row in ipairs(rows) do
+			for i, r in ipairs(row) do
+				local onClick = nil
+				if s == ev.stage then
+					onClick = function()
+						if not mp.host then
+							return
+						end
+						mp.sel = i
+						if mods.AudioController then
+							mods.AudioController.play("UISelect", { volume = 0.5 })
+						end
+						refreshMap(mp.ev)
+					end
+				end
+				local n = mapNode(mp.chain, r.pos.X, r.pos.Y, onClick)
+				n.stage, n.index, n.key = s, i, r.key
+				table.insert(mp.nodes, n)
+			end
+		end
+	end
+	mp.host = path.host == true
+	for _, n in ipairs(mp.nodes) do
+		local look
+		if n.stage < ev.stage then
+			look = "done"
+		elseif n.stage == ev.stage then
+			look = mp.sel == n.index and "picked" or "choice"
+		elseif n.key == "AllStar" then
+			look = "boss"
+		else
+			look = "ahead"
+		end
+		styleNode(n, n.key, look)
+	end
+	-- the panels
+	mp.rewardText.Text = string.format('<font color="#FFC446">%d</font> <font size="18">%s</font>', ev.reward or 0, HW.Candy.Name)
+	mp.lifeText.Text = tostring(ev.life or 0)
+	mp.lifeText.TextColor3 = (ev.life or 0) <= 5 and Color3.fromRGB(255, 90, 90) or Gui.CHALK
+	local hand = ev.hand or {}
+	local names = {}
+	for i, d in ipairs(mp.cardDots) do
+		local card = hand[i] and Halloween.card(hand[i])
+		d.BackgroundColor3 = card and kindColor(card) or Gui.CHALK
+		d.BackgroundTransparency = card and 0 or 0.6
+		if card then
+			table.insert(names, card.Name)
+		end
+	end
+	mp.cardsLine.Text = #names > 0 and table.concat(names, ", ") or "No cards yet"
+	-- the picked node: the banner and the button
+	local key = mp.sel and path.choices[mp.sel]
+	local node = key and Halloween.node(key)
+	mp.banner.Visible = node ~= nil
+	mp.go.Visible = node ~= nil and mp.host
+	if node then
+		mp.bIcon.Image = Assets.image(NODE_ICONS[key] or "IconStar") or ""
+		mp.bName.Text = node.Name
+		mp.bStage.Text = string.format("STAGE %d OF %d", ev.stage, ev.stages)
+		mp.bBlurb.Text = node.Blurb or ""
+		local rest = node.Kind == "Rest"
+		mp.goText.Text = rest and string.format("Take the Rest (+%d)", HW.RestHeal) or "Prepare for Match"
+		mp.goIcon.Image = Assets.image(rest and "IconHome" or "IconAttack") or ""
+	end
+	mapHint()
 end
 
 ------------------------------------------------------------------------------------------
@@ -728,20 +1073,22 @@ function HalloweenMenu.refresh()
 	local ev = eventOf(p)
 	local now = Util.now()
 	local active = Halloween.active(now)
+	-- today's rewarded runs (a copy: the profile's isn't touched here)
+	local runsLeft = math.max(0, HW.RewardedRuns - Halloween.runsToday({ runDay = ev.runDay, runs = ev.runs }, Halloween.day(now)))
 	if ui.homeBtn then
-		ui.homeBtn.Visible = active -- (a skin's switched on and off on its player's page)
-		ui.homeLeft.Text = active and leftText(Halloween.secondsLeft(now)) or ""
+		ui.homeBtn.Visible = true -- (the Colosseum is there for good)
+		ui.homeLeft.Text = string.format("%d/%d runs", runsLeft, HW.RewardedRuns)
 	end
 	-- a match started with the window open: it goes (the menus hide their own modals then)
 	if State.isPlaying and ui.window.root.Visible then
 		ui.window.root.Visible = false
 	end
-	ui.info.Text = string.format("%s left  ·  %s Candy  ·  %d scout", active and leftText(Halloween.secondsLeft(now)) or "Ended", Gui.num(ev.candy or 0), ev.scout or 0)
+	ui.info.Text = string.format("%s %s  ·  rewarded runs today %d/%d%s", Gui.num(ev.candy or 0), HW.Candy.Name, runsLeft, HW.RewardedRuns, active and string.format("  ·  banner %s left", leftText(Halloween.secondsLeft(now))) or "")
 	if ui.window.root.Visible then
 		local T = ui.tabs
 		if tab == "Match" then
 			for key, c in pairs(T.Match.cards) do
-				c.done.Text = (ev.cleared and ev.cleared[key]) and "Cleared today: later clears pay less" or ""
+				c.done.Text = runsLeft == 0 and "Today's rewarded runs are used: runs pay a share" or ""
 			end
 		elseif tab == "Banner" then
 			T.Banner.scout.Text = string.format("%d scout points", ev.scout or 0)
@@ -797,16 +1144,9 @@ function HalloweenMenu.init(m)
 	buildPick()
 	buildReveal()
 	buildHud()
-	-- Home's button, down the right edge (first in the list)
-	if kit.extras then
-		local b = kit.navItem(kit.extras, kit.iconKey("IconHalloween", "IconStar"), "Halloween", { LayoutOrder = -1 })
-		local left = Gui.label(b, { Text = "", display = true, TextSize = 13, TextColor3 = ORANGE, Size = UDim2.new(1, 0, 0, 14), Position = UDim2.fromOffset(0, 60), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3 })
-		kit.extras.Size = UDim2.fromOffset(kit.extras.Size.X.Offset, kit.extras.Size.Y.Offset + 84)
-		kit.onClick(b, function()
-			HalloweenMenu.open()
-		end)
-		ui.homeBtn, ui.homeLeft = b, left
-	end
+	buildMap()
+	-- (no button down Home's right edge any more: the owner, 2026-11-15, "take colloseum off this
+	-- sidebar". The Colosseum is a card in the Match row.)
 	local lastReveal = nil
 	State.signals.Profile:Connect(function(p)
 		if type(p) == "table" and p.hwReveal and p.hwReveal ~= lastReveal then
@@ -828,7 +1168,8 @@ function HalloweenMenu.init(m)
 		if acc >= 0.5 then
 			acc = 0
 			tickPick()
-			if ui.pick.root.Visible or ui.window.root.Visible or (ui.homeBtn and kit.shown()) then
+			mapHint()
+			if ui.pick.root.Visible or ui.window.root.Visible or ui.map.gui.Enabled or (ui.homeBtn and kit.shown()) then
 				HalloweenMenu.refresh()
 			end
 		end

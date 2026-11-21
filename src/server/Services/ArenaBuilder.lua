@@ -1413,6 +1413,252 @@ COURTS.Haunted = {
 	end,
 }
 
+-- Snowfall Lodge (the Winter event's: the owner, 2026-11-15, "christmas courts"): a court laid in a
+-- snowy clearing on a winter night. The floor painted ice blue with a candy-red front zone, red and
+-- green bleachers under strings of Christmas lights, snow-capped pines all round, snowmen along the
+-- far side, a giant lit Christmas tree with presents down the Away end, a log lodge with its windows
+-- lit and smoke from the chimney down the Home end, the moon over the trees and snow falling.
+-- The Winter Match is played here (Config.Winter.Match.Court).
+local CONE_MESH = "rbxassetid://1033714" -- (Roblox's own cone mesh)
+
+-- A cone of needles, `w` across and `h` tall, its base at `base`.
+local function needles(parent, w, h, base, color)
+	local cone = deco(part(parent, "Needles", Vector3.new(w, h, w), CFrame.new(base + Vector3.new(0, h / 2, 0)), color, Enum.Material.Grass))
+	local m = Instance.new("SpecialMesh")
+	m.MeshType = Enum.MeshType.FileMesh
+	m.MeshId = CONE_MESH
+	m.Scale = Vector3.new(w / 1.7, h / 0.74, w / 1.7) -- (the mesh is 1.7 across and 0.74 tall at scale 1, measured)
+	m.Parent = cone
+	return cone
+end
+
+COURTS.Winter = {
+	floor = { Color3.fromRGB(226, 234, 244), Enum.Material.SmoothPlastic },
+	pad = Color3.fromRGB(214, 36, 52),
+	paint = { free = Color3.fromRGB(230, 238, 248), court = Color3.fromRGB(96, 168, 224), front = Color3.fromRGB(206, 40, 56) },
+	light = {
+		props = { Ambient = Color3.fromRGB(110, 124, 160), OutdoorAmbient = Color3.fromRGB(120, 136, 176), Brightness = 1, ClockTime = 21.5, EnvironmentDiffuseScale = 0.35, EnvironmentSpecularScale = 0.35, ExposureCompensation = 0.25, ShadowSoftness = 0.4 },
+		bloom = { Intensity = 0.5, Size = 24, Threshold = 1.5 },
+		grade = { Saturation = 0.12, Contrast = 0.1, Brightness = 0, TintColor = Color3.fromRGB(236, 244, 255) },
+		atmo = { Density = 0.3, Haze = 1.2, Glare = 0, Color = Color3.fromRGB(150, 172, 214), Decay = Color3.fromRGB(60, 80, 130) },
+	},
+	build = function(scene, id)
+		local rng = Random.new(41)
+		local D = C.WallHalfZ
+		local SNOW = Color3.fromRGB(240, 246, 255)
+		local PINE = Color3.fromRGB(30, 84, 52)
+		local BARK = Color3.fromRGB(70, 46, 30)
+		local LIGHTS = { Color3.fromRGB(255, 60, 60), Color3.fromRGB(80, 220, 110), Color3.fromRGB(255, 200, 70), Color3.fromRGB(90, 160, 255) }
+		-- snow all round (short of the menu rooms 1600 out)
+		deco(part(scene, "Ground", Vector3.new(1100, 1, 1000), CFrame.new(130, -0.56, 0), SNOW, Enum.Material.Snow))
+		stands(scene, id, function(row)
+			return row.index % 2 == 0 and Color3.fromRGB(176, 34, 44) or Color3.fromRGB(30, 110, 64)
+		end, Enum.Material.WoodPlanks)
+		local back = standsBack(id)
+		-- a pine: a trunk and three stacked cones of needles, snow on each tier
+		local trees = folder(scene, "Pines")
+		local function pine(base, height)
+			local w = height * 0.42
+			deco(part(trees, "Trunk", Vector3.new(height * 0.22, w * 0.16, w * 0.16), CFrame.new(base + Vector3.new(0, height * 0.11, 0)) * VERTICAL, BARK, Enum.Material.Wood, { Shape = Enum.PartType.Cylinder }))
+			for k = 0, 2 do
+				local tw = w * (1 - k * 0.27)
+				local th = height * 0.36
+				local y = height * (0.18 + k * 0.24)
+				needles(trees, tw, th, base + Vector3.new(0, y, 0), PINE)
+			end
+			-- snow on its tip
+			local tipH = height * 0.36 * 0.42
+			needles(trees, w * 0.46 * 0.42, tipH, base + Vector3.new(0, height * (0.18 + 2 * 0.24) + height * 0.36 - tipH, 0), SNOW).Material = Enum.Material.Snow
+		end
+		for _ = 1, 30 do
+			pine(Vector3.new(back + 8 + rng:NextNumber() * 130, 0, -150 + rng:NextNumber() * 300), 26 + rng:NextNumber() * 22)
+		end
+		for _, sz in ipairs({ -1, 1 }) do
+			for _ = 1, 10 do
+				local x = -30 + rng:NextNumber() * (back + 40)
+				local z = sz * (D + 22 + rng:NextNumber() * 90)
+				if not (sz > 0 and x > 4 and x < 56 and math.abs(z) < D + 64) and not (sz < 0 and x > 22 and x < 66 and math.abs(z) < D + 62) then
+					pine(Vector3.new(x, 0, z), 22 + rng:NextNumber() * 18)
+				end
+			end
+		end
+		-- snowmen along the far side of the free zone: three balls, coal eyes and buttons, a carrot
+		-- nose, a top hat and a red scarf, looking at the court
+		local men = folder(scene, "Snowmen")
+		local fx = C.HalfWidth + C.FreeZoneSide + 3.6
+		for i = -4, 4, 2 do
+			local z = i * 15 + (rng:NextNumber() - 0.5) * 4
+			local s = 0.9 + rng:NextNumber() * 0.3
+			local x = fx + rng:NextNumber() * 2
+			local face = CFrame.lookAt(Vector3.new(x, 0, z), Vector3.new(-40, 0, z))
+			ball(men, "Base", Vector3.new(3.2, 3, 3.2) * s, Vector3.new(x, 1.4 * s, z), SNOW, Enum.Material.Snow)
+			ball(men, "Middle", Vector3.new(2.4, 2.3, 2.4) * s, Vector3.new(x, 3.6 * s, z), SNOW, Enum.Material.Snow)
+			ball(men, "Head", Vector3.new(1.7, 1.7, 1.7) * s, Vector3.new(x, 5.3 * s, z), SNOW, Enum.Material.Snow)
+			for _, ex in ipairs({ -0.3, 0.3 }) do
+				ball(men, "Eye", Vector3.new(0.22, 0.22, 0.22) * s, (face * CFrame.new(ex * s, 5.5 * s, -0.78 * s)).Position, Color3.fromRGB(20, 20, 24), Enum.Material.SmoothPlastic)
+			end
+			for b = 0, 2 do
+				ball(men, "Button", Vector3.new(0.24, 0.24, 0.24) * s, (face * CFrame.new(0, (3.2 + b * 0.5) * s, -1.15 * s)).Position, Color3.fromRGB(20, 20, 24), Enum.Material.SmoothPlastic)
+			end
+			deco(part(men, "Carrot", Vector3.new(0.22, 0.22, 0.9) * s, face * CFrame.new(0, 5.3 * s, -1.2 * s), Color3.fromRGB(255, 120, 30), Enum.Material.SmoothPlastic))
+			deco(part(men, "Brim", Vector3.new(0.12, 1.7, 1.7) * s, CFrame.new(x, 6.05 * s, z) * VERTICAL, Color3.fromRGB(24, 22, 26), Enum.Material.SmoothPlastic, { Shape = Enum.PartType.Cylinder }))
+			deco(part(men, "Hat", Vector3.new(1.1, 1.1, 1.1) * s, CFrame.new(x, 6.65 * s, z) * VERTICAL, Color3.fromRGB(24, 22, 26), Enum.Material.SmoothPlastic, { Shape = Enum.PartType.Cylinder }))
+			deco(part(men, "Scarf", Vector3.new(0.45, 1.9, 1.9) * s, CFrame.new(x, 4.55 * s, z) * VERTICAL, Color3.fromRGB(214, 36, 52), Enum.Material.Fabric, { Shape = Enum.PartType.Cylinder }))
+		end
+		-- the bleachers' back wall, with words along the top
+		local crownTop = crown(scene, id, {
+			wall = Color3.fromRGB(120, 70, 46), material = Enum.Material.WoodPlanks, trim = Color3.fromRGB(236, 244, 255), panel = Color3.fromRGB(16, 40, 30),
+			words = { "WINTER RALLY", "MERRY CHRISTMAS", "VOLLEYBALL RUSH", "JINGLE ALL THE WAY", "WINTER RALLY" },
+			wordColors = { Color3.fromRGB(255, 70, 80), Color3.fromRGB(120, 230, 150) },
+			up = 4.8,
+		})
+		-- Christmas lights strung between poles over the bleachers
+		local bulbs = folder(scene, "StringLights")
+		local poles = { -66, -22, 22, 66 }
+		local poleH = crownTop + 11
+		for _, z in ipairs(poles) do
+			deco(part(bulbs, "Pole", Vector3.new(0.5, poleH, 0.5), CFrame.new(back + 1.6, poleH / 2, z), Color3.fromRGB(70, 46, 30), Enum.Material.Wood))
+			ball(bulbs, "PoleSnow", Vector3.new(1, 0.5, 1), Vector3.new(back + 1.6, poleH + 0.2, z), SNOW, Enum.Material.Snow)
+		end
+		for i = 1, #poles - 1 do
+			local z0, z1 = poles[i], poles[i + 1]
+			for k = 1, 17 do
+				local t = k / 18
+				ball(bulbs, "Bulb", Vector3.new(0.65, 0.65, 0.65), Vector3.new(back + 1.6, poleH - 0.4 - math.sin(t * math.pi) * 3, z0 + (z1 - z0) * t), LIGHTS[(k - 1) % #LIGHTS + 1], Enum.Material.Neon)
+			end
+			lamp(bulbs, Vector3.new(back - 1, poleH - 3, (z0 + z1) / 2), "PointLight", { Range = 22, Brightness = 0.9, Color = Color3.fromRGB(255, 220, 200), Shadows = false })
+		end
+		-- floodlights at the corners: cool white, enough to play by
+		for _, sz in ipairs({ -1, 1 }) do
+			local base = Vector3.new(back + 3, 0, sz * 46)
+			cylinder(scene, "FloodPole", 24, 0.8, base, Color3.fromRGB(60, 64, 76), Enum.Material.Metal)
+			deco(part(scene, "FloodHead", Vector3.new(1.6, 2.2, 3), CFrame.new(base + Vector3.new(-0.8, 24, 0)), Color3.fromRGB(230, 240, 255), Enum.Material.Neon))
+			local aim = CFrame.lookAt(base + Vector3.new(-1.5, 24, 0), Vector3.new(0, 0, sz * 16))
+			local holder = deco(part(scene, "Flood", Vector3.new(0.5, 0.5, 0.5), aim, WHITE, nil, { Transparency = 1 }))
+			local spot = Instance.new("SpotLight")
+			spot.Face = Enum.NormalId.Front
+			spot.Angle = 62
+			spot.Range = 60
+			spot.Brightness = 3
+			spot.Color = Color3.fromRGB(236, 244, 255)
+			spot.Shadows = true
+			spot.Parent = holder
+		end
+		-- the giant Christmas tree down the Away end: tiers of needles, lights and baubles round each,
+		-- a star on top, presents piled under it
+		local xmas = folder(scene, "ChristmasTree")
+		local tx, tz = 30, D + 34
+		local TH = 46
+		local fxm = ReplicatedStorage:FindFirstChild("FxMeshes")
+		local tpl = fxm and fxm:FindFirstChild("FX_Tree", true)
+		local starY = 3 + 4 * TH * 0.17 + TH * 0.3 + 1.6
+		if tpl and tpl:IsA("MeshPart") then
+			local tree = tpl:Clone()
+			tree.Size = tpl.Size * (TH / tpl.Size.Y)
+			tree.CFrame = CFrame.new(tx, TH / 2, tz)
+			tree.Anchored = true
+			deco(tree)
+			tree.Parent = xmas
+			-- its tiers' lower edges (height, radius at H = 13: WinterSkins' tree pull), lights all round
+			local k = TH / 13
+			for _, rim in ipairs({ { 2.2, 3.75 }, { 4.7, 2.95 }, { 6.8, 2.25 }, { 8.65, 1.55 } }) do
+				local y, r = rim[1] * k, rim[2] * k
+				local n = math.floor(r * 2.2)
+				for j = 0, n - 1 do
+					local a = j / n * math.pi * 2
+					ball(xmas, "Light", Vector3.new(0.9, 0.9, 0.9), Vector3.new(tx + math.cos(a) * r, y - 0.4 * math.abs(math.sin(a * 3)), tz + math.sin(a) * r), LIGHTS[j % #LIGHTS + 1], Enum.Material.Neon)
+				end
+			end
+			starY = TH - 2
+		else
+			deco(part(xmas, "Trunk", Vector3.new(5, 3.4, 3.4), CFrame.new(tx, 2.5, tz) * VERTICAL, BARK, Enum.Material.Wood, { Shape = Enum.PartType.Cylinder }))
+		end
+		for k = 0, (tpl and tpl:IsA("MeshPart")) and -1 or 4 do
+			local tw = 30 * (1 - k * 0.19)
+			local th = TH * 0.3
+			local y = 3 + k * TH * 0.17
+			needles(xmas, tw, th, Vector3.new(tx, y, tz), Color3.fromRGB(26, 96, 56))
+			local r = tw * 0.4
+			local n = math.max(8, math.floor(r * 1.6))
+			for j = 0, n - 1 do
+				local a = j / n * math.pi * 2 + k * 0.4
+				local pos = Vector3.new(tx + math.cos(a) * r, y + th * 0.18, tz + math.sin(a) * r)
+				if j % 2 == 0 then
+					ball(xmas, "Light", Vector3.new(0.8, 0.8, 0.8), pos, LIGHTS[(j / 2 + k) % #LIGHTS + 1], Enum.Material.Neon)
+				else
+					ball(xmas, "Bauble", Vector3.new(1.3, 1.3, 1.3), pos - Vector3.new(0, 0.5, 0), (j % 4 == 1) and Color3.fromRGB(214, 36, 52) or Color3.fromRGB(255, 196, 60), Enum.Material.Glass)
+				end
+			end
+		end
+		if not (tpl and tpl:IsA("MeshPart")) then
+			for _, rot in ipairs({ 0, 36 }) do
+				deco(part(xmas, "Star", Vector3.new(0.8, 4.2, 4.2), CFrame.new(tx, starY, tz) * CFrame.Angles(0, math.rad(90), 0) * CFrame.Angles(math.rad(rot + 45), 0, 0), Color3.fromRGB(255, 214, 80), Enum.Material.Neon))
+			end
+		end
+		lamp(xmas, Vector3.new(tx, starY, tz), "PointLight", { Range = 40, Brightness = 1.6, Color = Color3.fromRGB(255, 214, 120), Shadows = false })
+		lamp(xmas, Vector3.new(tx - 12, 10, tz), "PointLight", { Range = 30, Brightness = 1, Color = Color3.fromRGB(255, 190, 150), Shadows = false })
+		local giftColors = { Color3.fromRGB(214, 36, 52), Color3.fromRGB(40, 140, 80), Color3.fromRGB(70, 140, 230), Color3.fromRGB(255, 196, 60), Color3.fromRGB(240, 240, 250) }
+		for g = 1, 12 do
+			local a = rng:NextNumber() * math.pi * 2
+			local rr = 15 + rng:NextNumber() * 5
+			local s3 = 2 + rng:NextNumber() * 2.2
+			local cf = CFrame.new(tx + math.cos(a) * rr, s3 / 2, tz + math.sin(a) * rr) * CFrame.Angles(0, rng:NextNumber() * 6.28, 0)
+			local col = giftColors[(g - 1) % #giftColors + 1]
+			local ribbon = (col == giftColors[4]) and giftColors[1] or giftColors[4]
+			deco(part(xmas, "Gift", Vector3.new(s3, s3, s3), cf, col, Enum.Material.SmoothPlastic))
+			deco(part(xmas, "Ribbon", Vector3.new(s3 + 0.05, s3 + 0.05, s3 * 0.18), cf, ribbon, Enum.Material.SmoothPlastic))
+			deco(part(xmas, "Ribbon", Vector3.new(s3 * 0.18, s3 + 0.05, s3 + 0.05), cf, ribbon, Enum.Material.SmoothPlastic))
+		end
+		-- the lodge down the Home end: log walls, a snowy roof, warm windows, a wreath, chimney smoke
+		local lodge = folder(scene, "Lodge")
+		local cz = -(D + 34)
+		local logColor = Color3.fromRGB(110, 70, 42)
+		deco(part(lodge, "Walls", Vector3.new(16, 11, 18), CFrame.new(44, 5.5, cz), logColor, Enum.Material.WoodPlanks))
+		for _, side in ipairs({ -1, 1 }) do
+			deco(part(lodge, "Roof", Vector3.new(9.6, 0.8, 19.6), CFrame.new(44 + side * 3.7, 13.4, cz) * CFrame.Angles(0, 0, math.rad(-side * 34)), Color3.fromRGB(70, 40, 30), Enum.Material.Slate))
+			deco(part(lodge, "RoofSnow", Vector3.new(9.8, 0.6, 20), CFrame.new(44 + side * 3.75, 13.95, cz) * CFrame.Angles(0, 0, math.rad(-side * 34)), SNOW, Enum.Material.Snow))
+		end
+		local chimney = deco(part(lodge, "Chimney", Vector3.new(2.4, 7, 2.4), CFrame.new(47, 15, cz + 4), Color3.fromRGB(130, 60, 50), Enum.Material.Brick))
+		local smoke = Instance.new("Smoke")
+		smoke.Color = Color3.fromRGB(200, 205, 215)
+		smoke.Opacity = 0.12
+		smoke.RiseVelocity = 3
+		smoke.Size = 3
+		smoke.Parent = chimney
+		for _, z in ipairs({ cz - 4.8, cz + 4.8 }) do
+			local pane = deco(part(lodge, "Window", Vector3.new(0.2, 2.8, 2.8), CFrame.new(35.95, 6, z), Color3.fromRGB(255, 190, 90), Enum.Material.Neon))
+			local sl = Instance.new("SurfaceLight")
+			sl.Face = Enum.NormalId.Left
+			sl.Range = 18
+			sl.Brightness = 1.4
+			sl.Color = Color3.fromRGB(255, 180, 90)
+			sl.Parent = pane
+		end
+		deco(part(lodge, "Wreath", Vector3.new(0.4, 3.2, 3.2), CFrame.new(35.8, 9.8, cz), Color3.fromRGB(30, 110, 60), Enum.Material.Grass, { Shape = Enum.PartType.Cylinder }))
+		ball(lodge, "Bow", Vector3.new(0.6, 0.8, 1.2), Vector3.new(35.5, 8.6, cz), Color3.fromRGB(214, 36, 52), Enum.Material.SmoothPlastic)
+		-- the moon over the trees (an aurora of neon slabs read as flat panels on screen: left out)
+		deco(part(scene, "Moon", Vector3.new(2, 90, 90), CFrame.new(560, 190, 150), Color3.fromRGB(236, 244, 255), Enum.Material.Neon, { Shape = Enum.PartType.Cylinder }))
+		-- snow falling over the court and the bleachers
+		local fall = deco(part(scene, "Snowfall", Vector3.new(150, 1, D * 2.4), CFrame.new(30, 60, 0), WHITE, nil, { Transparency = 1 }))
+		local snow = Instance.new("ParticleEmitter")
+		snow.Texture = Assets.id(Assets.Fx.Dot) or ""
+		snow.Shape = Enum.ParticleEmitterShape.Box
+		snow.EmissionDirection = Enum.NormalId.Bottom
+		snow.Rate = 90
+		snow.Lifetime = NumberRange.new(9, 13)
+		snow.Speed = NumberRange.new(4, 7)
+		snow.SpreadAngle = Vector2.new(12, 12)
+		snow.Size = NumberSequence.new(0.32)
+		snow.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.08, 0.15), NumberSequenceKeypoint.new(0.9, 0.15), NumberSequenceKeypoint.new(1, 1) })
+		snow.Color = ColorSequence.new(WHITE)
+		snow.LightEmission = 0.4
+		snow.Parent = fall
+		banner(scene, "Tag", Vector3.new(0.3, 2.6, 34), CFrame.new(back + 0.6, 1.6, 0), Enum.NormalId.Left, "WINTER RALLY", Color3.fromRGB(255, 80, 90), Color3.fromRGB(16, 40, 30))
+		screens(scene, { frame = Color3.fromRGB(110, 70, 42), material = Enum.Material.WoodPlanks })
+		ledBoards(scene, true)
+	end,
+}
+
 ------------------------------------------------------------------------------------------
 -- lighting
 ------------------------------------------------------------------------------------------

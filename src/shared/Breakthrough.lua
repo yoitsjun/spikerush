@@ -76,13 +76,23 @@ function Breakthrough.stats(c, level)
 	return out
 end
 
+-- A level an ability plays at: -Max..Max. Below 0 is weaker than the real thing (the story's
+-- teammates: Config.Story's MateWeak); saved levels go through Breakthrough.level (0..Max).
+local function playLevel(v)
+	v = tonumber(v) or 0
+	if v ~= v then
+		return 0
+	end
+	return clamp(math.floor(v), -BT.Max, BT.Max)
+end
+
 -- An ability's setting `key` at breakthrough `level` (the plain setting when it doesn't grow).
--- A table setting grows entry by entry.
+-- A table setting grows entry by entry; a level below 0 shrinks it the same way.
 function Breakthrough.ab(ability, key, level)
 	local def = Config.Abilities[ability or ""]
 	local v = def and def[key]
 	local spec = BT.Ability[ability or ""] and BT.Ability[ability][key]
-	level = Breakthrough.level(level)
+	level = playLevel(level)
 	if v == nil or not spec or level == 0 then
 		return v
 	end
@@ -115,7 +125,7 @@ function Breakthrough.cooldown(ability, level)
 		return nil
 	end
 	local cut = BT.CooldownCuts[ability] or BT.CooldownCut -- (none where its effect grows instead)
-	return cd * (1 - cut * Breakthrough.level(level) / BT.Max)
+	return cd * (1 - cut * playLevel(level) / BT.Max) -- (longer below 0)
 end
 
 local function show(spec, v)

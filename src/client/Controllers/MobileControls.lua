@@ -28,6 +28,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Assets = require(Shared.Assets)
 local Settings = require(Shared.Settings)
+local HitLogic = require(Shared.HitLogic)
 local State = require(script.Parent.State)
 local Gui = require(script.Parent.Gui)
 local HudLayout = require(script.Parent.HudLayout)
@@ -411,6 +412,12 @@ end
 -- (Bloodlust).
 local function prowlRing(charge)
 	local F = Config.Abilities.Feral
+	if State.hasAbility("Enflamed") then
+		-- Kuro's meter: the zone it's in
+		local zone = HitLogic.enflamedZone(charge)
+		ring("C", (zone == "gold" and Color3.fromRGB(255, 214, 70)) or (zone == "silver" and Color3.fromRGB(214, 222, 236)) or Config.Abilities.Enflamed.Color, true)
+		return
+	end
 	if mods.ActionController.abilityActive("Feral") then
 		ring("C", charge > 1.005 and Color3.fromRGB(255, 214, 200) or F.BloodColor, true) -- (Bloodlust: the bar's red)
 		return
@@ -876,10 +883,9 @@ local function update()
 			set("B", "Receive", "Bump", "IconDefense")
 			set("C", "Jump", jumpLabel, "IconJump")
 		end
-		-- with setter aim on the Set button stays up, so the distance can be charged as the pass
-		-- comes (hold, then let go when it's in reach)
-		local aiming = mods.SetterAim ~= nil and mods.SetterAim.on()
-		set("Set", (ctx.canSet == true or aiming) and "Set" or nil, "Set", "IconStar")
+		-- Set is always up, for every character (the owner: "mobile always has set button"), and its
+		-- ring says the ball's in reach; aiming the set stays a setter's (SetterAim)
+		set("Set", "Set", "Set", "IconStar")
 		ring("A", nil, false)
 		local charge = mods.ActionController.blockCharge()
 		if charge then

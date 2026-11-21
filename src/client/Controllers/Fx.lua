@@ -327,6 +327,36 @@ local KITS = {
 		light = { C(255, 140, 40), 5, 22, 0.6 },
 	},
 
+	-- the Winter collab's jumps (VFXController's meshes carry the shapes: a floor snowflake, a
+	-- snowman, a present, a Christmas tree). Snow Burst: snowflakes and powder thrown up. Snowman:
+	-- the puff of snow he arrives in. Present: paper stars and snow out of the box. Christmas Tree:
+	-- gold glints off the star and the baubles, snow shaken off
+	JumpSnowburst = {
+		{ t = "Snowflake", n = 18, life = { 0.9, 1.4 }, size = { { 0, 0 }, { 0.15, 1.9 }, { 1, 1.1 } }, alpha = { { 0, 0 }, { 0.7, 0.1 }, { 1, 1 } }, speed = { 14, 30 }, spread = 80, drag = 2.5, accel = Vector3.new(0, -14, 0), rot = { 0, 360 }, spin = { -160, 160 }, z = 2, color = C(246, 251, 255) },
+		layer(TSMOKE, { n = 9, color = C(240, 247, 255), glow = 0.3, size = { { 0, 3 }, { 1, 8 } } }),
+		{ t = "Dot", n = 30, life = { 0.6, 1 }, size = { { 0, 0.5 }, { 1, 0 } }, speed = { 16, 34 }, spread = 85, drag = 3, accel = Vector3.new(0, -30, 0), color = C(255, 255, 255), z = 2 },
+	},
+	JumpSnowman = {
+		layer(TSMOKE, { n = 7, color = C(240, 247, 255), glow = 0.3 }),
+		{ t = "Snowflake", n = 8, life = { 0.8, 1.2 }, size = { { 0, 0 }, { 0.15, 1.4 }, { 1, 0.9 } }, alpha = { { 0, 0 }, { 0.7, 0.1 }, { 1, 1 } }, speed = { 10, 22 }, spread = 85, drag = 2.5, accel = Vector3.new(0, -12, 0), rot = { 0, 360 }, spin = { -140, 140 }, z = 2, color = C(246, 251, 255) },
+	},
+	JumpPresent = {
+		{ t = "Sparkle", n = 16, life = { 0.6, 0.9 }, size = { { 0, 0 }, { 0.3, 2.2 }, { 1, 0 } }, speed = { 18, 36 }, spread = 60, drag = 3, accel = Vector3.new(0, -20, 0), rot = { 0, 90 }, z = 2.5, color = two(C(255, 236, 150), C(255, 90, 90)) },
+		{ t = "Dot", n = 26, life = { 0.7, 1.1 }, size = { { 0, 0.55 }, { 1, 0.2 } }, speed = { 18, 38 }, spread = 55, drag = 2, accel = Vector3.new(0, -40, 0), color = two(C(120, 255, 150), C(255, 70, 80)), z = 2 },
+		{ t = "Snowflake", n = 8, d = 0.05, life = { 0.9, 1.3 }, size = { { 0, 0 }, { 0.15, 1.3 }, { 1, 0.9 } }, alpha = { { 0, 0 }, { 0.7, 0.1 }, { 1, 1 } }, speed = { 12, 24 }, spread = 70, drag = 2.5, accel = Vector3.new(0, -12, 0), rot = { 0, 360 }, spin = { -140, 140 }, z = 2, color = C(246, 251, 255) },
+	},
+	-- Jingle Bells (the advent calendar's): little bells and gold stars thrown up out of the ring
+	JumpJingleBells = {
+		{ t = "Bell", n = 8, life = { 0.8, 1.1 }, size = { { 0, 0.3 }, { 0.15, 1.5 }, { 1, 1 } }, alpha = { { 0, 0 }, { 0.7, 0 }, { 1, 1 } }, speed = { 14, 26 }, spread = 60, drag = 2.5, accel = Vector3.new(0, -24, 0), rot = { -30, 30 }, spin = { -200, 200 }, glow = 0.1, z = 2 },
+		{ t = "Sparkle", n = 14, life = { 0.5, 0.8 }, size = { { 0, 0 }, { 0.3, 2 }, { 1, 0 } }, speed = { 12, 28 }, spread = 70, drag = 3, accel = Vector3.new(0, -10, 0), rot = { 0, 90 }, z = 2.5, color = C(255, 222, 110) },
+	},
+	JumpTree = {
+		{ t = "Glint", n = 12, life = { 0.5, 0.9 }, size = { { 0, 0 }, { 0.25, 3.2 }, { 1, 0 } }, speed = { 6, 16 }, spread = 180, drag = 4, rot = { -15, 15 }, z = 3, color = two(C(255, 250, 200), C(255, 200, 70)) },
+		{ t = "Snowflake", n = 12, d = 0.1, life = { 1, 1.5 }, size = { { 0, 0 }, { 0.15, 1.3 }, { 1, 0.9 } }, alpha = { { 0, 0 }, { 0.7, 0.1 }, { 1, 1 } }, speed = { 8, 20 }, spread = 85, drag = 2.5, accel = Vector3.new(0, -10, 0), rot = { 0, 360 }, spin = { -120, 120 }, z = 2, color = C(246, 251, 255) },
+		layer(TSMOKE, { n = 5, d = 0.08, color = C(240, 247, 255), glow = 0.3 }),
+		light = { C(255, 220, 120), 4, 22, 0.8 },
+	},
+
 	-- held kits (Fx.attach): the ball's trails, the falling meteor, auras
 	TrailFlame = {
 		layer(WHITEFIRE, { rate = 150, life = { 0.18, 0.32 }, size = { { 0, 2.8 }, { 1, 0.8 } }, speed = { 0, 1.5 }, spread = 180, drag = 0, accel = Vector3.new(0, 6, 0), tint = 0.4 }),
@@ -348,6 +378,48 @@ local KITS = {
 	TrailComet = {
 		layer(GLOW, { rate = 70, life = { 0.12, 0.22 }, size = { { 0, 4.5 }, { 1, 1 } }, alpha = { { 0, 0.3 }, { 1, 1 } }, tint = 0.6, z = -0.5, color = WHITE }),
 		layer(GLINTS, { rate = 20, life = { 0.25, 0.4 }, size = { { 0, 0 }, { 0.3, 2 }, { 1, 0 } }, speed = { 0.5, 2 }, drag = 0, tint = 0.5 }),
+	},
+	-- the Winter collab's trails (the owner, 2026-11-15: "a snowflake ball, snow jumps, and stuff icicle
+	-- trail"), each on a solid ribbon in its own colours. Icicle: icicles shed off the ball and drop
+	-- away point first, glints of ice between them. Snowfall: snowflakes drift off it turning and
+	-- sink through a little powder
+	TrailIcicle = {
+		{ t = "Icicle", rate = 26, life = { 0.55, 0.85 }, size = { { 0, 0.5 }, { 0.15, 1.7 }, { 1, 1.2 } }, alpha = { { 0, 0 }, { 0.7, 0.1 }, { 1, 1 } }, speed = { 2, 7 }, spread = 180, accel = Vector3.new(0, -34, 0), mode = "stretch", glow = 0.45, z = 1, color = C(214, 240, 255) },
+		{ t = "Glint", rate = 26, life = { 0.3, 0.5 }, size = { { 0, 0 }, { 0.25, 2 }, { 1, 0 } }, speed = { 0.5, 2.5 }, spread = 180, rot = { -15, 15 }, spin = { -90, 90 }, z = 1.5, color = C(236, 248, 255) },
+		{ t = "Dot", rate = 30, life = { 0.3, 0.55 }, size = { { 0, 0.35 }, { 1, 0 } }, speed = { 2, 6 }, spread = 180, drag = 2, accel = Vector3.new(0, -16, 0), color = C(170, 224, 255) },
+	},
+	TrailSnowfall = {
+		{ t = "Snowflake", rate = 20, life = { 0.9, 1.4 }, size = { { 0, 0 }, { 0.15, 1.3 }, { 1, 0.9 } }, alpha = { { 0, 0 }, { 0.7, 0.15 }, { 1, 1 } }, speed = { 1, 4 }, spread = 180, drag = 2, accel = Vector3.new(0, -7, 0), rot = { 0, 360 }, spin = { -100, 100 }, z = 1, color = C(246, 251, 255) },
+		{ t = "Dot", rate = 55, life = { 0.6, 1.1 }, size = { { 0, 0.32 }, { 1, 0.1 } }, speed = { 1, 5 }, spread = 180, drag = 2, accel = Vector3.new(0, -9, 0), color = C(255, 255, 255) },
+		{ t = "Smoke", grid = "Grid4x4", rate = 10, life = { 0.5, 0.8 }, size = { { 0, 1.2 }, { 1, 2.6 } }, alpha = { { 0, 0.6 }, { 1, 1 } }, speed = { 0.5, 2 }, spread = 180, rot = { 0, 360 }, glow = 0.2, color = C(236, 245, 255) },
+	},
+	-- the advent calendar's trails (the owner, 2026-11-18: "make up a tone of cosmetics for advent
+	-- calender"), each shedding its own things off a solid ribbon. Starlight: fat gold stars turning
+	-- and winking out, glints between. Holly: sprigs of holly tumbling away, red berries dropping.
+	-- Candy Canes: canes spinning off end over end, sugar dust. Gingerbread Men: little men tumbling
+	-- out and falling, crumbs. Sleigh Bells: gold bells swinging off it, glints and red ribbon bits
+	TrailStarlight = {
+		{ t = "Sparkle", rate = 22, life = { 0.5, 0.8 }, size = { { 0, 0 }, { 0.2, 1.8 }, { 1, 0 } }, speed = { 1, 4 }, spread = 180, drag = 2, rot = { 0, 90 }, spin = { -120, 120 }, z = 1.5, color = C(255, 222, 110) },
+		{ t = "Glint", rate = 30, life = { 0.25, 0.45 }, size = { { 0, 0 }, { 0.3, 1.6 }, { 1, 0 } }, speed = { 0.5, 2 }, spread = 180, rot = { -15, 15 }, z = 1.5, color = C(255, 250, 220) },
+		{ t = "Dot", rate = 40, life = { 0.3, 0.6 }, size = { { 0, 0.3 }, { 1, 0 } }, speed = { 1, 4 }, spread = 180, drag = 2, color = C(255, 236, 160) },
+	},
+	TrailHolly = {
+		{ t = "HollyLeaf", rate = 14, life = { 0.7, 1.1 }, size = { { 0, 0.3 }, { 0.15, 1.5 }, { 1, 1.1 } }, alpha = { { 0, 0 }, { 0.75, 0 }, { 1, 1 } }, speed = { 2, 5 }, spread = 180, drag = 1.5, accel = Vector3.new(0, -12, 0), rot = { 0, 360 }, spin = { -180, 180 }, glow = 0, z = 1 },
+		{ t = "Dot", rate = 24, life = { 0.4, 0.7 }, size = { { 0, 0.42 }, { 1, 0.2 } }, speed = { 2, 5 }, spread = 180, drag = 1.5, accel = Vector3.new(0, -26, 0), glow = 0.2, color = C(220, 26, 44) },
+		{ t = "Glint", rate = 10, life = { 0.25, 0.4 }, size = { { 0, 0 }, { 0.3, 1.3 }, { 1, 0 } }, speed = { 0.5, 2 }, spread = 180, z = 1.5, color = C(220, 255, 220) },
+	},
+	TrailCandyCanes = {
+		{ t = "CandyCane", rate = 12, life = { 0.7, 1.05 }, size = { { 0, 0.4 }, { 0.15, 1.6 }, { 1, 1.2 } }, alpha = { { 0, 0 }, { 0.75, 0 }, { 1, 1 } }, speed = { 3, 7 }, spread = 180, drag = 1.2, accel = Vector3.new(0, -20, 0), rot = { 0, 360 }, spin = { -420, 420 }, glow = 0, z = 1 },
+		{ t = "Dot", rate = 36, life = { 0.3, 0.6 }, size = { { 0, 0.3 }, { 1, 0 } }, speed = { 1, 4 }, spread = 180, drag = 2, color = two(C(255, 255, 255), C(255, 90, 110)) },
+	},
+	TrailGingerbread = {
+		{ t = "GingerMan", rate = 10, life = { 0.8, 1.2 }, size = { { 0, 0.4 }, { 0.15, 1.8 }, { 1, 1.4 } }, alpha = { { 0, 0 }, { 0.75, 0 }, { 1, 1 } }, speed = { 2, 6 }, spread = 180, drag = 1.2, accel = Vector3.new(0, -16, 0), rot = { -40, 40 }, spin = { -200, 200 }, glow = 0, z = 1 },
+		{ t = "Dot", rate = 30, life = { 0.4, 0.7 }, size = { { 0, 0.28 }, { 1, 0.12 } }, speed = { 1, 4 }, spread = 180, drag = 1.5, accel = Vector3.new(0, -22, 0), glow = 0, color = two(C(190, 112, 52), C(255, 248, 236)) },
+	},
+	TrailSleighBells = {
+		{ t = "Bell", rate = 12, life = { 0.7, 1.05 }, size = { { 0, 0.3 }, { 0.15, 1.5 }, { 1, 1.1 } }, alpha = { { 0, 0 }, { 0.75, 0 }, { 1, 1 } }, speed = { 2, 5 }, spread = 180, drag = 1.5, accel = Vector3.new(0, -10, 0), rot = { -30, 30 }, spin = { -160, 160 }, glow = 0.1, z = 1 },
+		{ t = "Glint", rate = 26, life = { 0.25, 0.45 }, size = { { 0, 0 }, { 0.3, 1.7 }, { 1, 0 } }, speed = { 0.5, 2.5 }, spread = 180, rot = { -15, 15 }, z = 1.5, color = C(255, 236, 160) },
+		{ t = "Dot", rate = 20, life = { 0.3, 0.55 }, size = { { 0, 0.32 }, { 1, 0 } }, speed = { 2, 5 }, spread = 180, drag = 2, color = C(226, 34, 50) },
 	},
 	-- Bat Swarm (Halloween; a solid violet-black ribbon with this riding the ball, and Fx.batRing's
 	-- bats circling it): bats beating away through a violet-black haze

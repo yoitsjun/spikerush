@@ -66,6 +66,8 @@ local chargedHl = nil -- red glow on a Chain Reaction (charged) ball
 local chargedOn = false
 local pulseRate = 14 -- how fast a glowing ball pulses (a Vector set breathes slower)
 local VECTOR = Config.Abilities.Vector.Color
+local STAR = Config.Abilities.FallingStar.Color
+local KURO = Config.Abilities.Enflamed.Color
 local FERAL = Config.Abilities.Feral.Color
 local FERAL_HOT = Color3.fromRGB(255, 80, 210) -- the head of a Feral Leap spike's magenta comet
 local SPARKLE_SIZE = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.2, 1.8), NumberSequenceKeypoint.new(1, 0) })
@@ -425,11 +427,17 @@ local function applyStyle(meta)
 	-- one setter can make a set several of these (stacked abilities): the look goes Chain Reaction,
 	-- then Featherfall, then Vector, the same as the aura and the dots below
 	local vectorSet = meta ~= nil and meta.vectorSet == true and ht == "Set" and not meta.charged and not meta.featherSet
-	chargedOn = meta ~= nil and (meta.charged == true or meta.reaction == true or vectorSet)
+	local inferno = attack and meta ~= nil and meta.inferno == true -- (Kuro's: the whole ball in flames)
+	-- the hitter's skin can recolour both (the Winter collab's: Twinkle Lights' snow-blue sets,
+	-- Sleigh Ride's ice-blue fire)
+	local hitterModel = meta and meta.id and Util.modelOf(meta.id) or nil
+	local hitterSkin = hitterModel and Config.Halloween.Skins[hitterModel:GetAttribute("Skin") or ""] or nil
+	BallRenderer.vectorColor = (hitterSkin and hitterSkin.VectorColor) or VECTOR
+	chargedOn = meta ~= nil and (meta.charged == true or meta.reaction == true or vectorSet or inferno)
 	pulseRate = vectorSet and 7 or 14
 	if chargedHl then
 		chargedHl.Enabled = chargedOn
-		chargedHl.FillColor = vectorSet and VECTOR or Config.Abilities.ChainReaction.Color
+		chargedHl.FillColor = (inferno and ((hitterSkin and hitterSkin.Fire) or KURO)) or (vectorSet and BallRenderer.vectorColor) or Config.Abilities.ChainReaction.Color
 	end
 	core.Enabled = false
 	sparkleOn = false
@@ -453,6 +461,22 @@ local function applyStyle(meta)
 		glow.Brightness = 5
 		sparkleOn = true
 		sparkles.Color = ColorSequence.new(Color3.fromRGB(215, 195, 255), voidThunder)
+	elseif attack and meta.flame then
+		-- Kuro's spike: fire behind the ball, more the higher he hit it; an Inferno is all flames
+		local f = meta.inferno and 1.3 or (0.5 + 0.5 * meta.flame)
+		trail.Color = ColorSequence.new(Color3.fromRGB(255, 226, 120), Color3.fromRGB(255, 56, 10))
+		trail.Transparency = fade(0.05)
+		trail.Lifetime = 0.4 + 0.4 * f
+		trail.LightEmission = 1
+		setWidth(R * (2 + 2.2 * f), R * 1.1)
+		core.Lifetime = 0.4
+		aura.Color = ColorSequence.new(Color3.fromRGB(255, 214, 110), KURO)
+		aura.Enabled = true
+		glow.Color = KURO
+		glow.Brightness = 3 + 3 * f
+		sparkleOn = true
+		sparkles.Rate = 60 + 90 * f
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 236, 170), KURO)
 	elseif attack and meta.thunder then
 		trail.Color = ColorSequence.new(Color3.fromRGB(255, 232, 40), Color3.fromRGB(255, 246, 150))
 		trail.Transparency = fade(0.05)
@@ -530,6 +554,15 @@ local function applyStyle(meta)
 			sparkleOn = true
 			sparkles.Rate = 120
 			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 120, 120))
+		elseif meta.starSet then
+			-- a Falling Star set: faint on the way up (update lights it at the top)
+			aura.Color = ColorSequence.new(Color3.fromRGB(235, 248, 255), STAR)
+			aura.Enabled = true
+			glow.Color = STAR
+			glow.Brightness = 1.5
+			sparkleOn = true
+			sparkles.Rate = 20
+			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), STAR)
 		elseif meta.featherSet then
 			-- a Featherfall set: the ball floats down in a soft pink glow, shedding light
 			local col = Config.Abilities.Featherfall.Color
@@ -541,14 +574,16 @@ local function applyStyle(meta)
 			sparkles.Rate = 40
 			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), col)
 		elseif meta.vectorSet then
-			-- a Vector set: the ball pulses violet (spike it steep for the boost)
-			aura.Color = ColorSequence.new(Color3.fromRGB(235, 215, 255), VECTOR)
+			-- a Vector set: the ball pulses violet (spike it steep for the boost); snow blue from a
+			-- Twinkle Lights Viktor (the owner: "the ball glows bluish like snow not purple")
+			local vc = BallRenderer.vectorColor or VECTOR
+			aura.Color = ColorSequence.new(vc:Lerp(Color3.new(1, 1, 1), 0.7), vc)
 			aura.Enabled = true
-			glow.Color = VECTOR
+			glow.Color = vc
 			glow.Brightness = 4
 			sparkleOn = true
 			sparkles.Rate = 60
-			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), VECTOR)
+			sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), vc)
 		elseif meta.tyrantSet then
 			-- the Tyrant's Set: a flat gold streak (brighter still under Absolute Toss)
 			local gold = Config.Abilities.Tyrant.Color
@@ -628,7 +663,7 @@ local function applyStyle(meta)
 		trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(1, 0.05) })
 		core.Enabled = false
 	end
-	local accent = tint or (voidThunder or (meta.thunder and Color3.fromRGB(255, 232, 40))) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or (meta.plunge and Config.Abilities.Plunge.Color) or Color3.fromRGB(255, 90, 110)
+	local accent = tint or (voidThunder or (meta.thunder and Color3.fromRGB(255, 232, 40))) or (meta.energy and Color3.fromRGB(80, 230, 255)) or (gauge and FERAL_HOT) or (meta.plunge and Config.Abilities.Plunge.Color) or (meta.joker and Config.Abilities.Joker.Cards[meta.joker] and Config.Abilities.Joker.Cards[meta.joker].Color) or Color3.fromRGB(255, 90, 110)
 	-- a solid trail (White, Black, Rainbow) is the ribbon in its own colours; an ability's spike
 	-- keeps the ability's look
 	local trailItem = Spins.resolve("Trail", trailKey)
@@ -1111,6 +1146,13 @@ local function update(dt)
 		glow.Brightness = math.max(0, glow.Brightness - dt * 8)
 	end
 
+	-- Falling Star: the star burns from the top of the set to the end of its window, then it's out
+	if live and cur.meta and cur.meta.starSet then
+		local lit = now >= cur.meta.starFrom and now <= cur.meta.starTo
+		glow.Brightness = lit and (7 + 2 * math.sin(now * 18)) or (now > cur.meta.starTo and 0 or 1.5)
+		sparkles.Rate = lit and 170 or (now > cur.meta.starTo and 0 or 20)
+	end
+
 	-- dotted arc behind a set
 	local clock = os.clock()
 	if live and cur.meta and cur.meta.dotted and clock - lastDotAt > 0.05 then
@@ -1120,7 +1162,7 @@ local function update(dt)
 		d.born = clock
 		d.part.CFrame = CFrame.new(pos)
 		-- a Chain Reaction set is charged: red dots
-		d.part.Color = (cur.meta.charged and Config.Abilities.ChainReaction.Color) or (cur.meta.featherSet and Config.Abilities.Featherfall.Color) or (cur.meta.vectorSet and VECTOR) or (cur.meta.tyrantSet and Config.Abilities.Tyrant.Color) or Config.UI.Chalk
+		d.part.Color = (cur.meta.starSet and STAR) or (cur.meta.charged and Config.Abilities.ChainReaction.Color) or (cur.meta.featherSet and Config.Abilities.Featherfall.Color) or (cur.meta.vectorSet and (BallRenderer.vectorColor or VECTOR)) or (cur.meta.tyrantSet and Config.Abilities.Tyrant.Color) or Config.UI.Chalk
 		dotsAliveUntil = clock + 1.4
 	end
 	if clock < dotsAliveUntil then

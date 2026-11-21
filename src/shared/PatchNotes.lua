@@ -14,8 +14,123 @@ local PatchNotes = {}
 PatchNotes.Reward = { Gold = 1000 }
 
 PatchNotes.List = {
+	{
+		Id = "2026-11-21",
+		Title = "Update 3: Winter Rally",
+		Date = "November 21, 2026",
+		Sections = {
+			{
+				Heading = "Winter Rally, with Volleyball Evolved",
+				Items = {
+					{ Icon = "IconSnowflake", Text = "A Christmas event with our friends at <b>Volleyball Evolved</b>, running until <b>January 3</b>. Open it from the <b>Winter Rally</b> card on Home." },
+					{ Icon = "IconSnowflake", Text = "Earn <b>Snowflakes</b> from Winter Matches, three daily quests, event missions and the daily check-in. Spend them on the <b>Wild Card banner</b> and in the <b>Snowflake shop</b>." },
+					{ Icon = "IconSnowflake", Text = "<b>Winter leaderboard</b>: Winter Match wins count 1 on Normal, 2 on Hard, 4 on Blizzard. When the event ends, #1, the top 10 and the top 100 each get their own player card." },
+				},
+			},
+			{
+				Heading = "New: Jaja",
+				Items = {
+					{ Icon = "AbilityJoker", Text = "<b>Jaja</b>, an <b>S+ tier Wing Spiker</b> on loan from Volleyball Evolved. Only on the Wild Card banner: <b>0.75%</b> a recruit, and <b>certain on the 140th</b> recruit without him." },
+					{ Icon = "AbilityJoker", Text = "<b>Joker</b>: every rally he flicks a card. <b>Trickery</b> bends his spikes, <b>Bravery</b> breaks the block, <b>Buffoon</b> makes him weaker, and once in a while <b>Jackpot!</b> does it all." },
+					{ Icon = "AbilityJoker", Text = "<b>Sleight of Hand</b>: each rally he also borrows a random S-tier spiker's or blocker's ability. <b>Surprise!</b>: his second-touch spikes hit harder." },
+				},
+			},
+			{
+				Heading = "Winter Matches",
+				Items = {
+					{ Text = "First to 8 against the AI on the new <b>Snowfall Lodge</b> court, on <b>Normal</b>, <b>Hard</b> or <b>Blizzard</b>. On Blizzard you face a new rival team every day." },
+					{ Text = "A <b>Christmas card</b> flips before every rally and changes that rally: <b>Snowball Fight</b> (faster spikes), <b>Snowdrift</b> (moon gravity), <b>Candy Cane</b> (the point is worth 2), <b>Gift Exchange</b> (everyone borrows an ability) and more." },
+					{ Text = "There's also <b>Snowed In</b>, a five-stage Christmas side story starring Jaja, in the story menu." },
+				},
+			},
+			{
+				Heading = "Winter Pass and Advent Calendar",
+				Items = {
+					{ Text = "The <b>Winter Pass</b>: 30 tiers, free and premium, with Snowflakes, Gold, VP, lucky spins, Christmas emotes, balls and player cards. Premium tier 30 is Horang's <b>Candy Claw</b> skin. You can gift it to a friend." },
+					{ Text = "The <b>Advent Calendar</b> opens on <b>December 1</b>: a free door every day until the 25th, each with its own Christmas cosmetic. Missed a day? You can still open it later. Door 25 holds Laith's <b>Star Topper</b> skin." },
+					{ Text = "On the Wild Card banner: Kuro's <b>Sleigh Ride</b> and Viktor's <b>Twinkle Lights</b> skins (0.5% each), plus Christmas balls, colours, trails, jumps and score effects." },
+				},
+			},
+			{
+				Heading = "Story mode, missions and mastery",
+				Items = {
+					{ Text = "<b>Story mode</b> (the Story card in Match): Garam Academy's season, chapter by chapter. Stars for every stage, rewards for your first clear." },
+					{ Text = "<b>Daily missions</b> in the top bar, and <b>mastery</b> for every character: play them, clear their challenges, unlock rewards." },
+				},
+			},
+			{
+				Heading = "Balance",
+				Items = {
+					{ Icon = "AbilityCorona", Text = "<b>Laith</b> up: Sunfire 14% to 18%, Corona's cooldown 20 s to 17 s, Zenith 22% to 27%." },
+					{ Icon = "AbilityZeroPoint", Text = "<b>Jaeil</b> down: Zero Point 228-246 to 218-236 km/h (serves 198-218), a smaller sweet spot and hitbox, and diggers lose less stamina." },
+					{ Text = "Block jumps are a little lower, and AI players sometimes mistime them. The weaker the AI, the more often. S+ AI still times every block." },
+				},
+			},
+			{
+				Heading = "Codes",
+				Items = {
+					{ Icon = "IconSnowflake", Text = "<b>JAJA</b>, <b>VOLLEYBALLEVOLVED</b> and <b>MERRYCHRISTMAS</b>: free Snowflakes while the event runs." },
+				},
+			},
+		},
+	},
 	-- (the owner, 2026-10-29: "the ingame patchnotes are mad short", "purge all other patch notes":
 	-- Volleyball Rush starts its history here)
+	{
+		Id = "2026-11-04",
+		Title = "Update 2: Kuro and Byeol",
+		Date = "November 4, 2026",
+		Sections = {
+			{
+				Heading = "New: Kuro",
+				Items = {
+					{ Icon = "AbilityEnflamed", Text = "<b>Kuro</b>, an <b>S+ tier Wing Spiker</b>, joins the roster." },
+					{ Icon = "AbilityEnflamed", Text = "<b>Enflamed Dragon</b>: hold Jump and let go in the <b>gold</b> of the meter for your highest jump, or the silver for less. The higher you hit, the more you burn and the harder the spike." },
+					{ Icon = "AbilityEnflamed", Text = "<b>Dragon Spike</b>: hit from the very top and a dragon dives from the sky at your spike, with a fire blast from your hand." },
+					{ Icon = "AbilityEnflamed", Text = "<b>Inferno</b>: higher still, the ball goes up in flames and the sky turns red. Receive it and your guard breaks at once; touch it at all and you burn. Once every 20 seconds." },
+					{ Icon = "AbilityEnflamed", Text = "<b>Conditioned Player</b>: a stronger guard, a wider perfect receive and a bigger spike hitbox." },
+				},
+			},
+			{
+				Heading = "New: Fire Dragon",
+				Items = {
+					{ Icon = "AbilityEnflamed", Text = "<b>Fire Dragon</b>, a new <b>Mythic</b> score effect: a dragon of fire erupts out of the floor where your point lands." },
+				},
+			},
+			{
+				Heading = "New: Byeol",
+				Items = {
+					{ Icon = "AbilityFallingStar", Text = "<b>Byeol</b>, an <b>S tier Setter</b>, joins the roster." },
+					{ Icon = "AbilityFallingStar", Text = "<b>Falling Star</b>: press <b>Q</b> and for 6 seconds your open and back sets climb and hang, and a star lights at the top." },
+					{ Icon = "AbilityFallingStar", Text = "Hit it while the star burns for a spike <b>28% harder</b>, and your hitter is <b>Starlit</b>: +10 Attack and +4 Jump for 8 seconds." },
+					{ Icon = "AbilityFallingStar", Text = "Spike before it lights for a normal spike. Spike it late or let it drop and your hitter is <b>Discouraged</b> for 8 seconds." },
+				},
+			},
+			{
+				Heading = "New: Moods",
+				Items = {
+					{ Text = "Players now have <b>moods</b>. You can only be in one at a time, it wears off after 20 seconds, and a timeout resets everyone." },
+					{ Text = "<b>Encouraged</b> (glowing yellow): +5 to every stat. Comes from aces, blocks and scoring." },
+					{ Text = "<b>Angry</b> (red): +10 Attack and +8 Speed, but -8 Defense and -6 Jump. Comes from aces and failed attacks." },
+					{ Text = "<b>Careless</b> (green): -16 Speed and -16 Defense. Comes from going 5 points or more without touching the ball." },
+					{ Text = "<b>Discouraged</b> (purple): -8 to every stat. Comes from failed attacks." },
+				},
+			},
+			{
+				Heading = "Abilities, Any Time",
+				Items = {
+					{ Icon = "AbilityFeral", Text = "Charge and use abilities whenever you like: hold your leap before the serve, or press <b>Q</b> between points." },
+				},
+			},
+			{
+				Heading = "New Codes",
+				Items = {
+					{ Text = "<b>Update2</b>: 1,000 VP, 15,000 Gold and 3 Lucky Spins." },
+					{ Text = "<b>EnflamedDragon</b>: 750 VP, 10,000 Gold, 2 Lucky Spins and 15 minutes of 2x Luck." },
+				},
+			},
+		},
+	},
 	{
 		Id = "2026-10-30",
 		Title = "Welcome to Volleyball Rush",

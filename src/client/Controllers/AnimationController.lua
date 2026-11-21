@@ -685,6 +685,81 @@ local POSE_DEFS = {
 		LeftKnee = { -40, 0, 0 },
 		RightKnee = { -30, 0, 0 },
 	},
+	-- Dropkick (the owner, 2026-11-17, a flipbook by Lemonkey-144: "a jump style animation we can
+	-- do"): up off both feet with the arms swung high, then tipping back with the knees pulled to
+	-- the chest until the spiker lies flat in the air, feet to the net; at the contact both legs
+	-- fire out straight together, toes pointed, the arms flung back past the head; then the body
+	-- comes back upright to land. (Root X: positive lies back, the feet coming forward to the net;
+	-- the legs angle up from the flat body so the feet meet the ball up at hitting height)
+	Drop_Start = {
+		Root = { 0, 0, 0 },
+		Waist = { 6, 0, 0 },
+		Neck = { 8, 0, 0 },
+		LeftShoulder = { 160, 0, -15 },
+		RightShoulder = { 160, 0, 15 },
+		LeftElbow = { 8, 0, 0 },
+		RightElbow = { 8, 0, 0 },
+		LeftHip = { 20, 0, -4 },
+		RightHip = { 20, 0, 4 },
+		LeftKnee = { -45, 0, 0 },
+		RightKnee = { -45, 0, 0 },
+	},
+	Drop_Tilt = {
+		Root = { 40, 0, 0 },
+		Waist = { 12, 0, 0 },
+		Neck = { 16, 0, 0 },
+		LeftShoulder = { 100, 0, -55 },
+		RightShoulder = { 100, 0, 55 },
+		LeftElbow = { 25, 0, 0 },
+		RightElbow = { 25, 0, 0 },
+		LeftHip = { 85, 0, -4 },
+		RightHip = { 85, 0, 4 },
+		LeftKnee = { -100, 0, 0 },
+		RightKnee = { -100, 0, 0 },
+	},
+	Cock_Dropkick = {
+		Root = { 66, 0, 0 },
+		Waist = { 18, 0, 0 },
+		Neck = { 24, 0, 0 },
+		LeftShoulder = { 70, 0, -85 },
+		RightShoulder = { 70, 0, 85 },
+		LeftElbow = { 20, 0, 0 },
+		RightElbow = { 20, 0, 0 },
+		LeftHip = { 120, 0, -3 },
+		RightHip = { 120, 0, 3 },
+		LeftKnee = { -120, 0, 0 },
+		RightKnee = { -120, 0, 0 },
+		LeftAnkle = { -15, 0, 0 },
+		RightAnkle = { -15, 0, 0 },
+	},
+	Kick_Dropkick = {
+		Root = { 72, 0, 0 },
+		Waist = { -4, 0, 0 },
+		Neck = { 20, 0, 0 },
+		LeftShoulder = { 165, 0, -35 },
+		RightShoulder = { 165, 0, 35 },
+		LeftElbow = { 10, 0, 0 },
+		RightElbow = { 10, 0, 0 },
+		LeftHip = { 55, 0, -2 },
+		RightHip = { 55, 0, 2 },
+		LeftKnee = { 0, 0, 0 },
+		RightKnee = { 0, 0, 0 },
+		LeftAnkle = { 30, 0, 0 },
+		RightAnkle = { 30, 0, 0 },
+	},
+	Drop_Fall = {
+		Root = { 55, 0, 0 },
+		Waist = { 10, 0, 0 },
+		Neck = { 14, 0, 0 },
+		LeftShoulder = { 90, 0, -70 },
+		RightShoulder = { 90, 0, 70 },
+		LeftElbow = { 25, 0, 0 },
+		RightElbow = { 25, 0, 0 },
+		LeftHip = { 60, 0, -4 },
+		RightHip = { 60, 0, 4 },
+		LeftKnee = { -70, 0, 0 },
+		RightKnee = { -70, 0, 0 },
+	},
 	-- Bicycle Kick (the owner: "a bicycle kick"): back to the net on the way up (a half turn), then
 	-- a backflip; at the contact the kicking leg snaps straight over the head (so the ball goes
 	-- toward the net), the flip comes round and the spiker turns back to the net as they fall.
@@ -987,6 +1062,68 @@ local POSE_DEFS = {
 		LeftHip = { 0, 0, -12 },
 		RightHip = { 0, 0, 12 },
 	},
+	-- the Winter Pass's poses (Config.Cosmetics.Pose; the owner: "christmas emotes"). Cold Hands:
+	-- hunched, hugging yourself against the cold
+	Intro_ColdHands = {
+		Waist = { -10, 0, 0 },
+		Neck = { 6, 0, 0 },
+		LeftShoulder = { 40, -80, -4 },
+		LeftElbow = { 112, 0, 0 },
+		RightShoulder = { 48, 80, 4 },
+		RightElbow = { 108, 0, 0 },
+		LeftHip = { 2, 0, -3 },
+		RightHip = { 2, 0, 3 },
+		LeftKnee = { -8, 0, 0 },
+		RightKnee = { -8, 0, 0 },
+	},
+	-- Snow Angel: arms swept up and out, legs apart, chin up
+	Intro_SnowAngel = {
+		Waist = { 6, 0, 0 },
+		Neck = { 12, 0, 0 },
+		LeftShoulder = { 10, 0, -128 },
+		LeftElbow = { 6, 0, 0 },
+		RightShoulder = { 10, 0, 128 },
+		RightElbow = { 6, 0, 0 },
+		LeftHip = { 0, 0, -22 },
+		RightHip = { 0, 0, 22 },
+	},
+	-- Reindeer Antlers: both hands up at the temples, fingers spread like antlers, a head tilt
+	Intro_Reindeer = {
+		Waist = { 0, 0, 5 },
+		Neck = { 6, 0, -10 },
+		LeftShoulder = { 120, 0, -62 },
+		LeftElbow = { 118, 0, 0 },
+		RightShoulder = { 120, 0, 62 },
+		RightElbow = { 118, 0, 0 },
+		LeftHip = { 0, 0, -10 },
+		RightHip = { 6, 0, 10 },
+		RightKnee = { -10, 0, 0 },
+	},
+	-- Ho Ho Ho: leaning back laughing, both hands on the belly
+	Intro_HoHoHo = {
+		Waist = { 16, 0, 0 },
+		Neck = { 18, 0, 0 },
+		LeftShoulder = { 38, -38, -12 },
+		LeftElbow = { 96, 0, 0 },
+		RightShoulder = { 38, 38, 12 },
+		RightElbow = { 96, 0, 0 },
+		LeftHip = { -4, 0, -14 },
+		RightHip = { -4, 0, 14 },
+	},
+	-- Ice Skater: gliding on one leg, leaning in, arms out wide, the other leg trailing behind
+	Intro_IceSkater = {
+		drop = 0.35,
+		Waist = { -26, 0, 0 },
+		Neck = { 22, 0, 0 },
+		LeftShoulder = { 18, 0, -82 },
+		LeftElbow = { 10, 0, 0 },
+		RightShoulder = { 18, 0, 82 },
+		RightElbow = { 10, 0, 0 },
+		LeftHip = { 22, 0, -4 },
+		LeftKnee = { -32, 0, 0 },
+		RightHip = { -55, 0, 6 },
+		RightKnee = { -12, 0, 0 },
+	},
 	-- off the ground in a spike's wind-up (the lineup floats it)
 	Intro_Air = {
 		drop = -2.5,
@@ -1131,6 +1268,16 @@ local CLIP_DEFS = {
 	Swing_Bicycle = {
 		dur = 0.64,
 		keys = { { 0, "Cock_Bicycle" }, { 0.06, "Kick_Bicycle", "out" }, { 0.18, "Bike_Over", "linear" }, { 0.3, "Bike_Up", "linear" }, { 0.44, "Bike_Back", "smooth" }, { 0.64, "SpikeFollow", "smooth" } },
+	},
+	-- Dropkick: tipping back to lie flat on the way up, then both feet at the contact and back
+	-- upright for the landing
+	Air_Dropkick = {
+		dur = 0.4,
+		keys = { { 0, "Drop_Start" }, { 0.16, "Drop_Tilt", "smooth" }, { 0.4, "Cock_Dropkick", "smooth" } },
+	},
+	Swing_Dropkick = {
+		dur = 0.62,
+		keys = { { 0, "Cock_Dropkick" }, { 0.06, "Kick_Dropkick", "out" }, { 0.2, "Kick_Dropkick" }, { 0.4, "Drop_Fall", "smooth" }, { 0.62, "SpikeFollow", "smooth" } },
 	},
 	Bump = {
 		dur = 0.45,
@@ -1449,6 +1596,91 @@ function AnimationController.portrait(viewport, model, poseName)
 	return rig
 end
 
+-- Props some poses wear while held (the owner, 2026-11-16: "make reindeer antlers just give them
+-- actual antlers"): built from parts on the head, kept on it each time the rig is posed, gone with
+-- any other pose. Found by the pose's own table, so every posed rig gets them (the matchup intro,
+-- the Locker's preview, entrances, cards) with nothing to change where it's posed.
+local POSE_PROPS = { Intro_Reindeer = "Antlers" }
+local poseNames = nil
+local function poseNameOf(joints)
+	if not poseNames then
+		poseNames = {}
+		for name, t in pairs(POSES) do
+			poseNames[t] = name
+		end
+	end
+	return poseNames[joints]
+end
+
+local function propPart(model, props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Material = Enum.Material.SmoothPlastic
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for k, v in pairs(props) do
+		p[k] = v
+	end
+	p.Parent = model
+	return p
+end
+
+-- Reindeer antlers (two branching beams up out of the head) and a red nose, in the head's space
+-- scaled to its size: a list of { part, rel }.
+local function buildAntlers(model, head)
+	local k = head.Size.Y / 1.2
+	local list = {}
+	local ANTLER = Color3.fromRGB(150, 102, 58)
+	local function beam(a, b, w)
+		a, b = a * k, b * k
+		local len = (b - a).Magnitude
+		local part = propPart(model, { Size = Vector3.new(w * k, w * k, len + w * k * 0.6), Color = ANTLER })
+		table.insert(list, { part = part, rel = CFrame.lookAt((a + b) / 2, b) })
+	end
+	for _, x in ipairs({ -1, 1 }) do
+		beam(Vector3.new(x * 0.3, 0.5, 0.05), Vector3.new(x * 0.82, 1.35, 0.15), 0.17) -- the main beam
+		beam(Vector3.new(x * 0.82, 1.35, 0.15), Vector3.new(x * 0.98, 2.0, 0.05), 0.14)
+		beam(Vector3.new(x * 0.58, 0.95, 0.1), Vector3.new(x * 0.36, 1.5, -0.05), 0.12) -- the tines
+		beam(Vector3.new(x * 0.82, 1.35, 0.15), Vector3.new(x * 1.38, 1.72, 0.1), 0.12)
+		beam(Vector3.new(x * 0.92, 1.75, 0.1), Vector3.new(x * 0.66, 2.15, 0), 0.1)
+	end
+	local nose = propPart(model, { Shape = Enum.PartType.Ball, Size = Vector3.new(0.26, 0.26, 0.26) * k, Color = Color3.fromRGB(235, 30, 30), Material = Enum.Material.Neon })
+	table.insert(list, { part = nose, rel = CFrame.new(0, -0.08 * k, -head.Size.Z / 2 - 0.04 * k) })
+	return list
+end
+
+local PROP_BUILDERS = { Antlers = buildAntlers }
+
+local function updatePoseProps(rig, joints)
+	local name = poseNameOf(joints)
+	local want = name and POSE_PROPS[name] or nil
+	local cur = rig.prop
+	if cur and (cur.kind ~= want or not cur.head.Parent) then
+		cur.model:Destroy()
+		rig.prop = nil
+		cur = nil
+	end
+	if want and not cur then
+		local head = rig.model:FindFirstChild("Head")
+		if head and head:IsA("BasePart") and PROP_BUILDERS[want] then
+			local m = Instance.new("Model")
+			m.Name = "PoseProp"
+			cur = { kind = want, model = m, head = head, parts = PROP_BUILDERS[want](m, head) }
+			m.Parent = rig.model
+			rig.prop = cur
+		end
+	end
+	if cur then
+		for _, p in ipairs(cur.parts) do
+			p.part.CFrame = cur.head.CFrame * p.rel
+		end
+	end
+end
+
 -- Place the rig at `rootCF` in pose `joints` (joint name -> rotation, as poseJoints returns).
 function AnimationController.poseModel(rig, joints, rootCF)
 	if not rig then
@@ -1475,6 +1707,7 @@ function AnimationController.poseModel(rig, joints, rootCF)
 	for _, a in ipairs(rig.attached) do
 		a.part.CFrame = a.target.CFrame * a.rel
 	end
+	updatePoseProps(rig, joints)
 end
 
 local function scanMotors(st)

@@ -19,6 +19,8 @@ local Rewards = require(Shared.Rewards)
 local Lobbies = require(Shared.Lobbies)
 local HitLogic = require(Shared.HitLogic)
 local Mutators = require(Shared.Mutators)
+local Winter = require(Shared.Winter)
+local Story = require(Shared.Story)
 
 local MatchService = {}
 local reg
@@ -324,12 +326,65 @@ local function scorerOf(winner)
 	return nil, nil
 end
 
+-- Moods (Config.Moods) off the point just played: the scorer's, the attacker who failed, and anyone
+-- who's gone too long without a touch.
+local moodRng = Random.new()
+local function moodsAfterPoint(res, loser, scorer)
+	local TS = reg.TeamService
+	local function roll(e, event)
+		local mood = e and HitLogic.moodAfter(event, moodRng:NextNumber(), e.charId)
+		if mood then
+			TS.setMood(e, mood)
+		end
+	end
+	local reason = res.reason
+	local stuffed = reason == "Stuff" or reason == "Block"
+	if scorer and not res.error then
+		roll(scorer, (reason == "Ace" and "Ace") or (stuffed and "Block") or "Score")
+	end
+	local hits = MatchService.rallyHits
+	for i = #hits, 1, -1 do
+		if hits[i].team == loser then
+			if ATTACKS[hits[i].hitType or ""] and (res.error or stuffed) then
+				roll(TS.getEntity(hits[i].id), "Fail")
+			end
+			break
+		end
+	end
+	local touched = {}
+	for _, h in ipairs(hits) do
+		touched[h.id] = true
+	end
+	for _, team in ipairs(Config.TeamOrder) do
+		for _, e in ipairs(TS.members(team)) do
+			if touched[e.id] then
+				e.idlePoints = 0
+			else
+				e.idlePoints = (e.idlePoints or 0) + 1
+				if not TS.moodOf(e) and moodRng:NextNumber() < HitLogic.moodIdle(e.idlePoints, e.charId) then
+					TS.setMood(e, "Careless")
+				end
+			end
+		end
+	end
+end
+
 function MatchService.awardPoint(res)
 	local TS = reg.TeamService
+	-- Falling Star: the ball dropped off the set, the star unmet: its hitter is Discouraged
+	local set = reg.BallService.lastHit
+	if set and set.starSet and set.hitType == "Set" and set.targetId then
+		local target = TS.getEntity(set.targetId)
+		if target then
+			TS.discourage(target, Config.Abilities.FallingStar.MissSecs)
+		end
+	end
 	local winner = res.winner
 	local loser = Court.other(winner)
-	MatchService.scores[winner] = MatchService.scores[winner] + 1
-	MatchService.totals[winner] = (MatchService.totals[winner] or 0) + 1
+	-- (a Winter Match's Candy Cane: the rally is worth more)
+	local worth = MatchService.rallyWorth or 1
+	MatchService.scores[winner] = MatchService.scores[winner] + worth
+	MatchService.totals[winner] = (MatchService.totals[winner] or 0) + worth
 
 	local lastHit = TS.getEntity(res.byId)
 	if lastHit and res.error then
@@ -368,6 +423,8 @@ function MatchService.awardPoint(res)
 			st.blocks = st.blocks + 1
 		end
 	end
+
+	moodsAfterPoint(res, loser, scorer)
 
 	-- stamina comes back between rallies; the team that lost the point gets more, and more again
 	-- for every point in a row it has lost (HitLogic.lossRecovery)
@@ -421,6 +478,7 @@ function MatchService.awardPoint(res)
 		byId = res.byId,
 		scorerId = scorer and scorer.id,
 		scorerName = scorer and scorer.name,
+		worth = worth > 1 and worth or nil,
 		landing = res.landing,
 		sideOut = sideOut,
 		scores = s,
@@ -453,6 +511,7 @@ function MatchService.runTimeout()
 		TS.fillStamina(req.team)
 	end
 	TS.clearCorona() -- a timeout clears Corona's penalty
+	TS.clearMoods() -- and everyone's mood
 	reg.BallService.hide()
 	MatchService.timeoutReady = {}
 	MatchService.setPhase("Timeout", Config.Timeout.Duration)
@@ -484,6 +543,8 @@ function MatchService.playRally()
 		TS.setChain(team, 0) -- Chain Reaction starts again every rally
 	end
 	TS.resetStatic() -- and Thunder's Static Charge
+	TS.dealJoker() -- and every Joker throws a new card
+	MatchService.dealWinterCard() -- (a Winter Match: the rally's Christmas card)
 	TS.resetPositions(MatchService.servingTeam)
 	if server then
 		BS.hold(server.id)
@@ -576,7 +637,7 @@ local function results(winner, forfeitTeam)
 	local tutorial = MatchService.lobby and MatchService.lobby.tutorial
 	-- a tournament's matches pay only its prize (LobbyService, Cups.payout), and a Halloween Match's
 	-- only its Candy (ProfileService.eventPayout)
-	local cup = MatchService.lobby and (MatchService.lobby.cup or MatchService.lobby.event)
+	local cup = MatchService.lobby and (MatchService.lobby.cup or MatchService.lobby.event or MatchService.lobby.story or MatchService.lobby.winter) -- (a story stage: only its own rewards, Story; a Winter Match: only its Snowflakes)
 	-- a custom lobby's shorter sets pay less and don't count for your record (a 3-point match
 	-- against bots would farm them)
 	local points = MatchService.rules.points
@@ -609,6 +670,22 @@ local function results(winner, forfeitTeam)
 			if e.player then
 				local won = team == winner
 				local empty = hollow and team ~= forfeitTeam -- the other side of an early forfeit
+				-- daily missions and the mastery of the character played (Missions): every real match
+				-- counts, a tournament's and a story stage's too
+				if not tutorial and not empty and team ~= forfeitTeam then
+					local lobbyNow = MatchService.lobby
+					reg.ProfileService.matchProgress(e.player, {
+						won = won,
+						kills = st.kills,
+						aces = st.aces,
+						blocks = st.blocks,
+						digs = st.digs,
+						role = e.role,
+						char = e.charId,
+						scale = scale,
+						kind = (lobbyNow and lobbyNow.story and "story") or (lobbyNow and lobbyNow.cup and "cup") or "match",
+					})
+				end
 				if ranked and not empty and not MatchService.rankedDone[e.player] then
 					MatchService.rankedDone[e.player] = true
 					rpDelta = reg.ProfileService.rankedResult(e.player, won, avgRp[Court.other(team)] or 0)
@@ -730,6 +807,36 @@ function MatchService.setMutators(s)
 	HitLogic.setGravity(g)
 end
 
+-- A Winter Match's Christmas cards (Config.Winter.Cards): before every rally one is drawn (never
+-- the last one again) and plays for that rally only. The WinterCard attribute ("key:n", n counting
+-- the draws, so the client shows every one) tells the clients; its modifiers go on the lobby's
+-- own (the Mutators attribute: both sides), Candy Cane makes the point worth more
+-- (MatchService.rallyWorth), Gift Exchange lends everyone an ability (TeamService.giftAll).
+local cardRng = Random.new()
+MatchService.winterCard = nil
+MatchService.winterDraws = 0
+MatchService.rallyWorth = 1
+function MatchService.dealWinterCard()
+	local lobby = MatchService.lobby
+	if not (lobby and lobby.winter) then
+		return
+	end
+	local card = Winter.drawCard(cardRng, MatchService.winterCard)
+	MatchService.winterCard = card.Key
+	MatchService.winterDraws = MatchService.winterDraws + 1
+	MatchService.rallyWorth = Winter.cardPoints(card)
+	MatchService.setMutators(Winter.cardMutators(lobby.mutators, card))
+	reg.TeamService.giftAll(card.Gift == true)
+	ReplicatedStorage:SetAttribute("WinterCard", card.Key .. ":" .. MatchService.winterDraws)
+end
+
+local function clearWinterCard()
+	MatchService.winterCard = nil
+	MatchService.winterDraws = 0
+	MatchService.rallyWorth = 1
+	ReplicatedStorage:SetAttribute("WinterCard", nil)
+end
+
 function MatchService.playMatch()
 	local TS, BS = reg.TeamService, reg.BallService
 	local lobby = MatchService.lobby
@@ -740,13 +847,21 @@ function MatchService.playMatch()
 	-- a tournament's modifiers, for every server script and client (Cups)
 	ReplicatedStorage:SetAttribute("CupMods", lobby.cup and lobby.cup.mods or nil)
 	MatchService.setMutators(lobby.mutators)
+	clearWinterCard()
 	lobby.cupResult = nil
 	lobby.eventResult = nil
+	lobby.storyResult = nil
+	lobby.winterResult = nil
 	reg.ArenaBuilder.setCourt(MatchService.court)
 	TS.botTier = lobby.botTier
 	TS.event = lobby.event -- the Halloween Match's cards (TeamService.dealHex)
 	ReplicatedStorage:SetAttribute("EventMatch", lobby.event and true or nil) -- (no speed cap: HitLogic.softCap)
 	ReplicatedStorage:SetAttribute("RankedMatch", lobby.ranked and true or nil) -- (no beginner mode: Config.Beginner)
+	-- a story stage (Story): its bots keep their characters' names and looks (TeamService.story).
+	-- You play your own character (the owner, 2026-11-11: "story mode shouldn't lock your
+	-- character"; it first forced the stage's lead on you, as The Spike Cross does)
+	TS.story = lobby.story and Story.stage(lobby.story.key) or nil
+	TS.winter = lobby.winter and lobby.winter.diff or nil -- (a Winter Match: Jaja's strength across the net)
 	TS.assign(lobby.mode, reg.LobbyService.plan(lobby), Lobbies.botPicks(lobby))
 	TS.resetStats()
 	MatchService.rankedDone = {}
@@ -769,8 +884,10 @@ function MatchService.playMatch()
 	MatchService.servingTeam = Config.TeamOrder[math.random(2)]
 	TS.resetPositions(MatchService.servingTeam)
 	BS.hide()
-	MatchService.setPhase("PreMatch", M.PreMatchTime)
-	MatchService.announce({ kind = "MatchStart", mode = TS.teamSize, court = MatchService.court, cup = lobby.cup and { name = lobby.cup.name, round = lobby.cup.round, mods = lobby.cup.mods } or nil, event = lobby.event and { diff = lobby.event.diff, stage = lobby.event.stage, stages = Config.Halloween.Stages } or nil })
+	-- a story rival's entrance plays after the matchup intro (Config.Story.Entrances): the wait grows
+	local entrance = TS.story and TS.story.Entrance and Config.Story.Entrances[TS.story.Entrance]
+	MatchService.setPhase("PreMatch", M.PreMatchTime + (entrance and entrance.Time or 0))
+	MatchService.announce({ kind = "MatchStart", mode = TS.teamSize, court = MatchService.court, cup = lobby.cup and { name = lobby.cup.name, round = lobby.cup.round, mods = lobby.cup.mods } or nil, event = lobby.event and { diff = lobby.event.diff, stage = lobby.event.stage, stages = Config.Halloween.Stages, node = lobby.event.node, life = lobby.event.life } or nil, story = lobby.story and lobby.story.key or nil })
 	waitUntil(MatchService.phaseEnd)
 
 	while true do
@@ -797,7 +914,7 @@ function MatchService.playMatch()
 				waitUntil(MatchService.phaseEnd)
 				more = true
 			end
-		elseif not MatchService.forfeitTeam and MatchService.setNumber < M.MaxSets and not lobby.cup and not lobby.event then
+		elseif not MatchService.forfeitTeam and MatchService.setNumber < M.MaxSets and not lobby.cup and not lobby.event and not lobby.story and not lobby.winter then
 			if MatchService.setNumber < M.Sets then
 				MatchService.setPhase("SetEnd", M.SetEndTime)
 				MatchService.announce({ kind = "SetEnd", winner = winner, sets = MatchService.sets, scores = MatchService.scores, setNumber = MatchService.setNumber })
@@ -818,7 +935,15 @@ function MatchService.playMatch()
 				lobby.cupResult = { won = overall == "Home" } -- the players are Home in a cup
 			end
 			if lobby.event then
-				lobby.eventResult = { won = overall == "Home" } -- and in a Halloween Match
+				lobby.eventResult = { won = overall == "Home", mine = MatchService.totals.Home or 0, theirs = MatchService.totals.Away or 0 } -- and in a Colosseum stage (its points cost the run Life)
+			end
+			if lobby.winter then
+				-- and in a Winter Match: a win or a loss decides its Snowflakes (ProfileService.winterMatch)
+				lobby.winterResult = { won = overall == "Home", mine = MatchService.totals.Home or 0, theirs = MatchService.totals.Away or 0 }
+			end
+			if lobby.story then
+				-- and in a story stage: its one set's points decide the stars (Story.starsFor)
+				lobby.storyResult = { won = overall == "Home", mine = MatchService.totals.Home or 0, theirs = MatchService.totals.Away or 0 }
 			end
 			local list, mvp = results(overall, forfeit)
 			MatchService.forfeitTeam = nil -- let the results screen run its course
@@ -1036,6 +1161,8 @@ function MatchService.intermission()
 	MatchService.matchBans = {}
 	TS.endMatch()
 	TS.event = nil
+	TS.story = nil
+	TS.winter = nil
 	ReplicatedStorage:SetAttribute("EventMatch", nil)
 	ReplicatedStorage:SetAttribute("RankedMatch", nil)
 	BS.hide()
@@ -1044,6 +1171,7 @@ function MatchService.intermission()
 	MatchService.rules = Lobbies.rules(nil) -- a custom match's rules end with it
 	ReplicatedStorage:SetAttribute("CupMods", nil)
 	MatchService.setMutators(nil)
+	clearWinterCard()
 	MatchService.target = MatchService.rules.points
 	MatchService.scores = { Home = 0, Away = 0 }
 	MatchService.lossStreak = { Home = 0, Away = 0 } -- points each team has lost in a row (stamina comes back faster)

@@ -52,6 +52,35 @@ local TIPS = {
 	"At deuce you have to win by two.",
 }
 
+-- Christmas (the owner, 2026-11-17: "we can probably make this christmas themed, with a lil bell
+-- jingle pretty similar to our recruit pull"): while the Winter event is on (Winter.active), the
+-- same frame at Christmas: red into deep green, snow falling and drifted along the bottom, a
+-- string of lights across the top twinkling in turn, the ball a red ornament, bells as the
+-- silhouette rises and a jingle and a burst of snowflakes on the hit. (Roblox's own loading
+-- screen holds while this reads the event from ReplicatedStorage.)
+local XMAS = false
+local FLAKE = ""
+pcall(function()
+	local shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared", 4)
+	local w = shared and shared:WaitForChild("Winter", 2)
+	if w then
+		XMAS = require(w).active() == true
+	end
+	local a = shared and shared:FindFirstChild("Assets")
+	if XMAS and a then
+		local Assets = require(a)
+		FLAKE = Assets.id(Assets.Images.IconSnowflake) or ""
+	end
+end)
+if XMAS then
+	table.insert(TIPS, "Snowflakes recruit on the Winter banner: Jaja and the Christmas skins.")
+	table.insert(TIPS, "Jaja's story is in the Winter tab, under Story.")
+	table.insert(TIPS, "Winter Pass tiers come with XP from your matches.")
+end
+local XRED = Color3.fromRGB(206, 28, 48)
+local XGREEN = Color3.fromRGB(14, 78, 52)
+local LIGHTS = { Color3.fromRGB(255, 70, 70), Color3.fromRGB(90, 230, 120), Color3.fromRGB(255, 206, 80), Color3.fromRGB(90, 170, 255) }
+
 local function make(class, props, parent)
 	local o = Instance.new(class)
 	for k, v in pairs(props) do
@@ -74,7 +103,97 @@ pcall(function()
 end)
 
 local bg = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, gui)
-make("UIGradient", { Rotation = 35, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, ORANGE), ColorSequenceKeypoint.new(0.55, Color3.fromRGB(255, 92, 70)), ColorSequenceKeypoint.new(1, MAGENTA) }) }, bg) -- (orange into magenta: not the old flat amber)
+if XMAS then
+	make("UIGradient", { Rotation = 35, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, XRED), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 14, 38)), ColorSequenceKeypoint.new(1, XGREEN) }) }, bg)
+else
+	make("UIGradient", { Rotation = 35, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, ORANGE), ColorSequenceKeypoint.new(0.55, Color3.fromRGB(255, 92, 70)), ColorSequenceKeypoint.new(1, MAGENTA) }) }, bg) -- (orange into magenta: not the old flat amber)
+end
+
+-- Christmas: snow falling behind the stage (and a few big flakes), drifts along the bottom, and
+-- a string of lights sagging across the top; animated by the loop below until the screen goes
+local flakes, bulbs = {}, {}
+if XMAS then
+	local srng = Random.new()
+	for i = 1, 70 do
+		local big = i <= 8 and FLAKE ~= ""
+		local f
+		if big then
+			f = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = FLAKE, ImageTransparency = 0.35, Size = UDim2.fromScale(0.035, 0.035), SizeConstraint = Enum.SizeConstraint.RelativeYY, ZIndex = 1 }, bg)
+		else
+			local d = srng:NextNumber(0.004, 0.011)
+			f = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = WHITE, BackgroundTransparency = srng:NextNumber(0.05, 0.5), BorderSizePixel = 0, Size = UDim2.fromScale(d, d), SizeConstraint = Enum.SizeConstraint.RelativeYY, ZIndex = 1 }, bg)
+			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, f)
+		end
+		table.insert(flakes, { f = f, x = srng:NextNumber(), y = srng:NextNumber(-0.1, 1), v = srng:NextNumber(0.04, 0.1) * (big and 0.7 or 1), sway = srng:NextNumber(0.005, 0.02), seed = srng:NextNumber(0, 10), spin = big and srng:NextNumber(-40, 40) or 0 })
+	end
+	-- the drifts: soft white mounds along the bottom
+	for i = 0, 7 do
+		local w = 0.22 + (i % 3) * 0.05
+		local m = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(i / 7, 0.9 - (i % 2) * 0.025), Size = UDim2.fromScale(w, 0.3), BackgroundColor3 = Color3.fromRGB(244, 248, 255), BorderSizePixel = 0, ZIndex = 5 }, bg)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, m)
+		make("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(200, 214, 240)) }, m)
+	end
+	-- the lights: a wire sagging across the top, a bulb on it every so often
+	local N = 26
+	local prev
+	for i = 0, N do
+		local t = i / N
+		local pt = Vector2.new(t, 0.035 + 0.07 * 4 * (t * 3 % 1) * (1 - t * 3 % 1)) -- (three swags)
+		if prev then
+			local wire = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(20, 40, 26), BorderSizePixel = 0, ZIndex = 9 }, bg)
+			table.insert(bulbs, { wire = wire, a = prev, b = pt })
+		end
+		if i > 0 and i < N then
+			local c = LIGHTS[i % #LIGHTS + 1]
+			local b = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(pt.X, pt.Y), Size = UDim2.fromScale(0.016, 0.026), SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = c, BorderSizePixel = 0, ZIndex = 9 }, bg)
+			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, b)
+			local glow = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.6), Size = UDim2.fromScale(2.6, 2.4), BackgroundColor3 = c, BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 8 }, b)
+			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, glow)
+			make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0.05), Size = UDim2.fromScale(0.5, 0.25), BackgroundColor3 = Color3.fromRGB(40, 60, 46), BorderSizePixel = 0, ZIndex = 9 }, b)
+			table.insert(bulbs, { bulb = b, glow = glow, i = i })
+		end
+		prev = pt
+	end
+end
+local function placeWires()
+	local size = bg.AbsoluteSize
+	for _, w in ipairs(bulbs) do
+		if w.wire then
+			local a, b = w.a * size, w.b * size
+			local d = b - a
+			w.wire.Position = UDim2.fromOffset((a.X + b.X) / 2, (a.Y + b.Y) / 2)
+			w.wire.Size = UDim2.fromOffset(d.Magnitude + 1, 2)
+			w.wire.Rotation = math.deg(math.atan2(d.Y, d.X))
+		end
+	end
+end
+if XMAS then
+	bg:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeWires)
+	placeWires()
+end
+local xmasStart = os.clock()
+local xmasConn = XMAS and RunService.RenderStepped:Connect(function(dt)
+	local e = os.clock() - xmasStart
+	for _, f in ipairs(flakes) do
+		f.y = f.y + f.v * dt
+		if f.y > 1.05 then
+			f.y = -0.05
+		end
+		f.f.Position = UDim2.fromScale(f.x + math.sin(e * 0.9 + f.seed) * f.sway, f.y)
+		if f.spin ~= 0 then
+			f.f.Rotation = e * f.spin
+		end
+	end
+	-- the lights chase along the string, each bright in turn and the rest softly lit
+	local lead = (e * 9) % 4
+	for _, b in ipairs(bulbs) do
+		if b.bulb then
+			local on = (b.i % 4) == math.floor(lead)
+			b.bulb.BackgroundTransparency = on and 0 or 0.3
+			b.glow.BackgroundTransparency = on and 0.55 or 0.85
+		end
+	end
+end) or nil
 
 -- the stage: the silhouette, the pillar and the ball (shaken together on the hit)
 local stage = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, bg)
@@ -106,6 +225,19 @@ local beam = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), BackgroundColor3
 make("UIGradient", { Transparency = feather(0.2) }, beam)
 local ball = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(6, 6, 8), BorderSizePixel = 0, ZIndex = 5 }, stage)
 make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, ball)
+if XMAS then
+	-- a red glass ornament: its gold cap and loop on top, a shine, a band of gold
+	ball.BackgroundColor3 = Color3.fromRGB(214, 28, 46)
+	make("UIGradient", { Rotation = 45, Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 150, 150)) }, ball)
+	make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 0.12), BackgroundColor3 = Color3.fromRGB(255, 206, 80), BorderSizePixel = 0, ZIndex = 5 }, ball)
+	local cap = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0.06), Size = UDim2.fromScale(0.32, 0.15), BackgroundColor3 = Color3.fromRGB(255, 206, 80), BorderSizePixel = 0, ZIndex = 6 }, ball)
+	make("UICorner", { CornerRadius = UDim.new(0.2, 0) }, cap)
+	local loop = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0.02), Size = UDim2.fromScale(0.6, 1.2), BackgroundTransparency = 1, ZIndex = 6 }, cap)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, loop)
+	make("UIStroke", { Color = Color3.fromRGB(255, 206, 80), Thickness = 2 }, loop)
+	local shine = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.32, 0.3), Size = UDim2.fromScale(0.22, 0.16), Rotation = -35, BackgroundColor3 = WHITE, BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = 6 }, ball)
+	make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, shine)
+end
 local streak = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = WHITE, BorderSizePixel = 0, Visible = false, ZIndex = 4 }, stage)
 make("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) }) }, streak)
 local flash = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 30 }, gui)
@@ -131,19 +263,26 @@ local function buildLogo(parent)
 			ZIndex = z,
 		}, box)
 	end
+	-- (at Christmas, the owner, 2026-11-18: "i think we can recolor the top left volleyball rush": the
+	-- magenta reads badly on the red, so the rim is pine green and RUSH is gold)
+	local RIM = XMAS and Color3.fromRGB(22, 120, 58) or MAGENTA
 	local topSize = UDim2.fromScale(1, 0.5)
 	local extrude = word("VOLLEYBALL", UDim2.new(), topSize, INK, 10)
-	local rim = word("VOLLEYBALL", UDim2.new(), topSize, MAGENTA, 11)
+	local rim = word("VOLLEYBALL", UDim2.new(), topSize, RIM, 11)
 	local face = word("VOLLEYBALL", UDim2.new(), topSize, WHITE, 12)
 	local rush = word("RUSH", UDim2.fromScale(0.36, 0.47), UDim2.fromScale(0.6, 0.5), WHITE, 12)
-	make("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 150, 220), MAGENTA) }, rush)
+	if XMAS then
+		make("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 244, 190), Color3.fromRGB(255, 186, 36)) }, rush)
+	else
+		make("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 150, 220), MAGENTA) }, rush)
+	end
 	local function stroke(label, color)
 		return make("UIStroke", { Color = color, LineJoinMode = Enum.LineJoinMode.Round }, label)
 	end
 	-- stroke widths as fractions of the logo's height
 	local strokes = {
 		{ stroke(extrude, INK), 0.05 },
-		{ stroke(rim, MAGENTA), 0.07 },
+		{ stroke(rim, RIM), 0.07 },
 		{ stroke(face, INK), 0.032 },
 		{ stroke(rush, INK), 0.03 },
 	}
@@ -186,7 +325,7 @@ local prompt = make("TextLabel", {
 	Text = "Loading",
 	FontFace = TEXT_FACE,
 	TextScaled = true,
-	TextColor3 = INK,
+	TextColor3 = XMAS and WHITE or INK,
 	TextTransparency = 0.45,
 	ZIndex = 6,
 }, bg)
@@ -194,12 +333,12 @@ local barBack = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.82, 0, 0.58, 4),
 	Size = UDim2.new(0.11, 0, 0, 2),
-	BackgroundColor3 = INK,
+	BackgroundColor3 = XMAS and WHITE or INK,
 	BackgroundTransparency = 0.82,
 	BorderSizePixel = 0,
 	ZIndex = 6,
 }, bg)
-local barFill = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 6 }, barBack)
+local barFill = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = XMAS and WHITE or INK, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 6 }, barBack)
 local rng = Random.new()
 local tip = make("TextLabel", {
 	AnchorPoint = Vector2.new(0, 1),
@@ -209,7 +348,7 @@ local tip = make("TextLabel", {
 	Text = TIPS[rng:NextInteger(1, #TIPS)],
 	FontFace = TIP_FACE,
 	TextScaled = true,
-	TextColor3 = INK,
+	TextColor3 = XMAS and WHITE or INK,
 	TextTransparency = 0.5,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	ZIndex = 6,
@@ -404,6 +543,9 @@ end
 -- The silhouette rises into the pillar and settles into the frozen pose.
 local function rise(C, AC, rig, pose, standY)
 	play(C, "Whoosh", 0.8)
+	if XMAS then
+		play(C, "WinterBells", 0.7)
+	end
 	local from = AC.poseJoints("Rise") or pose
 	local start = os.clock()
 	local DUR = 0.5
@@ -425,6 +567,19 @@ end
 local function impact(C, at)
 	play(C, "SpikeHeavy", 1.1)
 	play(C, "Boom", 0.9)
+	if XMAS then
+		play(C, "WinterJingle", 0.6)
+		-- a burst of snowflakes off the ball
+		local hh = bg.AbsoluteSize.Y
+		for i = 1, 14 do
+			local angle = (i / 14) * math.pi * 2 + rng:NextNumber(-0.2, 0.2)
+			local dir = Vector2.new(math.cos(angle), math.sin(angle))
+			local s = hh * rng:NextNumber(0.03, 0.06)
+			local f = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(at.X, 0, at.Y, 0), Size = UDim2.fromOffset(s, s), BackgroundTransparency = 1, Image = FLAKE, ZIndex = 8 }, stage)
+			local dist = hh * rng:NextNumber(0.18, 0.34)
+			TweenService:Create(f, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = UDim2.new(at.X, dir.X * dist, at.Y, dir.Y * dist), Rotation = rng:NextNumber(-180, 180), ImageTransparency = 1 }):Play()
+		end
+	end
 	flash.BackgroundTransparency = 0
 	TweenService:Create(flash, TweenInfo.new(0.35), { BackgroundTransparency = 1 }):Play()
 	local h = bg.AbsoluteSize.Y
@@ -587,7 +742,7 @@ end
 -- fade out into the game
 local info = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 for _, d in ipairs(gui:GetDescendants()) do
-	if d:IsA("ViewportFrame") then
+	if d:IsA("ViewportFrame") or d:IsA("ImageLabel") then
 		TweenService:Create(d, info, { ImageTransparency = 1 }):Play()
 	elseif d:IsA("Frame") then
 		TweenService:Create(d, info, { BackgroundTransparency = 1 }):Play()
@@ -598,4 +753,7 @@ for _, d in ipairs(gui:GetDescendants()) do
 	end
 end
 task.wait(0.55)
+if xmasConn then
+	xmasConn:Disconnect()
+end
 gui:Destroy()

@@ -1,0 +1,56 @@
+[
+ {
+  "old": "AbilityJoker",
+  "file": "assets/ui/AbilityJoker.png",
+  "type": "Decal",
+  "name": "AbilityJoker"
+ },
+ {
+  "old": "IconSnowflake",
+  "file": "assets/ui/IconSnowflake.png",
+  "type": "Decal",
+  "name": "IconSnowflake"
+ },
+ {
+  "old": "BallSnowflake",
+  "file": "assets/balls/Snowflake.png",
+  "type": "Decal",
+  "name": "WinterBallSnowflake"
+ },
+ {
+  "old": "BallOrnament",
+  "file": "assets/balls/Ornament.png",
+  "type": "Decal",
+  "name": "WinterBallOrnament"
+ },
+ {
+  "old": "BallSnowball",
+  "file": "assets/balls/Snowball.png",
+  "type": "Decal",
+  "name": "WinterBallSnowball"
+ },
+ {
+  "old": "BallPeppermint",
+  "file": "assets/balls/Peppermint.png",
+  "type": "Decal",
+  "name": "WinterBallPeppermint"
+ },
+ {
+  "old": "BallGift",
+  "file": "assets/balls/Gift.png",
+  "type": "Decal",
+  "name": "WinterBallGift"
+ },
+ {
+  "old": "FxIcicle",
+  "file": "assets/fx/winter/Icicle.png",
+  "type": "Decal",
+  "name": "WinterIcicle"
+ },
+ {
+  "old": "WinterFxMeshes",
+  "file": "assets/fx/winter/WinterFxMeshes.fbx",
+  "type": "Model",
+  "name": "Winter FX meshes"
+ }
+]

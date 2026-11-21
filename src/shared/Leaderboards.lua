@@ -110,6 +110,8 @@ function Leaderboards.valuesOf(profile)
 		robux = n(profile and profile.spent and profile.spent.robux),
 		gifts = n(profile and profile.spent and profile.spent.gifts),
 		playTime = n(profile and profile.playTime),
+		-- the Winter event's points (a Studio preview's save never goes on the board)
+		winter = (profile and type(profile.winter) == "table" and profile.winter.preview ~= true) and n(profile.winter.points) or 0,
 	}
 end
 

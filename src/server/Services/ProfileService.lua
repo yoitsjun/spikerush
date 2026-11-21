@@ -80,6 +80,10 @@ local Leaderboards = require(Shared.Leaderboards)
 local Halloween = require(Shared.Halloween)
 local Rooms = require(Shared.Rooms)
 local Lounge = require(Shared.Lounge)
+local Story = require(Shared.Story)
+local Missions = require(Shared.Missions)
+local Winter = require(Shared.Winter)
+local FreshStart = require(Shared.FreshStart)
 local Net = require(Shared.Net)
 
 local ProfileService = {}
@@ -99,6 +103,7 @@ local tzOffset = {} -- player -> their UTC offset in seconds (from their client)
 local mailStore = nil -- gifts waiting for their player (Config.Admin.MailStore)
 local mailBusy = {}
 local pendingGift = {} -- plr -> the gift their prompted purchase is: { productId, userId, name, t }
+local adventPick = {} -- plr -> the advent door they picked before buying one (Winter.adventTarget)
 local groupMember = {} -- plr -> whether they're in the group (asked on join and on each claim)
 local lastClaim = {} -- plr -> when they last redeemed, claimed or started a gift (each is looked up)
 local verifyStore = nil -- the Discord's verification codes (Config.Discord.Store)
@@ -141,6 +146,9 @@ end
 
 local function isDeveloper(plr)
 	local D = Config.Developers
+	if game.GameId == D.TestGame then
+		return true -- (the testers' experience, never the live one)
+	end
 	if D.Studio and RunService:IsStudio() then
 		return true
 	end
@@ -229,7 +237,7 @@ local function perkOfSlot(slotKey)
 end
 
 local function newProfile()
-	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), eventCur = {}, skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {}, clanColors = {}, clanColor = "White", ranked = Ranked.clean(nil, Ranked.season(os.time())), almightyMoved = true, lounge = Lounge.clean(nil, Lounge.day(os.time())) }
+	local p = { v = VERSION, vp = P.StartingVP, gold = P.StartingGold, freeSpins = 0, winStreak = 0, bestStreak = 0, playTime = 0, playToday = { day = 0, secs = 0, claimed = {} }, record = { matches = 0, wins = 0, kills = 0, aces = 0, blocks = 0, mvps = 0, devWins = 0 }, levels = {}, owned = {}, equip = {}, fav = {}, autoSell = {}, receipts = {}, tutorial = { steps = {}, done = false }, teams = {}, settings = {}, perks = {}, perkIds = {}, perkCrops = {}, lucky = 0, codes = {}, daily = { last = 0, streak = 0 }, spent = { robux = 0, gifts = 0 }, mailSeen = {}, liked = false, favorited = false, boosts = {}, cards = {}, pity = Spins.newPity(), favor = {}, bundles = {}, sTickets = 0, retiredPaid = {}, patchSeen = "", patchClaimed = {}, discordCode = "", discordDone = false, fragments = {}, breaks = {}, halloween = Halloween.clean(nil), eventCur = {}, skins = {}, rooms = Rooms.clean(nil), grave = Halloween.cleanGrave(nil), giftedPasses = {}, clanColors = {}, clanColor = "White", ranked = Ranked.clean(nil, Ranked.season(os.time())), almightyMoved = true, lounge = Lounge.clean(nil, Lounge.day(os.time())), story = Story.clean(nil), missions = Missions.clean(nil, Missions.day(os.time())), mastery = {} }
 	for _, kind in ipairs(Spins.Kinds) do
 		p.owned[kind] = {}
 		for k in pairs(Spins.starters(kind)) do
@@ -240,6 +248,7 @@ local function newProfile()
 		p.equip[kind] = Spins.default(kind)
 	end
 	p.char = Roster.Starters[1]
+	p.fresh = Config.FreshStart.Version -- (a new profile never goes through the Fresh Start: FreshStart)
 	return p
 end
 
@@ -320,6 +329,14 @@ local function sanitizeProfile(data)
 	-- the Halloween event: Candy, scout points, today's first clears, the Candy shop's buys; and the
 	-- skins (the Reaper's copies and the characters they're on)
 	out.halloween = Halloween.clean(data.halloween)
+	-- story mode: the stars on each stage (Story)
+	out.story = Story.clean(data.story)
+	-- today's daily missions, and each character's mastery (Missions)
+	out.missions = Missions.clean(data.missions, Missions.day(os.time()))
+	out.mastery = Missions.cleanMastery(data.mastery)
+	-- the Winter collab: Snowflakes, the gauge, today's clears and quests, the missions, attendance,
+	-- the shop's buys (Winter)
+	out.winter = Winter.clean(data.winter)
 	-- the other events' currencies (Config.EventCurrency; Candy is the halloween table's)
 	out.eventCur = Economy.cleanCurrencies(data.eventCur)
 	out.skins = Halloween.cleanSkins(data.skins, function(id)
@@ -539,6 +556,8 @@ local function sanitizeProfile(data)
 			end
 		end
 	end
+	-- the Fresh Start it has been through (FreshStart; a profile from before it has none)
+	out.fresh = math.max(0, math.floor(tonumber(data.fresh) or 0))
 	return out
 end
 
@@ -615,7 +634,24 @@ local function load(plr)
 	-- workspace attribute NoSave keeps a playtest from writing it (a test run while the owner plays
 	-- the live game: the two sessions would overwrite each other's saves)
 	profile.canSave = ok and not (RunService:IsStudio() and workspace:GetAttribute("NoSave") == true)
+	if game.GameId == Config.Developers.TestGame then
+		profile.vp = math.max(profile.vp, Config.Developers.TestFunds)
+		profile.gold = math.max(profile.gold, Config.Developers.TestFunds)
+	end
 	profile.dev = isDeveloper(plr)
+	-- the Fresh Start (Config.FreshStart): once, a profile from before it starts the character and
+	-- cosmetic grind over and gets its Veteran card (a skin's character comes back with it).
+	-- Developers are left alone; only a profile that loaded is touched, and only while it's on
+	if data and ok and not profile.dev and FreshStart.due(profile) then
+		local did = FreshStart.apply(profile)
+		Halloween.skinChars(profile.skins, profile.owned.Char)
+		task.delay(10, function() -- (the notice once the menus are up: ProfileService.freshNotice)
+			if ProfileService.freshNotice then
+				ProfileService.freshNotice(plr, did)
+			end
+		end)
+		print(string.format("[SpikeRush] Fresh Start for %s: %d characters reset, Gold %s -> %d, VP %s -> %d, +%d Lucky, %s", plr.Name, did.chars, tostring(did.goldWas), profile.gold, tostring(did.vpWas), profile.vp, did.lucky, did.card))
+	end
 	syncRankedEffects(profile)
 	keepOwned(profile)
 	-- a player who left while the DataStore answered must not be cached (nothing would clear it)
@@ -636,6 +672,7 @@ local function save(plr, force)
 	end
 	local payload = {
 		v = VERSION,
+		fresh = profile.fresh,
 		vp = profile.vp,
 		gold = profile.gold,
 		giftedPasses = profile.giftedPasses,
@@ -687,6 +724,10 @@ local function save(plr, force)
 		-- the Halloween event (Candy, scout points, today's first clears, the shop's buys) and the
 		-- skins (the Reaper's copies and the characters they're on)
 		halloween = profile.halloween,
+		winter = profile.winter,
+		story = profile.story,
+		missions = profile.missions,
+		mastery = profile.mastery,
 		eventCur = profile.eventCur,
 		skins = profile.skins,
 		rooms = profile.rooms,
@@ -1187,10 +1228,26 @@ function ProfileService.snapshot(plr)
 		discord = { code = profile.discordCode or "", done = profile.discordDone == true },
 		-- the Halloween event (Config.Halloween): Candy, scout points, today's first clears (by
 		-- difficulty), the Candy shop's buys, and the skins (copies, and the characters they're on)
+		-- story mode: the stars on each stage (Story)
+		story = profile.story or Story.clean(nil),
+		-- daily missions (today's counts, whether its reward is claimed, the seconds to the reset)
+		-- and each character's mastery (Missions)
+		missions = Missions.clean(profile.missions, Missions.day(os.time())),
+		missionsLeft = Missions.secondsLeft(os.time()),
+		mastery = profile.mastery or {},
+		-- the Winter collab (Config.Winter), while it runs: its time left, the event's day and the
+		-- seconds until it turns, and the player's event save (Winter draws the rest from it)
+		winter = (function()
+			local now = os.time()
+			if not Winter.active(now) then
+				return nil
+			end
+			return { endsIn = Winter.secondsLeft(now), day = Winter.day(now), dayLeft = Winter.dayLeft(now), ev = profile.winter }
+		end)(),
 		halloween = (function()
 			local ev = profile.halloween
 			local today = ev.day == Halloween.day(os.time())
-			return { candy = ev.candy, scout = ev.scout, cleared = today and table.clone(ev.cleared) or {}, bought = table.clone(ev.bought), endsIn = Halloween.secondsLeft(os.time()) }
+			return { candy = ev.candy, scout = ev.scout, cleared = today and table.clone(ev.cleared) or {}, bought = table.clone(ev.bought), endsIn = Halloween.secondsLeft(os.time()), runDay = ev.runDay, runs = ev.runs } -- (runDay, runs: the Colosseum's rewarded runs today)
 		end)(),
 		-- every event currency held (Config.EventCurrency)
 		eventCur = (function()
@@ -1792,7 +1849,7 @@ end
 -- purchase is prompted; ProcessReceipt sends them the pack.
 local function giftStart(plr, kind, index, username)
 	local entry = Economy.pack(kind, index)
-	if not entry or type(username) ~= "string" or entry.pack.Once then
+	if not entry or type(username) ~= "string" or not Economy.giftable(entry) then
 		return
 	end
 	local userId, why = ProfileService.findUser(username)
@@ -1823,7 +1880,7 @@ local function giftStart(plr, kind, index, username)
 	if entry.id == 0 then
 		-- no product yet: Studio sends it free, so gifting can be tried
 		if RunService:IsStudio() then
-			local sent, why = ProfileService.giveUser(userId, Economy.packGrant(entry), plr.DisplayName, nil, "studio:" .. HttpService:GenerateGUID(false))
+			local sent, why = ProfileService.giveUser(userId, Economy.giftGrant(entry), plr.DisplayName, nil, "studio:" .. HttpService:GenerateGUID(false))
 			push(plr, sent and string.format("Sent %s to %s (free in Studio).", entry.pack.Name, name) or why)
 		else
 			push(plr, "That pack isn't on sale yet.")
@@ -1928,6 +1985,137 @@ function ProfileService.eventPayout(plr, diff, stage, won)
 	dirty[plr] = true
 	push(plr)
 	return candy, first and cleared
+end
+
+-- A Colosseum run is over: what it pays of its Final Reward (Halloween.runPay: all of it for a
+-- clear, FailShare for a run that ended early; RepeatShare after the day's RewardedRuns). Returns
+-- the Laurels and whether it was one of today's rewarded runs.
+function ProfileService.colosseumPay(plr, total, cleared)
+	local profile = profiles[plr]
+	if not profile then
+		return 0, false
+	end
+	local ev = profile.halloween
+	local used = Halloween.runsToday(ev, Halloween.day(os.time()))
+	local rewarded = used < Config.Halloween.RewardedRuns
+	ev.runs = used + 1
+	local paid = Economy.earnedCurrency(Halloween.runPay(total, cleared, rewarded), ProfileService.curMult(plr))
+	Economy.addCurrency(profile, "Candy", paid)
+	dirty[plr] = true
+	push(plr)
+	return paid, rewarded
+end
+
+-- Today's daily missions on a profile (a new day starts them again), with its mastery table.
+function ProfileService.missionsOf(profile)
+	local day = Missions.day(os.time())
+	if type(profile.missions) ~= "table" or profile.missions.day ~= day then
+		profile.missions = Missions.clean(profile.missions, day)
+	end
+	profile.mastery = profile.mastery or {}
+	return profile.missions
+end
+
+-- A finished match counts toward today's missions and the mastery of the character played
+-- (MatchService's results): info = { won, kills, aces, blocks, digs, role, char, scale, kind }.
+function ProfileService.matchProgress(plr, info)
+	local profile = profiles[plr]
+	if not profile then
+		return
+	end
+	local state = ProfileService.missionsOf(profile)
+	Missions.add(state, Missions.matchEvents(info))
+	if type(info.char) == "string" then
+		Missions.addMastery(profile.mastery, info.char, info.kind, Missions.masteryScore(info))
+	end
+	-- and toward the Winter event's daily quests and missions while it runs (any match counts)
+	if Winter.active(os.time()) then
+		profile.winter = type(profile.winter) == "table" and type(profile.winter.quests) == "table" and profile.winter or Winter.clean(profile.winter)
+		Winter.add(profile.winter, Missions.matchEvents(info), Winter.day(os.time()))
+		-- and the Winter Pass's XP
+		local XP = Config.Winter.Pass.XP
+		ProfileService.passXP(plr, profile, XP.Match + (info.won and XP.Win or 0))
+	end
+	dirty[plr] = true
+	push(plr)
+end
+
+-- The Missions window's requests: checking in (opening it), the day's reward, a character's next
+-- mastery rank.
+function ProfileService.missionRequest(plr, kind, a)
+	local profile = profiles[plr]
+	if not profile then
+		return
+	end
+	local state = ProfileService.missionsOf(profile)
+	if kind == "missionCheckin" then
+		if (state.stats.checkin or 0) >= 1 then
+			return
+		end
+		Missions.add(state, { checkin = 1 })
+		dirty[plr] = true
+		push(plr)
+	elseif kind == "missionClaim" then
+		local grant = Missions.claim(state)
+		if not grant then
+			return
+		end
+		Economy.apply(profile, Economy.cleanGrant(grant), os.time())
+		dirty[plr] = true
+		push(plr, "Daily missions done! " .. Story.grantText(grant) .. ".")
+	elseif kind == "masteryClaim" then
+		if type(a) ~= "string" then
+			return
+		end
+		local grant, rank = Missions.claimMastery(profile.mastery, a)
+		if not grant then
+			return
+		end
+		Economy.apply(profile, Economy.cleanGrant(grant), os.time())
+		dirty[plr] = true
+		local c = Roster.get(a)
+		push(plr, string.format("%s is now a %s! %s.", c and c.Name or "Your player", rank.Name, Story.grantText(grant)))
+	end
+end
+
+-- Story mode (Story): a player's progress (nil while the profile loads).
+function ProfileService.story(plr)
+	local profile = profiles[plr]
+	if not profile then
+		return nil
+	end
+	profile.story = profile.story or Story.clean(nil)
+	return profile.story
+end
+
+-- A story stage is over with `stars` (0..3): the best is kept, and its first clear and its first
+-- three stars pay their rewards (Config.Story). Returns Story.record's answer, or nil when the
+-- stage isn't open to this player.
+function ProfileService.storyResult(plr, key, stars)
+	local profile = profiles[plr]
+	if not profile then
+		return nil
+	end
+	profile.story = profile.story or Story.clean(nil)
+	local out = Story.record(profile.story, key, stars)
+	if not out then
+		return nil
+	end
+	if out.grant then
+		Economy.apply(profile, Economy.cleanGrant(out.grant), os.time())
+	end
+	dirty[plr] = true
+	push(plr)
+	return out
+end
+
+-- A reading-only stage read to the end: all three stars.
+function ProfileService.storyRead(plr, key)
+	local stage = Story.stage(key)
+	if not stage or Story.isMatch(stage) then
+		return nil
+	end
+	return ProfileService.storyResult(plr, key, 3)
 end
 
 -- A developer (recruits and tournament entries are free for them).
@@ -2349,12 +2537,8 @@ local function eventScout(plr, profile, kind, key)
 	end
 end
 
--- One row of the Candy shop.
+-- One row of the Colosseum's shop (the old Candy shop: open for good, the owner, 2026-11-14).
 local function eventShop(plr, profile, key)
-	if not eventOn() then
-		push(plr, "The Halloween event has ended.")
-		return
-	end
 	local row = nil
 	for _, r in ipairs(Config.Halloween.Shop) do
 		if r.Key == key then
@@ -2389,6 +2573,322 @@ local function eventShop(plr, profile, key)
 	push(plr, row.Name .. " bought.")
 end
 
+------------------------------------------------------------------------------------------
+-- the Winter collab (Config.Winter, the Winter module): Snowflakes, attendance, daily quests,
+-- event missions, the Wild Card banner and the Snowflake shop
+------------------------------------------------------------------------------------------
+
+-- A player's event save (made whole if a gift of Snowflakes started it), and the event's day.
+local function winterOf(profile)
+	if type(profile.winter) ~= "table" or type(profile.winter.quests) ~= "table" then
+		profile.winter = Winter.clean(profile.winter)
+	end
+	return profile.winter, Winter.day(os.time())
+end
+
+-- One of the event's grants ({ Snow, VP, Gold, Lucky }): its Snowflakes into the save, the rest
+-- through Economy. Returns it as a line ("+150 Snowflakes, +1 Lucky Spin").
+local function winterGrant(profile, ev, g, plr)
+	local parts = {}
+	if (g.Snow or 0) > 0 then
+		table.insert(parts, string.format("+%d %s", Winter.addSnow(ev, g.Snow), Config.Winter.Snow.Name))
+	end
+	-- a Christmas skin (an event mission's, the shop's): a copy, and its character when missing
+	if g.Skin and Config.Halloween.Skins[g.Skin] then
+		Economy.apply(profile, Economy.cleanGrant({ Skins = { g.Skin } }), os.time())
+		if plr then
+			applyCosmetics(plr, profile)
+		end
+		table.insert(parts, "the " .. Winter.rewardText({ Skin = g.Skin }))
+	end
+	local rest = Story.grantText(g)
+	if rest ~= "" then
+		Economy.apply(profile, Economy.cleanGrant({ VP = g.VP, Gold = g.Gold, Lucky = g.Lucky }), os.time())
+		table.insert(parts, rest)
+	end
+	return table.concat(parts, ", ")
+end
+
+-- A Winter Match is over (LobbyService.finished): its Snowflakes (Winter.matchPay: the day's first
+-- clear of the difficulty pays most) times curMult (the Cur event, the 2x Event Currency pass),
+-- and it counts for the event's quests and missions. Returns the Snowflakes and whether it was
+-- today's first clear.
+function ProfileService.winterMatch(plr, diffKey, won)
+	local profile = profiles[plr]
+	if not profile or not Winter.active(os.time()) then
+		return 0, false
+	end
+	local ev, day = winterOf(profile)
+	local base, first = Winter.matchPay(ev, diffKey, won == true, day, true)
+	local paid = Winter.addSnow(ev, base, ProfileService.curMult(plr))
+	Winter.add(ev, { snowMatches = 1, snowWins = won and 1 or 0, blizzardWins = (won and diffKey == "Blizzard") and 1 or 0 }, day)
+	-- the event's leaderboard: a win's points by difficulty
+	if won then
+		ev.points = math.min((tonumber(ev.points) or 0) + Winter.boardPoints(diffKey), 1e7)
+		if reg.LeaderboardService then
+			reg.LeaderboardService.track(plr, profile)
+		end
+	end
+	local XP = Config.Winter.Pass.XP
+	ProfileService.passXP(plr, profile, XP.WinterMatch + (won and XP.WinterWin or 0))
+	dirty[plr] = true
+	push(plr)
+	return paid, first
+end
+
+-- After the event (Winter.boardSettles): a player who scored on the Winter leaderboard gets the
+-- card for their final place (Config.Winter.Board.Rewards), once. The places come from
+-- LeaderboardService (the top ReadTop, read once a server); if they can't be read, it's tried
+-- again at the next join.
+function ProfileService.settleWinterBoard(plr)
+	local profile = profiles[plr]
+	if not profile or not Winter.boardSettles(os.time()) or type(profile.winter) ~= "table" then
+		return
+	end
+	local ev = winterOf(profile)
+	if ev.boardPaid or (tonumber(ev.points) or 0) <= 0 or not reg.LeaderboardService then
+		return
+	end
+	local place, ok = reg.LeaderboardService.winterPlace(plr.UserId)
+	if not ok or not profiles[plr] then
+		return
+	end
+	ev.boardPaid = true
+	local card = Winter.boardCard(place)
+	if card then
+		Economy.apply(profile, Economy.cleanGrant({ Cards = { card } }), os.time())
+		push(plr, string.format("%s is over: you finished #%d on its leaderboard. The %s is yours!", Config.Winter.Name, place, Winter.rewardText({ Card = card })))
+	end
+	dirty[plr] = true
+end
+
+-- Winter Pass XP in (Config.Winter.Pass.XP's sources); a new tier reached is told.
+function ProfileService.passXP(plr, profile, n)
+	if not Winter.active(os.time()) then
+		return
+	end
+	local ev = winterOf(profile)
+	local reached = Winter.addPassXP(ev, n)
+	dirty[plr] = true
+	if #reached > 0 then
+		push(plr, string.format("%s tier %d reached: claim it in the Winter window.", Config.Winter.Pass.Name, reached[#reached]))
+	end
+end
+
+-- A reward shown through the recruit sequence (an advent door, a Christmas skin from a mission or
+-- the shop): its skin and cosmetic as winReveal items (WinterMenu.showReveal plays them, a skin
+-- with its own pull), back on Winter window tab `tab` after. A card or currency alone is told.
+function ProfileService.winterRevealOf(plr, r, tab)
+	if not plr or not plr.Parent or type(r) ~= "table" then
+		return
+	end
+	local items = {}
+	if r.Skin and Config.Halloween.Skins[r.Skin] then
+		local sk = Config.Halloween.Skins[r.Skin]
+		table.insert(items, { kind = "Skin", key = r.Skin, name = sk.Name, rarity = sk.Rarity or "Mythic" })
+	end
+	if r.Item then
+		local it = Spins.item(r.Item.Kind, r.Item.Key)
+		if it then
+			table.insert(items, { kind = r.Item.Kind, key = r.Item.Key, name = it.Name, rarity = it.Rarity })
+		end
+	end
+	if #items == 0 then
+		return
+	end
+	local snap = ProfileService.snapshot(plr)
+	snap.winReveal = { count = #items, items = items, snow = 0, tab = tab, id = HttpService:GenerateGUID(false) }
+	Net.get("Profile"):FireClient(plr, snap)
+end
+
+-- A Winter Pass reward to the profile (Winter.claimPass's); returns its words.
+local function passGrant(plr, profile, ev, r)
+	if r.Snow then
+		return string.format("+%d %s", Winter.addSnow(ev, r.Snow), Config.Winter.Snow.Name)
+	end
+	-- a Home room (Christmas Eve): yours in Decorate
+	if r.Room then
+		profile.rooms = type(profile.rooms) == "table" and profile.rooms or { owned = {} }
+		profile.rooms.owned = type(profile.rooms.owned) == "table" and profile.rooms.owned or {}
+		profile.rooms.owned[r.Room] = true
+		return "+" .. Winter.rewardText(r)
+	end
+	local g = Economy.cleanGrant({ VP = r.VP, Gold = r.Gold, Lucky = r.Lucky, Cards = r.Card and { r.Card } or nil, Items = r.Item and { r.Item } or nil, Skins = r.Skin and { r.Skin } or nil })
+	Economy.apply(profile, g, os.time())
+	if r.Item or r.Skin then
+		applyCosmetics(plr, profile)
+	end
+	return "+" .. Winter.rewardText(r)
+end
+
+-- Wild Card recruits: `count` (1 or 10) for Snowflakes, each an item of the banner (Winter.roll:
+-- the gauge guarantees Jaja). A character already yours is a fragment of its letter, as on the
+-- Characters banner; a cosmetic already yours pays Snowflakes back. The results go out as
+-- `winReveal` (WinterMenu shows them).
+local function winterSpin(plr, profile, ev, day, count)
+	count = tonumber(count)
+	local cost = Winter.cost(count)
+	if not cost then
+		return
+	end
+	if not profile.dev then
+		if ev.snow < cost then
+			push(plr, string.format("That takes %d %s: play Winter Matches and clear quests for more.", cost, Config.Winter.Snow.Name))
+			return
+		end
+		ev.snow = ev.snow - cost
+	end
+	local rng = Random.new()
+	local items, refund = {}, 0
+	local gotSkin = false
+	for i = 1, count do
+		local item = Winter.roll(rng, ev)
+		local row = { kind = item.kind, key = item.key, name = item.name, rarity = item.rarity }
+		if item.kind == "Char" then
+			if owns(profile, "Char", item.key) then
+				local c = Roster.get(item.key)
+				local frag = c and Breakthrough.group(c.Tier) or nil
+				if frag then
+					profile.fragments[frag] = (profile.fragments[frag] or 0) + 1
+				end
+				row.dup, row.frag = true, frag
+			else
+				profile.owned.Char[item.key] = true
+			end
+		elseif item.kind == "Grant" then
+			winterGrant(profile, ev, item.grant or {})
+		elseif item.kind == "Skin" and not Halloween.skinDuplicate(profile.skins, item.key) then
+			-- a Christmas skin: a copy, and its character when missing (Halloween.skinChars)
+			Halloween.addCopy(profile.skins, item.key)
+			local added = Halloween.skinChars(profile.skins, profile.owned.Char)
+			row.chars = #added > 0 and added or nil
+			gotSkin = true
+		elseif item.kind == "Skin" or owns(profile, item.kind, item.key) then
+			local back = Winter.dupSnow(item.rarity)
+			Winter.addSnow(ev, back)
+			refund = refund + back
+			row.dup, row.snow = true, back
+		else
+			profile.owned[item.kind][item.key] = true
+		end
+		items[i] = row
+	end
+	Winter.add(ev, { recruits = count }, day)
+	if gotSkin then
+		applyCosmetics(plr, profile)
+	end
+	dirty[plr] = true
+	local snap = ProfileService.snapshot(plr)
+	snap.winReveal = { count = count, items = items, snow = refund }
+	Net.get("Profile"):FireClient(plr, snap)
+	ProfileService.checkCards(plr)
+end
+
+-- The Winter window's requests: the day's attendance, a daily quest's or a mission's reward, a
+-- recruit on the banner, a row of the shop.
+local function winterRequest(plr, profile, kind, a, b)
+	if not Winter.active(os.time()) then
+		push(plr, Config.Winter.Name .. " isn't running.")
+		return
+	end
+	local ev, day = winterOf(profile)
+	local snowName = Config.Winter.Snow.Name
+	if kind == "winLogin" then
+		local snow, n = Winter.login(ev, day)
+		if not snow then
+			return
+		end
+		local add = Winter.addSnow(ev, snow)
+		ProfileService.passXP(plr, profile, Config.Winter.Pass.XP.Login)
+		dirty[plr] = true
+		push(plr, string.format("%s, day %d: +%d %s.", Config.Winter.Name, n, add, snowName))
+	elseif kind == "winQuest" then
+		local snow = Winter.claimQuest(ev, a, day)
+		if not snow then
+			return
+		end
+		local add = Winter.addSnow(ev, snow)
+		ProfileService.passXP(plr, profile, Config.Winter.Pass.XP.Quest)
+		dirty[plr] = true
+		push(plr, string.format("Quest done: +%d %s.", add, snowName))
+	elseif kind == "winMission" then
+		local grant = Winter.claimMission(ev, a)
+		if not grant then
+			return
+		end
+		dirty[plr] = true
+		push(plr, "Mission done: " .. winterGrant(profile, ev, grant, plr) .. ".")
+		if grant.Skin then
+			ProfileService.winterRevealOf(plr, { Skin = grant.Skin }, "Quests")
+		end
+	elseif kind == "winShop" then
+		local row, why = Winter.buy(ev, a, function(k, key)
+			if k == "Skin" then
+				return Halloween.skinDuplicate(profile.skins, key)
+			end
+			return owns(profile, k, key)
+		end)
+		if not row then
+			local text = { limit = "Sold out: that's all of those for this event.", owned = "You have that already.", snow = "Not enough " .. snowName .. "." }
+			if text[why] then
+				push(plr, text[why])
+			end
+			return
+		end
+		if row.Grant then
+			winterGrant(profile, ev, row.Grant)
+		end
+		if row.Item then
+			profile.owned[row.Item.Kind][row.Item.Key] = true
+		end
+		if row.Skin then
+			winterGrant(profile, ev, { Skin = row.Skin }, plr)
+			ProfileService.winterRevealOf(plr, { Skin = row.Skin }, "Shop")
+		end
+		dirty[plr] = true
+		push(plr, row.Name .. " bought.")
+	elseif kind == "winSpin" then
+		winterSpin(plr, profile, ev, day, a)
+	elseif kind == "winAdvent" then
+		-- today's advent door, free
+		local r, why = Winter.adventFree(ev, a, os.time())
+		if not r then
+			push(plr, why == "open" and "That door is open already." or "That door isn't today's: open it with Robux, or wait for its day.")
+			return
+		end
+		dirty[plr] = true
+		push(plr, string.format("Door %d: %s!", a, passGrant(plr, profile, ev, r)))
+		ProfileService.winterRevealOf(plr, r, "Advent")
+	elseif kind == "winAdventPick" then
+		-- the door the next bought opening goes to (the client prompts the purchase after this)
+		adventPick[plr] = Winter.adventTarget(ev, a, os.time())
+	elseif kind == "winPass" then
+		-- a Winter Pass reward: a = the tier, or "all" (every one claimable now); b = the track
+		local list = {}
+		if a == "all" then
+			list = Winter.passClaimable(ev)
+		elseif type(a) == "number" and (b == "free" or b == "prem") then
+			list = { { tier = a, track = b } }
+		end
+		local said = {}
+		for _, c in ipairs(list) do
+			local r, why = Winter.claimPass(ev, c.tier, c.track)
+			if r then
+				table.insert(said, passGrant(plr, profile, ev, r))
+			elseif a ~= "all" then
+				local text = { tier = "Reach that tier first.", locked = "That's on the premium track: unlock the " .. Config.Winter.Pass.Name .. ".", claimed = "Claimed already." }
+				if text[why] then
+					push(plr, text[why])
+				end
+			end
+		end
+		if #said > 0 then
+			dirty[plr] = true
+			push(plr, table.concat(said, ", ") .. ".")
+		end
+	end
+end
+
 -- A skin onto one of your characters for good ("apply"), or switched "on" / "off" there (swapped
 -- at will from the character's page, The Spike's way: "on" applies a free copy first).
 local function skinRequest(plr, profile, op, charId, key)
@@ -2414,7 +2914,7 @@ local function skinRequest(plr, profile, op, charId, key)
 	end
 	local name = Config.Halloween.Skins[key].Name
 	if not ok then
-		local text = { none = "No " .. name .. " copy: get it on the Halloween banner.", applied = name .. " is on " .. c.Name .. " already.", notApplied = "Apply a " .. name .. " copy to " .. c.Name .. " first.", wrongChar = name .. " is " .. Halloween.skinCharNames(key) .. "'s skin." }
+		local text = { none = "No " .. name .. " copy: " .. (Config.Halloween.Skins[key].Limited == "Winter" and ("it's from the " .. Winter.skinWay(key) .. ".") or "get it on the Halloween banner."), applied = name .. " is on " .. c.Name .. " already.", notApplied = "Apply a " .. name .. " copy to " .. c.Name .. " first.", wrongChar = name .. " is " .. Halloween.skinCharNames(key) .. "'s skin." }
 		push(plr, text[why] or "Can't do that.")
 		return
 	end
@@ -2477,6 +2977,45 @@ end
 
 -- A pack's grant added to a profile (VP, Gold, lucky spins, a boost's time). Returns what it was
 -- before, for `unapplyPack`.
+-- What a pack does beyond its grant: the Winter Pass's premium track, Snowflakes, tier skips, an
+-- advent door. Returns a line to tell the buyer, or nil.
+function ProfileService.packExtras(profile, entry, plr)
+	-- an advent door bought: the one picked, else the earliest still shut (not today's: that's free)
+	if entry and entry.pack.Advent then
+		local ev = winterOf(profile)
+		local door, r = Winter.adventBuy(ev, plr and adventPick[plr], os.time())
+		if plr then
+			adventPick[plr] = nil
+		end
+		if door then
+			local said = string.format("Door %d opened: %s", door, passGrant(plr, profile, ev, r))
+			if plr then
+				task.defer(ProfileService.winterRevealOf, plr, r, "Advent")
+			end
+			return said
+		end
+		-- every door open already: its worth in Snowflakes, never lost
+		return string.format("Every door is open: +%d %s instead", Winter.addSnow(ev, Config.Winter.Advent.Refund), Config.Winter.Snow.Name)
+	end
+	if entry and entry.pack.WinterPass then
+		profile.winter = type(profile.winter) == "table" and type(profile.winter.quests) == "table" and profile.winter or Winter.clean(profile.winter)
+		profile.winter.pass = type(profile.winter.pass) == "table" and profile.winter.pass or { xp = 0, free = {}, prem = {} }
+		profile.winter.pass.premium = true
+	end
+	-- Snowflakes for Robux: into the event's save (never doubled by the event currency pass)
+	local snow = entry and tonumber(entry.pack.Snow)
+	if snow and snow > 0 then
+		profile.winter = type(profile.winter) == "table" and type(profile.winter.quests) == "table" and profile.winter or Winter.clean(profile.winter)
+		Winter.addSnow(profile.winter, snow)
+	end
+	-- a tier skip: that many tiers' worth of pass XP (up to the last tier)
+	local skip = entry and tonumber(entry.pack.PassTiers)
+	if skip and skip > 0 then
+		profile.winter = type(profile.winter) == "table" and type(profile.winter.quests) == "table" and profile.winter or Winter.clean(profile.winter)
+		Winter.addPassXP(profile.winter, skip * Config.Winter.Pass.TierXP)
+	end
+end
+
 local function applyPack(profile, g)
 	local before = { vp = profile.vp, gold = profile.gold, lucky = profile.lucky, boostVP = profile.boosts.VP, boosts = table.clone(profile.boosts) }
 	Economy.apply(profile, g, os.time())
@@ -2825,6 +3364,32 @@ local function onRequest(plr, kind, a, b, c)
 			dirty[plr] = true
 			push(plr)
 		end
+	elseif kind == "watchAd" then
+		-- a rewarded video ad (Config.Boosts.AdPacks): Roblox grants the product when it finishes
+		ProfileService.adAt = ProfileService.adAt or {}
+		local pack = Config.Boosts.AdPacks[1]
+		local last = ProfileService.adAt[plr.UserId] or 0
+		if not pack or pack.Id == 0 then
+			push(plr, "No ad right now.")
+			return
+		end
+		if os.time() - last < Config.Boosts.AdGap then
+			push(plr, "Next ad in " .. (Config.Boosts.AdGap - (os.time() - last)) .. "s.")
+			return
+		end
+		ProfileService.adAt[plr.UserId] = os.time()
+		task.spawn(function()
+			local AdService = game:GetService("AdService")
+			local ok, result = pcall(function()
+				return AdService:ShowRewardedVideoAdAsync(plr, AdService:CreateAdRewardFromDevProductId(pack.Id))
+			end)
+			if ok and result == Enum.ShowAdResult.ShowCompleted then
+				push(plr, "Thanks for watching! 2x Luck for 10 minutes.")
+			else
+				ProfileService.adAt[plr.UserId] = nil
+				push(plr, ok and "The ad didn't finish, so no reward this time." or "No ad right now. Try again later!")
+			end
+		end)
 	elseif kind == "discordCode" or kind == "discordVerify" then
 		-- the Discord (Config.Discord): a code to send the bot, then Verify reads what it wrote
 		if profile.discordDone or not verifyStore or discordBusy[plr] then
@@ -2904,6 +3469,8 @@ local function onRequest(plr, kind, a, b, c)
 			dirty[plr] = true
 			push(plr, Spins.item("Char", a).Name .. " is your lucky pity pick.")
 		end
+	elseif kind == "missionCheckin" or kind == "missionClaim" or kind == "masteryClaim" then
+		ProfileService.missionRequest(plr, kind, a)
 	elseif kind == "code" or kind == "daily" or kind == "gift" or kind == "group" then
 		-- each asks Roblox (the group, a username), so they're spaced out and run on their own
 		if lastClaim[plr] and now - lastClaim[plr] < 1.5 then
@@ -3039,6 +3606,8 @@ local function onRequest(plr, kind, a, b, c)
 			applyCosmetics(plr, profile)
 		end
 		push(plr)
+	elseif kind == "winLogin" or kind == "winQuest" or kind == "winMission" or kind == "winShop" or kind == "winSpin" or kind == "winPass" or kind == "winAdvent" or kind == "winAdventPick" then
+		winterRequest(plr, profile, kind, a, b)
 	elseif kind == "hwSpin" then
 		eventSpin(plr, profile, a, b == "Candy" and "Candy" or "VP")
 	elseif kind == "hwScout" then
@@ -3195,8 +3764,9 @@ local function onRequest(plr, kind, a, b, c)
 			if entry.pack.Once then
 				profile.bundles[entry.pack.Name] = true
 			end
+			local said = ProfileService.packExtras(profile, entry, plr)
 			dirty[plr] = true
-			push(plr, Economy.describe(g) .. " (free in Studio)")
+			push(plr, said and (said .. " (free in Studio)") or (entry.pack.WinterPass and (entry.pack.Name .. " unlocked") or (entry.pack.PassTiers and (Config.Winter.Pass.Name .. ": " .. entry.pack.Name)) or (entry.pack.Snow and ("+" .. entry.pack.Name)) or Economy.describe(g)) .. " (free in Studio)")
 		end
 	end
 end
@@ -3221,11 +3791,12 @@ local function processReceipt(info)
 			return Enum.ProductPurchaseDecision.PurchaseGranted
 		end
 	end
-	local g = Economy.packGrant(entry)
 	local gift = pendingGift[plr]
 	if gift and (gift.productId ~= info.ProductId or os.clock() - gift.t > Config.Gifts.PendingSeconds) then
 		gift = nil
 	end
+	-- (a gift carries what the pack does beyond its grant too: the Winter Pass, skips, Snowflakes)
+	local g = gift and Economy.giftGrant(entry) or Economy.packGrant(entry)
 	if gift then
 		local sent = ProfileService.giveUser(gift.userId, g, plr.DisplayName, nil, "gift:" .. id)
 		if not sent then
@@ -3233,6 +3804,14 @@ local function processReceipt(info)
 		end
 	end
 	local before = not gift and applyPack(profile, g) or nil
+	-- (the Winter Pass as it was: a tier skip's XP is taken back too if the save fails)
+	local passWas = not gift and type(profile.winter) == "table" and type(profile.winter.pass) == "table" and table.clone(profile.winter.pass) or nil
+	local snowWas = not gift and type(profile.winter) == "table" and profile.winter.snow or nil
+	local adventWas = not gift and type(profile.winter) == "table" and profile.winter.advent or nil
+	local said = nil
+	if not gift then
+		said = ProfileService.packExtras(profile, entry, plr)
+	end
 	if not gift and (#(g.Passes or {}) > 0 or #(g.Perks or {}) > 0) then
 		refreshPassesOf(profile)
 	end
@@ -3253,6 +3832,15 @@ local function processReceipt(info)
 		if before then
 			unapplyPack(profile, before)
 		end
+		if passWas and type(profile.winter) == "table" then
+			profile.winter.pass = passWas
+		end
+		if snowWas and type(profile.winter) == "table" then
+			profile.winter.snow = snowWas
+		end
+		if adventWas and type(profile.winter) == "table" then
+			profile.winter.advent = adventWas
+		end
 		if once then
 			profile.bundles[entry.pack.Name] = nil
 		end
@@ -3267,7 +3855,8 @@ local function processReceipt(info)
 	if gift then
 		push(plr, string.format("Gift sent: %s for %s. Thanks for the support!", entry.pack.Name, gift.name))
 	else
-		push(plr, Economy.describe(g) .. ". Thanks for the support!")
+		local words = Economy.describe(g)
+		push(plr, (said or (words ~= "" and words) or entry.pack.Name) .. ". Thanks for the support!")
 	end
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
@@ -3299,6 +3888,7 @@ function ProfileService.init(r)
 			ProfileService.checkCards(plr, true)
 			ProfileService.applyActive(plr)
 			push(plr)
+			task.spawn(ProfileService.settleWinterBoard, plr)
 			-- in the group? (for daily rewards and codes); then any gifts waiting in their mail
 			task.spawn(function()
 				inGroup(plr, false)
@@ -3514,6 +4104,14 @@ function ProfileService.init(r)
 		end
 	end)
 	Net.get("Profile").OnServerEvent:Connect(onRequest)
+end
+
+-- The Fresh Start's notice (load runs FreshStart): what happened, and the Veteran card.
+function ProfileService.freshNotice(plr, did)
+	if plr.Parent and profiles[plr] then
+		local card = Cards.get(did.card)
+		push(plr, string.format("Fresh Start! Characters and cosmetics start over. Thanks for being here before: you're %s%s.", card and card.Name or "a Veteran", did.lucky > 0 and string.format(" (+%d Lucky spins)", did.lucky) or ""))
+	end
 end
 
 return ProfileService

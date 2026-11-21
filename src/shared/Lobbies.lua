@@ -24,6 +24,8 @@ local Cups = require(script.Parent.Cups)
 local Halloween = require(script.Parent.Halloween)
 local Roster = require(script.Parent.Roster)
 local Mutators = require(script.Parent.Mutators)
+local Story = require(script.Parent.Story)
+local Winter = require(script.Parent.Winter)
 
 local Lobbies = {}
 local L = Config.Lobby
@@ -127,7 +129,7 @@ end
 -- Whether this lobby takes picks: a custom lobby (not Quick Match, a tournament, a Halloween Match
 -- or practice).
 function Lobbies.canPick(l)
-	return not l.quick and not l.cup and not l.event and not l.practice and not l.tutorial
+	return not l.quick and not l.cup and not l.event and not l.practice and not l.tutorial and not l.story and not l.winter
 end
 
 -- The host sets one spot (id "" or nil for a random bot). Returns whether it changed anything.
@@ -156,6 +158,14 @@ end
 -- players on it (players fill a side from the top, so a player joining covers that spot's pick).
 function Lobbies.botPicks(l)
 	local out = { Home = {}, Away = {} }
+	if l.story then
+		-- a story stage's own teams: your teammates and the other side (Story.picks)
+		return Story.picks(Story.stage(l.story.key))
+	end
+	if l.winter then
+		-- a Winter Match: Jaja and the rival of the day it was made across the net (Winter.picks)
+		return Winter.picks(l.winter.rival, l.winter.diff)
+	end
 	if not Lobbies.canPick(l) or not l.picks then
 		return out
 	end
@@ -424,6 +434,8 @@ function Lobbies.summary(l, viewerId)
 		hostName = l.hostName,
 		cup = l.cup and { key = l.cup.key, name = l.cup.name, round = l.cup.round } or nil,
 		event = l.event and { diff = l.event.diff, stage = l.event.stage } or nil,
+		story = l.story and l.story.key or nil,
+		winter = l.winter and l.winter.diff or nil,
 		mode = l.mode,
 		privacy = l.privacy,
 		locked = l.privacy == "Private",
@@ -477,7 +489,7 @@ end
 
 -- The lobby as plain data for a teleport to its own server.
 function Lobbies.export(l)
-	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, mutators = l.mutators, host = l.host, hostName = l.hostName, quick = l.quick == true, ranked = l.ranked == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, event = Lobbies.exportEvent(l.event), picks = l.picks, Home = {}, Away = {} }
+	local out = { mode = l.mode, privacy = l.privacy, password = l.password, fill = l.fill, botTier = l.botTier, court = l.court, points = l.points, winBy = l.winBy, sets = l.sets, timeouts = l.timeouts, mutators = l.mutators, host = l.host, hostName = l.hostName, quick = l.quick == true, ranked = l.ranked == true, practice = l.practice == true, tutorial = l.tutorial == true, drill = l.drill, cup = l.cup and { key = l.cup.key, round = l.cup.round, mods = l.cup.mods } or nil, event = Lobbies.exportEvent(l.event), story = l.story and { key = l.story.key } or nil, winter = l.winter and { diff = l.winter.diff, rival = l.winter.rival } or nil, picks = l.picks, Home = {}, Away = {} }
 	for _, side in ipairs(SIDES) do
 		for _, u in ipairs(l[side]) do
 			table.insert(out[side], u)
@@ -521,6 +533,16 @@ function Lobbies.import(data, id)
 	-- a Halloween Match run (its hands and stage) too
 	l.event = Lobbies.importEvent(data.event)
 	if l.event then
+		l.hidden = true
+	end
+	-- a story stage too (the reward still checks the stage is open to that player: Story.record)
+	if type(data.story) == "table" and Story.isMatch(Story.stage(data.story.key)) then
+		l.story = { key = data.story.key }
+		l.hidden = true
+	end
+	-- a Winter Match too (what it pays is the arriving server's to work out: ProfileService.winterMatch)
+	if type(data.winter) == "table" and Winter.difficulty(data.winter.diff) then
+		l.winter = { diff = data.winter.diff, rival = Config.Winter.Rivals[tonumber(data.winter.rival) or 0] and tonumber(data.winter.rival) or nil }
 		l.hidden = true
 	end
 	l.expected = {}

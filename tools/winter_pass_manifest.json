@@ -1,0 +1,58 @@
+[
+ {
+  "old": 9990001,
+  "kind": "product",
+  "name": "Winter Pass",
+  "description": "Unlocks the Winter Pass's premium track for the Christmas event.",
+  "price": 399
+ },
+ {
+  "old": 9990002,
+  "kind": "product",
+  "name": "Winter Pass: Skip 1 Tier",
+  "description": "Jump the Winter Pass ahead by one tier.",
+  "price": 49
+ },
+ {
+  "old": 9990003,
+  "kind": "product",
+  "name": "Winter Pass: Skip 5 Tiers",
+  "description": "Jump the Winter Pass ahead by five tiers.",
+  "price": 199
+ },
+ {
+  "old": 9990004,
+  "kind": "product",
+  "name": "Winter Pass: Skip 10 Tiers",
+  "description": "Jump the Winter Pass ahead by ten tiers.",
+  "price": 349
+ },
+ {
+  "old": 9990005,
+  "kind": "product",
+  "name": "250 Snowflakes",
+  "description": "250 Snowflakes for the Winter event: recruits on the Wild Card banner and the Snowflake shop.",
+  "price": 99
+ },
+ {
+  "old": 9990006,
+  "kind": "product",
+  "name": "650 Snowflakes",
+  "description": "650 Snowflakes for the Winter event: recruits on the Wild Card banner and the Snowflake shop.",
+  "price": 199
+ },
+ {
+  "old": 9990007,
+  "kind": "product",
+  "name": "1,800 Snowflakes",
+  "description": "1,800 Snowflakes for the Winter event: recruits on the Wild Card banner and the Snowflake shop.",
+  "price": 449
+ },
+ {
+  "old": 9990008,
+  "kind": "product",
+  "name": "4,000 Snowflakes",
+  "description": "4,000 Snowflakes for the Winter event: recruits on the Wild Card banner and the Snowflake shop.",
+  "price": 899
+ }
+]

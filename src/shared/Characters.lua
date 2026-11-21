@@ -354,6 +354,30 @@ function Characters.jumpHeight(stats, groundY)
 	return math.max(1.5, stats.contactMaxStuds - standing - Characters.hangGain())
 end
 
+-- The roster characters a bot of `tier` may be in `role` ("Solo" plays a WS): the nearest tier's
+-- (within 2), every one alike; at the top level a setter or middle a tier or so under it counts as
+-- near as can be (Config.Bots.TopTierSpread). Never an event's own (Limited), nor one `skip(c)`.
+function Characters.botPool(roster, tier, role, skip)
+	local want = role == "Solo" and "WS" or role
+	local ti = Characters.tierIndex(tier) or 11
+	local spread = (ti >= #Config.Tiers and Config.Bots.TopTierSpread[want]) or 0
+	local best, bestD = {}, 3
+	for _, c in ipairs(roster) do
+		if c.Role == want and not c.Limited and not (skip and skip(c)) then
+			local d = math.abs((Characters.tierIndex(c.Tier) or 1) - ti)
+			if d <= spread then
+				d = 0
+			end
+			if d < bestD then
+				best, bestD = { c }, d
+			elseif d == bestD then
+				table.insert(best, c)
+			end
+		end
+	end
+	return best
+end
+
 -- Interpolate a {weakest, strongest} pair by tier (bot skill).
 function Characters.byTier(stats, pair)
 	return pair[1] + (pair[2] - pair[1]) * stats.p

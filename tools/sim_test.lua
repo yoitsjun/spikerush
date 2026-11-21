@@ -61,6 +61,10 @@ function require(name)
 end
 
 local Config = require("Config")
+-- (the Winter event's own character is on the roster only once the event is switched on: the
+-- suite tests him, so it switches the event on here, and keeps what the game ships with)
+local WINTER_SHIPPED = Config.Winter.Enabled
+Config.Winter.Enabled = true
 local BallPhysics = require("BallPhysics")
 local HitLogic = require("HitLogic")
 local Court = require("Court")
@@ -765,13 +769,13 @@ do
 		"admin gifts: breakthrough fragments by letter, checked and capped, added to the purse", fsaid)
 end
 
-print("== the Release code ==")
+print("== the FreshStart code ==")
 do
 	local Economy = require("Economy")
-	local g1, why1 = Economy.code("Release", os.time())
-	local g2 = Economy.code("  RELEASE ", os.time())
-	check(g1 ~= nil and why1 == nil and g2 ~= nil and g1.VP == 1500 and g1.Gold == 20000 and g1.Lucky == 5 and g1.BoostLuck == 30 * 60,
-		"the Release code reads as typed and gives 1,500 VP, 20,000 Gold, 5 lucky spins and 30 minutes of 2x Luck", g1 and Economy.describe(g1) or tostring(why1))
+	local g1, why1 = Economy.code("FreshStart", os.time())
+	local g2 = Economy.code("  fresh START ", os.time())
+	check(g1 ~= nil and why1 == nil and g2 ~= nil and g1.VP == 1500 and g1.Gold == 15000 and g1.Lucky == 5 and g1.BoostLuck == 30 * 60,
+		"the FreshStart code reads as typed and gives 1,500 VP, 15,000 Gold, 5 lucky spins and 30 minutes of 2x Luck", g1 and Economy.describe(g1) or tostring(why1))
 end
 
 print("== auto-sell per banner ==")
@@ -787,12 +791,12 @@ do
 		"auto-sell: per banner; an old save's setting stays on Characters only; only sellable rarities")
 end
 
-print("== the VolleyballRush code ==")
+print("== the old codes are gone ==")
 do
 	local Economy = require("Economy")
 	local g, why = Economy.code("VolleyballRush", os.time())
-	check(g ~= nil and g.VP == 1000 and g.Gold == 15000 and g.Lucky == 3,
-		"the VolleyballRush code gives 1,000 VP, 15,000 Gold and 3 lucky spins", g and Economy.describe(g) or tostring(why))
+	check(g == nil and why == "unknown" and Economy.code("Release", os.time()) == nil,
+		"Volleyball Rush's launch codes (VolleyballRush, Release) are gone with the Fresh Start", tostring(why))
 end
 
 print("== catching up to someone else's hit ==")
@@ -836,7 +840,7 @@ do
 	end
 	local g = Economy.cleanGrant(Config.Discord.Reward)
 	check(okAll and not Economy.isDiscordCode("ABC") and not Economy.isDiscordCode("abcdefg") and not Economy.isDiscordCode("ABCDEF0")
-		and g.Cards[1] == "Discord" and others == 0 and Economy.code("Release", os.time()) ~= nil,
+		and g.Cards[1] == "Discord" and others == 0 and Economy.code("FreshStart", os.time()) ~= nil,
 		"Discord: verification codes are clean, verifying gives the Discord Squad card, and no code does", Economy.describe(g))
 end
 
@@ -922,14 +926,14 @@ do
 			for _, item in ipairs(sec.Items) do
 				lines = lines + 1
 				okShape = okShape and type(item.Text) == "string" and #item.Text > 0
-				okIcons = okIcons and (item.Icon == nil or string.match(item.Icon, "^Ability%a+$") ~= nil or string.match(item.Icon, "^Rank%a+%d?$") ~= nil) -- (an ability icon or a rank badge)
+				okIcons = okIcons and (item.Icon == nil or string.match(item.Icon, "^Ability%a+$") ~= nil or string.match(item.Icon, "^Rank%a+%d?$") ~= nil or string.match(item.Icon, "^Icon%a+$") ~= nil) -- (an ability icon, a rank badge or an Icon image)
 			end
 		end
 	end
 	local g = PatchNotes.reward(latest)
-	check(latest ~= nil and latest.Title == "Welcome to Volleyball Rush" and okShape and okIcons and (g.Gold or 0) + (g.VP or 0) > 0 and (g.Gold or 0) <= 5000 and (g.VP or 0) <= 200 and (g.Lucky or 0) <= 1
-		and PatchNotes.reward({}) == PatchNotes.Reward and #PatchNotes.List == 1 and lines >= 30,
-		"patch notes: only Welcome to Volleyball Rush (the old ones purged), a full one, well formed, a small reading reward (its own, else the usual)",
+	check(latest ~= nil and PatchNotes.List[#PatchNotes.List].Title == "Welcome to Volleyball Rush" and okShape and okIcons and (g.Gold or 0) + (g.VP or 0) > 0 and (g.Gold or 0) <= 5000 and (g.VP or 0) <= 200 and (g.Lucky or 0) <= 1
+		and PatchNotes.reward({}) == PatchNotes.Reward and #PatchNotes.List >= 1 and lines >= 30,
+		"patch notes: Welcome to Volleyball Rush is the oldest (the old ones purged), newer ones on top, well formed, a small reading reward (its own, else the usual)",
 		string.format("%d patch(es), %d lines, reward %d Gold %d VP", #PatchNotes.List, lines, g.Gold or 0, g.VP or 0))
 end
 
@@ -982,6 +986,121 @@ do
 	check(not s0.meta.feather and sHalf.meta.feather == 0.5 and math.abs(sFull.meta.kmh / s0.meta.kmh - (1 + FF.MaxBoost)) < 0.01 and not other.meta.feather,
 		"Featherfall: the longer the set had fallen, the harder the spike, up to +30%",
 		string.format("%.0f met at the top, %.0f half way, %.0f after the whole fall (her real set falls %.2f s to the hitting height)", s0.meta.kmh, sHalf.meta.kmh, sFull.meta.kmh, fT - (feather.meta.featherTop or 0)))
+end
+
+print("== Enflamed Dragon (Kuro) ==")
+do
+	local ENFL = Config.Abilities.Enflamed
+	local kuro = Characters.derive(Characters.fromRoster(Roster.get("kuro"), "max"))
+	local function jump(gauge, extraCtx)
+		local c = { ability = "Enflamed", stats = kuro }
+		for k, v in pairs(extraCtx or {}) do c[k] = v end
+		local lift = Characters.studsAt(kuro.ContactMaxM + HitLogic.enflamedLift(gauge)) - kuro.contactMaxStuds
+		local r = apexRoot(kuro, 3.5 * K)
+		r = Vector3.new(r.X, r.Y + lift, r.Z)
+		local b = ballAt(r, Z.SpikeCenterDz, Z.SpikeCenterDy)
+		b = Vector3.new(b.X, kuro.contactMaxStuds + lift, b.Z)
+		return spike(r, b, c, { gauge = gauge, toward = true })
+	end
+	check(HitLogic.enflamedZone(0.3) == nil and HitLogic.enflamedZone(0.6) == "silver" and HitLogic.enflamedZone(0.85) == "gold" and HitLogic.enflamedZone(0.98) == "silver",
+		"the meter: nothing early, silver, gold, then silver again if held too long", "")
+	local _, plain = jump(0)
+	local _, silver = jump(0.6)
+	local _, gold = jump(0.85)
+	local _, inferno = jump(0.85, { infernoReady = true })
+	check(plain.meta.kmh > 141 and silver.meta.kmh > plain.meta.kmh + 10 and gold.meta.kmh > silver.meta.kmh + 15, "the higher he hits, the harder",
+		string.format("plain %.0f (%.2f m)  silver %.0f (%.2f m)  gold %.0f (%.2f m) km/h", plain.meta.kmh, plain.meta.height, silver.meta.kmh, silver.meta.height, gold.meta.kmh, gold.meta.height))
+	check(gold.meta.dragon and not silver.meta.dragon and not plain.meta.dragon, "only a gold jump reaches the Dragon Spike", string.format("gold at %.2f m", gold.meta.height))
+	check(inferno.meta.inferno and not gold.meta.inferno and inferno.meta.kmh > gold.meta.kmh, "Inferno needs its cooldown ready, and hits harder still", string.format("%.0f km/h", inferno.meta.kmh))
+	-- (the sheet's 300+ km/h is gone: under Bloodlust's overcharged 268, over a full Feral Leap's 220)
+	check(gold.meta.kmh >= 225 and inferno.meta.kmh <= 265, "a Dragon Spike tops a full Feral Leap but stays under an overcharged one", string.format("%.0f / %.0f km/h", gold.meta.kmh, inferno.meta.kmh))
+	local path = BallPhysics.buildPath(gold.launch)
+	check(Court.inBounds(path.landing.pos), "a Dragon Spike lands in", describe(path))
+	local function take(burning)
+		local c = { ability = nil, stats = SP, stamina = { value = 60, max = 100 }, touchNumber = 1, lastHit = { hitType = "Spike", team = "Home", kmh = 240, inferno = burning } }
+		local rroot = vec(0, GROUND, side * 4 * SPM)
+		return HitLogic.compute({ action = "Bump", t = 1, root = rroot, ball = rroot + vec(0, Z.ReceiveIdealY, 0), vy = -30, grounded = true }, ctx(c))
+	end
+	local _, burnt = take(true)
+	check(burnt and burnt.meta.grade == "BROKEN", "Inferno: receiving it breaks the guard at once", tostring(burnt and burnt.meta.grade))
+	-- the meter on his jump serve: the gold jump lifts it, the flames and the dragon come with it, but
+	-- never the Inferno (a serve can't break the guard before the rally starts)
+	do
+		local sRoot = apexRoot(kuro, 3.5 * K)
+		local sBall = ballAt(sRoot, Z.SpikeCenterDz, Z.SpikeCenterDy)
+		local function jumpServe(gauge)
+			local top = Characters.studsAt(kuro.ContactMaxM + HitLogic.enflamedLift(gauge)) - kuro.contactMaxStuds
+			local r = sRoot + Vector3.new(0, top, 0)
+			local b = sBall + Vector3.new(0, top, 0)
+			local input = { action = "Serve", t = 0, root = r, ball = b, vy = 0, grounded = false, gauge = gauge }
+			return HitLogic.compute(input, ctx({ ability = "Enflamed", stats = kuro, infernoReady = true, phase = "Serving", tossed = true }))
+		end
+		local okA, plainServe = jumpServe(0)
+		local okB, goldServe = jumpServe(0.85)
+		check(okA and okB and goldServe.meta.hitType == "JumpServe" and goldServe.meta.kmh > plainServe.meta.kmh * 1.1 and goldServe.meta.flame and not goldServe.meta.inferno,
+			"Kuro's meter works on his jump serve: gold goes harder, in flames, and never an Inferno", string.format("%.0f vs %.0f km/h%s", okB and goldServe.meta.kmh or 0, okA and plainServe.meta.kmh or 0, (okB and goldServe.meta.dragon) and " (dragon)" or ""))
+	end
+	local guarded = HitLogic.effectiveStats(kuro, "Enflamed", nil, {})
+	local lo, hi = HitLogic.perfectStance({ ability = "Enflamed", stats = kuro })
+	local lo0, hi0 = HitLogic.perfectStance({ ability = "Feral", stats = kuro })
+	check(guarded.Defense == kuro.Defense + ENFL.GuardDefense and hi - lo > hi0 - lo0 and HitLogic.spikeReach("Enflamed") == ENFL.ReachMul,
+		"Conditioned Player: a stronger guard, a wider perfect receive, a bigger spike hitbox", string.format("Defense %d", guarded.Defense))
+end
+
+print("== Falling Star (Byeol) ==")
+do
+	local FS = Config.Abilities.FallingStar
+	local byeol = Characters.derive(Characters.fromRoster(Roster.get("byeol"), "max"))
+	local sroot = vec(0, GROUND, side * 2.0 * SPM)
+	local sball = vec(0, GROUND + Z.SetIdealY, side * 2.0 * SPM)
+	local function set(on, setType)
+		return HitLogic.compute({ action = "Set", t = 0, root = sroot, ball = sball, vy = 0, grounded = true, setType = setType or "Open" },
+			ctx({ ability = "FallingStar", stats = byeol, touchNumber = 2, seq = 5, starOn = on }))
+	end
+	local okP, plain = set(nil)
+	local okS, star = set(true)
+	local okQ, quick = set(true, "Quick")
+	check(okP and okS and okQ and star.meta.starSet and not plain.meta.starSet and not quick.meta.starSet, "only Q's window makes a Falling Star, and quicks stay quick", "")
+	local path = BallPhysics.buildPath(star.launch)
+	local top = BallPhysics.positionAt(path, star.meta.starFrom)
+	local down = BallPhysics.positionAt(path, star.meta.starTo - FS.LitGrace)
+	local plainPath = BallPhysics.buildPath(plain.launch)
+	local window = star.meta.starTo - star.meta.starFrom
+	check(math.abs(BallPhysics.velocityAt(path, star.meta.starFrom).Y) < 1 and math.abs(down.Y - H.SetArriveY) < 0.5 and down.Z * side > 0 and not path.flags.netTouch and window > 0.8 and window < 1.6,
+		"it hangs: the star lights at the top and burns all the way down to the hitting height", string.format("top %.1f studs, burns %.2f s, down at z %.1f", top.Y, window, down.Z))
+	local root = apexRoot(SP, 3.5 * K)
+	local b = ballAt(root, Z.SpikeCenterDz, Z.SpikeCenterDy)
+	local function hit(at, extra)
+		local c = { lastHit = { starSet = true, starFrom = star.meta.starFrom, starTo = star.meta.starTo, team = "Away", hitType = "Set" } }
+		for k, v in pairs(extra or {}) do c[k] = v end
+		return spike(root, b, c, { t = at })
+	end
+	local okEarly, early = hit(star.meta.starFrom - 0.2)
+	local okBot, bot = hit(star.meta.starFrom - 0.2, { auto = true })
+	local okLit, lit = hit(star.meta.starFrom + 0.3)
+	local okLate, late = hit(star.meta.starTo + 0.2)
+	local _, base = spike(root, b, nil, { t = star.meta.starFrom + 0.3 })
+	check(okEarly and not early.meta.starHit and not early.meta.starLate and math.abs(early.meta.kmh / base.meta.kmh - 1) < 0.01, "before the star lights: a plain spike, no boost and no penalty", string.format("%.0f km/h", okEarly and early.meta.kmh or 0))
+	check(okBot and bot.meta.starHit, "the AI's timing stands", "")
+	check(okLit and lit.meta.starHit and math.abs(lit.meta.kmh / base.meta.kmh - (1 + FS.StarBoost)) < 0.01, "met while it burns: harder by StarBoost", string.format("%.0f vs %.0f km/h", lit.meta.kmh, base.meta.kmh))
+	check(okLate and late.meta.starLate and not late.meta.starHit and math.abs(late.meta.kmh / base.meta.kmh - 1) < 0.01, "late: no boost, and it reads as late", string.format("%.0f km/h", late.meta.kmh))
+	local fair = HitLogic.effectiveStats(SP, nil, nil, {})
+	local starlit = HitLogic.effectiveStats(SP, nil, nil, { starlit = true })
+	check(starlit.Attack == fair.Attack + FS.StarlitAdd.Attack and starlit.Jump == fair.Jump + FS.StarlitAdd.Jump, "Starlit: the hitter's stats go up", string.format("Attack %d", starlit.Attack))
+	check(plainPath ~= nil and Roster.get("byeol").Ability == "FallingStar" and Roster.get("byeol").Tier == "S" and Roster.get("byeol").Role == "SE", "Byeol's an S setter", "")
+
+	-- Moods: the stats each one moves, what brings them on, and who's prone to it
+	local MO = Config.Moods
+	local up = HitLogic.effectiveStats(SP, nil, nil, { mood = "Encouraged" })
+	local mad = HitLogic.effectiveStats(SP, nil, nil, { mood = "Anger" })
+	local lax = HitLogic.effectiveStats(SP, nil, nil, { mood = "Careless" })
+	check(up.Attack == fair.Attack + 5 and up.Jump == fair.Jump + 5 and up.Defense == fair.Defense + 5 and up.Speed == fair.Speed + 5, "Encouraged: every stat up", "")
+	check(mad.Attack > fair.Attack and mad.Speed > fair.Speed and mad.Defense < fair.Defense and mad.Jump < fair.Jump, "Anger: Attack and Speed up, Defense and Jump down", string.format("Attack %d, Jump %d", mad.Attack, mad.Jump))
+	check(lax.Defense < fair.Defense and lax.Speed < fair.Speed and lax.Attack == fair.Attack and lax.Jump == fair.Jump, "Careless: Speed and Defense down, nothing else", "")
+	check(HitLogic.moodAfter("Ace", 0.1) == "Encouraged" and HitLogic.moodAfter("Ace", 0.6) == "Anger" and HitLogic.moodAfter("Ace", 0.9) == nil and HitLogic.moodAfter("Fail", 0.1) == "Discouraged" and HitLogic.moodAfter("Fail", 0.4) == "Anger" and HitLogic.moodAfter("Fail", 0.6) == nil,
+		"a point's mood: an ace Encourages or angers, a failed attack Discourages or angers", "")
+	check(HitLogic.moodAfter("Fail", 0.55, "kuro") == "Anger" and HitLogic.moodAfter("Fail", 0.55) == nil, "Kuro's quicker to anger", "")
+	check(HitLogic.moodIdle(4) == 0 and HitLogic.moodIdle(5) == MO.CarelessChance and HitLogic.moodIdle(8) > HitLogic.moodIdle(6) and HitLogic.moodIdle(40) <= 0.8, "Careless: from 5 points without a touch, likelier the longer it goes", string.format("%.2f at 8", HitLogic.moodIdle(8)))
 end
 
 print("== Feral Leap (Dante) ==")
@@ -1188,7 +1307,7 @@ do
 	local want = {
 		WS = { Adrenaline = true, RisingSun = true, Counter = true, Plunge = true, Skyward = true, TigerClaw = true },
 		MB = { IronWall = true, RallyCry = true, Sunshine = true, Fever = true },
-		SE = { ChainReaction = true, Vector = true, Turnabout = true, Featherfall = true },
+		SE = { ChainReaction = true, Vector = true, Turnabout = true, Featherfall = true, FallingStar = true },
 	}
 	for _, c in ipairs(Roster) do
 		okLimits = okLimits and not ids[c.Id] and Characters.isTier(c.Tier) and Config.RoleTemplates[c.Role] ~= nil
@@ -1197,7 +1316,7 @@ do
 			okLimits = okLimits and c[k] >= Config.Stats.Min and c[k] <= Config.Stats.Max
 		end
 		if c.Tier == "S+" then
-			okAbility = okAbility and ((c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "ZeroPoint" or c.Ability == "Corona" or c.Ability == "Squall"))
+			okAbility = okAbility and ((c.Role == "WS" and (c.Ability == "Thunder" or c.Ability == "Azure" or c.Ability == "Feral" or c.Ability == "Enflamed" or c.Ability == "ZeroPoint" or c.Ability == "Corona" or c.Ability == "Squall" or c.Ability == "Joker"))
 				or (c.Role == "MB" and c.Ability == "Ironclad") or (c.Role == "SE" and c.Ability == "Tyrant"))
 		elseif c.Tier == "S" then
 			okAbility = okAbility and want[c.Role][c.Ability or ""] == true and Config.Abilities[c.Ability].Role == c.Role
@@ -1207,7 +1326,7 @@ do
 		if c.Role == "WS" then
 			-- 210 Attack tops the wing spikers' template (Dante, Feral Leap, is above it); 190 Jump (Seora,
 			-- Skyward, is above it: her climb moves her hitting point)
-			okShape = okShape and (c.Attack <= 210 or c.Ability == "Feral") and (c.Jump <= 190 or c.Ability == "Skyward") and c.Attack > c.Defense
+			okShape = okShape and (c.Attack <= 210 or c.Ability == "Feral") and (c.Jump <= 190 or c.Ability == "Skyward" or c.Ability == "Enflamed") and c.Attack > c.Defense
 		elseif c.Role == "SE" then
 			okShape = okShape and c.Speed > c.Attack and c.Defense > c.Jump
 			tallestSE = math.max(tallestSE, c.Height)
@@ -2311,7 +2430,7 @@ do
 	local L = clean.hudLayout
 	check(L.Score.x == 0.1 and L.Score.y == -0.05 and L.Score.size == 1.2
 		and L.Chat.x == H.MaxShift and L.Chat.y == -H.MaxShift and L.Chat.size == H.MaxSize
-		and L.Forfeit == nil and L.Bogus == nil and #H.Pieces == 10,
+		and L.Forfeit == nil and L.Bogus == nil and #H.Pieces == 11,
 		"HUD pieces save their shift and size (clamped, no NaN, known pieces only)")
 	local button = {}
 	for _, name in ipairs(Config.Settings.Touch.Buttons) do
@@ -2426,7 +2545,7 @@ print("== leaderboards ==")
 do
 	local Leaderboards = require("Leaderboards")
 	local v = Leaderboards.valuesOf({ bestStreak = 4, record = { wins = 12, kills = 140, aces = 9, blocks = -3 }, spent = { robux = 897, gifts = 399 } })
-	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and v.robux == 897 and v.gifts == 399 and #Leaderboards.Boards == 10 and v.winRate == 0 and v.playTime == 0,
+	check(v.wins == 12 and v.bestStreak == 4 and v.kills == 140 and v.aces == 9 and v.blocks == 0 and v.robux == 897 and v.gifts == 399 and #Leaderboards.Boards == (WINTER_SHIPPED and 11 or 10) and v.winRate == 0 and v.playTime == 0,
 		"nine boards: wins, best win streak, spike kills, aces and blocks from the career counters, Robux spent and gifted, the W/L ratio (none before 20 matches) and playtime")
 	-- the W/L ratio board: one number that sorts by the share won, then the wins, and keeps both
 	local wr = Leaderboards.valuesOf({ record = { wins = 120, matches = 194 } }).winRate
@@ -2484,12 +2603,12 @@ end
 print("== codes, lucky spins, daily rewards, gifts and events ==")
 do
 	local Economy = require("Economy")
-	-- codes: any case and spacing, VOLLEYBALLRUSH pays, Spike Rush's old ones (UPDATE2) and unknown ones don't
-	local g, why, key = Economy.code("  VolleyBall Rush ", 100)
+	-- codes: any case and spacing, FRESHSTART pays, Spike Rush's old ones (HolyS+) and unknown ones don't
+	local g, why, key = Economy.code("  Fresh Start ", 100)
 	local none, noneWhy = Economy.code("nope", 100)
-	local old = Economy.code("update2", 100)
-	check(g ~= nil and key == "volleyballrush" and g.VP > 0 and g.Gold > 0 and g.Lucky >= 1 and none == nil and noneWhy == "unknown" and old == nil,
-		"the VOLLEYBALLRUSH code works typed any way and pays VP, Gold and a lucky spin; old Spike Rush codes and unknown ones pay nothing", g and Economy.describe(g) or tostring(why))
+	local old = Economy.code("HolyS+", 100)
+	check(g ~= nil and key == "freshstart" and g.VP > 0 and g.Gold > 0 and g.Lucky >= 1 and none == nil and noneWhy == "unknown" and old == nil,
+		"the FRESHSTART code works typed any way and pays VP, Gold and a lucky spin; old Spike Rush codes and unknown ones pay nothing", g and Economy.describe(g) or tostring(why))
 	-- a grant is made safe: no negatives, caps, real characters only, each once
 	local clean = Economy.cleanGrant({ VP = -50, Gold = 1e12, Lucky = 2.7, Chars = { "dante", "dante", "nobody", 5 } })
 	check(clean.VP == 0 and clean.Gold == Config.Admin.GiveMax.Gold and clean.Lucky == 2 and #clean.Chars == 1 and clean.Chars[1] == "dante",
@@ -2542,6 +2661,27 @@ do
 	end
 	check(muls[2] and muls[4] and muls[6] and muls[8] and muls[16] and hasDefault and named and Economy.isEvent("VP") and Economy.isEvent("Gold") and Economy.isEvent("Luck"),
 		"the admin panel's VP, Gold and Luck events each pick 2x, 4x, 6x, 8x or 16x")
+	-- admin abuse luck up to 128x (the owner, 2026-11-07: "add up to 128x luck", "admin abuse only"): the odds
+	-- still add up to 100 with nothing below zero, even stacked with a 16x boost and the Lucky pass
+	local lm = {}
+	for _, m in ipairs(Config.Admin.LuckMuls) do
+		lm[m] = true
+	end
+	local function sane(w)
+		local sum, ok = 0, true
+		for _, v in pairs(w) do
+			sum = sum + v
+			ok = ok and v >= 0
+		end
+		return ok and math.abs(sum - 100) < 1e-6
+	end
+	local w128, wStack = Spins.luckWeights(128), Spins.luckWeights(128 * 16 * 2)
+	local shopMax = 0
+	for _, m in ipairs(Config.Boosts.LuckTiers) do
+		shopMax = math.max(shopMax, m)
+	end
+	check(lm[32] and lm[64] and lm[128] and shopMax == 16 and sane(w128) and sane(wStack) and w128.Mythic > Spins.luckWeights(16).Mythic,
+		"admin abuse Luck goes to 32x, 64x and 128x (the Shop stays at 16x), and the odds stay whole", string.format("128x: Mythic %.2f%%, Legendary %.2f%%", w128.Mythic, w128.Legendary))
 	-- every pack sold for Robux can be looked up by its product and gifted as what it sells
 	local vp1, gold4, lucky2 = Economy.pack("VP", 1), Economy.pack("Gold", 4), Economy.pack("Lucky", 2)
 	local byId = Economy.packByProduct(Config.Shop.Packs[1].Id)
@@ -2914,8 +3054,11 @@ do
 	local worst, worstName = math.huge, ""
 	for _, c in ipairs(Roster) do
 		local st = Characters.derive(Characters.fromRoster(c, nil))
-		local top = GROUND + Characters.jumpHeight(st, GROUND) + Characters.hangGain() + Z.BlockReachUp
-		local room = top - PRc.BlockReachMargin - (Config.Court.NetTop + PRc.BlockAboveNet)
+		-- (the full block jump is Config.Player.BlockFullHeight of the whole one; the spike leaves the
+		-- hand BlockReachMargin under its top, never under BlockAboveNet over the tape)
+		local top = GROUND + Characters.jumpHeight(st, GROUND) * Config.Player.BlockFullHeight + Characters.hangGain() + Z.BlockReachUp
+		local y = math.max(top - PRc.BlockReachMargin, Config.Court.NetTop + PRc.BlockAboveNet)
+		local room = top - y
 		if room < worst then
 			worst, worstName = room, c.Name
 		end
@@ -3044,31 +3187,44 @@ do
 		"the gift tracker counts each admin's gifts and totals, keeps their latest, and drops junk", amy.c .. " gifts")
 end
 
-print("== the adminabuse code ==")
+print("== 2x boosts from a grant ==")
 do
-	-- the owner (2026-10-31): "make a code called adminabuse where it just gives 2x buffs for
-	-- everything": 2x VP, Gold, Luck and the event currency, each on its own clock
+	-- (once the adminabuse code, cut with the Fresh Start): a grant of 2x VP, Gold, Luck and the
+	-- event currency, each on its own clock
 	local Economy = require("Economy")
-	local g = Economy.code("Admin Abuse", 1000)
+	local g = Economy.cleanGrant({ BoostVP = 30 * 60, BoostGold = 30 * 60, BoostLuck = 30 * 60, BoostCur = 30 * 60 })
 	local prof = { boosts = {} }
 	Economy.apply(prof, g, 1000)
 	local said = Economy.describe(g)
 	check(g ~= nil and not Economy.isEmpty(g) and Economy.boost(prof, "VP", 1001) == 2 and Economy.boost(prof, "Gold", 1001) == 2 and Economy.boost(prof, "Cur", 1001) == 2
-		and Economy.luckBoost(prof, 1001) == 2 and Economy.boost(prof, "Gold", 1000 + 30 * 60 + 1) == 1 and string.find(said, "2x Gold", 1, true) and string.find(said, "2x Candy", 1, true),
-		"adminabuse: 2x VP, Gold, Luck and the event currency for 30 minutes", said)
+		and Economy.luckBoost(prof, 1001) == 2 and Economy.boost(prof, "Gold", 1000 + 30 * 60 + 1) == 1 and string.find(said, "2x Gold", 1, true) and string.find(said, "2x " .. Config.EventCurrency[Config.EventCurrency.Active].Name, 1, true),
+		"boosts: 2x VP, Gold, Luck and the event currency for 30 minutes", said)
 end
 
 print("== codes ==")
 do
 	local Economy = require("Economy")
-	local g1 = Economy.code(" Release ")
-	local g0 = Economy.code("VOLLEYBALLRUSH")
-	local n = 0
-	for _ in pairs(Config.Codes) do
-		n = n + 1
+	local g1 = Economy.code(" FreshStart ")
+	check(Config.Developers.TestGame ~= 10773415799, "the testers' everything-free experience is never the live game", tostring(Config.Developers.TestGame))
+	-- the admin panel's game passes: real ones only, and a perk alone is still something to give
+	local given = Economy.cleanGrant({ Passes = { "VIP", "Nope" }, Perks = { "ScoreSound", "Nope" } })
+	check(#given.Passes == 1 and #given.Perks == 1 and not Economy.isEmpty(Economy.cleanGrant({ Perks = { "ScoreImage" } })) and string.find(Economy.describe(given), "Custom sound effects", 1, true) ~= nil,
+		"the admin panel gives game passes and perks", Economy.describe(given))
+	-- (the Winter collab's three, the owner, 2026-11-18: "3 codes is fine", work only while it runs)
+	local n, eventCodes = 0, 0
+	for _, def in pairs(Config.Codes) do
+		if def.Event then
+			eventCodes = eventCodes + 1
+		else
+			n = n + 1
+		end
 	end
-	check(g1 and g1.VP == 1500 and g0 and g0.VP == 1000 and Economy.code("volleyball rush") ~= nil and Economy.code("HolyS+") == nil and Economy.code("spikesquad") == nil and n == 3 and Economy.code("adminabuse") ~= nil,
-		"only RELEASE, VOLLEYBALLRUSH and ADMINABUSE are live, in any case, spaces ignored; every Spike Rush code is gone")
+	local W0 = Config.Winter
+	local jaja = Economy.code("JAJA", W0.Starts + 60)
+	check(eventCodes == 3 and Economy.code("jaja", W0.Starts - 60) == nil and select(2, Economy.code("jaja", W0.Ends + 60)) == "expired" and jaja and jaja.EventCur.Snow == 100 and jaja.VP == 0 and jaja.Gold == 0 and jaja.Lucky == 0,
+		"the Winter codes pay only Snowflakes, and only while the event runs", tostring(eventCodes))
+	check(g1 and g1.VP == 1500 and n == 1 and Economy.code("fresh start") ~= nil and Economy.code("HolyS+") == nil and Economy.code("adminabuse") == nil and Economy.code("Colosseum") == nil and Economy.code("Story Mode") == nil,
+		"only FRESHSTART is live (the owner, 2026-11-14: \"cut all the other codes. leave 1 code, freshstart\"), in any case, spaces ignored")
 end
 
 print("== feints get past blocks and break a low guard ==")
@@ -3561,7 +3717,7 @@ do
 	-- lenient: no PERFECT grade and no exact jump timing needed, just the ball in front and up
 	local lowRoot = root - vec(0, 3.2, 0) -- on the way up, the ball well over his hand and ahead
 	local okF, fair = spike(lowRoot, ballAt(lowRoot, 1.6, 1.8), { stats = th, ability = "ZeroPoint" })
-	check(okF and fair.meta.zero and fair.meta.quality < H.PerfectAt and fair.meta.kmh >= 225,
+	check(okF and fair.meta.zero and fair.meta.quality < H.PerfectAt and fair.meta.kmh >= 215, -- (225 before the 2026-11-18 nerf)
 		"a so-so contact with the ball in front and up is a Zero Point too", string.format("quality %.2f, %.1f km/h", okF and fair.meta.quality or 0, okF and fair.meta.kmh or 0))
 	local okB, behind = spike(root, ballAt(root, -0.6, 0.4), { stats = th, ability = "ZeroPoint" })
 	local okL, low = spike(root, ballAt(root, 0.8, -2.0), { stats = th, ability = "ZeroPoint" })
@@ -4121,9 +4277,9 @@ do
 		end
 	end
 	check(#hand == 3 and hand[1] == "aThunder" and hand[2] == "PumpkinPower" and hand[3] == "aAzure" and #abs == 2 and abs[1] == "Thunder" and abs[2] == "Azure"
-		and #clean == HW.Stages * HW.Picks and #Halloween.abilitiesOf(clean) == 0 and #two == 2 and table.concat(Halloween.abilitiesOf(two), ",") == "Thunder,Azure"
+		and #clean == math.min(7, HW.MaxHand) and #Halloween.abilitiesOf(clean) <= HW.MaxAbilityCards and #two == 2 and table.concat(Halloween.abilitiesOf(two), ",") == "Thunder,Azure"
 		and Halloween.abilityOf == nil and ownOffered == 0 and thunderOffered > 0,
-		"ability cards stack: a hand keeps every one in pick order, never a card twice, Stages x Picks at most; your own ability's card isn't offered",
+		"ability cards stack: a hand keeps every one in pick order, never a card twice, MaxHand at most; your own ability's card isn't offered",
 		table.concat(hand, ", ") .. " / " .. table.concat(clean, ", ") .. string.format("; Thunder Spiker offered %d times in 300 picks, %d to a Thunder Spiker", thunderOffered, ownOffered))
 	-- at most two of them beside your own (the owner, 2026-10-15: "you can stack up to 2 abilities
 	-- alongside your main one"): a third isn't added or kept, and none is offered once you hold two
@@ -4217,19 +4373,14 @@ do
 	local above = vec(0, broot.Y + Z.BlockReachUp + Config.Ball.Radius + 0.6, side * 0.6)
 	local okHigh = HitLogic.blockBox(broot, above, side, aTier, nil)
 	local okBones = HitLogic.blockBox(broot, above, side, aTier, Halloween.blockReach(nil, Halloween.effects("WallOfBones")))
-	local mid = nil
-	for dy = 0, 14, 0.1 do
-		local bb = vec(0, C.NetTop + dy, side * 0.6)
-		local okb, q = HitLogic.blockBox(broot, bb, side, aTier, false)
-		if okb and q > 0.56 and q < 0.64 and not mid then
-			mid = bb -- (stuffed only with Phantom Hands' push: 130 km/h takes 0.21 off it, a stuff is 0.45)
-		end
-	end
+	-- (deep enough under the hands to be a stuff at all: Zones.BlockStuffCover), a block of quality
+	-- 0.6: stuffed only with Phantom Hands' push (130 km/h takes 0.21 off it, a stuff is 0.45)
+	local mid = vec(0, broot.Y + Z.BlockReachUp + Config.Ball.Radius - Z.BlockStuffCover - 0.5, side * 0.6)
 	local function stuffs(hexStr)
 		local n = 0
 		for seq = 1, 200 do
 			local okb, r = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = mid, vy = 0, grounded = false },
-				ctx({ stats = aTier, lastHit = { hitType = "Spike", team = "Home", kmh = 130, tierDrain = 1 }, ballVel = vec(0, -8, side * 30), seq = seq, hex = Halloween.effects(hexStr) }))
+				ctx({ stats = aTier, lastHit = { hitType = "Spike", team = "Home", kmh = 130, tierDrain = 1 }, ballVel = vec(0, -8, side * 30), seq = seq, hex = Halloween.effects(hexStr), forceQuality = 0.6 }))
 			if okb and r.meta.outcome == "Stuff" then
 				n = n + 1
 			end
@@ -4247,10 +4398,31 @@ do
 	local first = Halloween.firstClear(ev, "Hard", 10, false)
 	local nextDay = Halloween.firstClear(ev, "Hard", 11, true)
 	local again = Halloween.firstClear(ev, "Hard", 11, false)
-	check(Halloween.payout("Hard", 2, true, true) == hard.Candy and Halloween.payout("Hard", 2, true, false) == hard.Repeat and Halloween.payout("Hard", 2, false, true) == hard.StageOne
-		and Halloween.payout("Hard", 1, false, true) == 0 and Halloween.payout("Easy", 2, true, true) < hard.Candy and ev.candy == 5 and ev.cleared.Bogus == nil
-		and not first and nextDay and not again,
-		"Candy: a day's first clear pays in full, later ones less, a stage-2 loss a little, a stage-1 loss nothing; harder pays more; each day starts over",
+	-- (the Colosseum, 2026-11-14: Halloween's two-stage payout gave way to a run's Final Reward)
+	local runPayFull, runPayFail, runPayLater = Halloween.runPay(100, true, true), Halloween.runPay(100, false, true), Halloween.runPay(100, true, false)
+	local tierM, aiM = Halloween.nodeSetup(hard, "Match")
+	local tierE, aiE = Halloween.nodeSetup(Halloween.difficulty("Easy"), "Elite")
+	local tierB = Halloween.nodeSetup(Halloween.difficulty("Easy"), "AllStar")
+	local rp = Random.new(3)
+	local full = Halloween.pathChoices(rp, 2, HW.Life, nil)
+	local hurt = {}
+	for _ = 1, 40 do
+		for _, k in ipairs(Halloween.pathChoices(rp, 3, HW.Life - 5, "Match")) do hurt[k] = true end
+	end
+	local noRest2 = true
+	for _ = 1, 40 do
+		for _, k in ipairs(Halloween.pathChoices(rp, 3, 1, "Rest")) do if k == "Rest" then noRest2 = false end end
+	end
+	local runs = Halloween.clean({ runDay = 10, runs = 2 })
+	check(runPayFull == 100 and runPayFail == math.floor(100 * HW.FailShare + 0.5) and runPayLater == math.floor(100 * HW.RepeatShare + 0.5)
+		and tierM == hard.Bots and aiM == hard.AiCards and tierE == "A" and aiE == 1 and tierB == "S"
+		and Halloween.stageReward("Easy", "Elite") > Halloween.stageReward("Easy", "Match") and Halloween.stageReward("Hard", "AllStar") > Halloween.stageReward("Hard", "Elite")
+		and Halloween.cardReward("NightmareFuel") > Halloween.cardReward("PumpkinPower")
+		and #full == 2 and full[1] ~= full[2] and full[1] ~= "Rest" and full[2] ~= "Rest" and hurt.Rest and noRest2
+		and Halloween.fixedNode(1) == "Match" and Halloween.fixedNode(HW.Stages) == "AllStar" and Halloween.fixedNode(2) == nil
+		and Halloween.runsToday(runs, 10) == 2 and Halloween.runsToday(runs, 11) == 0
+		and ev.candy == 5 and ev.cleared.Bogus == nil and not first and nextDay and not again,
+		"the Colosseum: a cleared run pays its Final Reward, a lost one FailShare, later runs RepeatShare; Elite and the All-Star are tougher and pay more; a Rest only when hurt and never twice; each day starts the rewarded runs over",
 		string.format("Hard %d / %d / %d", hard.Candy, hard.Repeat, hard.StageOne))
 	check(Halloween.day(HW.Ends) ~= Halloween.day(HW.Ends - 86400) and Halloween.active(HW.Ends - 1) and not Halloween.active(HW.Ends) and HW.Ends == 1794463200,
 		"the event runs until the end of November 11 (Chicago), restarted for the rerelease")
@@ -4484,7 +4656,7 @@ do
 	-- Armor Break: an ordinary block never stuffs it (Iron Wall still does)
 	local broot = vec(0, GROUND + Characters.jumpHeight(SP, GROUND) * 0.8, side * 1.2)
 	local top = broot.Y + Z.BlockReachUp + Config.Ball.Radius
-	local palms = vec(0, top - 1.5, side * 0.6)
+	local palms = vec(0, top - Z.BlockStuffCover - 0.5, side * 0.6) -- (well under the hands: a stuff at all)
 	local function block(lastHit, extraCtx, ball)
 		local c = { ability = nil, stats = SP, lastHit = lastHit, ballVel = vec(0, -8, side * 30) }
 		for k, v in pairs(extraCtx or {}) do c[k] = v end
@@ -4755,8 +4927,8 @@ do
 	check(okA and okB and okC and not plain.meta.fail and clawed.meta.clawed and clawed.meta.fail and cp.landing.pos.Z * side > C.SideDepth and not cp.flags.crossings and not other.meta.clawed,
 		"Tiger Claw: a marked player's next receive of her spike blasts out behind them; another Horang's mark doesn't count",
 		string.format("%s, %s", clawed.meta.grade, describe(cp)))
-	-- Fever (a fan's middle, Alexis): 2% a block up to 16% (24% at +5), her stats while it's up,
-	-- "Too cold there" at 1% (2% in Fever; 5% and 7% at +5), the frozen spike dropping at the
+	-- Fever (a fan's middle, Alexis; buffed 2026-11-14): 3% a block up to 24% (36% at +5), her stats
+	-- while it's up, "Too cold there" at 2% (4% in Fever; still 5% and 7% at +5), the frozen spike dropping at the
 	-- hitter's feet as her block
 	local f = 0
 	for _ = 1, 12 do
@@ -4772,9 +4944,9 @@ do
 	local FV = Config.Abilities.Fever
 	check(math.abs(HitLogic.feverGain(0, 0) - FV.PerBlock) < 1e-9 and math.abs(f - FV.Max) < 1e-9 and math.abs(f5 - FV.Max * 1.5) < 1e-9
 		and hot.Defense - base.Defense == FV.StatAdd.Defense and hot.Attack - base.Attack == FV.StatAdd.Attack
-		and math.abs(HitLogic.coldChance(false, 0) - 0.01) < 1e-9 and math.abs(HitLogic.coldChance(true, 0) - 0.02) < 1e-9
+		and math.abs(HitLogic.coldChance(false, 0) - 0.02) < 1e-9 and math.abs(HitLogic.coldChance(true, 0) - 0.04) < 1e-9
 		and math.abs(HitLogic.coldChance(false, 5) - 0.05) < 1e-9 and math.abs(HitLogic.coldChance(true, 5) - 0.07) < 1e-9,
-		"Fever: 2% a block up to 16% (24% at +5), her stats while it's on, Too cold 1% / 2% (5% / 7% at +5)",
+		"Fever: 3% a block up to 24% (36% at +5), her stats while it's on, Too cold 2% / 4% (5% / 7% at +5)",
 		string.format("max %.0f%% (+5: %.0f%%), +%d Defense in Fever", f * 100, f5 * 100, hot.Defense - base.Defense))
 	local sr = apexRoot(SP, 3.5 * K)
 	local hand = ballAt(sr, Z.SpikeCenterDz, Z.SpikeCenterDy)
@@ -4801,6 +4973,1381 @@ do
 		and target == "b" and HitLogic.huntTarget({ { id = "front", defense = 50, z = 1 } }) == nil,
 		"Tiger Claw: marked -9 Jump, Discouraged -8 every stat, Fierce Tiger +10 Attack (+18 at +5), Hunt finds the weakest back-row defender",
 		string.format("Fierce +%d Attack (+%d at +5), hunt %s", fierceS.Attack - plainS.Attack, fierce5.Attack - plainS.Attack, tostring(target)))
+end
+
+print("== Joker (the Winter collab's character) ==")
+do
+	-- Jaja's kit (the owner, 2026-11-15): a card every rally (Trickery: power and a curve; Bravery:
+	-- heavy power and Block Break; Buffoon: -25% power; Jackpot!: every stat, curve, Block Break), and
+	-- Surprise!: a spike on the second touch hits harder. Recruited only from the event.
+	local J = Config.Abilities.Joker
+	local jc = Roster.get("jaja")
+	local joker = Characters.derive(Characters.fromRoster(jc, "max"))
+	local sr = apexRoot(joker, 3.5 * K)
+	local b = ballAt(sr, 0.9, 0)
+	local function hit(card, extra)
+		local c = { stats = joker, ability = "Joker", joker = card }
+		for k, v in pairs(extra or {}) do c[k] = v end
+		local ok, r = spike(sr, b, c)
+		return ok and r or nil
+	end
+	local plain, trick, brave, buff, jack = hit(nil), hit("Trickery"), hit("Bravery"), hit("Buffoon"), hit("Jackpot")
+	local function near(a, b2) return math.abs(a - b2) < 0.012 end
+	check(plain and trick and brave and buff and jack and not plain.meta.joker and not plain.meta.armorBreak
+		and near(brave.meta.kmh / plain.meta.kmh, J.Cards.Bravery.SpikeMul) and brave.meta.armorBreak and not brave.launch.dive
+		and near(buff.meta.kmh / plain.meta.kmh, 0.75) and not buff.meta.armorBreak and not buff.launch.dive
+		and near(trick.meta.kmh / plain.meta.kmh, J.Cards.Trickery.SpikeMul) and not trick.meta.armorBreak and trick.launch.dive ~= nil
+		and jack.meta.armorBreak and jack.launch.dive ~= nil and jack.meta.kmh > plain.meta.kmh * J.Cards.Jackpot.SpikeMul,
+		"Joker: Trickery adds power and a curve, Bravery heavy power and Block Break, Buffoon costs 25%, Jackpot! gives all of it and every stat",
+		plain and jack and string.format("%.0f km/h plain; Trickery %.0f, Bravery %.0f, Buffoon %.0f, Jackpot! %.0f", plain.meta.kmh, trick.meta.kmh, brave.meta.kmh, buff.meta.kmh, jack.meta.kmh) or "a spike missed")
+
+	-- the curve: two legs with a turn past the net, never into the net, always in, whatever the roll
+	local bad, rose, flat = {}, 0, 0
+	for seq = 1, 60 do
+		local r = hit("Trickery", { seq = seq })
+		local p = r and BallPhysics.buildPath(r.launch)
+		if not (p and #p.segs == 2 and p.flags.dive and not p.flags.netTouch and (p.flags.crossings or 0) == 1 and p.landing.pos.Z * side < 0 and Court.inBounds(p.landing.pos)) then
+			table.insert(bad, seq)
+		elseif r.launch.v.Y > 0 then
+			rose = rose + 1
+		else
+			flat = flat + 1
+		end
+	end
+	-- (a spike met too low to clear the tape by MinOverNet stays a usual spike)
+	local lowRoot = vec(0, GROUND + 1.2 * SPM, side * 3.5 * K)
+	local okLow, low = spike(lowRoot, ballAt(lowRoot, 0.9, 0), { stats = joker, ability = "Joker", joker = "Trickery" })
+	check(#bad == 0 and rose > 5 and flat > 5 and (not okLow or not low.launch.dive),
+		"Joker's curve: off the hand climbing or flat, a turn past the net, then down onto the court, every time",
+		#bad > 0 and ("bad rolls: " .. table.concat(bad, ", ")) or string.format("%d climbing, %d flat of 60", rose, flat))
+
+	-- Surprise!: the second touch only; breakthroughs grow it
+	local second, third = hit(nil, { touchNumber = 2 }), hit(nil, { touchNumber = 3 })
+	local grown = hit(nil, { touchNumber = 2, breakLevel = 5 })
+	local other = select(2, spike(sr, b, { stats = joker, touchNumber = 2 }))
+	check(second.meta.surprise and not third.meta.surprise and near(second.meta.kmh / third.meta.kmh, 1 + J.SurpriseBoost)
+		and grown.meta.kmh > second.meta.kmh and other and not other.meta.surprise,
+		"Joker's Surprise!: his spike on the second touch hits harder (more with breakthroughs); nobody else's does",
+		string.format("%.0f km/h on two, %.0f on three, %.0f at +5", second.meta.kmh, third.meta.kmh, grown.meta.kmh))
+
+	-- Jackpot!'s stats, and only his
+	local base = Characters.fromRoster(jc, "max")
+	local _, build = Characters.fromRoster(jc, "max")
+	local st = Characters.derive(jc.Tier, build)
+	local jp = HitLogic.effectiveStats(st, "Joker", nil, { joker = "Jackpot" })
+	local tr = HitLogic.effectiveStats(st, "Joker", nil, { joker = "Trickery" })
+	local notHis = HitLogic.effectiveStats(st, "Thunder", nil, { joker = "Jackpot" })
+	check(base and jp.Attack == st.Attack + J.JackpotAdd and jp.Jump == st.Jump + J.JackpotAdd and jp.Speed == st.Speed + J.JackpotAdd and jp.Defense == st.Defense + J.JackpotAdd
+		and tr.Attack == st.Attack and notHis.Attack == st.Attack,
+		"Joker's Jackpot!: every stat up for the rally, his alone", string.format("Attack %d to %d", st.Attack, jp.Attack))
+
+	-- the deal: every card can come up, by its weight
+	local seen, total = {}, 0
+	for i = 0, 999 do
+		local k = HitLogic.jokerRoll(i / 1000)
+		seen[k] = (seen[k] or 0) + 1
+	end
+	for _, key in ipairs(J.Order) do total = total + J.Cards[key].Weight end
+	local okDeal = HitLogic.jokerRoll(0) == J.Order[1] and HitLogic.jokerRoll(1) == J.Order[#J.Order] and HitLogic.jokerRoll(nil) == J.Order[1]
+	for _, key in ipairs(J.Order) do
+		okDeal = okDeal and math.abs((seen[key] or 0) / 1000 - J.Cards[key].Weight / total) < 0.01 and J.Cards[key].Name and J.Cards[key].Color and J.Cards[key].Blurb
+	end
+	check(okDeal and #J.Order == 4, "Joker's deal: four cards, each as often as its weight says",
+		string.format("Trickery %d, Bravery %d, Buffoon %d, Jackpot! %d of 1000", seen.Trickery or 0, seen.Bravery or 0, seen.Buffoon or 0, seen.Jackpot or 0))
+
+	-- Sleight of Hand (the owner, 2026-11-15: "every round pull a random s tier ability. this can range
+	-- from jaeil's zero point to gunwoo's iron wall. no setter abilities"): every S and S+ ability of a
+	-- wing spiker or middle blocker, evenly, never a setter's and never his own
+	local pool = HitLogic.jokerPool()
+	local inPool, badPool = {}, {}
+	for _, name in ipairs(pool) do
+		local def = Config.Abilities[name]
+		inPool[name] = true
+		if not def or name == "Joker" then table.insert(badPool, name) end
+	end
+	local missing = {}
+	for _, c in ipairs(Roster) do
+		if c.Ability and c.Ability ~= "Joker" and c.Role ~= "SE" and not inPool[c.Ability] then table.insert(missing, c.Ability) end
+		if c.Ability and c.Role == "SE" and inPool[c.Ability] then table.insert(badPool, c.Ability) end
+	end
+	local counts = {}
+	for i = 0, #pool * 50 - 1 do
+		local k = HitLogic.jokerBorrow(i / (#pool * 50))
+		counts[k] = (counts[k] or 0) + 1
+	end
+	local even = HitLogic.jokerBorrow(0) == pool[1] and HitLogic.jokerBorrow(1) == pool[#pool]
+	for _, name in ipairs(pool) do
+		even = even and counts[name] == 50
+	end
+	-- and it plays: with Plunge borrowed his spike plunges, at +0 whatever his own breakthroughs
+	local lent = select(2, spike(sr, b, { stats = joker, ability = "Joker", abilities = { Joker = true, Plunge = true }, abilityList = { "Joker", "Plunge" }, breakLevel = 5 }))
+	local real = select(2, spike(sr, b, { stats = joker, ability = "Plunge" }))
+	check(#badPool == 0 and #missing == 0 and even and inPool.ZeroPoint and inPool.IronWall and inPool.Thunder and not inPool.Tyrant and not inPool.Featherfall
+		and lent and lent.meta.plunge and real and math.abs(lent.meta.kmh - real.meta.kmh) < 0.5,
+		"Jaja's Sleight of Hand: any S or S+ spiker's or blocker's ability, evenly, never a setter's; a borrowed one plays at +0",
+		#badPool + #missing > 0 and ("wrong: " .. table.concat(badPool, ", ") .. " missing: " .. table.concat(missing, ", ")) or (#pool .. " abilities: " .. table.concat(pool, ", ")))
+
+	-- only the event gives him: never the Characters banner, a pity, or the lucky pick
+	local inPity = false
+	for _, kind in ipairs({ "Normal", "Top", "Lucky" }) do
+		for _, key in ipairs(Spins.pityPool(kind)) do
+			if key == "jaja" then inPity = true end
+		end
+	end
+	local dropped = false
+	local rr = Random.new(7)
+	for _ = 1, 4000 do
+		local it = Spins.rollItem("Char", rr)
+		if it and it.Key == "jaja" then dropped = true end
+	end
+	check(jc and jc.Limited == "Winter" and Spins.item("Char", "jaja") and Spins.item("Char", "jaja").Limited == "Winter" and not inPity and not Spins.isPityPick("jaja") and not dropped,
+		"Jaja is the event's own: never on the Characters banner, in a pity, or a lucky pick")
+end
+
+print("== the Winter collab ==")
+do
+	-- the owner (2026-11-15): "event snowflakes, quests, and a new event gamemode... an exclusive
+	-- character that can only be recruited from the event currencies" (Config.Winter, Winter.lua;
+	-- a first draft, not wired, off until the dates are set)
+	local Winter = require("Winter")
+	local W = Config.Winter
+	local ev = Winter.clean(nil)
+	W.Enabled = false
+	local offActive = Winter.active(W.Starts + 60)
+	W.Enabled = true
+	-- (and switched off, its character isn't on the roster at all: a fresh load of it, as a live server's)
+	W.Enabled = false
+	local liveRoster = dofile(ROOT .. "/src/shared/Roster.lua")
+	W.Enabled = true
+	check(not offActive and liveRoster.get("jaja") == nil and #liveRoster == #Roster - 1 and Roster.get("jaja") ~= nil and Winter.active(W.Starts + 60) and not Winter.active(W.Ends + 1) and W.Ends > W.Starts and Winter.secondsLeft(W.Ends - 90) == 90 and Winter.secondsLeft(W.Ends + 5) == 0,
+		"winter: off until it's switched on, whatever the date, and until then its character isn't on the roster")
+
+	-- the event match: the day's first clear of each difficulty pays most, later clears a little, a loss a crumb
+	local day = Winter.day(W.Starts)
+	local p1, f1 = Winter.matchPay(ev, "Hard", true, day, true)
+	local p2, f2 = Winter.matchPay(ev, "Hard", true, day, true)
+	local p3 = Winter.matchPay(ev, "Hard", false, day, true)
+	local p4, f4 = Winter.matchPay(ev, "Blizzard", true, day, true)
+	local p5, f5 = Winter.matchPay(ev, "Hard", true, day + 1, true)
+	local hard = Winter.difficulty("Hard")
+	check(p1 == hard.First and f1 and p2 == hard.Repeat and not f2 and p3 == hard.Loss and p4 == Winter.difficulty("Blizzard").First and f4 and p5 == hard.First and f5
+		and Winter.matchPay(ev, "Nope", true, day, true) == 0 and hard.First > hard.Repeat and hard.Repeat > hard.Loss,
+		"winter: an event match pays Snowflakes: the day's first clear of a difficulty most, a new day starts again")
+	check(Winter.addSnow(ev, 40) == 40 and Winter.addSnow(ev, 40, 2) == 80 and Winter.addSnow(ev, 10, 0.2) == 10 and ev.snow == 130,
+		"winter: Snowflakes add up, doubled by a 2x, never cut")
+
+	-- daily quests: the same three for everyone, the event match always among them; pay once each
+	local q1, q2 = Winter.dailyQuests(day), Winter.dailyQuests(day)
+	local same, varied = #q1 == W.Quests.Count and q1[1].Key == W.Quests.Always, false
+	for i = 1, #q1 do
+		same = same and q1[i].Key == q2[i].Key and string.find(Winter.text(q1[i]), tostring(q1[i].Need), 1, true) ~= nil
+	end
+	for d = day + 1, day + 12 do
+		local q = Winter.dailyQuests(d)
+		varied = varied or q[2].Key ~= q1[2].Key or q[3].Key ~= q1[3].Key
+		for i = 1, #q do
+			for j = i + 1, #q do
+				same = same and q[i].Key ~= q[j].Key
+			end
+		end
+	end
+	local ev2 = Winter.clean(nil)
+	local first = q1[1]
+	local early = Winter.claimQuest(ev2, first.Key, day)
+	Winter.add(ev2, { [first.Stat] = first.Need, kills = 5 }, day)
+	local have, need, done = Winter.questProgress(ev2, first, day)
+	local paid = Winter.claimQuest(ev2, first.Key, day)
+	local again = Winter.claimQuest(ev2, first.Key, day)
+	local _, _, doneTomorrow, claimedTomorrow = Winter.questProgress(ev2, first, day + 1)
+	check(same and varied and early == nil and have == need and done and paid == first.Snow and again == nil and not doneTomorrow and not claimedTomorrow and Winter.claimQuest(ev2, "nope", day) == nil,
+		"winter: three daily quests, the same for everyone, each paid once when done; a new day starts them again")
+
+	-- missions run the whole event (a new day keeps them), and pay once
+	local m = Winter.mission("kills")
+	local mh = Winter.missionProgress(ev2, m)
+	Winter.add(ev2, { kills = m.Need }, day + 1)
+	local grant = Winter.claimMission(ev2, "kills")
+	check(mh == 5 and grant == m.Grant and Winter.claimMission(ev2, "kills") == nil and Winter.claimMission(ev2, "wins10") == nil,
+		"winter: event missions count across days and pay once")
+
+	-- attendance: once a day, the list in order, its last entry repeating
+	local ev3 = Winter.clean(nil)
+	local a1, n1 = Winter.login(ev3, day)
+	local a1b = Winter.login(ev3, day)
+	local last
+	for d = 1, #W.Login + 2 do
+		last = Winter.login(ev3, day + d)
+	end
+	check(a1 == W.Login[1] and n1 == 1 and a1b == nil and last == W.Login[#W.Login], "winter: attendance pays once a day, in order")
+
+	-- the banner: Snowflakes only, Joker on it, and a gauge that guarantees him
+	local t = Winter.bannerTable()
+	local sum, jokerChance = 0, 0
+	for _, row in ipairs(t) do
+		sum = sum + row.chance
+		if row.item.key == "jaja" then jokerChance = row.chance end
+	end
+	local rng = Random.new(3)
+	local ev4 = Winter.clean(nil)
+	local worst, since, got = 0, 0, 0
+	for _ = 1, 6000 do
+		local it = Winter.roll(rng, ev4)
+		since = since + 1
+		if it.key == "jaja" then
+			worst = math.max(worst, since)
+			since = 0
+			got = got + 1
+		end
+	end
+	local ev5 = Winter.clean({ gauge = W.Banner.Pity - 1 })
+	local sure = Winter.roll(Random.new(1), ev5)
+	check(math.abs(sum - 1) < 1e-9 and t[1].item.key == "jaja" and jokerChance > 0.005 and jokerChance < 0.03 and worst <= W.Banner.Pity and got >= 50
+		and sure.key == "jaja" and ev5.gauge == 0 and Winter.pityLeft(ev5) == W.Banner.Pity and Winter.cost(1) == 50 and Winter.cost(10) == 500 and Winter.cost(3) == nil,
+		"winter: the Wild Card banner gives Jaja by luck or by the gauge, never later than the pity",
+		string.format("%.1f%% a recruit, at most %d apart over 6000", jokerChance * 100, worst))
+
+	-- the shop: Snowflakes, limits, and nothing bought twice that you own
+	local ev6 = Winter.clean({ snow = 200 })
+	local row = Winter.buy(ev6, "Gold")
+	local okL = Winter.canBuy(Winter.clean({ snow = 99999, bought = { Lucky1 = Winter.shopRow("Lucky1").Limit } }), "Lucky1")
+	local okP, whyP = Winter.canBuy(Winter.clean({ snow = 1 }), "VP")
+	check(row and row.Grant.Gold == 2500 and ev6.snow == 160 and ev6.bought.Gold == 1 and not okL and not okP and whyP == "snow" and select(2, Winter.buy(ev6, "nope")) == "unknown",
+		"winter: the shop takes Snowflakes, keeps to its limits and refuses what you can't pay for")
+
+	-- a tampered save is made safe
+	local c = Winter.clean({ snow = -5, gauge = 9999, cleared = { Hard = true, Fake = true }, quests = { day = 3, stats = { kills = 2.9, bad = -1 }, claimed = { play = true, fake = true } }, bought = { Gold = 1e12, Fake = 3 }, login = { day = "x", count = 1e12 } })
+	check(c.snow == 0 and c.gauge == W.Banner.Pity - 1 and c.cleared.Hard and not c.cleared.Fake and c.quests.stats.kills == 2 and not c.quests.stats.bad and c.quests.claimed.play and not c.quests.claimed.fake
+		and c.bought.Gold == 100000 and not c.bought.Fake and c.login.day == 0 and c.login.count == 1000,
+		"winter: a saved event is cleaned")
+
+	-- wired (2026-11-15): what the menu and the server lean on
+	-- attendance feeds the "check in on N days" mission, and the strip keeps the next day in view
+	local ev7 = Winter.clean(nil)
+	local readyBefore = Winter.loginReady(ev7, day)
+	for d = 0, 8 do
+		Winter.login(ev7, day + d)
+	end
+	local strip = Winter.loginRow(ev7, 7)
+	local daysDef = Winter.mission("days")
+	local dh, dn, dd = Winter.missionProgress(ev7, daysDef)
+	local fresh = Winter.loginRow(Winter.clean(nil), 7)
+	check(readyBefore and not Winter.loginReady(ev7, day + 8) and Winter.loginReady(ev7, day + 9) and dh == dn and dd and #strip == 7 and strip[7].day == 10 and not strip[7].taken and strip[6].taken
+		and strip[7].snow == W.Login[#W.Login] and fresh[1].day == 1 and fresh[1].snow == W.Login[1] and not fresh[1].taken,
+		"winter: attendance counts toward its mission, and the strip keeps the next day in view")
+
+	-- the dot: attendance, a done quest and a done mission each wait until they're claimed
+	local ev8 = Winter.clean(nil)
+	local w0 = Winter.waiting(ev8, day)
+	Winter.login(ev8, day)
+	local w1 = Winter.waiting(ev8, day)
+	Winter.add(ev8, { [first.Stat] = first.Need }, day)
+	local w2 = Winter.waiting(ev8, day)
+	Winter.claimQuest(ev8, first.Key, day)
+	check(w0 == 1 and w1 == 0 and w2 == 1 and Winter.waiting(ev8, day) == 0, "winter: the menu's dot counts what waits to be claimed")
+
+	-- the stand-in Winter Match: a short set against the AI with Jaja across the net, fresh on
+	-- Normal and maxed on Blizzard; its lobby takes no picks and survives a teleport
+	local normal, blizzard = Winter.difficulty("Normal"), Winter.difficulty("Blizzard")
+	local s = Lobbies.settings(Winter.settings(normal))
+	local wl = Lobbies.new(70, 1, "a", s)
+	wl.winter = { diff = "Normal" }
+	local picks = Lobbies.botPicks(wl)
+	local back = Lobbies.import(Lobbies.export(wl), 71)
+	local fake = Lobbies.export(wl)
+	fake.winter = { diff = "Nope" }
+	check(s and s.points == W.Match.Points and s.mode == W.Match.Mode and s.botTier == normal.Bots and s.fill == true and not Lobbies.canPick(wl) and picks.Away[1] == "jaja" and #picks.Home == 0
+		and Winter.foeLevel("Normal", "jaja") == 0 and Winter.foeLevel("Blizzard", "jaja") == 1 and Winter.foeLevel("Hard", "riku") == nil and Winter.foeLevel("Nope", "jaja") == nil and blizzard.Bots == "S+"
+		and back.winter and back.winter.diff == "Normal" and back.hidden == true and Lobbies.import(fake, 72).winter == nil and Lobbies.summary(wl, 1).winter == "Normal",
+		"winter: the stand-in match is a short set against Jaja's side, and its lobby carries over a teleport")
+
+	-- Christmas Cards (the owner, 2026-11-16: "do what you think is the best idea... if you want to
+	-- fuse then fuse"): a rival team a day around Jaja, kept by the lobby; a card a rally, never the
+	-- same twice running, its modifiers on the lobby's, Candy Cane worth 2
+	do
+		local Mutators = require("Mutators")
+		local d0 = Winter.day(W.Starts)
+		local r0, r1, r7 = Winter.rivalIndex(d0), Winter.rivalIndex(d0 + 1), Winter.rivalIndex(d0 + #W.Rivals)
+		local rp = Winter.picks(r0)
+		local allOk = true
+		for i, row in ipairs(W.Rivals) do
+			local p = Winter.picks(i)
+			allOk = allOk and #p.Away == 3 and p.Away[1] == "jaja"
+			for _, id in ipairs(row.Picks) do
+				allOk = allOk and Roster.get(id) ~= nil and Winter.foeLevel("Blizzard", id) == 1 and Winter.foeLevel("Normal", id) == 0
+			end
+		end
+		local rl = Lobbies.new(73, 1, "a", Lobbies.settings(Winter.settings(normal)))
+		rl.winter = { diff = "Blizzard", rival = r1 }
+		-- (Normal and Hard: Jaja with players of their own tier, not the rivals; the owner, 2026-11-18)
+		local nl = Lobbies.new(76, 1, "a", Lobbies.settings(Winter.settings(normal)))
+		nl.winter = { diff = "Normal", rival = r1 }
+		local normalPicks = Lobbies.botPicks(nl).Away
+		local rback = Lobbies.import(Lobbies.export(rl), 74)
+		local rbad = Lobbies.export(rl)
+		rbad.winter.rival = 999
+		check(r0 ~= r1 and r0 == r7 and allOk and rp.Away[2] == W.Rivals[r0].Picks[1] and Lobbies.botPicks(rl).Away[2] == W.Rivals[r1].Picks[1] and #normalPicks == 1 and normalPicks[1] == "jaja"
+			and rback.winter.rival == r1 and Lobbies.import(rbad, 75).winter.rival == nil and Winter.rival(nil) == W.Rivals[1],
+			"winter: a different rival team each event day, all real characters at the difficulty's strength, and a lobby keeps its own")
+
+		local rng = Random.new(7)
+		local last, repeats, seen, n = nil, 0, {}, 0
+		for _ = 1, 3000 do
+			local c = Winter.drawCard(rng, last)
+			if c.Key == last then
+				repeats = repeats + 1
+			end
+			seen[c.Key] = (seen[c.Key] or 0) + 1
+			last = c.Key
+		end
+		for _ in pairs(seen) do
+			n = n + 1
+		end
+		local modsOk = true
+		for _, c in ipairs(W.Cards) do
+			for k, v in pairs(c.Mut or {}) do
+				modsOk = modsOk and Mutators.parse(k .. "=" .. v)[k] == v
+			end
+		end
+		local snow = Winter.card("Snowball")
+		local mixed = Winter.cardMutators("Gravity=Low;Power=Weak", snow)
+		local fx = Mutators.effects(mixed)
+		check(repeats == 0 and n == #W.Cards and seen.Snowball > seen.Jackpot and modsOk
+			and Mutators.parse(mixed).Power == "Super" and Mutators.parse(mixed).Gravity == "Low" and fx.spike == 1.5
+			and Winter.cardMutators("", Winter.card("Calm")) == "" and Winter.cardPoints(Winter.card("CandyCane")) == 2 and Winter.cardPoints(Winter.card("Calm")) == 1
+			and Winter.card("Gift").Gift == true and Winter.card("Nope") == nil,
+			"winter: a card every rally, never the same twice running, its modifiers over the lobby's, a Candy Cane rally worth 2")
+
+		-- the three Christmas skins (the owner, 2026-11-16): on the Wild Card banner, each fitting only
+		-- its own character and bringing it with the first copy, never on the Halloween banner
+		-- (Studio's Config, everything in: a live server's, and these sims', leave the event's skins
+		-- and items out until it's switched on)
+		local gameWas = game
+		game = { GetService = function()
+			return { IsStudio = function()
+				return true
+			end }
+		end }
+		local studioConfig = dofile(ROOT .. "/src/shared/Config.lua")
+		game = gameWas
+		local Halloween = require("Halloween")
+		local hidden = Config.Halloween.Skins.TwinkleLights == nil and Config.Halloween.Skins.SleighRide == nil and Config.Halloween.Skins.StarTopper == nil
+		hidden = hidden == not WINTER_SHIPPED -- (hidden while it's off, there once it's on)
+		local onBanner, fit, brings = {}, true, true
+		for _, row in ipairs(studioConfig.Winter.Banner.Items) do
+			if row.Kind == "Skin" then
+				onBanner[row.Key] = studioConfig.Halloween.Skins[row.Key] and studioConfig.Halloween.Skins[row.Key].Rarity
+			end
+		end
+		local hwBanner = false
+		for _, row in ipairs(studioConfig.Halloween.Banner.Items) do
+			hwBanner = hwBanner or (row.Kind == "Skin" and studioConfig.Halloween.Skins[row.Key] and studioConfig.Halloween.Skins[row.Key].Limited == "Winter")
+		end
+		-- (put back for a moment to try them)
+		local HWS = Config.Halloween
+		local added = {}
+		for _, key in ipairs({ "TwinkleLights", "SleighRide", "StarTopper", "CandyClaw" }) do
+			if HWS.Skins[key] == nil then
+				HWS.Skins[key] = studioConfig.Halloween.Skins[key]
+				table.insert(HWS.SkinOrder, key)
+				table.insert(added, key)
+			end
+		end
+		for key, who in pairs({ TwinkleLights = "ilya", SleighRide = "kuro", StarTopper = "laith", CandyClaw = "horang" }) do
+			fit = fit and Halloween.skinFits(key, who) and not Halloween.skinFits(key, "dante")
+			local skins, owned = {}, {}
+			Halloween.addCopy(skins, key)
+			local added = Halloween.skinChars(skins, owned)
+			brings = brings and added[1] == who and owned[who] == true
+		end
+		for _, key in ipairs(added) do
+			HWS.Skins[key] = nil
+			table.remove(HWS.SkinOrder)
+		end
+		-- (the owner, 2026-11-18: "do kuro and viktor pullable, horang tier 30 laith door 25")
+		local SW = studioConfig.Winter
+		local inShop, onMission = false, false
+		for _, row in ipairs(SW.Shop) do
+			inShop = inShop or row.Skin ~= nil
+		end
+		for _, m in ipairs(SW.Missions) do
+			onMission = onMission or (m.Grant and m.Grant.Skin ~= nil)
+		end
+		check(hidden and onBanner.TwinkleLights == "Mythic" and onBanner.SleighRide == "Mythic" and onBanner.StarTopper == nil and onBanner.CandyClaw == nil
+			and SW.Advent.Rewards[25].Skin == "StarTopper" and SW.Pass.Rewards[SW.Pass.Tiers].Prem.Skin == "CandyClaw" and not inShop and not onMission
+			and studioConfig.Halloween.Skins.CandyClaw and studioConfig.Halloween.Skins.CandyClaw.Chars[1] == "horang" and fit and brings and not hwBanner,
+			"winter: Sleigh Ride and Twinkle Lights on the Wild Card banner, Candy Claw (Horang) the Pass's last tier, Star Topper behind door 25; none in the shop or a mission; each its own character's and bringing them")
+
+		-- the Winter Pass (the owner, 2026-11-16: "a winter themed pass. paid and free tier"): XP
+		-- climbs the tiers, free rewards claim once each, premium only once it's bought, every
+		-- reward is real, a saved pass is cleaned
+		local PS = W.Pass
+		local Economy = require("Economy")
+		local Cards = require("Cards")
+		local pev = Winter.clean(nil)
+		local t0 = Winter.passTier(pev)
+		local reached = Winter.addPassXP(pev, PS.TierXP * 2 + 10)
+		local t2, into = Winter.passTier(pev)
+		local f1 = Winter.claimPass(pev, 1, "free")
+		local f1again, why1 = Winter.claimPass(pev, 1, "free")
+		local p1, whyP = Winter.claimPass(pev, 1, "prem")
+		local f3, why3 = Winter.claimPass(pev, 3, "free")
+		local claimable = #Winter.passClaimable(pev)
+		pev.pass.premium = true
+		local claimable2 = #Winter.passClaimable(pev)
+		local p1b = Winter.claimPass(pev, 1, "prem")
+		Winter.addPassXP(pev, PS.TierXP * PS.Tiers * 3)
+		local top, intoTop, needTop = Winter.passTier(pev)
+		local saved = Winter.clean({ pass = { xp = 99999999, premium = true, free = { [1] = true, [31] = true, ["x"] = true }, prem = { [1] = true } } })
+		-- (every reward real, in Studio's Config: a live server's leaves the event's items out until
+		-- it's switched on, and so do these sims)
+		local function inList(list, key)
+			for _, it in ipairs(list or {}) do
+				if it.Key == key then
+					return it
+				end
+			end
+			return nil
+		end
+		local real = #PS.Rewards == PS.Tiers and (inList(Config.Cards.List, "SnowDay") == nil) == not WINTER_SHIPPED and (Config.Halloween.Skins.StarTopper == nil) == not WINTER_SHIPPED
+		for _, row in ipairs(PS.Rewards) do
+			for _, r in ipairs({ row.Free, row.Prem }) do
+				local ok = Winter.rewardText(r) ~= ""
+				if r.Item then
+					local it = inList(studioConfig.Cosmetics[r.Item.Kind], r.Item.Key)
+					ok = ok and it ~= nil and it.Pass == true and it.Limited == "Winter"
+				elseif r.Card then
+					local c = inList(studioConfig.Cards.List, r.Card)
+					ok = ok and c ~= nil and c.Limited == "Winter" and c.Grant == true
+				elseif r.Skin then
+					ok = ok and studioConfig.Halloween.Skins[r.Skin] ~= nil
+				end
+				real = real and ok
+			end
+		end
+		local pack = Economy.pack("WinterPass", 1)
+		check(t0 == 0 and #reached == 2 and t2 == 2 and into == 10 and f1 == PS.Rewards[1].Free and f1again == nil and why1 == "claimed"
+			and p1 == nil and whyP == "locked" and f3 == nil and why3 == "tier" and claimable == 1 and claimable2 == 3 and p1b == PS.Rewards[1].Prem
+			and top == PS.Tiers and needTop == 0 and saved.pass.xp == PS.Tiers * PS.TierXP and saved.pass.premium == true and saved.pass.free[1] == true and saved.pass.free[31] == nil
+			and real and pack and pack.pack.WinterPass == true and pack.pack.Once == true and Winter.waiting(Winter.clean(nil), 0) >= 0,
+			"winter: the Winter Pass climbs by XP, pays each tier's free reward once and the premium one only once bought, every reward real")
+		-- tier skips (the owner: "add products like skip tiers in the battlepass"): products of their
+		-- own, each PassTiers tiers' worth of XP, never past the last tier, never a once-only bundle
+		local skipsOk, skips = true, 0
+		for i, pk in ipairs(PS.Packs) do
+			if pk.PassTiers then
+				skips = skips + 1
+				local e = Economy.pack("WinterPass", i)
+				local byId = Economy.packByProduct(pk.Id)
+				local sev = Winter.clean(nil)
+				Winter.addPassXP(sev, PS.TierXP * 3 + 20)
+				local got = Winter.addPassXP(sev, pk.PassTiers * PS.TierXP)
+				local nearTop = Winter.clean(nil)
+				Winter.addPassXP(nearTop, (PS.Tiers - 1) * PS.TierXP)
+				Winter.addPassXP(nearTop, pk.PassTiers * PS.TierXP)
+				skipsOk = skipsOk and e ~= nil and pk.Id ~= 0 and byId ~= nil and byId.index == i and not pk.Once and not pk.WinterPass
+					and #got == pk.PassTiers and Winter.passTier(sev) == 3 + pk.PassTiers and select(2, Winter.passTier(sev)) == 20
+					and Winter.passTier(nearTop) == PS.Tiers and tonumber(pk.Price) ~= nil
+			end
+		end
+		check(skips == 3 and skipsOk, "winter: tier skips are their own products, each its tiers' worth of pass XP (the XP into the next tier kept), never past the last tier",
+			skips .. " skip packs")
+		-- Snowflakes for Robux (the owner: "yes you can buy snowfalkes with robux"): each pack a product
+		-- of its own, found by its id, Snowflakes into the event's save
+		local snowOk = #(W.SnowPacks or {}) == 4
+		for i, pk in ipairs(W.SnowPacks or {}) do
+			local byId = Economy.packByProduct(pk.Id)
+			local sev = Winter.clean(nil)
+			local before = sev.snow
+			Winter.addSnow(sev, pk.Snow)
+			snowOk = snowOk and pk.Id ~= 0 and byId ~= nil and byId.kind == "Snow" and byId.index == i and sev.snow == before + pk.Snow and tonumber(pk.Price) ~= nil
+		end
+		check(snowOk, "winter: Snowflake packs are products of their own, each paying its Snowflakes")
+	end
+
+	-- Snowflakes are an event currency (gifts, the admin panel): held in the event's save
+	local Economy = require("Economy")
+	local prof = { winter = Winter.clean({ snow = 10 }) }
+	local after = Economy.addCurrency(prof, "Snow", 25)
+	local bare = {}
+	Economy.addCurrency(bare, "Snow", 7)
+	check(Economy.currency(prof, "Snow") == 35 and after == 35 and prof.winter.snow == 35 and Economy.currency(bare, "Snow") == 7 and Winter.clean(bare.winter).snow == 7 and Economy.cleanCurrencies({ Snow = 9, Candy = 9 }).Snow == nil
+		and Economy.currency(prof, "Candy") == 0,
+		"winter: Snowflakes are an event currency, kept in the event's save")
+
+	-- a Studio preview before the launch: what it earns is marked, and a live server drops it
+	Winter.preview = true
+	local before = W.Starts - 86400
+	local studio = Winter.clean({ snow = 500 }, before)
+	local studioAgain = Winter.clean(studio, before)
+	local onAtLaunch = Winter.active(W.Starts - 5)
+	Winter.preview = false
+	local live = Winter.clean(studio, before)
+	local real = Winter.clean({ snow = 500 }, W.Starts + 60)
+	W.Enabled = false
+	local offLive = Winter.active(W.Starts + 60)
+	W.Enabled = true
+	check(studio.preview == true and studio.snow == 500 and studioAgain.snow == 500 and onAtLaunch and live.snow == 0 and live.preview == nil and real.snow == 500 and real.preview == nil and not offLive and W.StudioPreview == true,
+		"winter: a Studio preview runs the event early, and a live server throws its save away")
+end
+
+print("== story mode ==")
+do
+	-- the owner (2026-11-10): "a story mode ... unlock each stage in the chapter ... there are
+	-- challenge rewards for each clear" (Config.Story, the Story module)
+	local Story = require("Story")
+	local StoryScript = require("StoryScript")
+	local ST = Config.Story
+	local ch = Story.chapters()[1]
+	local first, last = ch.Stages[1], ch.Stages[#ch.Stages]
+
+	-- every stage is playable as written: real characters, a real court, points the stars fit in
+	local bad = {}
+	local seen = {}
+	for _, c in ipairs(Story.chapters()) do
+		for _, s in ipairs(c.Stages) do
+			if seen[s.Key] then table.insert(bad, s.Key .. " twice") end
+			seen[s.Key] = true
+			if Story.isMatch(s) then
+				local me = Roster.get(s.As)
+				if not me then table.insert(bad, s.Key .. " As") end
+				if #s.Mates ~= ST.Mode - 1 or #s.Foes ~= ST.Mode then table.insert(bad, s.Key .. " team size") end
+				local roles = { Home = { [me and me.Role or "?"] = true }, Away = {} }
+				for _, id in ipairs(s.Mates) do
+					local c2 = Roster.get(id)
+					if not c2 or roles.Home[c2.Role] then table.insert(bad, s.Key .. " mate " .. id) else roles.Home[c2.Role] = true end
+				end
+				for _, id in ipairs(s.Foes) do
+					local c2 = Roster.get(id)
+					if not c2 or roles.Away[c2.Role] then table.insert(bad, s.Key .. " foe " .. id) else roles.Away[c2.Role] = true end
+				end
+				if not Config.Courts.List[s.Court] then table.insert(bad, s.Key .. " court") end
+				if not Characters.isTier(s.Bots) then table.insert(bad, s.Key .. " bots") end
+				if s.Points < ST.StarDiff[3] then table.insert(bad, s.Key .. " points under the third star") end
+				if not ST.Kits[s.Kit] then table.insert(bad, s.Key .. " kit") end
+				local set = Lobbies.settings(Story.settings(s))
+				if not set or set.points ~= s.Points or set.winBy ~= 1 or set.sets ~= 1 or set.mode ~= ST.Mode or set.botTier ~= s.Bots or set.court ~= s.Court then
+					table.insert(bad, s.Key .. " settings")
+				end
+			end
+			if type(s.First) ~= "table" then table.insert(bad, s.Key .. " First") end
+			-- its lines: an opening for every stage, a closing for every match, known faces only
+			local sc = StoryScript[s.Key]
+			if not sc or type(sc.intro) ~= "table" or #sc.intro == 0 then
+				table.insert(bad, s.Key .. " intro")
+			elseif Story.isMatch(s) and (type(sc.outro) ~= "table" or #sc.outro == 0) then
+				table.insert(bad, s.Key .. " outro")
+			end
+			for _, part in ipairs({ sc and sc.intro or {}, sc and sc.outro or {} }) do
+				for _, st in ipairs(part) do
+					if type(st[1]) == "string" and (not Story.cast(st[1]) or type(st[2]) ~= "string") then table.insert(bad, s.Key .. " line by " .. st[1]) end
+					for _, id in ipairs(st.on or {}) do
+						if not Story.cast(id) then table.insert(bad, s.Key .. " on " .. tostring(id)) end
+					end
+					if st.on and #st.on > 3 then table.insert(bad, s.Key .. " more than three on screen") end
+				end
+			end
+			if sc and sc.bark and not Story.cast(sc.bark[1]) then table.insert(bad, s.Key .. " bark") end
+		end
+	end
+	check(#bad == 0, "story: every stage has a full team of real characters (one per role), a court, a kit, settings the lobby keeps, and its lines", #bad > 0 and table.concat(bad, "; ") or (#ch.Stages .. " stages"))
+
+	-- your own team (the owner, 2026-11-14): the story's teammates only on a locked stage
+	do
+		local locked, open = nil, nil
+		for _, s in ipairs(ch.Stages) do
+			if Story.isMatch(s) then
+				if s.Lock and not locked then locked = s end
+				if not s.Lock and not open then open = s end
+			end
+		end
+		local lp, op = locked and Story.picks(locked), open and Story.picks(open)
+		check(locked ~= nil and open ~= nil and #lp.Home == #locked.Mates and #op.Home == 0 and #op.Away == #open.Foes and #lp.Away == #locked.Foes,
+			"story: a locked stage plays its own teammates, any other stage leaves your own team to fill in (the other team always the story's)")
+	end
+
+	-- Kanta and Noeul grow through the story (the owner, 2026-11-14): more breakthroughs in chapter 1,
+	-- then a tier of their own in chapter 2, C- up to C+ ("upgrade kanta and noeul overall every few
+	-- stages"); no abilities until they wake up in the final's third set ("its a bit early for them
+	-- to have abilities"), and those still under the real thing
+	do
+		local BTk = require("Breakthrough")
+		local bad2 = {}
+		local woke = nil
+		local lastTier, lastBreaks = 0, 0
+		local function has(list, x)
+			for _, v in ipairs(list or {}) do
+				if v == x then
+					return true
+				end
+			end
+			return false
+		end
+		for _, c in ipairs(Story.chapters()) do
+			for _, s in ipairs(c.Side and {} or c.Stages) do
+				if s.MateAbilities then
+					woke = woke or s
+					for id, ab in pairs(s.MateAbilities) do
+						if not Config.Abilities[ab] or not has(s.Mates, id) then table.insert(bad2, s.Key .. " " .. id) end
+					end
+					if not (s.MateWeak and s.MateWeak < 0) then table.insert(bad2, s.Key .. " weak") end
+				elseif woke and Story.isMatch(s) then
+					table.insert(bad2, s.Key .. " lost its abilities")
+				end
+				if s.MateTier then
+					local t = Characters.tierIndex(s.MateTier)
+					if not t or t < Characters.tierIndex("C-") or t > Characters.tierIndex("C+") or t < lastTier then table.insert(bad2, s.Key .. " tier") end
+					lastTier = t or lastTier
+				elseif lastTier > 0 and Story.isMatch(s) then
+					table.insert(bad2, s.Key .. " no tier")
+				end
+				if s.MateBreaks then
+					if s.MateBreaks < lastBreaks then table.insert(bad2, s.Key .. " breaks") end
+					lastBreaks = s.MateBreaks
+				end
+			end
+		end
+		local base = Config.Abilities.Featherfall.MaxBoost
+		local w5, w2 = BTk.ab("Featherfall", "MaxBoost", -5), BTk.ab("Featherfall", "MaxBoost", woke and woke.MateWeak)
+		local cd0, cdw = BTk.cooldown("RallyCry", 0), BTk.cooldown("RallyCry", -5)
+		local lo, hi = Characters.autoBuild("C-", "MB", 190), Characters.autoBuild("C+", "MB", 190)
+		check(#bad2 == 0 and woke and woke.Key == "2-12" and w5 < w2 and w2 < base and (cd0 == nil or cdw >= cd0) and lo.Attack < hi.Attack and lo.Jump < hi.Jump,
+			"story: the teammates grow (breakthroughs, then C- to C+), and wake up with abilities only in the final's third set, under the real thing",
+			#bad2 > 0 and table.concat(bad2, "; ") or string.format("Featherfall %.2f at -5, %.2f at the awakening, of %.2f", w5 or -1, w2 or -1, base))
+	end
+
+	-- the other team isn't maxed and grows through each chapter, and mistimes a share of its blocks
+	-- (a tester's notes, 2026-11-15: "they jump too high for a d tier", "maybe make it so they arent
+	-- maxed out and they gradually do get stronger throughout the story")
+	do
+		local bad3 = {}
+		for _, c in ipairs(Story.chapters()) do
+			local lastL, lastB = -1, -1
+			for _, s in ipairs(c.Stages) do
+				if Story.isMatch(s) then
+					local l, b = Story.foeLevel(s), Story.foeBlock(s)
+					if not (l >= 0 and l < 1 and l >= lastL) then table.insert(bad3, s.Key .. " level") end
+					if not (b > 0 and b < 1 and b >= lastB) then table.insert(bad3, s.Key .. " block") end
+					lastL, lastB = l, b
+				end
+			end
+		end
+		local s1, s10 = Story.stage("1-1"), Story.stage("1-10")
+		local mb = Roster.get("kaito") -- (1-1's middle blocker)
+		local _, fresh = Story.heldBuild(mb, Story.foeLevel(s1))
+		local _, full = Characters.fromRoster(mb, "max")
+		local ace = Roster.get("ganghyun")
+		local _, late = Story.heldBuild(ace, Story.foeLevel(s10))
+		local _, aceFull = Characters.fromRoster(ace, "max")
+		local m = Config.Story.BlockMistime
+		check(#bad3 == 0 and Story.foeLevel(s1) == 0 and fresh.Jump == Characters.baseStat(mb, "Jump") and fresh.Jump < full.Jump
+			and late.Attack > Characters.baseStat(ace, "Attack") and late.Attack < aceFull.Attack and Story.foeBlock(s1) < Story.foeBlock(s10)
+			and Story.foeLevel(Story.stage("2-1")) < Story.foeLevel(Story.stage("2-12")) and m[1] > 0.2 and m[2] >= m[1],
+			"story: the other team starts as fresh recruits and grows through each chapter (never maxed), and mistimes a share of its blocks that shrinks",
+			#bad3 > 0 and table.concat(bad3, "; ") or string.format("1-1's middle Jump %d of %d; blocks timed right %.0f%% in 1-1, %.0f%% in 1-10", fresh.Jump, full.Jump, Story.foeBlock(s1) * 100, Story.foeBlock(s10) * 100))
+	end
+
+	-- a stage the story loses (the final's first and third sets): its stars are the points you took,
+	-- won or lost, and it clears on the first
+	do
+		local s1 = Story.stage("2-10")
+		check(s1 and s1.Score and Story.starsFor(false, 1, 7, s1) == 0 and Story.starsFor(false, 2, 7, s1) == 1 and Story.starsFor(false, 5, 7, s1) == 2
+			and Story.starsFor(true, 7, 3, s1) == 3 and Story.starsFor(false, 6, 7, s1) == 3 and Story.goals(s1)[1] == "Score 2 points" and Story.goals(Story.stage("2-11"))[1] == Config.Story.Goals[1],
+			"story: a set the story loses gives a star for each points goal, won or lost; any other stage still needs the win")
+	end
+
+	-- stars: a win, a win by 3, a win by 5; a loss earns none
+	check(Story.starsFor(false, 3, 7) == 0 and Story.starsFor(true, 7, 6) == 1 and Story.starsFor(true, 7, 5) == 1 and Story.starsFor(true, 7, 4) == 2
+		and Story.starsFor(true, 7, 3) == 2 and Story.starsFor(true, 7, 2) == 3 and Story.starsFor(true, 5, 0) == 3,
+		"story: one star for a win, two for a win by 3, three for a win by 5, none for a loss")
+
+	-- unlocking: only the first stage is open; clearing one opens the next, and only the next
+	local p = Story.clean(nil)
+	local second, third = ch.Stages[2], ch.Stages[3]
+	local openAtStart = Story.unlocked(p, first.Key) and not Story.unlocked(p, second.Key) and not Story.unlocked(p, last.Key)
+	local refused = Story.record(p, second.Key, 3) == nil and Story.stars(p, second.Key) == 0
+	local lost = Story.record(p, first.Key, 0)
+	local stillShut = lost ~= nil and not lost.first and lost.grant == nil and not Story.unlocked(p, second.Key) and Story.next(p) == first
+	local won = Story.record(p, first.Key, 1)
+	check(openAtStart and refused and stillShut and won.first and not won.three and Story.unlocked(p, second.Key) and not Story.unlocked(p, third.Key) and Story.next(p) == second,
+		"story: the first stage is open, a locked one can't be recorded, a loss opens nothing, a clear opens the next stage only")
+
+	-- rewards: First Clear once, First 3 Stars once, the best stars kept
+	local again = Story.record(p, first.Key, 1)
+	local three = Story.record(p, first.Key, 3)
+	local worse = Story.record(p, first.Key, 2)
+	local thrice = Story.record(p, first.Key, 3)
+	check(won.grant.VP == first.First.VP and won.grant.Gold == first.First.Gold and again.grant == nil and three.three and not three.first
+		and three.grant.VP == first.Three.VP and worse.grant == nil and worse.best == 3 and Story.stars(p, first.Key) == 3 and thrice.grant == nil,
+		"story: First Clear pays once, First 3 Stars pays once, and a worse replay keeps the best stars",
+		string.format("first +%d VP, three stars +%d VP", won.grant.VP, three.grant.VP))
+	local q = Story.clean(nil)
+	local both = Story.record(q, first.Key, 3)
+	check(both.first and both.three and both.grant.VP == first.First.VP + first.Three.VP and both.grant.Gold == first.First.Gold + first.Three.Gold,
+		"story: three stars on the first clear pays both rewards at once")
+
+	-- a reading-only stage, the saved progress, the stars shown
+	-- (every chapter, in order: the story only ends after the last one)
+	for _, c in ipairs(Story.chapters()) do
+		for _, s in ipairs(c.Stages) do
+			Story.record(q, s.Key, Story.isMatch(s) and 1 or 3)
+		end
+	end
+	local have, total = Story.chapterStars(q, ch)
+	local dirty = Story.clean({ stars = { [first.Key] = 9, nope = 3, [second.Key] = 0, [third.Key] = "2" } })
+	check(not Story.isMatch(last) and Story.next(q) == nil and total == #ch.Stages * 3 and have == 3 + (#ch.Stages - 2) + 3
+		and dirty.stars[first.Key] == 3 and dirty.stars.nope == nil and dirty.stars[second.Key] == nil and dirty.stars[third.Key] == 2,
+		"story: the last stage is read, not played; a finished story has no next stage; saved stars are cleaned to real stages and 1..3",
+		string.format("%d/%d stars", have, total))
+
+	-- the lobby: the stage's own teams, no picking, and it survives the trip to its own server
+	local l = Lobbies.new(77, 1, "Host", Lobbies.settings(Story.settings(first)))
+	Lobbies.seat(l, 1)
+	l.story = { key = first.Key }
+	local bp = Lobbies.botPicks(l)
+	local back = Lobbies.import(Lobbies.export(l), 78)
+	local forged = Lobbies.import({ mode = 3, story = { key = "9-9" } }, 79)
+	local reading = Lobbies.import({ mode = 3, story = { key = last.Key } }, 80)
+	check(not Lobbies.canPick(l) and bp.Home[1] == first.Mates[1] and bp.Home[2] == first.Mates[2] and bp.Away[3] == first.Foes[3]
+		and Lobbies.pickFor(bp.Home, "MB", {}) == "daichi" and Lobbies.pickFor(bp.Home, "SE", {}) == "hana"
+		and back.story and back.story.key == first.Key and back.hidden == true and back.points == first.Points
+		and forged.story == nil and reading.story == nil and Lobbies.summary(l, 1).story == first.Key,
+		"story: a stage's lobby plays its own teams (your blocker and setter beside you), takes no picks, and comes back from a teleport; a made-up or reading-only stage doesn't")
+	check(Story.label(second.Key) == "1 - 2" and Story.grantText({ VP = 60, Gold = 1000, Lucky = 1 }) == "+60 VP, +1,000 Gold, +1 Lucky Spin",
+		"story: a stage reads \"1 - 2\" and a reward reads \"+60 VP, +1,000 Gold, +1 Lucky Spin\"")
+
+	-- a rival's entrance and a rival held back (the owner, 2026-11-14: YeJun's entrance, "this
+	-- should be a weaker yejun... he isn't maxed out", "his team is like all b tiers"): every
+	-- Entrance is a defined one played by one of that stage's other team, every FoeHold names one
+	-- of them, a Fresh hold plays below the maxed character, and his teammates are B tier or under
+	local function has(list, x)
+		for _, v in ipairs(list or {}) do
+			if v == x then
+				return true
+			end
+		end
+		return false
+	end
+	local okE, why = true, {}
+	local held = nil
+	for _, c in ipairs(Story.chapters()) do
+		for _, s in ipairs(c.Stages) do
+			if s.Entrance then
+				local def = ST.Entrances[s.Entrance]
+				if not def or not has(s.Foes, s.Entrance) or type(def.Time) ~= "number" or def.Time <= 0 or type(def.Quote) ~= "string" then
+					okE = false
+					table.insert(why, s.Key .. " entrance")
+				end
+			end
+			for id, h in pairs(s.FoeHold or {}) do
+				if not has(s.Foes, id) then
+					okE = false
+					table.insert(why, s.Key .. " hold " .. id)
+				end
+				if h.Level then
+					held = held or { id = id, stage = s, level = h.Level }
+				end
+			end
+		end
+	end
+	local two5 = Story.stage("2-5")
+	local two12 = Story.stage("2-12")
+	local yj = Roster.get("yejun")
+	local _, fresh = Characters.fromRoster(yj, nil)
+	local _, maxed = Characters.fromRoster(yj, "max")
+	local _, mid = Story.heldBuild(yj, held and held.level)
+	local _, none = Story.heldBuild(yj, 0)
+	local weaker = mid.Attack < maxed.Attack and mid.Jump < maxed.Jump and none.Attack == fresh.Attack
+	local mates = true
+	for _, id in ipairs(two5 and two5.Foes or {}) do
+		local c = Roster.get(id)
+		if id ~= "yejun" and (not c or Characters.tierIndex(c.Tier) > Characters.tierIndex("B")) then
+			mates = false
+		end
+	end
+	-- and he climbs each time he plays: every match of his a step stronger than the one before,
+	-- maxed (no hold) by the last
+	local climbs, lastL, lastMatch = true, -1, nil
+	for _, c in ipairs(Story.chapters()) do
+		for _, s in ipairs(c.Stages) do
+			if has(s.Foes, "yejun") then
+				local h = s.FoeHold and s.FoeHold.yejun
+				local l = h and (h.Level or 1) or 1
+				if l <= lastL and l < 1 then climbs = false end
+				lastL, lastMatch = l, s
+			end
+		end
+	end
+	-- never maxed in chapter 2, Storm Call and his entrance only once he tries (the final's third set)
+	climbs = climbs and lastMatch ~= nil and lastL < 1 and lastMatch == two12 and not two12.FoeHold.yejun.NoActive
+		and two12.Entrance == "yejun" and not two5.Entrance and not Story.stage("2-10").Entrance
+	check(okE and held and two5 and two5.FoeHold.yejun.NoActive and weaker and mates and climbs,
+		"story: YeJun climbs from a fresh recruit, never maxed in chapter 2, beside B-tier teammates; Storm Call and his entrance only once he tries",
+		#why > 0 and table.concat(why, "; ") or string.format("Attack %d of %d, Jump %d of %d (a fresh recruit's %d, %d)", mid.Attack, maxed.Attack, mid.Jump, maxed.Jump, fresh.Attack, fresh.Jump))
+end
+
+print("== fresh start ==")
+do
+	-- the owner (2026-11-14): "only reset their characters and cosmetics, but at the same time reset
+	-- all the code usages", "their story and everything stays", Gold and VP capped, a Veteran card
+	-- in two tiers (FreshStart, Config.FreshStart)
+	local FreshStart = require("FreshStart")
+	local Cards = require("Cards")
+	local FSc = Config.FreshStart
+	local Spins = require("Spins")
+	local wasOn = FSc.Enabled
+	-- a cosmetic from recruits (not a starter, not Halloween's) and one of Halloween's
+	local plain = nil
+	for _, it in ipairs(Config.Cosmetics.Effect) do
+		if not Spins.starters("Effect")[it.Key] and not FreshStart.keeps("Effect", it.Key) and not it.Ranked then
+			plain = it.Key
+			break
+		end
+	end
+	local function oldProfile(matches)
+		local owned = {}
+		for _, kind in ipairs(Spins.Kinds) do
+			owned[kind] = {}
+			for k in pairs(Spins.starters(kind)) do
+				owned[kind][k] = true
+			end
+		end
+		owned.Char.yejun = true
+		owned.Char.dante = true
+		owned.Effect[plain] = true
+		owned.Effect.PumpkinBurst = true
+		return {
+			owned = owned, equip = { Effect = plain, Card = "Rookie" }, char = "yejun",
+			levels = { yejun = { Attack = 200 } }, breaks = { yejun = 3 }, mastery = { yejun = { tier = 2 } },
+			teams = { ["3v3"] = { WS = "yejun" } }, fav = { yejun = true }, codes = { release = true },
+			gold = 300000, vp = 1200, lucky = 2, spent = { robux = 450 }, cards = { Rookie = true },
+			record = { matches = matches }, story = { stars = { ["1-1"] = 3 } }, missions = { day = 5 }, fresh = 0,
+		}
+	end
+	FSc.Enabled = false
+	local off = not FreshStart.due(oldProfile(5))
+	FSc.Enabled = true
+	local p = oldProfile(5)
+	local due = FreshStart.due(p)
+	local did = FreshStart.apply(p)
+	local elite = oldProfile(150)
+	FreshStart.apply(elite)
+	local starters = true
+	for _, id in ipairs(Roster.Starters) do
+		if not p.owned.Char[id] then starters = false end
+	end
+	local reset = not p.owned.Char.yejun and not p.owned.Char.dante and starters and did.chars == 2
+		and not p.owned.Effect[plain] and p.owned.Effect.PumpkinBurst and p.equip.Effect == Spins.default("Effect")
+		and next(p.levels) == nil and next(p.breaks) == nil and next(p.mastery) == nil and next(p.teams) == nil
+		and next(p.fav) == nil and next(p.codes) == nil and p.char == Roster.Starters[1]
+	local kept = p.story.stars["1-1"] == 3 and p.missions.day == 5 and p.cards.Rookie
+	local capped = p.gold == FSc.GoldCap and p.vp == 1200 and p.lucky == 2 + math.floor(450 / FSc.RobuxPerLucky)
+	local cards = p.cards[FSc.Card] and p.equip.Card == FSc.Card and elite.cards[FSc.EliteCard] and not elite.cards[FSc.Card]
+		and Cards.get(FSc.Card) and Cards.get(FSc.EliteCard) and Cards.isGrant(Cards.get(FSc.Card))
+	local once = not FreshStart.due(p) and p.fresh == FSc.Version
+	FSc.Enabled = wasOn
+	check(off and due and reset and kept and capped and cards and once,
+		"fresh start: characters, their upgrades and the recruit cosmetics reset (Halloween's stay), codes reusable, Gold capped, a Veteran or Elite card, story kept, once",
+		string.format("%d characters reset, Gold 300000 -> %d, +%d Lucky", did.chars, p.gold, did.lucky))
+end
+
+print("== missions and mastery ==")
+do
+	-- the owner (2026-11-11): "add masteries to incentivize people to play. just like the spike
+	-- cross. and quests too", "clear challenges and get some rewards and a mastery unlock"
+	local Missions = require("Missions")
+	local MC, MA = Config.Missions, Config.Mastery
+	local day = 20500
+
+	-- the day's missions: Check in first, Count of them, no repeats, the same all day, real stats
+	local list, again, tomorrow = Missions.daily(day), Missions.daily(day), Missions.daily(day + 1)
+	local same, seen, dup, differs = #list == MC.Count and #again == #list, {}, false, false
+	for i, d in ipairs(list) do
+		same = same and again[i] == d
+		dup = dup or seen[d.Key] ~= nil
+		seen[d.Key] = true
+		differs = differs or tomorrow[i] ~= d
+	end
+	local counted = Missions.matchEvents({ won = true, kills = 1, blocks = 1, aces = 1, digs = 1, role = "MB", kind = "story" })
+	local counted2 = Missions.matchEvents({ won = true, kills = 1, blocks = 1, aces = 1, digs = 1, role = "SE", kind = "cup" })
+	local counted3 = Missions.matchEvents({ won = true, kills = 1, blocks = 1, aces = 1, digs = 1, role = "WS", kind = "match" })
+	local orphans = {}
+	for _, d in ipairs(MC.Pool) do
+		if d.Key ~= MC.Always and not (counted[d.Stat] or counted2[d.Stat] or counted3[d.Stat]) then table.insert(orphans, d.Key) end
+		if not string.find(d.Text, "%%d") and d.Key ~= MC.Always then table.insert(orphans, d.Key .. " text") end
+	end
+	check(same and not dup and differs and list[1].Key == MC.Always and #orphans == 0 and MC.Count * MC.Points >= MC.Goal,
+		"missions: the day's six start with Check in, don't repeat, stay the same all day and change the next, and a match can count every one in the pool",
+		#orphans > 0 and table.concat(orphans, ", ") or (list[2].Key .. ", " .. list[3].Key .. ", " .. list[4].Key))
+
+	-- points, the one claim, and a new day
+	local st = Missions.clean(nil, day)
+	local none = Missions.points(st) == 0 and not Missions.canClaim(st) and Missions.claim(st) == nil
+	Missions.add(st, { checkin = 1 })
+	local one = Missions.points(st) == MC.Points
+	Missions.add(st, { checkin = 5 }) -- (more than it needs is still one mission)
+	local stillOne = Missions.points(st) == MC.Points
+	for _, d in ipairs(list) do
+		Missions.add(st, { [d.Stat] = d.Need })
+	end
+	local pts, done = Missions.points(st)
+	local grant = Missions.claim(st)
+	local kept = Missions.clean(st, day)
+	local nextDay = Missions.clean(st, day + 1)
+	check(none and one and stillOne and pts == MC.Goal and done == MC.Count and grant == MC.Reward and Missions.claim(st) == nil and kept.claimed and kept.stats.checkin == st.stats.checkin
+		and not nextDay.claimed and next(nextDay.stats) == nil and Missions.clean({ day = day, stats = { wins = -3, [7] = 2, kills = "4" } }, day).stats.kills == 4,
+		"missions: 250 points a mission up to 1,000, the day's reward claimed once, the same day kept and a new day started clean",
+		string.format("%d points for %d missions", pts, done))
+	local four = Missions.clean(nil, day)
+	for i = 1, math.ceil(MC.Goal / MC.Points) do
+		Missions.add(four, { [list[i].Stat] = list[i].Need })
+	end
+	local lostGame = Missions.matchEvents({ won = false, kills = 6, blocks = 2, aces = 1, digs = 9, role = "WS", kind = "story" })
+	check(Missions.canClaim(four) and lostGame.matches == 1 and lostGame.kills == 6 and lostGame.wins == nil and lostGame.story == nil and lostGame.winWS == nil and counted.winMB == 1 and counted.story == 1 and counted2.cupWins == 1,
+		"missions: any four missions open the reward; a lost match still counts its spikes and digs but no win, role win or Story clear")
+
+	-- mastery: only wins, all three challenges, one promotion at a time, counts kept
+	local ms = {}
+	local vet = MA.Ranks[2]
+	local lose = Missions.masteryScore({ won = false, kills = 9, aces = 2, blocks = 3, kind = "match" })
+	local win = Missions.masteryScore({ won = true, kills = 9, aces = 2, blocks = 3, kind = "match", scale = 1 })
+	local short = Missions.masteryScore({ won = true, kills = 9, aces = 2, blocks = 3, kind = "match", scale = 0.5 })
+	local storyFull = Missions.masteryScore({ won = true, kills = 9, aces = 2, blocks = 3, kind = "story", scale = 0.3 })
+	Missions.addMastery(ms, "riku", "match", vet.Need.match + 5)
+	Missions.addMastery(ms, "riku", "story", vet.Need.story)
+	local notYet = not Missions.masteryReady(ms.riku) and Missions.claimMastery(ms, "riku") == nil
+	Missions.addMastery(ms, "riku", "cup", vet.Need.cup)
+	local waiting = Missions.masteryWaiting(ms)
+	local g, r = Missions.claimMastery(ms, "riku")
+	check(lose == 0 and win == 14 and short == 7 and storyFull == 14 and notYet and waiting == 1 and g == vet.Reward and r == vet and ms.riku.rank == 2
+		and ms.riku.match == vet.Need.match + 5 and not Missions.masteryReady(ms.riku) and Missions.claimMastery(ms, "riku") == nil and Missions.masteryWaiting(ms) == 0,
+		"mastery: only a win's points count (a short custom set for less, a story stage in full), all three challenges are needed, the claim promotes once and the counts stay",
+		string.format("%s after %d / %d / %d", r and r.Name or "?", ms.riku.match, ms.riku.story, ms.riku.cup))
+	local top = { riku = { rank = #MA.Ranks, match = 9999, story = 9999, cup = 9999 } }
+	local dirty = Missions.cleanMastery({ riku = { rank = 99, match = -4, story = "12", cup = 3.9 }, nobody = { rank = 2 }, daichi = "x" })
+	local rising = true
+	for i = 3, #MA.Ranks do
+		for _, k in ipairs(Missions.Kinds) do
+			rising = rising and MA.Ranks[i].Need[k] > MA.Ranks[i - 1].Need[k]
+		end
+	end
+	check(not Missions.masteryReady(top.riku) and Missions.nextRank(top.riku) == nil and not Missions.addMastery(ms, "nobody", "match", 5) and not Missions.addMastery(ms, "riku", "bogus", 5)
+		and dirty.riku.rank == #MA.Ranks and dirty.riku.match == 0 and dirty.riku.story == 12 and dirty.riku.cup == 3 and dirty.nobody == nil and dirty.daichi == nil
+		and Missions.mastery({}, "hana").rank == 1 and MA.Ranks[1].Need == nil and rising,
+		"mastery: the top rank asks nothing more, each rank asks more than the last, and saved mastery is cleaned to real characters, ranks and whole counts")
+end
+
+print("== Jaja's curving spikes land in ==")
+do
+	-- (the owner, 2026-11-16: "jaja's spike constantly go out"): Trickery's and Jackpot!'s curve
+	-- turned metres past its planned turn (the drag re-aim sped its first leg up) and dived out.
+	-- Now they land no deeper than his plain spikes from the same contacts, and inside the court
+	local jaja = Characters.derive(Characters.fromRoster(Roster.get("jaja"), "max"))
+	local function deepest(card)
+		local worst, n, seq = 0, 0, 0
+		for _, d in ipairs({ 1.0, 2.2, 3.4 }) do
+			for drop = 0, 1.5, 0.75 do
+				local root = apexRoot(jaja, d * SPM) - vec(0, drop, 0)
+				for dz = -1.2, 1.2, 0.4 do
+					for dy = -1.4, 1.0, 0.4 do
+						seq = seq + 1
+						local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz + dz, Z.SpikeCenterDy + dy), { stats = jaja, ability = "Joker", joker = card, seq = seq })
+						if ok and res.launch then
+							n = n + 1
+							worst = math.max(worst, -BallPhysics.buildPath(res.launch).landing.pos.Z * side)
+						end
+					end
+				end
+			end
+		end
+		return worst, n
+	end
+	local trick, n1 = deepest("Trickery")
+	local jack, n2 = deepest("Jackpot")
+	check(n1 > 100 and n2 > 100 and trick <= C.SideDepth and jack <= C.SideDepth,
+		"Jaja: Trickery's and Jackpot!'s curving spikes never land past the back line",
+		string.format("deepest %.1f / %.1f (the court %.1f)", trick, jack, C.SideDepth))
+end
+
+print("== S+ bot teams use S setters and middles too ==")
+do
+	-- (the owner, 2026-11-16: "make s+ teams not be exclusively locked to gunwoo and the s+ blocker
+	-- ... i'd keep the s+ wingspikers locked on to s+ though")
+	local function ids(pool)
+		local t = {}
+		for _, c in ipairs(pool) do
+			t[c.Id] = c.Tier
+		end
+		return t
+	end
+	local se, mb, ws = Characters.botPool(Roster, "S+", "SE"), Characters.botPool(Roster, "S+", "MB"), Characters.botPool(Roster, "S+", "WS")
+	local seT, mbT = ids(se), ids(mb)
+	local wsAllTop, seMixed, mbMixed, noLimited = true, false, false, true
+	for _, c in ipairs(ws) do
+		wsAllTop = wsAllTop and c.Tier == "S+"
+		noLimited = noLimited and not c.Limited
+	end
+	for _, c in ipairs(se) do
+		seMixed = seMixed or c.Tier == "S"
+		noLimited = noLimited and not c.Limited
+	end
+	for _, c in ipairs(mb) do
+		mbMixed = mbMixed or c.Tier == "S"
+	end
+	-- (a lower level still takes its nearest tier only)
+	local aSE = Characters.botPool(Roster, "A", "SE")
+	local aOnly = #aSE > 0
+	for _, c in ipairs(aSE) do
+		aOnly = aOnly and c.Tier == aSE[1].Tier
+	end
+	check(seT.dohwan == "S+" and seMixed and mbT.taesan == "S+" and mbMixed and #ws > 0 and wsAllTop and noLimited and aOnly,
+		"S+ bot teams: setters and middles from S and S+, spikers S+ only; lower levels unchanged",
+		string.format("%d setters, %d middles, %d spikers", #se, #mb, #ws))
+end
+
+print("== the Winter side story (Snowed In) ==")
+do
+	-- (the owner, 2026-11-16: "a christmas theme mini-story? maybe about jaja coming in from
+	-- volleyball evolution"): a side chapter, hidden from a live server until the event is on;
+	-- its first stage always open, the rest one by one, apart from the main story; every match
+	-- playable as written and every stage with its scenes
+	local gameWas = game
+	game = { GetService = function()
+		return { IsStudio = function()
+			return true
+		end }
+	end }
+	local sc = dofile(ROOT .. "/src/shared/Config.lua")
+	game = gameWas
+	local wch = nil
+	for _, c in ipairs(sc.Story.Chapters) do
+		if c.Key == "w1" then
+			wch = c
+		end
+	end
+	local hidden = true
+	for _, c in ipairs(Config.Story.Chapters) do
+		hidden = hidden and c.Key ~= "w1"
+	end
+	hidden = hidden == not WINTER_SHIPPED -- (hidden while it's off, there once it's on)
+	-- (put back for a moment, with its kits and cast, to try it)
+	table.insert(Config.Story.Chapters, wch)
+	local kitsWere, castWere = {}, {}
+	for k, v in pairs(sc.Story.Kits) do
+		kitsWere[k] = Config.Story.Kits[k]
+		Config.Story.Kits[k] = v
+	end
+	for k, v in pairs(sc.Story.Cast) do
+		castWere[k] = Config.Story.Cast[k]
+		Config.Story.Cast[k] = v
+	end
+	local S2 = dofile(ROOT .. "/src/shared/Story.lua")
+	local SS = require("StoryScript")
+	local fresh = { stars = {} }
+	local w1Done = { stars = { ["W-1"] = 1 } }
+	local unlock = S2.unlocked(fresh, "W-1") and not S2.unlocked(fresh, "W-2") and S2.unlocked(w1Done, "W-2") and not S2.unlocked(w1Done, "W-3")
+	local apart = S2.next(fresh) ~= nil and S2.next(fresh).Key ~= "W-1" and S2.unlocked(fresh, "1-1") and S2.label("W-3") == "W - 3"
+	local bad = {}
+	for _, st in ipairs(wch and wch.Stages or {}) do
+		local sc2 = SS[st.Key]
+		if not sc2 or not sc2.intro or #sc2.intro == 0 then
+			table.insert(bad, st.Key .. " intro")
+		end
+		if S2.isMatch(st) then
+			if not (sc2 and sc2.outro and #sc2.outro > 0) then
+				table.insert(bad, st.Key .. " outro")
+			end
+			local roles = {}
+			local me = Roster.get(st.As)
+			roles[me and me.Role or "?"] = true
+			for _, id in ipairs(st.Mates) do
+				local r = Roster.get(id)
+				if not r or roles[r.Role] then
+					table.insert(bad, st.Key .. " mate " .. id)
+				end
+				roles[r and r.Role or "?"] = true
+			end
+			local foeRoles = {}
+			for _, id in ipairs(st.Foes) do
+				local r = Roster.get(id)
+				if not r or foeRoles[r.Role] then
+					table.insert(bad, st.Key .. " foe " .. id)
+				end
+				foeRoles[r and r.Role or "?"] = true
+			end
+			if not Config.Story.Kits[st.Kit] then
+				table.insert(bad, st.Key .. " kit")
+			end
+			if not Config.Courts.List[st.Court] then
+				table.insert(bad, st.Key .. " court")
+			end
+			if st.Points < Config.Story.StarDiff[3] + 1 then
+				table.insert(bad, st.Key .. " points")
+			end
+		end
+	end
+	table.remove(Config.Story.Chapters)
+	for k in pairs(sc.Story.Kits) do
+		Config.Story.Kits[k] = kitsWere[k]
+	end
+	for k in pairs(sc.Story.Cast) do
+		Config.Story.Cast[k] = castWere[k]
+	end
+	check(hidden and wch ~= nil and wch.Side == true and #wch.Stages == 5 and unlock and apart and #bad == 0,
+		"Winter story: hidden live until the event, its own unlocks apart from the main story, every stage scripted and playable",
+		string.format("hidden %s, found %s, unlocks %s, apart %s%s", tostring(hidden), tostring(wch ~= nil), tostring(unlock), tostring(apart), #bad > 0 and (", " .. table.concat(bad, ", ")) or ""))
+end
+
+print("== a well-hit spike can beat a full block ==")
+do
+	-- (the owner, 2026-11-16: "at a point its just impossible to spike past a blocker. but then
+	-- again, people will complain about it being too weak"): Kuro spiking into Taesan's full block
+	-- (the best middle's reach, about Kuro's own), perfectly timed: before, every spike was stuffed.
+	-- Now a Perfect one gets past about 60% of the time (off the hands and out, or over), a Good
+	-- one about 1 in 7, the rest soft blocks the blockers can play, and stuffs; Iron Wall stuffs all
+	local kuro = Characters.derive(Characters.fromRoster(Roster.get("kuro"), "max"))
+	local taesan = Characters.derive(Characters.fromRoster(Roster.get("taesan"), "max"))
+	local bSide = -side
+	local broot = vec(0, GROUND + Characters.jumpHeight(taesan, GROUND) * Config.Player.BlockFullHeight + Characters.hangGain(), bSide * 0.4 * SPM)
+	local rows, walled, wallN, shallowStuff = {}, 0, 0, 0
+	local seq = 0
+	for _, d in ipairs({ 1.0, 1.6, 2.2, 2.8 }) do
+		for drop = 0, 2.0, 0.5 do
+			local root = apexRoot(kuro, d * SPM) - vec(0, drop, 0)
+			for dz = -1.2, 1.2, 0.4 do
+				for dy = -1.4, 1.0, 0.4 do
+					local ok, res = spike(root, ballAt(root, Z.SpikeCenterDz + dz, Z.SpikeCenterDy + dy), { stats = kuro })
+					if ok and res.launch then
+						local g = res.meta.grade
+						local row = rows[g] or { n = 0, past = 0, soft = 0, stuff = 0 }
+						rows[g] = row
+						row.n = row.n + 1
+						local path = BallPhysics.buildPath(res.launch)
+						local t0 = path.segs[1].t0
+						local tB, pB = HitLogic.blockAlong(path, t0, t0 + 1.2, broot, bSide, taesan, nil)
+						if not tB then
+							row.past = row.past + 1
+						else
+							seq = seq + 1
+							local last = { hitType = "Spike", team = "Away", kmh = res.meta.kmh, quality = res.meta.quality, tierDrain = 1 }
+							local function c(extra)
+								local t = { side = bSide, team = "Home", stats = taesan, lastHit = last, ballVel = BallPhysics.velocityAt(path, tB), seq = seq }
+								for k, v in pairs(extra or {}) do t[k] = v end
+								return ctx(t)
+							end
+							local _, rB = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = pB, vy = 0, grounded = false }, c())
+							local o = rB and rB.meta.outcome
+							if o == "Tool" or o == "Break" or o == nil then
+								row.past = row.past + 1
+							elseif o == "Stuff" then
+								row.stuff = row.stuff + 1
+								local _, _, _, cover = HitLogic.blockBox(broot, pB, bSide, taesan, nil)
+								shallowStuff = shallowStuff + ((cover < Z.BlockStuffCover) and 1 or 0)
+							else
+								row.soft = row.soft + 1
+							end
+							local _, rW = HitLogic.compute({ action = "Block", t = 0, root = broot, ball = pB, vy = 0, grounded = false }, c({ ironWall = true }))
+							wallN = wallN + 1
+							walled = walled + ((rW and rW.meta.outcome == "Stuff") and 1 or 0)
+						end
+					end
+				end
+			end
+		end
+	end
+	local function share(g, k)
+		local r = rows[g]
+		return r and r[k] / r.n or 0
+	end
+	check(share("PERFECT", "past") > 0.5 and share("PERFECT", "past") < 0.8 and share("GOOD", "past") > 0.05 and share("GOOD", "past") < 0.3
+		and share("GOOD", "stuff") > 0.3 and shallowStuff == 0 and wallN > 0 and walled == wallN,
+		"a full block: a Perfect spike gets past most of the time, a Good one now and then; shallow hands never stuff; Iron Wall still stuffs everything",
+		string.format("past: Perfect %.0f%%, Great %.0f%%, Good %.0f%%; Good stuffed %.0f%%; Iron Wall %d / %d", 100 * share("PERFECT", "past"), 100 * share("GREAT", "past"), 100 * share("GOOD", "past"), 100 * share("GOOD", "stuff"), walled, wallN))
+end
+
+print("== the Winter advent calendar, gifts and leaderboard ==")
+do
+	-- the owner, 2026-11-18: "add gifting, make up a tone of cosmetics for advent calender, you can buy
+	-- forward up till the 25th, you can buy missed days. event leaderboard ofc"
+	local Winter = require("Winter")
+	local Economy = require("Economy")
+	local Spins = require("Spins")
+	local W = Config.Winter
+	local A = W.Advent
+	local DAY = 86400
+	local ev = Winter.clean(nil)
+	-- (Studio's Config, everything in: these sims, like a live server, leave the event's items out)
+	local gameWas = game
+	game = { GetService = function()
+		return { IsStudio = function()
+			return true
+		end }
+	end }
+	local studio = dofile(ROOT .. "/src/shared/Config.lua")
+	game = gameWas
+	local function inList(list, key)
+		for _, it in ipairs(list) do
+			if it.Key == key then
+				return it
+			end
+		end
+		return nil
+	end
+	-- every door has a real reward, and its cosmetics and cards exist (and are the event's own)
+	local bad = {}
+	for d = 1, A.Doors do
+		local r = A.Rewards[d]
+		if not r then
+			table.insert(bad, d .. ": none")
+		else
+			if r.Item then
+				local it = inList(studio.Cosmetics[r.Item.Kind], r.Item.Key)
+				if not it or it.Limited ~= "Winter" or it.Advent ~= true then
+					table.insert(bad, d .. ": " .. r.Item.Kind .. " " .. r.Item.Key)
+				end
+			end
+			if r.Card then
+				local c = inList(studio.Cards.List, r.Card)
+				if not (c and c.Grant == true and c.Limited == "Winter") then
+					table.insert(bad, d .. ": card " .. r.Card)
+				end
+			end
+		end
+	end
+	check(#A.Rewards == A.Doors and A.Doors == 25 and #bad == 0, "25 doors, each a winter cosmetic or card that exists", table.concat(bad, ", "))
+	local day3 = A.Starts + 2 * DAY + 3600 -- (December 3)
+	check(Winter.adventToday(A.Starts + 60) == 1 and Winter.adventToday(day3) == 3 and Winter.adventToday(A.Starts - DAY) == 0 and Winter.adventToday(A.Starts + 30 * DAY) == 31,
+		"the doors follow the calendar: door 1 on December 1, door 3 on the 3rd")
+	-- the owner, 2026-11-21: "you have no deadline until december starts, then thats when you can
+	-- start buying the days you missed": the event opening in November misses no door; a door is
+	-- missed only once its own December day has gone, whenever the event started
+	do
+		local nov = Winter.clean(nil)
+		local missedNov = 0
+		for _, t in ipairs({ A.Starts - 10 * DAY, A.Starts - 60 }) do
+			for d = 1, A.Doors do
+				if Winter.adventState(nov, d, t) == "missed" then
+					missedNov = missedNov + 1
+				end
+			end
+		end
+		check(missedNov == 0 and Winter.adventState(nov, 1, A.Starts + 60) == "today" and Winter.adventState(nov, 1, A.Starts + DAY + 60) == "missed"
+			and Winter.adventState(nov, 2, A.Starts + DAY + 60) == "today" and W.Starts <= A.Starts,
+			"no advent door counts as missed before December 1; door 1 is missed from December 2 (and the event opens by December 1)", missedNov)
+	end
+	-- today's free; not tomorrow's, not twice
+	local r3 = Winter.adventFree(ev, 3, day3)
+	local again, why = Winter.adventFree(ev, 3, day3)
+	local ahead, whyA = Winter.adventFree(ev, 4, day3)
+	-- Christmas morning's door is never sold early, but can be after its day
+	local early = Winter.clean(nil)
+	local e1 = Winter.adventBuy(early, 25, A.Starts + 2 * DAY)
+	local fresh = Winter.clean(nil)
+	for _ = 1, A.Doors do
+		Winter.adventBuy(fresh, nil, A.Starts - DAY)
+	end
+	check(e1 == 1 and Winter.adventState(early, 25, A.Starts) == "early" and not Winter.adventOpen(fresh, 25) and Winter.adventCount(fresh) == A.Doors - 1
+		and Winter.adventBuy(fresh, 25, A.Starts + 26 * DAY) == 25 and A.Rewards[25].Skin == "StarTopper" and string.find(Winter.adventText(A.Rewards[25]), "Star", 1, true) ~= nil,
+		"door 25 (the Star Topper skin) is never sold before Christmas, only after it if missed", Winter.adventText(A.Rewards[25]))
+	check(r3 == A.Rewards[3] and again == nil and why == "open" and ahead == nil and whyA == "notToday" and Winter.adventState(ev, 3, day3) == "open"
+		and Winter.adventState(ev, 1, day3) == "missed" and Winter.adventState(ev, 9, day3) == "ahead",
+		"today's door opens free once; a missed one and a future one wait for Robux")
+	-- bought: the one picked, else the earliest shut that isn't today's
+	local d1 = Winter.adventBuy(ev, 20, day3)
+	local d2 = Winter.adventBuy(ev, nil, day3)
+	local d3 = Winter.adventBuy(ev, 3, day3) -- (open already: the earliest instead)
+	local four = Winter.clean(nil)
+	local d4 = Winter.adventBuy(four, 4, A.Starts + 3 * DAY) -- (today's door: not bought, it's free)
+	check(d1 == 20 and d2 == 1 and d3 == 2 and d4 == 1 and Winter.adventCount(ev) == 4,
+		"a bought door is the one picked (missed or still to come), else the earliest still shut; today's is never sold", string.format("%s %s %s %s", tostring(d1), tostring(d2), tostring(d3), tostring(d4)))
+	-- every door bought up front before December, and the save keeps them
+	local all = Winter.clean(nil)
+	for _ = 1, A.Doors do
+		Winter.adventBuy(all, nil, A.Starts - 5 * DAY)
+	end
+	local none = Winter.adventBuy(all, nil, A.Starts - 5 * DAY)
+	local kept = Winter.clean({ advent = all.advent, points = 7 })
+	check(Winter.adventCount(all) == A.Doors - 1 and none == nil and Winter.adventCount(kept) == A.Doors - 1 and kept.points == 7 and Winter.adventCount(Winter.clean({ advent = -5 })) == 0,
+		"every door but Christmas morning's can be bought ahead, and the save keeps them")
+	-- gifts: the Winter Pass, skips and Snowflakes reach the one it's for
+	local passEntry = Economy.pack("WinterPass", 1)
+	local skipEntry = Economy.pack("WinterPass", 3)
+	local snowEntry = Economy.pack("Snow", 2)
+	local g = Economy.cleanGrant(Economy.giftGrant(passEntry))
+	local friend = { vp = 0, gold = 0, lucky = 0, boosts = {}, owned = {} }
+	Economy.apply(friend, g, A.Starts)
+	local premium = friend.winter and friend.winter.pass and friend.winter.pass.premium == true
+	Economy.apply(friend, g, A.Starts) -- (a second one: Snowflakes instead)
+	local refund = friend.winter.snow
+	Economy.apply(friend, Economy.cleanGrant(Economy.giftGrant(skipEntry)), A.Starts)
+	Economy.apply(friend, Economy.cleanGrant(Economy.giftGrant(snowEntry)), A.Starts)
+	check(Economy.giftable(passEntry) and Economy.giftable(skipEntry) and Economy.giftable(snowEntry) and not Economy.giftable(Economy.pack("Advent", 1))
+		and premium and refund == W.Pass.GiftDupSnow and Winter.passTier(friend.winter) == 5 and friend.winter.snow == W.Pass.GiftDupSnow + W.SnowPacks[2].Snow
+		and not Economy.isEmpty(g) and string.find(Economy.describe(g), "premium track", 1, true) ~= nil,
+		"the Winter Pass, its skips and Snowflakes can be gifted (a doubled Pass becomes Snowflakes); advent doors can't",
+		Economy.describe(g))
+	-- the leaderboard: a Blizzard win counts most; the cards go by final place, after the event
+	check(Winter.boardPoints("Blizzard") > Winter.boardPoints("Hard") and Winter.boardPoints("Hard") > Winter.boardPoints("Normal") and Winter.boardPoints("Normal") > 0
+		and Winter.boardCard(1) == "WinterChampion" and Winter.boardCard(2) == "WinterTop10" and Winter.boardCard(10) == "WinterTop10" and Winter.boardCard(11) == "WinterTop100"
+		and Winter.boardCard(100) == "WinterTop100" and Winter.boardCard(101) == nil and Winter.boardCard(nil) == nil
+		and not Winter.boardSettles(W.Ends - 1) and Winter.boardSettles(W.Ends + 1),
+		"the Winter leaderboard: Blizzard wins count most, first is Champion, then the top 10 and top 100, given when it ends")
+	local Leaderboards = require("Leaderboards")
+	local v = Leaderboards.valuesOf({ record = {}, winter = { points = 12 } })
+	local vPreview = Leaderboards.valuesOf({ record = {}, winter = { points = 12, preview = true } })
+	check(inList(studio.Leaderboards.Boards, "winter") ~= nil and Leaderboards.isBoard("winter") == WINTER_SHIPPED and v.winter == 12 and vPreview.winter == 0, "a Winter score goes on the board (only once the event is out), a Studio preview's never does")
+
+	-- the Pass's and the calendar's things come from there and nowhere else (the owner, 2026-11-18:
+	-- "dont allow the battlepass skin or the advent calender availabe any other way then the bp and
+	-- the advent calender"): every table in Studio's Config that hands one out (a Skin, Card, Room,
+	-- or a Kind and Key) is on a Pass tier or behind a door
+	local skip = { [studio.Winter.Pass.Rewards] = true, [studio.Winter.Advent.Rewards] = true }
+	local leaks, seen = {}, {}
+	local function sweep(t, path)
+		if type(t) ~= "table" or seen[t] or skip[t] then
+			return
+		end
+		seen[t] = true
+		local function leak(kind, key)
+			if type(key) == "string" and Winter.exclusive(kind, key) then
+				table.insert(leaks, path .. " gives " .. kind .. " " .. key)
+			end
+		end
+		leak("Skin", t.Skin)
+		leak("Card", t.Card)
+		leak("Room", t.Room)
+		if type(t.Kind) == "string" then
+			leak(t.Kind, t.Key)
+		end
+		for k, v in pairs(t) do
+			sweep(v, path .. "." .. tostring(k))
+		end
+	end
+	sweep(studio, "Config")
+	local onBanner = false
+	for _, it in ipairs(Winter.bannerItems()) do
+		onBanner = onBanner or Winter.exclusive(it.kind, it.key) ~= nil
+	end
+	local wayP, tierP = Winter.exclusive("Skin", "CandyClaw")
+	local wayA, doorA = Winter.exclusive("Skin", "StarTopper")
+	local bannerWay = Winter.skinWay("TwinkleLights")
+	local sleighWay = Winter.skinWay("SleighRide")
+	local poseWay = Winter.exclusive("Pose", "Reindeer")
+	local starWay = Winter.exclusive("Ball", "NorthStar")
+	local trailWay = Winter.exclusive("Trail", "Gingerbread")
+	local roomWay = Winter.exclusive("Room", "Christmas")
+	-- a row slipped into the shop for one of them isn't listed
+	local sneaky = { Key = "SneakyClaw", Name = "Claw", Price = 1, Skin = "CandyClaw" }
+	table.insert(W.Shop, sneaky)
+	local inShopList = false
+	for _, row in ipairs(Winter.shop()) do
+		inShopList = inShopList or row == sneaky
+	end
+	table.remove(W.Shop)
+	check(#leaks == 0 and not onBanner and wayP == "Pass" and tierP == W.Pass.Tiers and wayA == "Advent" and doorA == 25
+		and Winter.exclusive("Skin", "TwinkleLights") == nil and Winter.exclusive("Skin", "SleighRide") == nil and bannerWay == "Wild Card banner" and sleighWay == "Wild Card banner"
+		and poseWay == "Pass" and starWay == "Advent" and trailWay == "Advent" and roomWay == "Pass" and not inShopList
+		and Winter.skinWay("CandyClaw") == "Winter Pass tier " .. W.Pass.Tiers and Winter.skinWay("StarTopper") == "Advent door 25",
+		"the Winter Pass's and the advent calendar's things (Candy Claw, Star Topper, the poses, the door cosmetics) come from there and nowhere else", table.concat(leaks, "; "))
 end
 
 print("== determinism ==")

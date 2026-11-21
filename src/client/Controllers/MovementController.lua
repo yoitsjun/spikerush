@@ -309,14 +309,24 @@ end
 -- hold nothing), and a carry for the whole flight from the charge (gauge 0..1). kind: "Spike",
 -- or "Serve" into his toss. aim ({ dir, carry }, a jump serve after its own toss): no run-in,
 -- just that carry. Returns the direction along z, or nil when you can't jump now.
-function MovementController.leap(gauge, kind, aim)
+-- addHeight: Enflamed Dragon's jump, straight up the usual way, this many studs higher (no carry).
+function MovementController.leap(gauge, kind, aim, addHeight)
 	if not MovementController.canJump() then
 		return nil
 	end
 	if aim then
-		gather = { t0 = os.clock(), dir = 0, kind = kind or "Spike", carry = aim.carry, leapDir = aim.dir }
+		gather = { t0 = os.clock(), dir = 0, kind = kind or "Spike", carry = aim.carry, leapDir = aim.dir, addHeight = addHeight }
 		mods.AnimationController.pose(State.myId, "Gather")
 		return aim.dir
+	end
+	if addHeight then
+		local d = heldDir()
+		if d == 0 then
+			d = State.isPlaying and -State.mySide or facing
+		end
+		gather = { t0 = os.clock(), dir = d, kind = kind or "Spike", carry = 0, addHeight = addHeight }
+		mods.AnimationController.pose(State.myId, "Gather")
+		return d
 	end
 	local dir = heldDir()
 	if dir == 0 then
@@ -374,7 +384,8 @@ function MovementController.blockJump(fraction)
 	if not MovementController.canJump() then
 		return false
 	end
-	local k = (P.BlockMinHeight + (1 - P.BlockMinHeight) * math.clamp(fraction, 0, 1)) * Cups.factor(ReplicatedStorage:GetAttribute("CupMods"), "BlockJump")
+	-- (a full block tops out at BlockFullHeight of a spike jump)
+	local k = P.BlockFullHeight * (P.BlockMinHeight + (1 - P.BlockMinHeight) * math.clamp(fraction, 0, 1)) * Cups.factor(ReplicatedStorage:GetAttribute("CupMods"), "BlockJump")
 	queued = { height = baseJump() * k, kind = "Block" }
 	return true
 end
@@ -729,10 +740,11 @@ local function moveStep()
 			local dir = gather.dir
 			local carry = gather.carry
 			local leapDir = gather.leapDir
+			local addHeight = gather.addHeight or 0
 			jumpKind = gather.kind
 			gather = nil
 			hum.WalkSpeed = baseWalk() * P.AirControl
-			hum.JumpHeight = (jumpKind == "Spike" or jumpKind == "Serve") and spikeJump() or baseJump()
+			hum.JumpHeight = ((jumpKind == "Spike" or jumpKind == "Serve") and spikeJump() or baseJump()) + addHeight
 			hum.Jump = true
 			local v = hrp.AssemblyLinearVelocity
 			local vz = nil

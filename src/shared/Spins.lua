@@ -21,7 +21,8 @@ local items, index, starters = {}, {}, {}
 
 items.Char = {}
 for _, c in ipairs(Roster) do
-	table.insert(items.Char, { Key = c.Id, Name = c.Name, Rarity = Spins.tierRarity(c.Tier), Char = c })
+	-- (Limited: an event's own character, Joker: only its event's banner gives it; the pools below skip it)
+	table.insert(items.Char, { Key = c.Id, Name = c.Name, Rarity = Spins.tierRarity(c.Tier), Char = c, Limited = c.Limited })
 end
 starters.Char = {}
 for _, id in ipairs(Roster.Starters) do
@@ -397,7 +398,7 @@ for _, kind in ipairs({ "Normal", "Top", "Lucky" }) do
 	local set = tierSet(PITY[kind].Tiers)
 	pityPools[kind] = {}
 	for _, item in ipairs(items.Char) do
-		if set[item.Char.Tier] and not starters.Char[item.Key] then
+		if set[item.Char.Tier] and not starters.Char[item.Key] and not item.Limited then
 			table.insert(pityPools[kind], item.Key)
 		end
 	end

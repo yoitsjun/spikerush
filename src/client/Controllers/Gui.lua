@@ -1180,6 +1180,142 @@ function Gui.playerCard(parent, props)
 	local pumpkinGlow = make("ImageLabel", { Image = Assets.id(Assets.Fx.Glow) or "", BackgroundTransparency = 1, ImageColor3 = Color3.fromRGB(255, 140, 30), ImageTransparency = 0.45, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.55), Size = UDim2.fromScale(1.9, 1.9), ZIndex = z + 6 }, pumpkin)
 	local pumpkinImg = make("ImageLabel", { Image = Assets.image("CardPumpkin") or "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = z + 7 }, pumpkin)
 
+
+	-- (built only on a card that shows one: a list of cards would carry hundreds of hidden
+	-- pieces otherwise)
+	local winterFx = nil
+	local function buildWinterFx()
+		-- The Winter Pass's cards (the owner, 2026-11-16: "these are all nearly identical give them some
+		-- flair"): each its own thing on the card, moving (Look.Fx). All hidden on every other card.
+		local SNOWW = Color3.fromRGB(246, 251, 255)
+		local function blob(parent, props)
+			local f = make("Frame", props, parent)
+			f.BorderSizePixel = 0
+			make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, f)
+			return f
+		end
+		-- (Snowfall: Snow Day) snow piled along the top edge, flakes drifting down the card
+		local snowCap = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = z + 6 }, root)
+		-- (between the card's slanted ends: x from about H * 0.3 to W - H * 0.05)
+		-- (clear of the title tag on the left, sitting on the edge: mostly on the card, bumps above)
+		local x0, x1 = 18 + 150 + 16, W - math.floor(H * 0.12)
+		for i = 0, 8 do
+			local w = math.floor((x1 - x0) / 5) + (i % 3) * 10
+			local h = math.floor(H * 0.24) + (i % 2) * 6
+			blob(snowCap, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x0 + math.floor(i / 8 * (x1 - x0)), math.floor(h * 0.32) + (i % 3)), Size = UDim2.fromOffset(w, h), BackgroundColor3 = SNOWW, ZIndex = z + 6 })
+		end
+		local snowClip = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ClipsDescendants = true, Visible = false, ZIndex = z + 6 }, root)
+		local flakes = {}
+		for i = 1, 14 do
+			local d = 3 + (i % 3) * 2
+			local f = blob(snowClip, { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(d, d), BackgroundColor3 = SNOWW, BackgroundTransparency = 0.1, ZIndex = z + 6 })
+			flakes[i] = { frame = f, x = (i * 0.618) % 1, speed = 0.16 + (i % 4) * 0.05, phase = (i * 0.41) % 1 }
+		end
+		-- (Lights: Winter 2026) a string of Christmas lights sagging along the top edge, twinkling
+		local lights = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = z + 6 }, root)
+		local BULB = { Color3.fromRGB(255, 70, 70), Color3.fromRGB(90, 230, 120), Color3.fromRGB(255, 206, 80), Color3.fromRGB(90, 170, 255) }
+		local bulbs = {}
+		for i = 0, 10 do
+			local u = i / 10
+			local y = 2 + math.sin((u * 2 % 1) * math.pi) * 9
+			local b = blob(lights, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(math.floor(u * W), math.floor(y)), Size = UDim2.fromOffset(9, 13), BackgroundColor3 = BULB[i % #BULB + 1], ZIndex = z + 6 })
+			bulbs[i + 1] = { frame = b, color = BULB[i % #BULB + 1] }
+			if i < 10 then
+				local u2 = (i + 1) / 10
+				local y2 = 2 + math.sin((u2 * 2 % 1) * math.pi) * 9
+				local x1, x2 = u * W, u2 * W
+				local len = math.sqrt((x2 - x1) ^ 2 + (y2 - y) ^ 2)
+				make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(math.floor((x1 + x2) / 2), math.floor((y + y2) / 2) + 1), Size = UDim2.fromOffset(math.floor(len), 2), Rotation = math.deg(math.atan2(y2 - y, x2 - x1)), BackgroundColor3 = Color3.fromRGB(20, 50, 30), BorderSizePixel = 0, ZIndex = z + 6 }, lights)
+			end
+		end
+		local bigFlake = make("ImageLabel", { Image = Assets.image("IconSnowflake") or "", BackgroundTransparency = 1, ImageColor3 = SNOWW, ImageTransparency = 0.72, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -math.floor(W * 0.17), 0.5, 0), Size = UDim2.fromOffset(math.floor(H * 1.25), math.floor(H * 1.25)), Visible = false, ZIndex = z + 3 }, root)
+		-- (Icicles: Frostbitten) icicles hanging off the bottom edge, frost creeping in at the sides
+		local icicles = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = z + 6 }, root)
+		local icicleImg = Assets.id(Assets.Fx.Icicle) or ""
+		local iceBits = {}
+		for i = 0, 8 do
+			local len = math.floor(H * (0.4 + ((i * 37) % 5) * 0.09))
+			local ic = make("ImageLabel", { Image = icicleImg, BackgroundTransparency = 1, ImageColor3 = Color3.fromRGB(210, 246, 255), Rotation = 180, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(math.floor((0.1 + i * 0.1) * W), H - 6), Size = UDim2.fromOffset(math.floor(len * 0.55), len), ZIndex = z + 6 }, icicles)
+			iceBits[i + 1] = ic
+		end
+		for _, spot in ipairs({ { 0.36, 0.2, 0.34 }, { 0.6, 0.78, 0.26 }, { 0.93, 0.22, 0.4 } }) do
+			make("ImageLabel", { Image = Assets.image("IconSnowflake") or "", BackgroundTransparency = 1, ImageColor3 = Color3.fromRGB(220, 248, 255), ImageTransparency = 0.35, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(spot[1], spot[2]), Size = UDim2.fromOffset(math.floor(H * spot[3]), math.floor(H * spot[3])), ZIndex = z + 5 }, icicles)
+		end
+		-- (Bells: Jingle Spiker) two gold bells on a holly sprig, swinging off the top right corner
+		local bellSize = math.floor(H * 0.42)
+		local bells = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(1, -math.floor(H * 0.1), 0, -math.floor(H * 0.24)), Size = UDim2.fromOffset(bellSize * 3, bellSize * 2), BackgroundTransparency = 1, Visible = false, ZIndex = z + 7 }, root)
+		local bellArms = {}
+		for k, dx in ipairs({ -0.6, 0.6 }) do
+			local arm = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, math.floor(dx * bellSize), 0, math.floor(bellSize * 0.25)), Size = UDim2.fromOffset(bellSize, math.floor(bellSize * 1.5)), BackgroundTransparency = 1, ZIndex = z + 7 }, bells)
+			make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(3, math.floor(bellSize * 0.3)), BackgroundColor3 = Color3.fromRGB(200, 30, 40), BorderSizePixel = 0, ZIndex = z + 7 }, arm)
+			local body = make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.2), Size = UDim2.fromScale(0.7, 0.62), BackgroundColor3 = Color3.fromRGB(255, 206, 60), BorderSizePixel = 0, ZIndex = z + 7 }, arm)
+			make("UICorner", { CornerRadius = UDim.new(0.45, 0) }, body)
+			make("UIGradient", { Rotation = 0, Color = ColorSequence.new(Color3.fromRGB(255, 236, 140), Color3.fromRGB(210, 140, 20)) }, body)
+			make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.8), Size = UDim2.fromScale(0.95, 0.12), BackgroundColor3 = Color3.fromRGB(220, 160, 30), BorderSizePixel = 0, ZIndex = z + 8 }, arm)
+			blob(arm, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.9), Size = UDim2.fromOffset(math.floor(bellSize * 0.24), math.floor(bellSize * 0.24)), BackgroundColor3 = Color3.fromRGB(150, 100, 20), ZIndex = z + 7 })
+			bellArms[k] = arm
+		end
+		for k, dx in ipairs({ -0.35, 0.35 }) do
+			blob(bells, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, math.floor(dx * bellSize), 0, math.floor(bellSize * 0.2)), Size = UDim2.fromOffset(math.floor(bellSize * 0.75), math.floor(bellSize * 0.35)), Rotation = dx * 60, BackgroundColor3 = Color3.fromRGB(30, 130, 60), ZIndex = z + 9 })
+		end
+		for k, dx in ipairs({ -0.08, 0.1, 0 }) do
+			blob(bells, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, math.floor(dx * bellSize), 0, math.floor(bellSize * (k == 3 and 0.1 or 0.22))), Size = UDim2.fromOffset(math.floor(bellSize * 0.2), math.floor(bellSize * 0.2)), BackgroundColor3 = Color3.fromRGB(220, 20, 30), ZIndex = z + 10 })
+		end
+		-- (Coal: Naughty) a lump pile of coal smouldering in the bottom right corner, smoke curling up
+		local CS = noWings and math.floor(H * 0.8) or math.floor(H * 1.05)
+		local coal = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W - math.floor(CS * 0.3), H - math.floor(CS * 0.3)), Size = UDim2.fromOffset(CS, CS), BackgroundTransparency = 1, Visible = false, ZIndex = z + 7 }, root)
+		local coalGlow = make("ImageLabel", { Image = Assets.id(Assets.Fx.Glow) or "", BackgroundTransparency = 1, ImageColor3 = Color3.fromRGB(255, 90, 20), ImageTransparency = 0.5, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.7), Size = UDim2.fromScale(1.6, 1.1), ZIndex = z + 6 }, coal)
+		local embersC = {}
+		for i, l in ipairs({ { 0.3, 0.72, 0.42 }, { 0.65, 0.74, 0.46 }, { 0.48, 0.52, 0.4 }, { 0.82, 0.6, 0.3 }, { 0.16, 0.6, 0.28 } }) do
+			local lump = blob(coal, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(l[1], l[2]), Size = UDim2.fromScale(l[3], l[3] * 0.8), Rotation = i * 23, BackgroundColor3 = Color3.fromRGB(46 + i * 4, 42 + i * 3, 46), ZIndex = z + 7 })
+			make("UIStroke", { Color = Color3.fromRGB(255, 110, 30), Thickness = 1.5, Transparency = 0.35 }, lump)
+			embersC[i] = blob(coal, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(l[1] + 0.04, l[2] - 0.02), Size = UDim2.fromOffset(5, 3), BackgroundColor3 = Color3.fromRGB(255, 120, 30), ZIndex = z + 8 })
+		end
+		local smoke = {}
+		for i = 1, 4 do
+			smoke[i] = blob(coal, { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromScale(0.3, 0.3), BackgroundColor3 = Color3.fromRGB(110, 110, 120), ZIndex = z + 6 })
+		end
+		-- (Gift: Nice) a wrapped present in the bottom right corner, its lid hopping
+		local GS = noWings and math.floor(H * 0.78) or math.floor(H * 1.0)
+		local gift = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromOffset(W - math.floor(GS * 0.35), H + math.floor(GS * 0.18)), Size = UDim2.fromOffset(GS, GS), BackgroundTransparency = 1, Visible = false, ZIndex = z + 7 }, root)
+		local box = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), Size = UDim2.fromScale(0.8, 0.62), BackgroundColor3 = Color3.fromRGB(214, 36, 52), BorderSizePixel = 0, ZIndex = z + 7 }, gift)
+		make("UICorner", { CornerRadius = UDim.new(0, 4) }, box)
+		make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromScale(0.18, 1), BackgroundColor3 = Color3.fromRGB(255, 214, 90), BorderSizePixel = 0, ZIndex = z + 8 }, box)
+		local lid = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0.4), Size = UDim2.fromScale(0.92, 0.17), BackgroundColor3 = Color3.fromRGB(236, 50, 66), BorderSizePixel = 0, ZIndex = z + 9 }, gift)
+		make("UICorner", { CornerRadius = UDim.new(0, 4) }, lid)
+		make("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromScale(0.17, 1), BackgroundColor3 = Color3.fromRGB(255, 214, 90), BorderSizePixel = 0, ZIndex = z + 10 }, lid)
+		for _, dx in ipairs({ -1, 1 }) do
+			blob(lid, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, dx * math.floor(GS * 0.12), 0, 2), Size = UDim2.fromOffset(math.floor(GS * 0.26), math.floor(GS * 0.2)), Rotation = dx * 25, BackgroundColor3 = Color3.fromRGB(255, 214, 90), ZIndex = z + 10 })
+		end
+		-- (Aurora: Northern Lights) green and violet light rippling across the card
+		local auroraClip = make("Frame", { Position = UDim2.fromOffset(math.floor(H * 0.3), 3), Size = UDim2.new(1, -math.floor(H * 0.55), 1, -6), BackgroundTransparency = 1, ClipsDescendants = true, Visible = false, ZIndex = z + 3 }, root)
+		local auroraBands = {}
+		for i = 1, 3 do
+			local band = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.3 + i * 0.12), Size = UDim2.new(1.6, 0, 0, math.floor(H * 0.42)), Rotation = -8 + i * 5, BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = z + 3 }, auroraClip)
+			local g = make("UIGradient", {
+				Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 255, 170)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 220, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 110, 255)) }),
+				Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.55), NumberSequenceKeypoint.new(0.5, 0.35), NumberSequenceKeypoint.new(0.7, 0.55), NumberSequenceKeypoint.new(1, 1) }),
+			}, band)
+			auroraBands[i] = { frame = band, grad = g }
+		end
+		-- (SantaHat: Santa's Ace) a Santa hat on the player's picture
+		-- (on the picture's top right corner, clear of the title tag)
+		local hatS = math.floor(H * 0.8)
+		local hat = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromOffset(28 + (H - 20) - 20, math.floor(H * 0.42)), Size = UDim2.fromOffset(hatS, hatS), Rotation = 14, BackgroundTransparency = 1, Visible = false, ZIndex = z + 8 }, root)
+		local BANDS = 8
+		for i = 0, BANDS - 1 do
+			local u = i / BANDS
+			local bw = 0.78 * (1 - u) + 0.1
+			local droop = u * u * 0.32
+			local band = make("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5 + droop, 0.84 - u * 0.62), Size = UDim2.fromScale(bw, 0.62 / BANDS + 0.02), BackgroundColor3 = Color3.fromRGB(214, 30, 44):Lerp(Color3.fromRGB(160, 16, 28), u * 0.5), BorderSizePixel = 0, ZIndex = z + 8 }, hat)
+			make("UICorner", { CornerRadius = UDim.new(0.4, 0) }, band)
+		end
+		local fur = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.86), Size = UDim2.fromScale(0.96, 0.2), BackgroundColor3 = SNOWW, BorderSizePixel = 0, ZIndex = z + 9 }, hat)
+		make("UICorner", { CornerRadius = UDim.new(0.5, 0) }, fur)
+		local pom = blob(hat, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.82, 0.22), Size = UDim2.fromScale(0.24, 0.24), BackgroundColor3 = SNOWW, ZIndex = z + 9 })
+		return { snowCap = snowCap, snowClip = snowClip, flakes = flakes, lights = lights, bulbs = bulbs, bigFlake = bigFlake, icicles = icicles, iceBits = iceBits, bells = bells, bellArms = bellArms, coal = coal, coalGlow = coalGlow, embersC = embersC, smoke = smoke, gift = gift, lid = lid, auroraClip = auroraClip, auroraBands = auroraBands, hat = hat, pom = pom }
+	end
+
 	local card = { root = root, viewport = viewport }
 	-- (Divine) one frame of its motion
 	local divineConn = nil
@@ -1217,6 +1353,59 @@ function Gui.playerCard(parent, props)
 		local flicker = 0.75 + 0.15 * math.sin(t * 13) + 0.1 * math.sin(t * 29 + 1.3)
 		pumpkinImg.ImageColor3 = Color3.fromRGB(215, 175, 150):Lerp(Color3.new(1, 1, 1), flicker)
 		pumpkinGlow.ImageTransparency = 0.75 - 0.4 * flicker
+		-- the winter cards
+		local wx = winterFx
+		if wx then
+			if wx.snowClip.Visible then
+				for _, f in ipairs(wx.flakes) do
+					local k = (t * f.speed + f.phase) % 1
+					f.frame.Position = UDim2.fromScale(f.x + math.sin(t * 1.6 + f.phase * 6) * 0.03, -0.05 + k * 1.1)
+				end
+			end
+			if wx.lights.Visible then
+				for i, b in ipairs(wx.bulbs) do
+					local on = math.sin(t * 3 + i * 1.7) > -0.2
+					b.frame.BackgroundColor3 = on and b.color or b.color:Lerp(Color3.new(0, 0, 0), 0.6)
+				end
+			end
+			wx.bigFlake.Rotation = (t * 12) % 360
+			if wx.icicles.Visible then
+				for i, ic in ipairs(wx.iceBits) do
+					ic.ImageTransparency = 0.1 + 0.15 * (0.5 + 0.5 * math.sin(t * 2 + i))
+				end
+			end
+			if wx.bells.Visible then
+				for k, arm in ipairs(wx.bellArms) do
+					arm.Rotation = math.sin(t * 3.2 + k * 1.3) * 16
+				end
+			end
+			if wx.coal.Visible then
+				wx.coalGlow.ImageTransparency = 0.45 + 0.25 * math.sin(t * 4)
+				for i, e in ipairs(wx.embersC) do
+					e.BackgroundTransparency = 0.5 + 0.5 * math.sin(t * 5 + i * 2)
+				end
+				for i, sm in ipairs(wx.smoke) do
+					local k = (t * 0.35 + i / #wx.smoke) % 1
+					sm.Position = UDim2.fromScale(0.5 + math.sin(t * 1.5 + i) * 0.12, 0.45 - k * 0.9)
+					sm.Size = UDim2.fromScale(0.2 + k * 0.35, 0.2 + k * 0.35)
+					sm.BackgroundTransparency = 0.55 + 0.45 * k
+				end
+			end
+			if wx.gift.Visible then
+				local hop = math.max(0, math.sin(t * 2.6)) ^ 6
+				wx.lid.Position = UDim2.fromScale(0.5, 0.4 - 0.12 * hop)
+				wx.lid.Rotation = math.sin(t * 2.6) * 6 * hop
+			end
+			if wx.auroraClip.Visible then
+				for i, b in ipairs(wx.auroraBands) do
+					b.grad.Offset = Vector2.new(math.sin(t * 0.5 + i * 1.2) * 0.25, 0)
+					b.frame.Position = UDim2.fromScale(0.5 + math.sin(t * 0.3 + i) * 0.08, 0.3 + i * 0.12 + math.sin(t * 0.9 + i * 2) * 0.05)
+				end
+			end
+			if wx.hat.Visible then
+				wx.pom.Position = UDim2.fromScale(0.82 + math.sin(t * 2.2) * 0.04, 0.22 + math.abs(math.sin(t * 2.2)) * 0.03)
+			end
+		end
 	end
 	root.Destroying:Connect(function()
 		if divineConn then
@@ -1243,7 +1432,7 @@ function Gui.playerCard(parent, props)
 		local bigOn = type(look.Big) == "string" and look.Big ~= ""
 		local fx = look.Fx or {}
 		-- (Net) the big word steps left, out from under the net
-		local bigShift = fx.Pumpkin == true and 96 or (fx.Net == true and 46 or 0) -- (clear of the jack-o'-lantern too)
+		local bigShift = (fx.Pumpkin == true and 96) or ((fx.Coal == true or fx.Gift == true or fx.Bells == true) and 80) or (fx.Net == true and 46) or 0 -- (clear of the jack-o'-lantern, the coal, the present, the bells)
 		big.Visible = bigOn
 		big.Text = bigOn and look.Big or ""
 		big.Position = UDim2.new(1, -16 - bigShift, 0.5, 2)
@@ -1295,6 +1484,21 @@ function Gui.playerCard(parent, props)
 		bigShine.Enabled = fx.WordShine == true
 		net.Visible = fx.Net == true
 		pumpkin.Visible = fx.Pumpkin == true
+		if not winterFx and (fx.Snowfall or fx.Lights or fx.Flake or fx.Icicles or fx.Bells or fx.Coal or fx.Gift or fx.Aurora or fx.SantaHat) then
+			winterFx = buildWinterFx()
+		end
+		local wx = winterFx
+		if wx then
+			wx.snowCap.Visible, wx.snowClip.Visible = fx.Snowfall == true, fx.Snowfall == true
+			wx.lights.Visible = fx.Lights == true
+			wx.bigFlake.Visible = fx.Flake == true
+			wx.icicles.Visible = fx.Icicles == true
+			wx.bells.Visible = fx.Bells == true
+			wx.coal.Visible = fx.Coal == true
+			wx.gift.Visible = fx.Gift == true
+			wx.auroraClip.Visible = fx.Aurora == true
+			wx.hat.Visible = fx.SantaHat == true
+		end
 		aura.Visible = fx.Aura == true
 		emberClip.Visible = fx.Embers == true
 		local divine = next(fx) ~= nil

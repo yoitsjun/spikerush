@@ -1297,6 +1297,367 @@ local function buildForest()
 	return d
 end
 
+-- Christmas Eve (the Winter event's; the owner, 2026-11-17: "i want a christmas menu... you can
+-- stick this one in the battlepass"): Home out in a snowy clearing at night. A log lodge to the
+-- left, its windows warm, a wreath on the door, lights along the eaves and smoke from the chimney;
+-- a big decorated tree to the right with presents under it; snowy pines all round fading into the
+-- snowfall; a volleyball net behind you strung with Christmas lights; a snowman and a bench with a
+-- Santa hat and mugs of cocoa; an aurora and a pale moon on the sky; snow falling.
+local XMAS_LIGHTS = { Color3.fromRGB(255, 70, 70), Color3.fromRGB(90, 230, 120), Color3.fromRGB(255, 206, 80), Color3.fromRGB(90, 170, 255) }
+
+local function xmasStringLights(parent, a, b, n, sag)
+	local prev = a
+	for i = 1, n do
+		local t = i / n
+		local pt = a:Lerp(b, t) - Vector3.new(0, sag * 4 * t * (1 - t), 0)
+		part({ Size = Vector3.new(0.05, 0.05, (pt - prev).Magnitude), CFrame = CFrame.lookAt((prev + pt) / 2, pt), Color = Color3.fromRGB(20, 40, 26), CastShadow = false }, parent)
+		if i < n then
+			local bulb = part({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.42, CFrame = CFrame.new(pt - Vector3.new(0, 0.25, 0)), Color = XMAS_LIGHTS[(i - 1) % #XMAS_LIGHTS + 1], Material = Enum.Material.Neon, CastShadow = false }, parent)
+			if i % 6 == 3 then
+				light(bulb, "PointLight", { Range = 10, Brightness = 0.6, Color = bulb.Color, Shadows = false })
+			end
+		end
+		prev = pt
+	end
+end
+
+-- a cone (Roblox's cone mesh: 1.7 across and 0.74 tall at scale 1), `w` across and `h` tall,
+-- its base at `at`
+local function xmasCone(parent, at, w, h, color, material)
+	local p = part({ Size = Vector3.new(w, h, w), CFrame = CFrame.new(at + Vector3.new(0, h / 2, 0)), Color = color, Material = material or Enum.Material.Grass }, parent)
+	local m = Instance.new("SpecialMesh")
+	m.MeshType = Enum.MeshType.FileMesh
+	m.MeshId = "rbxassetid://1033714"
+	m.Scale = Vector3.new(w / 1.7, h / 0.74, w / 1.7)
+	m.Parent = p
+	return p
+end
+
+local function snowyPine(parent, base, height, dark)
+	local w = height * 0.44
+	local green = dark and Color3.fromRGB(16, 54, 36) or Color3.fromRGB(24, 82, 50)
+	part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(height * 0.2, w * 0.14, w * 0.14), CFrame = CFrame.new(base + Vector3.new(0, height * 0.1, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(70, 46, 30), Material = Enum.Material.Wood }, parent)
+	for k = 0, 2 do
+		local tw = w * (1 - k * 0.27)
+		local th = height * 0.36
+		xmasCone(parent, base + Vector3.new(0, height * (0.16 + k * 0.24), 0), tw, th, green).CastShadow = not dark
+	end
+	local tip = height * 0.36 * 0.42
+	xmasCone(parent, base + Vector3.new(0, height * (0.16 + 2 * 0.24) + height * 0.36 - tip, 0), w * 0.2, tip, Color3.fromRGB(240, 246, 255), Enum.Material.Snow)
+end
+
+-- The sky on the backdrop: deep night blue, stars, a pale moon, an aurora's green and violet
+-- curtains, a far line of pines on snowy hills.
+local function winterSky(wall)
+	local sg = Instance.new("SurfaceGui")
+	sg.Face = Enum.NormalId.Front
+	sg.LightInfluence = 0
+	sg.Brightness = 1
+	sg.PixelsPerStud = 4
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.Parent = wall
+	local sky = Instance.new("Frame")
+	sky.Size = UDim2.fromScale(1, 1)
+	sky.BorderSizePixel = 0
+	sky.BackgroundColor3 = Color3.new(1, 1, 1)
+	sky.Parent = sg
+	local g = Instance.new("UIGradient")
+	g.Rotation = 90
+	g.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(4, 8, 26)), ColorSequenceKeypoint.new(0.6, Color3.fromRGB(18, 36, 84)), ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 96, 150)) })
+	g.Parent = sky
+	local rnd = Random.new(9)
+	for _ = 1, 110 do
+		local st = Instance.new("Frame")
+		local s = rnd:NextInteger(2, 5)
+		st.Size = UDim2.fromOffset(s, s)
+		st.Position = UDim2.fromScale(rnd:NextNumber(), rnd:NextNumber() * 0.6)
+		st.BackgroundColor3 = Color3.fromRGB(235, 240, 255)
+		st.BackgroundTransparency = rnd:NextNumber() * 0.5
+		st.BorderSizePixel = 0
+		st.Parent = sky
+	end
+	-- the aurora: soft curtains of green into violet across the upper sky
+	for i = 1, 4 do
+		local band = Instance.new("Frame")
+		band.AnchorPoint = Vector2.new(0.5, 0.5)
+		band.Position = UDim2.fromScale(0.2 + i * 0.14, 0.4 + (i % 2) * 0.05) -- (the lid hides the top third)
+		band.Size = UDim2.fromOffset(520, 150)
+		band.Rotation = -12 + i * 7
+		band.BackgroundColor3 = Color3.new(1, 1, 1)
+		band.BorderSizePixel = 0
+		band.Parent = sky
+		local bg = Instance.new("UIGradient")
+		bg.Rotation = 90
+		bg.Color = ColorSequence.new((i % 2 == 0) and Color3.fromRGB(150, 110, 255) or Color3.fromRGB(80, 255, 170), Color3.fromRGB(40, 140, 255))
+		bg.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.45, 0.55), NumberSequenceKeypoint.new(1, 1) })
+		bg.Parent = band
+		local c = Instance.new("UICorner")
+		c.CornerRadius = UDim.new(0.5, 0)
+		c.Parent = band
+	end
+	local moon = Instance.new("Frame")
+	moon.AnchorPoint = Vector2.new(0.5, 0.5)
+	moon.Position = UDim2.fromScale(0.6, 0.47)
+	moon.Size = UDim2.fromOffset(150, 150)
+	moon.BackgroundColor3 = Color3.fromRGB(240, 246, 255)
+	moon.BorderSizePixel = 0
+	moon.ZIndex = 2
+	moon.Parent = sky
+	local mc = Instance.new("UICorner")
+	mc.CornerRadius = UDim.new(0.5, 0)
+	mc.Parent = moon
+	-- snowy hills, then a far line of pines
+	for i = 0, 6 do
+		local hill = Instance.new("Frame")
+		hill.AnchorPoint = Vector2.new(0.5, 0)
+		hill.Position = UDim2.new(i / 6, 0, 1, -90 - (i % 2) * 30)
+		hill.Size = UDim2.fromOffset(600, 400)
+		hill.BackgroundColor3 = (i % 2 == 0) and Color3.fromRGB(150, 170, 210) or Color3.fromRGB(120, 140, 186)
+		hill.BorderSizePixel = 0
+		hill.ZIndex = 3
+		hill.Parent = sky
+		local hc = Instance.new("UICorner")
+		hc.CornerRadius = UDim.new(0.5, 0)
+		hc.Parent = hill
+	end
+	for i = 0, 50 do
+		local w = rnd:NextInteger(18, 34)
+		local h = rnd:NextInteger(50, 110)
+		for k = 0, 2 do
+			local t = Instance.new("Frame")
+			t.AnchorPoint = Vector2.new(0.5, 1)
+			t.Position = UDim2.new(i / 50, 0, 1, -50 - k * h * 0.28)
+			t.Size = UDim2.fromOffset(math.floor(w * (1 - k * 0.3)), math.floor(h * 0.42))
+			t.BackgroundColor3 = Color3.fromRGB(12, 30, 34)
+			t.BorderSizePixel = 0
+			t.ZIndex = 4
+			t.Parent = sky
+		end
+	end
+	local ground = Instance.new("Frame")
+	ground.AnchorPoint = Vector2.new(0, 1)
+	ground.Position = UDim2.fromScale(0, 1)
+	ground.Size = UDim2.new(1, 0, 0, 50)
+	ground.BackgroundColor3 = Color3.fromRGB(170, 190, 226)
+	ground.BorderSizePixel = 0
+	ground.ZIndex = 5
+	ground.Parent = sky
+end
+
+-- The lodge: log walls, a snowy gable roof, warm windows, a door with a wreath, a LODGE sign, lights
+-- along the eaves, a smoking chimney, presents on the porch. `at`: the middle of its front.
+local function lodge(parent, at)
+	local logC = Color3.fromRGB(104, 66, 40)
+	local dark = Color3.fromRGB(44, 30, 22)
+	local cf = CFrame.new(at)
+	box(parent, Vector3.new(18, 0.8, 4), cf * CFrame.new(0, 0.4, -1.6), Color3.fromRGB(80, 54, 34), Enum.Material.WoodPlanks)
+	box(parent, Vector3.new(16, 10, 12), cf * CFrame.new(0, 5, 6), logC, Enum.Material.WoodPlanks)
+	for _, side in ipairs({ -1, 1 }) do
+		box(parent, Vector3.new(17.6, 0.7, 8.6), cf * CFrame.new(0, 12.2, 6 + side * 3.3) * CFrame.Angles(math.rad(-side * 34), 0, 0), Color3.fromRGB(70, 40, 30), Enum.Material.Slate)
+		box(parent, Vector3.new(17.8, 0.5, 8.8), cf * CFrame.new(0, 12.7, 6 + side * 3.35) * CFrame.Angles(math.rad(-side * 34), 0, 0), Color3.fromRGB(240, 246, 255), Enum.Material.Snow)
+	end
+	box(parent, Vector3.new(16, 3.4, 0.4), cf * CFrame.new(0, 11.4, 0.1), logC, Enum.Material.WoodPlanks)
+	for _, x in ipairs({ -4.5, 4.5 }) do
+		local pane = box(parent, Vector3.new(2.6, 2.6, 0.2), cf * CFrame.new(x, 5.6, -0.05), Color3.fromRGB(255, 190, 100), Enum.Material.Neon)
+		light(pane, "SurfaceLight", { Face = Enum.NormalId.Front, Range = 18, Angle = 80, Brightness = 1.4, Color = Color3.fromRGB(255, 170, 80), Shadows = true })
+		box(parent, Vector3.new(2.9, 0.22, 0.3), cf * CFrame.new(x, 5.6, -0.1), dark)
+		box(parent, Vector3.new(0.22, 2.9, 0.3), cf * CFrame.new(x, 5.6, -0.1), dark)
+		box(parent, Vector3.new(3.2, 0.4, 0.7), cf * CFrame.new(x, 4.1, -0.3), Color3.fromRGB(240, 246, 255), Enum.Material.Snow) -- snow on the sill
+	end
+	box(parent, Vector3.new(3, 6.2, 0.3), cf * CFrame.new(0, 3.9, -0.05), Color3.fromRGB(150, 30, 36), Enum.Material.WoodPlanks)
+	-- the wreath and its bow
+	for k = 0, 9 do
+		local a = k / 10 * math.pi * 2
+		part({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.7, CFrame = cf * CFrame.new(math.cos(a) * 0.85, 5.2 + math.sin(a) * 0.85, -0.35), Color = Color3.fromRGB(30, 110, 60), Material = Enum.Material.Grass }, parent)
+	end
+	part({ Shape = Enum.PartType.Ball, Size = Vector3.new(0.7, 0.5, 0.4), CFrame = cf * CFrame.new(0, 4.35, -0.5), Color = Color3.fromRGB(220, 30, 40) }, parent)
+	local sign = box(parent, Vector3.new(7, 1.6, 0.25), cf * CFrame.new(0, 8.6, -0.2), Color3.fromRGB(90, 58, 36), Enum.Material.WoodPlanks)
+	surfaceText(sign, Enum.NormalId.Front, "LODGE", Color3.fromRGB(255, 220, 140), Enum.Font.FredokaOne)
+	local chim = box(parent, Vector3.new(2, 7, 2), cf * CFrame.new(5, 14.5, 8), Color3.fromRGB(120, 60, 50), Enum.Material.Brick)
+	box(parent, Vector3.new(2.3, 0.5, 2.3), cf * CFrame.new(5, 18.1, 8), Color3.fromRGB(240, 246, 255), Enum.Material.Snow)
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Texture = Assets.id(Assets.Fx.Glow) or ""
+	smoke.Color = ColorSequence.new(Color3.fromRGB(190, 196, 210))
+	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(1, 1) })
+	smoke.Size = NumberSequence.new(2, 7)
+	smoke.Lifetime = NumberRange.new(3, 5)
+	smoke.Rate = 4
+	smoke.Speed = NumberRange.new(2, 4)
+	smoke.SpreadAngle = Vector2.new(15, 15)
+	smoke.EmissionDirection = Enum.NormalId.Top
+	smoke.LightInfluence = 0.3
+	smoke.Parent = chim
+	-- lights along the eaves
+	xmasStringLights(parent, at + Vector3.new(-8.6, 9.6, -0.3), at + Vector3.new(8.6, 9.6, -0.3), 26, 0.9)
+	-- presents on the porch
+	for i, spec in ipairs({ { -6.2, 1.2, 1.6 }, { -4.6, 1.0, 1.1 }, { 5.6, 1.4, 1.4 } }) do
+		local s = spec[3]
+		local col = ({ Color3.fromRGB(214, 36, 52), Color3.fromRGB(40, 140, 80), Color3.fromRGB(70, 140, 230) })[i]
+		local pcf = cf * CFrame.new(spec[1], 0.8 + s / 2, -1.6) * CFrame.Angles(0, math.rad(i * 20), 0)
+		box(parent, Vector3.new(s, s, s), pcf, col)
+		box(parent, Vector3.new(s + 0.03, s + 0.03, s * 0.2), pcf, Color3.fromRGB(255, 206, 70), Enum.Material.Metal)
+	end
+end
+
+local function buildChristmas()
+	local H = HOME
+	local d = Instance.new("Model")
+	d.Name = "ChristmasEve"
+	d.Parent = folder
+	local trng = Random.new(11)
+	local SNOW = Color3.fromRGB(236, 243, 252)
+	-- the ground, the sky and the lid
+	box(d, Vector3.new(330, 1, 230), CFrame.new(H + Vector3.new(0, -0.5, 60)), SNOW, Enum.Material.Snow)
+	local wall = box(d, Vector3.new(340, 180, 1), CFrame.new(H + Vector3.new(0, 70, 170)), Color3.fromRGB(10, 16, 40))
+	winterSky(wall)
+	box(d, Vector3.new(340, 2, 240), CFrame.new(H + Vector3.new(0, 100, 50)), Color3.fromRGB(4, 6, 14))
+	-- pines: two framing the shot, a ring round the clearing, then layers back into the snowfall
+	snowyPine(d, H + Vector3.new(-13.5, 0, -0.5), 30)
+	snowyPine(d, H + Vector3.new(17.5, 0, 1.5), 28)
+	local function clearOf(x, z)
+		local lodgeArea = x > -27 and x < -5 and z > 18 and z < 38
+		local treeArea = x > 10 and x < 28 and z > 16 and z < 34
+		local moonGap = x > -2 and x < 16 and z < 70
+		return not (lodgeArea or treeArea or moonGap)
+	end
+	local placed = 0
+	while placed < 16 do
+		local x, z = -60 + trng:NextNumber() * 125, 26 + trng:NextNumber() * 40
+		if clearOf(x, z) then
+			snowyPine(d, H + Vector3.new(x, 0, z), 22 + trng:NextNumber() * 14)
+			placed = placed + 1
+		end
+	end
+	placed = 0
+	while placed < 30 do
+		local x, z = -150 + trng:NextNumber() * 300, 70 + trng:NextNumber() * 85
+		if clearOf(x, z) then
+			snowyPine(d, H + Vector3.new(x, 0, z), 34 + trng:NextNumber() * 22, true)
+			placed = placed + 1
+		end
+	end
+	-- a cold haze, thicker with distance
+	for i, z in ipairs({ 42, 72, 104, 140 }) do
+		local f = box(d, Vector3.new(340, 70, 0.2), CFrame.new(H + Vector3.new(0, 30, z)), Color3.fromRGB(150, 176, 226), Enum.Material.Neon)
+		f.Transparency = 0.955 - i * 0.008
+		f.CastShadow = false
+	end
+	-- the lodge
+	lodge(d, H + Vector3.new(-16, 0, 22))
+	-- the big tree: the menu's FX_Tree (its baubles and star), scaled up, more lights on it, gifts
+	local fxm = ReplicatedStorage:FindFirstChild("FxMeshes")
+	local tpl = fxm and fxm:FindFirstChild("FX_Tree", true)
+	local TX, TZ, TH = 18.5, 24, 17
+	if tpl and tpl:IsA("MeshPart") then
+		local tree = tpl:Clone()
+		tree.Size = tpl.Size * (TH / tpl.Size.Y)
+		tree.CFrame = CFrame.new(H + Vector3.new(TX, TH / 2, TZ))
+		tree.Anchored = true
+		tree.CanCollide = false
+		tree.Parent = d
+		local k = TH / 13
+		for _, rim in ipairs({ { 2.2, 3.75 }, { 4.7, 2.95 }, { 6.8, 2.25 }, { 8.65, 1.55 } }) do
+			local y, r = rim[1] * k, rim[2] * k
+			local n = math.floor(r * 3)
+			for j = 0, n - 1 do
+				local a = j / n * math.pi * 2
+				local b = part({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.38, CFrame = CFrame.new(H + Vector3.new(TX + math.cos(a) * r, y - 0.2 * math.abs(math.sin(a * 3)), TZ + math.sin(a) * r)), Color = XMAS_LIGHTS[j % #XMAS_LIGHTS + 1], Material = Enum.Material.Neon, CastShadow = false }, d)
+				if j % 8 == 0 then
+					light(b, "PointLight", { Range = 9, Brightness = 0.5, Color = b.Color, Shadows = false })
+				end
+			end
+		end
+		local star = part({ Size = Vector3.one * 0.5, CFrame = CFrame.new(H + Vector3.new(TX, TH - 0.6, TZ)), Transparency = 1 }, d)
+		local sl = light(star, "PointLight", { Range = 22, Brightness = 1.6, Color = Color3.fromRGB(255, 214, 120), Shadows = false })
+		table.insert(roomState.flicker, { light = sl, base = 1.6, seed = trng:NextNumber() * 10 })
+	end
+	for i = 1, 8 do
+		local a = (i / 8) * math.pi * 2 + 0.3
+		local s = 1.1 + trng:NextNumber() * 1.1
+		local col = ({ Color3.fromRGB(214, 36, 52), Color3.fromRGB(40, 140, 80), Color3.fromRGB(70, 140, 230), Color3.fromRGB(240, 240, 250) })[i % 4 + 1]
+		local pcf = CFrame.new(H + Vector3.new(TX + math.cos(a) * 5.4, s / 2, TZ + math.sin(a) * 5.4)) * CFrame.Angles(0, trng:NextNumber() * 6.28, 0)
+		box(d, Vector3.new(s, s, s), pcf, col)
+		box(d, Vector3.new(s + 0.03, s + 0.03, s * 0.18), pcf, Color3.fromRGB(255, 206, 70), Enum.Material.Metal)
+		box(d, Vector3.new(s * 0.18, s + 0.03, s + 0.03), pcf, Color3.fromRGB(255, 206, 70), Enum.Material.Metal)
+	end
+	-- the clearing: a snowman, the bench with a Santa hat and cocoa, the net behind you
+	local sm = H + Vector3.new(9.5, 0, 9)
+	for i, spec in ipairs({ { 2.6, 1.2 }, { 1.9, 3.2 }, { 1.4, 4.7 } }) do
+		part({ Shape = Enum.PartType.Ball, Size = Vector3.one * spec[1], CFrame = CFrame.new(sm + Vector3.new(0, spec[2], 0)), Color = SNOW, Material = Enum.Material.Snow }, d)
+	end
+	for _, dx in ipairs({ -0.25, 0.25 }) do
+		part({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.18, CFrame = CFrame.new(sm + Vector3.new(dx, 4.9, -0.62)), Color = Color3.fromRGB(20, 20, 24) }, d)
+	end
+	box(d, Vector3.new(0.16, 0.16, 0.7), CFrame.new(sm + Vector3.new(0, 4.65, -0.9)), Color3.fromRGB(255, 120, 30))
+	part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.35, 1.5, 1.5), CFrame = CFrame.new(sm + Vector3.new(0, 4.05, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(214, 36, 52), Material = Enum.Material.Fabric }, d)
+	part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.12, 1.5, 1.5), CFrame = CFrame.new(sm + Vector3.new(0, 5.4, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(24, 22, 26) }, d)
+	part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.9, 0.95, 0.95), CFrame = CFrame.new(sm + Vector3.new(0, 5.9, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(24, 22, 26) }, d)
+	for _, side in ipairs({ -1, 1 }) do
+		local a, b = sm + Vector3.new(side * 0.8, 3.4, 0), sm + Vector3.new(side * 2.2, 4.4, 0)
+		box(d, Vector3.new(0.14, 0.14, (b - a).Magnitude), CFrame.lookAt((a + b) / 2, b), Color3.fromRGB(90, 58, 34), Enum.Material.Wood)
+	end
+	local logCF = CFrame.new(H + Vector3.new(-4.5, 0.7, 10.5)) * CFrame.Angles(0, math.rad(12), 0)
+	part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(7, 1.4, 1.4), CFrame = logCF, Color = Color3.fromRGB(90, 60, 38), Material = Enum.Material.Wood }, d)
+	box(d, Vector3.new(7, 0.25, 1.2), logCF * CFrame.new(0, 0.72, 0), SNOW, Enum.Material.Snow)
+	-- the Santa hat on the bench, and two mugs of cocoa
+	local hatAt = logCF * CFrame.new(1.6, 1.1, 0)
+	part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.35, 1.3, 1.3), CFrame = hatAt * CFrame.Angles(0, 0, math.rad(90)), Color = SNOW, Material = Enum.Material.Fabric }, d)
+	local hatCone = part({ Size = Vector3.new(1, 1.4, 1), CFrame = hatAt * CFrame.new(0.15, 0.85, 0) * CFrame.Angles(0, 0, math.rad(-20)), Color = Color3.fromRGB(214, 30, 44), Material = Enum.Material.Fabric }, d)
+	local hm = Instance.new("SpecialMesh")
+	hm.MeshType = Enum.MeshType.FileMesh
+	hm.MeshId = "rbxassetid://1033714"
+	hm.Scale = Vector3.new(1 / 1.7, 1.4 / 0.74, 1 / 1.7)
+	hm.Parent = hatCone
+	part({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.4, CFrame = hatAt * CFrame.new(0.45, 1.55, 0), Color = SNOW }, d)
+	for _, dx in ipairs({ -1.4, -0.6 }) do
+		local mug = logCF * CFrame.new(dx, 1.15, 0)
+		part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, 0.5, 0.5), CFrame = mug * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(214, 36, 52) }, d)
+		part({ Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.05, 0.42, 0.42), CFrame = mug * CFrame.new(0, 0.29, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(110, 60, 30) }, d)
+	end
+	for _, x in ipairs({ -7, 13 }) do
+		box(d, Vector3.new(0.5, 8.5, 0.5), CFrame.new(H + Vector3.new(x, 4.25, 18)), Color3.fromRGB(70, 50, 36), Enum.Material.Wood)
+		box(d, Vector3.new(0.8, 0.4, 0.8), CFrame.new(H + Vector3.new(x, 8.6, 18)), SNOW, Enum.Material.Snow)
+	end
+	local cord = Color3.fromRGB(30, 28, 32)
+	for k = 0, 4 do
+		box(d, Vector3.new(20, 0.06, 0.06), CFrame.new(H + Vector3.new(3, 5.2 + k * 0.75, 18)), cord).CastShadow = false
+	end
+	for k = 0, 26 do
+		box(d, Vector3.new(0.06, 3, 0.06), CFrame.new(H + Vector3.new(-6.6 + k * 0.75, 6.7, 18)), cord).CastShadow = false
+	end
+	box(d, Vector3.new(20, 0.35, 0.12), CFrame.new(H + Vector3.new(3, 8.3, 18)), Color3.fromRGB(240, 240, 236)).CastShadow = false
+	xmasStringLights(d, H + Vector3.new(-11, 12.5, 15.5), H + Vector3.new(11, 11.5, 19), 22, 2.4)
+	-- snowballs and drifts round the clearing
+	for _ = 1, 12 do
+		local x, z = -16 + trng:NextNumber() * 34, -4 + trng:NextNumber() * 20
+		local s = 0.5 + trng:NextNumber() * 1.2
+		part({ Shape = Enum.PartType.Ball, Size = Vector3.new(s * 2.2, s, s * 1.8), CFrame = CFrame.new(H + Vector3.new(x, 0, z)), Color = SNOW, Material = Enum.Material.Snow, CastShadow = false }, d)
+	end
+	-- snow falling over all of it
+	local fall = box(d, Vector3.new(70, 0.2, 60), CFrame.new(H + Vector3.new(2, 32, 22)), Color3.new(1, 1, 1))
+	fall.Transparency = 1
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = Assets.id(Assets.Fx.Dot) or ""
+	e.Color = ColorSequence.new(Color3.new(1, 1, 1))
+	e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.1, 0.1), NumberSequenceKeypoint.new(0.9, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	e.Size = NumberSequence.new(0.25)
+	e.Lifetime = NumberRange.new(8, 12)
+	e.Rate = 70
+	e.Speed = NumberRange.new(3, 5)
+	e.SpreadAngle = Vector2.new(15, 15)
+	e.LightEmission = 0.5
+	e.EmissionDirection = Enum.NormalId.Bottom
+	e.Parent = fall
+	-- moonlight from behind and to the right, a cool fill on you, the lodge's warmth
+	local moon = box(d, Vector3.one, CFrame.lookAt(H + Vector3.new(16, 40, 46), H + Vector3.new(2, 0, 8)), Color3.new(1, 1, 1))
+	moon.Transparency = 1
+	light(moon, "SpotLight", { Face = Enum.NormalId.Front, Range = 60, Angle = 55, Brightness = 2.2, Color = Color3.fromRGB(190, 210, 255), Shadows = true })
+	local fill = box(d, Vector3.one, CFrame.new(H + Vector3.new(1, 8, -4)), Color3.new(1, 1, 1))
+	fill.Transparency = 1
+	light(fill, "PointLight", { Range = 24, Brightness = 0.6, Color = Color3.fromRGB(190, 205, 255), Shadows = false })
+	return d
+end
+
 -- The Haunted Forest is only in the world while Home is on screen (the owner, 2026-10-21: "haunted
 -- forest shows in the background of beach": Home sits along the court camera's line, and the
 -- forest's back wall and lid are tall enough to rise over a court's horizon).
@@ -1320,7 +1681,7 @@ function SceneController.applyRoom()
 	end
 	roomState.flicker = {}
 	-- (a room built in the arena's place: the Haunted Forest, the Neon Court)
-	local build = (key == "Haunted" and buildForest) or (key == "Neon" and buildNeon) or nil
+	local build = (key == "Haunted" and buildForest) or (key == "Neon" and buildNeon) or (key == "Christmas" and buildChristmas) or nil
 	homeBits.room.Parent = (not build) and folder or nil
 	if build then
 		roomState.decor = build()
@@ -1350,11 +1711,12 @@ function SceneController.refreshGrade()
 	end
 	local forest = current == "home" and roomState.key == "Haunted"
 	local neon = current == "home" and roomState.key == "Neon"
-	local pro = current == "home" and not forest and not neon
-	grade.TintColor = forest and Color3.fromRGB(214, 222, 255) or neon and Color3.fromRGB(232, 238, 255) or pro and Color3.fromRGB(255, 234, 212) or Color3.fromRGB(255, 242, 226)
-	grade.Brightness = forest and -0.06 or neon and -0.01 or pro and 0.03 or 0.02
-	grade.Contrast = forest and 0.2 or neon and 0.16 or pro and 0.12 or 0.08
-	grade.Saturation = forest and 0.06 or neon and 0.14 or pro and 0.14 or 0.08
+	local xmas = current == "home" and roomState.key == "Christmas"
+	local pro = current == "home" and not forest and not neon and not xmas
+	grade.TintColor = forest and Color3.fromRGB(214, 222, 255) or xmas and Color3.fromRGB(226, 236, 255) or neon and Color3.fromRGB(232, 238, 255) or pro and Color3.fromRGB(255, 234, 212) or Color3.fromRGB(255, 242, 226)
+	grade.Brightness = forest and -0.06 or xmas and -0.02 or neon and -0.01 or pro and 0.03 or 0.02
+	grade.Contrast = forest and 0.2 or xmas and 0.16 or neon and 0.16 or pro and 0.12 or 0.08
+	grade.Saturation = forest and 0.06 or xmas and 0.12 or neon and 0.14 or pro and 0.14 or 0.08
 end
 
 local function updateRoom(now)
@@ -1735,12 +2097,16 @@ local SHOTS = {
 	-- Home in the Rush Arena, wider (the owner: "i do kind of want a more zoomed out look on the
 	-- real court"): a little higher and further, a wide lens, you centre-right, the hall around you
 	homeWide = { from = HOME + Vector3.new(-0.5, 4.2, -6), to = HOME + Vector3.new(6.8, 5, 14), fov = 62, focus = 13.4, blur = 0.12 },
+	-- story mode's backdrops (StoryDialogue): the school gym down its length toward the stage,
+	-- and the arena past where your avatar stands, both left soft behind the faces
+	storyGym = { from = GYM + Vector3.new(-16, 5, -18), to = GYM + Vector3.new(22, 8, 70), fov = 50 },
+	storyArena = { from = HOME + Vector3.new(-6, 5, 12), to = HOME + Vector3.new(8, 7, 60), fov = 55 },
 }
 local lastShot = nil
 
 -- Home's shot for the room up: the Rush Arena's wide one, else the close one.
 local function homeShot()
-	if roomState.key == "Haunted" or roomState.key == "Neon" then
+	if roomState.key == "Haunted" or roomState.key == "Neon" or roomState.key == "Christmas" then
 		return "home"
 	end
 	return "homeWide"
@@ -1806,12 +2172,36 @@ function SceneController.show(name)
 	end
 	grade.Enabled = name ~= nil
 	dof.Enabled = name ~= nil
+	-- (no menu room showing, a match on: the rooms leave the world, so no court's sky shows them;
+	-- the haze hid them only on some courts: the owner, 2026-11-18, "recruit thing in the background
+	-- again, also same with beach")
+	if folder then
+		folder.Parent = name ~= nil and workspace or nil
+	end
 	placeForest()
 	SceneController.refreshGrade()
 end
 
 function SceneController.active()
 	return current
+end
+
+-- Story mode's scenes use the room as a backdrop (StoryDialogue): on, the lens goes soft past
+-- arm's length; off, the scene showing gets its own shot and focus back.
+function SceneController.storyStage(on)
+	if on then
+		SceneController.story = true
+		dof.FocusDistance = 5
+		dof.InFocusRadius = 5
+		dof.FarIntensity = 0.42
+	elseif SceneController.story then
+		SceneController.story = nil
+		local was = current
+		if was then
+			current = nil
+			SceneController.show(was)
+		end
+	end
 end
 
 ------------------------------------------------------------------------------------------
@@ -2457,7 +2847,7 @@ local function update()
 	if current == "home" then
 		if roomState.key == "Neon" then
 			updateArena(anims.neon, now)
-		elseif roomState.key ~= "Haunted" then
+		elseif roomState.key ~= "Haunted" and roomState.key ~= "Christmas" then
 			updateArena(anims.pro, now)
 		end
 	end

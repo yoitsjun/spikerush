@@ -1,4 +1,4 @@
--- The Halloween event (Config.Halloween): the Halloween Match's card deck, the roulette's offers,
+-- The Colosseum and what's left of the Halloween event (Config.Halloween): the Halloween Match's card deck, the roulette's offers,
 -- what a hand of cards does to the players it hits, Candy, the limited banner and the per-character
 -- skins. Pure and shared: the server deals and checks, both sides read a player's cards from the
 -- `Hex` attribute (the keys of every card that hits them, joined with commas) so the prediction
@@ -271,7 +271,7 @@ function Halloween.abilitiesOf(hand)
 end
 
 -- A hand made safe: known cards, each once, at most MaxAbilityCards ability cards (addCard), at
--- most Stages x Picks.
+-- most MaxHand (the Colosseum: StartPicks, then Picks a win).
 function Halloween.cleanHand(list)
 	local out = {}
 	if type(list) == "table" then
@@ -281,7 +281,7 @@ function Halloween.cleanHand(list)
 			end
 		end
 	end
-	while #out > HW.Stages * HW.Picks do
+	while #out > (HW.MaxHand or HW.Stages * HW.Picks) do
 		table.remove(out, 1)
 	end
 	return out
@@ -445,14 +445,94 @@ function Halloween.payout(diff, stage, won, first)
 	return 0
 end
 
+------------------------------------------------------------------------------------------
+-- the Colosseum's run
+------------------------------------------------------------------------------------------
+
+function Halloween.node(key)
+	return HW.Nodes[key or ""]
+end
+
+-- The node a stage plays: stage 1 a Match, the last the All-Star; the rest whatever was picked.
+function Halloween.fixedNode(stage)
+	if stage <= 1 then
+		return "Match"
+	elseif stage >= HW.Stages then
+		return "AllStar"
+	end
+	return nil
+end
+
+-- Two different nodes to pick between before `stage` (rng: a Random). A Rest only when there's
+-- Life to get back, and never twice in a row.
+function Halloween.pathChoices(rng, stage, life, lastNode)
+	local pool = {}
+	for _, k in ipairs(HW.PathNodes) do
+		if k ~= "Rest" or ((life or HW.Life) < HW.Life and lastNode ~= "Rest") then
+			table.insert(pool, k)
+		end
+	end
+	local out = {}
+	while #out < 2 and #pool > 0 do
+		table.insert(out, table.remove(pool, rng:NextInteger(1, #pool)))
+	end
+	return out
+end
+
+-- The bots' tier and the AI's cards a stage at a node, on a difficulty.
+function Halloween.nodeSetup(diff, nodeKey)
+	if type(diff) == "string" then
+		diff = DIFF[diff]
+	end
+	local node = HW.Nodes[nodeKey or ""] or HW.Nodes.Match
+	local tier = (node.Boss and diff.Boss) or (node.Elite and diff.Elite) or diff.Bots
+	return tier, (diff.AiCards or 0) + (node.ExtraAi or 0)
+end
+
+-- Laurels a cleared stage adds to the Final Reward.
+function Halloween.stageReward(diff, nodeKey)
+	if type(diff) == "string" then
+		diff = DIFF[diff]
+	end
+	local node = HW.Nodes[nodeKey or ""] or HW.Nodes.Match
+	return diff and math.floor((diff.StageReward or 0) * (node.Reward or 1) + 0.5) or 0
+end
+
+-- Laurels a card picked adds to the Final Reward.
+function Halloween.cardReward(key)
+	local card = Halloween.card(key)
+	return card and (HW.CardReward[card.Rarity] or 0) or 0
+end
+
+-- What a run pays: the Final Reward in full when it was cleared, FailShare of it when it ended
+-- early; RepeatShare of that after the day's RewardedRuns.
+function Halloween.runPay(total, cleared, rewarded)
+	local v = (tonumber(total) or 0) * (cleared and 1 or HW.FailShare)
+	if not rewarded then
+		v = v * HW.RepeatShare
+	end
+	return math.floor(v + 0.5)
+end
+
+-- How many of today's rewarded runs are used (a new day starts them again).
+function Halloween.runsToday(ev, day)
+	if ev.runDay ~= day then
+		ev.runDay = day
+		ev.runs = 0
+	end
+	return ev.runs or 0
+end
+
 -- A player's saved event data made safe: { candy, scout, day, cleared = { [difficulty] = true }
 -- (today's first clears: a new day forgets them), bought = { [shop key] = n } }.
 function Halloween.clean(data)
-	local out = { candy = 0, scout = 0, day = 0, cleared = {}, bought = {} }
+	local out = { candy = 0, scout = 0, day = 0, cleared = {}, bought = {}, runDay = 0, runs = 0 }
 	if type(data) ~= "table" then
 		return out
 	end
 	out.candy = math.clamp(math.floor(tonumber(data.candy) or 0), 0, 10000000)
+	out.runDay = math.floor(tonumber(data.runDay) or 0)
+	out.runs = math.clamp(math.floor(tonumber(data.runs) or 0), 0, 1000)
 	out.scout = math.clamp(math.floor(tonumber(data.scout) or 0), 0, 100000)
 	out.day = math.max(0, math.floor(tonumber(data.day) or 0))
 	if type(data.cleared) == "table" then

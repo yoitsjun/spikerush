@@ -71,9 +71,10 @@ end
 -- each event's strength while it runs (Config.Admin.EventMuls: 2x to 16x), by kind
 local muls = {}
 
-local function cleanMul(m)
+local function cleanMul(m, kind)
 	m = tonumber(m)
-	for _, v in ipairs(A.EventMuls) do
+	-- (Luck goes up to 128x: Config.Admin.LuckMuls)
+	for _, v in ipairs(kind == "Luck" and A.LuckMuls or A.EventMuls) do
 		if v == m then
 			return v
 		end
@@ -116,7 +117,7 @@ local function takeEvents(data, whole)
 	end
 	for _, kind in ipairs(A.Events) do
 		if data[kind .. "Mul"] ~= nil then
-			muls[kind] = cleanMul(data[kind .. "Mul"]) -- (VPMul, GoldMul, LuckMul)
+			muls[kind] = cleanMul(data[kind .. "Mul"], kind) -- (VPMul, GoldMul, LuckMul)
 		end
 	end
 	writeEvents()
@@ -480,7 +481,7 @@ local function onAdmin(plr, op, a, b, c)
 			return
 		end
 		-- (at the strength picked: `c`, 2x to 16x)
-		local mul = cleanMul(c)
+		local mul = cleanMul(c, a)
 		muls[a] = mul
 		events[a] = os.time() + minutes * 60
 		writeEvents()

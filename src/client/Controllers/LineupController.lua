@@ -589,7 +589,13 @@ function LineupController.playIntro()
 		end
 		close()
 		local court = Config.Courts.List[State.match.court or ""]
-		mods.UIController.callout("Game on!", Config.UI.Spark, court and court.Name or modeLine(), 1.4)
+		local function gameOn()
+			mods.UIController.callout("Game on!", Config.UI.Spark, court and court.Name or modeLine(), 1.4)
+		end
+		-- a story rival's entrance comes first (EntranceController), then "Game on!"
+		if not (mods.EntranceController and mods.EntranceController.play(gameOn)) then
+			gameOn()
+		end
 	end)
 end
 

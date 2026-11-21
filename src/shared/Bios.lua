@@ -8,6 +8,9 @@ local Bios = {
 	-- S+
 	yejun = "The Thunder Spiker. The highest vertical in the game: hit the ball above 4 m and it comes down as lightning. Call the storm and every spike he throws cracks like thunder.",
 	haneul = "The Wind Spiker. The fastest player alive: she rides the wind under any set, springs up before the block can blink, and hovers in the air until she's ready to strike.",
+	byeol = "The star maker. Call the set and the ball climbs and hangs, and a star lights at the top. Meet the star and you hit like a champion; miss it and it stays with you. A setter who makes stars, and doesn't forgive the ones who fall.",
+	kuro = "A wing spiker who fights from the top of the sky. Time his jump in the gold of the meter and he climbs higher than anyone: the higher he hits, the more he burns, and at the very top a dragon dives at his spike. Years of conditioning give him a guard that doesn't break.",
+	jaja = "The Joker, on loan from Volleyball Evolved. Every rally he flicks a card into the air and plays whatever it shows: Trickery bends his spikes, Bravery breaks the block, the Buffoon laughs at him, and once in a while the Jackpot makes him the best player on the court. Not even he knows which is coming.",
 	dante = "The hardest hitter in the game. He crouches, charges and leaps: the longer the charge, the further he flies, and a full one at the net smashes straight through the block.",
 	laith = "The Sun Spiker. When Corona flares he leaps higher than anyone and dives onto the ball from above like a falling sun. He burns brightest, even when it burns him out.",
 	seojin = "The Azure Dragon. He hangs in the air gathering energy as gravity lets go; a full bar unleashes a spike that pierces any block. Hold too long, though, and it flies out.",

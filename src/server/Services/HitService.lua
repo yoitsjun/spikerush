@@ -29,6 +29,7 @@ local SET_TYPES = { Open = true, Quick = true, Back = true }
 local FX_KINDS = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, ChargeEnd = true, Stance = true, Approach = true, Prowl = true, Leap = true, ProwlEnd = true, Dive = true, Rush = true, RushEnd = true, RushJump = true, Hover = true, HoverEnd = true }
 local INTENT = { Slide = true, Block = true, Whiff = true, Jump = true, Charge = true, Stance = true, Approach = true, Prowl = true, Leap = true, Dive = true, Rush = true, RushJump = true, Hover = true }
 local FERAL = Config.Abilities.Feral
+local ENFL = Config.Abilities.Enflamed
 -- A player's attacks and empty swings off the floor count until their root is back down (the
 -- Heartbeat in init): Thunder Spiker's second one in a jump hits harder. Swings aren't limited.
 local airSwings = {} -- entity id -> swings this jump
@@ -262,6 +263,8 @@ function HitService.process(entity, input, opts)
 		dictate = (TS.dictateUntil[team] or -1) >= input.t - 0.05 or nil, -- (the Tyrant's Stat Hijack, his team)
 		dictated = (TS.dictateUntil[Court.other(team)] or -1) >= input.t - 0.05 and TS.dictateSteal[Court.other(team)] or nil, -- (against this team: his steal)
 		tyrantOn = armed("Tyrant"), -- (Absolute Toss: his sets while it's on)
+		starOn = armed("FallingStar"), -- (Falling Star: his sets while it's on)
+		starlit = (entity.starlitUntil or -1) >= input.t - 0.05 or nil,
 		grounded = entity.grounded or nil, -- (Sovereign's Guard)
 		sunOn = TS.has(entity, "Sunshine") and (entity.sunUntil or -1) >= input.t - 0.05 or nil,
 		counter = TS.has(entity, "Counter") and (entity.counter or 0) or nil,
@@ -275,10 +278,13 @@ function HitService.process(entity, input, opts)
 		squallOn = armed("Squall"),
 		stormOn = armed("Thunder"),
 		feverOn = armed("Fever"), -- (Alexis: her stats on top while it's up)
+		joker = TS.has(entity, "Joker") and entity.joker or nil, -- (his card this rally)
 		clawedBy = entity.clawedBy, -- (Tiger Claw: the Horang whose next attack this one can't receive)
 		discouraged = (entity.discouragedUntil or -1) >= input.t - 0.05 or nil,
+		mood = (entity.moodUntil or -1) >= input.t - 0.05 and entity.mood or nil,
 		fierce = TS.has(entity, "TigerClaw") and TS.fierceOn(entity) or nil,
 		bloodlust = armed("Feral"), -- (Feral Leap's Bloodlust: the gauge may go past full)
+		infernoReady = TS.has(entity, "Enflamed") and (not entity.infernoAt or os.clock() - entity.infernoAt >= ENFL.InfernoCooldown) or nil,
 		static = TS.has(entity, "Thunder") and (entity.static or 0) or nil,
 		mods = Cups.statMods(ReplicatedStorage:GetAttribute("CupMods")),
 		mut = Mutators.live(), -- a custom match's modifiers (Config.Mutators)
@@ -335,6 +341,22 @@ function HitService.process(entity, input, opts)
 		-- Fever: every block of hers charges it (Q spends it)
 		entity.fever = HitLogic.feverGain(entity.fever, entity.ability == "Fever" and entity.breakLevel or 0)
 		writeAbility(entity, "Fever", entity.fever)
+	end
+	-- Enflamed Dragon: an Inferno is spent, and anyone on the other team who touches one burns
+	if meta.inferno then
+		entity.infernoAt = os.clock()
+	end
+	if previous and previous.inferno and previous.team ~= team then
+		TS.discourage(entity, nil, true)
+	end
+	-- Falling Star: met while it burned, the hitter is Starlit; spiked late, or played any other way,
+	-- the one it was meant for is Discouraged (a dropped one: MatchService.awardPoint)
+	if meta.starHit then
+		TS.starlit(entity)
+	elseif meta.starLate then
+		TS.discourage(entity, Config.Abilities.FallingStar.MissSecs)
+	elseif previous and previous.starSet and previous.hitType == "Set" and previous.team == team and meta.hitType ~= "Spike" then
+		TS.discourage(TS.getEntity(previous.targetId or "") or entity, Config.Abilities.FallingStar.MissSecs)
 	end
 	-- Tiger Claw: a receive or dive (never a block) of Horang's attack marks the receiver; marked,
 	-- that receive failed (meta.clawed) and the mark is spent; a failed receive of hers may
@@ -512,7 +534,7 @@ function HitService.onRequest(plr, req)
 	-- spike (or jump serve) off that leap
 	local gauge, toward = 0, false
 	local cap = leapCap[entity.id]
-	if TS.has(entity, "Feral") and (req.action == "Spike" or req.action == "Serve") and cap and os.clock() - cap.at <= LEAP_LIFE then
+	if (TS.has(entity, "Feral") or TS.has(entity, "Enflamed")) and (req.action == "Spike" or req.action == "Serve") and cap and os.clock() - cap.at <= LEAP_LIFE then
 		gauge = math.min(num(req.gauge, 0, FERAL.OverMax, 0), cap.gauge) -- (past 1 only in Bloodlust: the cap)
 		toward = req.toward == true
 		leapCap[entity.id] = nil
@@ -552,7 +574,7 @@ function HitService.onRequest(plr, req)
 	end
 	-- Ironclad (awakened): Forge's charge needs a jump the server heard, no more than he's been up
 	local metal, early = nil, nil
-	if TS.has(entity, "Ironclad") and req.action == "Spike" and ironJumpAt[entity.id] and os.clock() - ironJumpAt[entity.id] <= IRON_LIFE then
+	if TS.has(entity, "Ironclad") and (req.action == "Spike" or req.action == "Serve") and ironJumpAt[entity.id] and os.clock() - ironJumpAt[entity.id] <= IRON_LIFE then
 		metal = math.min(num(req.metal, 0, 1, 0), (os.clock() - ironJumpAt[entity.id]) / IRON.ChargeTime + IRON.ChargeSlack)
 		early = req.early == true and ironEarly[entity.id] == true
 	end
@@ -765,9 +787,9 @@ function HitService.init(r)
 	Net.get("ActionFX").OnServerEvent:Connect(function(plr, kind, extra, which)
 		if kind == "Ability" then
 			-- (`extra`: one active by name; none: every one that's ready)
+			-- (whenever: the owner, "allow abilities to be charged and used whenever")
 			local e = reg.TeamService.entityForPlayer(plr)
-			local phase = reg.MatchService.phase
-			if e and (phase == "Rally" or phase == "Serving") and (extra == nil or heldActive(e, extra)) then
+			if e and (extra == nil or heldActive(e, extra)) then
 				HitService.activateAbility(e, extra)
 			end
 			return
@@ -777,8 +799,7 @@ function HitService.init(r)
 			-- `which`: one by name, none: every one that's ready)
 			local e = reg.TeamService.entityForPlayer(plr)
 			local mate = type(extra) == "string" and reg.TeamService.getEntity(extra)
-			local phase = reg.MatchService.phase
-			if e and mate and mate.isBot and mate.team == e.team and (phase == "Rally" or phase == "Serving") and not rateLimited(plr) then
+			if e and mate and mate.isBot and mate.team == e.team and not rateLimited(plr) then
 				if which == nil or heldActive(mate, which) then
 					HitService.activateAbility(mate, which)
 				end
@@ -847,6 +868,17 @@ function HitService.init(r)
 			elseif kind == "HoverEnd" and hoverAt[e.id] then
 				hoverCap[e.id] = { gale = math.clamp((now - hoverAt[e.id]) / SQUALL.ChargeTime + SQUALL.HoverSlack, 0, 1), at = now }
 				hoverAt[e.id] = nil
+			end
+		end
+		if reg.TeamService.has(e, "Enflamed") then
+			-- Enflamed Dragon: the same watch on the meter
+			if kind == "Prowl" then
+				prowlAt[e.id] = os.clock()
+				leapCap[e.id] = nil
+			elseif kind == "Leap" then
+				local held = prowlAt[e.id] and os.clock() - prowlAt[e.id] or 0
+				leapCap[e.id] = { gauge = math.min(HitLogic.enflamedGauge(held) + LEAP_SLACK, 1), at = os.clock() }
+				prowlAt[e.id] = nil
 			end
 		end
 		if reg.TeamService.has(e, "Feral") then

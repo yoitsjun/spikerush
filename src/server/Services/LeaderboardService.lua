@@ -45,7 +45,7 @@ end
 
 -- The boards that come from playing (a stats wipe takes a player off these; Robux spent and Gifts
 -- given stay).
-local STAT_BOARDS = { "wins", "bestStreak", "kills", "aces", "blocks", "winRate" }
+local STAT_BOARDS = { "wins", "bestStreak", "kills", "aces", "blocks", "winRate", "winter" }
 
 -- Take a player off the match-stat boards (an admin's stats wipe), or the boards in `boards` (a
 -- rank reset: { "ranked" }): drops any write still queued and removes their entries; the boards
@@ -113,6 +113,34 @@ local function flush()
 			end
 		end
 	end
+end
+
+-- The Winter leaderboard's final places (Config.Winter.Board): its top ReadTop read once in this
+-- server's life (after the event, so they no longer move). Returns the player's place (nil when
+-- they're not in it) and whether the board could be read.
+local winterTop = nil
+function LeaderboardService.winterPlace(userId)
+	local store = stores.winter
+	if not store then
+		return nil, false
+	end
+	if not winterTop then
+		local ok, pages = pcall(function()
+			return store:GetSortedAsync(false, Config.Winter.Board.ReadTop)
+		end)
+		if not ok or not pages then
+			return nil, false
+		end
+		local top = {}
+		for i, entry in ipairs(pages:GetCurrentPage()) do
+			local id = tonumber(string.match(tostring(entry.key), "^u_(%d+)$"))
+			if id then
+				top[id] = i
+			end
+		end
+		winterTop = top
+	end
+	return winterTop[userId], true
 end
 
 -- Display names for user ids we haven't seen, in batches (a failure just leaves "Player").

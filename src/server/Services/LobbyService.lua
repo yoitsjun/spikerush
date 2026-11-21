@@ -34,6 +34,8 @@ local Lobbies = require(Shared.Lobbies)
 local Tutorial = require(Shared.Tutorial)
 local Cups = require(Shared.Cups)
 local Halloween = require(Shared.Halloween)
+local Story = require(Shared.Story)
+local Winter = require(Shared.Winter)
 local Ranked = require(Shared.Ranked)
 local Roster = require(Shared.Roster)
 local Util = require(Shared.Util)
@@ -821,21 +823,21 @@ function LobbyService.enterCup(plr, key)
 end
 
 ------------------------------------------------------------------------------------------
--- the Halloween Match (Config.Halloween, the Halloween module)
+-- the Colosseum (Config.Halloween, the Halloween module): the Halloween Match's engine as a
+-- permanent run (the owner, 2026-11-14: "repurpose halloween mode into a permanent colloseum mode,
+-- just like the spike cross")
 ------------------------------------------------------------------------------------------
 
--- A run is l.event = { diff, stage, hands = { [userId] = cards }, ai = the AI team's cards,
--- ready (this stage's picks are done), draft = { [userId] = { pick, offers, endsAt } } while the
--- players pick, rng }. A friends-only lobby of your own against the AI (players Home); Start
--- opens stage 1's picks, and once everyone has picked it plays like a tournament round.
+-- A run is l.event = { diff, stage, node (this stage's: Config.Halloween.Nodes), life, reward (the Final
+-- Reward so far), path = { choices, endsAt } while the host picks the next stage's node, picks
+-- (this stage's cards a player), hands = { [userId] = cards }, ai = the AI team's cards, ready,
+-- draft = { [userId] = { pick, offers, endsAt } } while the players pick, rng }. A friends-only
+-- lobby of your own against the AI (players Home); Start opens stage 1's picks, and once everyone
+-- has picked it plays like a tournament round.
 function LobbyService.enterEvent(plr, diffKey)
 	local HW = Config.Halloween
 	local diff = Halloween.difficulty(diffKey)
 	if not diff then
-		return
-	end
-	if not Halloween.active(os.time()) then
-		notify(plr, "The Halloween event has ended.")
 		return
 	end
 	if LobbyService.lobbyOf(plr) or net.remoteOf[plr.UserId] then
@@ -846,9 +848,121 @@ function LobbyService.enterEvent(plr, diffKey)
 	if not l then
 		return
 	end
-	l.event = { diff = diff.Key, stage = 1, hands = {}, ai = {} }
-	notify(plr, string.format("Halloween Match (%s): friends in this server can join from Lobbies; press Start when you're ready.", diff.Name))
+	l.event = { diff = diff.Key, stage = 1, node = "Match", trail = { "Match" }, life = HW.Life, reward = 0, picks = HW.StartPicks, hands = {}, ai = {} }
+	notify(plr, string.format("Colosseum (%s): friends in this server can join from Lobbies; press Start when you're ready.", diff.Name))
 	markDirty()
+end
+
+------------------------------------------------------------------------------------------
+-- story mode (Config.Story, the Story module)
+------------------------------------------------------------------------------------------
+
+-- A story stage: a hidden lobby of your own against the stage's team, with its teammates beside
+-- you, started at once. You play its designated character (MatchService sets it as the match
+-- starts) and LobbyService.finished pays it (storyFinished).
+function LobbyService.enterStory(plr, key)
+	local stage = Story.stage(key)
+	if not Story.isMatch(stage) then
+		return
+	end
+	local progress = reg.ProfileService.story(plr)
+	if not progress or not Story.unlocked(progress, key) then
+		notify(plr, "Clear the stage before it first.")
+		return
+	end
+	if LobbyService.lobbyOf(plr) or net.remoteOf[plr.UserId] then
+		notify(plr, "You're already in a lobby: leave it first.")
+		return
+	end
+	local l = LobbyService.create(plr, Story.settings(stage), false)
+	if not l then
+		return
+	end
+	l.hidden = true
+	l.story = { key = stage.Key }
+	LobbyService.launch(l)
+end
+
+-- A story stage is over: its stars (Story.starsFor) and what they pay (ProfileService.storyResult),
+-- sent to the player's Story screen (the Story remote), and the lobby is done.
+local function storyFinished(l)
+	local res = l.storyResult
+	l.storyResult = nil
+	local key = l.story.key
+	local stars = res and Story.starsFor(res.won, res.mine, res.theirs, Story.stage(key)) or 0
+	for _, plr in ipairs(members(l)) do
+		local out = reg.ProfileService.storyResult(plr, key, stars)
+		Net.get("Story"):FireClient(plr, {
+			kind = "result",
+			key = key,
+			won = res ~= nil and res.won == true,
+			clear = stars >= 1, -- (a stage the story loses clears on its points: Story.starsFor)
+			mine = res and res.mine or 0,
+			theirs = res and res.theirs or 0,
+			stars = stars,
+			best = out and out.best or 0,
+			first = out ~= nil and out.first == true,
+			three = out ~= nil and out.three == true,
+			grant = out and out.grant or nil,
+		})
+	end
+	dissolve(l)
+end
+
+-- A reading-only stage read to the end (the client says so: it pays once, and only when open).
+function LobbyService.readStory(plr, key)
+	local out = reg.ProfileService.storyRead(plr, key)
+	if out then
+		Net.get("Story"):FireClient(plr, { kind = "read", key = key, stars = out.stars, best = out.best, first = out.first == true, three = out.three == true, grant = out.grant })
+	end
+end
+
+------------------------------------------------------------------------------------------
+-- the Winter Match, Christmas Cards (Config.Winter.Match, Rivals, Cards; the Winter module): the
+-- day's rival team around Jaja, a card flipped before every rally (MatchService.dealWinterCard)
+------------------------------------------------------------------------------------------
+
+-- A Winter Match: a hidden lobby of your own against the AI with Jaja and the day's rival across
+-- the net (Winter.picks),
+-- started at once. LobbyService.finished pays it (winterFinished).
+function LobbyService.enterWinter(plr, diffKey)
+	local diff = Winter.difficulty(diffKey)
+	if not diff then
+		return
+	end
+	if not Winter.active(os.time()) then
+		notify(plr, Config.Winter.Name .. " isn't running.")
+		return
+	end
+	if LobbyService.lobbyOf(plr) or net.remoteOf[plr.UserId] then
+		notify(plr, "You're already in a lobby: leave it first.")
+		return
+	end
+	local l = LobbyService.create(plr, Winter.settings(diff), false)
+	if not l then
+		return
+	end
+	l.hidden = true
+	l.winter = { diff = diff.Key, rival = Winter.rivalIndex(Winter.day(os.time())) } -- (today's rival, kept for the match)
+	LobbyService.launch(l)
+end
+
+-- A Winter Match is over: its Snowflakes (ProfileService.winterMatch), told to each player, and the
+-- lobby is done.
+local function winterFinished(l)
+	local res = l.winterResult
+	l.winterResult = nil
+	local diff = Winter.difficulty(l.winter.diff)
+	local won = res ~= nil and res.won == true
+	for _, plr in ipairs(members(l)) do
+		local paid, first = reg.ProfileService.winterMatch(plr, l.winter.diff, won)
+		if won then
+			notify(plr, string.format("Winter Match won on %s! +%d %s%s.", diff.Name, paid, Config.Winter.Snow.Name, first and " (today's first clear)" or ""))
+		else
+			notify(plr, string.format("Winter Match lost on %s: +%d %s.", diff.Name, paid, Config.Winter.Snow.Name))
+		end
+	end
+	dissolve(l)
 end
 
 -- The next pick's offers for one player (the roulette stops on these), and its deadline. No
@@ -880,8 +994,12 @@ local function startDraft(l)
 		dealPick(l, u, now)
 	end
 	local diff = Halloween.difficulty(ev.diff)
+	local tier = Halloween.nodeSetup(diff, ev.node)
+	l.botTier = tier -- (the stage's team: a Match, an Elite or the All-Star)
+	local aiCards = diff and diff.AiCards or 0 -- (a stage's own; an Elite's or the All-Star's extra comes when it's picked)
+	ev.picks = ev.picks or HW.Picks
 	local took = {}
-	for _ = 1, diff and diff.AiCards or 0 do
+	for _ = 1, aiCards do
 		local k = Halloween.aiPick(Halloween.offers(ev.rng, ev.ai, HW.Offers, true))
 		if k then
 			ev.ai = Halloween.addCard(ev.ai, k)
@@ -890,7 +1008,8 @@ local function startDraft(l)
 	end
 	l.state = "Picking"
 	for _, plr in ipairs(members(l)) do
-		notify(plr, string.format("Halloween Match, stage %d of %d: pick your cards.%s", ev.stage, HW.Stages, #took > 0 and (" The AI took " .. table.concat(took, " and ") .. ".") or ""))
+		local node = Halloween.node(ev.node)
+		notify(plr, string.format("Colosseum, stage %d of %d (%s): pick %d card%s.%s", ev.stage, HW.Stages, node and node.Name or "Match", ev.picks, ev.picks == 1 and "" or "s", #took > 0 and (" The AI took " .. table.concat(took, " and ") .. ".") or ""))
 	end
 	markDirty()
 end
@@ -899,16 +1018,26 @@ local function draftDone(l)
 	local draft = l.event.draft or {}
 	for _, plr in ipairs(members(l)) do
 		local d = draft[plr.UserId]
-		if d and d.pick <= Config.Halloween.Picks then
+		if d and d.pick <= (l.event.picks or Config.Halloween.Picks) then
 			return false
 		end
 	end
 	return true
 end
 
+local nextStage -- (below)
+
 local function finishDraft(l)
-	l.event.ready = true
-	l.event.draft = nil
+	local ev = l.event
+	ev.draft = nil
+	if ev.afterDraft then
+		-- a win's cards are in: on to the next stage's path (or the All-Star)
+		ev.afterDraft = nil
+		l.state = "Open"
+		nextStage(l)
+		return
+	end
+	ev.ready = true
 	l.state = "Open"
 	markDirty()
 	LobbyService.launch(l)
@@ -921,9 +1050,11 @@ local function takeCard(l, u, key)
 		return
 	end
 	ev.hands[u] = Halloween.addCard(ev.hands[u] or {}, key)
+	-- every card adds to the run's Final Reward (shared: split between the run's players)
+	ev.reward = (ev.reward or 0) + Halloween.cardReward(key) / math.max(1, #members(l))
 	d.pick = d.pick + 1
 	d.offers = nil
-	if d.pick <= Config.Halloween.Picks then
+	if d.pick <= (ev.picks or Config.Halloween.Picks) then
 		dealPick(l, u, Util.now())
 	end
 	markDirty()
@@ -961,13 +1092,19 @@ local function eventTick(now)
 			else
 				for _, plr in ipairs(members(l)) do
 					local d = ev.draft and ev.draft[plr.UserId]
-					if d and d.offers and d.pick <= Config.Halloween.Picks and now >= d.endsAt then
+					if d and d.offers and d.pick <= (ev.picks or Config.Halloween.Picks) and now >= d.endsAt then
 						takeCard(l, plr.UserId, d.offers[(ev.rng or Random.new()):NextInteger(1, #d.offers)])
 					end
 				end
 				if lobbies[l.id] == l and l.state == "Picking" and draftDone(l) then
 					finishDraft(l)
 				end
+			end
+		elseif ev and l.state == "Path" and ev.path and lobbies[l.id] == l then
+			if #members(l) == 0 then
+				dissolve(l)
+			elseif now >= ev.path.endsAt then
+				LobbyService.choosePath(nil, 1, l)
 			end
 		end
 	end
@@ -983,7 +1120,7 @@ local function eventView(l, u)
 		if plr.UserId ~= u then
 			table.insert(mates, { name = plr.DisplayName, cards = ev.hands[plr.UserId] or {} })
 			local md = ev.draft and ev.draft[plr.UserId]
-			if md and md.pick <= HW.Picks then
+			if md and md.pick <= (ev.picks or HW.Picks) then
 				waiting = waiting + 1
 			end
 		end
@@ -995,14 +1132,101 @@ local function eventView(l, u)
 		hand = ev.hands[u] or {},
 		ai = ev.ai,
 		mates = mates,
-		picking = l.state == "Picking" or nil,
-		draft = d and d.pick <= HW.Picks and { pick = d.pick, picks = HW.Picks, offers = d.offers, endsAt = d.endsAt } or nil,
+		picking = (l.state == "Picking" or l.state == "Path") or nil,
+		draft = d and d.pick <= (ev.picks or HW.Picks) and { pick = d.pick, picks = ev.picks or HW.Picks, offers = d.offers, endsAt = d.endsAt } or nil,
 		waiting = waiting,
+		node = ev.node,
+		life = ev.life,
+		lifeMax = HW.Life,
+		reward = math.floor((ev.reward or 0) + 0.5),
+		path = l.state == "Path" and ev.path and { choices = ev.path.choices, endsAt = ev.path.endsAt, host = l.host == u } or nil,
+		trail = ev.trail, -- the node each stage took so far (the chain map: HalloweenMenu)
 	}
 end
 
--- A Halloween Match stage is over: after a stage-1 win, stage 2's picks; otherwise the Candy
--- (ProfileService.eventPayout) and the run is over.
+-- The next stage: a fixed node (the All-Star at the end) goes straight to it (its cards were dealt
+-- with the last win); otherwise the host picks a path (LobbyService.choosePath).
+function nextStage(l)
+	local HW = Config.Halloween
+	local ev = l.event
+	ev.stage = ev.stage + 1
+	local fixed = Halloween.fixedNode(ev.stage)
+	if fixed then
+		ev.node = fixed
+		ev.trail = ev.trail or {}
+		ev.trail[ev.stage] = fixed
+		ev.ready = true
+		l.state = "Open"
+		local tier, aiCards = Halloween.nodeSetup(Halloween.difficulty(ev.diff), fixed)
+		l.botTier = tier
+		ev.rng = ev.rng or Random.new()
+		for _ = 1, math.max(0, aiCards - (Halloween.difficulty(ev.diff).AiCards or 0)) do
+			local k = Halloween.aiPick(Halloween.offers(ev.rng, ev.ai, HW.Offers, true))
+			if k then
+				ev.ai = Halloween.addCard(ev.ai, k)
+			end
+		end
+		markDirty()
+		LobbyService.launch(l)
+		return
+	end
+	ev.rng = ev.rng or Random.new()
+	ev.path = { choices = Halloween.pathChoices(ev.rng, ev.stage, ev.life, ev.lastNode), endsAt = Util.now() + HW.PathTime }
+	l.state = "Path"
+	for _, plr in ipairs(members(l)) do
+		notify(plr, string.format("Colosseum, stage %d of %d: %s", ev.stage, HW.Stages, l.host == plr.UserId and "pick your path." or "the host picks the path."))
+	end
+	markDirty()
+end
+
+-- The host picks the next stage's node (1 or 2 of the path's choices). A Rest gives Life back and
+-- goes on to the stage after; a Match or an Elite opens its picks. plr nil: the time ran out (l).
+function LobbyService.choosePath(plr, index, l)
+	local HW = Config.Halloween
+	l = l or (plr and LobbyService.lobbyOf(plr))
+	local ev = l and l.event
+	if not ev or l.state ~= "Path" or not ev.path then
+		return
+	end
+	if plr and l.host ~= plr.UserId then
+		notify(plr, "The host picks the path.")
+		return
+	end
+	local i = math.floor(tonumber(index) or 1)
+	local key = ev.path.choices[i] or ev.path.choices[1]
+	ev.path = nil
+	ev.lastNode = key
+	ev.trail = ev.trail or {}
+	ev.trail[ev.stage] = key
+	local node = Halloween.node(key)
+	if node and node.Kind == "Rest" then
+		local before = ev.life
+		ev.life = math.min(HW.Life, ev.life + HW.RestHeal)
+		for _, p in ipairs(members(l)) do
+			notify(p, string.format("A rest: +%d Life (%d of %d).", ev.life - before, ev.life, HW.Life))
+		end
+		nextStage(l)
+		return
+	end
+	ev.node = key
+	ev.ready = true
+	local tier, aiCards = Halloween.nodeSetup(Halloween.difficulty(ev.diff), key)
+	l.botTier = tier
+	ev.rng = ev.rng or Random.new()
+	for _ = 1, math.max(0, aiCards - (Halloween.difficulty(ev.diff).AiCards or 0)) do
+		local k = Halloween.aiPick(Halloween.offers(ev.rng, ev.ai, HW.Offers, true))
+		if k then
+			ev.ai = Halloween.addCard(ev.ai, k)
+		end
+	end
+	l.state = "Open"
+	markDirty()
+	LobbyService.launch(l)
+end
+
+-- A Colosseum stage is over: the points the other team scored come off the run's Life; a win adds
+-- the stage to the Final Reward and deals the next cards, then the next stage's path; a loss, Life
+-- at 0 or the last stage cleared ends the run and pays it (ProfileService.colosseumPay).
 local function eventFinished(l)
 	local HW = Config.Halloween
 	local ev = l.event
@@ -1010,24 +1234,36 @@ local function eventFinished(l)
 	l.eventResult = nil
 	local diff = Halloween.difficulty(ev.diff)
 	local list = members(l)
-	if res and res.won and ev.stage < HW.Stages then
-		ev.stage = ev.stage + 1
+	if not res or not diff then
+		dissolve(l)
+		return
+	end
+	ev.life = math.max(0, (ev.life or HW.Life) - (res.theirs or 0))
+	local alive = res.won and ev.life > 0
+	if alive then
+		ev.reward = (ev.reward or 0) + Halloween.stageReward(diff, ev.node)
+	end
+	if alive and ev.stage < HW.Stages then
+		local node = Halloween.node(ev.node)
+		ev.picks = (node and node.Picks) or HW.Picks
 		for _, plr in ipairs(list) do
-			notify(plr, string.format("Stage %d cleared! Pick %d more cards for stage %d.", ev.stage - 1, HW.Picks, ev.stage))
+			notify(plr, string.format("Stage %d cleared! Life %d of %d. Final Reward %d %s. Pick %d card%s.", ev.stage, ev.life, HW.Life, math.floor(ev.reward + 0.5), HW.Candy.Name, ev.picks, ev.picks == 1 and "" or "s"))
 		end
+		-- the win's cards, then the next stage (nextStage waits for the draft: finishDraft launches
+		-- when the stage's node is set, else it opens the path)
+		ev.afterDraft = true
 		startDraft(l)
 		return
 	end
-	if res and diff then
-		for _, plr in ipairs(list) do
-			local candy, first = reg.ProfileService.eventPayout(plr, ev.diff, ev.stage, res.won)
-			if res.won then
-				notify(plr, string.format("Halloween Match cleared on %s! +%d Candy%s.", diff.Name, candy, first and " (today's first clear)" or ""))
-			elseif candy > 0 then
-				notify(plr, string.format("Out in stage %d: +%d Candy for getting there.", ev.stage, candy))
-			else
-				notify(plr, "Out in stage 1. Pick new cards and try again!")
-			end
+	local cleared = alive
+	for _, plr in ipairs(list) do
+		local paid, rewarded = reg.ProfileService.colosseumPay(plr, ev.reward or 0, cleared)
+		if cleared then
+			notify(plr, string.format("Colosseum cleared on %s! +%d %s%s.", diff.Name, paid, HW.Candy.Name, rewarded and "" or " (today's rewarded runs are used: a share)"))
+		elseif ev.life <= 0 then
+			notify(plr, string.format("Out of Life in stage %d: +%d %s.", ev.stage, paid, HW.Candy.Name))
+		else
+			notify(plr, string.format("Out in stage %d: +%d %s.", ev.stage, paid, HW.Candy.Name))
 		end
 	end
 	dissolve(l)
@@ -1346,6 +1582,14 @@ function LobbyService.finished(l)
 		eventFinished(l)
 		return
 	end
+	if l.story and #members(l) > 0 then
+		storyFinished(l)
+		return
+	end
+	if l.winter and #members(l) > 0 then
+		winterFinished(l)
+		return
+	end
 	-- the tutorial's four drills done: on to its short match
 	if l.tutorial and l.practice and l.tutorialDone then
 		local plr = members(l)[1]
@@ -1355,7 +1599,7 @@ function LobbyService.finished(l)
 		end
 		return
 	end
-	if l.quick or l.tutorial or l.practice or l.cup or l.event or #members(l) == 0 then
+	if l.quick or l.tutorial or l.practice or l.cup or l.event or l.story or l.winter or #members(l) == 0 then
 		dissolve(l)
 		return
 	end
@@ -1769,6 +2013,8 @@ local function payloadFor(plr)
 		mine.practice = l.practice
 		mine.cup = l.cup and { key = l.cup.key, name = l.cup.name, round = l.cup.round, mods = l.cup.mods } or nil
 		mine.event = l.event and eventView(l, plr.UserId) or nil
+		mine.story = l.story and l.story.key or nil
+		mine.winter = l.winter and l.winter.diff or nil
 		mine.arriveBy = l.arriveBy
 		mine.reserved = LobbyService.reserved
 		for i, id in ipairs(courtQueue) do
@@ -1839,6 +2085,20 @@ local function onRequest(plr, op, a, b)
 	elseif op == "halloween" then
 		if type(a) == "string" then
 			LobbyService.enterEvent(plr, a)
+		end
+	elseif op == "colosseumPath" then
+		LobbyService.choosePath(plr, a)
+	elseif op == "story" then
+		if type(a) == "string" then
+			LobbyService.enterStory(plr, a)
+		end
+	elseif op == "winter" then
+		if type(a) == "string" then
+			LobbyService.enterWinter(plr, a)
+		end
+	elseif op == "storyRead" then
+		if type(a) == "string" then
+			LobbyService.readStory(plr, a)
 		end
 	elseif op == "pick" and type(a) ~= "table" then
 		-- a Halloween card pick (an offer's number); a table is the host's bot pick, further down (it
