@@ -9045,7 +9045,7 @@ function Extra.buildAdmin()
 	local tabDrop = make("Frame", { Position = UDim2.fromOffset(0, 198), Size = UDim2.fromOffset(240, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Gui.CARD, BackgroundTransparency = 0.02, BorderSizePixel = 0, Visible = false, ZIndex = 40 }, right)
 	make("UIStroke", { Color = Gui.HAIRLINE, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, tabDrop)
 	make("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, tabDrop)
-	local tabOptions = { { "Char", "Characters" }, { "Frag", "Breakthrough fragments" }, { "Skin", "Halloween skins" }, { "Pass", "Game passes" } }
+	local tabOptions = { { "Char", "Characters" }, { "Frag", "Breakthrough fragments" }, { "Skin", "Halloween skins" }, { "Pass", "Game passes, Winter Pass" } }
 	for _, k in ipairs(Config.Cosmetics.Kinds) do
 		table.insert(tabOptions, { k, "Cosmetics: " .. k })
 	end
@@ -9207,9 +9207,17 @@ function Extra.buildAdmin()
 			table.insert(chars, id)
 		end
 		local items, skins, passes, perks = {}, {}, {}, {}
+		local winterPass, passTiers = nil, 0
 		for k in pairs(Extra.adminItems) do
 			local kind, key = string.match(k, "^(%a+):(.+)$")
-			if kind == "Skin" then
+			if kind == "WPass" then
+				-- (the Winter Pass: its premium track, or tiers; Economy.cleanGrant caps the tiers)
+				if key == "premium" then
+					winterPass = true
+				else
+					passTiers = passTiers + (tonumber(key) or 0)
+				end
+			elseif kind == "Skin" then
 				table.insert(skins, key) -- (a Halloween skin, not a cosmetic)
 			elseif kind == "Pass" then
 				table.insert(passes, key) -- (a game pass, kept on their profile for good)
@@ -9235,6 +9243,8 @@ function Extra.buildAdmin()
 			Perks = perks,
 			Cards = Extra.adminCard and { Extra.adminCard } or nil,
 			Fragments = frags,
+			WinterPass = winterPass,
+			PassTiers = passTiers > 0 and passTiers or nil,
 		})
 	end)
 	-- the same VP, Gold, lucky spins (and picks) to everyone online in every server (the owner,
@@ -9260,7 +9270,7 @@ function Extra.buildAdmin()
 				local kind, key = string.match(k, "^(%a+):(.+)$")
 				if kind == "Skin" then
 					table.insert(skins, key)
-				elseif kind and kind ~= "Pass" and kind ~= "Perk" then
+				elseif kind and kind ~= "Pass" and kind ~= "Perk" and kind ~= "WPass" then
 					table.insert(items, { Kind = kind, Key = key })
 				end
 			end
@@ -9406,7 +9416,7 @@ function Extra.refreshAdmin()
 	A.grid.Visible = tab == "Char"
 	A.fragGrid.Visible = tab == "Frag"
 	A.cosGrid.Visible = tab ~= "Char" and tab ~= "Frag"
-	A.tabL.Text = (tab == "Char" and "Characters" or (tab == "Frag" and "Breakthrough fragments" or (tab == "Skin" and "Halloween skins" or (tab == "Pass" and "Game passes" or ("Cosmetics: " .. tab))))) .. "   v"
+	A.tabL.Text = (tab == "Char" and "Characters" or (tab == "Frag" and "Breakthrough fragments" or (tab == "Skin" and "Halloween skins" or (tab == "Pass" and "Game passes, Winter Pass" or ("Cosmetics: " .. tab))))) .. "   v"
 	if A.cosGrid.Visible and Extra.adminCosKind ~= tab then
 		Extra.adminCosKind = tab
 		for _, c in ipairs(A.cosGrid:GetChildren()) do
@@ -9423,6 +9433,15 @@ function Extra.refreshAdmin()
 			end
 			for _, key in ipairs(Config.Perks.Order) do
 				table.insert(list, { Key = key, Name = Config.Perks[key].Name, Rarity = "Mythic", Pick = "Perk:" .. key })
+			end
+			-- the Winter Pass (the owner, 2026-11-21: "add the battlepass to admin panel"): its premium
+			-- track, and tiers (picks add up, to the last tier)
+			local WP = Config.Winter and Config.Winter.Pass
+			if WP then
+				table.insert(list, { Key = "premium", Name = WP.Name .. ": premium", Rarity = "Mythic", Pick = "WPass:premium" })
+				for _, t in ipairs({ 1, 5, 10, WP.Tiers }) do
+					table.insert(list, { Key = tostring(t), Name = string.format("%s: +%d tier%s", WP.Name, t, t == 1 and "" or "s"), Rarity = "Legendary", Pick = "WPass:" .. t })
+				end
 			end
 		end
 		if tab == "Skin" then
@@ -9450,7 +9469,7 @@ function Extra.refreshAdmin()
 	for k in pairs(Extra.adminItems) do
 		if string.sub(k, 1, 5) == "Skin:" then
 			nSkins = nSkins + 1
-		elseif string.sub(k, 1, 5) == "Pass:" or string.sub(k, 1, 5) == "Perk:" then
+		elseif string.sub(k, 1, 5) == "Pass:" or string.sub(k, 1, 5) == "Perk:" or string.sub(k, 1, 6) == "WPass:" then
 			nPasses = nPasses + 1
 		else
 			nItems = nItems + 1
